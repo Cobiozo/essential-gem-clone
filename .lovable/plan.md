@@ -1,199 +1,139 @@
 
-# Plan: Naprawa problemów z wersją mobilną
+# Plan: Naprawa okładek Zdrowa Wiedza i widoku użytkowników na mobile
 
-## Zdiagnozowane problemy
+## Zidentyfikowane problemy
 
-Na podstawie analizy kodu zidentyfikowałem **4 główne przyczyny** problemów mobilnych:
+### Problem 1: Błąd przesyłania okładki w Zdrowa Wiedza
 
-### Problem 1: Collapsible nie zwija się ponownie
-**Przyczyna**: W `DashboardSidebar.tsx` logika sterowania podmenu uniemożliwia zamknięcie sekcji, gdy użytkownik jest na aktywnej podstronie:
+**Przyczyna**: Bezpośredni upload w `HealthyKnowledgeManagement.tsx` nie sanityzuje nazwy pliku, co powoduje problemy z plikami zawierającymi spacje i znaki specjalne (np. `WhatsApp Image 2026-02-04 at 03.20.10.jpeg`).
 
-```typescript
-// Linia 577 - jeśli isSubmenuParentActive() = true, sekcja jest ZAWSZE otwarta
-open={openSubmenu === item.id || isSubmenuParentActive(item)}
-```
+Porównanie kodu:
+- **MediaUpload (działa)**: używa `useLocalStorage` → `file.name.replace(/[^a-zA-Z0-9.-]/g, '_')` - usuwa wszystkie problematyczne znaki
+- **Thumbnail upload (błąd)**: `thumbnails/${Date.now()}-${file.name}` - przekazuje surową nazwę pliku
 
-Gdy użytkownik wchodzi np. do "Webinary" (podmenu "Wydarzenia"), sekcja `isSubmenuParentActive` zwraca `true`, co **wymusza** otwarcie i ignoruje próby zwinięcia.
+### Problem 2: Chaotyczne wyświetlanie użytkowników na mobile
 
-### Problem 2: Kliknięcia nie reagują / wymaga odświeżenia
-**Przyczyna 1**: `SidebarMenuSubButton` używa elementu `<a>` zamiast `<button>`, ale w kodzie sidebar przekazujemy `onClick` bez `href`:
-
-```typescript
-// DashboardSidebar.tsx:597-598
-<SidebarMenuSubButton onClick={() => handleSubmenuClick(subItem)} ...>
-```
-
-Element `<a>` bez `href` może mieć problemy z obsługą zdarzeń dotykowych na iOS.
-
-**Przyczyna 2**: Blokowanie zdarzeń w dialogach startowych (`onPointerDownOutside: e.preventDefault()`) może pozostawiać "martwy" overlay, jeśli zamknięcie bannera nie powiedzie się.
-
-### Problem 3: Zawieszanie się aplikacji
-**Przyczyna**: Kosztowne operacje w `useEffect` w `TrainingModule.tsx`:
-- Synchronizacja localStorage dla wszystkich lekcji przy każdym wejściu
-- Sekwencyjne zapytania do bazy danych
-- Brak debounce'ingu i throttlingu
-
-### Problem 4: Konflikt touch-action w CSS
-**Przyczyna**: Globalna reguła `touch-action: manipulation` na `[data-state]` może kolidować z animacjami Collapsible Radix UI.
+**Przyczyna**: Układ `CompactUserCard` nie adaptuje się do wąskich ekranów:
+1. Przyciski akcji mają `flex-shrink-0`, co zmusza główną sekcję do skrajnego zmniejszenia
+2. Długie dane (EQ ID, email, data, telefon, ostatnie logowanie) w jednym wierszu flex z separatorami `•` powoduje łamanie tekstu znak po znaku
+3. Brak dedykowanego układu mobilnego - wszystko próbuje zmieścić się poziomo
 
 ---
 
-## Rozwiązania
+## Rozwiązanie
 
-### Zmiana 1: Naprawa logiki zwijania Collapsible w sidebarze
+### Zmiana 1: Sanityzacja nazwy pliku okładki
 
-**Plik**: `src/components/dashboard/DashboardSidebar.tsx`
+**Plik**: `src/components/admin/HealthyKnowledgeManagement.tsx`
 
-Zmienić logikę sterowania tak, aby użytkownik mógł **ręcznie zwinąć** podmenu nawet gdy jest na aktywnej podstronie:
-
-```typescript
-// PRZED (linia 577):
-open={openSubmenu === item.id || isSubmenuParentActive(item)}
-
-// PO - dodać osobny stan do kontroli ręcznego zamknięcia:
-const [manuallyClosedSubmenu, setManuallyClosedSubmenu] = useState<string | null>(null);
-
-// Logika: otwarte jeśli ręcznie otwarte LUB (aktywne I nie zamknięte ręcznie)
-const isSubmenuOpen = (item: MenuItem) => {
-  if (openSubmenu === item.id) return true;
-  if (manuallyClosedSubmenu === item.id) return false;
-  return isSubmenuParentActive(item);
-};
-
-// W onOpenChange:
-onOpenChange={(open) => {
-  if (open) {
-    setOpenSubmenu(item.id);
-    setManuallyClosedSubmenu(null);
-  } else {
-    setOpenSubmenu(null);
-    setManuallyClosedSubmenu(item.id);
-  }
-}}
-```
-
-### Zmiana 2: Zamiana elementu `<a>` na `<button>` dla subbutton z onClick
-
-**Plik**: `src/components/ui/sidebar.tsx`
-
-Zmienić `SidebarMenuSubButton` aby używał `<button>` gdy brak `href`:
+Dodać sanityzację nazwy pliku przed uploadem (identyczną jak w `useLocalStorage`):
 
 ```typescript
-const SidebarMenuSubButton = React.forwardRef<
-  HTMLButtonElement | HTMLAnchorElement,
-  (React.ComponentProps<"button"> | React.ComponentProps<"a">) & {
-    asChild?: boolean;
-    size?: "sm" | "md";
-    isActive?: boolean;
-  }
->(({ asChild = false, size = "md", isActive, className, onClick, ...props }, ref) => {
-  // Jeśli ma onClick bez href - użyj button
-  const hasOnlyClick = onClick && !('href' in props);
-  const Comp = asChild ? Slot : (hasOnlyClick ? "button" : "a");
-  
-  return (
-    <Comp
-      ref={ref as any}
-      type={hasOnlyClick ? "button" : undefined}
-      onClick={onClick}
-      // ... reszta props
-    />
-  );
-});
+// Linia ~772 - przed uploadem
+const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+const fileName = `thumbnails/${Date.now()}-${sanitizedFileName}`;
 ```
 
-### Zmiana 3: Dodanie touch-specific CSS dla lepszej responsywności
+Dodatkowo dodać lepszą obsługę błędów z wyświetleniem szczegółów:
 
-**Plik**: `src/index.css`
-
-Dodać dedykowane style dla urządzeń dotykowych:
-
-```css
-/* Lepsze zachowanie Collapsible na mobile */
-@media (hover: none) and (pointer: coarse) {
-  /* Wyłącz problematyczne animacje na iOS */
-  [data-state="open"], [data-state="closed"] {
-    /* Zachowaj touch-action ale nie blokuj animacji Radix */
-  }
-  
-  /* Zwiększ obszar dotykowy dla CollapsibleTrigger */
-  [data-radix-collapsible-trigger] {
-    min-height: 48px;
-    padding: 12px;
-  }
-  
-  /* Aktywny feedback dotykowy */
-  button:active, a:active, [role="button"]:active {
-    opacity: 0.7;
-    transition: opacity 0.1s;
-  }
+```typescript
+} catch (error: any) {
+  console.error('Thumbnail upload error:', error);
+  toast.error(`Błąd przesyłania okładki: ${error.message || 'Nieznany błąd'}`);
 }
 ```
 
-### Zmiana 4: Reset ręcznego zamknięcia przy zmianie ścieżki
+### Zmiana 2: Responsywny układ CompactUserCard
 
-**Plik**: `src/components/dashboard/DashboardSidebar.tsx`
+**Plik**: `src/components/admin/CompactUserCard.tsx`
 
-Dodać efekt resetujący stan `manuallyClosedSubmenu` przy nawigacji:
+Przeprojektować główny układ karty dla urządzeń mobilnych:
 
+**A) Zmiana struktury głównego kontenera (linia ~202)**:
 ```typescript
-// Reset przy zmianie lokacji - użytkownik przeszedł do nowej strony
-useEffect(() => {
-  setManuallyClosedSubmenu(null);
-}, [location.pathname]);
+// PRZED:
+<div className="flex items-center gap-3 p-3">
+
+// PO - zmienić na stos pionowy dla małych ekranów:
+<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3">
 ```
 
-### Zmiana 5: Optymalizacja bannerów startowych
+**B) Sekcja głównych informacji (linie ~216-275)**:
 
-**Plik**: `src/components/ImportantInfoBanner.tsx` i `DailySignalBanner.tsx`
-
-Dodać timeout bezpieczeństwa dla zamykania dialogu:
+Podzielić informacje na dwa wiersze na mobile:
+- Wiersz 1: Imię + rola + status email
+- Wiersz 2: EQ ID, email (obcięty), data
 
 ```typescript
-const handleDismiss = async () => {
-  // Natychmiast zamknij UI, potem synchronizuj z bazą
-  setShowBanner(false);
-  onDismiss();
+// Zmienić sekcję szczegółów (linia ~241):
+<div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-0.5">
+  {/* Pierwszy wiersz mobilny: EQ + email */}
+  <div className="flex items-center gap-1.5 flex-wrap">
+    {userProfile.eq_id && (
+      <span className="font-medium whitespace-nowrap">EQ: {userProfile.eq_id}</span>
+    )}
+    {hasName && (
+      <span className="truncate max-w-[150px] sm:max-w-none">{userProfile.email}</span>
+    )}
+  </div>
   
-  // Asynchronicznie zapisz do bazy
-  try {
-    await supabase.from('user_dismissed_banners').upsert({...});
-  } catch (error) {
-    console.error('Error saving dismissal:', error);
-    // Nie blokuj UI - banner już zamknięty
-  }
-};
+  {/* Drugi wiersz mobilny: data + telefon + ostatnie logowanie */}
+  <div className="flex items-center gap-1.5 flex-wrap text-muted-foreground/70">
+    <span className="whitespace-nowrap">{new Date(userProfile.created_at).toLocaleDateString('pl-PL')}</span>
+    {userProfile.phone_number && (
+      <span className="whitespace-nowrap">{userProfile.phone_number}</span>
+    )}
+  </div>
+</div>
+```
+
+**C) Sekcja przycisków akcji (linie ~297-447)**:
+
+Przenieść przyciski akcji pod główną zawartość na mobile:
+
+```typescript
+// Zmienić kontener przycisków:
+<div className="flex items-center gap-1.5 flex-shrink-0 mt-2 sm:mt-0 w-full sm:w-auto justify-end">
+```
+
+**D) Ukrycie niektórych danych na mobile**:
+
+Ostatnie logowanie jest zbyt długie dla mobile - przenieść do sekcji rozwijalnej:
+
+```typescript
+// Usunąć z głównego widoku dla mobile:
+{/* Last sign in - tylko na desktop */}
+<span className="hidden sm:inline">
+  Ostatnio: {new Date(userProfile.last_sign_in_at).toLocaleString('pl-PL', {...})}
+</span>
 ```
 
 ---
 
 ## Szczegółowa tabela zmian
 
-| Plik | Zmiana | Cel |
-|------|--------|-----|
-| `src/components/dashboard/DashboardSidebar.tsx` | Dodać `manuallyClosedSubmenu` state + logikę `isSubmenuOpen()` | Umożliwić ręczne zwijanie podmenu |
-| `src/components/dashboard/DashboardSidebar.tsx` | Reset stanu przy `location.pathname` | Czysta nawigacja po zmianie strony |
-| `src/components/ui/sidebar.tsx` | `SidebarMenuSubButton` - użyć `<button>` gdy tylko `onClick` | Poprawna obsługa touch na iOS |
-| `src/index.css` | Dodać media query `(hover: none)` z min-height dla triggerów | Większy obszar dotykowy |
-| `src/components/ImportantInfoBanner.tsx` | Zamknąć dialog PRZED zapisem do bazy | Natychmiastowa reakcja UI |
-| `src/components/DailySignalBanner.tsx` | Zamknąć dialog PRZED zapisem do bazy | Natychmiastowa reakcja UI |
+| Plik | Lokalizacja | Zmiana |
+|------|-------------|--------|
+| `HealthyKnowledgeManagement.tsx` | Linia 772 | Sanityzacja nazwy pliku przed uploadem |
+| `HealthyKnowledgeManagement.tsx` | Linia 791 | Wyświetlanie szczegółowego błędu |
+| `CompactUserCard.tsx` | Linia 202 | `flex-col sm:flex-row` dla głównego kontenera |
+| `CompactUserCard.tsx` | Linie 241-274 | Podział szczegółów na 2 wiersze mobilne |
+| `CompactUserCard.tsx` | Linia 297 | Responsywny kontener przycisków |
+| `CompactUserCard.tsx` | Linie 262-273 | Ukrycie "ostatnie logowanie" na mobile |
 
 ---
 
 ## Oczekiwane rezultaty
 
 Po wdrożeniu:
-1. **Podmenu w sidebarze** będzie można zwinąć ręcznie nawet będąc na aktywnej podstronie
-2. **Kliknięcia w submenu** będą natychmiast reagować na urządzeniach iOS
-3. **Bannery startowe** zamkną się natychmiast po kliknięciu, bez czekania na bazę danych
-4. **Większy obszar dotykowy** dla elementów Collapsible na urządzeniach mobilnych
-5. **Brak "zamrażania" UI** dzięki optymistycznej aktualizacji stanu
 
----
+1. **Okładki Zdrowa Wiedza**:
+   - Pliki z nazwami zawierającymi spacje/znaki specjalne (np. WhatsApp) będą poprawnie przesyłane
+   - Błędy będą wyświetlane ze szczegółami, ułatwiając diagnostykę
 
-## Dodatkowe rekomendacje
-
-Jeśli problemy będą się powtarzać, warto rozważyć:
-- Dodanie `console.log` w kluczowych miejscach do debugowania na urządzeniu użytkownika
-- Użycie React DevTools Profiler do identyfikacji kosztownych renderów
-- Sprawdzenie czy problem występuje na konkretnym urządzeniu/przeglądarce (iPhone Safari vs Android Chrome)
+2. **Widok użytkowników na mobile**:
+   - Czytelny układ w orientacji pionowej i poziomej
+   - Dane nie będą się łamać znak po znaku
+   - Przyciski akcji będą dostępne i widoczne
+   - Kluczowe informacje (imię, rola, EQ, email) widoczne od razu
+   - Szczegóły (ostatnie logowanie) dostępne po rozwinięciu lub na większych ekranach
