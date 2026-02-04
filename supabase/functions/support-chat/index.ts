@@ -44,12 +44,12 @@ serve(async (req) => {
       it: 'Rispondi sempre in italiano.'
     };
 
-    const systemPrompt = `Jesteś pomocnym asystentem wsparcia aplikacji Pure Life - platformy do zarządzania treścią i szkoleń.
+    const systemPrompt = `Jesteś pomocnym asystentem wsparcia aplikacji Pure Life Center - platformy do zarządzania treścią i szkoleń.
 
 ${languageInstructions[language as keyof typeof languageInstructions] || languageInstructions.pl}
 
-## O aplikacji Pure Life:
-Pure Life to platforma CMS z systemem szkoleń online. Użytkownicy mogą:
+## O aplikacji Pure Life Center:
+Pure Life Center to platforma CMS z systemem szkoleń online. Użytkownicy mogą:
 - Przeglądać strony informacyjne
 - Uczestniczyć w szkoleniach i zdobywać certyfikaty
 - Zarządzać swoim kontem

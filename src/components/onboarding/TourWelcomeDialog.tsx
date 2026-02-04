@@ -29,7 +29,7 @@ export const TourWelcomeDialog: React.FC<TourWelcomeDialogProps> = ({
             <GraduationCap className="h-8 w-8 text-primary" />
           </div>
           <DialogTitle className="text-2xl">
-            Witaj w Pure Life!
+            Witaj w Pure Life Center!
           </DialogTitle>
           <DialogDescription className="text-base">
             Przygotowaliśmy dla Ciebie krótki przewodnik po platformie.

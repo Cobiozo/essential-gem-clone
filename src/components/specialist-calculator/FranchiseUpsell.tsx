@@ -10,7 +10,7 @@ export function FranchiseUpsell() {
           <div className="flex-1">
             <h3 className="font-bold text-lg mb-2">Myślisz o większej skali?</h3>
             <p className="text-sm text-muted-foreground">
-              Jako partner Pure Life masz również możliwość budowania modelu franczyzowego. 
+              Jako partner Pure Life Center masz również możliwość budowania modelu franczyzowego. 
               Otrzymujesz prowizję od obrotu swoich partnerów (5-9%) oraz dodatkowe 20% od kluczowych 
               partnerów biznesowych. To sposób na skalowanie biznesu bez konieczności osobistej obsługi 
               każdego klienta.

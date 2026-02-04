@@ -3778,7 +3778,11 @@ export type Database = {
           favicon_url: string | null
           id: string
           layout_mode: string
+          og_description: string | null
           og_image_url: string | null
+          og_site_name: string | null
+          og_title: string | null
+          og_url: string | null
           page_alignment: string | null
           page_margin: number | null
           page_type: string
@@ -3791,7 +3795,11 @@ export type Database = {
           favicon_url?: string | null
           id?: string
           layout_mode?: string
+          og_description?: string | null
           og_image_url?: string | null
+          og_site_name?: string | null
+          og_title?: string | null
+          og_url?: string | null
           page_alignment?: string | null
           page_margin?: number | null
           page_type?: string
@@ -3804,7 +3812,11 @@ export type Database = {
           favicon_url?: string | null
           id?: string
           layout_mode?: string
+          og_description?: string | null
           og_image_url?: string | null
+          og_site_name?: string | null
+          og_title?: string | null
+          og_url?: string | null
           page_alignment?: string | null
           page_margin?: number | null
           page_type?: string

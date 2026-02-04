@@ -422,8 +422,8 @@ const MyAccount = () => {
         <header className="border-b bg-card">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src={newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
-              <h1 className="text-xl font-bold">PURE LIFE</h1>
+              <img src={newPureLifeLogo} alt="Pure Life Center" className="w-8 h-8" />
+              <h1 className="text-xl font-bold">PURE LIFE CENTER</h1>
             </div>
             
             <div className="flex items-center gap-2">
@@ -474,8 +474,8 @@ const MyAccount = () => {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src={newPureLifeLogo} alt="Pure Life" className="w-8 h-8" />
-            <h1 className="text-xl font-bold">PURE LIFE</h1>
+            <img src={newPureLifeLogo} alt="Pure Life Center" className="w-8 h-8" />
+            <h1 className="text-xl font-bold">PURE LIFE CENTER</h1>
           </div>
           
           <div className="flex items-center gap-2">

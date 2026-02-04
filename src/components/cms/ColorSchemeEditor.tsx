@@ -20,7 +20,7 @@ interface ColorScheme {
 
 const presetSchemes: ColorScheme[] = [
   {
-    name: 'Pure Life (Domyślna)',
+    name: 'Pure Life Center (Domyślna)',
     primary: '145 50% 25%',
     secondary: '33 15% 90%',
     accent: '45 100% 55%',

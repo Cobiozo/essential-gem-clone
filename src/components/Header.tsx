@@ -202,7 +202,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], h
               alt="Logo" 
               className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
             />
-            <span className="font-bold text-sm sm:text-base text-foreground hidden sm:inline uppercase tracking-wide">PURE LIFE</span>
+            <span className="font-bold text-sm sm:text-base text-foreground hidden sm:inline uppercase tracking-wide">PURE LIFE CENTER</span>
           </Link>
 
           {/* Right side actions */}

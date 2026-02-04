@@ -39,7 +39,7 @@ serve(async (req) => {
     const toneDesc = toneDescriptions[tone] || toneDescriptions.supportive;
     const signalCount = Math.min(Math.max(1, count), 50); // Limit to 1-50
 
-    const systemPrompt = `Jesteś twórcą spokojnych, wspierających "Sygnałów Dnia" dla platformy wellness Pure Life.
+    const systemPrompt = `Jesteś twórcą spokojnych, wspierających "Sygnałów Dnia" dla platformy wellness Pure Life Center.
 
 ZASADY BEZWZGLĘDNE:
 - Jedno zdanie główne (max 15 słów)
