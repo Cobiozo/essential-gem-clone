@@ -1,261 +1,200 @@
 
-# Plan: Naprawa edytora HTML - podgląd, edycja stylów, uproszczony interfejs
+# Plan: Stabilizacja edytora HTML - naprawa zamykania się podczas edycji
 
-## Zidentyfikowane problemy
+## Zdiagnozowane problemy
 
-### Problem 1: Szerokość kontenera nie widać w podglądzie rzeczywistym
-**Przyczyna:** Użytkownik wpisuje "1000" ale style wymagają jednostek "1000px". Dodatkowo, podgląd rzeczywisty czyta z `codeValue` który może nie być zsynchronizowany z najnowszymi zmianami.
+### Problem 1: Panel zamyka się po aktualizacji elementu
+**Przyczyna:** `handleUpdate` wywołuje `setSelectedElement(updatedSelected)` z nowym obiektem po każdej zmianie. Jeśli `findElementById` zwróci `null` (np. z powodu asynchronicznej aktualizacji), panel się zamyka.
 
-### Problem 2: Edytor zamyka się po wpisaniu jednej cyfry/litery
-**Przyczyna:** Każde naciśnięcie klawisza wywołuje `updateStyle()` → `onUpdate()` → `syncAndSave()` → pełny re-render komponentu. To powoduje utratę focusu na polu Input.
+### Problem 2: Re-render całego drzewa elementów przy każdej zmianie
+**Przyczyna:** `syncAndSave()` wywołuje `setElements(newElements)`, co powoduje pełny re-render wszystkich komponentów. To może powodować utratę focusu mimo `DebouncedStyleInput`.
 
-### Problem 3: Edytor jest zbyt skomplikowany
-**Przyczyna:** Za dużo opcji CSS z technicznym nazewnictwem, brak wizualnych kontrolek, nieprzyjazny dla laików.
+### Problem 3: Utrata focusu na komponentach nieobjętych debounce
+**Przyczyna:** Niektóre kontrolki (Slider, color input) nadal wywołują `updateStyle()` natychmiast (bez debounce), co powoduje pełny re-render.
 
 ---
 
-## Rozwiązania
+## Rozwiązanie
 
-### Rozwiązanie 1: Automatyczne dodawanie jednostek "px"
+### Zmiana 1: Zabezpieczenie `selectedElement` przed nullem
 
-Dodam helper function w `HtmlPropertiesPanel.tsx` który automatycznie dodaje "px" do wartości liczbowych:
+W `handleUpdate` dodam sprawdzenie, czy element nadal istnieje po aktualizacji:
 
 ```text
-Nowa funkcja:
-const normalizeStyleValue = (key: string, value: string) => {
-  // Dla wymiarów - dodaj 'px' jeśli to sama liczba
-  const dimensionProps = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 
-                          'margin', 'padding', 'gap', 'borderRadius'];
-  
-  if (dimensionProps.includes(key) && /^\d+$/.test(value.trim())) {
-    return value.trim() + 'px';
-  }
-  return value;
-};
+Plik: src/components/admin/html-editor/HtmlHybridEditor.tsx
+
+handleUpdate:
+  1. Po aktualizacji, NIE resetuj selectedElement jeśli nowy obiekt jest null
+  2. Użyj referencji do ID zamiast całego obiektu
+  3. Tylko aktualizuj styles/attributes w selectedElement, zachowując ID
 ```
 
-### Rozwiązanie 2: Debounce dla pól Input (zapobiega re-renderom)
+### Zmiana 2: Lokalne zarządzanie stanem elementu w panelu
 
-Zamiast natychmiastowego `onUpdate` przy każdym keystroke, dodam:
-
-1. **Lokalne state dla wartości** - przechowuje tekst wpisywany przez użytkownika
-2. **Debounced save** - zapisuje do głównego stanu po 500ms bez aktywności
-3. **Blur save** - zapisuje natychmiast gdy użytkownik opuści pole
+Panel właściwości będzie przechowywał **lokalną kopię elementu** zamiast bezpośrednio korzystać z props:
 
 ```text
-Nowy komponent: DebouncedStyleInput
-- Przechowuje lokalną wartość input
-- Wywołuje updateStyle dopiero po debounce lub onBlur
-- Zapobiega utracie focusu podczas edycji
+Plik: src/components/admin/html-editor/SimplifiedPropertiesPanel.tsx
+
+Nowa architektura:
+  1. Lokalne state: const [localElement, setLocalElement] = useState(element)
+  2. Zmiany stylów aktualizują LOKALNY stan (instant feedback)
+  3. Debounced sync do parent (onUpdate) co 500ms lub onBlur
+  4. useEffect synchronizuje lokalny stan gdy props.element.id się zmieni
 ```
 
-### Rozwiązanie 3: Uproszczony, wizualny panel edycji
+### Zmiana 3: Stabilne ID zamiast pełnych obiektów
 
-Zaprojektuję nowy panel z podejściem "dziecko może obsłużyć":
+Zamiast przekazywać pełny obiekt `selectedElement`, będę używać stabilnego `selectedElementId`:
 
 ```text
-NOWY UKŁAD PANELU:
+Zmiany w HtmlHybridEditor:
+  1. const [selectedElementId, setSelectedElementId] = useState<string | null>(null)
+  2. selectedElement = useMemo(() => findElementById(elements, selectedElementId), [elements, selectedElementId])
+  3. Panel dostaje element obliczony z memo - stabilny render
+```
 
-┌──────────────────────────────────────────────────┐
-│  📦 Rozmiar                                       │
-│  ┌────────────────────────────────────────────┐  │
-│  │    Szerokość: [====●==========] 400px      │  │
-│  │    Wysokość:  [=●===============] auto     │  │
-│  └────────────────────────────────────────────┘  │
-├──────────────────────────────────────────────────┤
-│  🎨 Wygląd                                        │
-│  ┌────────────────────────────────────────────┐  │
-│  │  Kolor tła: [■] #1a1a2e   Tekst: [■] #fff  │  │
-│  │                                             │  │
-│  │  Zaokrąglenie: [○] [●] [○] [○]             │  │
-│  │     (brak)  (małe) (śr.) (duże)            │  │
-│  │                                             │  │
-│  │  Cień: [○] [●] [○]                         │  │
-│  │       (brak) (mały) (duży)                 │  │
-│  └────────────────────────────────────────────┘  │
-├──────────────────────────────────────────────────┤
-│  📏 Odstępy                                       │
-│  ┌────────────────────────────────────────────┐  │
-│  │      Zewnętrzny (margin):                   │  │
-│  │           [ ↑ 20px ]                        │  │
-│  │      [←10]  ELEMENT  [10→]                  │  │
-│  │           [ ↓ 20px ]                        │  │
-│  │                                             │  │
-│  │      Wewnętrzny (padding):                  │  │
-│  │           [ ↑ 16px ]                        │  │
-│  │      [←24]  treść   [24→]                   │  │
-│  │           [ ↓ 16px ]                        │  │
-│  └────────────────────────────────────────────┘  │
-├──────────────────────────────────────────────────┤
-│  ⚡ Zaawansowane (ukryte domyślnie)               │
-│  [Rozwiń opcje dla ekspertów ▼]                  │
-└──────────────────────────────────────────────────┘
+### Zmiana 4: Debounced onUpdate w panelu
+
+Cały `onUpdate` z panelu będzie debounced na poziomie panelu:
+
+```text
+SimplifiedPropertiesPanel:
+  1. Wszystkie zmiany (slider, color, input) aktualizują LOKALNY stan
+  2. Jeden useEffect z debounce (500ms) wywołuje onUpdate
+  3. Natychmiastowy wizualny feedback w panelu
+  4. Brak re-renderów drzewa podczas edycji
 ```
 
 ---
 
 ## Szczegóły implementacji
 
-### 1. Nowy komponent: DebouncedStyleInput
-
-Plik: `src/components/admin/html-editor/DebouncedStyleInput.tsx`
+### HtmlHybridEditor.tsx - Stabilne ID
 
 ```tsx
-const DebouncedStyleInput = ({ 
-  value, 
-  onChange, 
-  onFinalChange,  // Wywoływane po debounce lub blur
-  normalizeValue,
-  ...props 
+// Zmiana stanu - używaj ID zamiast pełnego obiektu
+const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+
+// Oblicz element z memo dla stabilności
+const selectedElement = useMemo(() => {
+  if (!selectedElementId) return null;
+  return findElementById(elements, selectedElementId);
+}, [elements, selectedElementId, findElementById]);
+
+// handleSelect używa ID
+const handleSelect = useCallback((element: ParsedElement) => {
+  setSelectedElementId(element.id);
+  setEditingElementId(null);
+}, []);
+
+// handleUpdate NIE resetuje selekcji
+const handleUpdate = useCallback((updates: Partial<ParsedElement>) => {
+  if (!selectedElementId) return;
+  
+  const updatedElements = updateElementById(elements, selectedElementId, updates);
+  syncAndSave(updatedElements);
+  // NIE wywołuj setSelectedElementId - element zostaje wybrany
+}, [elements, selectedElementId, updateElementById, syncAndSave]);
+
+// handleDelete czyści ID
+const handleDelete = useCallback(() => {
+  if (!selectedElementId) return;
+  
+  const updatedElements = deleteElementById(elements, selectedElementId);
+  syncAndSave(updatedElements);
+  setSelectedElementId(null);  // Czyść po usunięciu
+  setEditingElementId(null);
+}, [elements, selectedElementId, deleteElementById, syncAndSave]);
+```
+
+### SimplifiedPropertiesPanel.tsx - Lokalne zarządzanie stanem
+
+```tsx
+export const SimplifiedPropertiesPanel: React.FC<Props> = ({
+  element,
+  onUpdate,
+  onDelete,
+  onDuplicate,
+  onClose,
 }) => {
-  const [localValue, setLocalValue] = useState(value);
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  // LOKALNA kopia elementu dla natychmiastowego feedbacku
+  const [localStyles, setLocalStyles] = useState(element?.styles || {});
+  const [localAttributes, setLocalAttributes] = useState(element?.attributes || {});
+  const [localTextContent, setLocalTextContent] = useState(element?.textContent || '');
   
-  // Sync gdy zewnętrzna wartość się zmieni (ale nie gdy edytujemy)
+  const pendingUpdateRef = useRef<NodeJS.Timeout>();
+  const elementIdRef = useRef(element?.id);
+  
+  // Sync gdy element.id się zmieni (nowy element wybrany)
   useEffect(() => {
-    if (!document.activeElement?.isSameNode(inputRef.current)) {
-      setLocalValue(value);
+    if (element?.id !== elementIdRef.current) {
+      elementIdRef.current = element?.id;
+      setLocalStyles(element?.styles || {});
+      setLocalAttributes(element?.attributes || {});
+      setLocalTextContent(element?.textContent || '');
     }
-  }, [value]);
+  }, [element?.id, element?.styles, element?.attributes, element?.textContent]);
   
-  const handleChange = (e) => {
-    setLocalValue(e.target.value);
+  // Debounced sync do parent
+  const scheduleUpdate = useCallback(() => {
+    if (pendingUpdateRef.current) {
+      clearTimeout(pendingUpdateRef.current);
+    }
     
-    // Debounce
-    clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => {
-      const normalized = normalizeValue?.(e.target.value) || e.target.value;
-      onFinalChange(normalized);
-    }, 500);
-  };
+    pendingUpdateRef.current = setTimeout(() => {
+      onUpdate({
+        styles: localStyles,
+        attributes: localAttributes,
+        textContent: localTextContent
+      });
+    }, 300);
+  }, [localStyles, localAttributes, localTextContent, onUpdate]);
   
-  const handleBlur = () => {
-    clearTimeout(timeoutRef.current);
-    const normalized = normalizeValue?.(localValue) || localValue;
-    onFinalChange(normalized);
-  };
+  // Lokalna aktualizacja stylu (natychmiastowa)
+  const updateStyle = useCallback((key: string, value: string) => {
+    setLocalStyles(prev => ({ ...prev, [key]: value }));
+  }, []);
   
-  return <Input value={localValue} onChange={handleChange} onBlur={handleBlur} {...props} />;
+  // Trigger debounced update przy każdej zmianie
+  useEffect(() => {
+    scheduleUpdate();
+    return () => {
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+      }
+    };
+  }, [localStyles, localAttributes, localTextContent]);
+  
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+      }
+    };
+  }, []);
+  
+  // UI używa localStyles zamiast element.styles
+  // np. <Slider value={[parseFloat(localStyles.width)]} ... />
 };
 ```
 
-### 2. Uproszczona sekcja wymiarów z suwakami
-
-```tsx
-// Przykład wizualnego suwaka dla szerokości
-<div className="space-y-2">
-  <Label className="flex justify-between">
-    <span>Szerokość</span>
-    <span className="text-muted-foreground">{element.styles.width || 'auto'}</span>
-  </Label>
-  <div className="flex gap-2 items-center">
-    <Slider
-      value={[parseFloat(element.styles.width) || 100]}
-      onValueChange={([v]) => updateStyle('width', `${v}%`)}
-      min={10}
-      max={100}
-      step={5}
-    />
-    <Button 
-      variant="ghost" 
-      size="sm"
-      onClick={() => updateStyle('width', 'auto')}
-    >
-      Auto
-    </Button>
-  </div>
-</div>
-```
-
-### 3. Wizualne kontrolki odstępów (margin/padding)
-
-```tsx
-// Wizualna reprezentacja box model
-<div className="relative border-2 border-dashed p-4 rounded-lg">
-  <div className="text-center text-xs text-muted-foreground mb-2">
-    MARGIN (zewnętrzny)
-  </div>
-  <div className="flex justify-center gap-2 mb-2">
-    <DebouncedStyleInput
-      value={element.styles.marginTop}
-      className="w-16 text-center text-xs"
-      placeholder="0"
-    />
-  </div>
-  <div className="flex items-center justify-between">
-    <DebouncedStyleInput value={element.styles.marginLeft} className="w-16" />
-    
-    <div className="bg-muted/50 border rounded p-3 text-center">
-      <div className="text-xs mb-1">PADDING</div>
-      {/* ... padding inputs ... */}
-      <div className="bg-background border rounded p-2 text-xs">
-        treść
-      </div>
-    </div>
-    
-    <DebouncedStyleInput value={element.styles.marginRight} className="w-16" />
-  </div>
-</div>
-```
-
-### 4. Preset buttons dla częstych wartości
-
-```tsx
-// Zamiast wpisywania - klikalne presety
-<div className="space-y-2">
-  <Label>Zaokrąglenie rogów</Label>
-  <div className="grid grid-cols-4 gap-1">
-    {[
-      { label: 'Brak', value: '0' },
-      { label: 'Małe', value: '4px' },
-      { label: 'Średnie', value: '8px' },
-      { label: 'Duże', value: '16px' },
-      { label: 'Okrągłe', value: '9999px' }
-    ].map(preset => (
-      <Button
-        key={preset.value}
-        variant={element.styles.borderRadius === preset.value ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => updateStyle('borderRadius', preset.value)}
-      >
-        {preset.label}
-      </Button>
-    ))}
-  </div>
-</div>
-```
-
 ---
 
-## Pliki do modyfikacji/utworzenia
+## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `DebouncedStyleInput.tsx` | **Nowy** - input z debounce do edycji stylów |
-| `HtmlPropertiesPanel.tsx` | Kompletny redesign - uproszczony, wizualny interfejs |
-| `HtmlHybridEditor.tsx` | Synchronizacja codeValue z elements przy zmianach |
-| `VisualSpacingEditor.tsx` | **Nowy** - wizualna edycja margin/padding |
-| `StylePresets.tsx` | **Nowy** - presety dla częstych wartości |
-
----
-
-## Kluczowe zmiany UX
-
-1. **Sliders zamiast input tekstowych** dla wymiarów i odstępów
-2. **Presety jednym kliknięciem** (małe/średnie/duże zaokrąglenie, cień, itp.)
-3. **Wizualna reprezentacja box model** dla margin/padding
-4. **Color pickery** z podglądem na żywo
-5. **Sekcja "Zaawansowane" ukryta domyślnie** - dla ekspertów
-6. **Natychmiastowy podgląd** - bez utraty focusu podczas edycji
-7. **Automatyczne jednostki** - wpisz "100", dostaniesz "100px"
+| `HtmlHybridEditor.tsx` | Zmiana na `selectedElementId` + useMemo, stabilne handlery |
+| `SimplifiedPropertiesPanel.tsx` | Lokalne state dla stylów/atrybutów z debounced sync |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. **Szerokość widoczna w podglądzie** - automatyczne dodawanie "px"
-2. **Brak zamykania edytora** - debounce zapobiega re-renderom
-3. **Intuicyjny interfejs** - suwaki, presety, wizualizacje zamiast technicznych pól
-4. **Real-time preview** - zmiany widoczne natychmiast
-5. **Dostępność** - nawet dziecko może zmienić rozmiar przeciągając suwak
-
+1. **Panel NIE zamyka się** podczas edycji szerokości lub innych stylów
+2. **Natychmiastowy feedback** - zmiany widoczne od razu w panelu
+3. **Stabilne drzewo** - brak pełnych re-renderów podczas edycji
+4. **Usunięcie działa poprawnie** - panel zamyka się tylko po kliknięciu "Usuń"
+5. **Focus zachowany** - wszystkie pola input zachowują focus podczas pisania
