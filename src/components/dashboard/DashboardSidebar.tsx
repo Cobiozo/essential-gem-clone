@@ -564,14 +564,14 @@ export const DashboardSidebar: React.FC = () => {
           }`}>
             <img 
               src={newPureLifeLogo} 
-              alt="Pure Life" 
+              alt="Pure Life Center" 
               className="max-h-full max-w-full object-contain"
               style={{ aspectRatio: '1/1' }}
             />
           </div>
           {!isCollapsed && (
             <span className="font-bold text-lg text-sidebar-foreground whitespace-nowrap">
-              PURE LIFE
+              PURE LIFE CENTER
             </span>
           )}
         </div>

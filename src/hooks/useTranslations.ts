@@ -1033,7 +1033,7 @@ function getHardcodedTranslations(): Record<string, Record<string, string>> {
       'roles.client': 'Klient',
       'roles.specjalista': 'Specjalista',
       'roles.user': 'Użytkownik',
-      'chat.title': 'Asystent Pure Life',
+      'chat.title': 'Asystent Pure Life Center',
       'chat.open': 'Otwórz czat',
       'chat.close': 'Zamknij czat',
       'chat.placeholder': 'Napisz wiadomość...',
@@ -1108,7 +1108,7 @@ function getHardcodedTranslations(): Record<string, Record<string, string>> {
       'roles.client': 'Kunde',
       'roles.specjalista': 'Spezialist',
       'roles.user': 'Benutzer',
-      'chat.title': 'Pure Life Assistent',
+      'chat.title': 'Pure Life Center Assistent',
       'success.saved': 'Erfolgreich gespeichert',
       'error.saveFailed': 'Speichern fehlgeschlagen',
       'error.loadFailed': 'Laden fehlgeschlagen'
@@ -1147,7 +1147,7 @@ function getHardcodedTranslations(): Record<string, Record<string, string>> {
       'roles.client': 'Client',
       'roles.specjalista': 'Specialist',
       'roles.user': 'User',
-      'chat.title': 'Pure Life Assistant',
+      'chat.title': 'Pure Life Center Assistant',
       'success.saved': 'Saved successfully',
       'error.saveFailed': 'Failed to save',
       'error.loadFailed': 'Failed to load'

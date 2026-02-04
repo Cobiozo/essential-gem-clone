@@ -291,7 +291,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <div className="flex items-center gap-3 px-2 py-2">
           <img 
             src={siteLogo || newPureLifeLogo} 
-            alt="Pure Life" 
+            alt="Pure Life Center" 
             className="w-8 h-8 flex-shrink-0" 
           />
           {!isCollapsed && (

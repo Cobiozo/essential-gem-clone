@@ -22,10 +22,10 @@ const SpecialistCalculatorPage = () => {
           {/* Header - matching influencer calculator style */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-900 to-emerald-700 text-white p-4 sm:p-6 rounded-xl mb-6">
             <div className="flex items-center gap-3">
-              <img src={pureLifeLogo} alt="Pure Life" className="h-10 w-auto" />
+              <img src={pureLifeLogo} alt="Pure Life Center" className="h-10 w-auto" />
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold">
-                  Pure Life <span className="font-light">Kalkulator</span>
+                  Pure Life Center <span className="font-light">Kalkulator</span>
                 </h1>
                 <p className="text-emerald-200 text-xs sm:text-sm">
                   Wprowadź liczbę klientów, aby zobaczyć symulację przychodów w perspektywie 6-miesięcznej kuracji.

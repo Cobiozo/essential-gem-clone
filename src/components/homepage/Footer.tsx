@@ -12,12 +12,12 @@ const Footer = () => {
           {/* Logo */}
           <div className="flex items-center gap-2">
             <img src={dropletIcon} alt="" className="w-6 h-6" />
-            <span className="text-primary font-bold text-lg">PURE LIFE</span>
+            <span className="text-primary font-bold text-lg">PURE LIFE CENTER</span>
           </div>
           
           {/* Copyright */}
           <p className="text-foreground/60 dark:text-foreground/70 text-sm">
-            © {new Date().getFullYear()} Pure Life. {t('footer.allRightsReserved')}
+            © {new Date().getFullYear()} Pure Life Center. {t('footer.allRightsReserved')}
           </p>
           
           {/* Links */}
