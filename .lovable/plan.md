@@ -1,150 +1,190 @@
 
-# Plan: Przenoszenie elementów między kontenerami (cross-container drag-and-drop)
 
-## Diagnoza problemu
+# Plan: Podgląd rzeczywisty w nowym oknie + wizualne odstępy przeciąganiem
 
-W pliku `HtmlHybridEditor.tsx` w funkcji `handleDragEnd` (linie 258-266) jest **celowa blokada** przenoszenia między kontenerami:
+## Podsumowanie
 
-```tsx
-// Only allow reordering within the same parent
-if (activeResult.parent?.id !== overResult.parent?.id) {
-  toast({
-    title: "Niedozwolona operacja",
-    description: "Można przenosić elementy tylko w obrębie tego samego kontenera.",
-    variant: "destructive"
-  });
-  return;
-}
-```
-
-To powoduje, że użytkownik **nie może** przenieść zduplikowanego elementu do innego kontenera.
+1. **Podgląd rzeczywisty** - Przycisk obok "Pełny podgląd" otwierający nowe okno przeglądarki z dokładnie takim wyglądem strony, jaki zobaczą użytkownicy
+2. **Wizualne odstępy** - Przeciągalna krawędź górna elementu pozwalająca zwiększyć/zmniejszyć `marginTop` (odstęp od poprzedniego elementu)
 
 ---
 
-## Rozwiązanie
+## Zmiana 1: Podgląd w nowym oknie
 
-Rozszerzę logikę `handleDragEnd` aby obsługiwała przenoszenie między różnymi kontenerami:
+**Plik**: `src/components/admin/html-editor/HtmlHybridEditor.tsx`
 
-### Nowa logika:
+Dodam przycisk obok "Pełny podgląd" w pasku zakładek:
 
-1. **Jeśli rodzice są tacy sami** → sortowanie w obrębie kontenera (obecne zachowanie)
-2. **Jeśli rodzice są różni** → przeniesienie elementu między kontenerami:
-   - Usuń element z oryginalnego rodzica
-   - Dodaj element do nowego rodzica (obok elementu docelowego "over")
-   - Sprawdź czy element docelowy jest kontenerem - jeśli tak, wstaw do środka
+### Lokalizacja
+Linia ~545 - po `TabsTrigger value="preview"`, dodam nowy przycisk:
 
-### Szczegóły implementacji:
-
+### Działanie
 ```text
-Plik: src/components/admin/html-editor/HtmlHybridEditor.tsx
+Przycisk z ikoną ExternalLink
+│
+└── Kliknięcie → window.open() z danymi HTML jako Blob URL
+    │
+    ├── Tworzy pełny dokument HTML (z Tailwind, fontami, custom CSS)
+    ├── Konwertuje na Blob: new Blob([html], { type: 'text/html' })
+    ├── Generuje URL: URL.createObjectURL(blob)
+    └── Otwiera w nowym oknie: window.open(blobUrl, '_blank')
+```
 
-Zmiana w handleDragEnd (linie 258-266):
-
-USUNIĘCIE blokady:
-- if (activeResult.parent?.id !== overResult.parent?.id) { 
--   toast(...);
--   return;
-- }
-
-DODANIE nowej logiki dla przenoszenia między kontenerami:
-
-1. Jeśli rodzice są różni:
-   a) Usuń element aktywny z jego obecnego rodzica
-   b) Określ pozycję wstawienia:
-      - Jeśli element docelowy (over) jest kontenerem → wstaw do jego children
-      - Jeśli nie jest kontenerem → wstaw obok niego w tym samym rodzicu
-   c) Aktualizuj oba kontenery w jednej operacji
-   d) Pokaż toast "Element przeniesiony"
-
-2. Jeśli rodzice są tacy sami:
-   - Zachowaj obecną logikę sortowania (arrayMove)
+### Wizualnie
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ [🔵 Edytor wizualny] [📝 Kod HTML] [🌐 Pełny podgląd] [🔗 Nowe okno] │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Kod rozwiązania
+## Zmiana 2: Przeciąganie krawędzi dla odstępów
 
-### Zmiana w `handleDragEnd`:
+**Nowy komponent**: `src/components/admin/html-editor/MarginHandle.tsx`
+
+### Koncepcja
+Dodanie przeciągalnego uchwytu na górnej krawędzi każdego elementu (widoczny w trybie edycji po zaznaczeniu), który pozwala wizualnie zwiększać/zmniejszać `marginTop`.
+
+### Działanie
+```text
+Element w edytorze:
+┌─────────────────────────┐
+│ ════ Uchwyt marginu ════ │ ← Przeciągnij w górę/dół = zmiana marginTop
+├─────────────────────────┤
+│                         │
+│    Zawartość elementu   │
+│                         │
+└─────────────────────────┘
+```
+
+1. Kliknięcie i przeciąganie uchwytu w górę → zwiększa marginTop
+2. Przeciąganie w dół → zmniejsza marginTop (min 0)
+3. Wyświetlenie aktualnej wartości podczas przeciągania
+4. Po zwolnieniu → zapisanie do stylów elementu
+
+### Integracja
+W `HtmlElementRenderer.tsx` dodam uchwyt marginu dla zaznaczonych elementów:
+- Uchwyt widoczny tylko gdy element jest zaznaczony i tryb edycji aktywny
+- Wyświetla aktualny marginTop
+- Obsługuje mouse/touch events
+
+---
+
+## Szczegóły techniczne
+
+### Zmiana 1: Podgląd w nowym oknie
 
 ```tsx
-// Handle drag end for reordering AND moving between containers
-const handleDragEnd = useCallback((event: DragEndEvent) => {
-  const { active, over } = event;
+// HtmlHybridEditor.tsx - nowa funkcja
+const openRealPreview = useCallback(() => {
+  const fullHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <script src="https://cdn.tailwindcss.com"></script>
+      <script src="https://unpkg.com/lucide@latest"></script>
+      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body { 
+          font-family: 'Open Sans', sans-serif; 
+          margin: 0; 
+          padding: 24px;
+        }
+        h1, h2, h3, h4, h5, h6 { 
+          font-family: 'Montserrat', sans-serif; 
+        }
+        ${customCss || ''}
+      </style>
+    </head>
+    <body>
+      ${codeValue}
+      <script>
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      </script>
+    </body>
+    </html>
+  `;
   
-  if (!over || active.id === over.id) return;
-  
-  const activeId = active.id as string;
-  const overId = over.id as string;
-  
-  // Helper to find element and its parent
-  const findElementAndParent = (...);  // unchanged
-  
-  const activeResult = findElementAndParent(elements, activeId);
-  const overResult = findElementAndParent(elements, overId);
-  
-  if (!activeResult.element || !overResult.element) return;
-  
-  // Check if over element is a container
-  const isOverContainer = ['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'figure']
-    .includes(overResult.element.tagName.toLowerCase());
-  
-  // CASE 1: Moving BETWEEN different containers
-  if (activeResult.parent?.id !== overResult.parent?.id) {
-    // Step 1: Remove element from old location
-    let updatedElements = deleteElementById(elements, activeId);
-    
-    // Step 2: Determine where to insert
-    if (isOverContainer && overResult.element.id !== activeResult.parent?.id) {
-      // Drop into the container (as first child)
-      const targetContainer = findElementById(updatedElements, overId);
-      if (targetContainer) {
-        updatedElements = updateElementById(updatedElements, overId, {
-          children: [activeResult.element, ...targetContainer.children]
-        });
-      }
-    } else {
-      // Drop beside the over element (in same parent)
-      if (overResult.parent) {
-        const overIndex = overResult.parent.children.findIndex(c => c.id === overId);
-        const newChildren = [...overResult.parent.children];
-        newChildren.splice(overIndex + 1, 0, activeResult.element);
-        updatedElements = updateElementById(updatedElements, overResult.parent.id, {
-          children: newChildren
-        });
-      } else {
-        // Over is root level
-        const overIndex = updatedElements.findIndex(el => el.id === overId);
-        updatedElements.splice(overIndex + 1, 0, activeResult.element);
-      }
-    }
-    
-    syncAndSave(updatedElements);
-    toast({
-      title: "Element przeniesiony",
-      description: "Element został przeniesiony do innego kontenera."
-    });
-    return;
-  }
-  
-  // CASE 2: Reordering within SAME container (existing logic)
-  // ... rest unchanged
-}, [elements, syncAndSave, toast, updateElementById, deleteElementById, findElementById]);
+  const blob = new Blob([fullHtml], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank');
+}, [codeValue, customCss]);
+```
+
+```tsx
+// Dodanie przycisku w TabsList (linia ~545)
+<Button
+  variant="ghost"
+  size="sm"
+  className="h-7 px-2 gap-1 text-xs ml-2"
+  onClick={openRealPreview}
+  title="Otwórz w nowym oknie"
+>
+  <ExternalLink className="h-3.5 w-3.5" />
+  Podgląd rzeczywisty
+</Button>
+```
+
+### Zmiana 2: MarginHandle.tsx
+
+```tsx
+// Nowy komponent do przeciągania marginu
+interface MarginHandleProps {
+  currentMargin: string;
+  onMarginChange: (newMargin: string) => void;
+  isVisible: boolean;
+}
+
+export const MarginHandle: React.FC<MarginHandleProps> = ({
+  currentMargin,
+  onMarginChange,
+  isVisible
+}) => {
+  // Uchwyt na górze elementu
+  // Mouse/touch events do przeciągania
+  // Wyświetlenie wartości podczas drag
+  // onMarginChange z nową wartością po zakończeniu
+};
+```
+
+### Integracja w HtmlElementRenderer.tsx
+
+```tsx
+// Po linii ~220 (przed renderowaniem głównego elementu)
+{isEditMode && isSelected && onUpdate && (
+  <MarginHandle
+    currentMargin={element.styles.marginTop || '0px'}
+    onMarginChange={(newMargin) => {
+      onUpdate({
+        styles: { ...element.styles, marginTop: newMargin }
+      });
+    }}
+    isVisible={isSelected}
+  />
+)}
 ```
 
 ---
 
-## Pliki do modyfikacji
+## Pliki do modyfikacji/utworzenia
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/html-editor/HtmlHybridEditor.tsx` | Rozszerzenie `handleDragEnd` o obsługę przenoszenia między kontenerami |
+| `HtmlHybridEditor.tsx` | Dodanie funkcji `openRealPreview` i przycisku w pasku zakładek |
+| `MarginHandle.tsx` | **Nowy** - komponent przeciągalnego uchwytu marginu |
+| `HtmlElementRenderer.tsx` | Dodanie uchwytu marginu dla zaznaczonych elementów |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. **Przenoszenie między kontenerami** - elementy można przeciągać z jednego kontenera do drugiego
-2. **Drop do kontenera** - upuszczenie na kontener wstawia element do jego wnętrza
-3. **Drop obok elementu** - upuszczenie na element nie-kontener wstawia obok niego
-4. **Zachowanie sortowania** - sortowanie w ramach tego samego kontenera działa jak dotychczas
-5. **Wizualne potwierdzenie** - toast z informacją "Element przeniesiony"
+1. **Przycisk "Podgląd rzeczywisty"** obok "Pełny podgląd" otwiera nowe okno przeglądarki z identycznym wyglądem strony
+2. **Uchwyt na górnej krawędzi** zaznaczonego elementu pozwala przeciągnąć i zmienić marginTop
+3. Wizualny feedback podczas przeciągania (aktualna wartość marginu w pikselach)
+4. Zmiana zapisywana do stylów elementu po zakończeniu przeciągania
+
