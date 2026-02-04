@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ParsedElement, getElementType } from './types';
 import { cn } from '@/lib/utils';
 import { ResizableImageWrapper } from './ResizableImageWrapper';
+import { Video } from 'lucide-react';
 
 interface HtmlElementRendererProps {
   element: ParsedElement;
@@ -170,6 +171,34 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
       }
       
       return imgElement;
+    }
+    
+    // Dedicated video rendering
+    if (element.tagName === 'video') {
+      const videoSrc = element.attributes.src;
+      
+      // Show placeholder if no src
+      if (!videoSrc) {
+        return (
+          <div className="flex items-center justify-center bg-muted/50 border-2 border-dashed rounded-lg p-8">
+            <div className="text-center text-muted-foreground">
+              <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Wybierz wideo w panelu Media</p>
+            </div>
+          </div>
+        );
+      }
+      
+      return (
+        <video 
+          src={videoSrc}
+          controls
+          className={element.attributes.class}
+          style={{ ...inlineStyles, maxWidth: '100%' }}
+        >
+          Twoja przeglądarka nie obsługuje wideo.
+        </video>
+      );
     }
     
     if (element.tagName === 'i' && element.attributes['data-lucide']) {
