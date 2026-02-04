@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ParsedElement, getElementType } from './types';
 import { cn } from '@/lib/utils';
 import { ResizableImageWrapper } from './ResizableImageWrapper';
+import { MarginHandle } from './MarginHandle';
 import { Video } from 'lucide-react';
 
 interface HtmlElementRendererProps {
@@ -318,6 +319,18 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
+      {/* Margin handle for selected elements */}
+      {isEditMode && isSelected && onUpdate && (
+        <MarginHandle
+          currentMargin={element.styles.marginTop || '0px'}
+          onMarginChange={(newMargin) => {
+            onUpdate({
+              styles: { ...element.styles, marginTop: newMargin }
+            });
+          }}
+          isVisible={isSelected}
+        />
+      )}
       {getTypeBadge()}
       {isVoidElement ? (
         // Void elements (img, br, hr, etc.) - render without children wrapper
