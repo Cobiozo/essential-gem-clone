@@ -769,7 +769,9 @@ const HealthyKnowledgeManagement: React.FC = () => {
                         
                         setUploadingThumbnail(true);
                         try {
-                          const fileName = `thumbnails/${Date.now()}-${file.name}`;
+                          // Sanitize filename - remove spaces and special characters
+                          const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                          const fileName = `thumbnails/${Date.now()}-${sanitizedFileName}`;
                           const { data, error } = await supabase.storage
                             .from('healthy-knowledge')
                             .upload(fileName, file, { upsert: true });
@@ -788,7 +790,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                           toast.success('Okładka przesłana');
                         } catch (error: any) {
                           console.error('Thumbnail upload error:', error);
-                          toast.error('Błąd przesyłania okładki');
+                          toast.error(`Błąd przesyłania okładki: ${error.message || 'Nieznany błąd'}`);
                         } finally {
                           setUploadingThumbnail(false);
                         }
