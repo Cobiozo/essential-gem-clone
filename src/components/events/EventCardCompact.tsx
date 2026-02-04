@@ -541,7 +541,7 @@ Zapisz się tutaj: ${inviteUrl}
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors rounded-lg">
           {/* Thumbnail */}
-          <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
             {event.image_url ? (
               <img
                 src={event.image_url}
@@ -550,7 +550,7 @@ Zapisz się tutaj: ${inviteUrl}
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <Video className="h-6 w-6 text-muted-foreground" />
+                <Video className="h-8 w-8 text-muted-foreground" />
               </div>
             )}
           </div>

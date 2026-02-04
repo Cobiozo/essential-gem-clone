@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   Heading1, 
   Heading2, 
@@ -17,7 +18,8 @@ import {
   Quote,
   Code,
   Table,
-  Plus
+  Plus,
+  ChevronDown
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -28,6 +30,9 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -236,12 +241,20 @@ const categories = [
   { id: 'other', label: 'Inne', icon: <Square className="w-4 h-4" /> },
 ];
 
+const positionLabels: Record<string, string> = {
+  'before': 'przed',
+  'after': 'po',
+  'inside': 'wewnątrz'
+};
+
 export const HtmlElementToolbar: React.FC<HtmlElementToolbarProps> = ({
   onAddElement,
   hasSelection
 }) => {
-  const handleAdd = (html: string, position: 'before' | 'after' | 'inside' = 'after') => {
-    onAddElement(html, position);
+  const [insertPosition, setInsertPosition] = useState<'before' | 'after' | 'inside'>('after');
+
+  const handleAdd = (html: string) => {
+    onAddElement(html, insertPosition);
   };
 
   const quickElements = elementTemplates.filter(t => 
@@ -258,7 +271,7 @@ export const HtmlElementToolbar: React.FC<HtmlElementToolbarProps> = ({
           size="sm"
           className="h-8 px-2 gap-1"
           onClick={() => handleAdd(template.html)}
-          title={template.label}
+          title={`${template.label} (${hasSelection ? positionLabels[insertPosition] : 'na końcu'})`}
         >
           {template.icon}
           <span className="hidden sm:inline text-xs">{template.label}</span>
@@ -267,12 +280,17 @@ export const HtmlElementToolbar: React.FC<HtmlElementToolbarProps> = ({
 
       <div className="h-6 w-px bg-border mx-1" />
 
-      {/* Full dropdown menu */}
+      {/* Full dropdown menu with position indicator */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 gap-1">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Więcej</span>
+            {hasSelection && (
+              <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">
+                {positionLabels[insertPosition]}
+              </Badge>
+            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
@@ -312,20 +330,27 @@ export const HtmlElementToolbar: React.FC<HtmlElementToolbarProps> = ({
           <div className="h-6 w-px bg-border mx-1" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-8 text-xs">
-                Pozycja wstawiania
+              <Button variant="ghost" size="sm" className="h-8 text-xs gap-1">
+                Pozycja: <span className="font-medium">{positionLabels[insertPosition]}</span>
+                <ChevronDown className="w-3 h-3" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => {}}>
-                Przed zaznaczonym
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {}}>
-                Po zaznaczonym
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {}}>
-                Wewnątrz zaznaczonego
-              </DropdownMenuItem>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Gdzie wstawić nowy element?
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup value={insertPosition} onValueChange={(v) => setInsertPosition(v as 'before' | 'after' | 'inside')}>
+                <DropdownMenuRadioItem value="before">
+                  Przed zaznaczonym
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="after">
+                  Po zaznaczonym
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="inside">
+                  Wewnątrz zaznaczonego
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </>

@@ -13,6 +13,7 @@ interface HtmlElementRendererProps {
   onEndEdit?: (id: string, newContent: string) => void;
   depth?: number;
   showOutlines?: boolean;
+  renderChildren?: () => React.ReactNode;
 }
 
 // Editable text tags
@@ -31,7 +32,8 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
   onStartEdit,
   onEndEdit,
   depth = 0,
-  showOutlines
+  showOutlines,
+  renderChildren
 }) => {
   const isSelected = selectedId === element.id;
   const isHovered = hoveredId === element.id && !isSelected;
@@ -148,6 +150,16 @@ export const HtmlElementRenderer: React.FC<HtmlElementRendererProps> = ({
     // For editing mode - render just the text
     if (isEditing) {
       return null; // Content handled by contentEditable
+    }
+    
+    // If custom renderChildren is provided (for nested drag-drop), use it
+    if (renderChildren) {
+      return (
+        <>
+          {element.textContent}
+          {renderChildren()}
+        </>
+      );
     }
     
     return (
