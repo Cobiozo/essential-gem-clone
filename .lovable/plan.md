@@ -1,146 +1,134 @@
 
-# Plan: Naprawa wyświetlania wideo i zachowanie proporcji przy resizowaniu obrazków
+# Plan: Przenoszenie elementów między kontenerami (cross-container drag-and-drop)
 
-## Podsumowanie problemów
+## Diagnoza problemu
 
-### Problem 1: Wideo nie jest widoczne po przesłaniu
-**Przyczyna:** W pliku `HtmlElementRenderer.tsx` brakuje dedykowanej obsługi tagu `<video>`. Obrazki mają specjalną logikę (linie 147-173), ale wideo jest renderowane generycznie. Co więcej, `tagProps` nie przekazuje atrybutów z `element.attributes`, więc `src` wideo nigdy nie trafia do DOM.
+W pliku `HtmlHybridEditor.tsx` w funkcji `handleDragEnd` (linie 258-266) jest **celowa blokada** przenoszenia między kontenerami:
 
-### Problem 2: Zmniejszanie obrazka nie zachowuje proporcji
-**Przyczyna:** W `ResizableImageWrapper.tsx` szerokość i wysokość są obliczane niezależnie. Brak blokady proporcji powoduje zniekształcenie obrazka.
-
----
-
-## Rozwiązanie 1: Dedykowane renderowanie wideo
-
-**Plik**: `src/components/admin/html-editor/HtmlElementRenderer.tsx`
-
-Dodam dedykowaną obsługę `<video>` w funkcji `renderContent()`, podobną do obrazków:
-
-```text
-Dodaj po obsłudze 'img' (po linii 173):
-
-if (element.tagName === 'video') {
-  return (
-    <video 
-      src={element.attributes.src}
-      controls={element.attributes.controls !== 'false'}
-      autoPlay={element.attributes.autoplay === 'true'}
-      muted={element.attributes.muted === 'true'}
-      loop={element.attributes.loop === 'true'}
-      className={element.attributes.class}
-      style={inlineStyles}
-    />
-  );
+```tsx
+// Only allow reordering within the same parent
+if (activeResult.parent?.id !== overResult.parent?.id) {
+  toast({
+    title: "Niedozwolona operacja",
+    description: "Można przenosić elementy tylko w obrębie tego samego kontenera.",
+    variant: "destructive"
+  });
+  return;
 }
 ```
 
-To zapewni, że atrybut `src` z przesłanego wideo będzie poprawnie przekazany do elementu DOM, a wideo będzie widoczne.
+To powoduje, że użytkownik **nie może** przenieść zduplikowanego elementu do innego kontenera.
 
 ---
 
-## Rozwiązanie 2: Blokada proporcji przy resizowaniu
+## Rozwiązanie
 
-**Plik**: `src/components/admin/html-editor/ResizableImageWrapper.tsx`
+Rozszerzę logikę `handleDragEnd` aby obsługiwała przenoszenie między różnymi kontenerami:
 
-Zmienię logikę `handleMouseMove` aby zachowywać proporcje (aspect ratio):
+### Nowa logika:
+
+1. **Jeśli rodzice są tacy sami** → sortowanie w obrębie kontenera (obecne zachowanie)
+2. **Jeśli rodzice są różni** → przeniesienie elementu między kontenerami:
+   - Usuń element z oryginalnego rodzica
+   - Dodaj element do nowego rodzica (obok elementu docelowego "over")
+   - Sprawdź czy element docelowy jest kontenerem - jeśli tak, wstaw do środka
+
+### Szczegóły implementacji:
 
 ```text
-Aktualna logika (problem):
-- deltaX i deltaY są używane niezależnie
-- Każdy róg zmienia oba wymiary w różnych kierunkach
+Plik: src/components/admin/html-editor/HtmlHybridEditor.tsx
 
-Nowa logika (rozwiązanie):
-1. Oblicz początkowy aspect ratio: aspectRatio = startWidth / startHeight
-2. Przy przeciąganiu użyj tylko WIĘKSZEGO delta (X lub Y)
-3. Oblicz drugi wymiar z proporcji
+Zmiana w handleDragEnd (linie 258-266):
 
-Przykład dla rogu SE (prawy dolny):
-- Nowa szerokość = startWidth + deltaX
-- Nowa wysokość = newWidth / aspectRatio
+USUNIĘCIE blokady:
+- if (activeResult.parent?.id !== overResult.parent?.id) { 
+-   toast(...);
+-   return;
+- }
+
+DODANIE nowej logiki dla przenoszenia między kontenerami:
+
+1. Jeśli rodzice są różni:
+   a) Usuń element aktywny z jego obecnego rodzica
+   b) Określ pozycję wstawienia:
+      - Jeśli element docelowy (over) jest kontenerem → wstaw do jego children
+      - Jeśli nie jest kontenerem → wstaw obok niego w tym samym rodzicu
+   c) Aktualizuj oba kontenery w jednej operacji
+   d) Pokaż toast "Element przeniesiony"
+
+2. Jeśli rodzice są tacy sami:
+   - Zachowaj obecną logikę sortowania (arrayMove)
 ```
-
-Dodatkowo zachowam `aspectRatio` w `useRef` aby proporcje były blokowane od momentu rozpoczęcia resizowania.
 
 ---
 
-## Szczegóły implementacji
+## Kod rozwiązania
 
-### Zmiana w HtmlElementRenderer.tsx
-
-W funkcji `renderContent()` po bloku obsługującym obrazki, dodam:
+### Zmiana w `handleDragEnd`:
 
 ```tsx
-if (element.tagName === 'video') {
-  const videoSrc = element.attributes.src;
+// Handle drag end for reordering AND moving between containers
+const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const { active, over } = event;
   
-  // Pokaż placeholder jeśli brak src
-  if (!videoSrc) {
-    return (
-      <div className="flex items-center justify-center bg-muted/50 border-2 border-dashed rounded-lg p-8">
-        <div className="text-center text-muted-foreground">
-          <Video className="w-12 h-12 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Wybierz wideo w panelu Media</p>
-        </div>
-      </div>
-    );
+  if (!over || active.id === over.id) return;
+  
+  const activeId = active.id as string;
+  const overId = over.id as string;
+  
+  // Helper to find element and its parent
+  const findElementAndParent = (...);  // unchanged
+  
+  const activeResult = findElementAndParent(elements, activeId);
+  const overResult = findElementAndParent(elements, overId);
+  
+  if (!activeResult.element || !overResult.element) return;
+  
+  // Check if over element is a container
+  const isOverContainer = ['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'figure']
+    .includes(overResult.element.tagName.toLowerCase());
+  
+  // CASE 1: Moving BETWEEN different containers
+  if (activeResult.parent?.id !== overResult.parent?.id) {
+    // Step 1: Remove element from old location
+    let updatedElements = deleteElementById(elements, activeId);
+    
+    // Step 2: Determine where to insert
+    if (isOverContainer && overResult.element.id !== activeResult.parent?.id) {
+      // Drop into the container (as first child)
+      const targetContainer = findElementById(updatedElements, overId);
+      if (targetContainer) {
+        updatedElements = updateElementById(updatedElements, overId, {
+          children: [activeResult.element, ...targetContainer.children]
+        });
+      }
+    } else {
+      // Drop beside the over element (in same parent)
+      if (overResult.parent) {
+        const overIndex = overResult.parent.children.findIndex(c => c.id === overId);
+        const newChildren = [...overResult.parent.children];
+        newChildren.splice(overIndex + 1, 0, activeResult.element);
+        updatedElements = updateElementById(updatedElements, overResult.parent.id, {
+          children: newChildren
+        });
+      } else {
+        // Over is root level
+        const overIndex = updatedElements.findIndex(el => el.id === overId);
+        updatedElements.splice(overIndex + 1, 0, activeResult.element);
+      }
+    }
+    
+    syncAndSave(updatedElements);
+    toast({
+      title: "Element przeniesiony",
+      description: "Element został przeniesiony do innego kontenera."
+    });
+    return;
   }
   
-  return (
-    <video 
-      src={videoSrc}
-      controls
-      className={element.attributes.class}
-      style={{ ...inlineStyles, maxWidth: '100%' }}
-    >
-      Twoja przeglądarka nie obsługuje wideo.
-    </video>
-  );
-}
-```
-
-### Zmiana w ResizableImageWrapper.tsx
-
-W funkcji `handleMouseMove`, zamienię obecną logikę na:
-
-```tsx
-const handleMouseMove = useCallback((e: MouseEvent) => {
-  if (!isResizing || !activeHandle) return;
-  
-  const deltaX = e.clientX - startPos.current.x;
-  const deltaY = e.clientY - startPos.current.y;
-  
-  // Oblicz aspect ratio
-  const aspectRatio = startSize.current.width / startSize.current.height;
-  
-  let newWidth = startSize.current.width;
-  let newHeight = startSize.current.height;
-  
-  // Użyj dominującego delta i zachowaj proporcje
-  switch (activeHandle) {
-    case 'se':
-    case 'ne':
-      // Dla prawych rogów - szerokość jest główna
-      newWidth = Math.max(20, startSize.current.width + deltaX);
-      newHeight = newWidth / aspectRatio;
-      break;
-    case 'sw':
-    case 'nw':
-      // Dla lewych rogów - szerokość jest główna (ale odejmujemy)
-      newWidth = Math.max(20, startSize.current.width - deltaX);
-      newHeight = newWidth / aspectRatio;
-      break;
-  }
-  
-  // Minimum height
-  newHeight = Math.max(20, newHeight);
-  
-  // Wizualna aktualizacja
-  if (wrapperRef.current) {
-    wrapperRef.current.style.width = `${newWidth}px`;
-    wrapperRef.current.style.height = `${newHeight}px`;
-  }
-}, [isResizing, activeHandle]);
+  // CASE 2: Reordering within SAME container (existing logic)
+  // ... rest unchanged
+}, [elements, syncAndSave, toast, updateElementById, deleteElementById, findElementById]);
 ```
 
 ---
@@ -149,13 +137,14 @@ const handleMouseMove = useCallback((e: MouseEvent) => {
 
 | Plik | Zmiana |
 |------|--------|
-| `HtmlElementRenderer.tsx` | Dodanie dedykowanej obsługi `<video>` z przekazaniem `src` |
-| `ResizableImageWrapper.tsx` | Blokada proporcji przy resizowaniu obrazków |
+| `src/components/admin/html-editor/HtmlHybridEditor.tsx` | Rozszerzenie `handleDragEnd` o obsługę przenoszenia między kontenerami |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. **Wideo** będzie widoczne natychmiast po przesłaniu - atrybut `src` będzie poprawnie przekazany
-2. **Obrazki** przy zmniejszaniu/powiększaniu za rogi zachowają swoje proporcje
-3. Brak zniekształceń grafik przy interaktywnym resizowaniu
+1. **Przenoszenie między kontenerami** - elementy można przeciągać z jednego kontenera do drugiego
+2. **Drop do kontenera** - upuszczenie na kontener wstawia element do jego wnętrza
+3. **Drop obok elementu** - upuszczenie na element nie-kontener wstawia obok niego
+4. **Zachowanie sortowania** - sortowanie w ramach tego samego kontenera działa jak dotychczas
+5. **Wizualne potwierdzenie** - toast z informacją "Element przeniesiony"
