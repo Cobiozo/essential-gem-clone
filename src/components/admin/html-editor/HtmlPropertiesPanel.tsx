@@ -89,10 +89,16 @@ export const HtmlPropertiesPanel: React.FC<HtmlPropertiesPanelProps> = ({
     } else if (element.tagName === 'video') {
       updateAttribute('src', url);
     } else {
-      // For containers - set as background
-      updateStyle('backgroundImage', `url(${url})`);
-      updateStyle('backgroundSize', 'cover');
-      updateStyle('backgroundPosition', 'center');
+      // For containers - set all background styles in a single update to avoid race condition
+      onUpdate({
+        styles: {
+          ...element.styles,
+          backgroundImage: `url(${url})`,
+          backgroundSize: element.styles.backgroundSize || 'cover',
+          backgroundPosition: element.styles.backgroundPosition || 'center',
+          backgroundRepeat: element.styles.backgroundRepeat || 'no-repeat'
+        }
+      });
     }
   };
 
