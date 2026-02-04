@@ -774,7 +774,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                           const fileName = `thumbnails/${Date.now()}-${sanitizedFileName}`;
                           const { data, error } = await supabase.storage
                             .from('healthy-knowledge')
-                            .upload(fileName, file, { upsert: true });
+                            .upload(fileName, file, { cacheControl: '3600' });
                           
                           if (error) throw error;
                           
