@@ -1,97 +1,78 @@
 
-# Plan: Naprawa dodawania okładek w Zdrowa Wiedza
+# Plan: Naprawa przesyłania okładek w Zdrowa Wiedza
 
-## Zdiagnozowana przyczyna błędu
+## Diagnoza
 
-Błąd **"new row violates row-level security policy"** jest spowodowany brakiem polityki RLS `UPDATE` dla bucketu `healthy-knowledge` w Supabase Storage.
+Przeanalizowałem wszystkie polityki RLS dla bucketu `healthy-knowledge`. Odkryłem, że:
 
-### Aktualne polityki dla `healthy-knowledge`:
-| Operacja | Polityka | Status |
-|----------|----------|--------|
-| SELECT | ✅ "Public read access for healthy-knowledge" | Istnieje |
-| INSERT | ✅ "Admins can upload to healthy-knowledge" | Istnieje |
-| DELETE | ✅ "Admins can delete from healthy-knowledge" | Istnieje |
-| UPDATE | ❌ **BRAK POLITYKI** | Brak |
-
-### Dlaczego to powoduje błąd:
-Kod w `HealthyKnowledgeManagement.tsx` (linia 777) używa:
-```typescript
-.upload(fileName, file, { upsert: true });
-```
-
-Opcja `upsert: true` wymaga zarówno uprawnień `INSERT` jak i `UPDATE`, ponieważ może nadpisać istniejący plik.
-
----
+1. **Istnieją zduplikowane polityki INSERT i UPDATE** - stare (`hk_storage_admin_*`) z rolą `authenticated` i nowe (`Admins can ...`) bez ograniczenia roli
+2. **Używanie `upsert: true`** wymaga zarówno polityki INSERT jak i UPDATE, co komplikuje działanie
+3. **Nazwa pliku używa timestampa** (`thumbnails/${Date.now()}-...`), więc duplikaty nigdy nie występują
 
 ## Rozwiązanie
 
-### Zmiana 1: Migracja SQL - dodanie polityki UPDATE
+### Zmiana 1: Usunięcie `upsert: true` z uploadu okładki
 
-Utworzyć nową migrację dodającą brakującą politykę:
+**Plik**: `src/components/admin/HealthyKnowledgeManagement.tsx`
 
-```sql
--- Add missing UPDATE policy for healthy-knowledge bucket
-CREATE POLICY "Admins can update healthy-knowledge files"
-ON storage.objects FOR UPDATE
-USING (
-  bucket_id = 'healthy-knowledge' 
-  AND (SELECT is_admin())
-)
-WITH CHECK (
-  bucket_id = 'healthy-knowledge' 
-  AND (SELECT is_admin())
-);
+Zmienić opcję `upsert: true` na `upsert: false` (lub usunąć całkowicie, bo `false` jest domyślne):
+
+```typescript
+// PRZED (linia 777):
+.upload(fileName, file, { upsert: true });
+
+// PO:
+.upload(fileName, file, { cacheControl: '3600' });
 ```
 
-### Zmiana 2 (opcjonalna): Alternatywa - unikanie upsert
+**Uzasadnienie**: 
+- Nazwa pliku zawsze jest unikalna dzięki timestamp (`Date.now()`)
+- Usunięcie `upsert: true` eliminuje potrzebę polityki UPDATE
+- Polityka INSERT istnieje i powinna działać
 
-Jeśli chcemy uniknąć modyfikacji RLS, można zmienić kod tak, aby nie używał `upsert`:
-1. Sprawdzić czy plik istnieje
-2. Jeśli tak - usunąć go
-3. Wgrać nowy plik
+### Zmiana 2: Migracja SQL - uproszczenie polityk
 
-Jednak **preferowane jest rozwiązanie 1** (dodanie polityki UPDATE), ponieważ:
-- Jest bardziej eleganckie
-- Nie wymaga dodatkowych zapytań
-- Jest spójne z pozostałymi bucketami (np. `training-media` ma politykę UPDATE)
+Usunąć nadmiarowe polityki i zostawić tylko jeden zestaw spójnych polityk z rolą `authenticated`:
+
+```sql
+-- Usunięcie zduplikowanych polityk
+DROP POLICY IF EXISTS "Admins can upload to healthy-knowledge" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can update healthy-knowledge files" ON storage.objects;
+DROP POLICY IF EXISTS "Admins can delete from healthy-knowledge" ON storage.objects;
+
+-- Upewnienie się, że stare polityki z rolą authenticated działają
+-- (hk_storage_admin_upload, hk_storage_admin_update, hk_storage_admin_delete już istnieją)
+```
+
+### Zmiana 3 (alternatywna): Użycie komponentu MediaUpload
+
+Jeśli powyższe nie zadziała, zamienić ręczny upload na komponent `MediaUpload` z hookiem `useLocalStorage`, który jest używany w innych miejscach aplikacji i działa poprawnie:
+
+```typescript
+<MediaUpload
+  onMediaUploaded={(url) => {
+    setEditingMaterial({
+      ...editingMaterial,
+      thumbnail_url: url,
+    });
+  }}
+  allowedTypes={['image']}
+  maxSizeMB={10}
+  compact
+/>
+```
 
 ---
 
 ## Szczegóły implementacji
 
-### Nowy plik migracji
-**Ścieżka**: `supabase/migrations/[timestamp]_add_healthy_knowledge_update_policy.sql`
-
-```sql
--- Add missing UPDATE policy for healthy-knowledge storage bucket
--- This is required because the thumbnail upload uses upsert: true option
-
-CREATE POLICY "Admins can update healthy-knowledge files"
-ON storage.objects FOR UPDATE
-USING (
-  bucket_id = 'healthy-knowledge' 
-  AND (SELECT is_admin())
-)
-WITH CHECK (
-  bucket_id = 'healthy-knowledge' 
-  AND (SELECT is_admin())
-);
-```
-
----
+| Plik | Zmiana |
+|------|--------|
+| `HealthyKnowledgeManagement.tsx` | Zmiana `upsert: true` na `cacheControl: '3600'` |
+| Migracja SQL | Usunięcie zduplikowanych polityk TO PUBLIC |
 
 ## Oczekiwany rezultat
 
-Po wdrożeniu:
-1. Administratorzy będą mogli dodawać okładki do istniejących materiałów bez błędów
-2. Opcja `upsert: true` będzie działać poprawnie
-3. Bezpieczeństwo pozostanie zachowane - tylko administratorzy mogą modyfikować pliki
-
----
-
-## Weryfikacja po wdrożeniu
-
-1. Zalogować się jako administrator
-2. Przejść do Zdrowa Wiedza → edycja istniejącego materiału wideo
-3. Wybrać plik okładki (dowolny obraz JPG/PNG)
-4. Sprawdzić czy okładka została przesłana bez błędu RLS
+1. Upload okładki będzie używał tylko INSERT (bez UPDATE)
+2. Polityki RLS będą działać poprawnie z rolą `authenticated`
+3. Nie będzie konfliktów między różnymi zestawami polityk
