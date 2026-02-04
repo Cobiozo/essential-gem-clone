@@ -111,7 +111,7 @@ const elementTemplates: ElementTemplate[] = [
   {
     label: 'Wideo',
     icon: <Video className="w-4 h-4" />,
-    html: '<video controls class="w-full rounded-lg"><source src="" type="video/mp4" />Twoja przeglądarka nie obsługuje wideo.</video>',
+    html: '<video controls controlslist="nodownload" class="w-full rounded-lg" src=""></video>',
     category: 'media'
   },
   {

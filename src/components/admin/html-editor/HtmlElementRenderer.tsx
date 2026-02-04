@@ -174,9 +174,17 @@ const HtmlElementRendererInner: React.FC<HtmlElementRendererProps> = ({
       return imgElement;
     }
     
-    // Dedicated video rendering
+    // Dedicated video rendering with <source> fallback
     if (element.tagName === 'video') {
-      const videoSrc = element.attributes.src;
+      // Check src on video OR in child <source>
+      let videoSrc = element.attributes.src;
+      
+      if (!videoSrc && element.children.length > 0) {
+        const sourceChild = element.children.find(c => c.tagName === 'source');
+        if (sourceChild) {
+          videoSrc = sourceChild.attributes.src;
+        }
+      }
       
       // Show placeholder if no src
       if (!videoSrc) {
@@ -190,10 +198,14 @@ const HtmlElementRendererInner: React.FC<HtmlElementRendererProps> = ({
         );
       }
       
+      // Render video with controls, no download option
       return (
         <video 
           src={videoSrc}
           controls
+          controlsList="nodownload"
+          disablePictureInPicture
+          preload="metadata"
           className={element.attributes.class}
           style={{ ...inlineStyles, maxWidth: '100%' }}
         >

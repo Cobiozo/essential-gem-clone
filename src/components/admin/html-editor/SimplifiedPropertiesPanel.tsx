@@ -179,7 +179,17 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
     if (element.tagName === 'img') {
       updateAttribute('src', url);
     } else if (element.tagName === 'video') {
-      updateAttribute('src', url);
+      // Save src directly on <video> and remove any <source> children
+      const hasSourceChildren = element.children.some(c => c.tagName === 'source');
+      if (hasSourceChildren) {
+        // Update both src and remove source children in one call
+        onUpdate({
+          attributes: { ...localAttributesRef.current, src: url },
+          children: element.children.filter(c => c.tagName !== 'source')
+        });
+      } else {
+        updateAttribute('src', url);
+      }
     } else {
       onUpdate({
         styles: {
