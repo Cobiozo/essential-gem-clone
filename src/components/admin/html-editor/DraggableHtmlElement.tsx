@@ -1,5 +1,6 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { ParsedElement } from './types';
@@ -17,6 +18,7 @@ interface DraggableHtmlElementProps {
   onStartEdit?: (id: string) => void;
   onEndEdit?: (id: string, newContent: string) => void;
   showOutlines?: boolean;
+  depth?: number;
 }
 
 export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
@@ -29,7 +31,8 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
   onHover,
   onStartEdit,
   onEndEdit,
-  showOutlines
+  showOutlines,
+  depth = 0
 }) => {
   const {
     attributes,
@@ -53,6 +56,10 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
 
   const isSelected = selectedId === element.id;
   const isHovered = hoveredId === element.id;
+  const hasChildren = element.children.length > 0;
+  
+  // Container elements that can have nested drag-drop
+  const isContainer = ['div', 'section', 'article', 'main', 'aside', 'header', 'footer', 'nav', 'figure'].includes(element.tagName.toLowerCase());
 
   return (
     <div 
@@ -71,10 +78,11 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
           {...listeners}
           {...attributes}
           className={cn(
-            "absolute -left-6 top-1/2 -translate-y-1/2 z-20 cursor-grab active:cursor-grabbing",
+            "absolute z-20 cursor-grab active:cursor-grabbing",
             "p-1 bg-muted/80 hover:bg-muted border rounded shadow-sm",
             "opacity-0 group-hover:opacity-100 transition-opacity",
-            (isSelected || isHovered) && "opacity-100"
+            (isSelected || isHovered) && "opacity-100",
+            depth === 0 ? "-left-6 top-1/2 -translate-y-1/2" : "-left-5 top-0"
           )}
           onClick={(e) => e.stopPropagation()}
         >
@@ -82,17 +90,55 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
         </div>
       )}
       
-      <HtmlElementRenderer
-        element={element}
-        selectedId={selectedId}
-        hoveredId={hoveredId}
-        editingId={editingId}
-        onSelect={onSelect}
-        onHover={onHover}
-        onStartEdit={onStartEdit}
-        onEndEdit={onEndEdit}
-        showOutlines={showOutlines}
-      />
+      {/* Render element with possible nested sortable context for children */}
+      {hasChildren && isContainer && isEditMode ? (
+        <HtmlElementRenderer
+          element={element}
+          selectedId={selectedId}
+          hoveredId={hoveredId}
+          editingId={editingId}
+          onSelect={onSelect}
+          onHover={onHover}
+          onStartEdit={onStartEdit}
+          onEndEdit={onEndEdit}
+          showOutlines={showOutlines}
+          renderChildren={() => (
+            <SortableContext 
+              items={element.children.map(c => c.id)} 
+              strategy={verticalListSortingStrategy}
+            >
+              {element.children.map((child) => (
+                <DraggableHtmlElement
+                  key={child.id}
+                  element={child}
+                  isEditMode={isEditMode}
+                  selectedId={selectedId}
+                  hoveredId={hoveredId}
+                  editingId={editingId}
+                  onSelect={onSelect}
+                  onHover={onHover}
+                  onStartEdit={onStartEdit}
+                  onEndEdit={onEndEdit}
+                  showOutlines={showOutlines}
+                  depth={depth + 1}
+                />
+              ))}
+            </SortableContext>
+          )}
+        />
+      ) : (
+        <HtmlElementRenderer
+          element={element}
+          selectedId={selectedId}
+          hoveredId={hoveredId}
+          editingId={editingId}
+          onSelect={onSelect}
+          onHover={onHover}
+          onStartEdit={onStartEdit}
+          onEndEdit={onEndEdit}
+          showOutlines={showOutlines}
+        />
+      )}
     </div>
   );
 };

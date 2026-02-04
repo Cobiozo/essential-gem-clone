@@ -223,25 +223,74 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     onChange(newHtml);
   }, [saveToHistory, onChange]);
   
-  // Handle drag end for reordering
+  // Handle drag end for reordering (including nested elements)
   const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
     
     if (!over || active.id === over.id) return;
     
-    const oldIndex = elements.findIndex(el => el.id === active.id);
-    const newIndex = elements.findIndex(el => el.id === over.id);
+    const activeId = active.id as string;
+    const overId = over.id as string;
+    
+    // Helper to find element and its parent
+    const findElementAndParent = (
+      elements: ParsedElement[], 
+      id: string, 
+      parent: ParsedElement | null = null
+    ): { element: ParsedElement | null; parent: ParsedElement | null; siblings: ParsedElement[] } => {
+      for (const el of elements) {
+        if (el.id === id) {
+          return { element: el, parent, siblings: parent ? parent.children : elements };
+        }
+        if (el.children.length > 0) {
+          const found = findElementAndParent(el.children, id, el);
+          if (found.element) return found;
+        }
+      }
+      return { element: null, parent: null, siblings: [] };
+    };
+    
+    const activeResult = findElementAndParent(elements, activeId);
+    const overResult = findElementAndParent(elements, overId);
+    
+    if (!activeResult.element || !overResult.element) return;
+    
+    // Only allow reordering within the same parent
+    if (activeResult.parent?.id !== overResult.parent?.id) {
+      toast({
+        title: "Niedozwolona operacja",
+        description: "Można przenosić elementy tylko w obrębie tego samego kontenera.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const oldIndex = activeResult.siblings.findIndex(el => el.id === activeId);
+    const newIndex = overResult.siblings.findIndex(el => el.id === overId);
     
     if (oldIndex === -1 || newIndex === -1) return;
     
-    const reorderedElements = arrayMove(elements, oldIndex, newIndex);
-    syncAndSave(reorderedElements);
+    const reorderedSiblings = arrayMove(activeResult.siblings, oldIndex, newIndex);
+    
+    let updatedElements: ParsedElement[];
+    
+    if (activeResult.parent) {
+      // Nested element - update parent's children
+      updatedElements = updateElementById(elements, activeResult.parent.id, {
+        children: reorderedSiblings
+      });
+    } else {
+      // Top-level element
+      updatedElements = reorderedSiblings;
+    }
+    
+    syncAndSave(updatedElements);
     
     toast({
       title: "Elementy posortowane",
       description: "Kolejność elementów została zmieniona."
     });
-  }, [elements, syncAndSave, toast]);
+  }, [elements, syncAndSave, toast, updateElementById]);
   
   // Add new element
   const addElement = useCallback((html: string, position: 'before' | 'after' | 'inside' = 'after') => {

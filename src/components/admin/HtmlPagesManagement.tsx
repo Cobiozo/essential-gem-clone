@@ -355,7 +355,7 @@ export const HtmlPagesManagement: React.FC = () => {
 
       {/* Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-[95vw] max-h-[95vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileCode className="w-5 h-5" />
@@ -435,7 +435,7 @@ export const HtmlPagesManagement: React.FC = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="preview" className="mt-0 h-[650px]">
+              <TabsContent value="preview" className="mt-0 h-[calc(90vh-220px)]">
                 <HtmlHybridEditor
                   htmlContent={editingPage?.html_content || ''}
                   customCss={editingPage?.custom_css || ''}
