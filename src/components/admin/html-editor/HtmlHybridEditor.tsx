@@ -3,7 +3,7 @@ import { ParsedElement } from './types';
 import { parseHtmlToElements } from './hooks/useHtmlParser';
 import { serializeElementsToHtml } from './hooks/useHtmlSerializer';
 import { DraggableHtmlElement } from './DraggableHtmlElement';
-import { HtmlPropertiesPanel } from './HtmlPropertiesPanel';
+import { SimplifiedPropertiesPanel } from './SimplifiedPropertiesPanel';
 import { HtmlElementToolbar } from './HtmlElementToolbar';
 import { HtmlFormattingToolbar } from './HtmlFormattingToolbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -689,7 +689,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
               <>
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={40} minSize={30} maxSize={50}>
-                  <HtmlPropertiesPanel
+                  <SimplifiedPropertiesPanel
                     element={selectedElement}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
