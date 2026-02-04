@@ -11,7 +11,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Code, Globe, Info, GripVertical } from 'lucide-react';
+import { Eye, EyeOff, Code, Globe, Info, GripVertical, ExternalLink } from 'lucide-react';
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
@@ -104,6 +104,45 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     }
   }, [historyIndex, history, onChange]);
   
+  // Open real preview in new window
+  const openRealPreview = useCallback(() => {
+    const fullHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { 
+      font-family: 'Open Sans', sans-serif; 
+      margin: 0; 
+      padding: 24px;
+    }
+    h1, h2, h3, h4, h5, h6 { 
+      font-family: 'Montserrat', sans-serif; 
+    }
+    ${customCss || ''}
+  </style>
+</head>
+<body>
+  ${codeValue}
+  <script>
+    if (window.lucide) {
+      lucide.createIcons();
+    }
+  </script>
+</body>
+</html>
+    `.trim();
+    
+    const blob = new Blob([fullHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  }, [codeValue, customCss]);
+
   // Handle keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -543,6 +582,16 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
               <Globe className="h-3.5 w-3.5" />
               Pełny podgląd
             </TabsTrigger>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 gap-1 text-xs ml-2"
+              onClick={openRealPreview}
+              title="Otwórz w nowym oknie"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Podgląd rzeczywisty
+            </Button>
           </TabsList>
           
           <div className="flex items-center gap-2">
