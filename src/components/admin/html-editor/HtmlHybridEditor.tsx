@@ -28,7 +28,8 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   onChange
 }) => {
   const [elements, setElements] = useState<ParsedElement[]>([]);
-  const [selectedElement, setSelectedElement] = useState<ParsedElement | null>(null);
+  // Use stable ID instead of full element object to prevent panel closing
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [history, setHistory] = useState<string[]>([]);
@@ -143,38 +144,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     window.open(url, '_blank');
   }, [codeValue, customCss]);
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-        switch (e.key.toLowerCase()) {
-          case 'z':
-            e.preventDefault();
-            handleUndo();
-            break;
-          case 'y':
-            e.preventDefault();
-            handleRedo();
-            break;
-        }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        handleRedo();
-      }
-      if (e.key === 'Escape') {
-        setEditingElementId(null);
-        setSelectedElement(null);
-      }
-      if (e.key === 'Delete' && selectedElement && !editingElementId) {
-        e.preventDefault();
-        handleDelete();
-      }
-    };
-    
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, selectedElement, editingElementId]);
+  // NOTE: Keyboard shortcuts moved after handleDelete declaration (see below)
   
   // Find element by ID recursively
   const findElementById = useCallback((elements: ParsedElement[], id: string): ParsedElement | null => {
@@ -374,6 +344,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     if (newElements.length === 0) return;
     
     let updatedElements: ParsedElement[];
+    const selectedElement = selectedElementId ? findElementById(elements, selectedElementId) : null;
     
     if (!selectedElement) {
       updatedElements = [...elements, ...newElements];
@@ -399,17 +370,17 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     }
     
     syncAndSave(updatedElements);
-    setSelectedElement(newElements[0]);
+    setSelectedElementId(newElements[0].id);
     
     toast({
       title: "Element dodany",
       description: "Nowy element został dodany do dokumentu."
     });
-  }, [elements, selectedElement, updateElementById, findParentElement, syncAndSave, toast]);
+  }, [elements, selectedElementId, updateElementById, findParentElement, syncAndSave, toast, findElementById]);
   
-  // Handle element selection
+  // Handle element selection - use stable ID
   const handleSelect = useCallback((element: ParsedElement) => {
-    setSelectedElement(element);
+    setSelectedElementId(element.id);
     setEditingElementId(null);
   }, []);
   
@@ -425,50 +396,78 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     });
     syncAndSave(updatedElements);
     setEditingElementId(null);
-    
-    // Update selected element reference
-    const updatedSelected = findElementById(updatedElements, elementId);
-    setSelectedElement(updatedSelected);
-  }, [elements, updateElementById, syncAndSave, findElementById]);
+    // Keep selection stable - don't reset selectedElementId
+  }, [elements, updateElementById, syncAndSave]);
   
-  // Handle element update from properties panel
+  // Handle element update from properties panel - stable ID prevents panel closing
   const handleUpdate = useCallback((updates: Partial<ParsedElement>) => {
-    if (!selectedElement) return;
+    if (!selectedElementId) return;
     
-    const updatedElements = updateElementById(elements, selectedElement.id, updates);
+    const updatedElements = updateElementById(elements, selectedElementId, updates);
     syncAndSave(updatedElements);
-    
-    const updatedSelected = findElementById(updatedElements, selectedElement.id);
-    setSelectedElement(updatedSelected);
-  }, [elements, selectedElement, updateElementById, syncAndSave, findElementById]);
+    // DON'T reset selectedElementId - keep panel open
+  }, [elements, selectedElementId, updateElementById, syncAndSave]);
   
-  // Handle element deletion
+  // Handle element deletion - clear ID only on delete
   const handleDelete = useCallback(() => {
-    if (!selectedElement) return;
+    if (!selectedElementId) return;
     
-    const updatedElements = deleteElementById(elements, selectedElement.id);
+    const updatedElements = deleteElementById(elements, selectedElementId);
     syncAndSave(updatedElements);
-    setSelectedElement(null);
+    setSelectedElementId(null); // Clear only on explicit delete
     setEditingElementId(null);
     
     toast({
       title: "Element usunięty",
       description: "Element został usunięty z dokumentu."
     });
-  }, [elements, selectedElement, deleteElementById, syncAndSave, toast]);
+  }, [elements, selectedElementId, deleteElementById, syncAndSave, toast]);
   
   // Handle element duplication
   const handleDuplicate = useCallback(() => {
-    if (!selectedElement) return;
+    if (!selectedElementId) return;
     
-    const updatedElements = duplicateElementById(elements, selectedElement.id);
+    const updatedElements = duplicateElementById(elements, selectedElementId);
     syncAndSave(updatedElements);
     
     toast({
       title: "Element zduplikowany",
       description: "Kopia elementu została dodana."
     });
-  }, [elements, selectedElement, duplicateElementById, syncAndSave, toast]);
+  }, [elements, selectedElementId, duplicateElementById, syncAndSave, toast]);
+  
+  // Handle keyboard shortcuts (moved here after handleDelete declaration)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        switch (e.key.toLowerCase()) {
+          case 'z':
+            e.preventDefault();
+            handleUndo();
+            break;
+          case 'y':
+            e.preventDefault();
+            handleRedo();
+            break;
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        handleRedo();
+      }
+      if (e.key === 'Escape') {
+        setEditingElementId(null);
+        setSelectedElementId(null);
+      }
+      if (e.key === 'Delete' && selectedElementId && !editingElementId) {
+        e.preventDefault();
+        handleDelete();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo, selectedElementId, editingElementId, handleDelete]);
   
   // Handle inserting child element into a container
   const handleInsertChild = useCallback((parentId: string, childHtml: string) => {
@@ -487,7 +486,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     // Select the newly inserted child
     const updatedParent = findElementById(updatedElements, parentId);
     if (updatedParent && updatedParent.children.length > 0) {
-      setSelectedElement(updatedParent.children[updatedParent.children.length - 1]);
+      setSelectedElementId(updatedParent.children[updatedParent.children.length - 1].id);
     }
     
     toast({
@@ -498,7 +497,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   
   // Handle close panel
   const handleClosePanel = useCallback(() => {
-    setSelectedElement(null);
+    setSelectedElementId(null);
     setEditingElementId(null);
   }, []);
   
@@ -563,7 +562,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
       {/* Element Toolbar */}
       <HtmlElementToolbar
         onAddElement={addElement}
-        hasSelection={!!selectedElement}
+        hasSelection={!!selectedElementId}
       />
       
       {/* Tabs */}
@@ -626,7 +625,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
         {/* Visual Editor Tab */}
         <TabsContent value="visual" className="flex-1 m-0 overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="h-full">
-            <ResizablePanel defaultSize={selectedElement ? 60 : 100} minSize={40} className="h-full">
+            <ResizablePanel defaultSize={selectedElementId ? 60 : 100} minSize={40} className="h-full">
               <div className="h-full overflow-y-auto">
                 <div className="p-4 pl-8 min-h-full" ref={editableRef}>
                   {customCss && <style>{customCss}</style>}
@@ -659,7 +658,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                               key={element.id}
                               element={element}
                               isEditMode={isEditMode}
-                              selectedId={selectedElement?.id || null}
+                              selectedId={selectedElementId}
                               hoveredId={hoveredId}
                               editingId={editingElementId}
                               onSelect={handleSelect}
@@ -669,10 +668,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                               onUpdate={(elementId, updates) => {
                                 const updatedElements = updateElementById(elements, elementId, updates);
                                 syncAndSave(updatedElements);
-                                const updatedSelected = findElementById(updatedElements, elementId);
-                                if (updatedSelected && selectedElement?.id === elementId) {
-                                  setSelectedElement(updatedSelected);
-                                }
+                                // Don't reset selection - keep it stable
                               }}
                               showOutlines={showOutlines}
                             />
@@ -685,12 +681,12 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
               </div>
             </ResizablePanel>
             
-            {selectedElement && (
+            {selectedElementId && (
               <>
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={40} minSize={30} maxSize={50}>
                   <SimplifiedPropertiesPanel
-                    element={selectedElement}
+                    element={findElementById(elements, selectedElementId)}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
                     onDuplicate={handleDuplicate}
