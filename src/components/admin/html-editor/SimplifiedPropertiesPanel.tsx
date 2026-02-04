@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ParsedElement, getElementType } from './types';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -65,6 +65,62 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
 }) => {
   const [activeTab, setActiveTab] = useState('style');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  
+  // LOCAL STATE - prevents panel from closing during edits
+  const [localStyles, setLocalStyles] = useState<Record<string, string>>({});
+  const [localAttributes, setLocalAttributes] = useState<Record<string, string>>({});
+  const [localTextContent, setLocalTextContent] = useState('');
+  
+  const pendingUpdateRef = useRef<NodeJS.Timeout>();
+  const elementIdRef = useRef<string | undefined>(undefined);
+  
+  // Sync local state when element.id changes (new element selected)
+  useEffect(() => {
+    if (element?.id !== elementIdRef.current) {
+      elementIdRef.current = element?.id;
+      setLocalStyles(element?.styles || {});
+      setLocalAttributes(element?.attributes || {});
+      setLocalTextContent(element?.textContent || '');
+    }
+  }, [element?.id, element?.styles, element?.attributes, element?.textContent]);
+  
+  // Debounced sync to parent
+  const scheduleUpdate = useCallback(() => {
+    if (pendingUpdateRef.current) {
+      clearTimeout(pendingUpdateRef.current);
+    }
+    
+    pendingUpdateRef.current = setTimeout(() => {
+      onUpdate({
+        styles: localStyles,
+        attributes: localAttributes,
+        textContent: localTextContent
+      });
+    }, 300);
+  }, [localStyles, localAttributes, localTextContent, onUpdate]);
+  
+  // Trigger debounced update when local state changes
+  useEffect(() => {
+    // Only schedule if we have an element and local state differs from initial
+    if (element?.id && elementIdRef.current === element.id) {
+      scheduleUpdate();
+    }
+    
+    return () => {
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+      }
+    };
+  }, [localStyles, localAttributes, localTextContent, element?.id, scheduleUpdate]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+      }
+    };
+  }, []);
 
   if (!element) {
     return (
@@ -79,16 +135,14 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
   
   const elementType = getElementType(element.tagName);
   
+  // Update LOCAL attribute (instant feedback)
   const updateAttribute = (key: string, value: string) => {
-    onUpdate({
-      attributes: { ...element.attributes, [key]: value }
-    });
+    setLocalAttributes(prev => ({ ...prev, [key]: value }));
   };
   
+  // Update LOCAL style (instant feedback)
   const updateStyle = (key: string, value: string) => {
-    onUpdate({
-      styles: { ...element.styles, [key]: value }
-    });
+    setLocalStyles(prev => ({ ...prev, [key]: value }));
   };
 
   // Handle media upload
@@ -184,12 +238,12 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                     <div className="flex justify-between items-center">
                       <Label className="text-xs">Szerokość</Label>
                       <span className="text-xs text-muted-foreground font-mono">
-                        {element.styles.width || 'auto'}
+                        {localStyles.width || 'auto'}
                       </span>
                     </div>
                     <div className="flex gap-2 items-center">
                       <Slider
-                        value={[isPercentage(element.styles.width) ? parseDimension(element.styles.width) : 100]}
+                        value={[isPercentage(localStyles.width) ? parseDimension(localStyles.width) : 100]}
                         onValueChange={([v]) => updateStyle('width', `${v}%`)}
                         min={10}
                         max={100}
@@ -197,7 +251,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                         className="flex-1"
                       />
                       <Button 
-                        variant={!element.styles.width || element.styles.width === 'auto' ? 'default' : 'outline'}
+                        variant={!localStyles.width || localStyles.width === 'auto' ? 'default' : 'outline'}
                         size="sm"
                         className="h-7 text-xs px-2"
                         onClick={() => updateStyle('width', 'auto')}
@@ -206,7 +260,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                       </Button>
                     </div>
                     <DebouncedStyleInput
-                      value={element.styles.width || ''}
+                      value={localStyles.width || ''}
                       onFinalChange={(v) => updateStyle('width', normalizeStyleValue('width', v))}
                       normalizeValue={(v) => normalizeStyleValue('width', v)}
                       placeholder="np. 100%, 400px, auto"
@@ -219,11 +273,11 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                     <div className="flex justify-between items-center">
                       <Label className="text-xs">Wysokość</Label>
                       <span className="text-xs text-muted-foreground font-mono">
-                        {element.styles.height || 'auto'}
+                        {localStyles.height || 'auto'}
                       </span>
                     </div>
                     <DebouncedStyleInput
-                      value={element.styles.height || ''}
+                      value={localStyles.height || ''}
                       onFinalChange={(v) => updateStyle('height', normalizeStyleValue('height', v))}
                       normalizeValue={(v) => normalizeStyleValue('height', v)}
                       placeholder="np. auto, 200px, 100vh"
@@ -235,7 +289,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <div className="space-y-2">
                     <Label className="text-xs">Maks. szerokość</Label>
                     <DebouncedStyleInput
-                      value={element.styles.maxWidth || ''}
+                      value={localStyles.maxWidth || ''}
                       onFinalChange={(v) => updateStyle('maxWidth', normalizeStyleValue('maxWidth', v))}
                       normalizeValue={(v) => normalizeStyleValue('maxWidth', v)}
                       placeholder="np. 1200px, 100%"
@@ -255,12 +309,12 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                       <div className="flex gap-1.5">
                         <Input
                           type="color"
-                          value={element.styles.backgroundColor || '#ffffff'}
+                          value={localStyles.backgroundColor || '#ffffff'}
                           onChange={(e) => updateStyle('backgroundColor', e.target.value)}
                           className="w-10 h-8 p-1 cursor-pointer"
                         />
                         <DebouncedStyleInput
-                          value={element.styles.backgroundColor || ''}
+                          value={localStyles.backgroundColor || ''}
                           onFinalChange={(v) => updateStyle('backgroundColor', v)}
                           placeholder="#fff"
                           className="flex-1 h-8 text-xs"
@@ -274,12 +328,12 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                       <div className="flex gap-1.5">
                         <Input
                           type="color"
-                          value={element.styles.color || '#000000'}
+                          value={localStyles.color || '#000000'}
                           onChange={(e) => updateStyle('color', e.target.value)}
                           className="w-10 h-8 p-1 cursor-pointer"
                         />
                         <DebouncedStyleInput
-                          value={element.styles.color || ''}
+                          value={localStyles.color || ''}
                           onFinalChange={(v) => updateStyle('color', v)}
                           placeholder="#000"
                           className="flex-1 h-8 text-xs"
@@ -307,7 +361,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <StylePresets
                     label="Zaokrąglenie rogów"
                     options={borderRadiusPresets}
-                    currentValue={element.styles.borderRadius}
+                    currentValue={localStyles.borderRadius}
                     onSelect={(v) => updateStyle('borderRadius', v)}
                     columns={6}
                   />
@@ -316,7 +370,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <StylePresets
                     label="Cień"
                     options={boxShadowPresets}
-                    currentValue={element.styles.boxShadow}
+                    currentValue={localStyles.boxShadow}
                     onSelect={(v) => updateStyle('boxShadow', v)}
                     columns={5}
                   />
@@ -326,11 +380,11 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                     <div className="flex justify-between items-center">
                       <Label className="text-xs">Przezroczystość</Label>
                       <span className="text-xs text-muted-foreground">
-                        {Math.round((parseFloat(element.styles.opacity || '1')) * 100)}%
+                        {Math.round((parseFloat(localStyles.opacity || '1')) * 100)}%
                       </span>
                     </div>
                     <Slider
-                      value={[parseFloat(element.styles.opacity || '1') * 100]}
+                      value={[parseFloat(localStyles.opacity || '1') * 100]}
                       onValueChange={([v]) => updateStyle('opacity', String(v / 100))}
                       min={0}
                       max={100}
@@ -342,7 +396,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <div className="space-y-2">
                     <Label className="text-xs">Obramowanie</Label>
                     <DebouncedStyleInput
-                      value={element.styles.border || ''}
+                      value={localStyles.border || ''}
                       onFinalChange={(v) => updateStyle('border', v)}
                       placeholder="np. 1px solid #ccc"
                       className="h-8"
@@ -357,73 +411,73 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <div className="space-y-3">
                     <div className="grid grid-cols-4 gap-1.5">
                       <Button
-                        variant={element.styles.display !== 'grid' && element.styles.display !== 'flex' ? 'default' : 'outline'}
+                        variant={localStyles.display !== 'grid' && localStyles.display !== 'flex' ? 'default' : 'outline'}
                         size="sm"
                         className="h-9"
-                        onClick={() => onUpdate({
-                          styles: {
-                            ...element.styles,
+                        onClick={() => {
+                          setLocalStyles(prev => ({
+                            ...prev,
                             display: 'block',
                             gridTemplateColumns: undefined,
                             gap: undefined
-                          }
-                        })}
+                          }));
+                        }}
                       >
                         1
                       </Button>
                       <Button
-                        variant={element.styles.gridTemplateColumns === 'repeat(2, 1fr)' ? 'default' : 'outline'}
+                        variant={localStyles.gridTemplateColumns === 'repeat(2, 1fr)' ? 'default' : 'outline'}
                         size="sm"
                         className="h-9 gap-0.5"
-                        onClick={() => onUpdate({
-                          styles: {
-                            ...element.styles,
+                        onClick={() => {
+                          setLocalStyles(prev => ({
+                            ...prev,
                             display: 'grid',
                             gridTemplateColumns: 'repeat(2, 1fr)',
-                            gap: element.styles.gap || '1rem'
-                          }
-                        })}
+                            gap: prev.gap || '1rem'
+                          }));
+                        }}
                       >
                         <Columns2 className="w-4 h-4" />
                       </Button>
                       <Button
-                        variant={element.styles.gridTemplateColumns === 'repeat(3, 1fr)' ? 'default' : 'outline'}
+                        variant={localStyles.gridTemplateColumns === 'repeat(3, 1fr)' ? 'default' : 'outline'}
                         size="sm"
                         className="h-9 gap-0.5"
-                        onClick={() => onUpdate({
-                          styles: {
-                            ...element.styles,
+                        onClick={() => {
+                          setLocalStyles(prev => ({
+                            ...prev,
                             display: 'grid',
                             gridTemplateColumns: 'repeat(3, 1fr)',
-                            gap: element.styles.gap || '1rem'
-                          }
-                        })}
+                            gap: prev.gap || '1rem'
+                          }));
+                        }}
                       >
                         <Columns3 className="w-4 h-4" />
                       </Button>
                       <Button
-                        variant={element.styles.gridTemplateColumns === 'repeat(4, 1fr)' ? 'default' : 'outline'}
+                        variant={localStyles.gridTemplateColumns === 'repeat(4, 1fr)' ? 'default' : 'outline'}
                         size="sm"
                         className="h-9"
-                        onClick={() => onUpdate({
-                          styles: {
-                            ...element.styles,
+                        onClick={() => {
+                          setLocalStyles(prev => ({
+                            ...prev,
                             display: 'grid',
                             gridTemplateColumns: 'repeat(4, 1fr)',
-                            gap: element.styles.gap || '1rem'
-                          }
-                        })}
+                            gap: prev.gap || '1rem'
+                          }));
+                        }}
                       >
                         4
                       </Button>
                     </div>
                     
                     {/* Gap presets */}
-                    {(element.styles.display === 'grid' || element.styles.display === 'flex') && (
+                    {(localStyles.display === 'grid' || localStyles.display === 'flex') && (
                       <StylePresets
                         label="Odstęp między elementami"
                         options={gapPresets}
-                        currentValue={element.styles.gap}
+                        currentValue={localStyles.gap}
                         onSelect={(v) => updateStyle('gap', v)}
                         columns={5}
                       />
@@ -438,14 +492,14 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <div className="space-y-3">
                     <MediaUpload
                       onMediaUploaded={handleMediaUpload}
-                      currentMediaUrl={element.attributes.src}
+                      currentMediaUrl={localAttributes.src}
                       allowedTypes={['image']}
                       compact
                     />
                     <div className="space-y-2">
                       <Label className="text-xs">Opis (alt)</Label>
                       <DebouncedStyleInput
-                        value={element.attributes.alt || ''}
+                        value={localAttributes.alt || ''}
                         onFinalChange={(v) => updateAttribute('alt', v)}
                         placeholder="Opis obrazka dla dostępności"
                         className="h-8"
@@ -457,7 +511,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                         {['cover', 'contain', 'fill', 'none'].map((fit) => (
                           <Button
                             key={fit}
-                            variant={element.styles.objectFit === fit ? 'default' : 'outline'}
+                            variant={localStyles.objectFit === fit ? 'default' : 'outline'}
                             size="sm"
                             className="h-7 text-xs"
                             onClick={() => updateStyle('objectFit', fit)}
@@ -478,7 +532,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                 <Section title="Wideo" icon={<Video className="w-4 h-4" />}>
                   <MediaUpload
                     onMediaUploaded={handleMediaUpload}
-                    currentMediaUrl={element.attributes.src}
+                    currentMediaUrl={localAttributes.src}
                     allowedTypes={['video']}
                     compact
                   />
@@ -491,11 +545,11 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <div className="space-y-3">
                     <MediaUpload
                       onMediaUploaded={handleMediaUpload}
-                      currentMediaUrl={element.styles.backgroundImage?.replace(/url\(['"]?|['"]?\)/g, '')}
+                      currentMediaUrl={localStyles.backgroundImage?.replace(/url\(['"]?|['"]?\)/g, '')}
                       allowedTypes={['image']}
                       compact
                     />
-                    {element.styles.backgroundImage && (
+                    {localStyles.backgroundImage && (
                       <>
                         <div className="space-y-2">
                           <Label className="text-xs">Rozmiar tła</Label>
@@ -503,7 +557,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                             {['cover', 'contain', 'auto'].map((size) => (
                               <Button
                                 key={size}
-                                variant={element.styles.backgroundSize === size ? 'default' : 'outline'}
+                                variant={localStyles.backgroundSize === size ? 'default' : 'outline'}
                                 size="sm"
                                 className="h-7 text-xs"
                                 onClick={() => updateStyle('backgroundSize', size)}
@@ -539,7 +593,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Position</Label>
                       <Select 
-                        value={element.styles.position || ''} 
+                        value={localStyles.position || ''} 
                         onValueChange={(v) => updateStyle('position', v)}
                       >
                         <SelectTrigger className="h-8 text-xs">
@@ -556,7 +610,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Z-index</Label>
                       <DebouncedStyleInput
-                        value={element.styles.zIndex || ''}
+                        value={localStyles.zIndex || ''}
                         onFinalChange={(v) => updateStyle('zIndex', v)}
                         placeholder="auto"
                         className="h-8"
@@ -569,7 +623,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                       {['visible', 'hidden', 'scroll', 'auto'].map((ov) => (
                         <Button
                           key={ov}
-                          variant={element.styles.overflow === ov ? 'default' : 'outline'}
+                          variant={localStyles.overflow === ov ? 'default' : 'outline'}
                           size="sm"
                           className="h-7 text-xs"
                           onClick={() => updateStyle('overflow', ov)}
@@ -582,7 +636,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <div className="space-y-1.5">
                     <Label className="text-xs">Klasa CSS</Label>
                     <DebouncedStyleInput
-                      value={element.attributes.class || ''}
+                      value={localAttributes.class || ''}
                       onFinalChange={(v) => updateAttribute('class', v)}
                       placeholder="np. my-custom-class"
                       className="h-8"
@@ -599,7 +653,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
           <ScrollArea className="h-full">
             <div className="p-3">
               <VisualSpacingEditor
-                styles={element.styles}
+                styles={localStyles}
                 onStyleChange={updateStyle}
               />
             </div>
@@ -615,8 +669,8 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                 <div className="space-y-2">
                   <Label className="text-xs">Treść tekstowa</Label>
                   <Textarea
-                    value={element.textContent}
-                    onChange={(e) => onUpdate({ textContent: e.target.value })}
+                    value={localTextContent}
+                    onChange={(e) => setLocalTextContent(e.target.value)}
                     rows={4}
                     className="text-sm"
                     placeholder="Wpisz tekst..."
@@ -631,7 +685,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                     <Label className="text-xs">Rozmiar tekstu</Label>
                     <div className="flex gap-2">
                       <DebouncedStyleInput
-                        value={element.styles.fontSize || ''}
+                        value={localStyles.fontSize || ''}
                         onFinalChange={(v) => updateStyle('fontSize', normalizeStyleValue('fontSize', v))}
                         normalizeValue={(v) => normalizeStyleValue('fontSize', v)}
                         placeholder="np. 16px, 1.5rem"
@@ -643,7 +697,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                   <StylePresets
                     label="Grubość tekstu"
                     options={fontWeightPresets}
-                    currentValue={element.styles.fontWeight}
+                    currentValue={localStyles.fontWeight}
                     onSelect={(v) => updateStyle('fontWeight', v)}
                     columns={5}
                   />
@@ -658,7 +712,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                       ].map(({ value, icon }) => (
                         <Button
                           key={value}
-                          variant={element.styles.textAlign === value ? 'default' : 'outline'}
+                          variant={localStyles.textAlign === value ? 'default' : 'outline'}
                           size="sm"
                           className="flex-1 h-8"
                           onClick={() => updateStyle('textAlign', value)}
@@ -676,14 +730,14 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                 <div className="space-y-2">
                   <Label className="text-xs">Adres URL</Label>
                   <DebouncedStyleInput
-                    value={element.attributes.href || ''}
+                    value={localAttributes.href || ''}
                     onFinalChange={(v) => updateAttribute('href', v)}
                     placeholder="https://..."
                     className="h-8"
                   />
                   <div className="flex gap-1">
                     <Button
-                      variant={element.attributes.target !== '_blank' ? 'default' : 'outline'}
+                      variant={localAttributes.target !== '_blank' ? 'default' : 'outline'}
                       size="sm"
                       className="flex-1 h-7 text-xs"
                       onClick={() => updateAttribute('target', '_self')}
@@ -691,7 +745,7 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                       Ta sama karta
                     </Button>
                     <Button
-                      variant={element.attributes.target === '_blank' ? 'default' : 'outline'}
+                      variant={localAttributes.target === '_blank' ? 'default' : 'outline'}
                       size="sm"
                       className="flex-1 h-7 text-xs"
                       onClick={() => updateAttribute('target', '_blank')}
@@ -703,15 +757,15 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
               )}
               
               {/* Icon picker */}
-              {(element.tagName === 'i' || element.attributes['data-lucide']) && (
+              {(element.tagName === 'i' || localAttributes['data-lucide']) && (
                 <div className="space-y-2">
                   <Label className="text-xs">Ikona</Label>
                   <IconPicker
-                    value={element.attributes['data-lucide'] || null}
+                    value={localAttributes['data-lucide'] || null}
                     onChange={(name) => name && updateAttribute('data-lucide', name)}
                     trigger={
                       <Button variant="outline" size="sm" className="w-full justify-start h-8">
-                        {element.attributes['data-lucide'] || 'Wybierz ikonę...'}
+                        {localAttributes['data-lucide'] || 'Wybierz ikonę...'}
                       </Button>
                     }
                   />
