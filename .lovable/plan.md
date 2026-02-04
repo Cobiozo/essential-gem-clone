@@ -1,139 +1,97 @@
 
-# Plan: Naprawa okładek Zdrowa Wiedza i widoku użytkowników na mobile
+# Plan: Naprawa dodawania okładek w Zdrowa Wiedza
 
-## Zidentyfikowane problemy
+## Zdiagnozowana przyczyna błędu
 
-### Problem 1: Błąd przesyłania okładki w Zdrowa Wiedza
+Błąd **"new row violates row-level security policy"** jest spowodowany brakiem polityki RLS `UPDATE` dla bucketu `healthy-knowledge` w Supabase Storage.
 
-**Przyczyna**: Bezpośredni upload w `HealthyKnowledgeManagement.tsx` nie sanityzuje nazwy pliku, co powoduje problemy z plikami zawierającymi spacje i znaki specjalne (np. `WhatsApp Image 2026-02-04 at 03.20.10.jpeg`).
+### Aktualne polityki dla `healthy-knowledge`:
+| Operacja | Polityka | Status |
+|----------|----------|--------|
+| SELECT | ✅ "Public read access for healthy-knowledge" | Istnieje |
+| INSERT | ✅ "Admins can upload to healthy-knowledge" | Istnieje |
+| DELETE | ✅ "Admins can delete from healthy-knowledge" | Istnieje |
+| UPDATE | ❌ **BRAK POLITYKI** | Brak |
 
-Porównanie kodu:
-- **MediaUpload (działa)**: używa `useLocalStorage` → `file.name.replace(/[^a-zA-Z0-9.-]/g, '_')` - usuwa wszystkie problematyczne znaki
-- **Thumbnail upload (błąd)**: `thumbnails/${Date.now()}-${file.name}` - przekazuje surową nazwę pliku
+### Dlaczego to powoduje błąd:
+Kod w `HealthyKnowledgeManagement.tsx` (linia 777) używa:
+```typescript
+.upload(fileName, file, { upsert: true });
+```
 
-### Problem 2: Chaotyczne wyświetlanie użytkowników na mobile
-
-**Przyczyna**: Układ `CompactUserCard` nie adaptuje się do wąskich ekranów:
-1. Przyciski akcji mają `flex-shrink-0`, co zmusza główną sekcję do skrajnego zmniejszenia
-2. Długie dane (EQ ID, email, data, telefon, ostatnie logowanie) w jednym wierszu flex z separatorami `•` powoduje łamanie tekstu znak po znaku
-3. Brak dedykowanego układu mobilnego - wszystko próbuje zmieścić się poziomo
+Opcja `upsert: true` wymaga zarówno uprawnień `INSERT` jak i `UPDATE`, ponieważ może nadpisać istniejący plik.
 
 ---
 
 ## Rozwiązanie
 
-### Zmiana 1: Sanityzacja nazwy pliku okładki
+### Zmiana 1: Migracja SQL - dodanie polityki UPDATE
 
-**Plik**: `src/components/admin/HealthyKnowledgeManagement.tsx`
+Utworzyć nową migrację dodającą brakującą politykę:
 
-Dodać sanityzację nazwy pliku przed uploadem (identyczną jak w `useLocalStorage`):
-
-```typescript
-// Linia ~772 - przed uploadem
-const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-const fileName = `thumbnails/${Date.now()}-${sanitizedFileName}`;
+```sql
+-- Add missing UPDATE policy for healthy-knowledge bucket
+CREATE POLICY "Admins can update healthy-knowledge files"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'healthy-knowledge' 
+  AND (SELECT is_admin())
+)
+WITH CHECK (
+  bucket_id = 'healthy-knowledge' 
+  AND (SELECT is_admin())
+);
 ```
 
-Dodatkowo dodać lepszą obsługę błędów z wyświetleniem szczegółów:
+### Zmiana 2 (opcjonalna): Alternatywa - unikanie upsert
 
-```typescript
-} catch (error: any) {
-  console.error('Thumbnail upload error:', error);
-  toast.error(`Błąd przesyłania okładki: ${error.message || 'Nieznany błąd'}`);
-}
-```
+Jeśli chcemy uniknąć modyfikacji RLS, można zmienić kod tak, aby nie używał `upsert`:
+1. Sprawdzić czy plik istnieje
+2. Jeśli tak - usunąć go
+3. Wgrać nowy plik
 
-### Zmiana 2: Responsywny układ CompactUserCard
+Jednak **preferowane jest rozwiązanie 1** (dodanie polityki UPDATE), ponieważ:
+- Jest bardziej eleganckie
+- Nie wymaga dodatkowych zapytań
+- Jest spójne z pozostałymi bucketami (np. `training-media` ma politykę UPDATE)
 
-**Plik**: `src/components/admin/CompactUserCard.tsx`
+---
 
-Przeprojektować główny układ karty dla urządzeń mobilnych:
+## Szczegóły implementacji
 
-**A) Zmiana struktury głównego kontenera (linia ~202)**:
-```typescript
-// PRZED:
-<div className="flex items-center gap-3 p-3">
+### Nowy plik migracji
+**Ścieżka**: `supabase/migrations/[timestamp]_add_healthy_knowledge_update_policy.sql`
 
-// PO - zmienić na stos pionowy dla małych ekranów:
-<div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3">
-```
+```sql
+-- Add missing UPDATE policy for healthy-knowledge storage bucket
+-- This is required because the thumbnail upload uses upsert: true option
 
-**B) Sekcja głównych informacji (linie ~216-275)**:
-
-Podzielić informacje na dwa wiersze na mobile:
-- Wiersz 1: Imię + rola + status email
-- Wiersz 2: EQ ID, email (obcięty), data
-
-```typescript
-// Zmienić sekcję szczegółów (linia ~241):
-<div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-0.5">
-  {/* Pierwszy wiersz mobilny: EQ + email */}
-  <div className="flex items-center gap-1.5 flex-wrap">
-    {userProfile.eq_id && (
-      <span className="font-medium whitespace-nowrap">EQ: {userProfile.eq_id}</span>
-    )}
-    {hasName && (
-      <span className="truncate max-w-[150px] sm:max-w-none">{userProfile.email}</span>
-    )}
-  </div>
-  
-  {/* Drugi wiersz mobilny: data + telefon + ostatnie logowanie */}
-  <div className="flex items-center gap-1.5 flex-wrap text-muted-foreground/70">
-    <span className="whitespace-nowrap">{new Date(userProfile.created_at).toLocaleDateString('pl-PL')}</span>
-    {userProfile.phone_number && (
-      <span className="whitespace-nowrap">{userProfile.phone_number}</span>
-    )}
-  </div>
-</div>
-```
-
-**C) Sekcja przycisków akcji (linie ~297-447)**:
-
-Przenieść przyciski akcji pod główną zawartość na mobile:
-
-```typescript
-// Zmienić kontener przycisków:
-<div className="flex items-center gap-1.5 flex-shrink-0 mt-2 sm:mt-0 w-full sm:w-auto justify-end">
-```
-
-**D) Ukrycie niektórych danych na mobile**:
-
-Ostatnie logowanie jest zbyt długie dla mobile - przenieść do sekcji rozwijalnej:
-
-```typescript
-// Usunąć z głównego widoku dla mobile:
-{/* Last sign in - tylko na desktop */}
-<span className="hidden sm:inline">
-  Ostatnio: {new Date(userProfile.last_sign_in_at).toLocaleString('pl-PL', {...})}
-</span>
+CREATE POLICY "Admins can update healthy-knowledge files"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'healthy-knowledge' 
+  AND (SELECT is_admin())
+)
+WITH CHECK (
+  bucket_id = 'healthy-knowledge' 
+  AND (SELECT is_admin())
+);
 ```
 
 ---
 
-## Szczegółowa tabela zmian
-
-| Plik | Lokalizacja | Zmiana |
-|------|-------------|--------|
-| `HealthyKnowledgeManagement.tsx` | Linia 772 | Sanityzacja nazwy pliku przed uploadem |
-| `HealthyKnowledgeManagement.tsx` | Linia 791 | Wyświetlanie szczegółowego błędu |
-| `CompactUserCard.tsx` | Linia 202 | `flex-col sm:flex-row` dla głównego kontenera |
-| `CompactUserCard.tsx` | Linie 241-274 | Podział szczegółów na 2 wiersze mobilne |
-| `CompactUserCard.tsx` | Linia 297 | Responsywny kontener przycisków |
-| `CompactUserCard.tsx` | Linie 262-273 | Ukrycie "ostatnie logowanie" na mobile |
-
----
-
-## Oczekiwane rezultaty
+## Oczekiwany rezultat
 
 Po wdrożeniu:
+1. Administratorzy będą mogli dodawać okładki do istniejących materiałów bez błędów
+2. Opcja `upsert: true` będzie działać poprawnie
+3. Bezpieczeństwo pozostanie zachowane - tylko administratorzy mogą modyfikować pliki
 
-1. **Okładki Zdrowa Wiedza**:
-   - Pliki z nazwami zawierającymi spacje/znaki specjalne (np. WhatsApp) będą poprawnie przesyłane
-   - Błędy będą wyświetlane ze szczegółami, ułatwiając diagnostykę
+---
 
-2. **Widok użytkowników na mobile**:
-   - Czytelny układ w orientacji pionowej i poziomej
-   - Dane nie będą się łamać znak po znaku
-   - Przyciski akcji będą dostępne i widoczne
-   - Kluczowe informacje (imię, rola, EQ, email) widoczne od razu
-   - Szczegóły (ostatnie logowanie) dostępne po rozwinięciu lub na większych ekranach
+## Weryfikacja po wdrożeniu
+
+1. Zalogować się jako administrator
+2. Przejść do Zdrowa Wiedza → edycja istniejącego materiału wideo
+3. Wybrać plik okładki (dowolny obraz JPG/PNG)
+4. Sprawdzić czy okładka została przesłana bez błędu RLS
