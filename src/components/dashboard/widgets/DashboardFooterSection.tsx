@@ -4,7 +4,6 @@ import * as LucideIcons from 'lucide-react';
 import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useCookieConsent } from '@/hooks/useCookieConsent';
 
 interface DashboardFooterSettings {
   id: string;
@@ -37,8 +36,11 @@ const DynamicIcon = ({ name, className }: { name: string; className?: string }) 
 
 export const DashboardFooterSection: React.FC = () => {
   const { t } = useLanguage();
-  const { reopenBanner } = useCookieConsent();
   const [settings, setSettings] = useState<DashboardFooterSettings | null>(null);
+
+  const handleOpenCookieSettings = () => {
+    window.dispatchEvent(new CustomEvent('openCookieSettings'));
+  };
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -151,7 +153,7 @@ export const DashboardFooterSection: React.FC = () => {
             {t('footer.terms')}
           </a>
           <span>•</span>
-          <button onClick={reopenBanner} className="hover:text-primary transition-colors">
+          <button onClick={handleOpenCookieSettings} className="hover:text-primary transition-colors">
             {t('footer.cookieSettings')}
           </button>
         </div>

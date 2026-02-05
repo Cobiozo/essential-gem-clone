@@ -1,9 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCookieConsent } from '@/hooks/useCookieConsent';
 import { CookiePreferenceCenter } from './CookiePreferenceCenter';
-import { CookieRevisitButton } from './CookieRevisitButton';
 import { cn } from '@/lib/utils';
 
 export function CookieConsentBanner() {
@@ -25,6 +24,18 @@ export function CookieConsentBanner() {
   } = useCookieConsent();
 
   const [localConsents, setLocalConsents] = useState<Record<string, boolean>>({});
+
+  // Listen for openCookieSettings event from footer links
+  useEffect(() => {
+    const handleOpenCookieSettings = () => {
+      reopenBanner();
+    };
+    
+    window.addEventListener('openCookieSettings', handleOpenCookieSettings);
+    return () => {
+      window.removeEventListener('openCookieSettings', handleOpenCookieSettings);
+    };
+  }, [reopenBanner]);
 
   if (isLoading || !settings?.is_active || !bannerSettings) {
     return null;

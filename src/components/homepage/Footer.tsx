@@ -1,11 +1,13 @@
 import React from 'react';
 import dropletIcon from '@/assets/pure-life-droplet.png';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useCookieConsent } from '@/hooks/useCookieConsent';
 
 const Footer = () => {
   const { t } = useLanguage();
-  const { reopenBanner } = useCookieConsent();
+  
+  const handleOpenCookieSettings = () => {
+    window.dispatchEvent(new CustomEvent('openCookieSettings'));
+  };
   
   return (
     <footer className="bg-muted border-t border-border py-6">
@@ -33,7 +35,7 @@ const Footer = () => {
             </a>
             <span className="text-foreground/30 dark:text-foreground/40">•</span>
             <button 
-              onClick={reopenBanner} 
+              onClick={handleOpenCookieSettings} 
               className="text-foreground/60 dark:text-foreground/70 hover:text-primary transition-colors"
             >
               {t('footer.cookieSettings')}
