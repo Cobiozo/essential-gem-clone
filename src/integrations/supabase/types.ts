@@ -4469,6 +4469,7 @@ export type Database = {
           is_active: boolean
           is_searchable: boolean | null
           last_name: string | null
+          last_seen_at: string | null
           phone_number: string | null
           postal_code: string | null
           profile_completed: boolean | null
@@ -4509,6 +4510,7 @@ export type Database = {
           is_active?: boolean
           is_searchable?: boolean | null
           last_name?: string | null
+          last_seen_at?: string | null
           phone_number?: string | null
           postal_code?: string | null
           profile_completed?: boolean | null
@@ -4549,6 +4551,7 @@ export type Database = {
           is_active?: boolean
           is_searchable?: boolean | null
           last_name?: string | null
+          last_seen_at?: string | null
           phone_number?: string | null
           postal_code?: string | null
           profile_completed?: boolean | null

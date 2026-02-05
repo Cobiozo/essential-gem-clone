@@ -18,6 +18,12 @@ interface MessagesSidebarProps {
   upline?: TeamMemberChannel | null;
   selectedDirectUserId?: string | null;
   onSelectDirectMember?: (userId: string) => void;
+  // Group chat selection props
+  selectionMode?: boolean;
+  onToggleSelectionMode?: () => void;
+  selectedMembers?: Set<string>;
+  onToggleSelection?: (userId: string) => void;
+  onCreateGroupChat?: () => void;
 }
 
 export const MessagesSidebar = ({
@@ -31,6 +37,11 @@ export const MessagesSidebar = ({
   upline = null,
   selectedDirectUserId = null,
   onSelectDirectMember,
+  selectionMode = false,
+  onToggleSelectionMode,
+  selectedMembers = new Set(),
+  onToggleSelection,
+  onCreateGroupChat,
 }: MessagesSidebarProps) => {
   // Separate outgoing (can send) and incoming (can receive) channels
   const outgoingChannels = channels.filter(c => c.canSend);
@@ -43,6 +54,9 @@ export const MessagesSidebar = ({
   const filteredIncoming = incomingChannels.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Can create groups if user has downline members
+  const canCreateGroups = teamMembers.length > 1;
 
   return (
     <div className={cn('flex flex-col bg-background', className)}>
@@ -93,6 +107,13 @@ export const MessagesSidebar = ({
               selectedUserId={selectedDirectUserId}
               onSelectMember={onSelectDirectMember}
               searchQuery={searchQuery}
+              // Group chat props
+              selectionMode={selectionMode}
+              onToggleSelectionMode={onToggleSelectionMode}
+              selectedMembers={selectedMembers}
+              onToggleSelection={onToggleSelection}
+              onCreateGroupChat={onCreateGroupChat}
+              canCreateGroups={canCreateGroups}
             />
           )}
 

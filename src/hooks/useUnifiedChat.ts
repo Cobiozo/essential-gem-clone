@@ -238,6 +238,20 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         },
       });
 
+      // Trigger email notification for offline users
+      try {
+        await supabase.functions.invoke('send-chat-notification-email', {
+          body: {
+            recipient_id: recipientId,
+            sender_name: senderName,
+            message_content: content,
+            message_type: messageType,
+          },
+        });
+      } catch (emailError) {
+        console.warn('Email notification failed:', emailError);
+      }
+
       // Refresh messages
       await fetchDirectMessages(recipientId);
       return true;
@@ -246,6 +260,72 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       return false;
     }
   }, [user, profile, currentRole, fetchDirectMessages]);
+
+  // Create group chat with multiple team members
+  const createGroupChat = useCallback(async (
+    participantIds: string[],
+    subject: string,
+    initialMessage: string
+  ): Promise<boolean> => {
+    if (!user || !profile || participantIds.length < 2) return false;
+
+    try {
+      const senderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik';
+
+      // Send initial message to all participants
+      for (const recipientId of participantIds) {
+        const { data: recipientProfile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('user_id', recipientId)
+          .single();
+
+        await supabase.from('role_chat_messages').insert({
+          sender_id: user.id,
+          sender_role: currentRole,
+          recipient_role: recipientProfile?.role || 'client',
+          recipient_id: recipientId,
+          content: `[Czat grupowy: ${subject}]\n\n${initialMessage}`,
+          channel_id: null,
+          message_type: 'text',
+        });
+
+        // Send notification
+        await supabase.from('user_notifications').insert({
+          user_id: recipientId,
+          sender_id: user.id,
+          notification_type: 'group_chat_invite',
+          source_module: 'role_chat',
+          title: `Nowy czat grupowy: ${subject}`,
+          message: `${senderName} zaprosił(a) Cię do czatu grupowego`,
+          link: '/messages',
+          metadata: {
+            sender_name: senderName,
+            group_subject: subject,
+          },
+        });
+
+        // Trigger email notification
+        try {
+          await supabase.functions.invoke('send-chat-notification-email', {
+            body: {
+              recipient_id: recipientId,
+              sender_name: senderName,
+              message_content: `Zaproszenie do czatu grupowego: ${subject}\n\n${initialMessage}`,
+              message_type: 'text',
+            },
+          });
+        } catch (emailError) {
+          console.warn('Email notification failed:', emailError);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error creating group chat:', error);
+      return false;
+    }
+  }, [user, profile, currentRole]);
 
   // Select direct message user
   const selectDirectMember = useCallback((userId: string) => {
@@ -701,6 +781,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     selectedDirectMember,
     selectDirectMember,
     sendDirectMessage,
+    createGroupChat,
     refetch: () => {
       fetchUnreadCounts();
       fetchTeamMembers();
