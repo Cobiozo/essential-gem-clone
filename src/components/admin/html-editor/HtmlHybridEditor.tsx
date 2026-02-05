@@ -162,6 +162,12 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
     return null;
   }, []);
   
+  // MEMOIZED selected element - prevents panel closing during state updates
+  const selectedElement = useMemo(() => {
+    if (!selectedElementId) return null;
+    return findElementById(elements, selectedElementId);
+  }, [elements, selectedElementId, findElementById]);
+  
   // Find parent element
   const findParentElement = useCallback((elements: ParsedElement[], childId: string, parent: ParsedElement | null = null): ParsedElement | null => {
     for (const el of elements) {
@@ -685,12 +691,12 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
               </div>
             </ResizablePanel>
             
-            {selectedElementId && (
+            {selectedElementId && selectedElement && (
               <>
                 <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={40} minSize={30} maxSize={50}>
+                <ResizablePanel defaultSize={32} minSize={25} maxSize={45}>
                   <SimplifiedPropertiesPanel
-                    element={findElementById(elements, selectedElementId)}
+                    element={selectedElement}
                     onUpdate={handleUpdate}
                     onDelete={handleDelete}
                     onDuplicate={handleDuplicate}
