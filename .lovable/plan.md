@@ -1,241 +1,227 @@
 
 
-# Plan: Sekcja zarządzania ustawieniami Open Graph w panelu admina
+# Analiza problemu: Meta tagi OG nie synchronizują się
 
-## Cel
+## Zidentyfikowany problem
 
-Dodać w panelu admina (zakładka **Settings**) pełną sekcję do zarządzania ustawieniami SEO/Social Media:
-- Tytuł OG (`og_title`)
-- Opis OG (`og_description`)
-- Nazwa strony (`og_site_name`)
-- URL strony (`og_url`)
-- Obrazek OG (już istnieje)
+### Rozbieżność danych
 
----
+| Źródło | og:image URL | Stan |
+|--------|--------------|------|
+| **Baza danych** (page_settings) | `og-image-1770279843027.jpg` | Nowy obrazek (zespół) |
+| **index.html** (linie 31, 37) | `og-image-1770241448116.png` | Stary obrazek (kropla) |
 
-## Aktualny stan
+### Przyczyna główna
 
-| Element | Status |
-|---------|--------|
-| Kolumny w bazie danych | Istnieją: `og_title`, `og_description`, `og_site_name`, `og_url` |
-| UI do zarządzania OG Image | Istnieje (linie 3573-3654) |
-| UI do zarządzania pozostałych ustawień OG | Brak |
+**Architektura SPA React ma fundamentalne ograniczenie:**
+- Panel admina zapisuje ustawienia OG do bazy danych
+- Hook `useDynamicMetaTags` aktualizuje meta tagi, ale tylko PO załadowaniu JavaScript w przeglądarce
+- Social media crawlery (Facebook, WhatsApp, Messenger) NIE uruchamiają JavaScript - odczytują tylko statyczny HTML z `index.html`
+- Statyczne wartości w `index.html` nigdy nie są automatycznie aktualizowane
 
-**Aktualne wartości w bazie:**
-- `og_title`: "Pure Life Center"
-- `og_description`: "Zmieniamy życie i zdrowie ludzi na lepsze"
-- `og_site_name`: "Pure Life Center"
-- `og_url`: "https://purelife.info.pl"
+**Wynik:** Zmiany w panelu admina zapisują się do bazy, ale nigdy nie trafiają do `index.html`, który czytają crawlery.
 
 ---
 
-## Zakres zmian
+## Rozwiązanie: Edge Function jako Proxy dla Crawlerów
 
-### Plik: `src/pages/Admin.tsx`
+### Koncepcja
 
-#### 1. Dodanie nowych stanów (po linii 361)
+Stworzymy Edge Function, która:
+1. Wykrywa crawlery social media po User-Agent
+2. Dla crawlerów - zwraca dynamicznie wygenerowany HTML z aktualnymi meta tagami z bazy
+3. Dla normalnych użytkowników - przepuszcza do standardowej aplikacji SPA
 
-```typescript
-// OG Meta Tags state
-const [ogTitle, setOgTitle] = useState('');
-const [ogDescription, setOgDescription] = useState('');
-const [ogSiteName, setOgSiteName] = useState('');
-const [ogUrl, setOgUrl] = useState('');
-const [ogMetaLoading, setOgMetaLoading] = useState(false);
-```
-
-#### 2. Rozszerzenie funkcji `loadPageSettings` (linia 1548)
-
-Pobieranie dodatkowych kolumn z bazy:
-```typescript
-.select('favicon_url, og_image_url, og_title, og_description, og_site_name, og_url')
-```
-
-I ustawienie stanów:
-```typescript
-setOgTitle(data.og_title || '');
-setOgDescription(data.og_description || '');
-setOgSiteName(data.og_site_name || '');
-setOgUrl(data.og_url || '');
-```
-
-#### 3. Rozszerzenie funkcji `updatePageSettings` (linia 1563)
-
-Zmiana typowania parametru:
-```typescript
-const updatePageSettings = async (updates: { 
-  favicon_url?: string; 
-  og_image_url?: string;
-  og_title?: string;
-  og_description?: string;
-  og_site_name?: string;
-  og_url?: string;
-}) => {
-```
-
-#### 4. Dodanie funkcji `updateOgMetaTags`
-
-```typescript
-const updateOgMetaTags = async () => {
-  try {
-    setOgMetaLoading(true);
-    await updatePageSettings({
-      og_title: ogTitle,
-      og_description: ogDescription,
-      og_site_name: ogSiteName,
-      og_url: ogUrl,
-    });
-  } finally {
-    setOgMetaLoading(false);
-  }
-};
-```
-
-#### 5. Nowa karta UI w sekcji Settings (przed linią 3573)
+### Schemat działania
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│  🔍 Ustawienia SEO / Social Media                           │
-│  Zarządzaj meta tagami wyświetlanymi przy udostępnianiu     │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Tytuł strony (og:title)                                    │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │ Pure Life Center                                    │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│  Opis strony (og:description)                               │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │ Zmieniamy życie i zdrowie ludzi na lepsze           │    │
-│  │                                                     │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│  Nazwa witryny (og:site_name)                               │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │ Pure Life Center                                    │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│  URL strony (og:url)                                        │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │ https://purelife.info.pl                            │    │
-│  └─────────────────────────────────────────────────────┘    │
-│                                                             │
-│                                     ┌─────────────────┐     │
-│                                     │ 💾 Zapisz       │     │
-│                                     └─────────────────┘     │
-│                                                             │
-│  ⚠️ Uwaga: Po zmianie ustawień pamiętaj o odświeżeniu       │
-│  cache na platformach social media (Facebook Debugger)      │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+                    ┌──────────────────────┐
+                    │   Żądanie HTTP       │
+                    │   purelife.info.pl   │
+                    └──────────┬───────────┘
+                               │
+                    ┌──────────▼───────────┐
+                    │ Edge Function:       │
+                    │ og-meta-proxy        │
+                    └──────────┬───────────┘
+                               │
+               ┌───────────────┼───────────────┐
+               │               │               │
+     ┌─────────▼─────────┐     │     ┌─────────▼─────────┐
+     │ Crawler?          │     │     │ Zwykły użytkownik │
+     │ (Facebook, WA)    │     │     │                   │
+     └─────────┬─────────┘     │     └─────────┬─────────┘
+               │               │               │
+     ┌─────────▼─────────┐     │     ┌─────────▼─────────┐
+     │ Zwróć HTML z      │     │     │ Zwróć normalną    │
+     │ aktualnymi meta   │     │     │ stronę SPA        │
+     │ tagami z bazy     │     │     │                   │
+     └───────────────────┘     │     └───────────────────┘
 ```
 
 ---
 
-## Struktura kodu UI
+## Pliki do utworzenia/modyfikacji
 
-```tsx
-{/* OG Meta Tags Management */}
-<div className="mb-8">
-  <Card>
-    <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <FileText className="w-5 h-5" />
-        Ustawienia SEO / Social Media
-      </CardTitle>
-      <CardDescription>
-        Zarządzaj meta tagami wyświetlanymi przy udostępnianiu linków w social media (WhatsApp, Facebook, Messenger)
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      {/* og:title */}
-      <div>
-        <Label htmlFor="og-title">Tytuł strony (og:title)</Label>
-        <Input
-          id="og-title"
-          value={ogTitle}
-          onChange={(e) => setOgTitle(e.target.value)}
-          placeholder="Pure Life Center"
-        />
-      </div>
-      
-      {/* og:description */}
-      <div>
-        <Label htmlFor="og-description">Opis strony (og:description)</Label>
-        <Textarea
-          id="og-description"
-          value={ogDescription}
-          onChange={(e) => setOgDescription(e.target.value)}
-          placeholder="Zmieniamy życie i zdrowie ludzi na lepsze"
-          rows={3}
-        />
-      </div>
-      
-      {/* og:site_name */}
-      <div>
-        <Label htmlFor="og-site-name">Nazwa witryny (og:site_name)</Label>
-        <Input
-          id="og-site-name"
-          value={ogSiteName}
-          onChange={(e) => setOgSiteName(e.target.value)}
-          placeholder="Pure Life Center"
-        />
-      </div>
-      
-      {/* og:url */}
-      <div>
-        <Label htmlFor="og-url">URL strony (og:url)</Label>
-        <Input
-          id="og-url"
-          type="url"
-          value={ogUrl}
-          onChange={(e) => setOgUrl(e.target.value)}
-          placeholder="https://purelife.info.pl"
-        />
-      </div>
-      
-      {/* Save button */}
-      <div className="flex justify-end pt-2">
-        <Button
-          onClick={updateOgMetaTags}
-          disabled={ogMetaLoading}
-        >
-          <Save className="w-4 h-4 mr-2" />
-          {ogMetaLoading ? 'Zapisywanie...' : 'Zapisz ustawienia OG'}
-        </Button>
-      </div>
-      
-      {/* Info alert */}
-      <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-        <p className="text-sm text-amber-800 dark:text-amber-200">
-          <strong>Ważne:</strong> Po zmianie ustawień pamiętaj o odświeżeniu cache na platformach social media. 
-          Użyj <a href="https://developers.facebook.com/tools/debug/" target="_blank" className="underline">Facebook Sharing Debugger</a> 
-          i kliknij "Scrape Again" dla Twojego URL.
-        </p>
-      </div>
-    </CardContent>
-  </Card>
-</div>
+### 1. Nowa Edge Function: `supabase/functions/og-meta-proxy/index.ts`
+
+Funkcja która:
+- Sprawdza User-Agent pod kątem crawlerów: `facebookexternalhit`, `WhatsApp`, `Twitterbot`, `LinkedInBot`, `Slackbot`
+- Pobiera aktualne meta tagi z tabeli `page_settings`
+- Zwraca minimalny HTML z prawidłowymi meta tagami dla crawlerów
+- Dla normalnych użytkowników - zwraca status 200 z informacją że to nie crawler (hosting może użyć tego jako fallback)
+
+### 2. Aktualizacja `index.html`
+
+Dodanie placeholdera wskazującego na edge function jako alternatywne źródło meta:
+```html
+<!-- Fallback for crawlers - updated dynamically via edge function -->
 ```
+
+---
+
+## Implementacja techniczna
+
+### Edge Function kod:
+
+```typescript
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+const CRAWLER_USER_AGENTS = [
+  'facebookexternalhit',
+  'Facebot',
+  'WhatsApp',
+  'Twitterbot',
+  'LinkedInBot',
+  'Slackbot',
+  'TelegramBot',
+  'Pinterest',
+  'Discordbot',
+]
+
+function isCrawler(userAgent: string | null): boolean {
+  if (!userAgent) return false
+  return CRAWLER_USER_AGENTS.some(crawler => 
+    userAgent.toLowerCase().includes(crawler.toLowerCase())
+  )
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
+
+  const userAgent = req.headers.get('user-agent')
+  
+  // Jeśli nie jest crawler, zwróć pustą odpowiedź
+  if (!isCrawler(userAgent)) {
+    return new Response(JSON.stringify({ crawler: false }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // Pobierz meta tagi z bazy
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  )
+
+  const { data } = await supabase
+    .from('page_settings')
+    .select('og_title, og_description, og_image_url, og_site_name, og_url')
+    .eq('page_type', 'homepage')
+    .single()
+
+  const ogTitle = data?.og_title || 'Pure Life Center'
+  const ogDescription = data?.og_description || 'Zmieniamy życie i zdrowie ludzi na lepsze'
+  const ogImage = data?.og_image_url || ''
+  const ogSiteName = data?.og_site_name || 'Pure Life Center'
+  const ogUrl = data?.og_url || 'https://purelife.info.pl'
+
+  // Zwróć HTML z meta tagami
+  const html = `<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>${ogTitle}</title>
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDescription}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:url" content="${ogUrl}" />
+  <meta property="og:site_name" content="${ogSiteName}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDescription}" />
+  <meta name="twitter:image" content="${ogImage}" />
+</head>
+<body></body>
+</html>`
+
+  return new Response(html, {
+    headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' },
+  })
+})
+```
+
+---
+
+## Konfiguracja hostingu (wymagane po stronie serwera)
+
+Po wdrożeniu Edge Function, na serwerze produkcyjnym (purelife.info.pl) należy skonfigurować przekierowanie crawlerów:
+
+### Nginx:
+
+```nginx
+location / {
+  if ($http_user_agent ~* "facebookexternalhit|WhatsApp|Twitterbot") {
+    proxy_pass https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/og-meta-proxy;
+  }
+  # normalna konfiguracja dla zwykłych użytkowników
+}
+```
+
+### Apache (.htaccess):
+
+```apache
+RewriteEngine On
+RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|WhatsApp|Twitterbot) [NC]
+RewriteRule ^$ https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/og-meta-proxy [P,L]
+```
+
+---
+
+## Alternatywne rozwiązanie (prostsze, ale wymaga ręcznej aktualizacji)
+
+Jeśli konfiguracja serwera proxy nie jest możliwa, możemy:
+1. Zaktualizować `index.html` aby zawierał aktualny URL obrazka
+2. Dodać w panelu admina przycisk "Pobierz zaktualizowany index.html" który wygeneruje plik z aktualnymi meta tagami
+3. Admin musi ręcznie wgrać ten plik na serwer produkcyjny
 
 ---
 
 ## Podsumowanie zmian
 
-| Lokalizacja | Zmiana |
-|-------------|--------|
-| Linia ~361 | Dodanie 5 nowych stanów dla OG meta tags |
-| Linia ~1548 | Rozszerzenie `loadPageSettings` o nowe kolumny |
-| Linia ~1563 | Rozszerzenie typów w `updatePageSettings` |
-| Linia ~1680 | Dodanie funkcji `updateOgMetaTags` |
-| Przed linią 3573 | Nowa karta UI "Ustawienia SEO / Social Media" |
+| Plik | Zmiana |
+|------|--------|
+| `supabase/functions/og-meta-proxy/index.ts` | Nowa Edge Function do obsługi crawlerów |
+| `index.html` | Aktualizacja statycznych meta tagów (opcjonalnie) |
+| Konfiguracja hostingu | Przekierowanie crawlerów do Edge Function |
 
 ---
 
-## Korzyści
+## Natychmiastowa poprawka
 
-1. **Centralne zarządzanie** - wszystkie ustawienia OG w jednym miejscu
-2. **Brak konieczności edycji kodu** - admin może zmieniać tytuł, opis bez developera
-3. **Informacja o cache** - użytkownik wie, że musi odświeżyć cache FB/WhatsApp
-4. **Spójność z istniejącym UI** - ten sam styl co sekcja OG Image
+Zaktualizować `index.html` linie 31 i 37 aby zawierały aktualny URL obrazka z bazy:
+```html
+<meta property="og:image" content="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/og-image-1770279843027.jpg" />
+<meta name="twitter:image" content="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/og-image-1770279843027.jpg" />
+```
+
+Następnie opublikować zmiany i użyć Facebook Debugger "Scrape Again".
 
