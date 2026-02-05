@@ -28,6 +28,9 @@ interface HtmlPage {
   show_header: boolean;
   show_footer: boolean;
   custom_css: string | null;
+  og_image: string | null;
+  og_title: string | null;
+  og_description: string | null;
 }
 
 const HtmlPage: React.FC = () => {
@@ -128,7 +131,7 @@ const HtmlPage: React.FC = () => {
     };
   }, [page]);
 
-  // Set meta tags
+  // Set meta tags including Open Graph
   useEffect(() => {
     if (page) {
       document.title = page.meta_title || page.title || 'Strona';
@@ -136,6 +139,38 @@ const HtmlPage: React.FC = () => {
       const metaDescription = document.querySelector('meta[name="description"]');
       if (metaDescription && page.meta_description) {
         metaDescription.setAttribute('content', page.meta_description);
+      }
+
+      // Open Graph meta tags
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) {
+        ogTitle.setAttribute('content', page.og_title || page.meta_title || page.title || 'Strona');
+      }
+
+      const ogDescription = document.querySelector('meta[property="og:description"]');
+      if (ogDescription && (page.og_description || page.meta_description)) {
+        ogDescription.setAttribute('content', page.og_description || page.meta_description || '');
+      }
+
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage && page.og_image) {
+        ogImage.setAttribute('content', page.og_image);
+      }
+
+      // Twitter Card meta tags
+      const twitterTitle = document.querySelector('meta[name="twitter:title"]');
+      if (twitterTitle) {
+        twitterTitle.setAttribute('content', page.og_title || page.meta_title || page.title || 'Strona');
+      }
+
+      const twitterDescription = document.querySelector('meta[name="twitter:description"]');
+      if (twitterDescription && (page.og_description || page.meta_description)) {
+        twitterDescription.setAttribute('content', page.og_description || page.meta_description || '');
+      }
+
+      const twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImage && page.og_image) {
+        twitterImage.setAttribute('content', page.og_image);
       }
     }
     

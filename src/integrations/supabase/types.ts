@@ -2632,6 +2632,9 @@ export type Database = {
           is_published: boolean
           meta_description: string | null
           meta_title: string | null
+          og_description: string | null
+          og_image: string | null
+          og_title: string | null
           show_footer: boolean
           show_header: boolean
           show_in_sidebar: boolean
@@ -2656,6 +2659,9 @@ export type Database = {
           is_published?: boolean
           meta_description?: string | null
           meta_title?: string | null
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
           show_footer?: boolean
           show_header?: boolean
           show_in_sidebar?: boolean
@@ -2680,6 +2686,9 @@ export type Database = {
           is_published?: boolean
           meta_description?: string | null
           meta_title?: string | null
+          og_description?: string | null
+          og_image?: string | null
+          og_title?: string | null
           show_footer?: boolean
           show_header?: boolean
           show_in_sidebar?: boolean

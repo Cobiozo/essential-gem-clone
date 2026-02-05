@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Sidebar,
   SidebarContent,
@@ -46,6 +47,7 @@ import {
   Calculator,
   Heart,
   Ticket,
+  FileText,
   icons as LucideIcons,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,6 +60,19 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
+
+// Dynamic HTML pages type
+interface HtmlPageSidebar {
+  id: string;
+  title: string;
+  slug: string;
+  sidebar_icon: string | null;
+  sidebar_position: number | null;
+  visible_to_clients: boolean;
+  visible_to_partners: boolean;
+  visible_to_specjalista: boolean;
+  visible_to_everyone: boolean;
+}
 
 // Tooltip descriptions for navigation items (2s delay)
 const menuTooltipDescriptions: Record<string, string> = {
@@ -131,6 +146,24 @@ export const DashboardSidebar: React.FC = () => {
   // Chat sidebar visibility
   const { data: chatVisibility } = useChatSidebarVisibility();
   const { data: paidEventsVisibility } = usePaidEventsVisibility();
+
+  // Dynamic HTML pages for sidebar
+  const { data: htmlPages } = useQuery({
+    queryKey: ['html-pages-sidebar'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('html_pages')
+        .select('id, title, slug, sidebar_icon, sidebar_position, visible_to_clients, visible_to_partners, visible_to_specjalista, visible_to_everyone')
+        .eq('is_published', true)
+        .eq('is_active', true)
+        .eq('show_in_sidebar', true)
+        .order('sidebar_position', { ascending: true });
+      
+      if (error) throw error;
+      return data as HtmlPageSidebar[];
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
 
   // Visibility settings
   const [aiCompassVisible, setAiCompassVisible] = useState(false);
@@ -291,6 +324,31 @@ export const DashboardSidebar: React.FC = () => {
     };
   });
 
+  // Build dynamic HTML page menu items
+  const dynamicHtmlPageItems: MenuItem[] = (htmlPages || [])
+    .filter(page => {
+      const role = userRole?.role?.toLowerCase();
+      if (page.visible_to_everyone) return true;
+      if (role === 'admin') return true;
+      if (role === 'client' && page.visible_to_clients) return true;
+      if (role === 'partner' && page.visible_to_partners) return true;
+      if (role === 'specjalista' && page.visible_to_specjalista) return true;
+      return false;
+    })
+    .map(page => {
+      // Try to get Lucide icon by name, fallback to FileText
+      const IconComponent = page.sidebar_icon 
+        ? (LucideIcons as Record<string, React.ElementType>)[page.sidebar_icon] || FileText
+        : FileText;
+      
+      return {
+        id: `html-${page.slug}`,
+        icon: IconComponent,
+        labelKey: page.title,
+        path: `/html/${page.slug}`,
+      };
+    });
+
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
@@ -373,6 +431,8 @@ export const DashboardSidebar: React.FC = () => {
       hasSubmenu: communitySubmenuItems.length > 0,
       submenuItems: communitySubmenuItems,
     },
+    // Dynamic HTML pages from database
+    ...dynamicHtmlPageItems,
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
     // Calculator - conditional based on access with submenu
     ...(calculatorAccess?.hasAccess ? [{
@@ -485,6 +545,10 @@ export const DashboardSidebar: React.FC = () => {
   };
 
   const isActive = (item: MenuItem) => {
+    // Handle dynamic HTML pages
+    if (item.id.startsWith('html-')) {
+      return location.pathname === item.path;
+    }
     // Handle external page paths (like /page/terminarz)
     if (item.path?.startsWith('/page/')) {
       return location.pathname === item.path;

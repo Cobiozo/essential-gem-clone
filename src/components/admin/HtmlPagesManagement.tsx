@@ -42,6 +42,9 @@ interface HtmlPage {
   sidebar_icon: string | null;
   sidebar_position: number | null;
   custom_css: string | null;
+  og_image: string | null;
+  og_title: string | null;
+  og_description: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -65,6 +68,9 @@ const emptyPage: Partial<HtmlPage> = {
   sidebar_icon: 'FileText',
   sidebar_position: 99,
   custom_css: '',
+  og_image: '',
+  og_title: '',
+  og_description: '',
 };
 
 export const HtmlPagesManagement: React.FC = () => {
@@ -116,6 +122,9 @@ export const HtmlPagesManagement: React.FC = () => {
             sidebar_icon: page.sidebar_icon,
             sidebar_position: page.sidebar_position,
             custom_css: page.custom_css,
+            og_image: page.og_image,
+            og_title: page.og_title,
+            og_description: page.og_description,
           })
           .eq('id', page.id);
         if (error) throw error;
@@ -141,6 +150,9 @@ export const HtmlPagesManagement: React.FC = () => {
             sidebar_icon: page.sidebar_icon,
             sidebar_position: page.sidebar_position,
             custom_css: page.custom_css,
+            og_image: page.og_image,
+            og_title: page.og_title,
+            og_description: page.og_description,
             created_by: user?.id,
           });
         if (error) throw error;
@@ -459,6 +471,40 @@ export const HtmlPagesManagement: React.FC = () => {
                       value={editingPage?.meta_description || ''}
                       onChange={(e) => setEditingPage(prev => ({ ...prev, meta_description: e.target.value }))}
                       placeholder="Opis dla wyszukiwarek"
+                    />
+                  </div>
+                </div>
+
+                {/* Open Graph Settings */}
+                <div className="border rounded-lg p-4 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-sm font-medium">Open Graph (Udostępnianie w social media)</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs">OG Tytuł</Label>
+                      <Input
+                        value={editingPage?.og_title || ''}
+                        onChange={(e) => setEditingPage(prev => ({ ...prev, og_title: e.target.value }))}
+                        placeholder="Tytuł przy udostępnianiu"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">OG Obrazek (URL)</Label>
+                      <Input
+                        value={editingPage?.og_image || ''}
+                        onChange={(e) => setEditingPage(prev => ({ ...prev, og_image: e.target.value }))}
+                        placeholder="https://example.com/image.jpg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">OG Opis</Label>
+                    <Input
+                      value={editingPage?.og_description || ''}
+                      onChange={(e) => setEditingPage(prev => ({ ...prev, og_description: e.target.value }))}
+                      placeholder="Opis wyświetlany przy udostępnianiu linku"
                     />
                   </div>
                 </div>
