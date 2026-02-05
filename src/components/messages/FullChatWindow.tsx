@@ -13,7 +13,7 @@ interface FullChatWindowProps {
   directMember?: TeamMemberChannel | null;
   messages: UnifiedMessage[];
   loading: boolean;
-  onSend: (content: string) => Promise<boolean>;
+  onSend: (content: string, messageType?: string, attachmentUrl?: string, attachmentName?: string) => Promise<boolean>;
   onBack: () => void;
 }
 

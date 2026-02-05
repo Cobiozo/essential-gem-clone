@@ -1,5 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { FileText, Download } from 'lucide-react';
 import type { UnifiedMessage } from '@/hooks/useUnifiedChat';
 
 interface MessageBubbleProps {
@@ -12,6 +13,62 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const renderAttachment = () => {
+    if (!message.attachmentUrl) return null;
+
+    const messageType = message.messageType || 'text';
+
+    switch (messageType) {
+      case 'image':
+        return (
+          <img 
+            src={message.attachmentUrl} 
+            alt={message.attachmentName || 'Obrazek'} 
+            className="max-w-[280px] rounded-lg mt-2 cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => window.open(message.attachmentUrl, '_blank')}
+          />
+        );
+      
+      case 'video':
+        return (
+          <video 
+            src={message.attachmentUrl} 
+            controls 
+            controlsList="nodownload"
+            className="max-w-[280px] rounded-lg mt-2"
+          />
+        );
+      
+      case 'audio':
+        return (
+          <audio 
+            src={message.attachmentUrl} 
+            controls 
+            className="mt-2 max-w-[240px]"
+          />
+        );
+      
+      case 'file':
+        return (
+          <a 
+            href={message.attachmentUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 mt-2 p-2 bg-background/50 rounded-lg hover:bg-background/80 transition-colors"
+          >
+            <FileText className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm truncate max-w-[180px]">
+              {message.attachmentName || 'Dokument'}
+            </span>
+            <Download className="h-4 w-4 ml-auto text-muted-foreground" />
+          </a>
+        );
+      
+      default:
+        return null;
+    }
   };
 
   return (
@@ -47,9 +104,12 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
               : 'bg-muted text-foreground'
           )}
         >
-          <p className="text-sm whitespace-pre-wrap break-words">
-            {message.content}
-          </p>
+          {message.content && (
+            <p className="text-sm whitespace-pre-wrap break-words">
+              {message.content}
+            </p>
+          )}
+          {renderAttachment()}
         </div>
       </div>
     </div>
