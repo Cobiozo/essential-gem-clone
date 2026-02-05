@@ -754,7 +754,15 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                           variant={localStyles.textAlign === value ? 'default' : 'outline'}
                           size="sm"
                           className="flex-1 h-8"
-                          onClick={() => updateStyle('textAlign', value)}
+                          onClick={() => {
+                            // For inline elements, add display:block to enable text-align
+                            const inlineElements = ['span', 'strong', 'em', 'b', 'i', 'u', 'a'];
+                            if (inlineElements.includes(element?.tagName.toLowerCase() || '')) {
+                              setLocalStyles(prev => ({ ...prev, textAlign: value, display: 'block' }));
+                            } else {
+                              updateStyle('textAlign', value);
+                            }
+                          }}
                         >
                           {icon}
                         </Button>
@@ -764,34 +772,100 @@ export const SimplifiedPropertiesPanel: React.FC<SimplifiedPropertiesPanelProps>
                 </>
               )}
               
-              {/* Link URL */}
-              {elementType === 'link' && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Adres URL</Label>
-                  <DebouncedStyleInput
-                    value={localAttributes.href || ''}
-                    onFinalChange={(v) => updateAttribute('href', v)}
-                    placeholder="https://..."
-                    className="h-8"
-                  />
-                  <div className="flex gap-1">
-                    <Button
-                      variant={localAttributes.target !== '_blank' ? 'default' : 'outline'}
-                      size="sm"
-                      className="flex-1 h-7 text-xs"
-                      onClick={() => updateAttribute('target', '_self')}
+              {/* Link URL - for links and buttons */}
+              {(elementType === 'link' || elementType === 'button') && (
+                <div className="space-y-3">
+                  <Label className="text-xs font-medium">Konfiguracja linku</Label>
+                  
+                  {/* Link type selector */}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Typ akcji</Label>
+                    <Select 
+                      value={localAttributes['data-link-type'] || 'external'} 
+                      onValueChange={(v) => updateAttribute('data-link-type', v)}
                     >
-                      Ta sama karta
-                    </Button>
-                    <Button
-                      variant={localAttributes.target === '_blank' ? 'default' : 'outline'}
-                      size="sm"
-                      className="flex-1 h-7 text-xs"
-                      onClick={() => updateAttribute('target', '_blank')}
-                    >
-                      Nowa karta
-                    </Button>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="Wybierz typ..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="external">Link zewnętrzny</SelectItem>
+                        <SelectItem value="internal">Strona wewnętrzna</SelectItem>
+                        <SelectItem value="download">Pobierz plik</SelectItem>
+                        <SelectItem value="copy">Kopiuj do schowka</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  
+                  {/* URL input for external/internal/download */}
+                  {(!localAttributes['data-link-type'] || localAttributes['data-link-type'] === 'external' || localAttributes['data-link-type'] === 'internal' || localAttributes['data-link-type'] === 'download') && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">
+                        {localAttributes['data-link-type'] === 'internal' ? 'Ścieżka strony (np. /kontakt)' : 
+                         localAttributes['data-link-type'] === 'download' ? 'URL pliku do pobrania' : 
+                         'Adres URL'}
+                      </Label>
+                      <DebouncedStyleInput
+                        value={elementType === 'link' ? (localAttributes.href || '') : (localAttributes['data-href'] || '')}
+                        onFinalChange={(v) => {
+                          if (elementType === 'link') {
+                            updateAttribute('href', v);
+                          } else {
+                            updateAttribute('data-href', v);
+                          }
+                        }}
+                        placeholder={localAttributes['data-link-type'] === 'internal' ? '/strona' : 'https://...'}
+                        className="h-8"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Copy text for copy action */}
+                  {localAttributes['data-link-type'] === 'copy' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Tekst do skopiowania</Label>
+                      <DebouncedStyleInput
+                        value={localAttributes['data-copy-text'] || ''}
+                        onFinalChange={(v) => updateAttribute('data-copy-text', v)}
+                        placeholder="Tekst który zostanie skopiowany..."
+                        className="h-8"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Target options for links */}
+                  {(!localAttributes['data-link-type'] || localAttributes['data-link-type'] === 'external' || localAttributes['data-link-type'] === 'internal') && (
+                    <div className="flex gap-1">
+                      <Button
+                        variant={localAttributes.target !== '_blank' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1 h-7 text-xs"
+                        onClick={() => updateAttribute('target', '_self')}
+                      >
+                        Ta sama karta
+                      </Button>
+                      <Button
+                        variant={localAttributes.target === '_blank' ? 'default' : 'outline'}
+                        size="sm"
+                        className="flex-1 h-7 text-xs"
+                        onClick={() => updateAttribute('target', '_blank')}
+                      >
+                        Nowa karta
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Download filename for download type */}
+                  {localAttributes['data-link-type'] === 'download' && (
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Nazwa pliku (opcjonalna)</Label>
+                      <DebouncedStyleInput
+                        value={localAttributes['data-download-name'] || ''}
+                        onFinalChange={(v) => updateAttribute('data-download-name', v)}
+                        placeholder="dokument.pdf"
+                        className="h-8"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
               

@@ -186,7 +186,7 @@ const HtmlElementRendererInner: React.FC<HtmlElementRendererProps> = ({
         }
       }
       
-      // Show placeholder if no src
+      // Show placeholder ONLY if truly no source
       if (!videoSrc) {
         return (
           <div className="flex items-center justify-center bg-muted/50 border-2 border-dashed rounded-lg p-8">
@@ -199,8 +199,10 @@ const HtmlElementRendererInner: React.FC<HtmlElementRendererProps> = ({
       }
       
       // Render video with controls, no download option
+      // key={videoSrc} forces re-render when source changes
       return (
         <video 
+          key={videoSrc}
           src={videoSrc}
           controls
           controlsList="nodownload"
@@ -368,6 +370,10 @@ const HtmlElementRendererInner: React.FC<HtmlElementRendererProps> = ({
 // React.memo with custom comparator to prevent unnecessary re-renders
 export const HtmlElementRenderer = React.memo(HtmlElementRendererInner, (prevProps, nextProps) => {
   // Re-render only when these specific things change
+  // NOTE: For video/img elements, attributes.src changes must trigger re-render
+  const prevSrc = prevProps.element.attributes.src;
+  const nextSrc = nextProps.element.attributes.src;
+  
   return (
     prevProps.element.id === nextProps.element.id &&
     prevProps.selectedId === nextProps.selectedId &&
@@ -376,6 +382,8 @@ export const HtmlElementRenderer = React.memo(HtmlElementRendererInner, (prevPro
     prevProps.isEditMode === nextProps.isEditMode &&
     prevProps.showOutlines === nextProps.showOutlines &&
     prevProps.depth === nextProps.depth &&
+    // Explicit check for src attribute (videos, images)
+    prevSrc === nextSrc &&
     // Deep compare styles and attributes for actual content changes
     JSON.stringify(prevProps.element.styles) === JSON.stringify(nextProps.element.styles) &&
     JSON.stringify(prevProps.element.attributes) === JSON.stringify(nextProps.element.attributes) &&
