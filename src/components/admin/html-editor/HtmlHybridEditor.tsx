@@ -11,7 +11,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Code, Globe, Info, GripVertical, ExternalLink } from 'lucide-react';
+import { Eye, EyeOff, Code, Globe, Info, GripVertical, ExternalLink, Monitor, Tablet, Smartphone } from 'lucide-react';
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
@@ -38,6 +38,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   const [isEditMode, setIsEditMode] = useState(true);
   const [activeTab, setActiveTab] = useState<'visual' | 'code' | 'preview'>('visual');
   const [codeValue, setCodeValue] = useState(htmlContent);
+  const [previewWidth, setPreviewWidth] = useState<'100%' | '768px' | '375px'>('100%');
   const editableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
@@ -731,43 +732,87 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
         </TabsContent>
         
         {/* Full Preview Tab - uses real-time previewHtml */}
-        <TabsContent value="preview" className="flex-1 m-0 overflow-hidden">
-          <div className="h-full bg-white border-t">
-            <iframe
-              srcDoc={`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <script src="https://cdn.tailwindcss.com"></script>
-                  <script src="https://unpkg.com/lucide@latest"></script>
-                  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-                  <style>
-                    body { 
-                      font-family: 'Open Sans', sans-serif; 
-                      margin: 0; 
-                      padding: 24px;
-                    }
-                    h1, h2, h3, h4, h5, h6 { 
-                      font-family: 'Montserrat', sans-serif; 
-                    }
-                    ${customCss || ''}
-                  </style>
-                </head>
-                <body>
-                  ${previewHtml}
-                  <script>
-                    if (window.lucide) {
-                      lucide.createIcons();
-                    }
-                  </script>
-                </body>
-                </html>
-              `}
-              className="w-full h-full border-0"
-              title="Podgląd strony"
-            />
+        <TabsContent value="preview" className="flex-1 m-0 overflow-hidden flex flex-col">
+          {/* Responsive Preview Controls */}
+          <div className="flex items-center justify-center gap-1 py-2 bg-muted/30 border-b shrink-0">
+            <span className="text-xs text-muted-foreground mr-2">Widok:</span>
+            <Button
+              variant={previewWidth === '100%' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2 gap-1"
+              onClick={() => setPreviewWidth('100%')}
+              title="Desktop (pełna szerokość)"
+            >
+              <Monitor className="w-3.5 h-3.5" />
+              <span className="text-xs hidden sm:inline">Desktop</span>
+            </Button>
+            <Button
+              variant={previewWidth === '768px' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2 gap-1"
+              onClick={() => setPreviewWidth('768px')}
+              title="Tablet (768px)"
+            >
+              <Tablet className="w-3.5 h-3.5" />
+              <span className="text-xs hidden sm:inline">Tablet</span>
+            </Button>
+            <Button
+              variant={previewWidth === '375px' ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2 gap-1"
+              onClick={() => setPreviewWidth('375px')}
+              title="Mobile (375px)"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span className="text-xs hidden sm:inline">Mobile</span>
+            </Button>
+          </div>
+          
+          <div className="flex-1 bg-muted/20 flex items-start justify-center overflow-auto py-4">
+            <div 
+              className="bg-white shadow-lg transition-all duration-300 h-full"
+              style={{ 
+                width: previewWidth,
+                maxWidth: '100%',
+                minHeight: previewWidth === '375px' ? '667px' : previewWidth === '768px' ? '1024px' : 'auto',
+              }}
+            >
+              <iframe
+                srcDoc={`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <script src="https://unpkg.com/lucide@latest"></script>
+                    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                    <style>
+                      body { 
+                        font-family: 'Open Sans', sans-serif; 
+                        margin: 0; 
+                        padding: 24px;
+                      }
+                      h1, h2, h3, h4, h5, h6 { 
+                        font-family: 'Montserrat', sans-serif; 
+                      }
+                      ${customCss || ''}
+                    </style>
+                  </head>
+                  <body>
+                    ${previewHtml}
+                    <script>
+                      if (window.lucide) {
+                        lucide.createIcons();
+                      }
+                    </script>
+                  </body>
+                  </html>
+                `}
+                className="w-full h-full border-0"
+                title="Podgląd strony"
+              />
+            </div>
           </div>
         </TabsContent>
       </Tabs>
