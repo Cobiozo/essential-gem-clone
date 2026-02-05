@@ -167,3 +167,6 @@ verify_jwt = false
 
 [functions.verify-event-ticket]
 verify_jwt = false
+
+[functions.og-meta-proxy]
+verify_jwt = false
