@@ -19,6 +19,7 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
+import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 
@@ -128,10 +129,11 @@ const queryClient = new QueryClient({
   },
 });
 
-// Component to handle inactivity timeout - MUST be inside BrowserRouter for useNavigate
+// Component to handle inactivity timeout and last seen updates - MUST be inside BrowserRouter for useNavigate
 const InactivityHandler = () => {
   const { user } = useAuth();
   useInactivityTimeout({ enabled: !!user });
+  useLastSeenUpdater(); // Track user activity for notifications
   return null;
 };
 

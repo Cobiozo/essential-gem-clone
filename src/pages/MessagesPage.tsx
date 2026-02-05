@@ -1,16 +1,27 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
+import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { MessagesSidebar } from '@/components/messages/MessagesSidebar';
 import { FullChatWindow } from '@/components/messages/FullChatWindow';
+import { CreateGroupChatDialog } from '@/components/messages/CreateGroupChatDialog';
+import { toast } from 'sonner';
 
 const MessagesPage = () => {
   const navigate = useNavigate();
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Group chat selection state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
+
+  // Browser notifications
+  const { permission, requestPermission } = useBrowserNotifications();
 
   const {
     channels,
@@ -26,7 +37,19 @@ const MessagesPage = () => {
     selectedDirectMember,
     selectDirectMember,
     sendDirectMessage,
+    createGroupChat,
   } = useUnifiedChat({ enableRealtime: true });
+
+  // Request notification permission on first visit
+  useEffect(() => {
+    if (permission === 'default') {
+      // Delay to not interrupt initial render
+      const timer = setTimeout(() => {
+        requestPermission();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [permission, requestPermission]);
 
   const handleSelectChannel = (channelId: string) => {
     selectChannel(channelId);
@@ -49,6 +72,56 @@ const MessagesPage = () => {
     }
     return sendMessage(content);
   };
+
+  // Toggle member selection for group chat
+  const handleToggleSelection = (userId: string) => {
+    setSelectedMembers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
+  };
+
+  // Toggle selection mode
+  const handleToggleSelectionMode = () => {
+    if (selectionMode) {
+      // Exiting selection mode - clear selections
+      setSelectedMembers(new Set());
+    }
+    setSelectionMode(!selectionMode);
+  };
+
+  // Create group chat handler
+  const handleCreateGroupChat = async (subject: string, initialMessage: string): Promise<boolean> => {
+    if (!createGroupChat) {
+      toast.error('Funkcja niedostępna');
+      return false;
+    }
+
+    const participantIds = Array.from(selectedMembers);
+    const success = await createGroupChat(participantIds, subject, initialMessage);
+
+    if (success) {
+      setSelectedMembers(new Set());
+      setSelectionMode(false);
+      toast.success('Czat grupowy został utworzony');
+    } else {
+      toast.error('Nie udało się utworzyć czatu grupowego');
+    }
+
+    return success;
+  };
+
+  // Get participant names for dialog
+  const selectedMemberNames = useMemo(() => {
+    return teamMembers
+      .filter(m => selectedMembers.has(m.userId))
+      .map(m => `${m.firstName} ${m.lastName}`.trim());
+  }, [teamMembers, selectedMembers]);
 
   // Determine current chat context
   const currentChatName = selectedDirectMember 
@@ -91,6 +164,12 @@ const MessagesPage = () => {
           upline={upline}
           selectedDirectUserId={selectedDirectUserId}
           onSelectDirectMember={handleSelectDirectMember}
+          // Group chat props
+          selectionMode={selectionMode}
+          onToggleSelectionMode={handleToggleSelectionMode}
+          selectedMembers={selectedMembers}
+          onToggleSelection={handleToggleSelection}
+          onCreateGroupChat={() => setShowGroupDialog(true)}
           className={cn(
             'w-80 border-r border-border shrink-0',
             'max-md:absolute max-md:inset-0 max-md:w-full max-md:z-10 max-md:bg-background',
@@ -117,6 +196,14 @@ const MessagesPage = () => {
           )}
         </div>
       </div>
+
+      {/* Create Group Chat Dialog */}
+      <CreateGroupChatDialog
+        open={showGroupDialog}
+        onOpenChange={setShowGroupDialog}
+        participantNames={selectedMemberNames}
+        onCreateGroup={handleCreateGroupChat}
+      />
     </div>
   );
 };

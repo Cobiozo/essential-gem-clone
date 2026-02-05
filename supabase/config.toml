@@ -170,3 +170,6 @@ verify_jwt = false
 
 [functions.og-meta-proxy]
 verify_jwt = false
+
+[functions.send-chat-notification-email]
+verify_jwt = false
