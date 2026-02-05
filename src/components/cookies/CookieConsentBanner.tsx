@@ -237,15 +237,6 @@ export function CookieConsentBanner() {
     );
   }
 
-  // Revisit Button (only shown when consent already given)
-  if (hasConsented && bannerSettings.revisit_button_enabled) {
-    return (
-      <CookieRevisitButton
-        bannerSettings={bannerSettings}
-        onClick={reopenBanner}
-      />
-    );
-  }
-
+  // Revisit button removed - now accessible via footer links
   return null;
 }
