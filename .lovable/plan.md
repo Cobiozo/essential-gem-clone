@@ -1,41 +1,68 @@
-# Plan: Rozbudowa systemu czatu WhatsApp-style
 
-## Status: ✅ ZAIMPLEMENTOWANE
+# Plan: Przeniesienie ikony cookie do stopki
 
-### Zaimplementowane funkcjonalności:
+## Problem
+Pływająca ikona "Ustawienia cookies" (niebieski przycisk z tarczą) przeszkadza użytkownikom - nachodzi na listę kontaktów i inne elementy interfejsu.
 
-1. **Emoji Picker** ✅
-   - Zintegrowany istniejący `EmojiPicker` z `src/components/cms/EmojiPicker.tsx`
-   - Popover otwierany po kliknięciu ikony uśmiechu
-   - Emoji dodawane do treści wiadomości
+## Rozwiązanie
+Po akceptacji zgody cookie, zamiast wyświetlać pływającą ikonę, dodamy link "Ustawienia cookie" do stopki strony głównej i pulpitu.
 
-2. **Załączanie plików** ✅
-   - Migracja bazy danych: dodane kolumny `message_type`, `attachment_url`, `attachment_name` do `role_chat_messages`
-   - Dialog z komponentem `MediaUpload` dla uploadu plików
-   - Obsługa obrazów, wideo, audio, dokumentów
-   - Renderowanie załączników w `MessageBubble`
+---
 
-3. **Nagrywanie głosowe** ✅
-   - Nowy komponent `VoiceRecorder.tsx`
-   - Web Audio API + MediaRecorder
-   - Wizualizacja podczas nagrywania
-   - Podgląd przed wysłaniem
-   - Upload do storage jako wiadomość audio
+## Pliki do modyfikacji
 
-4. **Widoczność per-użytkownik** ✅
-   - Nowa tabela `chat_user_visibility` z RLS
-   - Rozbudowany `ChatSidebarVisibilityCard` z wyszukiwarką użytkowników
-   - Lista nadpisań z przełącznikami Widoczny/Ukryty
-   - Hook `useChatSidebarVisibility` sprawdza najpierw per-user override
+| Plik | Zmiana |
+|------|--------|
+| `src/components/cookies/CookieConsentBanner.tsx` | Usunięcie renderowania `CookieRevisitButton` |
+| `src/components/homepage/Footer.tsx` | Dodanie linku "Ustawienia cookie" |
+| `src/components/dashboard/widgets/DashboardFooterSection.tsx` | Dodanie linku "Ustawienia cookie" |
+| `src/hooks/useTranslations.ts` | Dodanie tłumaczenia `footer.cookieSettings` |
 
-### Pliki zmodyfikowane:
-- `supabase/migrations/` - nowa migracja
-- `src/components/unified-chat/MessageInput.tsx`
-- `src/components/unified-chat/VoiceRecorder.tsx` (nowy)
-- `src/components/unified-chat/MessageBubble.tsx`
-- `src/components/unified-chat/ChatWindow.tsx`
-- `src/components/messages/FullChatWindow.tsx`
-- `src/pages/MessagesPage.tsx`
-- `src/components/admin/ChatSidebarVisibilityCard.tsx`
-- `src/hooks/useChatSidebarVisibility.ts`
-- `src/hooks/useUnifiedChat.ts`
+---
+
+## Szczegóły implementacji
+
+### 1. CookieConsentBanner.tsx
+Usunięcie warunkowego renderowania `CookieRevisitButton` (linie ~241-247):
+```tsx
+// PRZED:
+{hasConsented && !showBanner && <CookieRevisitButton onClick={reopenBanner} />}
+
+// PO:
+// Usunięte - przycisk przeniesiony do stopek
+```
+
+### 2. Footer.tsx (strona główna)
+Dodanie przycisku obok linków "Polityka prywatności" i "Regulamin":
+```tsx
+import { useCookieConsent } from '@/hooks/useCookieConsent';
+
+// W komponencie:
+const { reopenBanner } = useCookieConsent();
+
+// W sekcji linków:
+<button onClick={reopenBanner} className="hover:text-primary transition-colors">
+  Ustawienia cookie
+</button>
+```
+
+### 3. DashboardFooterSection.tsx (pulpit)
+Analogiczna zmiana - dodanie linku w stopce dashboardu:
+```tsx
+<button onClick={reopenBanner}>
+  Ustawienia cookie
+</button>
+```
+
+### 4. Tłumaczenia
+Dodanie klucza do `useTranslations.ts`:
+```tsx
+'footer.cookieSettings': 'Ustawienia cookie'
+```
+
+---
+
+## Rezultat
+- Czysta nawigacja bez pływających elementów
+- Dostęp do ustawień cookie zachowany w stopce
+- Spójny wygląd z innymi linkami prawnymi (Regulamin, Polityka prywatności)
