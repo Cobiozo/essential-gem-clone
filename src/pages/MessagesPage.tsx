@@ -38,9 +38,14 @@ const MessagesPage = () => {
     setMobileView('chat');
   };
 
-  const handleSendMessage = async (content: string): Promise<boolean> => {
+  const handleSendMessage = async (
+    content: string,
+    messageType: string = 'text',
+    attachmentUrl?: string,
+    attachmentName?: string
+  ): Promise<boolean> => {
     if (selectedDirectUserId) {
-      return sendDirectMessage(selectedDirectUserId, content);
+      return sendDirectMessage(selectedDirectUserId, content, messageType, attachmentUrl, attachmentName);
     }
     return sendMessage(content);
   };

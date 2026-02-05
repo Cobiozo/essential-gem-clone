@@ -10,7 +10,7 @@ interface ChatWindowProps {
   channel: UnifiedChannel;
   messages: UnifiedMessage[];
   loading: boolean;
-  onSend: (content: string) => Promise<boolean>;
+  onSend: (content: string, messageType?: string, attachmentUrl?: string, attachmentName?: string) => Promise<boolean>;
 }
 
 export const ChatWindow = ({ channel, messages, loading, onSend }: ChatWindowProps) => {

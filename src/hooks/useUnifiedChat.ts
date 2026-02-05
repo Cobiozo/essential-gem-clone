@@ -42,6 +42,9 @@ export interface UnifiedMessage {
   createdAt: string;
   isOwn: boolean;
   isRead: boolean;
+  messageType?: string;
+  attachmentUrl?: string;
+  attachmentName?: string;
 }
 
 interface UseUnifiedChatOptions {
@@ -164,6 +167,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           createdAt: m.created_at,
           isOwn: m.sender_id === user.id,
           isRead: m.is_read,
+          messageType: m.message_type,
+          attachmentUrl: m.attachment_url,
+          attachmentName: m.attachment_name,
         };
       });
 
@@ -176,7 +182,13 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   }, [user]);
 
   // Send direct message to specific user
-  const sendDirectMessage = useCallback(async (recipientId: string, content: string): Promise<boolean> => {
+  const sendDirectMessage = useCallback(async (
+    recipientId: string, 
+    content: string,
+    messageType: string = 'text',
+    attachmentUrl?: string,
+    attachmentName?: string
+  ): Promise<boolean> => {
     if (!user || !profile) return false;
 
     try {
@@ -198,23 +210,31 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           recipient_id: recipientId,
           content,
           channel_id: null,
+          message_type: messageType,
+          attachment_url: attachmentUrl,
+          attachment_name: attachmentName,
         });
 
       if (msgError) throw msgError;
 
       // Send notification
       const senderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik';
+      const notificationMessage = messageType !== 'text' 
+        ? `Wysłał(a) ${messageType === 'image' ? 'zdjęcie' : messageType === 'video' ? 'wideo' : messageType === 'audio' ? 'wiadomość głosową' : 'załącznik'}`
+        : content.length > 100 ? content.substring(0, 100) + '...' : content;
+        
       await supabase.from('user_notifications').insert({
         user_id: recipientId,
         sender_id: user.id,
         notification_type: 'direct_message',
         source_module: 'role_chat',
         title: `Wiadomość od ${senderName}`,
-        message: content.length > 100 ? content.substring(0, 100) + '...' : content,
+        message: notificationMessage,
         link: '/messages',
         metadata: {
           sender_name: senderName,
           sender_role: currentRole,
+          message_type: messageType,
         },
       });
 
@@ -478,6 +498,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           createdAt: m.created_at,
           isOwn: m.sender_id === user.id,
           isRead: m.is_read,
+          messageType: m.message_type,
+          attachmentUrl: m.attachment_url,
+          attachmentName: m.attachment_name,
         };
       });
 

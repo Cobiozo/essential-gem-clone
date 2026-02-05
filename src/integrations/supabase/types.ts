@@ -845,6 +845,30 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_user_visibility: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_visible: boolean
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_visible?: boolean
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_visible?: boolean
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       cms_item_translations: {
         Row: {
           cells: Json | null
@@ -4782,11 +4806,14 @@ export type Database = {
       }
       role_chat_messages: {
         Row: {
+          attachment_name: string | null
+          attachment_url: string | null
           channel_id: string | null
           content: string
           created_at: string | null
           id: string
           is_read: boolean | null
+          message_type: string | null
           read_at: string | null
           recipient_id: string | null
           recipient_role: string
@@ -4794,11 +4821,14 @@ export type Database = {
           sender_role: string
         }
         Insert: {
+          attachment_name?: string | null
+          attachment_url?: string | null
           channel_id?: string | null
           content: string
           created_at?: string | null
           id?: string
           is_read?: boolean | null
+          message_type?: string | null
           read_at?: string | null
           recipient_id?: string | null
           recipient_role: string
@@ -4806,11 +4836,14 @@ export type Database = {
           sender_role: string
         }
         Update: {
+          attachment_name?: string | null
+          attachment_url?: string | null
           channel_id?: string | null
           content?: string
           created_at?: string | null
           id?: string
           is_read?: boolean | null
+          message_type?: string | null
           read_at?: string | null
           recipient_id?: string | null
           recipient_role?: string
