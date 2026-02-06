@@ -3,15 +3,42 @@
  * Handles push events, notification clicks, and notification clearing
  */
 
+// PWA Cache Configuration
+const CACHE_NAME = 'purelife-pwa-v1';
+const STATIC_ASSETS = [
+  '/manifest.json',
+  '/pwa-192.png',
+  '/pwa-512.png',
+];
+
 // Log Service Worker lifecycle
 self.addEventListener('install', (event) => {
   console.log('[SW-Push] Service Worker installed');
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      console.log('[SW-Push] Caching static assets');
+      return cache.addAll(STATIC_ASSETS).catch(err => {
+        console.log('[SW-Push] Failed to cache static assets:', err);
+      });
+    })
+  );
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   console.log('[SW-Push] Service Worker activated');
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[SW-Push] Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
 });
 
 // Handle incoming push notifications

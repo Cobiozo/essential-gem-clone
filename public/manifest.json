@@ -1,0 +1,39 @@
+{
+  "name": "Pure Life Center",
+  "short_name": "PureLife",
+  "description": "Zmieniamy życie i zdrowie ludzi na lepsze - centrum wsparcia dla partnerów i specjalistów",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "scope": "/",
+  "lang": "pl",
+  "dir": "ltr",
+  "categories": ["health", "business", "education"],
+  "icons": [
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false,
+  "handle_links": "preferred"
+}
