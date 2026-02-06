@@ -81,14 +81,14 @@ export const DraggableHtmlElement: React.FC<DraggableHtmlElementProps> = ({
           {...attributes}
           className={cn(
             "absolute z-20 cursor-grab active:cursor-grabbing",
-            "p-1 bg-muted/80 hover:bg-muted border rounded shadow-sm",
+            "p-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded shadow-sm",
             "opacity-0 group-hover:opacity-100 transition-opacity",
             (isSelected || isHovered) && "opacity-100",
-            depth === 0 ? "-left-6 top-1/2 -translate-y-1/2" : "-left-5 top-0"
+            depth === 0 ? "-left-8 top-1" : "-left-6 top-0"
           )}
           onClick={(e) => e.stopPropagation()}
         >
-          <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+          <GripVertical className="w-4 h-4 text-primary/70" />
         </div>
       )}
       

@@ -11,7 +11,8 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/componen
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Eye, EyeOff, Code, Globe, Info, GripVertical, ExternalLink, Monitor, Tablet, Smartphone } from 'lucide-react';
+import { Eye, EyeOff, Code, Globe, Info, GripVertical, ExternalLink, Monitor, Tablet, Smartphone, MousePointer } from 'lucide-react';
+import { HtmlElementRenderer } from './HtmlElementRenderer';
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis, restrictToWindowEdges } from '@dnd-kit/modifiers';
@@ -39,6 +40,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   const [activeTab, setActiveTab] = useState<'visual' | 'code' | 'preview'>('visual');
   const [codeValue, setCodeValue] = useState(htmlContent);
   const [previewWidth, setPreviewWidth] = useState<'100%' | '768px' | '375px'>('100%');
+  const [previewClickToSelect, setPreviewClickToSelect] = useState(true);
   const editableRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
@@ -638,7 +640,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
           <ResizablePanelGroup direction="horizontal" className="h-full">
             <ResizablePanel defaultSize={selectedElementId ? 60 : 100} minSize={40} className="h-full">
               <div className="h-full overflow-y-auto">
-                <div className="p-4 pl-8 min-h-full" ref={editableRef}>
+                <div className="p-4 pl-10 min-h-full" ref={editableRef}>
                   {customCss && <style>{customCss}</style>}
                   
                   <DndContext
@@ -766,52 +768,89 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
               <Smartphone className="w-3.5 h-3.5" />
               <span className="text-xs hidden sm:inline">Mobile</span>
             </Button>
+            
+            <div className="h-4 w-px bg-border mx-2" />
+            
+            {/* Toggle: click to select element */}
+            <Button
+              variant={previewClickToSelect ? 'default' : 'ghost'}
+              size="sm"
+              className="h-7 px-2 gap-1"
+              onClick={() => setPreviewClickToSelect(!previewClickToSelect)}
+              title="Kliknij element, aby go edytować"
+            >
+              <MousePointer className="w-3.5 h-3.5" />
+              <span className="text-xs">Edytuj kliknięciem</span>
+            </Button>
           </div>
           
-          <div className="flex-1 bg-muted/20 flex items-start justify-center overflow-auto py-4">
+          {/* Preview container - full height */}
+          <div className="flex-1 bg-muted/20 flex justify-center overflow-auto">
             <div 
-              className="bg-white shadow-lg transition-all duration-300 h-full"
+              className="bg-white shadow-lg h-full"
               style={{ 
                 width: previewWidth,
                 maxWidth: '100%',
-                minHeight: previewWidth === '375px' ? '667px' : previewWidth === '768px' ? '1024px' : 'auto',
               }}
             >
-              <iframe
-                srcDoc={`
-                  <!DOCTYPE html>
-                  <html>
-                  <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <script src="https://cdn.tailwindcss.com"></script>
-                    <script src="https://unpkg.com/lucide@latest"></script>
-                    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-                    <style>
-                      body { 
-                        font-family: 'Open Sans', sans-serif; 
-                        margin: 0; 
-                        padding: 24px;
-                      }
-                      h1, h2, h3, h4, h5, h6 { 
-                        font-family: 'Montserrat', sans-serif; 
-                      }
-                      ${customCss || ''}
-                    </style>
-                  </head>
-                  <body>
-                    ${previewHtml}
-                    <script>
-                      if (window.lucide) {
-                        lucide.createIcons();
-                      }
-                    </script>
-                  </body>
-                  </html>
-                `}
-                className="w-full h-full border-0"
-                title="Podgląd strony"
-              />
+              {previewClickToSelect ? (
+                // Interactive preview - click to select element
+                <div className="p-6 min-h-full">
+                  {customCss && <style>{customCss}</style>}
+                  {elements.map((element) => (
+                    <HtmlElementRenderer
+                      key={element.id}
+                      element={element}
+                      selectedId={selectedElementId}
+                      hoveredId={hoveredId}
+                      onSelect={(el) => {
+                        handleSelect(el);
+                        setActiveTab('visual'); // Switch to visual editor
+                      }}
+                      onHover={setHoveredId}
+                      isEditMode={false}
+                      showOutlines={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Clean iframe preview
+                <iframe
+                  srcDoc={`
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                      <meta charset="UTF-8">
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                      <script src="https://cdn.tailwindcss.com"></script>
+                      <script src="https://unpkg.com/lucide@latest"></script>
+                      <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Open+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+                      <style>
+                        body { 
+                          font-family: 'Open Sans', sans-serif; 
+                          margin: 0; 
+                          padding: 24px;
+                        }
+                        h1, h2, h3, h4, h5, h6 { 
+                          font-family: 'Montserrat', sans-serif; 
+                        }
+                        ${customCss || ''}
+                      </style>
+                    </head>
+                    <body>
+                      ${previewHtml}
+                      <script>
+                        if (window.lucide) {
+                          lucide.createIcons();
+                        }
+                      </script>
+                    </body>
+                    </html>
+                  `}
+                  className="w-full h-full border-0"
+                  title="Podgląd strony"
+                />
+              )}
             </div>
           </div>
         </TabsContent>
