@@ -378,6 +378,55 @@ app.delete('/upload/:filename', (req, res) => {
 });
 
 // ========================================
+// PWA DIAGNOSTICS & MANIFEST
+// ========================================
+
+// Diagnostic endpoint for PWA status
+app.get('/api/pwa-status', (req, res) => {
+  const distPath = path.join(__dirname, 'dist');
+  const publicPath = path.join(__dirname, 'public');
+  
+  res.json({
+    serverVersion: '1.3.0',
+    timestamp: new Date().toISOString(),
+    pid: process.pid,
+    distFiles: {
+      swPush: fs.existsSync(path.join(distPath, 'sw-push.js')),
+      manifest: fs.existsSync(path.join(distPath, 'manifest.json')),
+      pwa192: fs.existsSync(path.join(distPath, 'pwa-192.png')),
+      pwa512: fs.existsSync(path.join(distPath, 'pwa-512.png')),
+    },
+    publicFiles: {
+      swPush: fs.existsSync(path.join(publicPath, 'sw-push.js')),
+      manifest: fs.existsSync(path.join(publicPath, 'manifest.json')),
+      pwa192: fs.existsSync(path.join(publicPath, 'pwa-192.png')),
+      pwa512: fs.existsSync(path.join(publicPath, 'pwa-512.png')),
+    }
+  });
+});
+
+// Manifest with correct MIME type
+app.get('/manifest.json', (req, res) => {
+  const manifestPath = path.join(__dirname, 'dist', 'manifest.json');
+  
+  if (fs.existsSync(manifestPath)) {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(manifestPath);
+  } else {
+    const publicPath = path.join(__dirname, 'public', 'manifest.json');
+    if (fs.existsSync(publicPath)) {
+      res.setHeader('Content-Type', 'application/manifest+json');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(publicPath);
+    } else {
+      console.error('[PWA] Manifest not found in dist/ or public/');
+      res.status(404).send('Manifest not found');
+    }
+  }
+});
+
+// ========================================
 // SERVICE WORKER ROUTING
 // ========================================
 
