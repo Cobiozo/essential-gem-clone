@@ -574,6 +574,7 @@ export const useEvents = () => {
       // Step 5: Expand multi-occurrence events based on user's registrations
       const expandedEvents: EventWithRegistration[] = [];
       const eventMap = new Map((events || []).map(e => [e.id, e]));
+      const seenEventTimes = new Set<string>(); // Deduplikacja po event_id + start_time
 
       registrations.forEach(reg => {
         const event = eventMap.get(reg.event_id);
@@ -588,25 +589,36 @@ export const useEvents = () => {
           participant_profile: participantProfiles.get(event.id) || null,
         };
 
+        let startTimeForDedupe: string;
+        let eventToPush: EventWithRegistration;
+
         // Check if this is a multi-occurrence event with specific occurrence_index
         if (isMultiOccurrenceEvent(baseEvent) && reg.occurrence_index !== null && reg.occurrence_index !== undefined) {
           const allOccurrences = getAllOccurrences(baseEvent);
           const occurrence = allOccurrences.find(o => o.index === reg.occurrence_index);
           
-          if (occurrence) {
-            // Create expanded event with occurrence-specific times
-            expandedEvents.push({
-              ...baseEvent,
-              start_time: occurrence.start_datetime.toISOString(),
-              end_time: occurrence.end_datetime.toISOString(),
-              duration_minutes: occurrence.duration_minutes,
-              _occurrence_index: occurrence.index,
-              _is_multi_occurrence: true,
-            } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean });
-          }
+          if (!occurrence) return;
+          
+          startTimeForDedupe = occurrence.start_datetime.toISOString();
+          eventToPush = {
+            ...baseEvent,
+            start_time: startTimeForDedupe,
+            end_time: occurrence.end_datetime.toISOString(),
+            duration_minutes: occurrence.duration_minutes,
+            _occurrence_index: occurrence.index,
+            _is_multi_occurrence: true,
+          } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean };
         } else {
           // Single occurrence or legacy registration without occurrence_index
-          expandedEvents.push(baseEvent);
+          startTimeForDedupe = new Date(baseEvent.start_time).toISOString();
+          eventToPush = baseEvent;
+        }
+
+        // Deduplikacja: klucz = event_id + start_time (zapobiega duplikatom legacy + nowe rejestracje)
+        const dedupeKey = `${reg.event_id}:${startTimeForDedupe}`;
+        if (!seenEventTimes.has(dedupeKey)) {
+          expandedEvents.push(eventToPush);
+          seenEventTimes.add(dedupeKey);
         }
       });
 
