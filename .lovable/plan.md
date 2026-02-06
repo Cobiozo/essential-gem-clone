@@ -1,69 +1,143 @@
-# System stron HTML - Dokumentacja
 
-## ✅ Ukończone naprawy (2025-02-05)
 
-### 1. Dynamiczne ładowanie stron do Sidebara ✅
-**Implementacja:** `DashboardSidebar.tsx`
-- Dodano `useQuery` pobierający strony z `show_in_sidebar=true`
-- Filtrowanie widoczności per rola użytkownika
-- Dynamiczne ikony Lucide (fallback na `FileText`)
+# Plan: Naprawa layoutu edytora HTML - pełne wykorzystanie ekranu
 
-### 2. Obsługa anonimowego dostępu ✅
-**Migracja bazy:**
-- Dodano RLS policy: `"Anonymous users can view public pages"`
-- Zaktualizowano strony legalne: `visible_to_anonymous = true`
+## Zidentyfikowane problemy
 
-### 3. Open Graph meta tagi ✅
-**Migracja bazy:** 
-- `og_image`, `og_title`, `og_description` kolumny
+### Problem 1: Dialog z ograniczoną wysokością
+Dialog w `HtmlPagesManagement.tsx` używa `ScrollArea` wewnątrz zakładek, co powoduje dodatkowe ograniczenia wysokości. Na screenshocie widać:
+- Panel boczny "Kontener" jest ucięty (nie widać pełnych opcji)
+- Podgląd nie sięga dołu ekranu
+- Przyciski "Anuluj" i "Zapisz" nachodzą na edytor
 
-**Implementacja:**
-- `HtmlPage.tsx` - dynamiczne ustawianie meta tagów OG i Twitter
-- `HtmlPagesManagement.tsx` - UI do edycji OG w ustawieniach strony
+### Problem 2: Ograniczenia wysokości w HtmlHybridEditor
+Linia 562 ustawia `max-h-[calc(100vh-200px)]` co w połączeniu z dialogiem powoduje podwójne ograniczenie.
 
-### 4. Responsywny podgląd w edytorze ✅
-**Implementacja:** `HtmlHybridEditor.tsx`
-- Przyciski Desktop/Tablet/Mobile (100%/768px/375px)
-- Symulowany viewport z ramką i cieniem
+### Problem 3: Properties Panel za wąski
+Panel boczny ma `defaultSize={32}` z `minSize={25}` i `maxSize={45}`, co przy szerokości 95vw daje tylko ~30% ekranu - za mało dla panelu edycji.
 
 ---
 
-## Architektura systemu
+## Rozwiązanie
 
-### Baza danych (`html_pages`)
+### 1. Zmiana struktury dialogu (`HtmlPagesManagement.tsx`)
 
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| `id` | uuid | Klucz główny |
-| `title`, `slug` | text | Tytuł i URL (`/html/{slug}`) |
-| `html_content` | text | Kod HTML |
-| `custom_css` | text | Własne style |
-| `meta_*`, `og_*` | text | SEO i Open Graph |
-| `visible_to_*` | boolean | Widoczność per rola |
-| `show_in_sidebar` | boolean | Pozycja w menu |
+| Przed | Po |
+|-------|-----|
+| `ScrollArea` wewnątrz wszystkich zakładek | Usunięcie ScrollArea dla zakładki "preview" |
+| `h-[calc(90vh-220px)]` dla preview | `h-full` z flex-grow |
+| Statyczna wysokość | Elastyczna wysokość z `flex-1` |
 
-### Komponenty
-
-```
-Admin Panel
-├── HtmlPagesManagement.tsx (CRUD + ustawienia OG)
-└── HtmlHybridEditor/ (edytor WYSIWYG)
-    ├── Tabs: Visual | Code | Preview
-    ├── Responsive preview (Desktop/Tablet/Mobile)
-    └── DnD, inline editing, properties panel
-
-Renderer
-└── HtmlPage.tsx
-    ├── Dynamic meta tags (SEO + OG)
-    ├── Tailwind/Lucide/Fonts CDN
-    └── Dark mode sanitization
-
-Sidebar
-└── DashboardSidebar.tsx
-    └── useQuery html_pages → dynamic menu items
+**Zmiany w DialogContent:**
+```tsx
+<DialogContent className="max-w-[98vw] max-h-[95vh] h-[95vh] flex flex-col p-0">
 ```
 
-### Istniejące strony
-- `/html/regulamin` - Regulamin
-- `/html/polityka-prywatnosci` - Polityka Prywatności
-- `/html/informacje-dla-klienta` - Informacje dla klienta
+**Usunięcie ScrollArea dla zakładki preview:**
+```tsx
+<TabsContent value="preview" className="flex-1 h-full overflow-hidden m-0 p-0">
+  <HtmlHybridEditor ... />
+</TabsContent>
+```
+
+### 2. Rozszerzenie panelu bocznego (`HtmlHybridEditor.tsx`)
+
+| Parametr | Przed | Po |
+|----------|-------|-----|
+| `defaultSize` | 32 | 35 |
+| `minSize` | 25 | 28 |
+| `maxSize` | 45 | 50 |
+| Panel główny `minSize` | 40 | 50 |
+
+### 3. Optymalizacja wysokości edytora
+
+```tsx
+// Linia 562 - zmiana
+<div className="h-full flex flex-col border rounded-lg overflow-hidden bg-background">
+```
+
+Usunięcie `min-h-[600px] max-h-[calc(100vh-200px)]` - niech edytor zajmuje całą dostępną przestrzeń przekazaną przez rodzica.
+
+### 4. Lepsze zarządzanie flex-grow w zakładkach
+
+```tsx
+// TabsContent visual - pełna wysokość bez margin
+<TabsContent value="visual" className="flex-1 h-0 min-h-0 overflow-hidden">
+```
+
+Użycie `h-0 min-h-0` z `flex-1` to standardowy pattern dla pełnego wypełnienia flexboxa.
+
+---
+
+## Pliki do modyfikacji
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/HtmlPagesManagement.tsx` | Struktura DialogContent, usunięcie ScrollArea dla preview |
+| `src/components/admin/html-editor/HtmlHybridEditor.tsx` | Usunięcie ograniczeń wysokości, szerszy panel |
+
+---
+
+## Szczegółowe zmiany
+
+### HtmlPagesManagement.tsx
+
+**Dialog (linia ~369-378):**
+```tsx
+<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+  <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 gap-0">
+    <DialogHeader className="px-6 py-4 border-b shrink-0">
+      ...
+    </DialogHeader>
+
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+      <TabsList className="grid w-full grid-cols-4 px-6 py-2 shrink-0">
+        ...
+      </TabsList>
+
+      {/* Zakładki HTML i Ustawienia - z ScrollArea */}
+      <ScrollArea className="flex-1">
+        <TabsContent value="editor">...</TabsContent>
+        <TabsContent value="settings">...</TabsContent>
+        <TabsContent value="visibility">...</TabsContent>
+      </ScrollArea>
+      
+      {/* Zakładka Podgląd - BEZ ScrollArea, pełna wysokość */}
+      <TabsContent value="preview" className="flex-1 h-full overflow-hidden m-0 p-2">
+        <HtmlHybridEditor ... />
+      </TabsContent>
+    </Tabs>
+
+    <DialogFooter className="px-6 py-3 border-t shrink-0">
+      ...
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+```
+
+### HtmlHybridEditor.tsx
+
+**Główny kontener (linia 562):**
+```tsx
+<div className="h-full flex flex-col border rounded-lg overflow-hidden bg-background">
+```
+
+**ResizablePanel dla panelu właściwości (linia 698):**
+```tsx
+<ResizablePanel defaultSize={35} minSize={28} maxSize={50}>
+```
+
+**ResizablePanel główny (linia 639):**
+```tsx
+<ResizablePanel defaultSize={selectedElementId ? 65 : 100} minSize={50} className="h-full">
+```
+
+---
+
+## Rezultat
+
+- Edytor wypełnia 98% szerokości i 95% wysokości ekranu
+- Panel boczny właściwości nie jest ucięty (szerszy o ~10%)
+- Podgląd sięga dołu ekranu (bez podwójnych ScrollArea)
+- Przyciski "Anuluj" i "Zapisz" są w stopce dialogu, nie nachodzą na edytor
+
