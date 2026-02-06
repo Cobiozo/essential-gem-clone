@@ -130,7 +130,17 @@ export const CurrentDevicePanel: React.FC = () => {
         {/* Error display */}
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error.includes('MIME type') || error.includes('unsupported MIME') ? (
+                <>
+                  <strong>Błąd konfiguracji serwera:</strong> Plik Service Worker (sw-push.js) 
+                  jest serwowany z nieprawidłowym typem MIME. Sprawdź konfigurację serwera produkcyjnego 
+                  - plik musi być serwowany z typem <code>application/javascript</code>.
+                </>
+              ) : (
+                error
+              )}
+            </AlertDescription>
           </Alert>
         )}
 
