@@ -1,143 +1,205 @@
 
 
-# Plan: Naprawa layoutu edytora HTML - pełne wykorzystanie ekranu
+# Plan: Pełnoekranowy edytor HTML w osobnej karcie
 
-## Zidentyfikowane problemy
+## Analiza problemu
 
-### Problem 1: Dialog z ograniczoną wysokością
-Dialog w `HtmlPagesManagement.tsx` używa `ScrollArea` wewnątrz zakładek, co powoduje dodatkowe ograniczenia wysokości. Na screenshocie widać:
-- Panel boczny "Kontener" jest ucięty (nie widać pełnych opcji)
-- Podgląd nie sięga dołu ekranu
-- Przyciski "Anuluj" i "Zapisz" nachodzą na edytor
+Na screenshotach widać:
+- Podgląd edytowanej strony (sekcja "Gotowy na zmianę?") zajmuje tylko ~40% dostępnej wysokości
+- Pod podglądem jest duża niewykorzystana przestrzeń (szara/biała)
+- Dialog ma zbyt wiele zagnieżdżonych warstw (zakładki dialogu + zakładki edytora)
+- Panel boczny pojawia się tylko po zaznaczeniu elementu, co jest poprawne
 
-### Problem 2: Ograniczenia wysokości w HtmlHybridEditor
-Linia 562 ustawia `max-h-[calc(100vh-200px)]` co w połączeniu z dialogiem powoduje podwójne ograniczenie.
+## Proponowane rozwiązanie
 
-### Problem 3: Properties Panel za wąski
-Panel boczny ma `defaultSize={32}` z `minSize={25}` i `maxSize={45}`, co przy szerokości 95vw daje tylko ~30% ekranu - za mało dla panelu edycji.
+Zamiast otwierać edytor w dialogu, **otworzymy go w osobnej, pełnoekranowej stronie** (`/admin/html-editor/:id`). To zapewni:
 
----
+| Aspekt | Dialog (obecnie) | Osobna strona (propozycja) |
+|--------|------------------|---------------------------|
+| Dostępna przestrzeń | ~95vh minus nagłówki | 100vh |
+| Zagnieżdżenie zakładek | Podwójne | Pojedyncze |
+| Nawigacja | Zamknięcie dialogu | Powrót do listy |
+| Focus użytkownika | Rozproszone | Pełna koncentracja |
 
-## Rozwiązanie
+## Architektura zmian
 
-### 1. Zmiana struktury dialogu (`HtmlPagesManagement.tsx`)
-
-| Przed | Po |
-|-------|-----|
-| `ScrollArea` wewnątrz wszystkich zakładek | Usunięcie ScrollArea dla zakładki "preview" |
-| `h-[calc(90vh-220px)]` dla preview | `h-full` z flex-grow |
-| Statyczna wysokość | Elastyczna wysokość z `flex-1` |
-
-**Zmiany w DialogContent:**
-```tsx
-<DialogContent className="max-w-[98vw] max-h-[95vh] h-[95vh] flex flex-col p-0">
+```text
+/admin?tab=html-pages
+     │
+     │  [Edytuj] - navigate to:
+     ▼
+/admin/html-editor/:id   (nowa strona)
+     │
+     └── HtmlEditorPage.tsx
+           ├── Toolbar z przyciskiem "← Powrót do listy"
+           ├── Minimalistyczny header z tytułem + Zapisz/Anuluj
+           ├── HtmlHybridEditor (pełna wysokość: calc(100vh - 60px))
+           └── Status bar z informacją o zapisie
 ```
 
-**Usunięcie ScrollArea dla zakładki preview:**
-```tsx
-<TabsContent value="preview" className="flex-1 h-full overflow-hidden m-0 p-0">
-  <HtmlHybridEditor ... />
-</TabsContent>
-```
+## Pliki do utworzenia/modyfikacji
 
-### 2. Rozszerzenie panelu bocznego (`HtmlHybridEditor.tsx`)
-
-| Parametr | Przed | Po |
-|----------|-------|-----|
-| `defaultSize` | 32 | 35 |
-| `minSize` | 25 | 28 |
-| `maxSize` | 45 | 50 |
-| Panel główny `minSize` | 40 | 50 |
-
-### 3. Optymalizacja wysokości edytora
-
-```tsx
-// Linia 562 - zmiana
-<div className="h-full flex flex-col border rounded-lg overflow-hidden bg-background">
-```
-
-Usunięcie `min-h-[600px] max-h-[calc(100vh-200px)]` - niech edytor zajmuje całą dostępną przestrzeń przekazaną przez rodzica.
-
-### 4. Lepsze zarządzanie flex-grow w zakładkach
-
-```tsx
-// TabsContent visual - pełna wysokość bez margin
-<TabsContent value="visual" className="flex-1 h-0 min-h-0 overflow-hidden">
-```
-
-Użycie `h-0 min-h-0` z `flex-1` to standardowy pattern dla pełnego wypełnienia flexboxa.
-
----
-
-## Pliki do modyfikacji
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/HtmlPagesManagement.tsx` | Struktura DialogContent, usunięcie ScrollArea dla preview |
-| `src/components/admin/html-editor/HtmlHybridEditor.tsx` | Usunięcie ograniczeń wysokości, szerszy panel |
-
----
+| Plik | Akcja | Opis |
+|------|-------|------|
+| `src/pages/HtmlEditorPage.tsx` | Nowy | Pełnoekranowa strona edytora |
+| `src/App.tsx` | Modyfikacja | Dodanie route `/admin/html-editor/:id` |
+| `src/components/admin/HtmlPagesManagement.tsx` | Modyfikacja | Zmiana przycisku "Edytuj" na navigate() zamiast dialog |
+| `src/components/admin/html-editor/HtmlHybridEditor.tsx` | Modyfikacja | Usunięcie duplikujących się zakładek, max wykorzystanie przestrzeni |
 
 ## Szczegółowe zmiany
 
-### HtmlPagesManagement.tsx
+### 1. Nowa strona HtmlEditorPage.tsx
 
-**Dialog (linia ~369-378):**
 ```tsx
-<Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-  <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 gap-0">
-    <DialogHeader className="px-6 py-4 border-b shrink-0">
-      ...
-    </DialogHeader>
-
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-      <TabsList className="grid w-full grid-cols-4 px-6 py-2 shrink-0">
-        ...
-      </TabsList>
-
-      {/* Zakładki HTML i Ustawienia - z ScrollArea */}
-      <ScrollArea className="flex-1">
-        <TabsContent value="editor">...</TabsContent>
-        <TabsContent value="settings">...</TabsContent>
-        <TabsContent value="visibility">...</TabsContent>
-      </ScrollArea>
+// src/pages/HtmlEditorPage.tsx
+const HtmlEditorPage = () => {
+  const { id } = useParams(); // 'new' dla nowej strony
+  const navigate = useNavigate();
+  
+  // Pobranie/tworzenie strony
+  const { data: page, isLoading } = useQuery({...});
+  
+  // Stan edycji
+  const [editingPage, setEditingPage] = useState(page);
+  const [activeView, setActiveView] = useState<'preview' | 'settings'>('preview');
+  
+  return (
+    <div className="h-screen flex flex-col bg-background">
+      {/* Minimalistyczny header - tylko niezbędne */}
+      <header className="h-14 border-b flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin?tab=html-pages')}>
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Powrót
+          </Button>
+          <span className="text-lg font-medium">{page?.title || 'Nowa strona'}</span>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {/* Przełącznik: Edytor / Ustawienia */}
+          <Button 
+            variant={activeView === 'preview' ? 'default' : 'ghost'} 
+            size="sm"
+            onClick={() => setActiveView('preview')}
+          >
+            <Eye className="w-4 h-4 mr-1" />
+            Edytor
+          </Button>
+          <Button 
+            variant={activeView === 'settings' ? 'default' : 'ghost'} 
+            size="sm"
+            onClick={() => setActiveView('settings')}
+          >
+            <Settings className="w-4 h-4 mr-1" />
+            Ustawienia
+          </Button>
+          
+          <div className="w-px h-6 bg-border mx-2" />
+          
+          <Button variant="outline" size="sm" onClick={handleCancel}>
+            Anuluj
+          </Button>
+          <Button size="sm" onClick={handleSave}>
+            Zapisz
+          </Button>
+        </div>
+      </header>
       
-      {/* Zakładka Podgląd - BEZ ScrollArea, pełna wysokość */}
-      <TabsContent value="preview" className="flex-1 h-full overflow-hidden m-0 p-2">
-        <HtmlHybridEditor ... />
-      </TabsContent>
-    </Tabs>
-
-    <DialogFooter className="px-6 py-3 border-t shrink-0">
-      ...
-    </DialogFooter>
-  </DialogContent>
-</Dialog>
+      {/* Główna treść - pełna wysokość */}
+      {activeView === 'preview' ? (
+        <div className="flex-1 overflow-hidden">
+          <HtmlHybridEditor
+            htmlContent={editingPage?.html_content || ''}
+            customCss={editingPage?.custom_css || ''}
+            onChange={(html) => setEditingPage(prev => ({ ...prev, html_content: html }))}
+          />
+        </div>
+      ) : (
+        <SettingsPanel page={editingPage} onChange={setEditingPage} />
+      )}
+    </div>
+  );
+};
 ```
 
-### HtmlHybridEditor.tsx
+### 2. Uproszczony HtmlHybridEditor
 
-**Główny kontener (linia 562):**
+Usunięcie zbędnych elementów:
+- Zmniejszenie toolbara formatowania (tylko niezbędne ikony)
+- Pełne `h-full` bez `min-h` i `max-h`
+- Domyślnie widok "Edytor wizualny" jako główny
+
 ```tsx
-<div className="h-full flex flex-col border rounded-lg overflow-hidden bg-background">
+// Zmiana w HtmlHybridEditor.tsx - kontener główny
+<div className="h-full flex flex-col overflow-hidden">
+  {/* Toolbar - kompaktowy */}
+  <div className="shrink-0 border-b">
+    <HtmlFormattingToolbar minimal />
+    <HtmlElementToolbar compact />
+  </div>
+  
+  {/* Edytor - pełna reszta wysokości */}
+  <div className="flex-1 overflow-hidden">
+    <ResizablePanelGroup direction="horizontal" className="h-full">
+      {/* Panel podglądu - domyślnie 100% lub 70% z properties */}
+      <ResizablePanel defaultSize={selectedElementId ? 70 : 100} minSize={50}>
+        <div className="h-full overflow-auto p-4">
+          {/* Elementy do edycji */}
+        </div>
+      </ResizablePanel>
+      
+      {/* Panel właściwości - pojawia się po zaznaczeniu */}
+      {selectedElementId && (
+        <>
+          <ResizableHandle />
+          <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
+            <SimplifiedPropertiesPanel />
+          </ResizablePanel>
+        </>
+      )}
+    </ResizablePanelGroup>
+  </div>
+</div>
 ```
 
-**ResizablePanel dla panelu właściwości (linia 698):**
+### 3. App.tsx - nowa trasa
+
 ```tsx
-<ResizablePanel defaultSize={35} minSize={28} maxSize={50}>
+// Dodanie w Routes
+<Route path="/admin/html-editor/:id" element={<HtmlEditorPage />} />
 ```
 
-**ResizablePanel główny (linia 639):**
+### 4. HtmlPagesManagement.tsx - nawigacja zamiast dialogu
+
 ```tsx
-<ResizablePanel defaultSize={selectedElementId ? 65 : 100} minSize={50} className="h-full">
+// Zmiana przycisku "Edytuj"
+<Button
+  variant="ghost"
+  size="sm"
+  onClick={() => navigate(`/admin/html-editor/${page.id}`)}
+>
+  <Edit className="w-4 h-4" />
+</Button>
+
+// Przycisk "Nowa strona" 
+<Button onClick={() => navigate('/admin/html-editor/new')}>
+  <Plus className="w-4 h-4 mr-2" />
+  Nowa strona
+</Button>
 ```
 
----
+## Korzyści
 
-## Rezultat
+- **100% wysokości ekranu** dla edytora (zamiast 95vh minus nagłówki dialogu)
+- **Intuicyjna nawigacja** - jeden poziom zakładek (Edytor / Ustawienia)
+- **Focus na podgląd** - edytowana strona zajmuje maksymalną przestrzeń
+- **Responsywność** - łatwiejsze dostosowanie do różnych rozmiarów ekranu
+- **Autosave** - możliwość implementacji automatycznego zapisu
+- **Breadcrumb** - jasna ścieżka powrotu do listy stron
 
-- Edytor wypełnia 98% szerokości i 95% wysokości ekranu
-- Panel boczny właściwości nie jest ucięty (szerszy o ~10%)
-- Podgląd sięga dołu ekranu (bez podwójnych ScrollArea)
-- Przyciski "Anuluj" i "Zapisz" są w stopce dialogu, nie nachodzą na edytor
+## Zachowanie kompatybilności
+
+- Dialog pozostanie jako fallback dla małych urządzeń
+- Istniejące funkcje (drag-drop, inline editing, panel właściwości) bez zmian
+- Dane zapisywane do tej samej tabeli `html_pages`
 
