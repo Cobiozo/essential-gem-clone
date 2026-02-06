@@ -1,400 +1,229 @@
 
 
-# Plan: Uzupełnienie brakujących funkcji Push Notifications
+# Plan: Naprawa powiadomień Push na produkcji
 
-## Podsumowanie analizy
+## Zidentyfikowane problemy
 
-Po porównaniu screenshotów z EQApp z obecną implementacją zidentyfikowałem następujące braki:
+### 1. **BŁĄD KRYTYCZNY: Service Worker zwraca nieprawidłowy MIME type**
 
-### Brakujące funkcje o wysokim priorytecie:
-1. **Sekcja "Twoje urządzenie"** - widok dla admina z możliwością włączenia powiadomień na własnym urządzeniu
-2. **Test powiadomień** - formularz z polami tytuł/treść i przyciskami "Wyślij do siebie" / "Wyślij do wszystkich"
-
-### Brakujące funkcje o średnim priorytecie:
-3. **Zaawansowane ustawienia powiadomień**:
-   - Wzorzec wibracji (5 opcji: Krótka, Standardowa, Długa, Pilna, Wyłączona)
-   - Czas życia powiadomienia TTL (dropdown)
-   - Toggle "Wymagaj interakcji"
-   - Toggle "Ciche powiadomienia"
-
-### Brakujące funkcje o niskim priorytecie:
-4. Przycisk "Wyczyść nieaktywne subskrypcje"
-5. Przycisk "Przywróć domyślne" ikony
-6. Przycisk "Zapisz wszystko" globalny
-
----
-
-## Faza 1: Rozszerzenie bazy danych
-
-Dodanie nowych pól do tabeli `push_notification_config`:
-
-```sql
-ALTER TABLE public.push_notification_config
-ADD COLUMN IF NOT EXISTS vibration_pattern text DEFAULT 'standard',
-ADD COLUMN IF NOT EXISTS ttl_seconds integer DEFAULT 86400,
-ADD COLUMN IF NOT EXISTS require_interaction boolean DEFAULT false,
-ADD COLUMN IF NOT EXISTS silent boolean DEFAULT false;
-
-COMMENT ON COLUMN push_notification_config.vibration_pattern IS 'short, standard, long, urgent, off';
-COMMENT ON COLUMN push_notification_config.ttl_seconds IS 'Time to live in seconds (default 24h)';
+Na screenshocie widoczny jest błąd:
+```
+Failed to register a ServiceWorker for scope ('https://purelife.info.pl/') 
+with script ('https://purelife.info.pl/sw-push.js'): 
+The script has an unsupported MIME type ('text/html').
 ```
 
+**Przyczyna:** Serwer produkcyjny (Express w `server.js`) przy żądaniu `/sw-push.js` zwraca `index.html` z typem `text/html` zamiast samego pliku JavaScript.
+
+**Analiza kodu `server.js`:**
+- Linia 207-225: Serwer serwuje pliki statyczne z folderu `dist`
+- Linia 386-388: Wildcard route `app.get('*')` zwraca `index.html` dla wszystkich nieznanych tras (SPA fallback)
+
+**Problem:** Plik `sw-push.js` istnieje w folderze `public/` (w repozytorium), ale podczas buildu Vite może nie kopiować go do `dist/` lub serwer nie znajduje go i fallbackuje do `index.html`.
+
 ---
 
-## Faza 2: Nowy komponent "Twoje urządzenie"
+### 2. **PROBLEM: Banner używa starego systemu powiadomień**
 
-Sekcja wyświetlana na górze panelu Push, pokazująca:
-- Status powiadomień push na urządzeniu admina
-- Informacje o przeglądarce i systemie (np. "Edge • Windows PC")
-- Przycisk "Włącz powiadomienia" lub status "Powiadomienia aktywne"
-- Rozwijane szczegóły urządzenia
+Plik `NotificationPermissionBanner.tsx` używa starego hooka `useBrowserNotifications` zamiast nowego `usePushNotifications`:
 
 ```typescript
-// src/components/admin/push-notifications/CurrentDevicePanel.tsx
-export const CurrentDevicePanel = () => {
-  const { isSubscribed, subscribe, browserInfo, osInfo, isPWA } = usePushNotifications();
+// OBECNY KOD (nieprawidłowy):
+import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
+const { permission, requestPermission, isSupported } = useBrowserNotifications();
+
+// Pokazuje się tylko gdy permission === 'default'
+if (!isSupported || permission !== 'default') return null;
+```
+
+**Skutek:** 
+- Jeśli użytkownik kiedyś zezwolił na powiadomienia (permission = 'granted'), banner NIE pojawi się
+- Ale użytkownik może NIE mieć aktywnej subskrypcji Push w nowym systemie VAPID
+
+---
+
+### 3. **PROBLEM: Brak przycisku "Odrzuć na później"**
+
+Obecny banner ma tylko przycisk "Włącz powiadomienia", bez opcji odrzucenia.
+
+---
+
+## Faza 1: Naprawa konfiguracji serwera (MIME type)
+
+### 1.1 Dodanie jawnej obsługi Service Worker w `server.js`
+
+Przed wildcard route `app.get('*')` musi być jawna obsługa pliku `sw-push.js`:
+
+```javascript
+// DODAĆ PRZED app.get('*', ...)
+
+// Service Worker - musi być serwowany z prawidłowym MIME type i odpowiednim scope
+app.get('/sw-push.js', (req, res) => {
+  const swPath = path.join(__dirname, 'dist', 'sw-push.js');
   
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Smartphone className="w-5 h-5" />
-          Twoje urządzenie
-        </CardTitle>
-        <CardDescription>
-          Zarządzaj powiadomieniami push na tym urządzeniu
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {/* Status Alert */}
-        <Alert variant={isSubscribed ? "default" : "secondary"}>
-          <Bell className="w-4 h-4" />
-          <AlertDescription>
-            {isSubscribed 
-              ? "Powiadomienia push są włączone" 
-              : "Powiadomienia push są wyłączone"}
-          </AlertDescription>
-        </Alert>
-        
-        {/* Device info */}
-        <p className="text-sm text-muted-foreground mt-2">
-          {browserInfo?.name} • {osInfo?.name} {isPWA && "(PWA)"}
-        </p>
-        
-        {/* Action button */}
-        <Button onClick={subscribe} disabled={isSubscribed}>
-          <Bell className="w-4 h-4 mr-2" />
-          Włącz powiadomienia
-        </Button>
-        
-        {/* Collapsible device details */}
-        <Collapsible>...</Collapsible>
-      </CardContent>
-    </Card>
-  );
-};
+  if (fs.existsSync(swPath)) {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(swPath);
+  } else {
+    // Fallback to public folder (dev mode)
+    const publicSwPath = path.join(__dirname, 'public', 'sw-push.js');
+    if (fs.existsSync(publicSwPath)) {
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(publicSwPath);
+    } else {
+      res.status(404).send('Service Worker not found');
+    }
+  }
+});
 ```
+
+### 1.2 Weryfikacja konfiguracji Vite
+
+Upewnić się, że Vite kopiuje `public/sw-push.js` do `dist/` podczas buildu. 
+
+Vite domyślnie kopiuje wszystko z `public/` do `dist/` - ale warto to zweryfikować w konfiguracji.
 
 ---
 
-## Faza 3: Panel testowania powiadomień
+## Faza 2: Aktualizacja NotificationPermissionBanner
 
-Nowy komponent z formularzem do wysyłania testowych powiadomień:
+### 2.1 Zamiana hooka na `usePushNotifications`
 
 ```typescript
-// src/components/admin/push-notifications/TestNotificationPanel.tsx
-export const TestNotificationPanel = () => {
-  const [title, setTitle] = useState('Test powiadomienia');
-  const [body, setBody] = useState('To jest testowe powiadomienie push!');
-  const [sending, setSending] = useState(false);
+// src/components/messages/NotificationPermissionBanner.tsx
+import { useState } from 'react';
+import { Bell, X } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
+
+const DISMISS_KEY = 'push_notification_banner_dismissed';
+const DISMISS_DURATION_DAYS = 7;
+
+export const NotificationPermissionBanner = () => {
+  const { 
+    isSupported, 
+    isSubscribed, 
+    permission, 
+    pushConfig, 
+    subscribe, 
+    isLoading,
+    error
+  } = usePushNotifications();
   
-  const sendToSelf = async () => {
-    // Wywołaj Edge Function send-push-notification z target: 'self'
-  };
-  
-  const sendToAll = async () => {
-    // Potwierdź dialogiem, następnie wyślij do wszystkich
-  };
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Send className="w-5 h-5" />
-          Test powiadomień
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Tytuł powiadomienia</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>Treść powiadomienia</Label>
-            <Input value={body} onChange={(e) => setBody(e.target.value)} />
-          </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={sendToSelf}>
-            <Bell className="w-4 h-4 mr-2" />
-            Wyślij do siebie
-          </Button>
-          <Button onClick={sendToAll}>
-            <Send className="w-4 h-4 mr-2" />
-            Wyślij do wszystkich
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-```
-
----
-
-## Faza 4: Panel zaawansowanych ustawień
-
-Nowy komponent z konfiguracją wzorca wibracji, TTL i innych opcji:
-
-```typescript
-// src/components/admin/push-notifications/AdvancedSettingsPanel.tsx
-const vibrationPatterns = [
-  { id: 'short', name: 'Krótka', pattern: '100ms', description: '100ms' },
-  { id: 'standard', name: 'Standardowa', pattern: '100-50-100ms', description: '100-50-100ms', default: true },
-  { id: 'long', name: 'Długa', pattern: '200-100-200-100-200ms', description: '200-100-200-100-200ms' },
-  { id: 'urgent', name: 'Pilna', pattern: '100-30-100-30-100-30-100ms', description: '100-30-100-30-100-30-100ms' },
-  { id: 'off', name: 'Wyłączona', pattern: null, description: 'Brak wibracji' },
-];
-
-const ttlOptions = [
-  { value: 3600, label: '1 godzina' },
-  { value: 14400, label: '4 godziny' },
-  { value: 43200, label: '12 godzin' },
-  { value: 86400, label: '24 godziny (Domyślny)' },
-  { value: 172800, label: '48 godzin' },
-  { value: 604800, label: '7 dni' },
-];
-
-export const AdvancedSettingsPanel = ({ config, onUpdate }) => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Settings className="w-5 h-5" />
-          Zaawansowane ustawienia powiadomień
-        </CardTitle>
-        <CardDescription>
-          Konfiguruj wzorzec wibracji, czas życia powiadomień i inne opcje
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Vibration Pattern - Radio cards */}
-        <div className="space-y-3">
-          <Label>Wzorzec wibracji</Label>
-          <div className="grid grid-cols-3 gap-3">
-            {vibrationPatterns.map(pattern => (
-              <Card 
-                key={pattern.id}
-                className={cn("cursor-pointer", selected === pattern.id && "border-primary")}
-              >
-                <RadioGroupItem value={pattern.id} />
-                <span>{pattern.name}</span>
-                <span className="text-xs text-muted-foreground">{pattern.description}</span>
-              </Card>
-            ))}
-          </div>
-        </div>
-        
-        {/* TTL Dropdown */}
-        <div className="space-y-2">
-          <Label>Czas życia powiadomienia (TTL)</Label>
-          <Select value={config.ttl_seconds} onValueChange={...}>
-            {ttlOptions.map(opt => (
-              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-            ))}
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            Jak długo powiadomienie będzie próbować dotrzeć do urządzenia offline
-          </p>
-        </div>
-        
-        {/* Require Interaction Toggle */}
-        <div className="flex items-center justify-between border rounded-lg p-4">
-          <div>
-            <p className="font-medium">Wymagaj interakcji</p>
-            <p className="text-sm text-muted-foreground">
-              Powiadomienie pozostanie widoczne do momentu kliknięcia lub zamknięcia
-            </p>
-          </div>
-          <Switch checked={config.require_interaction} onCheckedChange={...} />
-        </div>
-        
-        {/* Silent Toggle */}
-        <div className="flex items-center justify-between border rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <VolumeX className="w-5 h-5" />
-            <div>
-              <p className="font-medium">Ciche powiadomienia</p>
-              <p className="text-sm text-muted-foreground">
-                Powiadomienia bez dźwięku (nadal z wibracją jeśli włączona)
-              </p>
-            </div>
-          </div>
-          <Switch checked={config.silent} onCheckedChange={...} />
-        </div>
-        
-        <Button onClick={handleSave}>
-          <Save className="w-4 h-4 mr-2" />
-          Zapisz ustawienia
-        </Button>
-      </CardContent>
-    </Card>
-  );
-};
-```
-
----
-
-## Faza 5: Rozszerzenie Edge Function send-push-notification
-
-Aktualizacja funkcji o:
-- Obsługę `target: 'self' | 'all' | 'user_id'`
-- Pobieranie ustawień wibracji/TTL/require_interaction z bazy
-- Konwersja wzorca wibracji na tablicę liczb
-
-```typescript
-// Rozszerzenie supabase/functions/send-push-notification/index.ts
-
-// Mapowanie wzorców wibracji
-const vibrationPatterns: Record<string, number[]> = {
-  short: [100],
-  standard: [100, 50, 100],
-  long: [200, 100, 200, 100, 200],
-  urgent: [100, 30, 100, 30, 100, 30, 100],
-  off: [],
-};
-
-// Obsługa targetu
-if (target === 'self') {
-  // Wyślij tylko do current user
-  subscriptions = await getSubscriptionsForUser(userId);
-} else if (target === 'all') {
-  // Broadcast do wszystkich
-  subscriptions = await getAllActiveSubscriptions();
-}
-
-// Ustawienia z configu
-const options = {
-  TTL: config.ttl_seconds,
-  vapidDetails: { ... },
-};
-
-const payload = {
-  title,
-  body,
-  vibrate: vibrationPatterns[config.vibration_pattern] || [100, 50, 100],
-  requireInteraction: config.require_interaction,
-  silent: config.silent,
-  ...
-};
-```
-
----
-
-## Faza 6: Dodatkowe usprawnienia
-
-### 6.1 Przycisk "Wyczyść nieaktywne subskrypcje"
-
-Dodanie w panelu statystyk:
-```typescript
-const cleanupInactive = async () => {
-  // Usuń subskrypcje z failure_count > 3
-  await supabase
-    .from('user_push_subscriptions')
-    .delete()
-    .gt('failure_count', 3);
-};
-```
-
-### 6.2 Przycisk "Przywróć domyślne" ikony
-
-W panelu ikon:
-```typescript
-const resetToDefaults = () => {
-  onUpdate({
-    icon_192_url: null,
-    icon_512_url: null,
-    badge_icon_url: null,
+  const [dismissed, setDismissed] = useState(() => {
+    const dismissedAt = localStorage.getItem(DISMISS_KEY);
+    if (!dismissedAt) return false;
+    const daysElapsed = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60 * 24);
+    return daysElapsed < DISMISS_DURATION_DAYS;
   });
+
+  // Nie pokazuj jeśli:
+  // - Push nie jest wspierany
+  // - Push nie jest włączony w panelu admina
+  // - Użytkownik ma już aktywną subskrypcję
+  // - Użytkownik odrzucił na później
+  // - Uprawnienia zostały trwale zablokowane
+  if (!isSupported || !pushConfig?.enabled || isSubscribed || dismissed || permission === 'denied') {
+    return null;
+  }
+
+  const handleEnable = async () => {
+    await subscribe();
+  };
+
+  const handleDismiss = () => {
+    localStorage.setItem(DISMISS_KEY, Date.now().toString());
+    setDismissed(true);
+  };
+
+  return (
+    <Alert className="mx-4 mt-4 border-primary/20 bg-primary/5 relative">
+      <Bell className="h-4 w-4 text-primary" />
+      <AlertTitle className="text-foreground">Włącz powiadomienia Push</AlertTitle>
+      <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-muted-foreground">
+          Otrzymuj powiadomienia o nowych wiadomościach nawet gdy przeglądarka jest zamknięta.
+        </span>
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={handleDismiss}
+          >
+            Później
+          </Button>
+          <Button 
+            size="sm" 
+            onClick={handleEnable} 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Włączanie...' : 'Włącz powiadomienia'}
+          </Button>
+        </div>
+      </AlertDescription>
+      {error && (
+        <p className="text-xs text-destructive mt-2">{error}</p>
+      )}
+    </Alert>
+  );
 };
 ```
 
-### 6.3 Lepsze statystyki iOS/PWA vs Android
+---
 
-Rozszerzenie SubscriptionStatsPanel o podział:
-- iOS/PWA (standalone)
-- Android
-- Desktop
+## Faza 3: Poprawność szyfrowania (weryfikacja)
+
+### Analiza obecnego systemu szyfrowania:
+
+1. **Klucze VAPID** - generowane przez Edge Function `generate-vapid-keys` przy użyciu biblioteki `web-push`
+2. **Klucze subskrypcji** (`p256dh`, `auth`) - generowane przez przeglądarkę podczas subskrypcji i zapisywane w tabeli `user_push_subscriptions`
+3. **Szyfrowanie wysyłki** - Edge Function `send-push-notification` używa:
+   ```typescript
+   webpush.setVapidDetails(
+     subject,
+     publicKey,
+     privateKey
+   );
+   
+   await webpush.sendNotification(
+     { endpoint, keys: { p256dh, auth } },
+     JSON.stringify(payload)
+   );
+   ```
+
+**Szyfrowanie jest POPRAWNE** - biblioteka `web-push` automatycznie szyfruje payload używając:
+- ECDH (Elliptic Curve Diffie-Hellman) do wymiany kluczy
+- AES-128-GCM do szyfrowania treści
+- VAPID do autoryzacji
 
 ---
 
-## Nowy układ UI po zmianach
+## Faza 4: Obsługa błędu Service Worker w UI
 
-Panel Push Notifications będzie miał następującą strukturę (single page z sekcjami zamiast tabów):
+W komponencie `CurrentDevicePanel.tsx` jest już obsługa błędu, ale można dodać więcej kontekstu:
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│ 🔔 Powiadomienia Push                    [Zapisz wszystko]      │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│ ┌─ Twoje urządzenie ──────────────────────────────────────────┐ │
-│ │ ⚠️ Powiadomienia push są wyłączone                         │ │
-│ │ Edge • Windows PC                                           │ │
-│ │ [Włącz powiadomienia]    ▼ Szczegóły urządzenia            │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ ┌─ Powiadomienia Web Push ────────────────────────────────────┐ │
-│ │ Włącz Web Push                                      [ON]    │ │
-│ │ Klucze VAPID                         [Skonfigurowane]      │ │
-│ │ Klucz publiczny: BKVgd_WW51_RXdm...           [Kopiuj]     │ │
-│ │ Klucz prywatny: ••••••••••••                  [Pokaż]      │ │
-│ │ Email kontaktowy: mailto:support@...                       │ │
-│ │ ⚠️ Generowanie nowych kluczy unieważni wszystkie subskr.  │ │
-│ │ [Generuj nowe klucze VAPID]                                │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ ┌─ Ikony powiadomień ─────────────────────────────────────────┐ │
-│ │ Główna (192x192) [Domyślna]    Badge (72x72) [Domyślna]    │ │
-│ │ [🔔] Zmień ikonę               [🔔] Zmień ikonę            │ │
-│ │                                       [Przywróć domyślne]  │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ ┌─ Zaawansowane ustawienia ───────────────────────────────────┐ │
-│ │ Wzorzec wibracji:                                          │ │
-│ │ ○ Krótka  ● Standardowa  ○ Długa  ○ Pilna  ○ Wyłączona    │ │
-│ │                                                            │ │
-│ │ Czas życia (TTL): [24 godziny (Domyślny) ▼]               │ │
-│ │                                                            │ │
-│ │ Wymagaj interakcji                                  [ON]   │ │
-│ │ Ciche powiadomienia                                 [OFF]  │ │
-│ │                                                            │ │
-│ │ [Zapisz ustawienia]                                        │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ ┌─ Statystyki subskrypcji ────────────────────────────────────┐ │
-│ │ [0] Łącznie  [0] iOS/PWA  [0] Android  [0] Desktop         │ │
-│ │ 🗑️ Wyczyść nieaktywne subskrypcje                         │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│ ┌─ Test powiadomień ──────────────────────────────────────────┐ │
-│ │ Tytuł: [Test powiadomienia    ]                            │ │
-│ │ Treść: [To jest testowe powiadomienie push!]               │ │
-│ │ [🔔 Wyślij do siebie]  [✈️ Wyślij do wszystkich]          │ │
-│ └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+```typescript
+// Rozszerzona obsługa błędu w CurrentDevicePanel
+{error && (
+  <Alert variant="destructive" className="mt-4">
+    <AlertCircle className="w-4 h-4" />
+    <AlertDescription>
+      {error.includes('MIME type') ? (
+        <>
+          <strong>Błąd konfiguracji serwera:</strong> Plik Service Worker (sw-push.js) 
+          jest serwowany z nieprawidłowym typem MIME. Sprawdź konfigurację serwera produkcyjnego.
+        </>
+      ) : (
+        error
+      )}
+    </AlertDescription>
+  </Alert>
+)}
 ```
 
 ---
@@ -403,14 +232,19 @@ Panel Push Notifications będzie miał następującą strukturę (single page z 
 
 | Plik | Akcja | Opis |
 |------|-------|------|
-| `supabase/migrations/xxx_push_advanced_settings.sql` | Nowy | Dodanie pól: vibration_pattern, ttl_seconds, require_interaction, silent |
-| `src/components/admin/push-notifications/CurrentDevicePanel.tsx` | Nowy | Sekcja "Twoje urządzenie" |
-| `src/components/admin/push-notifications/TestNotificationPanel.tsx` | Nowy | Formularz testowania powiadomień |
-| `src/components/admin/push-notifications/AdvancedSettingsPanel.tsx` | Nowy | Wzorzec wibracji, TTL, opcje |
-| `src/components/admin/PushNotificationsManagement.tsx` | Modyfikacja | Nowy układ z sekcjami zamiast tabów |
-| `src/components/admin/push-notifications/SubscriptionStatsPanel.tsx` | Modyfikacja | Dodanie przycisku czyszczenia + podział iOS/Android |
-| `src/components/admin/push-notifications/IconsManagementPanel.tsx` | Modyfikacja | Przycisk "Przywróć domyślne" |
-| `supabase/functions/send-push-notification/index.ts` | Modyfikacja | Obsługa target, wibracji, TTL |
-| `src/integrations/supabase/types.ts` | Automatyczna | Nowe pola w typach |
-| `public/sw-push.js` | Modyfikacja | Obsługa vibrate, silent, requireInteraction |
+| `server.js` | Modyfikacja | Dodanie jawnej obsługi `/sw-push.js` z prawidłowym MIME type |
+| `src/components/messages/NotificationPermissionBanner.tsx` | Modyfikacja | Zamiana na `usePushNotifications`, dodanie "Później" |
+| `src/components/admin/push-notifications/CurrentDevicePanel.tsx` | Modyfikacja | Lepszy komunikat błędu dla MIME type |
+| `vite.config.ts` | Weryfikacja | Upewnienie się, że public/ jest kopiowany do dist/ |
+
+---
+
+## Oczekiwane rezultaty po zmianach
+
+1. **Service Worker** będzie poprawnie rejestrowany na produkcji (prawidłowy MIME type)
+2. **Banner powiadomień** pojawi się dla użytkowników:
+   - Którzy nie mają aktywnej subskrypcji Push (nawet jeśli wcześniej zezwolili na powiadomienia)
+   - Z opcją "Później" ukrywającą banner na 7 dni
+3. **Panel admina** będzie wyświetlał jasny komunikat o błędzie konfiguracji serwera
+4. **Powiadomienia Push** będą działać na produkcji po wygenerowaniu kluczy VAPID i włączeniu systemu
 
