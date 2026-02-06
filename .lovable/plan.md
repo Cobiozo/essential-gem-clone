@@ -1,205 +1,178 @@
 
 
-# Plan: Pełnoekranowy edytor HTML w osobnej karcie
+# Plan: Pełne wykorzystanie ekranu i lepsze chwytanie elementów
 
-## Analiza problemu
+## Zidentyfikowane problemy
 
-Na screenshotach widać:
-- Podgląd edytowanej strony (sekcja "Gotowy na zmianę?") zajmuje tylko ~40% dostępnej wysokości
-- Pod podglądem jest duża niewykorzystana przestrzeń (szara/biała)
-- Dialog ma zbyt wiele zagnieżdżonych warstw (zakładki dialogu + zakładki edytora)
-- Panel boczny pojawia się tylko po zaznaczeniu elementu, co jest poprawne
+### Problem 1: Czarny/pusty obszar pod podglądem
+- Linia 771: `items-start justify-center` - wyrównuje do góry zamiast rozciągać
+- Linia 773-778: `h-full` w div, ale iframe w środku nie ma `h-full`
+- Iframe używa `minHeight` zamiast pełnej wysokości
 
-## Proponowane rozwiązanie
+### Problem 2: Elementy poza obszarem - trudno chwycić
+- Linia 87 w DraggableHtmlElement: `-left-6` umieszcza uchwyt poza widocznym obszarem
+- Linia 641 w HtmlHybridEditor: `pl-8` to za mało miejsca na uchwyty
 
-Zamiast otwierać edytor w dialogu, **otworzymy go w osobnej, pełnoekranowej stronie** (`/admin/html-editor/:id`). To zapewni:
+### Problem 3: W "Pełny podgląd" kliknięcie nie zaznacza elementu
+- Tab "preview" renderuje iframe, który jest izolowany - kliknięcia nie są przekazywane do React
+- Użytkownik oczekuje, że klik w podgląd zaznacza element do edycji
 
-| Aspekt | Dialog (obecnie) | Osobna strona (propozycja) |
-|--------|------------------|---------------------------|
-| Dostępna przestrzeń | ~95vh minus nagłówki | 100vh |
-| Zagnieżdżenie zakładek | Podwójne | Pojedyncze |
-| Nawigacja | Zamknięcie dialogu | Powrót do listy |
-| Focus użytkownika | Rozproszone | Pełna koncentracja |
+---
 
-## Architektura zmian
+## Rozwiązanie
 
-```text
-/admin?tab=html-pages
-     │
-     │  [Edytuj] - navigate to:
-     ▼
-/admin/html-editor/:id   (nowa strona)
-     │
-     └── HtmlEditorPage.tsx
-           ├── Toolbar z przyciskiem "← Powrót do listy"
-           ├── Minimalistyczny header z tytułem + Zapisz/Anuluj
-           ├── HtmlHybridEditor (pełna wysokość: calc(100vh - 60px))
-           └── Status bar z informacją o zapisie
-```
-
-## Pliki do utworzenia/modyfikacji
-
-| Plik | Akcja | Opis |
-|------|-------|------|
-| `src/pages/HtmlEditorPage.tsx` | Nowy | Pełnoekranowa strona edytora |
-| `src/App.tsx` | Modyfikacja | Dodanie route `/admin/html-editor/:id` |
-| `src/components/admin/HtmlPagesManagement.tsx` | Modyfikacja | Zmiana przycisku "Edytuj" na navigate() zamiast dialog |
-| `src/components/admin/html-editor/HtmlHybridEditor.tsx` | Modyfikacja | Usunięcie duplikujących się zakładek, max wykorzystanie przestrzeni |
-
-## Szczegółowe zmiany
-
-### 1. Nowa strona HtmlEditorPage.tsx
+### 1. Pełne wykorzystanie wysokości w "Pełny podgląd" tab
 
 ```tsx
-// src/pages/HtmlEditorPage.tsx
-const HtmlEditorPage = () => {
-  const { id } = useParams(); // 'new' dla nowej strony
-  const navigate = useNavigate();
+// Linia 771-816 - zmiana struktury
+<TabsContent value="preview" className="flex-1 m-0 overflow-hidden flex flex-col">
+  {/* Kontrolki responsywne */}
+  <div className="... shrink-0">...</div>
   
-  // Pobranie/tworzenie strony
-  const { data: page, isLoading } = useQuery({...});
-  
-  // Stan edycji
-  const [editingPage, setEditingPage] = useState(page);
-  const [activeView, setActiveView] = useState<'preview' | 'settings'>('preview');
-  
-  return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* Minimalistyczny header - tylko niezbędne */}
-      <header className="h-14 border-b flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/admin?tab=html-pages')}>
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Powrót
-          </Button>
-          <span className="text-lg font-medium">{page?.title || 'Nowa strona'}</span>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Przełącznik: Edytor / Ustawienia */}
-          <Button 
-            variant={activeView === 'preview' ? 'default' : 'ghost'} 
-            size="sm"
-            onClick={() => setActiveView('preview')}
-          >
-            <Eye className="w-4 h-4 mr-1" />
-            Edytor
-          </Button>
-          <Button 
-            variant={activeView === 'settings' ? 'default' : 'ghost'} 
-            size="sm"
-            onClick={() => setActiveView('settings')}
-          >
-            <Settings className="w-4 h-4 mr-1" />
-            Ustawienia
-          </Button>
-          
-          <div className="w-px h-6 bg-border mx-2" />
-          
-          <Button variant="outline" size="sm" onClick={handleCancel}>
-            Anuluj
-          </Button>
-          <Button size="sm" onClick={handleSave}>
-            Zapisz
-          </Button>
-        </div>
-      </header>
-      
-      {/* Główna treść - pełna wysokość */}
-      {activeView === 'preview' ? (
-        <div className="flex-1 overflow-hidden">
-          <HtmlHybridEditor
-            htmlContent={editingPage?.html_content || ''}
-            customCss={editingPage?.custom_css || ''}
-            onChange={(html) => setEditingPage(prev => ({ ...prev, html_content: html }))}
-          />
-        </div>
-      ) : (
-        <SettingsPanel page={editingPage} onChange={setEditingPage} />
-      )}
+  {/* Kontener iframe - pełna wysokość */}
+  <div className="flex-1 bg-muted/20 flex justify-center overflow-hidden">
+    <div 
+      className="bg-white shadow-lg h-full"
+      style={{ 
+        width: previewWidth,
+        maxWidth: '100%',
+      }}
+    >
+      <iframe
+        srcDoc={...}
+        className="w-full h-full border-0"
+        title="Podgląd strony"
+      />
     </div>
-  );
-};
+  </div>
+</TabsContent>
 ```
 
-### 2. Uproszczony HtmlHybridEditor
+**Kluczowe zmiany:**
+- Usunięcie `items-start` → iframe rozciąga się na pełną wysokość
+- Usunięcie `py-4` i `minHeight` → nie ma pustej przestrzeni
+- Kontener wewnętrzny: `h-full` zamiast obliczeń wysokości
 
-Usunięcie zbędnych elementów:
-- Zmniejszenie toolbara formatowania (tylko niezbędne ikony)
-- Pełne `h-full` bez `min-h` i `max-h`
-- Domyślnie widok "Edytor wizualny" jako główny
+### 2. Lepsze chwytanie elementów - więcej miejsca na uchwyty
 
 ```tsx
-// Zmiana w HtmlHybridEditor.tsx - kontener główny
-<div className="h-full flex flex-col overflow-hidden">
-  {/* Toolbar - kompaktowy */}
-  <div className="shrink-0 border-b">
-    <HtmlFormattingToolbar minimal />
-    <HtmlElementToolbar compact />
-  </div>
-  
-  {/* Edytor - pełna reszta wysokości */}
-  <div className="flex-1 overflow-hidden">
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-      {/* Panel podglądu - domyślnie 100% lub 70% z properties */}
-      <ResizablePanel defaultSize={selectedElementId ? 70 : 100} minSize={50}>
-        <div className="h-full overflow-auto p-4">
-          {/* Elementy do edycji */}
-        </div>
-      </ResizablePanel>
-      
-      {/* Panel właściwości - pojawia się po zaznaczeniu */}
-      {selectedElementId && (
-        <>
-          <ResizableHandle />
-          <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-            <SimplifiedPropertiesPanel />
-          </ResizablePanel>
-        </>
-      )}
-    </ResizablePanelGroup>
-  </div>
+// HtmlHybridEditor.tsx linia 641
+<div className="p-4 pl-10 min-h-full" ref={editableRef}>
+```
+
+**Zmiana `pl-8` na `pl-10`** - więcej miejsca dla uchwytów po lewej stronie.
+
+### 3. Uchwyt bliżej elementu w DraggableHtmlElement
+
+```tsx
+// DraggableHtmlElement.tsx linia 82-88
+<div 
+  ref={setActivatorNodeRef}
+  {...listeners}
+  {...attributes}
+  className={cn(
+    "absolute z-20 cursor-grab active:cursor-grabbing",
+    "p-1.5 bg-primary/10 hover:bg-primary/20 border border-primary/30 rounded shadow-sm",
+    "opacity-0 group-hover:opacity-100 transition-opacity",
+    (isSelected || isHovered) && "opacity-100",
+    // Zmiana pozycji: bliżej elementu, lepiej widoczny
+    depth === 0 ? "-left-8 top-1" : "-left-6 top-0"
+  )}
+  onClick={(e) => e.stopPropagation()}
+>
+  <GripVertical className="w-4 h-4 text-primary/70" />
 </div>
 ```
 
-### 3. App.tsx - nowa trasa
+**Zmiany:**
+- Większy padding: `p-1` → `p-1.5`
+- Kolorystyka: wyróżnienie kolorem primary zamiast szarego muted
+- Pozycja: `-left-8 top-1` (w granicach `pl-10` kontenera)
+- Ikona większa: `w-3.5 h-3.5` → `w-4 h-4`
+
+### 4. "Pełny podgląd" z możliwością zaznaczania elementów
+
+Zamiast izolowanego iframe, użyjemy **renderowania inline z trybem podglądu** (bez drag-drop, ale z zaznaczaniem):
 
 ```tsx
-// Dodanie w Routes
-<Route path="/admin/html-editor/:id" element={<HtmlEditorPage />} />
+// Nowy stan w HtmlHybridEditor
+const [previewClickToSelect, setPreviewClickToSelect] = useState(true);
+
+// W TabsContent value="preview"
+<TabsContent value="preview" className="flex-1 m-0 overflow-hidden flex flex-col">
+  <div className="flex items-center justify-center gap-1 py-2 bg-muted/30 border-b shrink-0">
+    {/* Responsywne kontrolki */}
+    ...
+    
+    <div className="h-4 w-px bg-border mx-2" />
+    
+    {/* Toggle: klik zaznacza element */}
+    <Button
+      variant={previewClickToSelect ? 'default' : 'ghost'}
+      size="sm"
+      className="h-7 px-2 gap-1"
+      onClick={() => setPreviewClickToSelect(!previewClickToSelect)}
+      title="Kliknij element, aby go edytować"
+    >
+      <MousePointer className="w-3.5 h-3.5" />
+      <span className="text-xs">Edytuj po kliknięciu</span>
+    </Button>
+  </div>
+  
+  <div className="flex-1 bg-muted/20 flex justify-center overflow-auto">
+    <div 
+      className="bg-white shadow-lg"
+      style={{ width: previewWidth, maxWidth: '100%' }}
+    >
+      {previewClickToSelect ? (
+        // Renderuj elementy z możliwością kliknięcia
+        <div className="p-6">
+          {elements.map((element) => (
+            <HtmlElementRenderer
+              key={element.id}
+              element={element}
+              selectedId={selectedElementId}
+              hoveredId={hoveredId}
+              onSelect={(el) => {
+                handleSelect(el);
+                setActiveTab('visual'); // Przełącz na edytor wizualny
+              }}
+              onHover={setHoveredId}
+              isEditMode={false}
+              showOutlines={false}
+            />
+          ))}
+          {customCss && <style>{customCss}</style>}
+        </div>
+      ) : (
+        // Czysty iframe bez interakcji
+        <iframe srcDoc={...} className="w-full h-full" />
+      )}
+    </div>
+  </div>
+</TabsContent>
 ```
 
-### 4. HtmlPagesManagement.tsx - nawigacja zamiast dialogu
+**Logika:**
+- Toggle "Edytuj po kliknięciu" pozwala wybrać tryb
+- Gdy włączony: elementy są renderowane inline, klik zaznacza i przełącza na tab "visual"
+- Gdy wyłączony: czysty iframe jak dotychczas
 
-```tsx
-// Zmiana przycisku "Edytuj"
-<Button
-  variant="ghost"
-  size="sm"
-  onClick={() => navigate(`/admin/html-editor/${page.id}`)}
->
-  <Edit className="w-4 h-4" />
-</Button>
+---
 
-// Przycisk "Nowa strona" 
-<Button onClick={() => navigate('/admin/html-editor/new')}>
-  <Plus className="w-4 h-4 mr-2" />
-  Nowa strona
-</Button>
-```
+## Pliki do modyfikacji
 
-## Korzyści
+| Plik | Zmiana |
+|------|--------|
+| `HtmlHybridEditor.tsx` | Pełna wysokość preview, więcej miejsca na uchwyty, kliknięcie w podglądzie |
+| `DraggableHtmlElement.tsx` | Lepiej widoczny uchwyt, wyróżniony kolorem |
 
-- **100% wysokości ekranu** dla edytora (zamiast 95vh minus nagłówki dialogu)
-- **Intuicyjna nawigacja** - jeden poziom zakładek (Edytor / Ustawienia)
-- **Focus na podgląd** - edytowana strona zajmuje maksymalną przestrzeń
-- **Responsywność** - łatwiejsze dostosowanie do różnych rozmiarów ekranu
-- **Autosave** - możliwość implementacji automatycznego zapisu
-- **Breadcrumb** - jasna ścieżka powrotu do listy stron
+---
 
-## Zachowanie kompatybilności
+## Rezultat
 
-- Dialog pozostanie jako fallback dla małych urządzeń
-- Istniejące funkcje (drag-drop, inline editing, panel właściwości) bez zmian
-- Dane zapisywane do tej samej tabeli `html_pages`
+- **100% wysokości ekranu** wykorzystane dla podglądu - zero czarnego pola
+- **Uchwyty widoczne i dostępne** - większe, kolorowe, w granicach widocznego obszaru
+- **Klik w podgląd zaznacza element** - natychmiastowe przejście do edycji
+- **Intuicyjny workflow**: zobaczysz stronę → kliknij co chcesz zmienić → edytuj w panelu
 
