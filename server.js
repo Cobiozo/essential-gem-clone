@@ -378,6 +378,34 @@ app.delete('/upload/:filename', (req, res) => {
 });
 
 // ========================================
+// SERVICE WORKER ROUTING
+// ========================================
+
+// Service Worker - must be served with correct MIME type before SPA fallback
+app.get('/sw-push.js', (req, res) => {
+  const swPath = path.join(__dirname, 'dist', 'sw-push.js');
+  
+  if (fs.existsSync(swPath)) {
+    res.setHeader('Content-Type', 'application/javascript');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.sendFile(swPath);
+  } else {
+    // Fallback to public folder (dev mode)
+    const publicSwPath = path.join(__dirname, 'public', 'sw-push.js');
+    if (fs.existsSync(publicSwPath)) {
+      res.setHeader('Content-Type', 'application/javascript');
+      res.setHeader('Service-Worker-Allowed', '/');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.sendFile(publicSwPath);
+    } else {
+      console.error('[SW] Service Worker not found in dist/ or public/');
+      res.status(404).send('Service Worker not found');
+    }
+  }
+});
+
+// ========================================
 // SPA ROUTING
 // ========================================
 
