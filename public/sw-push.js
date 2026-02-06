@@ -26,6 +26,8 @@ self.addEventListener('push', (event) => {
     badge: '/favicon.ico',
     tag: `notification-${Date.now()}`,
     requireInteraction: false,
+    silent: false,
+    vibrate: [100, 50, 100],
   };
   
   // Parse push data if available
@@ -44,6 +46,7 @@ self.addEventListener('push', (event) => {
     }
   }
 
+  // Build notification options
   const options = {
     body: data.body,
     icon: data.icon || '/pwa-192.png',
@@ -51,8 +54,8 @@ self.addEventListener('push', (event) => {
     tag: data.tag || `notification-${Date.now()}`,
     renotify: true,
     requireInteraction: data.requireInteraction || false,
+    silent: data.silent || false,
     timestamp: Date.now(),
-    vibrate: [100, 50, 100], // Mobile vibration pattern
     data: {
       url: data.url || '/messages',
       timestamp: Date.now(),
@@ -64,7 +67,12 @@ self.addEventListener('push', (event) => {
     ]
   };
 
-  console.log('[SW-Push] Showing notification:', data.title);
+  // Add vibration pattern if not silent and vibrate is provided
+  if (!data.silent && data.vibrate && Array.isArray(data.vibrate) && data.vibrate.length > 0) {
+    options.vibrate = data.vibrate;
+  }
+
+  console.log('[SW-Push] Showing notification:', data.title, 'silent:', data.silent, 'vibrate:', options.vibrate);
   
   event.waitUntil(
     self.registration.showNotification(data.title, options)

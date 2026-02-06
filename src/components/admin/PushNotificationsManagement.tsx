@@ -1,15 +1,18 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Key, BarChart3, FileText, Image, Globe } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Bell } from 'lucide-react';
+import { CurrentDevicePanel } from './push-notifications/CurrentDevicePanel';
 import { VapidConfigPanel } from './push-notifications/VapidConfigPanel';
 import { SubscriptionStatsPanel } from './push-notifications/SubscriptionStatsPanel';
 import { NotificationTemplatesPanel } from './push-notifications/NotificationTemplatesPanel';
 import { IconsManagementPanel } from './push-notifications/IconsManagementPanel';
+import { AdvancedSettingsPanel } from './push-notifications/AdvancedSettingsPanel';
+import { TestNotificationPanel } from './push-notifications/TestNotificationPanel';
 import { BrowserSupportPanel } from './push-notifications/BrowserSupportPanel';
 
 interface PushNotificationConfig {
@@ -24,7 +27,11 @@ interface PushNotificationConfig {
   badge_icon_url: string | null;
   default_title: string;
   default_body: string;
-  translations: Record<string, { title: string; body: string }>;
+  translations: Record<string, { title: string; body: string }> | null;
+  vibration_pattern: string | null;
+  ttl_seconds: number | null;
+  require_interaction: boolean | null;
+  silent: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,7 +51,14 @@ export const PushNotificationsManagement: React.FC = () => {
         .single();
       
       if (error) throw error;
-      return data as PushNotificationConfig;
+      
+      // Cast translations safely
+      const configData = data as unknown as PushNotificationConfig;
+      if (data.translations && typeof data.translations === 'object') {
+        configData.translations = data.translations as Record<string, { title: string; body: string }>;
+      }
+      
+      return configData;
     },
   });
 
@@ -116,60 +130,62 @@ export const PushNotificationsManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="config" className="space-y-4">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="config" className="gap-2">
-            <Key className="w-4 h-4" />
-            Konfiguracja VAPID
-          </TabsTrigger>
-          <TabsTrigger value="stats" className="gap-2">
-            <BarChart3 className="w-4 h-4" />
-            Statystyki
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="gap-2">
-            <FileText className="w-4 h-4" />
-            Szablony
-          </TabsTrigger>
-          <TabsTrigger value="icons" className="gap-2">
-            <Image className="w-4 h-4" />
-            Ikony
-          </TabsTrigger>
-          <TabsTrigger value="browsers" className="gap-2">
-            <Globe className="w-4 h-4" />
-            Przeglądarki
-          </TabsTrigger>
-        </TabsList>
+      {/* All panels in sections */}
+      <div className="space-y-6">
+        {/* Section 1: Your Device */}
+        <CurrentDevicePanel />
 
-        <TabsContent value="config">
-          <VapidConfigPanel 
-            config={config!} 
-            onUpdate={(updates) => updateConfigMutation.mutate(updates)} 
-          />
-        </TabsContent>
+        <Separator />
 
-        <TabsContent value="stats">
+        {/* Section 2: VAPID Configuration */}
+        <VapidConfigPanel 
+          config={config!} 
+          onUpdate={(updates) => updateConfigMutation.mutate(updates)} 
+        />
+
+        <Separator />
+
+        {/* Section 3: Icons */}
+        <IconsManagementPanel 
+          config={config!} 
+          onUpdate={(updates) => updateConfigMutation.mutate(updates)} 
+        />
+
+        <Separator />
+
+        {/* Section 4: Advanced Settings */}
+        <AdvancedSettingsPanel
+          config={config!}
+          onUpdate={(updates) => updateConfigMutation.mutate(updates)}
+          isSaving={updateConfigMutation.isPending}
+        />
+
+        <Separator />
+
+        {/* Section 5: Subscription Stats */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Statystyki subskrypcji</h3>
           <SubscriptionStatsPanel />
-        </TabsContent>
+        </div>
 
-        <TabsContent value="templates">
-          <NotificationTemplatesPanel 
-            config={config!} 
-            onUpdate={(updates) => updateConfigMutation.mutate(updates)} 
-          />
-        </TabsContent>
+        <Separator />
 
-        <TabsContent value="icons">
-          <IconsManagementPanel 
-            config={config!} 
-            onUpdate={(updates) => updateConfigMutation.mutate(updates)} 
-          />
-        </TabsContent>
+        {/* Section 6: Test Notifications */}
+        <TestNotificationPanel />
 
-        <TabsContent value="browsers">
-          <BrowserSupportPanel />
-        </TabsContent>
-      </Tabs>
+        <Separator />
+
+        {/* Section 7: Templates (collapsed by default or smaller) */}
+        <NotificationTemplatesPanel 
+          config={config!} 
+          onUpdate={(updates) => updateConfigMutation.mutate(updates)} 
+        />
+
+        <Separator />
+
+        {/* Section 8: Browser Support */}
+        <BrowserSupportPanel />
+      </div>
     </div>
   );
 };
