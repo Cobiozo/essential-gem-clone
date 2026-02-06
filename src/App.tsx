@@ -112,6 +112,7 @@ const EventGuestRegistration = lazyWithRetry(() => import("./pages/EventGuestReg
 const CommissionCalculatorPage = lazyWithRetry(() => import("./pages/CommissionCalculator"));
 const SpecialistCalculatorPage = lazyWithRetry(() => import("./pages/SpecialistCalculator"));
 const HtmlPage = lazyWithRetry(() => import("./pages/HtmlPage"));
+const HtmlEditorPage = lazyWithRetry(() => import("./pages/HtmlEditorPage"));
 const HealthyKnowledge = lazyWithRetry(() => import("./pages/HealthyKnowledge"));
 const HealthyKnowledgePlayer = lazyWithRetry(() => import("./pages/HealthyKnowledgePlayer"));
 const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKnowledgePublicPage"));
@@ -334,6 +335,7 @@ const AppContent = () => {
               <Route path="/zdrowa-wiedza/:slug" element={<HealthyKnowledgePublicPage />} />
               <Route path="/page/:slug" element={<Page />} />
               <Route path="/html/:slug" element={<HtmlPage />} />
+              <Route path="/admin/html-editor/:id" element={<HtmlEditorPage />} />
               <Route path="/calculator" element={<Navigate to="/calculator/influencer" replace />} />
               <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
               <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
