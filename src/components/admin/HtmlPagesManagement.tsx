@@ -367,8 +367,8 @@ export const HtmlPagesManagement: React.FC = () => {
 
       {/* Editor Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-[98vw] w-[98vw] h-[95vh] max-h-[95vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 py-4 border-b shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileCode className="w-5 h-5" />
               {editingPage?.id ? 'Edytuj stronę HTML' : 'Nowa strona HTML'}
@@ -376,7 +376,7 @@ export const HtmlPagesManagement: React.FC = () => {
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-4 px-6 py-2 shrink-0">
               <TabsTrigger value="editor">
                 <Code className="w-4 h-4 mr-2" />
                 HTML
@@ -395,7 +395,17 @@ export const HtmlPagesManagement: React.FC = () => {
               </TabsTrigger>
             </TabsList>
 
-            <ScrollArea className="flex-1 mt-4">
+            {/* Preview tab - NO ScrollArea, full height */}
+            <TabsContent value="preview" className="flex-1 h-0 min-h-0 overflow-hidden m-0 px-2 pb-2 data-[state=inactive]:hidden">
+              <HtmlHybridEditor
+                htmlContent={editingPage?.html_content || ''}
+                customCss={editingPage?.custom_css || ''}
+                onChange={(html) => setEditingPage(prev => prev ? { ...prev, html_content: html } : null)}
+              />
+            </TabsContent>
+
+            {/* Other tabs with ScrollArea */}
+            <ScrollArea className="flex-1 data-[state=active]:hidden" data-state={activeTab === 'preview' ? 'active' : 'inactive'}>
               <TabsContent value="editor" className="mt-0 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -445,14 +455,6 @@ export const HtmlPagesManagement: React.FC = () => {
                     className="font-mono text-sm min-h-[100px]"
                   />
                 </div>
-              </TabsContent>
-
-              <TabsContent value="preview" className="mt-0 h-[calc(90vh-220px)]">
-                <HtmlHybridEditor
-                  htmlContent={editingPage?.html_content || ''}
-                  customCss={editingPage?.custom_css || ''}
-                  onChange={(html) => setEditingPage(prev => prev ? { ...prev, html_content: html } : null)}
-                />
               </TabsContent>
 
               <TabsContent value="settings" className="mt-0 space-y-4">
@@ -598,7 +600,7 @@ export const HtmlPagesManagement: React.FC = () => {
             </ScrollArea>
           </Tabs>
 
-          <DialogFooter className="mt-4">
+          <DialogFooter className="px-6 py-3 border-t shrink-0">
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Anuluj
             </Button>
