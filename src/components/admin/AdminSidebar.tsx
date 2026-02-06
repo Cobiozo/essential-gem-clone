@@ -202,6 +202,7 @@ const navCategories: NavCategory[] = [
       { value: 'team-contacts', labelKey: 'teamContacts', icon: Users },
       { value: 'chat-permissions', labelKey: 'chatPermissions', icon: MessageSquare },
       { value: 'notifications', labelKey: 'notifications', icon: Bell },
+      { value: 'push-notifications', labelKey: 'pushNotifications', icon: Bell },
       { value: 'emails', labelKey: 'email', icon: Mail },
       { value: 'support', labelKey: 'support', icon: HelpCircle },
     ],
@@ -254,6 +255,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     eventRegistrations: 'Rejestracje na wydarzenia',
     newsTicker: 'Pasek informacyjny',
     paidEvents: 'Płatne wydarzenia',
+    pushNotifications: 'Powiadomienia Push',
   };
 
   const getLabel = (key: string): string => {

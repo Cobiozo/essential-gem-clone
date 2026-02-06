@@ -1,0 +1,141 @@
+/**
+ * Push Notification Service Worker
+ * Handles push events, notification clicks, and notification clearing
+ */
+
+// Log Service Worker lifecycle
+self.addEventListener('install', (event) => {
+  console.log('[SW-Push] Service Worker installed');
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  console.log('[SW-Push] Service Worker activated');
+  event.waitUntil(self.clients.claim());
+});
+
+// Handle incoming push notifications
+self.addEventListener('push', (event) => {
+  console.log('[SW-Push] Push notification received');
+  
+  let data = {
+    title: 'Pure Life Center',
+    body: 'Masz nową wiadomość',
+    url: '/messages',
+    icon: '/pwa-192.png',
+    badge: '/favicon.ico',
+    tag: `notification-${Date.now()}`,
+    requireInteraction: false,
+  };
+  
+  // Parse push data if available
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    } catch (e) {
+      console.error('[SW-Push] Error parsing push data:', e);
+      // Try as text
+      try {
+        data.body = event.data.text();
+      } catch (e2) {
+        console.error('[SW-Push] Error getting push text:', e2);
+      }
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || '/pwa-192.png',
+    badge: data.badge || '/favicon.ico',
+    tag: data.tag || `notification-${Date.now()}`,
+    renotify: true,
+    requireInteraction: data.requireInteraction || false,
+    timestamp: Date.now(),
+    vibrate: [100, 50, 100], // Mobile vibration pattern
+    data: {
+      url: data.url || '/messages',
+      timestamp: Date.now(),
+      ...data.data,
+    },
+    actions: [
+      { action: 'open', title: 'Otwórz' },
+      { action: 'dismiss', title: 'Zamknij' }
+    ]
+  };
+
+  console.log('[SW-Push] Showing notification:', data.title);
+  
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// Handle notification click
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW-Push] Notification clicked:', event.action);
+  
+  event.notification.close();
+  
+  // If user clicked dismiss, do nothing
+  if (event.action === 'dismiss') {
+    return;
+  }
+
+  const urlToOpen = event.notification.data?.url || '/messages';
+  const fullUrl = new URL(urlToOpen, self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ 
+      type: 'window', 
+      includeUncontrolled: true 
+    }).then((windowClients) => {
+      // Check if app is already open
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin)) {
+          console.log('[SW-Push] Found existing window, focusing and navigating');
+          client.focus();
+          return client.navigate(fullUrl);
+        }
+      }
+      // Open new window
+      console.log('[SW-Push] Opening new window:', fullUrl);
+      return self.clients.openWindow(fullUrl);
+    })
+  );
+});
+
+// Handle notification close (user dismissed without clicking)
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW-Push] Notification closed by user');
+});
+
+// Handle messages from the main app
+self.addEventListener('message', (event) => {
+  console.log('[SW-Push] Message received:', event.data);
+  
+  if (event.data === 'CLEAR_NOTIFICATIONS') {
+    // Clear all notifications (useful when user opens messages page)
+    self.registration.getNotifications().then((notifications) => {
+      console.log('[SW-Push] Clearing', notifications.length, 'notification(s)');
+      notifications.forEach(notification => notification.close());
+    });
+  }
+  
+  if (event.data === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// Handle push subscription change
+self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[SW-Push] Push subscription changed');
+  // The main app should handle resubscription
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window' }).then((clients) => {
+      clients.forEach((client) => {
+        client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED' });
+      });
+    })
+  );
+});

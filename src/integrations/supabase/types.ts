@@ -4592,6 +4592,113 @@ export type Database = {
           },
         ]
       }
+      push_notification_config: {
+        Row: {
+          badge_icon_url: string | null
+          created_at: string | null
+          default_body: string | null
+          default_title: string | null
+          icon_192_url: string | null
+          icon_512_url: string | null
+          id: string
+          is_enabled: boolean | null
+          keys_generated_at: string | null
+          translations: Json | null
+          updated_at: string | null
+          vapid_private_key: string | null
+          vapid_public_key: string | null
+          vapid_subject: string | null
+        }
+        Insert: {
+          badge_icon_url?: string | null
+          created_at?: string | null
+          default_body?: string | null
+          default_title?: string | null
+          icon_192_url?: string | null
+          icon_512_url?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          keys_generated_at?: string | null
+          translations?: Json | null
+          updated_at?: string | null
+          vapid_private_key?: string | null
+          vapid_public_key?: string | null
+          vapid_subject?: string | null
+        }
+        Update: {
+          badge_icon_url?: string | null
+          created_at?: string | null
+          default_body?: string | null
+          default_title?: string | null
+          icon_192_url?: string | null
+          icon_512_url?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          keys_generated_at?: string | null
+          translations?: Json | null
+          updated_at?: string | null
+          vapid_private_key?: string | null
+          vapid_public_key?: string | null
+          vapid_subject?: string | null
+        }
+        Relationships: []
+      }
+      push_notification_logs: {
+        Row: {
+          body: string | null
+          browser: string | null
+          created_at: string | null
+          device_type: string | null
+          error_message: string | null
+          http_status: number | null
+          id: string
+          status: string
+          subscription_id: string | null
+          tag: string | null
+          title: string
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          browser?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          status: string
+          subscription_id?: string | null
+          tag?: string | null
+          title: string
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          browser?: string | null
+          created_at?: string | null
+          device_type?: string | null
+          error_message?: string | null
+          http_status?: number | null
+          id?: string
+          status?: string
+          subscription_id?: string | null
+          tag?: string | null
+          title?: string
+          url?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_notification_logs_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_push_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reflink_events: {
         Row: {
           created_at: string | null
@@ -6066,6 +6173,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_push_subscriptions: {
+        Row: {
+          auth: string
+          browser: string | null
+          browser_version: string | null
+          created_at: string | null
+          device_name: string | null
+          device_type: string | null
+          endpoint: string
+          failure_count: number | null
+          id: string
+          is_pwa: boolean | null
+          last_success_at: string | null
+          last_used_at: string | null
+          os: string | null
+          os_version: string | null
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          browser?: string | null
+          browser_version?: string | null
+          created_at?: string | null
+          device_name?: string | null
+          device_type?: string | null
+          endpoint: string
+          failure_count?: number | null
+          id?: string
+          is_pwa?: boolean | null
+          last_success_at?: string | null
+          last_used_at?: string | null
+          os?: string | null
+          os_version?: string | null
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          browser?: string | null
+          browser_version?: string | null
+          created_at?: string | null
+          device_name?: string | null
+          device_type?: string | null
+          endpoint?: string
+          failure_count?: number | null
+          id?: string
+          is_pwa?: boolean | null
+          last_success_at?: string | null
+          last_used_at?: string | null
+          os?: string | null
+          os_version?: string | null
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_reflinks: {
         Row: {
