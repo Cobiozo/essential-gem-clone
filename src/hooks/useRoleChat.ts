@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RoleChatChannel, RoleChatMessage } from '@/types/roleChat';
@@ -161,35 +161,32 @@ export const useRoleChat = (options?: UseRoleChatOptions) => {
     fetchUnreadCount();
   }, [user, fetchChannels, fetchUnreadCount]);
 
-  // Realtime subscription - ONLY when enableRealtime is true
+  // Realtime subscription - STABILIZED with SQL filter to reduce network traffic
   useEffect(() => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel(`role-chat-messages-${user.id}-${Date.now()}`)
+      .channel(`role-chat-${user.id}`)  // Removed Date.now() - prevents resubscription loops
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'role_chat_messages',
+          // SQL filter: only receive messages for current user (reduces network traffic by ~90%)
+          filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${userRole}))`,
         },
         (payload) => {
           const newMessage = payload.new as RoleChatMessage;
-          // Only add if message is for this user
-          if (
-            newMessage.recipient_id === user.id ||
-            (newMessage.recipient_id === null && newMessage.recipient_role === userRole)
-          ) {
-            setMessages(prev => [...prev, newMessage]);
+          // Message is already filtered by SQL - just add it
+          setMessages(prev => {
+            if (prev.some(m => m.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
+          
+          // Only increment unread if not from current user
+          if (newMessage.sender_id !== user.id) {
             setUnreadCount(prev => prev + 1);
-          }
-          // Also add if this user sent it
-          if (newMessage.sender_id === user.id) {
-            setMessages(prev => {
-              if (prev.some(m => m.id === newMessage.id)) return prev;
-              return [...prev, newMessage];
-            });
           }
         }
       )

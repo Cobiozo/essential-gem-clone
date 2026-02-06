@@ -44,38 +44,8 @@ const MessagesPage = () => {
     createGroupChat,
   } = useUnifiedChat({ enableRealtime: true });
 
-  // Real-time subscription for chat message notifications (when tab is in background)
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel(`chat-notifications-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'role_chat_messages',
-          filter: `recipient_id=eq.${user.id}`,
-        },
-        (payload) => {
-          // Only show browser notification when tab is hidden and permission granted
-          if (document.hidden && permission === 'granted') {
-            const newMessage = payload.new as { id: string; content?: string; sender_id?: string };
-            showNotification('Nowa wiadomość', {
-              body: newMessage.content?.substring(0, 100) || 'Otrzymałeś nową wiadomość',
-              tag: newMessage.id, // Prevent duplicates
-              data: { link: '/messages' },
-            });
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, permission, showNotification]);
+  // REMOVED: Duplicate subscription - useUnifiedChat already handles realtime messages
+  // Browser notifications are handled via user_notifications table and service worker
 
   const handleSelectChannel = (channelId: string) => {
     selectChannel(channelId);

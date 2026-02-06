@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PrivateChatThread, PrivateChatMessage, CreateThreadData, CreateGroupThreadData, PrivateChatParticipant } from '@/types/privateChat';
@@ -587,49 +587,65 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
     fetchThreads();
   }, [fetchThreads]);
 
-  // Realtime subscription for new messages - ONLY when enableRealtime is true
+  // Refs for stable function references in realtime subscription
+  const fetchThreadsRef = useRef(fetchThreads);
+  const markAsReadRef = useRef(markAsRead);
+  
+  // Keep refs in sync
+  useEffect(() => { fetchThreadsRef.current = fetchThreads; }, [fetchThreads]);
+  useEffect(() => { markAsReadRef.current = markAsRead; }, [markAsRead]);
+
+  // Build thread IDs filter for SQL - only subscribe to user's threads
+  const threadIdsFilter = useRef<string>('');
+  useEffect(() => {
+    if (threads.length > 0) {
+      threadIdsFilter.current = threads.map(t => t.id).join(',');
+    }
+  }, [threads]);
+
+  // Realtime subscription for new messages - STABILIZED with refs and SQL filter
   useEffect(() => {
     if (!user || !enableRealtime) return;
+    
+    // Wait until we have threads to subscribe to
+    if (threads.length === 0) return;
 
     let mounted = true;
 
     const channel = supabase
-      .channel(`private-chat-messages-${user.id}-${Date.now()}`)
+      .channel(`private-chat-${user.id}`)  // Removed Date.now() - prevents resubscription loops
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'private_chat_messages',
+          // SQL filter: only receive messages for user's threads (reduces network traffic)
+          filter: `thread_id=in.(${threadIdsFilter.current})`,
         },
         async (payload) => {
           if (!mounted) return;
           
           const newMessage = payload.new as PrivateChatMessage;
           
-          // If message is in currently selected thread, add it
+          // Optimistic update: If message is in currently selected thread, add it immediately
           if (selectedThread && newMessage.thread_id === selectedThread.id) {
-            // Fetch sender profile
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('user_id, first_name, last_name, email')
-              .eq('user_id', newMessage.sender_id)
-              .single();
-
-            if (!mounted) return;
-            
-            setMessages(prev => [...prev, { ...newMessage, sender: profile || undefined }]);
+            // Add message with minimal profile data first (optimistic)
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMessage.id)) return prev;
+              return [...prev, newMessage];
+            });
             
             // Mark as read if not from current user
             if (newMessage.sender_id !== user.id) {
-              await markAsRead(newMessage.thread_id);
+              markAsReadRef.current?.(newMessage.thread_id);
             }
           }
           
           if (!mounted) return;
           
-          // Refresh threads to update last_message_at and unread counts
-          await fetchThreads();
+          // Refresh threads to update last_message_at and unread counts (uses ref)
+          fetchThreadsRef.current?.();
         }
       )
       .subscribe();
@@ -638,7 +654,7 @@ export const usePrivateChat = (options?: UsePrivateChatOptions) => {
       mounted = false;
       supabase.removeChannel(channel);
     };
-  }, [user, selectedThread, markAsRead, fetchThreads, enableRealtime]);
+  }, [user, enableRealtime, threads.length, selectedThread?.id]);  // Minimal dependencies
 
   return {
     threads,
