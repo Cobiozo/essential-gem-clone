@@ -8,7 +8,8 @@ const corsHeaders = {
 };
 
 interface PushPayload {
-  userId: string;
+  userId?: string;
+  target?: 'self' | 'all' | 'user';
   title: string;
   body: string;
   url?: string;
@@ -16,8 +17,19 @@ interface PushPayload {
   icon?: string;
   badge?: string;
   requireInteraction?: boolean;
+  silent?: boolean;
+  vibrate?: number[];
   data?: Record<string, any>;
 }
+
+// Vibration pattern mapping
+const vibrationPatterns: Record<string, number[]> = {
+  short: [100],
+  standard: [100, 50, 100],
+  long: [200, 100, 200, 100, 200],
+  urgent: [100, 30, 100, 30, 100, 30, 100],
+  off: [],
+};
 
 serve(async (req: Request) => {
   // Handle CORS preflight
@@ -29,11 +41,11 @@ serve(async (req: Request) => {
     console.log("[send-push-notification] Starting push notification send");
 
     const payload: PushPayload = await req.json();
-    const { userId, title, body, url, tag, icon, badge, requireInteraction, data } = payload;
+    const { userId, target, title, body, url, tag, icon, badge, requireInteraction, silent, vibrate, data } = payload;
 
-    if (!userId || !title) {
+    if (!title) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: userId, title" }),
+        JSON.stringify({ error: "Missing required field: title" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -43,10 +55,10 @@ serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get VAPID configuration
+    // Get VAPID configuration with advanced settings
     const { data: config, error: configError } = await supabase
       .from("push_notification_config")
-      .select("vapid_public_key, vapid_private_key, vapid_subject, is_enabled, icon_192_url, badge_icon_url")
+      .select("vapid_public_key, vapid_private_key, vapid_subject, is_enabled, icon_192_url, badge_icon_url, vibration_pattern, ttl_seconds, require_interaction, silent")
       .eq("id", "00000000-0000-0000-0000-000000000001")
       .single();
 
@@ -65,26 +77,50 @@ serve(async (req: Request) => {
       config.vapid_private_key
     );
 
-    // Get all subscriptions for the user
-    const { data: subscriptions, error: subsError } = await supabase
-      .from("user_push_subscriptions")
-      .select("*")
-      .eq("user_id", userId);
+    // Get subscriptions based on target
+    let subscriptions: any[] = [];
+    
+    if (target === 'all') {
+      // Send to all active subscriptions
+      const { data: allSubs, error: allSubsError } = await supabase
+        .from("user_push_subscriptions")
+        .select("*")
+        .lt("failure_count", 4);
+      
+      if (allSubsError) throw allSubsError;
+      subscriptions = allSubs || [];
+      console.log(`[send-push-notification] Sending to ALL (${subscriptions.length} subscriptions)`);
+    } else if (userId) {
+      // Send to specific user
+      const { data: userSubs, error: subsError } = await supabase
+        .from("user_push_subscriptions")
+        .select("*")
+        .eq("user_id", userId);
 
-    if (subsError) {
-      console.error("[send-push-notification] Error fetching subscriptions:", subsError);
-      throw subsError;
+      if (subsError) throw subsError;
+      subscriptions = userSubs || [];
+      console.log(`[send-push-notification] Sending to user ${userId} (${subscriptions.length} devices)`);
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Must specify userId or target='all'" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    if (!subscriptions || subscriptions.length === 0) {
-      console.log("[send-push-notification] No subscriptions found for user:", userId);
+    if (subscriptions.length === 0) {
+      console.log("[send-push-notification] No subscriptions found");
       return new Response(
         JSON.stringify({ message: "No subscriptions found", sent: 0 }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[send-push-notification] Sending to ${subscriptions.length} device(s) for user ${userId}`);
+    // Get vibration pattern from config or use provided one
+    const vibratePattern = vibrate || vibrationPatterns[config.vibration_pattern || 'standard'] || vibrationPatterns.standard;
+    
+    // Use config settings as defaults, allow override from payload
+    const finalRequireInteraction = requireInteraction ?? config.require_interaction ?? false;
+    const finalSilent = silent ?? config.silent ?? false;
 
     // Prepare notification payload
     const notificationPayload = JSON.stringify({
@@ -94,9 +130,16 @@ serve(async (req: Request) => {
       badge: badge || config.badge_icon_url || "/favicon.ico",
       tag: tag || `notification-${Date.now()}`,
       url: url || "/messages",
-      requireInteraction: requireInteraction || false,
+      requireInteraction: finalRequireInteraction,
+      silent: finalSilent,
+      vibrate: vibratePattern,
       data: data || {},
     });
+
+    // Web push options with TTL from config
+    const pushOptions = {
+      TTL: config.ttl_seconds || 86400, // Default 24 hours
+    };
 
     let sent = 0;
     let failed = 0;
@@ -113,7 +156,7 @@ serve(async (req: Request) => {
           },
         };
 
-        await webpush.sendNotification(pushSubscription, notificationPayload);
+        await webpush.sendNotification(pushSubscription, notificationPayload, pushOptions);
         sent++;
 
         // Update last success timestamp
@@ -129,7 +172,7 @@ serve(async (req: Request) => {
         // Log successful send
         await supabase.from("push_notification_logs").insert({
           subscription_id: sub.id,
-          user_id: userId,
+          user_id: sub.user_id,
           title,
           body,
           url,
@@ -153,7 +196,7 @@ serve(async (req: Request) => {
           // Log as expired
           await supabase.from("push_notification_logs").insert({
             subscription_id: sub.id,
-            user_id: userId,
+            user_id: sub.user_id,
             title,
             body,
             url,
@@ -177,7 +220,7 @@ serve(async (req: Request) => {
           // Log failed send
           await supabase.from("push_notification_logs").insert({
             subscription_id: sub.id,
-            user_id: userId,
+            user_id: sub.user_id,
             title,
             body,
             url,

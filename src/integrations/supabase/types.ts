@@ -4603,11 +4603,15 @@ export type Database = {
           id: string
           is_enabled: boolean | null
           keys_generated_at: string | null
+          require_interaction: boolean | null
+          silent: boolean | null
           translations: Json | null
+          ttl_seconds: number | null
           updated_at: string | null
           vapid_private_key: string | null
           vapid_public_key: string | null
           vapid_subject: string | null
+          vibration_pattern: string | null
         }
         Insert: {
           badge_icon_url?: string | null
@@ -4619,11 +4623,15 @@ export type Database = {
           id?: string
           is_enabled?: boolean | null
           keys_generated_at?: string | null
+          require_interaction?: boolean | null
+          silent?: boolean | null
           translations?: Json | null
+          ttl_seconds?: number | null
           updated_at?: string | null
           vapid_private_key?: string | null
           vapid_public_key?: string | null
           vapid_subject?: string | null
+          vibration_pattern?: string | null
         }
         Update: {
           badge_icon_url?: string | null
@@ -4635,11 +4643,15 @@ export type Database = {
           id?: string
           is_enabled?: boolean | null
           keys_generated_at?: string | null
+          require_interaction?: boolean | null
+          silent?: boolean | null
           translations?: Json | null
+          ttl_seconds?: number | null
           updated_at?: string | null
           vapid_private_key?: string | null
           vapid_public_key?: string | null
           vapid_subject?: string | null
+          vibration_pattern?: string | null
         }
         Relationships: []
       }

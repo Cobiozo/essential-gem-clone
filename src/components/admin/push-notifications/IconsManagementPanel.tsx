@@ -109,6 +109,25 @@ export const IconsManagementPanel: React.FC<IconsManagementPanelProps> = ({ conf
           <p className="text-xs text-muted-foreground mt-4">
             Kliknij ikonę, aby użyć jej jako domyślnej ikony powiadomień.
           </p>
+          
+          {/* Reset to defaults button */}
+          {(config.icon_192_url || config.icon_512_url || config.badge_icon_url) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 w-full"
+              onClick={() => {
+                onUpdate({
+                  icon_192_url: null,
+                  icon_512_url: null,
+                  badge_icon_url: null,
+                });
+                setSelectedSystemIcon(null);
+              }}
+            >
+              Przywróć domyślne ikony
+            </Button>
+          )}
         </CardContent>
       </Card>
 
