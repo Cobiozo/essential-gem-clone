@@ -97,6 +97,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 
   const handleRegister = () => {
     onRegister(event.id, occurrenceIndex);
+    onOpenChange(false); // Automatyczne zamknięcie dialogu po rejestracji
   };
 
   const getEventTypeBadge = () => {

@@ -408,9 +408,9 @@ export const MyMeetingsWidget: React.FC = () => {
                 </h4>
                 
                 <div className="space-y-1.5">
-                  {(expandedTypes[type] ? events : events.slice(0, 1)).map(event => (
+                  {(expandedTypes[type] ? events : events.slice(0, 1)).map((event, idx) => (
                     <div
-                      key={event.id}
+                      key={`${event.id}-${(event as any)._occurrence_index ?? idx}`}
                       className="p-2 rounded-lg bg-muted/50 space-y-1"
                     >
                       <div className="flex items-center justify-between gap-2">
