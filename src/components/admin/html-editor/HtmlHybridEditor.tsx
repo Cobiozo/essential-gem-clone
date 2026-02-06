@@ -559,7 +559,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   }, [editingElementId, handleEndInlineEdit]);
   
   return (
-    <div className="h-full flex flex-col min-h-[600px] max-h-[calc(100vh-200px)] border rounded-lg overflow-hidden bg-background">
+    <div className="h-full flex flex-col border rounded-lg overflow-hidden bg-background">
       {/* Formatting Toolbar */}
       <HtmlFormattingToolbar
         onFormat={handleFormat}
@@ -634,7 +634,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
         </div>
         
         {/* Visual Editor Tab */}
-        <TabsContent value="visual" className="flex-1 m-0 overflow-hidden">
+        <TabsContent value="visual" className="flex-1 h-0 min-h-0 m-0 overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="h-full">
             <ResizablePanel defaultSize={selectedElementId ? 60 : 100} minSize={40} className="h-full">
               <div className="h-full overflow-y-auto">
@@ -695,7 +695,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
             {selectedElementId && selectedElement && (
               <>
                 <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={32} minSize={25} maxSize={45}>
+                <ResizablePanel defaultSize={35} minSize={28} maxSize={50}>
                   <SimplifiedPropertiesPanel
                     element={selectedElement}
                     onUpdate={handleUpdate}
