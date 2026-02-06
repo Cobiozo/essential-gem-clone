@@ -1,253 +1,405 @@
 
+# Plan naprawy: Przeciążenia, wycieki pamięci i zapętlenia
 
-# Plan: Kompleksowa naprawa systemu Push Notifications
+## Podsumowanie zidentyfikowanych problemów
 
-## Wyniki audytu
-
-### ✅ Co działa poprawnie:
-1. **Konfiguracja VAPID** - klucze są poprawnie skonfigurowane w bazie danych
-2. **Edge Function `get-vapid-public-key`** - zwraca poprawne dane (enabled: true, publicKey istnieje)
-3. **Ikony w Supabase Storage** - wszystkie 3 ikony (192, 512, badge) są skonfigurowane
-4. **Service Worker `sw-push.js`** - kod jest poprawny i kompletny
-5. **Hook `usePushNotifications`** - logika subskrypcji jest prawidłowa
-6. **Banner powiadomień** - używa nowego hooka z przyciskiem "Później"
-
-### ❌ Krytyczne brakujące elementy:
-
-| Problem | Wpływ | Priorytet |
-|---------|-------|-----------|
-| **Brak pliku `manifest.json`** | iOS nie rozpoznaje aplikacji jako PWA, blokuje Web Push | KRYTYCZNY |
-| **Brak ikon PWA w folderze `public/`** | Brak `/pwa-192.png` i `/pwa-512.png` do których odwołuje się SW | KRYTYCZNY |
-| **Brak linku do manifestu w `index.html`** | Przeglądarki nie wykrywają PWA | KRYTYCZNY |
-| **Brak tagu `apple-touch-icon`** | iOS nie wyświetla poprawnej ikony przy "Dodaj do ekranu głównego" | WYSOKI |
-| **Serwer produkcyjny nie zrestartowany** | Trasa `/sw-push.js` w server.js nie jest aktywna | KRYTYCZNY |
+| Priorytet | Problem | Lokalizacja | Wpływ |
+|-----------|---------|-------------|-------|
+| 🔴 KRYTYCZNY | Zapętlenie subskrypcji Realtime | `useUnifiedChat.ts` | Restart WebSocket przy każdej wiadomości |
+| 🔴 KRYTYCZNY | Brak filtrów SQL w subskrypcjach | `useUnifiedChat.ts`, `useRoleChat.ts`, `usePrivateChat.ts` | Broadcast do wszystkich klientów |
+| 🔴 KRYTYCZNY | Zduplikowana subskrypcja | `MessagesPage.tsx` | Podwójne subskrypcje Realtime |
+| 🟠 WYSOKI | Wyciek pamięci - setTimeout bez cleanup | `NewsTicker.tsx` | Memory leak przy odmontowaniu |
+| 🟠 WYSOKI | Przeciążenie listenerów | `TrainingModule.tsx` | 60 re-rejestracji/min dla `beforeunload` |
+| 🟠 WYSOKI | Brak optimistic updates | `useUnifiedChat.ts`, `usePrivateChat.ts` | Re-fetch całej historii po wysłaniu |
+| 🟡 ŚREDNI | Niestabilne zależności useEffect | `SecureMedia.tsx` | Częste remount listenerów wideo |
 
 ---
 
-## Faza 1: Utworzenie pliku `manifest.json`
+## Faza 1: Naprawa zapętlenia w useUnifiedChat (KRYTYCZNE)
 
-Stworzenie pełnego manifestu PWA w folderze `public/`:
+### Problem
+Zależności w `useEffect` subskrypcji (linia 752) zawierają `fetchMessages` i `fetchUnreadCounts`. 
+Nowa wiadomość → `fetchUnreadCounts()` → zmiana `unreadCounts` → zmiana `channels` (useMemo) → zmiana `fetchMessages` (useCallback z `channels` w zależnościach) → restart useEffect → ponowna subskrypcja.
 
-```json
-{
-  "name": "Pure Life Center",
-  "short_name": "PureLife",
-  "description": "Zmieniamy życie i zdrowie ludzi na lepsze - centrum wsparcia dla partnerów i specjalistów",
-  "start_url": "/",
-  "id": "/",
-  "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-  "orientation": "portrait-primary",
-  "background_color": "#ffffff",
-  "theme_color": "#10b981",
-  "scope": "/",
-  "lang": "pl",
-  "dir": "ltr",
-  "categories": ["health", "business", "education"],
-  "icons": [
-    {
-      "src": "/pwa-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/pwa-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/pwa-maskable-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
-  ],
-  "screenshots": [],
-  "prefer_related_applications": false,
-  "handle_links": "preferred"
-}
+### Rozwiązanie
+1. Użyć `useRef` dla funkcji fetch zamiast przekazywać je jako zależności
+2. Dodać filtr SQL do subskrypcji
+3. Stabilizować funkcje przez usunięcie zbędnych zależności
+
+```typescript
+// src/hooks/useUnifiedChat.ts
+
+// Dodać refs dla stabilności
+const fetchMessagesRef = useRef(fetchMessages);
+const fetchUnreadCountsRef = useRef(fetchUnreadCounts);
+
+useEffect(() => {
+  fetchMessagesRef.current = fetchMessages;
+}, [fetchMessages]);
+
+useEffect(() => {
+  fetchUnreadCountsRef.current = fetchUnreadCounts;
+}, [fetchUnreadCounts]);
+
+// Zmienić subskrypcję (linie 717-752)
+useEffect(() => {
+  if (!user || !enableRealtime) return;
+
+  const channel = supabase
+    .channel(`unified-chat-${user.id}`)  // Usunąć Date.now() - powoduje ciągłe resubskrybowanie
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'role_chat_messages',
+        filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${currentRole}))`,  // DODAĆ FILTR
+      },
+      (payload) => {
+        const newMessage = payload.new as any;
+        
+        // Użyć refs zamiast funkcji z zależności
+        fetchMessagesRef.current?.(selectedChannelId);
+        fetchUnreadCountsRef.current?.();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user, enableRealtime, currentRole, selectedChannelId]);  // Usunąć fetchMessages i fetchUnreadCounts
 ```
 
 ---
 
-## Faza 2: Aktualizacja `index.html`
+## Faza 2: Usunięcie zduplikowanej subskrypcji z MessagesPage
 
-Dodanie brakujących meta tagów dla PWA i iOS:
+### Problem
+`MessagesPage.tsx` (linie 48-78) tworzy własną subskrypcję Realtime, podczas gdy `useUnifiedChat` (z `enableRealtime: true`) już to robi.
 
-```html
-<!-- W sekcji <head> po iOS PWA meta tags -->
+### Rozwiązanie
+Usunąć zduplikowaną subskrypcję z `MessagesPage.tsx`:
 
-<!-- Web App Manifest -->
-<link rel="manifest" href="/manifest.json" />
+```typescript
+// src/pages/MessagesPage.tsx
+// USUNĄĆ cały useEffect z liniami 48-78
 
-<!-- Theme color for browser UI -->
-<meta name="theme-color" content="#10b981" />
+// Zamiast:
+useEffect(() => {
+  if (!user) return;
+  const channel = supabase
+    .channel(`chat-notifications-${user.id}`)
+    // ... subskrypcja
+}, [user, permission, showNotification]);
 
-<!-- iOS App Icons -->
-<link rel="apple-touch-icon" href="/pwa-192.png" />
-<link rel="apple-touch-icon" sizes="192x192" href="/pwa-192.png" />
-<link rel="apple-touch-icon" sizes="512x512" href="/pwa-512.png" />
-
-<!-- iOS Splash Screens (opcjonalnie) -->
-<meta name="apple-mobile-web-app-title" content="PureLife" />
+// Powiadomienia przeglądarkowe obsłużyć w useUnifiedChat lub osobnym hooku
 ```
 
 ---
 
-## Faza 3: Utworzenie ikon PWA
+## Faza 3: Naprawa useRoleChat i usePrivateChat
 
-Ponieważ nie mam dostępu do generowania grafik, utworzę placeholder ikony używając istniejącego logo z Supabase Storage. Użyję Edge Function do przekierowania lub skrypt do pobierania ikon z bazy konfiguracji.
+### Problem
+Brak filtrów SQL w subskrypcjach - każda wiadomość jest broadcastowana do wszystkich klientów.
 
-### Opcja A: Ikony lokalne (rekomendowana)
-Wymagane pliki do dodania do `public/`:
-- `pwa-192.png` (192x192px)
-- `pwa-512.png` (512x512px)
-- `pwa-maskable-512.png` (512x512px z paddingiem dla safe zone)
+### Rozwiązanie dla useRoleChat.ts (linie 164-201):
 
-### Opcja B: Dynamiczne przekierowanie w server.js
-Dodanie tras przekierowujących do ikon z Supabase:
+```typescript
+// src/hooks/useRoleChat.ts
+useEffect(() => {
+  if (!user || !enableRealtime) return;
 
-```javascript
-// Ikony PWA - przekierowanie do ikon z konfiguracji
-app.get('/pwa-192.png', async (req, res) => {
-  // Pobierz URL z bazy lub użyj domyślnej
-  const iconUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/training-media/1770404696823-logo-1764373022335.png';
-  res.redirect(302, iconUrl);
+  const channel = supabase
+    .channel(`role-chat-${user.id}`)  // Usunąć Date.now()
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'role_chat_messages',
+        filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${userRole}))`,  // DODAĆ FILTR
+      },
+      (payload) => {
+        // ... handler
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user, userRole, enableRealtime]);  // Minimalne zależności
+```
+
+### Rozwiązanie dla usePrivateChat.ts (linie 590-641):
+
+```typescript
+// src/hooks/usePrivateChat.ts
+// Dodać ref dla stabilności
+const fetchThreadsRef = useRef(fetchThreads);
+const markAsReadRef = useRef(markAsRead);
+
+useEffect(() => {
+  fetchThreadsRef.current = fetchThreads;
+}, [fetchThreads]);
+
+useEffect(() => {
+  markAsReadRef.current = markAsRead;
+}, [markAsRead]);
+
+// Zmienić subskrypcję
+useEffect(() => {
+  if (!user || !enableRealtime) return;
+
+  // Pobierz ID wątków użytkownika tylko raz
+  const userThreadIds = threads.map(t => t.id);
+  if (userThreadIds.length === 0) return;
+
+  const channel = supabase
+    .channel(`private-chat-${user.id}`)  // Usunąć Date.now()
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'private_chat_messages',
+        filter: `thread_id=in.(${userThreadIds.join(',')})`,  // DODAĆ FILTR - tylko wątki użytkownika
+      },
+      async (payload) => {
+        const newMessage = payload.new as PrivateChatMessage;
+        
+        if (selectedThread && newMessage.thread_id === selectedThread.id) {
+          // Optimistic update zamiast fetch
+          setMessages(prev => [...prev, newMessage]);
+        }
+        
+        fetchThreadsRef.current?.();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user, enableRealtime, threads.length, selectedThread?.id]);  // Minimalne zależności
+```
+
+---
+
+## Faza 4: Naprawa wycieku pamięci w NewsTicker
+
+### Problem
+`setTimeout` wewnątrz `setInterval` nie jest czyszczony przy odmontowaniu komponentu (linie 50-53).
+
+### Rozwiązanie:
+
+```typescript
+// src/components/news-ticker/NewsTicker.tsx
+
+const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ items, interval }) => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isVisible, setIsVisible] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);  // DODAĆ REF
+
+  useEffect(() => {
+    if (items.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setIsVisible(false);
+      
+      // Czyść poprzedni timeout jeśli istnieje
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      timeoutRef.current = setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % items.length);
+        setIsVisible(true);
+      }, 200);
+    }, interval * 1000);
+
+    return () => {
+      clearInterval(timer);
+      // DODAĆ czyszczenie timeout przy odmontowaniu
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [items.length, interval]);
+
+  // ... reszta komponentu
+};
+```
+
+---
+
+## Faza 5: Naprawa przeciążenia listenerów w TrainingModule
+
+### Problem
+`beforeunload` listener jest rejestrowany z zależnością `textLessonTime`, która zmienia się co sekundę.
+
+### Rozwiązanie:
+Użyć ref do przechowywania aktualnych wartości zamiast przekazywać je jako zależności:
+
+```typescript
+// src/pages/TrainingModule.tsx
+
+// Dodać refs dla wartości używanych w beforeunload
+const textLessonTimeRef = useRef(textLessonTime);
+const currentLessonIndexRef = useRef(currentLessonIndex);
+const lessonsRef = useRef(lessons);
+
+// Synchronizować refs (bez wyzwalania efektu)
+useEffect(() => {
+  textLessonTimeRef.current = textLessonTime;
+}, [textLessonTime]);
+
+useEffect(() => {
+  currentLessonIndexRef.current = currentLessonIndex;
+}, [currentLessonIndex]);
+
+useEffect(() => {
+  lessonsRef.current = lessons;
+}, [lessons]);
+
+// Zmienić useEffect beforeunload (linie 422-491)
+useEffect(() => {
+  const handleBeforeUnload = async () => {
+    const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
+    if (!user || !currentLesson) return;
+
+    // PROTECTION: Never overwrite completed lessons
+    const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
+    if (wasAlreadyCompleted) return;
+
+    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+    const currentVideoPos = videoPositionRef.current;
+    const currentVideoDuration = videoDurationRef.current;
+    const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTimeRef.current;
+    
+    // ... reszta logiki zapisu
+  };
+
+  window.addEventListener('beforeunload', handleBeforeUnload);
+  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+}, [user]);  // TYLKO user jako zależność - stabilny
+```
+
+---
+
+## Faza 6: Dodanie optimistic updates
+
+### Problem
+Po wysłaniu wiadomości następuje pełny refetch historii zamiast lokalnej aktualizacji.
+
+### Rozwiązanie dla useUnifiedChat (sendDirectMessage):
+
+```typescript
+// src/hooks/useUnifiedChat.ts - linia 256
+
+// Zamiast:
+await fetchDirectMessages(recipientId);
+
+// Użyć optimistic update:
+const optimisticMessage: UnifiedMessage = {
+  id: crypto.randomUUID(),  // Tymczasowe ID
+  channelId: null,
+  senderId: user.id,
+  senderName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+  senderAvatar: profile.avatar_url,
+  senderInitials: `${profile.first_name?.charAt(0) || ''}${profile.last_name?.charAt(0) || ''}`,
+  senderRole: currentRole,
+  content,
+  createdAt: new Date().toISOString(),
+  isOwn: true,
+  isRead: true,
+  messageType,
+  attachmentUrl,
+  attachmentName,
+};
+
+setMessages(prev => [...prev, optimisticMessage]);
+
+// Fetch w tle dla synchronizacji ID z bazy (bez blokowania UI)
+fetchDirectMessages(recipientId);
+```
+
+---
+
+## Faza 7: Stabilizacja SecureMedia
+
+### Problem
+Duża liczba zależności w useEffect powoduje częste przeładowywanie listenerów wideo.
+
+### Rozwiązanie:
+Wydzielić logikę do mniejszych, wyspecjalizowanych hooków:
+
+```typescript
+// src/components/SecureMedia.tsx
+
+// 1. Wydzielić logikę URL do osobnego hooka
+const useSecureUrl = (mediaUrl: string) => {
+  // ... logika pobierania signed URL
+};
+
+// 2. Wydzielić logikę buforowania do osobnego hooka
+const useVideoBuffering = (videoElement: HTMLVideoElement | null) => {
+  // ... logika smart buffering
+};
+
+// 3. Użyć stabilnych refs dla callbacków
+const handlersRef = useRef({
+  onTimeUpdate: onTimeUpdate,
+  onPlayStateChange: onPlayStateChange,
+  onDurationChange: onDurationChange,
 });
 
-app.get('/pwa-512.png', async (req, res) => {
-  const iconUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/training-media/1770404468713-logo-1764373022335.png';
-  res.redirect(302, iconUrl);
-});
-```
+useEffect(() => {
+  handlersRef.current = { onTimeUpdate, onPlayStateChange, onDurationChange };
+}, [onTimeUpdate, onPlayStateChange, onDurationChange]);
 
----
-
-## Faza 4: Aktualizacja Service Worker
-
-Dodanie obsługi manifestu w Service Worker (cache manifestu):
-
-```javascript
-// W sw-push.js - dodać na początku
-
-const CACHE_NAME = 'purelife-pwa-v1';
-const STATIC_ASSETS = [
-  '/manifest.json',
-  '/pwa-192.png',
-  '/pwa-512.png',
-];
-
-// Cache manifest on install
-self.addEventListener('install', (event) => {
-  console.log('[SW-Push] Service Worker installed');
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(STATIC_ASSETS).catch(err => {
-        console.log('[SW-Push] Failed to cache static assets:', err);
-      });
-    })
-  );
-  self.skipWaiting();
-});
-```
-
----
-
-## Faza 5: Usprawnienia diagnostyczne w server.js
-
-Dodanie endpointu diagnostycznego i obsługi manifestu:
-
-```javascript
-// Endpoint diagnostyczny dla PWA
-app.get('/api/pwa-status', (req, res) => {
-  const distPath = __dirname + '/dist';
+// 4. Jeden główny useEffect dla listenerów z minimalnymi zależnościami
+useEffect(() => {
+  if (!videoElement) return;
   
-  res.json({
-    serverVersion: '1.3.0',
-    timestamp: new Date().toISOString(),
-    files: {
-      swPush: fs.existsSync(path.join(distPath, 'sw-push.js')),
-      manifest: fs.existsSync(path.join(distPath, 'manifest.json')),
-      pwa192: fs.existsSync(path.join(distPath, 'pwa-192.png')),
-      pwa512: fs.existsSync(path.join(distPath, 'pwa-512.png')),
-    },
-    publicFiles: {
-      swPush: fs.existsSync(path.join(__dirname, 'public', 'sw-push.js')),
-      manifest: fs.existsSync(path.join(__dirname, 'public', 'manifest.json')),
-    }
+  const handlers = {
+    timeupdate: () => handlersRef.current.onTimeUpdate?.(videoElement.currentTime),
+    // ... pozostałe handlery
+  };
+  
+  Object.entries(handlers).forEach(([event, handler]) => {
+    videoElement.addEventListener(event, handler);
   });
-});
-
-// Manifest z prawidłowym MIME type
-app.get('/manifest.json', (req, res) => {
-  const manifestPath = path.join(__dirname, 'dist', 'manifest.json');
   
-  if (fs.existsSync(manifestPath)) {
-    res.setHeader('Content-Type', 'application/manifest+json');
-    res.sendFile(manifestPath);
-  } else {
-    const publicPath = path.join(__dirname, 'public', 'manifest.json');
-    if (fs.existsSync(publicPath)) {
-      res.setHeader('Content-Type', 'application/manifest+json');
-      res.sendFile(publicPath);
-    } else {
-      res.status(404).send('Manifest not found');
-    }
-  }
-});
+  return () => {
+    Object.entries(handlers).forEach(([event, handler]) => {
+      videoElement.removeEventListener(event, handler);
+    });
+  };
+}, [videoElement]);  // TYLKO videoElement jako zależność
 ```
 
 ---
 
-## Faza 6: Podsumowanie zmian
+## Podsumowanie zmian
 
-| Plik | Akcja | Opis |
-|------|-------|------|
-| `public/manifest.json` | **NOWY** | Pełny manifest PWA z ikonami, theme color, scope |
-| `public/pwa-192.png` | **NOWY** | Ikona 192x192 (pobrana z Supabase lub utworzona) |
-| `public/pwa-512.png` | **NOWY** | Ikona 512x512 (pobrana z Supabase lub utworzona) |
-| `index.html` | Modyfikacja | Dodanie `<link rel="manifest">`, `apple-touch-icon`, `theme-color` |
-| `public/sw-push.js` | Modyfikacja | Dodanie cache dla manifestu i ikon |
-| `server.js` | Modyfikacja | Dodanie endpointu diagnostycznego `/api/pwa-status`, obsługa `/manifest.json` |
-
----
-
-## Wymagane działania na produkcji
-
-Po wdrożeniu tych zmian wymagane jest:
-
-1. **`git pull`** - pobranie nowych plików
-2. **`npm run build`** - zbudowanie projektu (kopiuje `public/*` do `dist/`)
-3. **`pm2 restart ecosystem.config.js`** - restart serwera Express
-
-### Weryfikacja:
-```bash
-curl -I https://purelife.info.pl/sw-push.js
-# Powinno zwrócić: Content-Type: application/javascript
-
-curl -I https://purelife.info.pl/manifest.json
-# Powinno zwrócić: Content-Type: application/manifest+json
-
-curl https://purelife.info.pl/api/pwa-status
-# Powinno zwrócić JSON z informacją o plikach
-```
+| Plik | Zmiana | Wpływ |
+|------|--------|-------|
+| `src/hooks/useUnifiedChat.ts` | Dodanie filtrów SQL, stabilizacja refs, usunięcie Date.now() | -90% ruchu WebSocket |
+| `src/hooks/useRoleChat.ts` | Dodanie filtrów SQL, minimalne zależności | -90% ruchu WebSocket |
+| `src/hooks/usePrivateChat.ts` | Dodanie filtrów SQL, optimistic updates, refs | -90% ruchu WebSocket |
+| `src/pages/MessagesPage.tsx` | Usunięcie zduplikowanej subskrypcji | -50% subskrypcji |
+| `src/components/news-ticker/NewsTicker.tsx` | Czyszczenie setTimeout w cleanup | Eliminacja memory leak |
+| `src/pages/TrainingModule.tsx` | Użycie refs zamiast zależności w beforeunload | -99% re-rejestracji |
+| `src/components/SecureMedia.tsx` | Wydzielenie hooków, stabilne refs | -80% remount listenerów |
 
 ---
 
-## Dlaczego to rozwiąże problemy?
+## Oczekiwane rezultaty
 
-### Windows (Edge):
-- Błąd MIME type zniknie po restarcie serwera (trasa `/sw-push.js` już jest w kodzie)
-- Manifest pozwoli na instalację jako PWA
-
-### iOS (Safari):
-- **Manifest jest WYMAGANY** dla Web Push na iOS 16.4+
-- `apple-touch-icon` zapewni poprawną ikonę przy "Dodaj do ekranu głównego"
-- `display: standalone` w manifeście aktywuje tryb PWA
-
-### Android (Chrome):
-- Pełny manifest umożliwi "Zainstaluj aplikację" prompt
-- Service Worker z cache zapewni szybsze ładowanie
-
+1. **Redukcja ruchu sieciowego** o ~90% - filtry SQL eliminują broadcast
+2. **Eliminacja memory leaks** - prawidłowe czyszczenie timerów
+3. **Stabilne WebSocket** - brak ciągłych resubskrypcji
+4. **Lepsza responsywność** - optimistic updates zamiast refetch
+5. **Mniejsze zużycie CPU** - mniej re-renderów i przeładowań listenerów
