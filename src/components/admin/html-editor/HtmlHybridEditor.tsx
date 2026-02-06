@@ -4,10 +4,11 @@ import { parseHtmlToElements } from './hooks/useHtmlParser';
 import { serializeElementsToHtml } from './hooks/useHtmlSerializer';
 import { DraggableHtmlElement } from './DraggableHtmlElement';
 import { SimplifiedPropertiesPanel } from './SimplifiedPropertiesPanel';
-import { HtmlElementToolbar } from './HtmlElementToolbar';
+import { HtmlElementsPanel } from './HtmlElementsPanel';
 import { HtmlFormattingToolbar } from './HtmlFormattingToolbar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -561,86 +562,87 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
   }, [editingElementId, handleEndInlineEdit]);
   
   return (
-    <div className="h-full flex flex-col border rounded-lg overflow-hidden bg-background">
-      {/* Formatting Toolbar */}
-      <HtmlFormattingToolbar
-        onFormat={handleFormat}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
-        canUndo={historyIndex > 0}
-        canRedo={historyIndex < history.length - 1}
-        isInlineEditMode={!!editingElementId}
-      />
+    <div className="h-full flex overflow-hidden bg-background">
+      {/* Left Panel - Elements */}
+      <div className="w-80 shrink-0 h-full border-r">
+        <HtmlElementsPanel onAddElement={addElement} />
+      </div>
       
-      {/* Element Toolbar */}
-      <HtmlElementToolbar
-        onAddElement={addElement}
-        hasSelection={!!selectedElementId}
-      />
-      
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between border-b px-2 bg-muted/20 shrink-0">
-          <TabsList className="h-9 bg-transparent">
-            <TabsTrigger value="visual" className="text-xs gap-1.5">
-              <Eye className="h-3.5 w-3.5" />
-              Edytor wizualny
-            </TabsTrigger>
-            <TabsTrigger value="code" className="text-xs gap-1.5">
-              <Code className="h-3.5 w-3.5" />
-              Kod HTML
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="text-xs gap-1.5">
-              <Globe className="h-3.5 w-3.5" />
-              Pełny podgląd
-            </TabsTrigger>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 px-2 gap-1 text-xs ml-2"
-              onClick={openRealPreview}
-              title="Otwórz w nowym oknie"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Podgląd rzeczywisty
-            </Button>
-          </TabsList>
-          
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {elements.length} elementów • Historia: {historyIndex + 1}/{history.length}
-            </span>
-            {activeTab === 'visual' && (
-              <>
-                <Button
-                  variant={isEditMode ? "default" : "ghost"}
-                  size="sm"
-                  className="h-7 px-2 gap-1 text-xs"
-                  onClick={() => setIsEditMode(!isEditMode)}
-                >
-                  <GripVertical className="w-3.5 h-3.5" />
-                  {isEditMode ? 'Sortowanie' : 'Sortowanie wył.'}
-                </Button>
-                <Button
-                  variant={showOutlines ? "default" : "ghost"}
-                  size="sm"
-                  className="h-7 px-2 gap-1 text-xs"
-                  onClick={() => setShowOutlines(!showOutlines)}
-                >
-                  {showOutlines ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                  Kontury
-                </Button>
-              </>
-            )}
+      {/* Main Area - Preview + Properties */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Formatting Toolbar */}
+        <HtmlFormattingToolbar
+          onFormat={handleFormat}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={historyIndex > 0}
+          canRedo={historyIndex < history.length - 1}
+          isInlineEditMode={!!editingElementId}
+        />
+        
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between border-b px-2 bg-muted/20 shrink-0">
+            <TabsList className="h-9 bg-transparent">
+              <TabsTrigger value="visual" className="text-xs gap-1.5">
+                <Eye className="h-3.5 w-3.5" />
+                Edytor wizualny
+              </TabsTrigger>
+              <TabsTrigger value="code" className="text-xs gap-1.5">
+                <Code className="h-3.5 w-3.5" />
+                Kod HTML
+              </TabsTrigger>
+              <TabsTrigger value="preview" className="text-xs gap-1.5">
+                <Globe className="h-3.5 w-3.5" />
+                Pełny podgląd
+              </TabsTrigger>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 gap-1 text-xs ml-2"
+                onClick={openRealPreview}
+                title="Otwórz w nowym oknie"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Podgląd rzeczywisty
+              </Button>
+            </TabsList>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">
+                {elements.length} elementów • Historia: {historyIndex + 1}/{history.length}
+              </span>
+              {activeTab === 'visual' && (
+                <>
+                  <Button
+                    variant={isEditMode ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 gap-1 text-xs"
+                    onClick={() => setIsEditMode(!isEditMode)}
+                  >
+                    <GripVertical className="w-3.5 h-3.5" />
+                    {isEditMode ? 'Sortowanie' : 'Sortowanie wył.'}
+                  </Button>
+                  <Button
+                    variant={showOutlines ? "default" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 gap-1 text-xs"
+                    onClick={() => setShowOutlines(!showOutlines)}
+                  >
+                    {showOutlines ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    Kontury
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
         
         {/* Visual Editor Tab */}
         <TabsContent value="visual" className="flex-1 h-0 min-h-0 m-0 overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="h-full">
-            <ResizablePanel defaultSize={selectedElementId ? 60 : 100} minSize={40} className="h-full">
-              <div className="h-full overflow-y-auto">
-                <div className="p-4 pl-10 min-h-full" ref={editableRef}>
+            <ResizablePanel defaultSize={selectedElementId ? 65 : 100} minSize={40} className="h-full">
+              <ScrollArea className="h-full">
+                <div className="p-4 pl-10" ref={editableRef}>
                   {customCss && <style>{customCss}</style>}
                   
                   <DndContext
@@ -660,7 +662,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                           <div className="text-center text-muted-foreground py-16 border-2 border-dashed rounded-lg">
                             <Code className="w-12 h-12 mx-auto mb-4 opacity-30" />
                             <p className="text-lg font-medium mb-2">Brak elementów do wyświetlenia</p>
-                            <p className="text-sm mb-4">Użyj paska narzędzi powyżej, aby dodać elementy</p>
+                            <p className="text-sm mb-4">Wybierz element z panelu po lewej stronie</p>
                             <p className="text-xs">
                               Kliknij element, aby go edytować • Kliknij dwukrotnie, aby edytować tekst
                             </p>
@@ -681,7 +683,6 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                               onUpdate={(elementId, updates) => {
                                 const updatedElements = updateElementById(elements, elementId, updates);
                                 syncAndSave(updatedElements);
-                                // Don't reset selection - keep it stable
                               }}
                               showOutlines={showOutlines}
                             />
@@ -691,7 +692,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
                     </SortableContext>
                   </DndContext>
                 </div>
-              </div>
+              </ScrollArea>
             </ResizablePanel>
             
             {selectedElementId && selectedElement && (
@@ -785,9 +786,9 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
           </div>
           
           {/* Preview container - full height */}
-          <div className="flex-1 bg-muted/20 flex justify-center overflow-auto">
+          <div className="flex-1 bg-muted/20 flex justify-center overflow-hidden">
             <div 
-              className="bg-white shadow-lg h-full"
+              className="bg-white shadow-lg h-full flex flex-col"
               style={{ 
                 width: previewWidth,
                 maxWidth: '100%',
@@ -795,24 +796,26 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
             >
               {previewClickToSelect ? (
                 // Interactive preview - click to select element
-                <div className="p-6 min-h-full">
-                  {customCss && <style>{customCss}</style>}
-                  {elements.map((element) => (
-                    <HtmlElementRenderer
-                      key={element.id}
-                      element={element}
-                      selectedId={selectedElementId}
-                      hoveredId={hoveredId}
-                      onSelect={(el) => {
-                        handleSelect(el);
-                        setActiveTab('visual'); // Switch to visual editor
-                      }}
-                      onHover={setHoveredId}
-                      isEditMode={false}
-                      showOutlines={false}
-                    />
-                  ))}
-                </div>
+                <ScrollArea className="h-full">
+                  <div className="p-6">
+                    {customCss && <style>{customCss}</style>}
+                    {elements.map((element) => (
+                      <HtmlElementRenderer
+                        key={element.id}
+                        element={element}
+                        selectedId={selectedElementId}
+                        hoveredId={hoveredId}
+                        onSelect={(el) => {
+                          handleSelect(el);
+                          setActiveTab('visual'); // Switch to visual editor
+                        }}
+                        onHover={setHoveredId}
+                        isEditMode={false}
+                        showOutlines={false}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
               ) : (
                 // Clean iframe preview
                 <iframe
@@ -855,6 +858,7 @@ export const HtmlHybridEditor: React.FC<HtmlHybridEditorProps> = ({
           </div>
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 };
