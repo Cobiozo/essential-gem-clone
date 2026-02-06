@@ -404,11 +404,15 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setIsSmartBuffering(false);
     wasPlayingBeforeBufferRef.current = false;
     setBufferedRanges([]);
-    // NEW: Reset debounced spinner state
+    // NEW: Reset debounced spinner state and clear all pending timeouts
     setShowBufferingSpinner(false);
     if (spinnerTimeoutRef.current) {
       clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = undefined;
+    }
+    if (bufferingTimeoutRef.current) {
+      clearTimeout(bufferingTimeoutRef.current);
+      bufferingTimeoutRef.current = undefined;
     }
     // Refresh buffer config on new video
     bufferConfigRef.current = getAdaptiveBufferConfig();
@@ -921,7 +925,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ratechange', handleRateChange);
       video.removeEventListener('error', handleError);
-      video.removeEventListener('progress', handleProgress); // NEW: Buffer progress tracking
+      video.removeEventListener('progress', handleProgress);
+      
+      // CRITICAL: Clear pending timeouts to prevent memory leaks
+      if (bufferingTimeoutRef.current) {
+        clearTimeout(bufferingTimeoutRef.current);
+        bufferingTimeoutRef.current = undefined;
+      }
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]); // Added isSmartBuffering, isInitialBuffering
 

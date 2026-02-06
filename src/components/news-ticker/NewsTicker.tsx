@@ -37,23 +37,36 @@ const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ item
   );
 };
 
-// Rotating content (change every X seconds)
+// Rotating content (change every X seconds) - FIXED: cleanup setTimeout on unmount
 const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ items, interval }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);  // Track inner timeout
 
   useEffect(() => {
     if (items.length <= 1) return;
 
     const timer = setInterval(() => {
       setIsVisible(false);
-      setTimeout(() => {
+      
+      // Clear previous timeout if exists (prevents memory leak)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      timeoutRef.current = setTimeout(() => {
         setCurrentIndex((prev) => (prev + 1) % items.length);
         setIsVisible(true);
       }, 200);
     }, interval * 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      // CRITICAL: Also clear the inner timeout on unmount
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [items.length, interval]);
 
   if (items.length === 0) return null;

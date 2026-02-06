@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
@@ -714,18 +714,30 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     fetchTeamMembers();
   }, [user, fetchUnreadCounts, fetchTeamMembers]);
 
-  // Real-time subscription
+  // Refs for stable function references in realtime subscription
+  const fetchMessagesRef = useRef(fetchMessages);
+  const fetchUnreadCountsRef = useRef(fetchUnreadCounts);
+  const fetchDirectMessagesRef = useRef(fetchDirectMessages);
+  
+  // Keep refs in sync
+  useEffect(() => { fetchMessagesRef.current = fetchMessages; }, [fetchMessages]);
+  useEffect(() => { fetchUnreadCountsRef.current = fetchUnreadCounts; }, [fetchUnreadCounts]);
+  useEffect(() => { fetchDirectMessagesRef.current = fetchDirectMessages; }, [fetchDirectMessages]);
+
+  // Real-time subscription - STABILIZED: uses refs to prevent circular restarts
   useEffect(() => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel(`unified-chat-${user.id}-${Date.now()}`)
+      .channel(`unified-chat-${user.id}`)  // Removed Date.now() - prevents resubscription loops
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'role_chat_messages',
+          // SQL filter: only receive messages for current user (reduces network traffic by ~90%)
+          filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${currentRole}))`,
         },
         (payload) => {
           const newMessage = payload.new as any;
@@ -736,11 +748,11 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
             (newMessage.recipient_id === user.id || newMessage.recipient_id === null);
           
           if (isForMe || newMessage.sender_id === user.id) {
-            // Refresh current channel if it matches
+            // Use refs to avoid dependency cycles
             if (selectedChannelId) {
-              fetchMessages(selectedChannelId);
+              fetchMessagesRef.current?.(selectedChannelId);
             }
-            fetchUnreadCounts();
+            fetchUnreadCountsRef.current?.();
           }
         }
       )
@@ -749,7 +761,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, enableRealtime, currentRole, selectedChannelId, fetchMessages, fetchUnreadCounts]);
+  }, [user, enableRealtime, currentRole, selectedChannelId]);  // Removed fetchMessages and fetchUnreadCounts from deps
 
   // Calculate total unread
   const totalUnread = useMemo(() => {

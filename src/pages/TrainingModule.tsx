@@ -87,7 +87,12 @@ const TrainingModule = () => {
   const videoPositionRef = useRef<number>(0);
   const hasInitialSaveRef = useRef<boolean>(false);
   
-  // Refs to prevent race conditions during lesson transitions
+  // Refs for beforeunload to access current values without triggering re-registrations
+  const textLessonTimeRef = useRef<number>(0);
+  const currentLessonIndexRef = useRef<number>(0);
+  const lessonsRef = useRef<TrainingLesson[]>([]);
+  
+  // Ref to prevent race conditions during lesson transitions
   const currentLessonIdRef = useRef<string | null>(null);
   const isTransitioningRef = useRef<boolean>(false);
   
@@ -346,6 +351,19 @@ const TrainingModule = () => {
     };
   }, [moduleId, user, toast]);
 
+  // Keep refs in sync for beforeunload (avoids useEffect re-registrations every second)
+  useEffect(() => {
+    textLessonTimeRef.current = textLessonTime;
+  }, [textLessonTime]);
+  
+  useEffect(() => {
+    currentLessonIndexRef.current = currentLessonIndex;
+  }, [currentLessonIndex]);
+  
+  useEffect(() => {
+    lessonsRef.current = lessons;
+  }, [lessons]);
+  
   // Update currentLessonIdRef when lesson changes
   useEffect(() => {
     const currentLesson = lessons[currentLessonIndex];
@@ -420,27 +438,29 @@ const TrainingModule = () => {
   }, [lessons, currentLessonIndex]);
 
   // Save progress before unload with localStorage backup and proper auth
+  // STABILIZED: Uses refs to avoid re-registering listener every second
   useEffect(() => {
     const handleBeforeUnload = async () => {
-      const currentLesson = lessons[currentLessonIndex];
+      // Use refs to get current values (avoids stale closures)
+      const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
       if (!user || !currentLesson) return;
 
       // PROTECTION: Never overwrite completed lessons - completion is irreversible
-      const wasAlreadyCompleted = progress[currentLesson.id]?.is_completed;
+      const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
       if (wasAlreadyCompleted) {
         console.log('[TrainingModule] Skipping beforeunload save for already completed lesson:', currentLesson.title);
         return;
       }
 
-    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    const currentVideoPos = videoPositionRef.current;
-    const currentVideoDuration = videoDurationRef.current;
-    const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
-    // For video lessons, use video duration; for text lessons, use min_time_seconds
-    const requiredTime = hasVideo && currentVideoDuration > 0 
-      ? Math.floor(currentVideoDuration) 
-      : (currentLesson.min_time_seconds || 0);
-    const isCompleted = effectiveTime >= requiredTime;
+      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const currentVideoPos = videoPositionRef.current;
+      const currentVideoDuration = videoDurationRef.current;
+      const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTimeRef.current;
+      // For video lessons, use video duration; for text lessons, use min_time_seconds
+      const requiredTime = hasVideo && currentVideoDuration > 0 
+        ? Math.floor(currentVideoDuration) 
+        : (currentLesson.min_time_seconds || 0);
+      const isCompleted = effectiveTime >= requiredTime;
 
       // 1. Always save to localStorage as backup
       const backupData = {
@@ -488,7 +508,7 @@ const TrainingModule = () => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user, lessons, currentLessonIndex, textLessonTime, progress]);
+  }, [user]);  // ONLY user as dependency - stable, registered ONCE
 
   // Ref to hold latest saveProgressWithPosition function (for stable callbacks)
   const saveProgressRef = useRef<() => Promise<boolean | void>>();
