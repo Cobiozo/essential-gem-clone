@@ -99,6 +99,10 @@ export const WelcomeWidget: React.FC = () => {
 
   // Format time in selected timezone
   const formattedTime = formatInTimeZone(currentTime, selectedTimezone, 'HH:mm:ss');
+  
+  // Polish time for secondary clock
+  const polishTime = formatInTimeZone(currentTime, 'Europe/Warsaw', 'HH:mm');
+  const isNonPolishTimezone = selectedTimezone !== 'Europe/Warsaw';
 
   return (
     <Card 
@@ -118,23 +122,35 @@ export const WelcomeWidget: React.FC = () => {
           </div>
           
           {/* Digital clock with timezone selector */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-primary tabular-nums">
-              <Clock className="h-5 w-5 md:h-6 md:w-6 text-primary/70" />
-              {formattedTime}
+          <div className="flex flex-col items-end gap-0.5">
+            {/* Main clock - user's timezone */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-primary tabular-nums">
+                <Clock className="h-5 w-5 md:h-6 md:w-6 text-primary/70" />
+                {formattedTime}
+              </div>
+              <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
+                <SelectTrigger className="w-[160px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {timezones.map(tz => (
+                    <SelectItem key={tz.value} value={tz.value} className="text-xs">
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
-              <SelectTrigger className="w-[160px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {timezones.map(tz => (
-                  <SelectItem key={tz.value} value={tz.value} className="text-xs">
-                    {tz.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            
+            {/* Secondary Polish clock - visible only when timezone differs from Poland */}
+            {isNonPolishTimezone && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-[168px]">
+                <span className="text-sm">🇵🇱</span>
+                <span className="font-mono tabular-nums">{polishTime}</span>
+                <span className="text-[10px]">(Polska)</span>
+              </div>
+            )}
           </div>
         </div>
         
