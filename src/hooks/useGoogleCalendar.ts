@@ -343,9 +343,10 @@ export const useGoogleCalendar = () => {
       }
 
       // Get all user's registered events
+      // Fetch event_id AND occurrence_index for proper sync
       const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select('event_id')
+        .select('event_id, occurrence_index')
         .eq('user_id', user.id)
         .eq('status', 'registered');
 
@@ -360,7 +361,7 @@ export const useGoogleCalendar = () => {
         return;
       }
 
-      // Sync each event
+      // Sync each event with its correct occurrence_index
       let successCount = 0;
       let errorCount = 0;
       
@@ -371,6 +372,7 @@ export const useGoogleCalendar = () => {
               user_id: user.id,
               event_id: reg.event_id,
               action: 'create',
+              occurrence_index: reg.occurrence_index, // Pass occurrence_index for proper sync
             },
           });
           if (result.data?.success) {

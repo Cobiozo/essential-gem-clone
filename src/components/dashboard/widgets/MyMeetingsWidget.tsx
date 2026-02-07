@@ -42,7 +42,9 @@ export const MyMeetingsWidget: React.FC = () => {
   // Stable callback that doesn't change reference
   const fetchUserEventsData = useCallback(async () => {
     setLoading(true);
+    console.log('[MyMeetingsWidget] Fetching events at:', new Date().toISOString());
     const events = await getUserEventsRef.current();
+    console.log('[MyMeetingsWidget] Got events:', events.length, events.map(e => ({ id: e.id, title: e.title })));
     setUserEvents(events);
     setLoading(false);
   }, []); // Empty deps - uses ref internally
@@ -75,22 +77,10 @@ export const MyMeetingsWidget: React.FC = () => {
       )
       .subscribe();
 
-    // Subscribe to events table for real-time updates (new individual meetings)
-    const eventsChannel = supabase
-      .channel(eventsChannelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'events'
-        },
-        () => {
-          // Refetch when any event changes
-          fetchUserEventsData();
-        }
-      )
-      .subscribe();
+    // REMOVED: Global events subscription was causing unnecessary refreshes
+    // The registrations subscription is sufficient for tracking user's meetings
+    // Events table changes (like new webinars) are not relevant for "My Meetings"
+    // because user needs to register first, which triggers the registrations subscription
 
     // Listen for custom events from CalendarWidget registration actions
     const handleRegistrationChange = () => {
@@ -100,7 +90,7 @@ export const MyMeetingsWidget: React.FC = () => {
 
     return () => {
       supabase.removeChannel(registrationsChannel);
-      supabase.removeChannel(eventsChannel);
+      // eventsChannel removed - no longer subscribed
       window.removeEventListener('eventRegistrationChange', handleRegistrationChange);
     };
   }, [user?.id, fetchUserEventsData]); // Only user.id as dependency
