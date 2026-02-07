@@ -983,10 +983,19 @@ Provide a structured summary:`;
 
   return (
     <>
-      {/* Toggle Button - positioned above the support chat */}
+      {/* Toggle Button - Glassmorphism Gold FAB */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed z-50 w-14 h-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105"
+        className="fixed z-50 w-14 h-14 rounded-full 
+          bg-gradient-to-br from-[#D4AF37]/90 via-[#C5A059]/85 to-[#B8860B]/80
+          hover:from-[#F5E050]/95 hover:via-[#D4AF37]/90 hover:to-[#C5A059]/85
+          text-[#0A0A0A] 
+          shadow-[0_4px_24px_rgba(0,0,0,0.5),0_0_20px_rgba(212,175,55,0.2)]
+          border border-[#F5E050]/30
+          backdrop-blur-sm
+          flex items-center justify-center transition-all duration-300 
+          hover:scale-105 hover:shadow-[0_6px_32px_rgba(0,0,0,0.6),0_0_30px_rgba(212,175,55,0.35)]
+          animate-gold-glow"
         style={{
           bottom: 'calc(max(4rem, env(safe-area-inset-bottom, 0px) + 3rem) + 4.5rem)',
           right: 'max(1rem, env(safe-area-inset-right, 0px))'
@@ -1000,20 +1009,28 @@ Provide a structured summary:`;
         )}
       </button>
 
-      {/* Chat Panel */}
+      {/* Chat Panel - Glassmorphism Anthracite */}
       {isOpen && (
         <div 
-          className="fixed z-50 w-[400px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100vh-12rem)] bg-background border border-border rounded-lg shadow-xl flex flex-col overflow-hidden"
+          className="fixed z-50 w-[420px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-12rem)]
+            bg-[#121212]/85 backdrop-blur-xl
+            border border-[#C5A059]/15
+            rounded-2xl
+            shadow-[0_8px_32px_rgba(0,0,0,0.7),0_0_1px_rgba(197,160,89,0.5),inset_0_0_40px_rgba(26,26,26,0.3)]
+            flex flex-col overflow-hidden
+            animate-science-panel-open"
           style={{
             bottom: 'calc(max(4rem, env(safe-area-inset-bottom, 0px) + 3rem) + 9rem)',
             right: 'max(1rem, env(safe-area-inset-right, 0px))'
           }}
         >
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-3 flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2">
-              <Search className="w-5 h-5" />
-              <span className="font-semibold text-sm">{getTranslation('title')}</span>
+          {/* Header - Deep Anthracite with Gold Accent */}
+          <div className="bg-gradient-to-r from-[#1A1A1A] to-[#0A0A0A] border-b border-[#C5A059]/30 px-4 py-3.5 flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2.5">
+              <Search className="w-5 h-5 text-[#C5A059]" />
+              <span className="font-bold text-sm tracking-wider bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#C5A059] bg-clip-text text-transparent">
+                {getTranslation('title')}
+              </span>
             </div>
             <div className="flex items-center gap-1">
               {/* History */}
@@ -1022,28 +1039,33 @@ Provide a structured summary:`;
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                    className="h-8 w-8 text-[#C5A059]/70 hover:text-[#D4AF37] hover:bg-[#C5A059]/10 transition-colors"
                     title={getTranslation('history')}
                   >
                     <History className="w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72 p-0" align="end">
-                  <div className="p-2 border-b font-medium text-sm">{getTranslation('history')}</div>
+                <PopoverContent 
+                  className="w-72 p-0 bg-[#121212]/95 backdrop-blur-xl border-[#C5A059]/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)]" 
+                  align="end"
+                >
+                  <div className="p-2 border-b border-[#C5A059]/20 font-medium text-sm text-[#D4AF37]">
+                    {getTranslation('history')}
+                  </div>
                   <ScrollArea className="max-h-60">
                     {chatHistory.length === 0 ? (
-                      <div className="p-3 text-sm text-muted-foreground text-center">
+                      <div className="p-3 text-sm text-[#C5A059]/50 text-center">
                         {getTranslation('noHistory')}
                       </div>
                     ) : (
                       chatHistory.map((entry) => (
                         <button
                           key={entry.id}
-                          className="w-full text-left p-2 hover:bg-muted text-sm border-b last:border-0"
+                          className="w-full text-left p-2 hover:bg-[#C5A059]/10 text-sm border-b border-[#C5A059]/10 last:border-0 text-[#E0E0E0]"
                           onClick={() => loadFromHistory(entry)}
                         >
                           <div className="font-medium truncate">{entry.query}</div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-[#C5A059]/50">
                             {new Date(entry.created_at).toLocaleDateString(language)}
                           </div>
                         </button>
@@ -1059,54 +1081,57 @@ Provide a structured summary:`;
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                    className="h-8 w-8 text-[#C5A059]/70 hover:text-[#D4AF37] hover:bg-[#C5A059]/10 transition-colors"
                     disabled={messages.length === 0 || isExporting}
                     title={isExporting ? getTranslation('translating') : getTranslation('download')}
                   >
                     {isExporting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" />
                     ) : (
                       <Download className="w-4 h-4" />
                     )}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="min-w-[180px]">
-                  <DropdownMenuLabel className="text-xs flex items-center gap-1">
+                <DropdownMenuContent 
+                  align="end" 
+                  className="min-w-[180px] bg-[#121212]/95 backdrop-blur-xl border-[#C5A059]/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
+                >
+                  <DropdownMenuLabel className="text-xs flex items-center gap-1 text-[#D4AF37]">
                     <Globe className="w-3 h-3" /> HTML (główny)
                   </DropdownMenuLabel>
                   {exportLanguageOptions.map((option) => (
                     <DropdownMenuItem
                       key={`html-${option.value}`}
                       onClick={() => exportToHtml(option.value)}
-                      className="flex items-center gap-2 pl-4"
+                      className="flex items-center gap-2 pl-4 text-[#E0E0E0] hover:bg-[#C5A059]/15 hover:text-[#D4AF37] focus:bg-[#C5A059]/15 focus:text-[#D4AF37]"
                     >
                       <span>{option.flag}</span>
                       <span>{option.label}</span>
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs flex items-center gap-1">
+                  <DropdownMenuSeparator className="bg-[#C5A059]/20" />
+                  <DropdownMenuLabel className="text-xs flex items-center gap-1 text-[#D4AF37]">
                     <FileText className="w-3 h-3" /> PDF
                   </DropdownMenuLabel>
                   {exportLanguageOptions.map((option) => (
                     <DropdownMenuItem
                       key={`pdf-${option.value}`}
                       onClick={() => exportToPdf(option.value)}
-                      className="flex items-center gap-2 pl-4"
+                      className="flex items-center gap-2 pl-4 text-[#E0E0E0] hover:bg-[#C5A059]/15 hover:text-[#D4AF37] focus:bg-[#C5A059]/15 focus:text-[#D4AF37]"
                     >
                       <span>{option.flag}</span>
                       <span>{option.label}</span>
                     </DropdownMenuItem>
                   ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs flex items-center gap-1">
+                  <DropdownMenuSeparator className="bg-[#C5A059]/20" />
+                  <DropdownMenuLabel className="text-xs flex items-center gap-1 text-[#D4AF37]">
                     <FileText className="w-3 h-3" /> DOC
                   </DropdownMenuLabel>
                   {exportLanguageOptions.map((option) => (
                     <DropdownMenuItem
                       key={`doc-${option.value}`}
                       onClick={() => exportToDoc(option.value)}
-                      className="flex items-center gap-2 pl-4"
+                      className="flex items-center gap-2 pl-4 text-[#E0E0E0] hover:bg-[#C5A059]/15 hover:text-[#D4AF37] focus:bg-[#C5A059]/15 focus:text-[#D4AF37]"
                     >
                       <span>{option.flag}</span>
                       <span>{option.label}</span>
@@ -1119,7 +1144,7 @@ Provide a structured summary:`;
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20"
+                className="h-8 w-8 text-[#C5A059]/70 hover:text-[#D4AF37] hover:bg-[#C5A059]/10 transition-colors"
                 onClick={handleClearMessages}
                 title={t('clear')}
               >
@@ -1128,22 +1153,31 @@ Provide a structured summary:`;
             </div>
           </div>
 
-          {/* Settings bar */}
-          <div className="bg-muted/50 px-3 py-2 flex items-center justify-between text-xs border-b shrink-0">
-            <span className="text-muted-foreground">{getTranslation('results')}:</span>
+          {/* Settings bar - Anthracite with Gold accent */}
+          <div className="bg-[#121212]/60 border-b border-[#C5A059]/10 px-3 py-2 flex items-center justify-between text-xs shrink-0">
+            <span className="text-[#C5A059]/70">{getTranslation('results')}:</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 text-xs gap-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs gap-1 bg-[#1A1A1A]/70 border-[#C5A059]/20 text-[#C5A059] hover:bg-[#C5A059]/10 hover:text-[#D4AF37] hover:border-[#C5A059]/40"
+                >
                   {resultsCount === 0 ? getTranslation('max') : resultsCount}
                   <ChevronDown className="w-3 h-3" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent 
+                align="end"
+                className="bg-[#121212]/95 backdrop-blur-xl border-[#C5A059]/20 shadow-[0_8px_32px_rgba(0,0,0,0.6)]"
+              >
                 {resultsOptions.map((option) => (
                   <DropdownMenuItem
                     key={option.value}
                     onClick={() => setResultsCount(option.value)}
-                    className={resultsCount === option.value ? 'bg-accent' : ''}
+                    className={`text-[#E0E0E0] hover:bg-[#C5A059]/15 hover:text-[#D4AF37] focus:bg-[#C5A059]/15 focus:text-[#D4AF37] ${
+                      resultsCount === option.value ? 'bg-[#C5A059]/15 text-[#D4AF37]' : ''
+                    }`}
                   >
                     {option.label}
                   </DropdownMenuItem>
@@ -1152,13 +1186,13 @@ Provide a structured summary:`;
             </DropdownMenu>
           </div>
 
-          {/* Disclaimer */}
-          <div className="bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200 shrink-0">
+          {/* Disclaimer - Subtle Gold */}
+          <div className="bg-[#C5A059]/8 border-b border-[#C5A059]/15 px-3 py-2 text-xs text-[#D4AF37]/90 shrink-0">
             {getTranslation('disclaimer')}
           </div>
 
-          {/* Messages */}
-          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+          {/* Messages - Glassmorphism */}
+          <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-[#0A0A0A]/30">
             <div className="space-y-4">
               {messages.map((message, index) => (
                 <div
@@ -1168,12 +1202,12 @@ Provide a structured summary:`;
                   <div
                     className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                       message.role === 'user'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-muted text-foreground'
+                        ? 'bg-gradient-to-br from-[#1A1A1A]/95 to-[#121212]/90 border-r-[3px] border-[#C5A059] text-[#F5F5F5] shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
+                        : 'bg-[#1A1A1A]/60 backdrop-blur-sm border border-[#C5A059]/10 text-[#E0E0E0]'
                     }`}
                   >
                     {message.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <div className="prose prose-sm prose-invert max-w-none [&_a]:text-[#D4AF37] [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:text-[#F5E050]">
                         {renderMessageContent(message.content)}
                       </div>
                     ) : (
@@ -1185,11 +1219,11 @@ Provide a structured summary:`;
               
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-muted rounded-lg px-3 py-2 text-sm text-muted-foreground flex items-center gap-2">
+                  <div className="bg-[#1A1A1A]/60 backdrop-blur-sm border border-[#C5A059]/10 rounded-lg px-3 py-2 text-sm text-[#C5A059]/70 flex items-center gap-2">
                     <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-pulse-gold" style={{ animationDelay: '0ms' }} />
+                      <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-pulse-gold" style={{ animationDelay: '150ms' }} />
+                      <span className="w-2 h-2 bg-[#C5A059] rounded-full animate-pulse-gold" style={{ animationDelay: '300ms' }} />
                     </div>
                     <span>{getTranslation('thinking')}</span>
                   </div>
@@ -1197,15 +1231,15 @@ Provide a structured summary:`;
               )}
 
               {error && (
-                <div className="bg-destructive/10 text-destructive rounded-lg px-3 py-2 text-sm">
+                <div className="bg-red-950/30 border border-red-500/30 text-red-400 rounded-lg px-3 py-2 text-sm">
                   {error}
                 </div>
               )}
             </div>
           </ScrollArea>
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="p-3 border-t border-border shrink-0">
+          {/* Input - Anthracite with Gold focus */}
+          <form onSubmit={handleSubmit} className="p-3 border-t border-[#C5A059]/15 bg-[#0A0A0A]/50 shrink-0">
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
@@ -1214,13 +1248,18 @@ Provide a structured summary:`;
                 onKeyDown={handleKeyDown}
                 placeholder={getTranslation('placeholder')}
                 disabled={isLoading}
-                className="flex-1"
+                className="flex-1 bg-[#1A1A1A]/70 border-[#C5A059]/20 text-[#F5F5F5] placeholder:text-[#C5A059]/50 
+                  focus:border-[#C5A059]/50 focus:ring-[#C5A059]/20 focus-visible:ring-[#C5A059]/20"
               />
               <Button
                 type="submit"
                 size="icon"
                 disabled={isLoading || !inputValue.trim()}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-gradient-to-br from-[#C5A059] to-[#D4AF37] hover:from-[#D4AF37] hover:to-[#F5E050] 
+                  text-[#0A0A0A] shadow-[0_2px_8px_rgba(197,160,89,0.3)] 
+                  hover:shadow-[0_4px_12px_rgba(212,175,55,0.4)]
+                  disabled:from-[#C5A059]/30 disabled:to-[#C5A059]/30 disabled:text-[#0A0A0A]/50
+                  transition-all duration-200"
               >
                 <Send className="w-4 h-4" />
               </Button>

@@ -64,6 +64,19 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        // Pure Science Search AI animations
+        "pulse-gold": {
+          "0%, 100%": { opacity: "0.4", transform: "scale(0.8)" },
+          "50%": { opacity: "1", transform: "scale(1.2)" },
+        },
+        "gold-glow": {
+          "0%, 100%": { boxShadow: "0 0 15px rgba(212, 175, 55, 0.3)" },
+          "50%": { boxShadow: "0 0 25px rgba(212, 175, 55, 0.5)" },
+        },
+        "science-panel-open": {
+          "0%": { opacity: "0", transform: "translateY(20px) scale(0.95)" },
+          "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -166,6 +179,10 @@ export default {
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
         "accordion-up": "accordion-up 0.3s ease-out",
+        // Pure Science Search AI animations
+        "pulse-gold": "pulse-gold 1s ease-in-out infinite",
+        "gold-glow": "gold-glow 3s ease-in-out infinite",
+        "science-panel-open": "science-panel-open 0.3s ease-out",
         // Banner animations
         "banner-fade-in-subtle": "banner-fade-in-subtle 0.2s ease-out",
         "banner-fade-in-enhanced": "banner-fade-in-enhanced 0.4s ease-out",
