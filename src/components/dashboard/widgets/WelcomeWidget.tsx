@@ -107,13 +107,20 @@ export const WelcomeWidget: React.FC = () => {
   return (
     <Card 
       data-tour="welcome-widget"
-      className="col-span-full bg-gradient-to-br from-primary/10 via-primary/5 to-background border-primary/20 shadow-sm relative"
+      variant="premium"
+      className="col-span-full overflow-hidden relative"
     >
+      {/* Gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gold/10 via-transparent to-action-blue/5 pointer-events-none" />
+      
+      {/* Glass effect bar at top */}
+      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-white/5 to-transparent backdrop-blur-[1px] pointer-events-none" />
+      
       <WidgetInfoButton description="Powitanie i aktualny czas - dostosuj strefę czasową według potrzeb" />
-      <CardContent className="p-6 overflow-hidden">
+      <CardContent className="relative z-10 p-6 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">
+            <h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-foreground via-gold to-foreground bg-clip-text text-transparent bg-[length:200%_auto] animate-[shimmer_3s_ease-in-out_infinite]">
               {getGreeting()}{firstName ? `, ${firstName}` : ''}! 👋
             </h2>
             <p className="text-muted-foreground capitalize">
@@ -125,12 +132,12 @@ export const WelcomeWidget: React.FC = () => {
           <div className="flex flex-col items-end gap-0.5">
             {/* Main clock - user's timezone */}
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-primary tabular-nums">
-                <Clock className="h-5 w-5 md:h-6 md:w-6 text-primary/70" />
+              <div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-gold tabular-nums">
+                <Clock className="h-5 w-5 md:h-6 md:w-6 text-gold/70" />
                 {formattedTime}
               </div>
               <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
-                <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectTrigger className="w-[160px] h-8 text-xs bg-white/5 border-white/10 backdrop-blur-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
