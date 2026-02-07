@@ -1,411 +1,318 @@
 
+# Plan naprawy: Stabilna synchronizacja Google Calendar
 
-# Plan: Redesign Pure Science Search AI - Glassmorphism & Metallic Gold
+## Zidentyfikowane problemy
 
-## Wizja projektu
+### Problem 1: Brak usuwania wydarzeń z Google Calendar przy wypisaniu się (KRYTYCZNY)
 
-Przekształcenie modułu Medical Chat Widget w elegancki, prestiżowy interfejs o nazwie **Pure Science Search AI** z estetyką glassmorphism na ciemnym tle antracytowym z akcentami metalicznego złota.
+**Przyczyna główna:** Niezgodność `occurrence_index` między tworzeniem a usuwaniem rekordów synchronizacji.
 
----
+| Operacja | Co się dzieje | Skutek |
+|----------|---------------|--------|
+| Rejestracja na wystąpienie #0 | Tworzy `event_google_sync` z `occurrence_index = 0` | ✓ Poprawne |
+| Ręczna resync wszystkich | Tworzy `event_google_sync` z `occurrence_index = NULL` | ✗ BUG |
+| Wypisanie z wystąpienia #0 | Szuka `occurrence_index = 0`, nie znajduje (jest NULL) | ✗ Wydarzenie pozostaje w Google Calendar |
 
-## 1. Paleta kolorystyczna
+**Lokalizacja błędu:**
+- `src/hooks/useGoogleCalendar.ts` linie 346-374 - funkcja `syncAllEvents` nie pobiera `occurrence_index` z rejestracji
 
-### Kolory główne (do dodania w tailwind.config.ts)
+### Problem 2: Edge Function `sync-google-calendar` - sztywne dopasowanie `occurrence_index`
 
-```text
-science-anthracite:
-  - 50:  #F5F5F5 (jasny akcent)
-  - 100: #E0E0E0
-  - 800: #1A1A1A (głęboki grafit)
-  - 900: #121212 (antracyt bazowy)
-  - 950: #0A0A0A (czerń)
+Logika usuwania wymaga DOKŁADNEGO dopasowania:
+- Jeśli rejestracja ma `occurrence_index = 0`, szuka rekordu z `occurrence_index = 0`
+- Jeśli rekord sync ma `occurrence_index = NULL` (legacy), nie jest znajdowany
 
-science-gold:
-  - 50:  #FDF8E8 (jasny połysk)
-  - 100: #F5E6C4
-  - 400: #D4AF37 (złoty blask)
-  - 500: #C5A059 (metaliczne złoto)
-  - 600: #B8860B (ciemne złoto)
-  - 700: #8B6914 (antyczne złoto)
-```
+### Problem 3: Widżet "Moje spotkania" pokazuje nieaktualne dane
 
-### Gradient złoty (metaliczny efekt)
-```css
-background: linear-gradient(135deg, #D4AF37 0%, #F5E050 25%, #C5A059 50%, #B8860B 100%);
-```
+**Potencjalne przyczyny:**
+1. Cache React Query nie jest invalidowany poprawnie
+2. Subskrypcja Realtime na tablicę `events` jest zbyt szeroka (bez filtra)
+3. Użytkownik może widzieć stare dane z poprzedniej sesji
 
 ---
 
-## 2. Struktura komponentu - Glassmorphism
+## Faza 1: Naprawa `syncAllEvents` w useGoogleCalendar.ts
 
-### Panel główny
+**Plik:** `src/hooks/useGoogleCalendar.ts`
 
-```text
-┌────────────────────────────────────────────────────────────┐
-│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ HEADER ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓           │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ 🔬 PURE SCIENCE SEARCH AI        📜 ⬇️ 🗑️         │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ Wyniki: [10 ▼]                         (Settings)   │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ ⚠️ Informacje służą celom edukacyjnym...           │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                                                            │
-│  ╔══════════════════════════════════════════════════════╗  │
-│  ║                                                      ║  │
-│  ║                    MESSAGES AREA                     ║  │
-│  ║                                                      ║  │
-│  ║  ┌─────────────────────────────────────┐            ║  │
-│  ║  │ User message          │ złota ramka │ ──────────►║  │
-│  ║  └─────────────────────────────────────┘            ║  │
-│  ║                                                      ║  │
-│  ║  ┌───────────────────────────────────────────────┐  ║  │
-│  ║  │ AI Response                                   │  ║  │
-│  ║  │ glassmorphism bg + złote linki do źródeł     │  ║  │
-│  ║  └───────────────────────────────────────────────┘  ║  │
-│  ║                                                      ║  │
-│  ╚══════════════════════════════════════════════════════╝  │
-│                                                            │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │ [    Wpisz pytanie medyczne...            ] [🚀]    │  │
-│  └──────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 3. Szczegółowe style CSS
-
-### 3.1 Przycisk toggle (FAB)
-
-```css
-/* Obecny (linia 989): */
-bg-gradient-to-br from-blue-600 to-indigo-700
-
-/* Nowy glassmorphism + gold: */
-background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(197, 160, 89, 0.8));
-backdrop-filter: blur(8px);
-border: 1px solid rgba(245, 224, 80, 0.3);
-box-shadow: 
-  0 4px 24px rgba(0, 0, 0, 0.5),
-  0 0 20px rgba(212, 175, 55, 0.2),
-  inset 0 1px 0 rgba(255, 255, 255, 0.2);
-```
-
-### 3.2 Panel główny
-
-```css
-/* Obecny (linia 1006): */
-bg-background border border-border rounded-lg
-
-/* Nowy glassmorphism: */
-background: rgba(18, 18, 18, 0.85);
-backdrop-filter: blur(20px) saturate(180%);
-border: 1px solid rgba(197, 160, 89, 0.15);
-border-radius: 1.25rem;
-box-shadow: 
-  0 8px 32px rgba(0, 0, 0, 0.7),
-  0 0 1px rgba(197, 160, 89, 0.5),
-  inset 0 0 40px rgba(26, 26, 26, 0.3);
-```
-
-### 3.3 Header
-
-```css
-/* Obecny (linia 1013): */
-bg-gradient-to-r from-blue-600 to-indigo-700
-
-/* Nowy antracyt + złoty akcent: */
-background: linear-gradient(to right, #1A1A1A, #0A0A0A);
-border-bottom: 1px solid rgba(197, 160, 89, 0.3);
-
-/* Tekst nagłówka z złotym gradientem: */
-background: linear-gradient(135deg, #D4AF37, #F5E050, #C5A059);
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-font-weight: 700;
-letter-spacing: 0.05em;
-```
-
-### 3.4 Wiadomość użytkownika
-
-```css
-/* Obecny (linia 1171): */
-bg-blue-600 text-white
-
-/* Nowy - ciemny z złotym akcentem: */
-background: linear-gradient(135deg, rgba(26, 26, 26, 0.95), rgba(18, 18, 18, 0.9));
-border-right: 3px solid #C5A059;
-color: #F5F5F5;
-box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-```
-
-### 3.5 Wiadomość asystenta (AI)
-
-```css
-/* Obecny: */
-bg-muted text-foreground
-
-/* Nowy glassmorphism: */
-background: rgba(26, 26, 26, 0.6);
-backdrop-filter: blur(12px);
-border: 1px solid rgba(197, 160, 89, 0.1);
-color: #E0E0E0;
-
-/* Linki do źródeł PubMed w kolorze złotym: */
-a {
-  color: #D4AF37;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-a:hover {
-  color: #F5E050;
-}
-```
-
-### 3.6 Pole wpisywania (Input)
-
-```css
-/* Nowy styl: */
-background: rgba(26, 26, 26, 0.7);
-border: 1px solid rgba(197, 160, 89, 0.2);
-color: #F5F5F5;
-placeholder-color: rgba(197, 160, 89, 0.5);
-
-&:focus {
-  border-color: rgba(197, 160, 89, 0.5);
-  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.1);
-}
-```
-
-### 3.7 Przycisk wysyłania
-
-```css
-/* Obecny (linia 1223): */
-bg-blue-600 hover:bg-blue-700
-
-/* Nowy złoty gradient: */
-background: linear-gradient(135deg, #C5A059, #D4AF37);
-color: #0A0A0A;
-border: none;
-box-shadow: 0 2px 8px rgba(197, 160, 89, 0.3);
-
-&:hover {
-  background: linear-gradient(135deg, #D4AF37, #F5E050);
-  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
-}
-
-&:disabled {
-  background: rgba(197, 160, 89, 0.3);
-  color: rgba(10, 10, 10, 0.5);
-}
-```
-
-### 3.8 Disclaimer bar
-
-```css
-/* Obecny (linia 1156): */
-bg-amber-50 dark:bg-amber-950/30 text-amber-800
-
-/* Nowy - subtelny złoty z antracytem: */
-background: rgba(197, 160, 89, 0.08);
-border-bottom: 1px solid rgba(197, 160, 89, 0.15);
-color: rgba(212, 175, 55, 0.9);
-```
-
-### 3.9 Settings bar
-
-```css
-/* Obecny (linia 1132): */
-bg-muted/50
-
-/* Nowy: */
-background: rgba(18, 18, 18, 0.6);
-border-bottom: 1px solid rgba(197, 160, 89, 0.1);
-color: rgba(197, 160, 89, 0.7);
-```
-
-### 3.10 Loading indicator
-
-```css
-/* Obecny - niebieskie kropki (linia 1190): */
-bg-blue-500
-
-/* Nowy - złote pulsujące kropki: */
-background: #C5A059;
-animation: pulse-gold 1s infinite;
-
-@keyframes pulse-gold {
-  0%, 100% { opacity: 0.4; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
-```
-
----
-
-## 4. Dropdowny i Popovery (glassmorphism)
-
-```css
-/* Wszystkie menu rozwijane: */
-background: rgba(18, 18, 18, 0.95);
-backdrop-filter: blur(16px);
-border: 1px solid rgba(197, 160, 89, 0.2);
-box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-
-/* Hover na elementach menu: */
-&:hover {
-  background: rgba(197, 160, 89, 0.1);
-}
-
-/* Aktywny element: */
-&[data-highlighted] {
-  background: rgba(197, 160, 89, 0.15);
-  color: #D4AF37;
-}
-```
-
----
-
-## 5. Animacje i mikro-interakcje
-
-### 5.1 Nowe keyframes (do tailwind.config.ts)
+**Zmiana 1:** Pobieranie `occurrence_index` z rejestracji (linia 346-348)
 
 ```typescript
-keyframes: {
-  // Złoty puls dla ładowania
-  "pulse-gold": {
-    "0%, 100%": { opacity: "0.4", transform: "scale(0.8)" },
-    "50%": { opacity: "1", transform: "scale(1.2)" },
+// BYŁO:
+const { data: registrations, error: regError } = await supabase
+  .from('event_registrations')
+  .select('event_id')
+  .eq('user_id', user.id)
+  .eq('status', 'registered');
+
+// MA BYĆ:
+const { data: registrations, error: regError } = await supabase
+  .from('event_registrations')
+  .select('event_id, occurrence_index')  // Dodane occurrence_index
+  .eq('user_id', user.id)
+  .eq('status', 'registered');
+```
+
+**Zmiana 2:** Przekazywanie `occurrence_index` przy synchronizacji (linia 369-375)
+
+```typescript
+// BYŁO:
+const result = await supabase.functions.invoke('sync-google-calendar', {
+  body: {
+    user_id: user.id,
+    event_id: reg.event_id,
+    action: 'create',
   },
-  // Subtelny shimmer dla złotych elementów
-  "gold-shimmer": {
-    "0%": { backgroundPosition: "-200% 0" },
-    "100%": { backgroundPosition: "200% 0" },
+});
+
+// MA BYĆ:
+const result = await supabase.functions.invoke('sync-google-calendar', {
+  body: {
+    user_id: user.id,
+    event_id: reg.event_id,
+    action: 'create',
+    occurrence_index: reg.occurrence_index,  // Dodane przekazanie indeksu
   },
-  // Glow dla przycisku FAB
-  "gold-glow": {
-    "0%, 100%": { boxShadow: "0 0 15px rgba(212, 175, 55, 0.3)" },
-    "50%": { boxShadow: "0 0 25px rgba(212, 175, 55, 0.5)" },
-  },
+});
+```
+
+---
+
+## Faza 2: Ulepszona logika usuwania w Edge Function (fallback)
+
+**Plik:** `supabase/functions/sync-google-calendar/index.ts`
+
+Problem: Stare rekordy sync mają `occurrence_index = NULL`, ale użytkownik wypisuje się z konkretnego wystąpienia.
+
+**Rozwiązanie:** Dodanie fallback przy usuwaniu - jeśli nie znaleziono rekordu z konkretnym `occurrence_index`, spróbuj z `NULL`:
+
+```typescript
+// Linia ~425 w processSyncForUser, w bloku action === 'delete':
+
+if (action === 'delete' && eventId) {
+  // Krok 1: Szukaj z konkretnym occurrence_index
+  let syncQuery = supabaseAdmin
+    .from('event_google_sync')
+    .select('google_event_id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId);
+  
+  if (occurrenceIndex !== undefined) {
+    syncQuery = syncQuery.eq('occurrence_index', occurrenceIndex);
+  } else {
+    syncQuery = syncQuery.is('occurrence_index', null);
+  }
+  
+  let { data: syncRecord } = await syncQuery.single();
+
+  // Krok 2: FALLBACK - jeśli nie znaleziono, spróbuj z NULL (legacy)
+  if (!syncRecord?.google_event_id && occurrenceIndex !== undefined) {
+    console.log('[sync-google-calendar] No record with occurrence_index, trying fallback with NULL');
+    const { data: fallbackRecord } = await supabaseAdmin
+      .from('event_google_sync')
+      .select('google_event_id')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .is('occurrence_index', null)
+      .single();
+    
+    if (fallbackRecord?.google_event_id) {
+      syncRecord = fallbackRecord;
+      console.log('[sync-google-calendar] Found legacy sync record with NULL occurrence_index');
+    }
+  }
+
+  // Krok 3: Krok 3 - MULTI-FALLBACK: szukaj dowolnego rekordu dla tego eventu
+  if (!syncRecord?.google_event_id) {
+    console.log('[sync-google-calendar] Trying any sync record for event');
+    const { data: anyRecord } = await supabaseAdmin
+      .from('event_google_sync')
+      .select('google_event_id, occurrence_index')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .limit(1)
+      .single();
+    
+    if (anyRecord?.google_event_id) {
+      syncRecord = anyRecord;
+      console.log('[sync-google-calendar] Found sync record with different occurrence_index:', anyRecord.occurrence_index);
+    }
+  }
+
+  if (syncRecord?.google_event_id) {
+    const deleted = await deleteGoogleEvent(accessToken, calendarId, syncRecord.google_event_id);
+    
+    if (deleted) {
+      // Usuń rekord sync bez filtra occurrence_index (usuń wszystkie dla tego eventu+user)
+      await supabaseAdmin
+        .from('event_google_sync')
+        .delete()
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .eq('google_event_id', syncRecord.google_event_id);
+    }
+
+    const responseTime = Date.now() - startTime;
+    logSyncOperation(supabaseAdmin, userId, eventId, action, deleted ? 'success' : 'error', responseTime, deleted ? undefined : 'Delete failed', { occurrence_index: occurrenceIndex });
+    return { success: deleted };
+  }
+
+  // Nie znaleziono żadnego rekordu
+  const responseTime = Date.now() - startTime;
+  logSyncOperation(supabaseAdmin, userId, eventId, action, 'skipped', responseTime, 'No sync record found', { occurrence_index: occurrenceIndex });
+  return { success: true, reason: 'no_sync_record' };
 }
 ```
 
-### 5.2 Animacja otwierania panelu
+---
 
-```css
-/* Wejście z glassmorphism blur */
-@keyframes panel-open {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-    backdrop-filter: blur(0px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    backdrop-filter: blur(20px);
-  }
-}
-animation: panel-open 0.3s ease-out;
+## Faza 3: Naprawa widżetu "Moje spotkania"
+
+**Plik:** `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+
+### Zmiana 1: Dodanie filtra do subskrypcji events (linie 78-92)
+
+Obecna subskrypcja nasłuchuje NA WSZYSTKIE zmiany w tabeli `events`, co jest nieefektywne i może powodować problemy z danymi.
+
+```typescript
+// BYŁO:
+const eventsChannel = supabase
+  .channel(eventsChannelName)
+  .on(
+    'postgres_changes',
+    {
+      event: '*',
+      schema: 'public',
+      table: 'events'
+    },
+    () => {
+      fetchUserEventsData();
+    }
+  )
+  .subscribe();
+
+// MA BYĆ:
+// Nie potrzebujemy subskrypcji na wszystkie eventy
+// Subskrypcja na registrations z filtrem user_id wystarczy
+// USUŃ tę subskrypcję - jest niepotrzebna i powoduje nadmiarowe odświeżenia
+```
+
+### Zmiana 2: Dodanie wymuszenia świeżych danych przy montowaniu
+
+```typescript
+// Na początku fetchUserEventsData:
+const fetchUserEventsData = useCallback(async () => {
+  setLoading(true);
+  // Dodaj timestamp do logów dla debugowania
+  console.log('[MyMeetingsWidget] Fetching events at:', new Date().toISOString());
+  const events = await getUserEventsRef.current();
+  console.log('[MyMeetingsWidget] Got events:', events.length);
+  setUserEvents(events);
+  setLoading(false);
+}, []);
 ```
 
 ---
 
-## 6. Podsumowanie zmian w plikach
+## Faza 4: Migracja istniejących rekordów sync (OPCJONALNA)
 
-| Plik | Zakres zmian |
-|------|--------------|
-| `tailwind.config.ts` | Dodanie kolorów `science-anthracite`, `science-gold`, nowe keyframes animacji |
-| `src/index.css` | Opcjonalnie: globalne style dla glassmorphism utility classes |
-| `src/components/MedicalChatWidget.tsx` | Redesign całego UI - panel, header, wiadomości, input, przyciski |
+Dla naprawy historycznych rekordów, można uruchomić jednorazową migrację SQL:
+
+```sql
+-- Aktualizacja rekordów event_google_sync gdzie occurrence_index jest NULL
+-- a event ma occurrences (jest cykliczny)
+UPDATE event_google_sync egs
+SET occurrence_index = 0
+WHERE egs.occurrence_index IS NULL
+AND EXISTS (
+  SELECT 1 FROM events e 
+  WHERE e.id = egs.event_id 
+  AND e.occurrences IS NOT NULL
+);
+```
+
+Ta migracja jest opcjonalna - fallback w Edge Function powinien obsłużyć legacy przypadki.
 
 ---
 
-## 7. Przykład finalnego kodu (kluczowe fragmenty)
+## Faza 5: Dodanie logowania i diagnostyki
 
-### Toggle Button (linia ~987-1001)
+**Plik:** `src/hooks/useEvents.ts`
 
-```tsx
-<button
-  onClick={() => setIsOpen(!isOpen)}
-  className="fixed z-50 w-14 h-14 rounded-full 
-    bg-gradient-to-br from-[#D4AF37]/90 via-[#C5A059]/85 to-[#B8860B]/80
-    hover:from-[#F5E050]/95 hover:via-[#D4AF37]/90 hover:to-[#C5A059]/85
-    text-[#0A0A0A] shadow-[0_4px_24px_rgba(0,0,0,0.5),0_0_20px_rgba(212,175,55,0.2)]
-    border border-[#F5E050]/30
-    flex items-center justify-center transition-all duration-300 
-    hover:scale-105 hover:shadow-[0_6px_32px_rgba(0,0,0,0.6),0_0_30px_rgba(212,175,55,0.35)]
-    animate-[gold-glow_3s_ease-in-out_infinite]"
-  style={{...}}
->
-  {isOpen ? <X className="w-6 h-6" /> : <Search className="w-6 h-6" />}
-</button>
-```
+Dodanie szczegółowego logowania w `cancelRegistration`:
 
-### Panel główny (linia ~1005-1011)
+```typescript
+const cancelRegistration = async (eventId: string, occurrenceIndex?: number): Promise<boolean> => {
+  if (!user) return false;
 
-```tsx
-<div 
-  className="fixed z-50 w-[420px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-12rem)]
-    bg-[#121212]/85 backdrop-blur-xl
-    border border-[#C5A059]/15
-    rounded-2xl
-    shadow-[0_8px_32px_rgba(0,0,0,0.7),0_0_1px_rgba(197,160,89,0.5),inset_0_0_40px_rgba(26,26,26,0.3)]
-    flex flex-col overflow-hidden
-    animate-[panel-open_0.3s_ease-out]"
-  style={{...}}
->
-```
-
-### Header (linia ~1012-1129)
-
-```tsx
-<div className="bg-gradient-to-r from-[#1A1A1A] to-[#0A0A0A] 
-  border-b border-[#C5A059]/30 
-  px-4 py-3.5 flex items-center justify-between shrink-0">
-  <div className="flex items-center gap-2.5">
-    <Search className="w-5 h-5 text-[#C5A059]" />
-    <span className="font-bold text-sm tracking-wider 
-      bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#C5A059] 
-      bg-clip-text text-transparent">
-      PURE SCIENCE SEARCH AI
-    </span>
-  </div>
-  {/* Przyciski w złotym stylu */}
-  <div className="flex items-center gap-1">
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-8 w-8 text-[#C5A059]/70 hover:text-[#D4AF37] 
-        hover:bg-[#C5A059]/10 transition-colors"
-    >
-      <History className="w-4 h-4" />
-    </Button>
-    {/* ... pozostałe przyciski */}
-  </div>
-</div>
+  try {
+    console.log('[useEvents] Cancel registration:', { eventId, occurrenceIndex, userId: user.id });
+    
+    // ... existing code ...
+    
+    console.log('[useEvents] Sending delete to Google Calendar:', { 
+      eventId, 
+      occurrenceIndex,
+      hasOccurrenceIndex: occurrenceIndex !== undefined 
+    });
+    
+    const res = await supabase.functions.invoke('sync-google-calendar', {
+      body: { user_id: user.id, event_id: eventId, action: 'delete', occurrence_index: occurrenceIndex }
+    });
+    
+    console.log('[useEvents] Google Calendar delete response:', res.data);
+    
+    // ... rest of code ...
 ```
 
 ---
 
-## 8. Responsywność
+## Podsumowanie zmian
 
-Na urządzeniach mobilnych (< 640px):
-- Panel rozciąga się do pełnej szerokości minus marginesy
-- Wysokość dostosowana do viewport
-- Zachowane efekty glassmorphism z mniejszym blur (performance)
-- Touch-friendly rozmiary przycisków (min 44x44px)
+| Plik | Zmiana | Priorytet |
+|------|--------|-----------|
+| `src/hooks/useGoogleCalendar.ts` | Dodanie `occurrence_index` do syncAllEvents | KRYTYCZNY |
+| `supabase/functions/sync-google-calendar/index.ts` | Fallback przy usuwaniu (szukaj z NULL jeśli nie znaleziono) | KRYTYCZNY |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Usunięcie zbędnej subskrypcji events, lepsze logowanie | WYSOKI |
+| `src/hooks/useEvents.ts` | Dodatkowe logowanie w cancelRegistration | ŚREDNI |
 
 ---
 
-## 9. Dostępność (A11y)
+## Diagram przepływu (po naprawie)
 
-- Kontrast złoty na antracycie: ~7:1 (WCAG AAA)
-- Focus states z wyraźnym złotym outline
-- Aria labels dla wszystkich interaktywnych elementów
-- Reduced motion: wyłączenie animacji dla użytkowników z preferencją
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│                    REJESTRACJA NA WYDARZENIE                     │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Użytkownik zapisuje się na wystąpienie #2 eventu cyklicznego │
+│ 2. registerForEvent(eventId, occurrenceIndex=2)                  │
+│ 3. sync-google-calendar(action='create', occurrence_index=2)    │
+│ 4. event_google_sync: {event_id, user_id, occurrence_index: 2}  │
+│ 5. Google Calendar: Dodane wydarzenie z datą wystąpienia #2     │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   WYPISANIE Z WYDARZENIA                         │
+├─────────────────────────────────────────────────────────────────┤
+│ 1. Użytkownik wypisuje się z wystąpienia #2                     │
+│ 2. cancelRegistration(eventId, occurrenceIndex=2)               │
+│ 3. sync-google-calendar(action='delete', occurrence_index=2)    │
+│ 4. Szukaj: event_google_sync WHERE occurrence_index=2           │
+│    └─> ZNALEZIONO → Usuń z Google Calendar ✓                    │
+│    └─> NIE ZNALEZIONO → Fallback: szukaj z NULL                 │
+│        └─> ZNALEZIONO → Usuń z Google Calendar ✓                │
+│        └─> NIE ZNALEZIONO → Szukaj dowolny rekord               │
+│            └─> ZNALEZIONO → Usuń z Google Calendar ✓            │
+│ 5. Google Calendar: Usunięte wydarzenie                         │
+└─────────────────────────────────────────────────────────────────┘
+```
 
+---
+
+## Oczekiwane rezultaty
+
+1. **100% usunięć z Google Calendar** - fallback zapewnia usunięcie nawet przy niezgodności indeksów
+2. **Spójność danych** - nowe rejestracje będą miały poprawny `occurrence_index` w sync
+3. **Mniej redundantnych odświeżeń** - usunięcie zbędnej subskrypcji events
+4. **Lepsza diagnostyka** - szczegółowe logi ułatwią debugowanie przyszłych problemów
