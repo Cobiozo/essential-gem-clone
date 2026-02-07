@@ -1,405 +1,411 @@
 
-# Plan naprawy: Przeciążenia, wycieki pamięci i zapętlenia
 
-## Podsumowanie zidentyfikowanych problemów
+# Plan: Redesign Pure Science Search AI - Glassmorphism & Metallic Gold
 
-| Priorytet | Problem | Lokalizacja | Wpływ |
-|-----------|---------|-------------|-------|
-| 🔴 KRYTYCZNY | Zapętlenie subskrypcji Realtime | `useUnifiedChat.ts` | Restart WebSocket przy każdej wiadomości |
-| 🔴 KRYTYCZNY | Brak filtrów SQL w subskrypcjach | `useUnifiedChat.ts`, `useRoleChat.ts`, `usePrivateChat.ts` | Broadcast do wszystkich klientów |
-| 🔴 KRYTYCZNY | Zduplikowana subskrypcja | `MessagesPage.tsx` | Podwójne subskrypcje Realtime |
-| 🟠 WYSOKI | Wyciek pamięci - setTimeout bez cleanup | `NewsTicker.tsx` | Memory leak przy odmontowaniu |
-| 🟠 WYSOKI | Przeciążenie listenerów | `TrainingModule.tsx` | 60 re-rejestracji/min dla `beforeunload` |
-| 🟠 WYSOKI | Brak optimistic updates | `useUnifiedChat.ts`, `usePrivateChat.ts` | Re-fetch całej historii po wysłaniu |
-| 🟡 ŚREDNI | Niestabilne zależności useEffect | `SecureMedia.tsx` | Częste remount listenerów wideo |
+## Wizja projektu
+
+Przekształcenie modułu Medical Chat Widget w elegancki, prestiżowy interfejs o nazwie **Pure Science Search AI** z estetyką glassmorphism na ciemnym tle antracytowym z akcentami metalicznego złota.
 
 ---
 
-## Faza 1: Naprawa zapętlenia w useUnifiedChat (KRYTYCZNE)
+## 1. Paleta kolorystyczna
 
-### Problem
-Zależności w `useEffect` subskrypcji (linia 752) zawierają `fetchMessages` i `fetchUnreadCounts`. 
-Nowa wiadomość → `fetchUnreadCounts()` → zmiana `unreadCounts` → zmiana `channels` (useMemo) → zmiana `fetchMessages` (useCallback z `channels` w zależnościach) → restart useEffect → ponowna subskrypcja.
+### Kolory główne (do dodania w tailwind.config.ts)
 
-### Rozwiązanie
-1. Użyć `useRef` dla funkcji fetch zamiast przekazywać je jako zależności
-2. Dodać filtr SQL do subskrypcji
-3. Stabilizować funkcje przez usunięcie zbędnych zależności
+```text
+science-anthracite:
+  - 50:  #F5F5F5 (jasny akcent)
+  - 100: #E0E0E0
+  - 800: #1A1A1A (głęboki grafit)
+  - 900: #121212 (antracyt bazowy)
+  - 950: #0A0A0A (czerń)
 
-```typescript
-// src/hooks/useUnifiedChat.ts
+science-gold:
+  - 50:  #FDF8E8 (jasny połysk)
+  - 100: #F5E6C4
+  - 400: #D4AF37 (złoty blask)
+  - 500: #C5A059 (metaliczne złoto)
+  - 600: #B8860B (ciemne złoto)
+  - 700: #8B6914 (antyczne złoto)
+```
 
-// Dodać refs dla stabilności
-const fetchMessagesRef = useRef(fetchMessages);
-const fetchUnreadCountsRef = useRef(fetchUnreadCounts);
-
-useEffect(() => {
-  fetchMessagesRef.current = fetchMessages;
-}, [fetchMessages]);
-
-useEffect(() => {
-  fetchUnreadCountsRef.current = fetchUnreadCounts;
-}, [fetchUnreadCounts]);
-
-// Zmienić subskrypcję (linie 717-752)
-useEffect(() => {
-  if (!user || !enableRealtime) return;
-
-  const channel = supabase
-    .channel(`unified-chat-${user.id}`)  // Usunąć Date.now() - powoduje ciągłe resubskrybowanie
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'role_chat_messages',
-        filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${currentRole}))`,  // DODAĆ FILTR
-      },
-      (payload) => {
-        const newMessage = payload.new as any;
-        
-        // Użyć refs zamiast funkcji z zależności
-        fetchMessagesRef.current?.(selectedChannelId);
-        fetchUnreadCountsRef.current?.();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user, enableRealtime, currentRole, selectedChannelId]);  // Usunąć fetchMessages i fetchUnreadCounts
+### Gradient złoty (metaliczny efekt)
+```css
+background: linear-gradient(135deg, #D4AF37 0%, #F5E050 25%, #C5A059 50%, #B8860B 100%);
 ```
 
 ---
 
-## Faza 2: Usunięcie zduplikowanej subskrypcji z MessagesPage
+## 2. Struktura komponentu - Glassmorphism
 
-### Problem
-`MessagesPage.tsx` (linie 48-78) tworzy własną subskrypcję Realtime, podczas gdy `useUnifiedChat` (z `enableRealtime: true`) już to robi.
+### Panel główny
 
-### Rozwiązanie
-Usunąć zduplikowaną subskrypcję z `MessagesPage.tsx`:
-
-```typescript
-// src/pages/MessagesPage.tsx
-// USUNĄĆ cały useEffect z liniami 48-78
-
-// Zamiast:
-useEffect(() => {
-  if (!user) return;
-  const channel = supabase
-    .channel(`chat-notifications-${user.id}`)
-    // ... subskrypcja
-}, [user, permission, showNotification]);
-
-// Powiadomienia przeglądarkowe obsłużyć w useUnifiedChat lub osobnym hooku
+```text
+┌────────────────────────────────────────────────────────────┐
+│  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ HEADER ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓           │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ 🔬 PURE SCIENCE SEARCH AI        📜 ⬇️ 🗑️         │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Wyniki: [10 ▼]                         (Settings)   │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ ⚠️ Informacje służą celom edukacyjnym...           │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                            │
+│  ╔══════════════════════════════════════════════════════╗  │
+│  ║                                                      ║  │
+│  ║                    MESSAGES AREA                     ║  │
+│  ║                                                      ║  │
+│  ║  ┌─────────────────────────────────────┐            ║  │
+│  ║  │ User message          │ złota ramka │ ──────────►║  │
+│  ║  └─────────────────────────────────────┘            ║  │
+│  ║                                                      ║  │
+│  ║  ┌───────────────────────────────────────────────┐  ║  │
+│  ║  │ AI Response                                   │  ║  │
+│  ║  │ glassmorphism bg + złote linki do źródeł     │  ║  │
+│  ║  └───────────────────────────────────────────────┘  ║  │
+│  ║                                                      ║  │
+│  ╚══════════════════════════════════════════════════════╝  │
+│                                                            │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ [    Wpisz pytanie medyczne...            ] [🚀]    │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Faza 3: Naprawa useRoleChat i usePrivateChat
+## 3. Szczegółowe style CSS
 
-### Problem
-Brak filtrów SQL w subskrypcjach - każda wiadomość jest broadcastowana do wszystkich klientów.
+### 3.1 Przycisk toggle (FAB)
 
-### Rozwiązanie dla useRoleChat.ts (linie 164-201):
+```css
+/* Obecny (linia 989): */
+bg-gradient-to-br from-blue-600 to-indigo-700
 
-```typescript
-// src/hooks/useRoleChat.ts
-useEffect(() => {
-  if (!user || !enableRealtime) return;
-
-  const channel = supabase
-    .channel(`role-chat-${user.id}`)  // Usunąć Date.now()
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'role_chat_messages',
-        filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${userRole}))`,  // DODAĆ FILTR
-      },
-      (payload) => {
-        // ... handler
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user, userRole, enableRealtime]);  // Minimalne zależności
+/* Nowy glassmorphism + gold: */
+background: linear-gradient(135deg, rgba(212, 175, 55, 0.9), rgba(197, 160, 89, 0.8));
+backdrop-filter: blur(8px);
+border: 1px solid rgba(245, 224, 80, 0.3);
+box-shadow: 
+  0 4px 24px rgba(0, 0, 0, 0.5),
+  0 0 20px rgba(212, 175, 55, 0.2),
+  inset 0 1px 0 rgba(255, 255, 255, 0.2);
 ```
 
-### Rozwiązanie dla usePrivateChat.ts (linie 590-641):
+### 3.2 Panel główny
 
-```typescript
-// src/hooks/usePrivateChat.ts
-// Dodać ref dla stabilności
-const fetchThreadsRef = useRef(fetchThreads);
-const markAsReadRef = useRef(markAsRead);
+```css
+/* Obecny (linia 1006): */
+bg-background border border-border rounded-lg
 
-useEffect(() => {
-  fetchThreadsRef.current = fetchThreads;
-}, [fetchThreads]);
-
-useEffect(() => {
-  markAsReadRef.current = markAsRead;
-}, [markAsRead]);
-
-// Zmienić subskrypcję
-useEffect(() => {
-  if (!user || !enableRealtime) return;
-
-  // Pobierz ID wątków użytkownika tylko raz
-  const userThreadIds = threads.map(t => t.id);
-  if (userThreadIds.length === 0) return;
-
-  const channel = supabase
-    .channel(`private-chat-${user.id}`)  // Usunąć Date.now()
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'private_chat_messages',
-        filter: `thread_id=in.(${userThreadIds.join(',')})`,  // DODAĆ FILTR - tylko wątki użytkownika
-      },
-      async (payload) => {
-        const newMessage = payload.new as PrivateChatMessage;
-        
-        if (selectedThread && newMessage.thread_id === selectedThread.id) {
-          // Optimistic update zamiast fetch
-          setMessages(prev => [...prev, newMessage]);
-        }
-        
-        fetchThreadsRef.current?.();
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user, enableRealtime, threads.length, selectedThread?.id]);  // Minimalne zależności
+/* Nowy glassmorphism: */
+background: rgba(18, 18, 18, 0.85);
+backdrop-filter: blur(20px) saturate(180%);
+border: 1px solid rgba(197, 160, 89, 0.15);
+border-radius: 1.25rem;
+box-shadow: 
+  0 8px 32px rgba(0, 0, 0, 0.7),
+  0 0 1px rgba(197, 160, 89, 0.5),
+  inset 0 0 40px rgba(26, 26, 26, 0.3);
 ```
 
----
+### 3.3 Header
 
-## Faza 4: Naprawa wycieku pamięci w NewsTicker
+```css
+/* Obecny (linia 1013): */
+bg-gradient-to-r from-blue-600 to-indigo-700
 
-### Problem
-`setTimeout` wewnątrz `setInterval` nie jest czyszczony przy odmontowaniu komponentu (linie 50-53).
+/* Nowy antracyt + złoty akcent: */
+background: linear-gradient(to right, #1A1A1A, #0A0A0A);
+border-bottom: 1px solid rgba(197, 160, 89, 0.3);
 
-### Rozwiązanie:
-
-```typescript
-// src/components/news-ticker/NewsTicker.tsx
-
-const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ items, interval }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);  // DODAĆ REF
-
-  useEffect(() => {
-    if (items.length <= 1) return;
-
-    const timer = setInterval(() => {
-      setIsVisible(false);
-      
-      // Czyść poprzedni timeout jeśli istnieje
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      
-      timeoutRef.current = setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % items.length);
-        setIsVisible(true);
-      }, 200);
-    }, interval * 1000);
-
-    return () => {
-      clearInterval(timer);
-      // DODAĆ czyszczenie timeout przy odmontowaniu
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [items.length, interval]);
-
-  // ... reszta komponentu
-};
+/* Tekst nagłówka z złotym gradientem: */
+background: linear-gradient(135deg, #D4AF37, #F5E050, #C5A059);
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+font-weight: 700;
+letter-spacing: 0.05em;
 ```
 
----
+### 3.4 Wiadomość użytkownika
 
-## Faza 5: Naprawa przeciążenia listenerów w TrainingModule
+```css
+/* Obecny (linia 1171): */
+bg-blue-600 text-white
 
-### Problem
-`beforeunload` listener jest rejestrowany z zależnością `textLessonTime`, która zmienia się co sekundę.
+/* Nowy - ciemny z złotym akcentem: */
+background: linear-gradient(135deg, rgba(26, 26, 26, 0.95), rgba(18, 18, 18, 0.9));
+border-right: 3px solid #C5A059;
+color: #F5F5F5;
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+```
 
-### Rozwiązanie:
-Użyć ref do przechowywania aktualnych wartości zamiast przekazywać je jako zależności:
+### 3.5 Wiadomość asystenta (AI)
 
-```typescript
-// src/pages/TrainingModule.tsx
+```css
+/* Obecny: */
+bg-muted text-foreground
 
-// Dodać refs dla wartości używanych w beforeunload
-const textLessonTimeRef = useRef(textLessonTime);
-const currentLessonIndexRef = useRef(currentLessonIndex);
-const lessonsRef = useRef(lessons);
+/* Nowy glassmorphism: */
+background: rgba(26, 26, 26, 0.6);
+backdrop-filter: blur(12px);
+border: 1px solid rgba(197, 160, 89, 0.1);
+color: #E0E0E0;
 
-// Synchronizować refs (bez wyzwalania efektu)
-useEffect(() => {
-  textLessonTimeRef.current = textLessonTime;
-}, [textLessonTime]);
+/* Linki do źródeł PubMed w kolorze złotym: */
+a {
+  color: #D4AF37;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+a:hover {
+  color: #F5E050;
+}
+```
 
-useEffect(() => {
-  currentLessonIndexRef.current = currentLessonIndex;
-}, [currentLessonIndex]);
+### 3.6 Pole wpisywania (Input)
 
-useEffect(() => {
-  lessonsRef.current = lessons;
-}, [lessons]);
+```css
+/* Nowy styl: */
+background: rgba(26, 26, 26, 0.7);
+border: 1px solid rgba(197, 160, 89, 0.2);
+color: #F5F5F5;
+placeholder-color: rgba(197, 160, 89, 0.5);
 
-// Zmienić useEffect beforeunload (linie 422-491)
-useEffect(() => {
-  const handleBeforeUnload = async () => {
-    const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
-    if (!user || !currentLesson) return;
+&:focus {
+  border-color: rgba(197, 160, 89, 0.5);
+  box-shadow: 0 0 0 2px rgba(197, 160, 89, 0.1);
+}
+```
 
-    // PROTECTION: Never overwrite completed lessons
-    const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
-    if (wasAlreadyCompleted) return;
+### 3.7 Przycisk wysyłania
 
-    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    const currentVideoPos = videoPositionRef.current;
-    const currentVideoDuration = videoDurationRef.current;
-    const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTimeRef.current;
-    
-    // ... reszta logiki zapisu
-  };
+```css
+/* Obecny (linia 1223): */
+bg-blue-600 hover:bg-blue-700
 
-  window.addEventListener('beforeunload', handleBeforeUnload);
-  return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-}, [user]);  // TYLKO user jako zależność - stabilny
+/* Nowy złoty gradient: */
+background: linear-gradient(135deg, #C5A059, #D4AF37);
+color: #0A0A0A;
+border: none;
+box-shadow: 0 2px 8px rgba(197, 160, 89, 0.3);
+
+&:hover {
+  background: linear-gradient(135deg, #D4AF37, #F5E050);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+}
+
+&:disabled {
+  background: rgba(197, 160, 89, 0.3);
+  color: rgba(10, 10, 10, 0.5);
+}
+```
+
+### 3.8 Disclaimer bar
+
+```css
+/* Obecny (linia 1156): */
+bg-amber-50 dark:bg-amber-950/30 text-amber-800
+
+/* Nowy - subtelny złoty z antracytem: */
+background: rgba(197, 160, 89, 0.08);
+border-bottom: 1px solid rgba(197, 160, 89, 0.15);
+color: rgba(212, 175, 55, 0.9);
+```
+
+### 3.9 Settings bar
+
+```css
+/* Obecny (linia 1132): */
+bg-muted/50
+
+/* Nowy: */
+background: rgba(18, 18, 18, 0.6);
+border-bottom: 1px solid rgba(197, 160, 89, 0.1);
+color: rgba(197, 160, 89, 0.7);
+```
+
+### 3.10 Loading indicator
+
+```css
+/* Obecny - niebieskie kropki (linia 1190): */
+bg-blue-500
+
+/* Nowy - złote pulsujące kropki: */
+background: #C5A059;
+animation: pulse-gold 1s infinite;
+
+@keyframes pulse-gold {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
 ```
 
 ---
 
-## Faza 6: Dodanie optimistic updates
+## 4. Dropdowny i Popovery (glassmorphism)
 
-### Problem
-Po wysłaniu wiadomości następuje pełny refetch historii zamiast lokalnej aktualizacji.
+```css
+/* Wszystkie menu rozwijane: */
+background: rgba(18, 18, 18, 0.95);
+backdrop-filter: blur(16px);
+border: 1px solid rgba(197, 160, 89, 0.2);
+box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 
-### Rozwiązanie dla useUnifiedChat (sendDirectMessage):
+/* Hover na elementach menu: */
+&:hover {
+  background: rgba(197, 160, 89, 0.1);
+}
 
-```typescript
-// src/hooks/useUnifiedChat.ts - linia 256
-
-// Zamiast:
-await fetchDirectMessages(recipientId);
-
-// Użyć optimistic update:
-const optimisticMessage: UnifiedMessage = {
-  id: crypto.randomUUID(),  // Tymczasowe ID
-  channelId: null,
-  senderId: user.id,
-  senderName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-  senderAvatar: profile.avatar_url,
-  senderInitials: `${profile.first_name?.charAt(0) || ''}${profile.last_name?.charAt(0) || ''}`,
-  senderRole: currentRole,
-  content,
-  createdAt: new Date().toISOString(),
-  isOwn: true,
-  isRead: true,
-  messageType,
-  attachmentUrl,
-  attachmentName,
-};
-
-setMessages(prev => [...prev, optimisticMessage]);
-
-// Fetch w tle dla synchronizacji ID z bazy (bez blokowania UI)
-fetchDirectMessages(recipientId);
+/* Aktywny element: */
+&[data-highlighted] {
+  background: rgba(197, 160, 89, 0.15);
+  color: #D4AF37;
+}
 ```
 
 ---
 
-## Faza 7: Stabilizacja SecureMedia
+## 5. Animacje i mikro-interakcje
 
-### Problem
-Duża liczba zależności w useEffect powoduje częste przeładowywanie listenerów wideo.
-
-### Rozwiązanie:
-Wydzielić logikę do mniejszych, wyspecjalizowanych hooków:
+### 5.1 Nowe keyframes (do tailwind.config.ts)
 
 ```typescript
-// src/components/SecureMedia.tsx
+keyframes: {
+  // Złoty puls dla ładowania
+  "pulse-gold": {
+    "0%, 100%": { opacity: "0.4", transform: "scale(0.8)" },
+    "50%": { opacity: "1", transform: "scale(1.2)" },
+  },
+  // Subtelny shimmer dla złotych elementów
+  "gold-shimmer": {
+    "0%": { backgroundPosition: "-200% 0" },
+    "100%": { backgroundPosition: "200% 0" },
+  },
+  // Glow dla przycisku FAB
+  "gold-glow": {
+    "0%, 100%": { boxShadow: "0 0 15px rgba(212, 175, 55, 0.3)" },
+    "50%": { boxShadow: "0 0 25px rgba(212, 175, 55, 0.5)" },
+  },
+}
+```
 
-// 1. Wydzielić logikę URL do osobnego hooka
-const useSecureUrl = (mediaUrl: string) => {
-  // ... logika pobierania signed URL
-};
+### 5.2 Animacja otwierania panelu
 
-// 2. Wydzielić logikę buforowania do osobnego hooka
-const useVideoBuffering = (videoElement: HTMLVideoElement | null) => {
-  // ... logika smart buffering
-};
-
-// 3. Użyć stabilnych refs dla callbacków
-const handlersRef = useRef({
-  onTimeUpdate: onTimeUpdate,
-  onPlayStateChange: onPlayStateChange,
-  onDurationChange: onDurationChange,
-});
-
-useEffect(() => {
-  handlersRef.current = { onTimeUpdate, onPlayStateChange, onDurationChange };
-}, [onTimeUpdate, onPlayStateChange, onDurationChange]);
-
-// 4. Jeden główny useEffect dla listenerów z minimalnymi zależnościami
-useEffect(() => {
-  if (!videoElement) return;
-  
-  const handlers = {
-    timeupdate: () => handlersRef.current.onTimeUpdate?.(videoElement.currentTime),
-    // ... pozostałe handlery
-  };
-  
-  Object.entries(handlers).forEach(([event, handler]) => {
-    videoElement.addEventListener(event, handler);
-  });
-  
-  return () => {
-    Object.entries(handlers).forEach(([event, handler]) => {
-      videoElement.removeEventListener(event, handler);
-    });
-  };
-}, [videoElement]);  // TYLKO videoElement jako zależność
+```css
+/* Wejście z glassmorphism blur */
+@keyframes panel-open {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    backdrop-filter: blur(20px);
+  }
+}
+animation: panel-open 0.3s ease-out;
 ```
 
 ---
 
-## Podsumowanie zmian
+## 6. Podsumowanie zmian w plikach
 
-| Plik | Zmiana | Wpływ |
-|------|--------|-------|
-| `src/hooks/useUnifiedChat.ts` | Dodanie filtrów SQL, stabilizacja refs, usunięcie Date.now() | -90% ruchu WebSocket |
-| `src/hooks/useRoleChat.ts` | Dodanie filtrów SQL, minimalne zależności | -90% ruchu WebSocket |
-| `src/hooks/usePrivateChat.ts` | Dodanie filtrów SQL, optimistic updates, refs | -90% ruchu WebSocket |
-| `src/pages/MessagesPage.tsx` | Usunięcie zduplikowanej subskrypcji | -50% subskrypcji |
-| `src/components/news-ticker/NewsTicker.tsx` | Czyszczenie setTimeout w cleanup | Eliminacja memory leak |
-| `src/pages/TrainingModule.tsx` | Użycie refs zamiast zależności w beforeunload | -99% re-rejestracji |
-| `src/components/SecureMedia.tsx` | Wydzielenie hooków, stabilne refs | -80% remount listenerów |
+| Plik | Zakres zmian |
+|------|--------------|
+| `tailwind.config.ts` | Dodanie kolorów `science-anthracite`, `science-gold`, nowe keyframes animacji |
+| `src/index.css` | Opcjonalnie: globalne style dla glassmorphism utility classes |
+| `src/components/MedicalChatWidget.tsx` | Redesign całego UI - panel, header, wiadomości, input, przyciski |
 
 ---
 
-## Oczekiwane rezultaty
+## 7. Przykład finalnego kodu (kluczowe fragmenty)
 
-1. **Redukcja ruchu sieciowego** o ~90% - filtry SQL eliminują broadcast
-2. **Eliminacja memory leaks** - prawidłowe czyszczenie timerów
-3. **Stabilne WebSocket** - brak ciągłych resubskrypcji
-4. **Lepsza responsywność** - optimistic updates zamiast refetch
-5. **Mniejsze zużycie CPU** - mniej re-renderów i przeładowań listenerów
+### Toggle Button (linia ~987-1001)
+
+```tsx
+<button
+  onClick={() => setIsOpen(!isOpen)}
+  className="fixed z-50 w-14 h-14 rounded-full 
+    bg-gradient-to-br from-[#D4AF37]/90 via-[#C5A059]/85 to-[#B8860B]/80
+    hover:from-[#F5E050]/95 hover:via-[#D4AF37]/90 hover:to-[#C5A059]/85
+    text-[#0A0A0A] shadow-[0_4px_24px_rgba(0,0,0,0.5),0_0_20px_rgba(212,175,55,0.2)]
+    border border-[#F5E050]/30
+    flex items-center justify-center transition-all duration-300 
+    hover:scale-105 hover:shadow-[0_6px_32px_rgba(0,0,0,0.6),0_0_30px_rgba(212,175,55,0.35)]
+    animate-[gold-glow_3s_ease-in-out_infinite]"
+  style={{...}}
+>
+  {isOpen ? <X className="w-6 h-6" /> : <Search className="w-6 h-6" />}
+</button>
+```
+
+### Panel główny (linia ~1005-1011)
+
+```tsx
+<div 
+  className="fixed z-50 w-[420px] max-w-[calc(100vw-2rem)] h-[560px] max-h-[calc(100vh-12rem)]
+    bg-[#121212]/85 backdrop-blur-xl
+    border border-[#C5A059]/15
+    rounded-2xl
+    shadow-[0_8px_32px_rgba(0,0,0,0.7),0_0_1px_rgba(197,160,89,0.5),inset_0_0_40px_rgba(26,26,26,0.3)]
+    flex flex-col overflow-hidden
+    animate-[panel-open_0.3s_ease-out]"
+  style={{...}}
+>
+```
+
+### Header (linia ~1012-1129)
+
+```tsx
+<div className="bg-gradient-to-r from-[#1A1A1A] to-[#0A0A0A] 
+  border-b border-[#C5A059]/30 
+  px-4 py-3.5 flex items-center justify-between shrink-0">
+  <div className="flex items-center gap-2.5">
+    <Search className="w-5 h-5 text-[#C5A059]" />
+    <span className="font-bold text-sm tracking-wider 
+      bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#C5A059] 
+      bg-clip-text text-transparent">
+      PURE SCIENCE SEARCH AI
+    </span>
+  </div>
+  {/* Przyciski w złotym stylu */}
+  <div className="flex items-center gap-1">
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 text-[#C5A059]/70 hover:text-[#D4AF37] 
+        hover:bg-[#C5A059]/10 transition-colors"
+    >
+      <History className="w-4 h-4" />
+    </Button>
+    {/* ... pozostałe przyciski */}
+  </div>
+</div>
+```
+
+---
+
+## 8. Responsywność
+
+Na urządzeniach mobilnych (< 640px):
+- Panel rozciąga się do pełnej szerokości minus marginesy
+- Wysokość dostosowana do viewport
+- Zachowane efekty glassmorphism z mniejszym blur (performance)
+- Touch-friendly rozmiary przycisków (min 44x44px)
+
+---
+
+## 9. Dostępność (A11y)
+
+- Kontrast złoty na antracycie: ~7:1 (WCAG AAA)
+- Focus states z wyraźnym złotym outline
+- Aria labels dla wszystkich interaktywnych elementów
+- Reduced motion: wyłączenie animacji dla użytkowników z preferencją
+
