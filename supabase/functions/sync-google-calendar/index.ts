@@ -423,49 +423,78 @@ async function processSyncForUser(
     const calendarId = tokenData?.calendar_id || 'primary';
 
     if (action === 'delete' && eventId) {
-      // Get existing sync record - include occurrence_index in lookup
+      // Step 1: Try to find sync record with specific occurrence_index
       let syncQuery = supabaseAdmin
         .from('event_google_sync')
-        .select('google_event_id')
+        .select('google_event_id, occurrence_index')
         .eq('event_id', eventId)
         .eq('user_id', userId);
       
-      // Add occurrence_index filter for cyclic events
       if (occurrenceIndex !== undefined) {
         syncQuery = syncQuery.eq('occurrence_index', occurrenceIndex);
       } else {
         syncQuery = syncQuery.is('occurrence_index', null);
       }
       
-      const { data: syncRecord } = await syncQuery.single();
+      let { data: syncRecord } = await syncQuery.single();
+
+      // Step 2: FALLBACK - if no record found with specific occurrence_index, try with NULL (legacy)
+      if (!syncRecord?.google_event_id && occurrenceIndex !== undefined) {
+        console.log('[sync-google-calendar] No record with occurrence_index', occurrenceIndex, ', trying fallback with NULL');
+        const { data: fallbackRecord } = await supabaseAdmin
+          .from('event_google_sync')
+          .select('google_event_id, occurrence_index')
+          .eq('event_id', eventId)
+          .eq('user_id', userId)
+          .is('occurrence_index', null)
+          .single();
+        
+        if (fallbackRecord?.google_event_id) {
+          syncRecord = fallbackRecord;
+          console.log('[sync-google-calendar] Found legacy sync record with NULL occurrence_index');
+        }
+      }
+
+      // Step 3: MULTI-FALLBACK - try to find ANY sync record for this event+user
+      if (!syncRecord?.google_event_id) {
+        console.log('[sync-google-calendar] Trying any sync record for event:', eventId);
+        const { data: anyRecord } = await supabaseAdmin
+          .from('event_google_sync')
+          .select('google_event_id, occurrence_index')
+          .eq('event_id', eventId)
+          .eq('user_id', userId)
+          .limit(1)
+          .single();
+        
+        if (anyRecord?.google_event_id) {
+          syncRecord = anyRecord;
+          console.log('[sync-google-calendar] Found sync record with different occurrence_index:', anyRecord.occurrence_index);
+        }
+      }
 
       if (syncRecord?.google_event_id) {
         const deleted = await deleteGoogleEvent(accessToken, calendarId, syncRecord.google_event_id);
         
         if (deleted) {
-          // Delete sync record with same filters
-          let deleteQuery = supabaseAdmin
+          // Delete the specific sync record we found (by google_event_id to be precise)
+          await supabaseAdmin
             .from('event_google_sync')
             .delete()
             .eq('event_id', eventId)
-            .eq('user_id', userId);
-          
-          if (occurrenceIndex !== undefined) {
-            deleteQuery = deleteQuery.eq('occurrence_index', occurrenceIndex);
-          } else {
-            deleteQuery = deleteQuery.is('occurrence_index', null);
-          }
-          
-          await deleteQuery;
+            .eq('user_id', userId)
+            .eq('google_event_id', syncRecord.google_event_id);
         }
 
         const responseTime = Date.now() - startTime;
-        logSyncOperation(supabaseAdmin, userId, eventId, action, deleted ? 'success' : 'error', responseTime, deleted ? undefined : 'Delete failed', { occurrence_index: occurrenceIndex });
+        logSyncOperation(supabaseAdmin, userId, eventId, action, deleted ? 'success' : 'error', responseTime, deleted ? undefined : 'Delete failed', { 
+          occurrence_index: occurrenceIndex,
+          found_occurrence_index: syncRecord.occurrence_index 
+        });
         return { success: deleted };
       }
 
       const responseTime = Date.now() - startTime;
-      logSyncOperation(supabaseAdmin, userId, eventId, action, 'skipped', responseTime, 'No sync record found', { occurrence_index: occurrenceIndex });
+      logSyncOperation(supabaseAdmin, userId, eventId, action, 'skipped', responseTime, 'No sync record found after fallbacks', { occurrence_index: occurrenceIndex });
       return { success: true, reason: 'no_sync_record' };
     }
 

@@ -389,6 +389,14 @@ export const useEvents = () => {
   const cancelRegistration = async (eventId: string, occurrenceIndex?: number): Promise<boolean> => {
     if (!user) return false;
 
+    console.log('[useEvents] ========== Cancel Registration ==========');
+    console.log('[useEvents] Cancel registration:', { 
+      eventId, 
+      occurrenceIndex, 
+      userId: user.id,
+      hasOccurrenceIndex: occurrenceIndex !== undefined 
+    });
+
     try {
       // Build query to find the specific registration
       let query = supabase
@@ -406,9 +414,11 @@ export const useEvents = () => {
         query = query.is('occurrence_index', null);
       }
 
-      const { error } = await query;
+      const { error, count } = await query;
 
       if (error) throw error;
+      
+      console.log('[useEvents] Registration cancelled in DB, affected rows:', count);
 
       toast({
         title: 'Sukces',
@@ -422,22 +432,33 @@ export const useEvents = () => {
       
       // Remove from Google Calendar - use await to ensure request is sent
       try {
-        console.log('[useEvents] Sending delete request to Google Calendar sync for event:', eventId, 'occurrence:', occurrenceIndex);
+        console.log('[useEvents] Sending delete request to Google Calendar sync:', { 
+          eventId, 
+          occurrenceIndex,
+          hasOccurrenceIndex: occurrenceIndex !== undefined 
+        });
+        
         const res = await supabase.functions.invoke('sync-google-calendar', {
           body: { user_id: user.id, event_id: eventId, action: 'delete', occurrence_index: occurrenceIndex }
         });
         
+        console.log('[useEvents] Google Calendar delete response:', res.data);
+        
         if (res.error) {
           console.error('[useEvents] Google Calendar sync error:', res.error);
         } else if (res.data?.success) {
-          console.log('[useEvents] Event removed from Google Calendar');
+          console.log('[useEvents] Event successfully removed from Google Calendar');
+        } else if (res.data?.reason === 'no_sync_record') {
+          console.log('[useEvents] No sync record found (event was not in Google Calendar)');
         } else {
-          console.warn('[useEvents] Google Calendar sync returned:', res.data);
+          console.warn('[useEvents] Google Calendar sync returned unexpected:', res.data);
         }
       } catch (syncErr) {
         console.error('[useEvents] Google Calendar sync (delete) failed:', syncErr);
         // Don't block - user already unregistered from event
       }
+      
+      console.log('[useEvents] ========== Cancel Complete ==========');
       
       await fetchEvents();
       return true;
