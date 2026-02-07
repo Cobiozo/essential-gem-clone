@@ -2,13 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { GraduationCap, ArrowRight, Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { WidgetInfoButton } from '../WidgetInfoButton';
-
+import { TrainingDonutChart } from './TrainingDonutChart';
 interface ModuleProgress {
   id: string;
   title: string;
@@ -133,14 +132,18 @@ export const TrainingProgressWidget: React.FC = () => {
   }, [user, userRole]);
 
   return (
-    <Card className="shadow-sm relative" data-tour="training-widget">
+    <Card variant="premium" className="shadow-xl relative" data-tour="training-widget">
       <WidgetInfoButton description="Postęp w szkoleniach - śledź ukończone moduły i kontynuuj naukę" />
-      <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <GraduationCap className="h-4 w-4 text-primary" />
+      <CardHeader className="pb-2 flex flex-row items-center justify-between relative">
+        {/* Blur backdrop effect */}
+        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-t-2xl backdrop-blur-[2px]" />
+        <CardTitle className="relative z-10 text-base font-semibold flex items-center gap-2">
+          <div className="p-2 rounded-xl bg-gradient-to-br from-gold to-gold-dark">
+            <GraduationCap className="h-4 w-4 text-white" />
+          </div>
           {t('dashboard.trainingProgress')}
         </CardTitle>
-        <Button variant="ghost" size="sm" onClick={() => navigate('/training')} className="text-xs">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/training')} className="relative z-10 text-xs text-muted-foreground hover:text-foreground">
           {t('dashboard.viewAll')}
           <ArrowRight className="h-3 w-3 ml-1" />
         </Button>
@@ -149,9 +152,12 @@ export const TrainingProgressWidget: React.FC = () => {
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="animate-pulse">
-                <div className="h-4 bg-muted rounded w-3/4 mb-2" />
-                <div className="h-2 bg-muted rounded" />
+              <div key={i} className="animate-pulse flex items-center gap-4">
+                <div className="h-12 w-12 bg-muted rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                </div>
               </div>
             ))}
           </div>
@@ -164,27 +170,32 @@ export const TrainingProgressWidget: React.FC = () => {
             {modules.map((module) => (
               <div
                 key={module.id}
-                className="group cursor-pointer hover:bg-muted/50 -mx-2 px-2 py-2 rounded-lg transition-colors"
+                className="group cursor-pointer hover:bg-white/5 -mx-2 px-3 py-3 rounded-xl transition-all"
                 onClick={() => navigate(`/training/${module.id}`)}
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-medium text-foreground line-clamp-1 flex-1 mr-2">
-                    {module.title}
-                  </span>
-                  <span className={`text-xs font-medium ${module.isCompleted ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-                    {module.isCompleted ? t('dashboard.completed') : `${module.progress}%`}
-                  </span>
+                <div className="flex items-center gap-4">
+                  {/* Donut chart instead of progress bar */}
+                  <TrainingDonutChart 
+                    progress={module.progress} 
+                    isCompleted={module.isCompleted}
+                  />
+                  
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-foreground line-clamp-1">
+                      {module.title}
+                    </span>
+                    <span className={`text-xs ${module.isCompleted ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                      {module.isCompleted ? '✓ Ukończono' : `${module.progress}% ukończono`}
+                    </span>
+                  </div>
                 </div>
-                <Progress 
-                  value={module.progress} 
-                  className={`h-1.5 ${module.isCompleted ? '[&>div]:bg-emerald-500' : ''}`} 
-                />
               </div>
             ))}
 
             <Button 
+              variant="action"
               onClick={() => navigate('/training')} 
-              className="w-full mt-2 bg-primary hover:bg-primary/90"
+              className="w-full mt-3"
               size="sm"
             >
               <Play className="h-4 w-4 mr-2" />

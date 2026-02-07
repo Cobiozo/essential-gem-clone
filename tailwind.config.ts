@@ -13,6 +13,10 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ['Poppins', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['Poppins', 'sans-serif'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -57,6 +61,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Premium colors
+        gold: {
+          DEFAULT: "hsl(var(--gold-metallic))",
+          light: "hsl(var(--gold-light))",
+          dark: "hsl(var(--gold-dark))",
+        },
+        action: {
+          blue: "hsl(var(--action-blue))",
+          teal: "hsl(var(--action-teal))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -64,6 +78,11 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       keyframes: {
+        // Shimmer animation for gradient text
+        shimmer: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
         // Pure Science Search AI animations
         "pulse-gold": {
           "0%, 100%": { opacity: "0.4", transform: "scale(0.8)" },
@@ -175,6 +194,19 @@ export default {
           "25%": { transform: "translateX(-2px)" },
           "75%": { transform: "translateX(2px)" },
         },
+        // Premium dashboard animations
+        "donut-fill": {
+          "0%": { strokeDashoffset: "113.1" },
+          "100%": { strokeDashoffset: "var(--target-offset)" },
+        },
+        "card-glow": {
+          "0%, 100%": { boxShadow: "0 0 0 rgba(212, 175, 55, 0)" },
+          "50%": { boxShadow: "0 0 30px rgba(212, 175, 55, 0.1)" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-4px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
@@ -200,6 +232,10 @@ export default {
         blink: "blink 1s ease-in-out 3",
         glow: "glow 2s ease-in-out infinite",
         shake: "shake 0.5s ease-in-out infinite",
+        // Premium dashboard animations
+        "donut-fill": "donut-fill 0.8s ease-out forwards",
+        "card-glow": "card-glow 3s ease-in-out infinite",
+        "float": "float 3s ease-in-out infinite",
       },
     },
   },
