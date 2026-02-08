@@ -604,6 +604,14 @@ export const useEvents = () => {
       const eventMap = new Map((events || []).map(e => [e.id, e]));
       const seenEventTimes = new Set<string>(); // Deduplikacja po event_id + start_time
 
+      // Build a map of event_id -> has specific occurrence registrations (with status='registered')
+      const eventHasSpecificOccurrences = new Map<string, boolean>();
+      activeRegistrations.forEach(reg => {
+        if (reg.occurrence_index !== null && reg.occurrence_index !== undefined) {
+          eventHasSpecificOccurrences.set(reg.event_id, true);
+        }
+      });
+
       activeRegistrations.forEach(reg => {
         const event = eventMap.get(reg.event_id);
         if (!event) return;
@@ -616,6 +624,15 @@ export const useEvents = () => {
           host_profile: event.host_user_id ? hostProfiles.get(event.host_user_id) || null : null,
           participant_profile: participantProfiles.get(event.id) || null,
         };
+
+        // For multi-occurrence events with null occurrence_index,
+        // skip if there are ANY registrations with specific occurrence_index (they take precedence)
+        if (isMultiOccurrenceEvent(baseEvent) && 
+            reg.occurrence_index === null && 
+            eventHasSpecificOccurrences.get(reg.event_id)) {
+          console.log(`📅 Skipping legacy registration for ${baseEvent.title} - has specific occurrence registrations`);
+          return;
+        }
 
         let startTimeForDedupe: string;
         let eventToPush: EventWithRegistration;
