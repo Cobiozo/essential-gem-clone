@@ -399,7 +399,7 @@ export const MyMeetingsWidget: React.FC = () => {
                 </h4>
                 
                 <div className="space-y-1.5">
-                  {(expandedTypes[type] ? events : events.slice(0, 1)).map((event, idx) => (
+                  {(expandedTypes[type] ? events : events.slice(0, 3)).map((event, idx) => (
                     <div
                       key={`${event.id}-${(event as any)._occurrence_index ?? idx}`}
                       className="p-2 rounded-lg bg-muted/50 space-y-1"
@@ -434,7 +434,7 @@ export const MyMeetingsWidget: React.FC = () => {
                     </div>
                   ))}
                   
-                  {events.length > 1 && (
+                  {events.length > 3 && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -443,7 +443,7 @@ export const MyMeetingsWidget: React.FC = () => {
                     >
                       {expandedTypes[type] 
                         ? 'Zwiń' 
-                        : `+${events.length - 1} więcej`}
+                        : `+${events.length - 3} więcej`}
                     </Button>
                   )}
                 </div>
