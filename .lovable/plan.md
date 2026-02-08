@@ -1,407 +1,471 @@
 
-# Plan: Premium Redesign Dashboard - Glassmorphism, Gradienty i Nowoczesna Typografia
+# Plan: Premium Dashboard Redesign - Ikony 3D i Metaliczne Złoto
 
 ## Wizja projektu
 
-Przekształcenie dashboardu Pure Life Center w elegancki, premium interfejs inspirowany estetyką Apple i produktów luksusowych z:
-- Ciemne tło w głębokim granacie/antracycie
-- Metaliczne złoto dla elementów premium
-- Świeży błękit dla akcji (CTA)
-- Efekty glassmorphism i delikatne gradienty
-- Większe zaokrąglenia i efekty blur
-- Donut chart z animacją w sekcji Szkolenia
-- Czcionka Poppins dla charakteru marki
+Ulepszenie wizualizacji pulpitu PureLife z zachowaniem obecnego układu i rozmiarów widżetów poprzez:
+- **Ikony 3D** dla kluczowych sekcji (Training, Team, Reflinks, Calendar, Resources, itp.)
+- **Metaliczny złoty gradient** dla nagłówka powitania i kluczowych statystyk
+- **Efekty glassmorphism** i subtelne animacje
+- Spójny, nowoczesny wygląd wywołujący efekt "WOW"
 
 ---
 
-## 1. Paleta kolorystyczna (rozszerzenie systemu)
+## 1. Nowy komponent ikon 3D
 
-### Nowe kolory CSS Variables (`index.css`)
+### Plik: `src/components/dashboard/widgets/Widget3DIcon.tsx` (NOWY)
+
+Komponent wyświetlający realistyczne ikony 3D z efektem głębi, cienia i metalicznego blasku:
+
+```text
+Struktura:
+┌─────────────────────────────────────────┐
+│  ┌───────┐                              │
+│  │       │  ← Gradient tło (3D efekt)   │
+│  │  🎓   │  ← Ikona z cieniem           │
+│  │       │  ← Blask/highlight           │
+│  └───────┘                              │
+└─────────────────────────────────────────┘
+```
+
+Każda sekcja otrzyma unikalną ikonę 3D:
+- **Szkolenia (Training)**: Czapka akademicka z gradientem złota
+- **Zespół (Team)**: Grupa osób z niebieskim akcentem
+- **PureLinki (Reflinks)**: Ogniwa łańcucha ze złotym blaskiem
+- **Kalendarz**: Ikona kalendarza z efektem szkła
+- **Moje Spotkania**: Kamera/wideo z zielonym akcentem
+- **Powiadomienia**: Dzwonek z pulsującym efektem
+- **Zasoby**: Folder z dokumentami
+- **InfoLinki**: Ikona informacji ze świeceniem
+- **Zdrowa Wiedza**: Serce z różowym gradientem
+
+---
+
+## 2. Styl ikony 3D - Szczegóły CSS
+
+### Efekt 3D dla kontenerów ikon:
 
 ```css
-:root {
-  /* Premium colors */
-  --gold-metallic: 43 74% 49%;      /* #D4AF37 */
-  --gold-light: 43 85% 67%;          /* #F5E050 */
-  --gold-dark: 43 70% 38%;           /* #B8860B */
+/* Kontener ikony 3D */
+.widget-icon-3d {
+  /* Rozmiar */
+  width: 44px;
+  height: 44px;
   
-  --action-blue: 210 100% 52%;       /* Fresh blue for CTAs */
-  --action-teal: 168 76% 42%;        /* Teal alternative */
+  /* Gradient tła - metaliczny efekt */
+  background: linear-gradient(
+    135deg,
+    var(--icon-color-light) 0%,
+    var(--icon-color-main) 50%,
+    var(--icon-color-dark) 100%
+  );
   
-  --deep-navy: 225 50% 8%;           /* Deep navy background */
-  --charcoal: 220 20% 12%;           /* Elegant charcoal */
+  /* Zaokrąglenie */
+  border-radius: 14px;
+  
+  /* Cień 3D - wielowarstwowy */
+  box-shadow: 
+    0 4px 8px -2px rgba(0, 0, 0, 0.3),
+    0 8px 16px -4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+  
+  /* Efekt 3D - transformacja */
+  transform: perspective(200px) rotateX(5deg);
+  
+  /* Animacja hover */
+  transition: all 0.3s ease;
 }
 
-.dark {
-  --background: 225 50% 6%;          /* Głęboki granat zamiast szarego */
-  --card: 225 35% 10%;               /* Elegancki antracyt */
-  --muted: 225 25% 15%;              /* Ciemniejszy muted */
+.widget-icon-3d:hover {
+  transform: perspective(200px) rotateX(0deg) scale(1.05);
+  box-shadow: 
+    0 8px 16px -4px rgba(0, 0, 0, 0.4),
+    0 16px 32px -8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 ```
 
----
+### Warianty kolorystyczne ikon:
 
-## 2. Komponent Card - Glassmorphism z gradientami
-
-### Modyfikacja `src/components/ui/card.tsx`
-
-```text
-OBECNE:
-- rounded-lg border bg-card shadow-sm
-
-NOWE KLASY BAZOWE:
-- rounded-2xl (większy border-radius)
-- bg-gradient-to-br from-card/80 to-card/40 
-- backdrop-blur-sm
-- border border-white/5
-- shadow-xl shadow-black/10
-```
-
-### Nowa wariant `premium` dla kart widżetów:
-
-```typescript
-// Dodanie wariantów do Card
-const cardVariants = cva(
-  "rounded-2xl border transition-all duration-300",
-  {
-    variants: {
-      variant: {
-        default: "bg-card border-border shadow-sm",
-        premium: "bg-gradient-to-br from-[hsl(225,35%,12%)] to-[hsl(225,40%,8%)] border-white/5 shadow-xl shadow-black/20 backdrop-blur-sm",
-        glass: "bg-white/5 backdrop-blur-xl border-white/10",
-      }
-    },
-    defaultVariants: { variant: "default" }
-  }
-)
-```
+| Sekcja | Gradient | Kolor główny |
+|--------|----------|--------------|
+| Szkolenia | Złoto metaliczne | `#D4AF37 → #B8860B` |
+| Zespół | Błękit morski | `#0EA5E9 → #0284C7` |
+| PureLinki | Złoto-brąz | `#D4AF37 → #92400E` |
+| Kalendarz | Fiolet | `#8B5CF6 → #6D28D9` |
+| Moje Spotkania | Zieleń | `#10B981 → #059669` |
+| Powiadomienia | Bursztyn | `#F59E0B → #D97706` |
+| Zasoby | Indygo | `#6366F1 → #4F46E5` |
+| InfoLinki | Cyan | `#06B6D4 → #0891B2` |
+| Zdrowa Wiedza | Róż | `#EC4899 → #DB2777` |
 
 ---
 
-## 3. Nagłówki widżetów - Efekt Blur
+## 3. Ulepszenie nagłówka powitania (WelcomeWidget)
 
-### Modyfikacja `CardHeader` w widżetach
+### Zmiany w `WelcomeWidget.tsx`:
 
+**Aktualne:**
 ```tsx
-// Nowy styl nagłówka z blur pod spodem
-<CardHeader className="pb-2 relative">
-  {/* Blur backdrop za nagłówkiem */}
-  <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-t-2xl backdrop-blur-[2px]" />
-  
-  <CardTitle className="relative z-10 text-base font-semibold flex items-center gap-2">
-    <GraduationCap className="h-5 w-5 text-gold" /> {/* Większe ikony */}
-    {t('dashboard.trainingProgress')}
-  </CardTitle>
-</CardHeader>
+<h2 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-foreground via-gold to-foreground ...">
 ```
 
----
-
-## 4. Ikony - Większe i bardziej wyraziste
-
-### Zmiana rozmiaru ikon w nagłówkach
-
-```text
-OBECNE: h-4 w-4
-NOWE: h-5 w-5 lub h-6 w-6 dla kluczowych widżetów
-
-Dodatkowe efekty:
-- drop-shadow dla ikon primary
-- gradient fill dla premium ikon
-```
-
-### Przykład gradientowej ikony:
-
+**Nowe - z efektem metalicznego złota:**
 ```tsx
-<div className="p-2 rounded-xl bg-gradient-to-br from-gold-metallic to-gold-dark">
-  <GraduationCap className="h-5 w-5 text-white" />
+<h2 className="text-3xl md:text-4xl font-bold 
+  bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#D4AF37]
+  bg-clip-text text-transparent
+  drop-shadow-[0_2px_4px_rgba(212,175,55,0.3)]
+  animate-[shimmer_3s_ease-in-out_infinite]
+  bg-[length:200%_auto]">
+```
+
+### Dodanie ikony 3D zegara:
+```tsx
+<div className="relative inline-flex items-center justify-center 
+  w-14 h-14 rounded-2xl mr-4
+  bg-gradient-to-br from-[#D4AF37] via-[#C5A059] to-[#8B6914]
+  shadow-[0_4px_16px_rgba(212,175,55,0.4),inset_0_1px_0_rgba(255,255,255,0.3)]">
+  <Clock className="h-7 w-7 text-white drop-shadow-lg" />
 </div>
 ```
 
 ---
 
-## 5. Sekcja Szkolenia - Donut Chart z animacją
+## 4. Statystyki z metalicznym złotem
 
-### Nowy komponent `TrainingDonutChart`
+### Przykład: TeamContactsWidget - liczba kontaktów
 
-Zamiast liniowego `<Progress>`, okrągły wykres (donut):
+**Aktualne:**
+```tsx
+<span className="text-2xl font-bold text-foreground">{totalCount}</span>
+```
+
+**Nowe - złoty metaliczny gradient:**
+```tsx
+<span className="text-3xl font-bold 
+  bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#C5A059]
+  bg-clip-text text-transparent
+  drop-shadow-[0_1px_2px_rgba(212,175,55,0.4)]
+  tabular-nums">
+  {totalCount}
+</span>
+```
+
+### Inne statystyki do ulepszenia:
+- **Liczba kliknięć PureLinków** w ReflinksWidget
+- **Procent ukończenia** w TrainingProgressWidget (donut chart już ma złoto)
+- **Liczba powiadomień** (badge count)
+
+---
+
+## 5. Modyfikacje poszczególnych widżetów
+
+### 5.1 TrainingProgressWidget
 
 ```tsx
-// src/components/dashboard/widgets/TrainingDonutChart.tsx
-interface DonutChartProps {
-  progress: number;
-  size?: number;
+// BYŁO:
+<CardTitle className="text-base font-semibold flex items-center gap-2">
+  <div className="p-2 rounded-xl bg-gradient-to-br from-gold to-gold-dark">
+    <GraduationCap className="h-4 w-4 text-white" />
+  </div>
+
+// NOWE - ikona 3D:
+<CardTitle className="text-base font-semibold flex items-center gap-3">
+  <Widget3DIcon 
+    icon={GraduationCap} 
+    variant="gold" 
+    size="md"
+  />
+```
+
+### 5.2 TeamContactsWidget
+
+```tsx
+// BYŁO:
+<Users className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Users} variant="blue" size="md" />
+```
+
+### 5.3 ReflinksWidget
+
+```tsx
+// BYŁO:
+<Link2 className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Link2} variant="gold-bronze" size="md" />
+```
+
+### 5.4 CalendarWidget
+
+```tsx
+// BYŁO:
+<Calendar className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Calendar} variant="violet" size="md" />
+```
+
+### 5.5 MyMeetingsWidget
+
+```tsx
+// BYŁO:
+<Calendar className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Video} variant="emerald" size="md" />
+```
+
+### 5.6 NotificationsWidget
+
+```tsx
+// BYŁO:
+<Bell className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Bell} variant="amber" size="md" pulse={unreadCount > 0} />
+```
+
+### 5.7 ResourcesWidget
+
+```tsx
+// BYŁO:
+<FolderOpen className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={FolderOpen} variant="indigo" size="md" />
+```
+
+### 5.8 InfoLinksWidget
+
+```tsx
+// BYŁO:
+<Info className="h-4 w-4 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Info} variant="cyan" size="md" />
+```
+
+### 5.9 HealthyKnowledgeWidget
+
+```tsx
+// BYŁO:
+<Heart className="w-5 h-5 text-primary" />
+
+// NOWE:
+<Widget3DIcon icon={Heart} variant="pink" size="md" />
+```
+
+---
+
+## 6. Implementacja komponentu Widget3DIcon
+
+```tsx
+// src/components/dashboard/widgets/Widget3DIcon.tsx
+
+import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface Widget3DIconProps {
+  icon: LucideIcon;
+  variant: 'gold' | 'blue' | 'gold-bronze' | 'violet' | 'emerald' | 'amber' | 'indigo' | 'cyan' | 'pink';
+  size?: 'sm' | 'md' | 'lg';
+  pulse?: boolean;
+  className?: string;
 }
 
-const TrainingDonutChart: React.FC<DonutChartProps> = ({ progress, size = 48 }) => {
-  const circumference = 2 * Math.PI * 18; // radius = 18
-  const strokeDashoffset = circumference - (progress / 100) * circumference;
+const variantStyles = {
+  gold: {
+    gradient: 'from-[#D4AF37] via-[#F5E050] to-[#B8860B]',
+    shadow: 'rgba(212, 175, 55, 0.4)',
+  },
+  blue: {
+    gradient: 'from-[#0EA5E9] via-[#38BDF8] to-[#0284C7]',
+    shadow: 'rgba(14, 165, 233, 0.4)',
+  },
+  'gold-bronze': {
+    gradient: 'from-[#D4AF37] via-[#C5A059] to-[#92400E]',
+    shadow: 'rgba(197, 160, 89, 0.4)',
+  },
+  violet: {
+    gradient: 'from-[#8B5CF6] via-[#A78BFA] to-[#6D28D9]',
+    shadow: 'rgba(139, 92, 246, 0.4)',
+  },
+  emerald: {
+    gradient: 'from-[#10B981] via-[#34D399] to-[#059669]',
+    shadow: 'rgba(16, 185, 129, 0.4)',
+  },
+  amber: {
+    gradient: 'from-[#F59E0B] via-[#FBBF24] to-[#D97706]',
+    shadow: 'rgba(245, 158, 11, 0.4)',
+  },
+  indigo: {
+    gradient: 'from-[#6366F1] via-[#818CF8] to-[#4F46E5]',
+    shadow: 'rgba(99, 102, 241, 0.4)',
+  },
+  cyan: {
+    gradient: 'from-[#06B6D4] via-[#22D3EE] to-[#0891B2]',
+    shadow: 'rgba(6, 182, 212, 0.4)',
+  },
+  pink: {
+    gradient: 'from-[#EC4899] via-[#F472B6] to-[#DB2777]',
+    shadow: 'rgba(236, 72, 153, 0.4)',
+  },
+};
 
+const sizeStyles = {
+  sm: 'w-8 h-8 rounded-lg',
+  md: 'w-11 h-11 rounded-xl',
+  lg: 'w-14 h-14 rounded-2xl',
+};
+
+const iconSizes = {
+  sm: 'h-4 w-4',
+  md: 'h-5 w-5',
+  lg: 'h-7 w-7',
+};
+
+export const Widget3DIcon: React.FC<Widget3DIconProps> = ({
+  icon: Icon,
+  variant,
+  size = 'md',
+  pulse = false,
+  className,
+}) => {
+  const styles = variantStyles[variant];
+  
   return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg className="transform -rotate-90" width={size} height={size}>
-        {/* Tło koła */}
-        <circle
-          cx={size/2} cy={size/2} r="18"
-          className="stroke-muted"
-          strokeWidth="4"
-          fill="transparent"
-        />
-        {/* Postęp z gradientem */}
-        <circle
-          cx={size/2} cy={size/2} r="18"
-          className="stroke-[url(#goldGradient)]"
-          strokeWidth="4"
-          fill="transparent"
-          strokeDasharray={circumference}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          style={{
-            transition: 'stroke-dashoffset 0.8s ease-out'
-          }}
-        />
-        <defs>
-          <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#D4AF37" />
-            <stop offset="100%" stopColor="#F5E050" />
-          </linearGradient>
-        </defs>
-      </svg>
-      {/* Procent w środku */}
-      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">
-        {progress}%
-      </span>
+    <div
+      className={cn(
+        'relative inline-flex items-center justify-center',
+        sizeStyles[size],
+        `bg-gradient-to-br ${styles.gradient}`,
+        'transition-all duration-300',
+        // 3D shadow effect
+        'shadow-[0_4px_8px_-2px_rgba(0,0,0,0.3),0_8px_16px_-4px_rgba(0,0,0,0.2)]',
+        // Inner highlight for 3D depth
+        'before:absolute before:inset-0 before:rounded-[inherit]',
+        'before:bg-gradient-to-b before:from-white/25 before:to-transparent before:opacity-100',
+        // Hover effect
+        'hover:scale-105 hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4)]',
+        // Pulse animation for notifications
+        pulse && 'animate-pulse',
+        className
+      )}
+      style={{
+        boxShadow: `0 4px 16px ${styles.shadow}, inset 0 1px 0 rgba(255,255,255,0.3)`,
+      }}
+    >
+      <Icon className={cn(iconSizes[size], 'text-white drop-shadow-sm relative z-10')} />
+      
+      {/* Subtle inner glow */}
+      <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-t from-black/10 to-transparent" />
     </div>
   );
 };
 ```
 
-### Modyfikacja `TrainingProgressWidget.tsx`
-
-```tsx
-{modules.map((module) => (
-  <div
-    key={module.id}
-    className="group cursor-pointer hover:bg-white/5 -mx-2 px-3 py-3 rounded-xl transition-all"
-    onClick={() => navigate(`/training/${module.id}`)}
-  >
-    <div className="flex items-center gap-4">
-      {/* Donut chart zamiast progress bar */}
-      <TrainingDonutChart progress={module.progress} />
-      
-      <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-foreground line-clamp-1">
-          {module.title}
-        </span>
-        <span className={`text-xs ${module.isCompleted ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-          {module.isCompleted ? '✓ Ukończono' : `${module.progress}% ukończono`}
-        </span>
-      </div>
-    </div>
-  </div>
-))}
-```
-
 ---
 
-## 6. Przyciski akcji - Świeży błękit/zieleń
-
-### Nowe warianty przycisków (`button.tsx`)
-
-```typescript
-const buttonVariants = cva(
-  "... rounded-xl ...", // Większy border-radius
-  {
-    variants: {
-      variant: {
-        // ... existing
-        action: "bg-gradient-to-r from-[hsl(210,100%,52%)] to-[hsl(200,100%,45%)] text-white hover:opacity-90 shadow-lg shadow-blue-500/20",
-        gold: "bg-gradient-to-r from-[#D4AF37] to-[#B8860B] text-black hover:opacity-90 shadow-lg shadow-amber-500/20",
-      }
-    }
-  }
-)
-```
-
-### Zastosowanie w widżetach
-
-```tsx
-// Przycisk "Kontynuuj szkolenie"
-<Button variant="action" className="w-full mt-3">
-  <Play className="h-4 w-4 mr-2" />
-  {t('dashboard.continueTraining')}
-</Button>
-
-// Przycisk "Zadzwoń" - wariant gold/action
-<Button variant="action" size="sm">
-  <Phone className="h-3 w-3 mr-1" />
-  Zadzwoń
-</Button>
-```
-
----
-
-## 7. Typografia - Poppins jako główna czcionka
-
-### Modyfikacja `index.css`
-
-```css
-body {
-  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-/* Headings - bolder weight */
-h1, h2, h3, h4, h5, h6,
-.font-semibold, .font-bold {
-  font-family: 'Poppins', sans-serif;
-  font-weight: 600;
-}
-```
-
-### Modyfikacja `tailwind.config.ts`
-
-```typescript
-theme: {
-  extend: {
-    fontFamily: {
-      sans: ['Poppins', 'Inter', 'sans-serif'],
-      display: ['Poppins', 'sans-serif'],
-    }
-  }
-}
-```
-
----
-
-## 8. Tło dashboardu - Głęboki granat
-
-### Modyfikacja `DashboardLayout.tsx`
-
-```tsx
-<div className="min-h-screen flex w-full bg-gradient-to-br from-[hsl(225,50%,6%)] via-[hsl(225,40%,8%)] to-[hsl(230,35%,5%)]">
-```
-
-### Alternatywnie w CSS
-
-```css
-.dark .dashboard-bg {
-  background: linear-gradient(135deg, 
-    hsl(225, 50%, 6%) 0%, 
-    hsl(225, 40%, 8%) 50%, 
-    hsl(230, 35%, 5%) 100%
-  );
-}
-```
-
----
-
-## 9. Widget WelcomeWidget - Premium redesign
-
-```tsx
-<Card className="col-span-full overflow-hidden relative">
-  {/* Gradient overlay */}
-  <div className="absolute inset-0 bg-gradient-to-br from-gold-metallic/10 via-transparent to-blue-500/5" />
-  
-  {/* Glass effect bar pod greeting */}
-  <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-white/5 to-transparent backdrop-blur-[1px]" />
-  
-  <CardContent className="relative z-10 p-6">
-    <h2 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-foreground via-gold-metallic to-foreground bg-clip-text text-transparent">
-      {getGreeting()}{firstName ? `, ${firstName}` : ''}! 👋
-    </h2>
-    {/* Clock with gold accent */}
-    <div className="text-3xl font-mono font-bold text-gold-metallic">
-      {formattedTime}
-    </div>
-  </CardContent>
-</Card>
-```
-
----
-
-## 10. Animacje i mikro-interakcje
-
-### Nowe keyframes w `tailwind.config.ts`
+## 7. Nowe animacje w tailwind.config.ts
 
 ```typescript
 keyframes: {
-  // Donut chart fill animation
-  "donut-fill": {
-    "0%": { strokeDashoffset: "var(--circumference)" },
-    "100%": { strokeDashoffset: "var(--target-offset)" }
+  // Efekt "float" dla ikon 3D
+  "icon-float": {
+    "0%, 100%": { transform: "translateY(0) perspective(200px) rotateX(5deg)" },
+    "50%": { transform: "translateY(-2px) perspective(200px) rotateX(3deg)" },
   },
-  // Card hover glow
-  "card-glow": {
-    "0%, 100%": { boxShadow: "0 0 0 rgba(212, 175, 55, 0)" },
-    "50%": { boxShadow: "0 0 30px rgba(212, 175, 55, 0.1)" }
+  // Pulsujące świecenie dla powiadomień
+  "glow-pulse": {
+    "0%, 100%": { boxShadow: "0 0 0 0 rgba(245, 158, 11, 0.4)" },
+    "50%": { boxShadow: "0 0 20px 4px rgba(245, 158, 11, 0.6)" },
   },
-  // Subtle float
-  "float": {
-    "0%, 100%": { transform: "translateY(0)" },
-    "50%": { transform: "translateY(-4px)" }
-  }
+  // Metaliczny blask przesuwający się po powierzchni
+  "metal-shine": {
+    "0%": { backgroundPosition: "-200% 0" },
+    "100%": { backgroundPosition: "200% 0" },
+  },
+}
+
+animation: {
+  "icon-float": "icon-float 3s ease-in-out infinite",
+  "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+  "metal-shine": "metal-shine 3s ease-in-out infinite",
 }
 ```
 
 ---
 
-## Podsumowanie plików do modyfikacji
+## 8. Podsumowanie plików do modyfikacji
 
-| Plik | Zakres zmian |
-|------|--------------|
-| `src/index.css` | Nowe zmienne kolorów, font-family Poppins, tło gradientowe |
-| `tailwind.config.ts` | FontFamily, nowe animacje, extended colors |
-| `src/components/ui/card.tsx` | Warianty premium/glass, większy border-radius |
-| `src/components/ui/button.tsx` | Nowe warianty action/gold, rounded-xl |
-| `src/components/dashboard/DashboardLayout.tsx` | Gradient background zamiast muted/30 |
-| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Donut chart zamiast progress bar |
-| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Premium styling z gradientami |
-| `src/components/dashboard/widgets/TrainingDonutChart.tsx` | NOWY - komponent kołowego wykresu |
-| Wszystkie widgety | Zaktualizowane klasy Card, większe ikony, blur headers |
+| Plik | Zmiana | Priorytet |
+|------|--------|-----------|
+| `src/components/dashboard/widgets/Widget3DIcon.tsx` | NOWY - komponent ikon 3D | WYSOKI |
+| `tailwind.config.ts` | Nowe animacje dla efektów 3D | WYSOKI |
+| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Ulepszony nagłówek ze złotym gradientem | WYSOKI |
+| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Ikona 3D + złote statystyki | WYSOKI |
+| `src/components/dashboard/widgets/TeamContactsWidget.tsx` | Ikona 3D + złota liczba kontaktów | ŚREDNI |
+| `src/components/dashboard/widgets/ReflinksWidget.tsx` | Ikona 3D | ŚREDNI |
+| `src/components/dashboard/widgets/CalendarWidget.tsx` | Ikona 3D | ŚREDNI |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Ikona 3D | ŚREDNI |
+| `src/components/dashboard/widgets/NotificationsWidget.tsx` | Ikona 3D z pulsem | ŚREDNI |
+| `src/components/dashboard/widgets/ResourcesWidget.tsx` | Ikona 3D | NISKI |
+| `src/components/dashboard/widgets/InfoLinksWidget.tsx` | Ikona 3D | NISKI |
+| `src/components/dashboard/widgets/HealthyKnowledgeWidget.tsx` | Ikona 3D | NISKI |
 
 ---
 
-## Przykład finalnego wyglądu widżetu
+## 9. Wizualizacja finalnego efektu
 
 ```text
-┌──────────────────────────────────────────────────┐
-│ ░░░░░░░░░░ BLUR GRADIENT HEADER ░░░░░░░░░░░░░░░░ │
-│ ┌──────┐                                         │
-│ │ 🎓   │  SZKOLENIA                    Zobacz › │
-│ └──────┘                                         │
-├──────────────────────────────────────────────────┤
-│                                                  │
-│  ┌────┐                                          │
-│  │⬤78%│  Podstawy marketingu                    │
-│  └────┘  78% ukończono                          │
-│                                                  │
-│  ┌────┐                                          │
-│  │⬤45%│  Produkty Eqology                       │
-│  └────┘  45% ukończono                          │
-│                                                  │
-│  ┌────┐                                          │
-│  │ ✓  │  Certyfikat specjalisty                 │
-│  └────┘  ✓ Ukończono                            │
-│                                                  │
-│  ┌────────────────────────────────────────────┐  │
-│  │  ▶  KONTYNUUJ SZKOLENIE              │  │
-│  └────────────────────────────────────────────┘  │
-│           (gradient niebieski)                   │
-└──────────────────────────────────────────────────┘
-     ▲ Tło: gradient ciemny granat → czerń
-     ▲ Ramka: subtelna biała 5% opacity
-     ▲ Border-radius: 2xl (16px)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         🌟 POWITANIE - PREMIUM HEADER 🌟                      │
+│  ╔══════════════════════════════════════════════════════════════════════╗    │
+│  ║  ┌─────────┐                                                         ║    │
+│  ║  │ 🕐 3D   │  Dzień dobry, Marcin! 👋                               ║    │
+│  ║  │ ZEGAR   │  ═══════════════════════════                            ║    │
+│  ║  └─────────┘  (metaliczny złoty gradient z animacją shimmer)         ║    │
+│  ║                                                                       ║    │
+│  ║  Sobota, 8 lutego 2026                   ⏰ 14:32:45 [Strefa ▼]      ║    │
+│  ╚══════════════════════════════════════════════════════════════════════╝    │
+│  │████████████████████ NEWS TICKER ████████████████████│                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+│ ┌────┐               │  │ ┌────┐               │  │ ┌────┐               │
+│ │🗓️ │ KALENDARZ     │  │ │🎥 │ MOJE SPOTKANIA│  │ │🎓 │ SZKOLENIA      │
+│ │3D  │               │  │ │3D  │               │  │ │3D  │               │
+│ └────┘ (fiolet)      │  │ └────┘ (zieleń)      │  │ └────┘ (złoto)       │
+│  [kalarz miesiąca]   │  │  [lista spotkań]     │  │  [donut charts]      │
+│                      │  │                      │  │  ⬤ 78% Moduł 1      │
+│  Pn Wt Śr Cz Pt So Nd│  │  Za 15 min [WEJDŹ]   │  │  ⬤ 45% Moduł 2      │
+│   1  2  3  4  5  6  7│  │  Webinar 10:00       │  │                      │
+│   8● 9 10 11 12 13 14│  │                      │  │  [▶ KONTYNUUJ]       │
+└──────────────────────┘  └──────────────────────┘  └──────────────────────┘
+
+┌──────────────────────┐  ┌──────────────────────┐  ┌──────────────────────┐
+│ ┌────┐               │  │ ┌────┐               │  │ ┌────┐               │
+│ │🔔 │ POWIADOMIENIA │  │ │🔗 │ PURELINKI     │  │ │👥 │ ZESPÓŁ         │
+│ │3D  │ (pulsuje!)    │  │ │3D  │               │  │ │3D  │               │
+│ └────┘ (bursztyn)    │  │ └────┘ (złoto-brąz)  │  │ └────┘ (błękit)      │
+│                      │  │                      │  │                      │
+│  [lista powiadomień] │  │  Partner: 127        │  │  Łącznie: 42         │
+│                      │  │  ════════            │  │  ═══════             │
+│                      │  │  (złota liczba)      │  │  (złota liczba)      │
+└──────────────────────┘  └──────────────────────┘  └──────────────────────┘
 ```
 
 ---
 
-## Efekty wizualne
+## 10. Oczekiwane rezultaty
 
-1. **Karty** - delikatny gradient od grafitu do czerni, efekt szkła
-2. **Nagłówki** - blur pod spodem dla głębi
-3. **Zaokrąglenia** - rounded-2xl (16px) zamiast lg (8px)
-4. **Złoto metaliczne** - dla rang, wyników, ikon premium
-5. **Błękit akcji** - dla przycisków CTA (Start, Kontynuuj)
-6. **Tło** - głęboki granat wpadający w czerń
-7. **Typografia** - Poppins dla nowoczesnego charakteru
-8. **Donut chart** - animowany wykres postępu w szkoleniach
+1. **Efekt WOW** - ikony 3D z realistycznymi cieniami i gradientami
+2. **Spójność** - każda sekcja ma unikalną, ale harmonijną kolorystykę
+3. **Premium feel** - metaliczne złoto dla kluczowych statystyk
+4. **Nowoczesność** - animacje hover, pulse dla powiadomień
+5. **Zachowany układ** - żadne zmiany w rozmiarach i pozycji widżetów
