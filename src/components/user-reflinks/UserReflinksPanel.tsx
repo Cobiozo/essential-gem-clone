@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar } from 'lucide-react';
+import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -287,6 +287,14 @@ export const UserReflinksPanel: React.FC = () => {
                             reflinkCode={reflink.reflink_code} 
                             targetRole={reflink.target_role} 
                           />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => window.open(`/auth?ref=${reflink.reflink_code}`, '_blank')}
+                            title="Podgląd strony rejestracji"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
                           {isExpired ? (
                             <Button
                               size="sm"
