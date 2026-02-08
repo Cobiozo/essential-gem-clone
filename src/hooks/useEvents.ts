@@ -510,18 +510,25 @@ export const useEvents = () => {
     if (!user) return [];
 
     try {
-      // Step 1: Get user's registrations WITH occurrence_index for multi-occurrence support
+      // Step 1: Get user's ACTIVE registrations WITH occurrence_index for multi-occurrence support
+      // CRITICAL: Only fetch registrations with status='registered' to ensure
+      // cancelled registrations don't appear in "Moje spotkania"
       const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select('event_id, occurrence_index')
+        .select('event_id, occurrence_index, status')
         .eq('user_id', user.id)
         .eq('status', 'registered');
 
       if (regError) throw regError;
-      if (!registrations || registrations.length === 0) return [];
+      
+      // Strict filtering: only show events where user is actively registered
+      const activeRegistrations = (registrations || []).filter(r => r.status === 'registered');
+      console.log(`📅 getUserEvents: Found ${activeRegistrations.length} active registrations for user ${user.id}`);
+      
+      if (activeRegistrations.length === 0) return [];
 
       // Step 2: Get events by IDs (separate query avoids RLS issues with nested joins)
-      const eventIds = [...new Set(registrations.map(r => r.event_id))];
+      const eventIds = [...new Set(activeRegistrations.map(r => r.event_id))];
       const { data: events, error: eventsError } = await supabase
         .from('events')
         .select('*')
@@ -597,7 +604,7 @@ export const useEvents = () => {
       const eventMap = new Map((events || []).map(e => [e.id, e]));
       const seenEventTimes = new Set<string>(); // Deduplikacja po event_id + start_time
 
-      registrations.forEach(reg => {
+      activeRegistrations.forEach(reg => {
         const event = eventMap.get(reg.event_id);
         if (!event) return;
 

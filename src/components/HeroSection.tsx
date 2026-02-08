@@ -75,7 +75,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
         )}>
           {/* Logo */}
           <div className={cn(
-            "flex justify-center",
+            "flex flex-col items-center justify-center",
             hasTextContent ? "mb-4 sm:mb-6" : "mb-0"
           )}>
             <img 
@@ -87,6 +87,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 height: customImageHeight || 128 
               } : undefined}
             />
+            {/* PURE LIFE text under logo - always visible */}
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-widest text-foreground mt-4">
+              PURE LIFE
+            </h1>
           </div>
 
           {/* Description - tylko gdy jest rzeczywista treść */}
