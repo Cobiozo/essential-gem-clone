@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { TrainingDonutChart } from './TrainingDonutChart';
+import { Widget3DIcon } from './Widget3DIcon';
 interface ModuleProgress {
   id: string;
   title: string;
@@ -137,10 +138,8 @@ export const TrainingProgressWidget: React.FC = () => {
       <CardHeader className="pb-2 flex flex-row items-center justify-between relative">
         {/* Blur backdrop effect */}
         <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-t-2xl backdrop-blur-[2px]" />
-        <CardTitle className="relative z-10 text-base font-semibold flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-gradient-to-br from-gold to-gold-dark">
-            <GraduationCap className="h-4 w-4 text-white" />
-          </div>
+        <CardTitle className="relative z-10 text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={GraduationCap} variant="gold" size="md" />
           {t('dashboard.trainingProgress')}
         </CardTitle>
         <Button variant="ghost" size="sm" onClick={() => navigate('/training')} className="relative z-10 text-xs text-muted-foreground hover:text-foreground">

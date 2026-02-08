@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Heart, ArrowRight, Play, FileText, Image, Music, Type, Loader2 } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge } from '@/types/healthyKnowledge';
 import { WidgetInfoButton } from '../WidgetInfoButton';
@@ -56,8 +57,8 @@ export const HealthyKnowledgeWidget: React.FC = () => {
     return (
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-3">
+            <Widget3DIcon icon={Heart} variant="pink" size="md" />
             <CardTitle className="text-lg">Zdrowa Wiedza</CardTitle>
           </div>
         </CardHeader>
@@ -79,8 +80,8 @@ export const HealthyKnowledgeWidget: React.FC = () => {
       <WidgetInfoButton description="Wyróżnione materiały edukacyjne o zdrowym stylu życia" />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-3">
+            <Widget3DIcon icon={Heart} variant="pink" size="md" />
             <CardTitle className="text-lg">Zdrowa Wiedza</CardTitle>
           </div>
           <Button 

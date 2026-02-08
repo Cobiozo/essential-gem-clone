@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FolderOpen, ArrowRight, FileText, Video, Image, Music, Copy, Download, ExternalLink, Clock } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,8 +104,8 @@ export const ResourcesWidget: React.FC = () => {
     <Card className="shadow-sm relative" data-tour="resources-widget">
       <WidgetInfoButton description="Najnowsze materiały z biblioteki - pobieraj dokumenty i grafiki" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-primary" />
+        <CardTitle className="text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={FolderOpen} variant="indigo" size="md" />
           {t('dashboard.latestResources')}
         </CardTitle>
         <Button variant="ghost" size="sm" onClick={() => navigate('/knowledge')} className="text-xs">

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Info, Copy, Check, Loader2, Shield } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -126,8 +127,8 @@ export const InfoLinksWidget: React.FC = () => {
       <Card className="shadow-sm relative" data-tour="infolinks-widget">
         <WidgetInfoButton description="Przydatne linki zewnętrzne skonfigurowane przez administrację" />
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Info className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base font-semibold flex items-center gap-3">
+            <Widget3DIcon icon={Info} variant="cyan" size="md" />
             {t('dashboard.infoLinks')}
           </CardTitle>
         </CardHeader>
@@ -150,8 +151,8 @@ export const InfoLinksWidget: React.FC = () => {
     <Card className="shadow-sm relative" data-tour="infolinks-widget">
       <WidgetInfoButton description="Przydatne linki zewnętrzne skonfigurowane przez administrację" />
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Info className="h-4 w-4 text-primary" />
+        <CardTitle className="text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={Info} variant="cyan" size="md" />
           {t('dashboard.infoLinks')}
         </CardTitle>
       </CardHeader>
