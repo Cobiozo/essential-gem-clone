@@ -1,127 +1,73 @@
 
-# Plan: Naprawa podglądu strony rejestracji PureLink
+
+# Plan: Naprawa dialogu podglądu PureLink
 
 ## Diagnoza problemu
 
-Iframe w dialogu podglądu nie wyświetla strony `/auth?ref=KOD`, ponieważ:
+Dialog z podglądem ("okienko oko") otwiera się, ale natychmiast mruga i znika. Problem nie dotyczy zawartości iframe, ale samego mechanizmu dialogu.
 
-1. Iframe ładuje stronę w kontekście aktualnej sesji (użytkownik jest zalogowany)
-2. Strona `Auth.tsx` (linie 280-285) sprawdza czy użytkownik jest zalogowany:
-   ```tsx
-   if (user && rolesReady) {
-     navigate(redirectPath); // Przekierowuje do /
-   }
-   ```
-3. W efekcie iframe natychmiast wykonuje redirect i pokazuje pustą zawartość (strona główna nie mieści się poprawnie w iframe lub strona nawiguje)
+### Przyczyny:
+
+1. **Focus Trap w Radix Dialog**: Kiedy iframe wewnątrz DialogContent zaczyna się ładować, focus może przejść do dokumentu w iframe. Radix Dialog interpretuje to jako "interact outside" i automatycznie zamyka dialog.
+
+2. **Potencjalny re-render**: AuthContext może reagować na ładowanie iframe (cookies sesji są współdzielone), co może powodować re-render komponentu.
+
+---
 
 ## Rozwiązanie
 
-Dodać parametr `preview=true` do URL w iframe, który:
-1. Dezaktywuje automatyczne przekierowanie zalogowanych użytkowników
-2. Pozwoli na wyświetlenie formularza rejestracji niezależnie od stanu sesji
+### Zmiana w `ReflinkPreviewDialog.tsx`
 
-### Zmiany w kodzie:
-
-**Plik 1: `src/components/user-reflinks/ReflinkPreviewDialog.tsx`**
-
-Zmienić URL w iframe z:
-```tsx
-const previewUrl = `/auth?ref=${reflinkCode}`;
-```
-Na:
-```tsx
-const previewUrl = `/auth?ref=${reflinkCode}&preview=true`;
-```
-
-**Plik 2: `src/pages/Auth.tsx`**
-
-Zmodyfikować logikę przekierowania (linie 280-285):
+Należy dodać właściwości do `DialogContent` zapobiegające automatycznemu zamknięciu:
 
 ```tsx
-// Check if we're in preview mode (iframe preview for reflink)
-const urlParams = new URLSearchParams(window.location.search);
-const isPreviewMode = urlParams.get('preview') === 'true';
-
-// SAFE NAVIGATION: Only redirect when BOTH user exists AND rolesReady is true
-// BUT skip redirect if in preview mode (viewing reflink in iframe)
-if (user && rolesReady && !isPreviewMode) {
-  console.log('[Auth] user + rolesReady, navigating to:', redirectPath);
-  navigate(redirectPath);
-}
+<DialogContent 
+  className="max-w-4xl h-[85vh] flex flex-col"
+  onInteractOutside={(e) => e.preventDefault()}
+  onPointerDownOutside={(e) => e.preventDefault()}
+>
 ```
 
-Przenieść `urlParams` przed warunkiem sprawdzającym isActivated (aby uniknąć duplikacji).
+**Wyjaśnienie:**
+- `onInteractOutside={(e) => e.preventDefault()}` - zapobiega zamknięciu dialogu gdy użytkownik kliknie w iframe lub poza dialog
+- `onPointerDownOutside={(e) => e.preventDefault()}` - dodatkowe zabezpieczenie przed zamknięciem przy kliknięciu
+
+### Plik do edycji
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/user-reflinks/ReflinkPreviewDialog.tsx` | Dodanie `onInteractOutside` i `onPointerDownOutside` do DialogContent |
 
 ---
 
 ## Szczegóły implementacji
 
-### ReflinkPreviewDialog.tsx
-
-Linia 17 - zmiana:
+### Przed (linie 22-25):
 ```tsx
-// Przed
-const previewUrl = `/auth?ref=${reflinkCode}`;
-
-// Po
-const previewUrl = `/auth?ref=${reflinkCode}&preview=true`;
+return (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent className="max-w-4xl h-[85vh] flex flex-col">
 ```
 
-Linia 29 (przycisk "Otwórz w nowej karcie") - bez preview, żeby działało normalnie:
+### Po:
 ```tsx
-const fullUrl = `${window.location.origin}/auth?ref=${reflinkCode}`;
-```
-
-### Auth.tsx
-
-1. Przenieść deklarację `urlParams` wcześniej (przed `isActivated`)
-2. Dodać zmienną `isPreviewMode`
-3. Zmodyfikować warunek przekierowania
-
-Linie 260-285 zmienione na:
-
-```tsx
-// Check URL parameters - single declaration for all uses
-const urlParams = new URLSearchParams(window.location.search);
-const isActivated = urlParams.get('activated') === 'true';
-const returnTo = urlParams.get('returnTo');
-const isPreviewMode = urlParams.get('preview') === 'true';
-
-if (isActivated) {
-  toast({
-    title: t('auth.toast.accountActivated'),
-    description: t('auth.toast.welcomeToPureLife'),
-  });
-  const newUrl = returnTo 
-    ? `${window.location.pathname}?returnTo=${encodeURIComponent(returnTo)}`
-    : window.location.pathname;
-  window.history.replaceState({}, document.title, newUrl);
-}
-
-const redirectPath = returnTo || '/';
-
-// Skip redirect if in preview mode (viewing reflink in iframe)
-if (user && rolesReady && !isPreviewMode) {
-  console.log('[Auth] user + rolesReady, navigating to:', redirectPath);
-  navigate(redirectPath);
-}
+return (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent 
+      className="max-w-4xl h-[85vh] flex flex-col"
+      onInteractOutside={(e) => e.preventDefault()}
+      onPointerDownOutside={(e) => e.preventDefault()}
+    >
 ```
 
 ---
 
 ## Oczekiwany efekt
 
-1. Kliknięcie ikony oka przy PureLinku otwiera dialog z podglądem
-2. Iframe ładuje `/auth?ref=KOD&preview=true`
-3. Strona Auth wykrywa `preview=true` i NIE przekierowuje zalogowanego użytkownika
-4. Użytkownik widzi formularz rejestracji z wypełnionymi danymi (rola, opiekun)
-5. Przycisk "Otwórz w nowej karcie" nadal otwiera normalny link (bez preview)
-
----
-
-## Pliki do edycji
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/user-reflinks/ReflinkPreviewDialog.tsx` | Dodanie `&preview=true` do URL iframe |
-| `src/pages/Auth.tsx` | Dodanie warunku `!isPreviewMode` w logice przekierowania |
+1. Kliknięcie ikony oka otwiera dialog z podglądem
+2. Dialog pozostaje otwarty podczas ładowania iframe
+3. Iframe pokazuje stronę `/auth?ref=KOD&preview=true`
+4. Dialog zamyka się tylko przez:
+   - Kliknięcie X w prawym górnym rogu
+   - Naciśnięcie Escape
+5. Użytkownik może zobaczyć formularz rejestracji z danymi z reflinka
