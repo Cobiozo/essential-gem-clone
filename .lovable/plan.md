@@ -1,174 +1,52 @@
 
 # Plan: Logo dla trybu jasnego/ciemnego + Podgląd strony rejestracji dla PureLinków
 
-## Podsumowanie zmian
+## ✅ ZREALIZOWANE
 
-### Zmiana 1: Usunięcie dodanego h1 i dodanie obsługi logo dla dwóch trybów
+### Zmiana 1: Obsługa logo dla dwóch trybów (jasny/ciemny)
 
-**Problem:**
-- Dodałem `<h1>PURE LIFE</h1>` pod logo, ale użytkownik chce aby tekst wbudowany w obrazek logo był widoczny
-- Obrazek `header-1765311103942.png` zawiera czarny tekst "PURE LIFE" - niewidoczny w trybie ciemnym
-- Potrzebne jest rozwiązanie z dwoma wariantami logo
+**Wykonane:**
+1. ✅ Usunięto dodany `<h1>PURE LIFE</h1>` z `HeroSection.tsx`
+2. ✅ Dodano prop `headerImageDark` do interfejsu `HeroSectionProps`
+3. ✅ Zaimplementowano logikę przełączania obrazków w zależności od trybu
+4. ✅ Zaktualizowano `Index.tsx` - pobieranie `header_image_dark` z `systemTextsData`
+5. ✅ Migracja bazy danych - dodano `header_image_dark` do check constraint i wstawiono rekord
 
-**Rozwiązanie:**
-
-1. **Dodać nowy wpis w bazie `system_texts`** dla logo w trybie ciemnym (`header_image_dark`)
-2. **Zaktualizować `HeroSection.tsx`**:
-   - Usunąć dodany `<h1>` (linie 90-93)
-   - Dodać prop `headerImageDark` dla logo w trybie ciemnym
-   - Wyświetlać odpowiedni obrazek w zależności od trybu (jasny/ciemny)
-3. **Zaktualizować `Index.tsx`**:
-   - Pobierać `header_image_dark` z `systemTextsData`
-   - Przekazywać do `HeroSection`
-4. **Zaktualizować panel admina** (edycja strony głównej):
-   - Dodać pole do uploadu logo dla trybu ciemnego
-
-**Pliki do edycji:**
+**Pliki edytowane:**
 - `src/components/HeroSection.tsx`
 - `src/pages/Index.tsx`
-- `src/components/admin/HomePageSettings.tsx` (jeśli istnieje)
 
 ---
 
 ### Zmiana 2: Przycisk podglądu strony rejestracji dla PureLinków
 
-**Problem:**
-- Użytkownik chce zobaczyć jak wygląda strona rejestracji gdy ktoś użyje jego PureLinku
-- Brakuje przycisku podglądu obok QR code i przycisku kopiowania
+**Wykonane:**
+1. ✅ Dodano import ikony `Eye` z lucide-react
+2. ✅ Dodano przycisk podglądu obok QR i Copy
+3. ✅ Przycisk otwiera `/auth?ref=REFLINK_CODE` w nowej karcie
 
-**Rozwiązanie:**
-
-Dodać przycisk z ikoną `Eye` (oko) obok QR i Copy, który otwiera nową kartę ze stroną `/auth?ref=REFLINK_CODE` jako podgląd.
-
-**Plik:** `src/components/user-reflinks/UserReflinksPanel.tsx`
-
-Zmiana w sekcji akcji (linie 285-318):
-
-```tsx
-<div className="flex items-center gap-2 shrink-0">
-  <ReflinkQRCode 
-    reflinkCode={reflink.reflink_code} 
-    targetRole={reflink.target_role} 
-  />
-  {/* NOWY: Przycisk podglądu */}
-  <Button
-    size="sm"
-    variant="ghost"
-    onClick={() => window.open(`/auth?ref=${reflink.reflink_code}`, '_blank')}
-    title="Podgląd strony rejestracji"
-  >
-    <Eye className="w-4 h-4" />
-  </Button>
-  {isExpired ? (
-    // ... existing extend button
-  ) : (
-    // ... existing copy button and switch
-  )}
-</div>
-```
+**Plik edytowany:**
+- `src/components/user-reflinks/UserReflinksPanel.tsx`
 
 ---
 
-## Szczegóły techniczne
+## Następne kroki (opcjonalne)
 
-### Baza danych
+### Panel admina - upload logo dla trybu ciemnego
 
-Nowy rekord w `system_texts`:
+Aby admin mógł łatwo zarządzać logo dla obu trybów, można dodać pole uploadu w panelu CMS.
 
-```sql
-INSERT INTO system_texts (type, content, is_active) 
-VALUES ('header_image_dark', '', true);
-```
-
-### HeroSection.tsx - zmiany
-
-```tsx
-interface HeroSectionProps {
-  headerImage: string;
-  headerImageDark?: string;  // NOWY prop
-  headerText: string;
-  // ... reszta
-}
-
-export const HeroSection: React.FC<HeroSectionProps> = ({
-  headerImage,
-  headerImageDark,  // NOWY
-  // ...
-}) => {
-  // Wykrycie trybu ciemnego
-  const isDarkMode = useTheme().theme === 'dark' || 
-    (useTheme().theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  
-  // Wybór odpowiedniego logo
-  const activeImage = isDarkMode && headerImageDark ? headerImageDark : headerImage;
-
-  return (
-    // ...
-    <img src={activeImage} alt="Pure Life" ... />
-    // USUNIĘTY <h1>
-  );
-};
-```
-
-### Index.tsx - zmiany
-
-```tsx
-const { headerText, authorText, siteLogo, headerImage, headerImageDark, ... } = useMemo(() => {
-  // ...
-  const headerImageDarkSystemText = systemTextsData.find(item => item.type === 'header_image_dark');
-  
-  return {
-    // ...
-    headerImageDark: headerImageDarkSystemText?.content || '',
-  };
-}, [systemTextsData]);
-
-<HeroSection 
-  headerImage={headerImage || niezbednikLogo}
-  headerImageDark={headerImageDark}  // NOWY
-  // ...
-/>
-```
-
-### UserReflinksPanel.tsx - zmiany
-
-Import:
-```tsx
-import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar, Eye } from 'lucide-react';
-```
-
-Nowy przycisk:
-```tsx
-<Button
-  size="sm"
-  variant="ghost"
-  onClick={() => window.open(`/auth?ref=${reflink.reflink_code}`, '_blank')}
-  title="Podgląd strony rejestracji"
->
-  <Eye className="w-4 h-4" />
-</Button>
-```
+**Lokalizacja**: Ustawienia strony głównej lub panel CMS > system_texts
 
 ---
 
-## Pliki do edycji
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/HeroSection.tsx` | Usunięcie h1, dodanie obsługi headerImageDark |
-| `src/pages/Index.tsx` | Pobieranie headerImageDark, przekazanie do HeroSection |
-| `src/components/user-reflinks/UserReflinksPanel.tsx` | Dodanie przycisku podglądu z ikoną Eye |
-| Migracja SQL | Dodanie rekordu header_image_dark do system_texts |
-| Panel admina (opcjonalnie) | Pole uploadu dla logo ciemnego trybu |
-
----
-
-## Oczekiwany efekt
+## Efekt końcowy
 
 1. **Logo na stronie głównej**:
-   - W trybie jasnym: wyświetla `header_image` (aktualne logo z czarnym tekstem)
-   - W trybie ciemnym: wyświetla `header_image_dark` (logo z białym/jasnym tekstem) jeśli ustawione, w przeciwnym razie fallback do normalnego
+   - W trybie jasnym: wyświetla `header_image` (aktualne logo)
+   - W trybie ciemnym: wyświetla `header_image_dark` (jeśli ustawione), inaczej fallback do `header_image`
    
-2. **Brak duplikatu h1**: Usunięty dodany tekst "PURE LIFE" pod logo
+2. **Brak duplikatu h1**: Usunięty tekst "PURE LIFE" - teraz logo z obrazka jest jedynym źródłem
 
-3. **Podgląd PureLinku**: Przycisk z ikoną oka pozwala zobaczyć stronę rejestracji tak jak widzi ją nowy użytkownik wchodzący przez link polecający
+3. **Podgląd PureLinku**: Przycisk z ikoną oka (👁️) pozwala zobaczyć stronę rejestracji tak jak widzi ją nowy użytkownik
+
