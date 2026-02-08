@@ -1,85 +1,47 @@
 
+
 # Plan: Definitywna naprawa dialogu podglądu PureLink
 
 ## Diagnoza problemu
 
-Dialog podglądu otwiera się, mruga i zamyka z trzech powodów:
+Problem polega na tym, że Radix Dialog wywoluje `onOpenChange(false)` mimo dodania `preventDefault()` na eventach. Te handlery blokuja konkretne zdarzenia (klikniecie, focus), ale Radix moze nadal wewnetrznie wywolac `onOpenChange(false)` z innych powodow (np. podczas montowania iframe).
 
-### Przyczyna 1: Focus Trap (częściowo naprawiona)
-Radix Dialog przechwytuje focus. Kiedy iframe ładuje stronę, focus może przejść do iframe, co Dialog interpretuje jako "interact outside" i zamyka się. Dodano już `onInteractOutside` i `onPointerDownOutside`, ale to nie wystarczy.
+W `UserReflinksPanel.tsx` (linia 408):
+```tsx
+onOpenChange={(open) => !open && setPreviewReflink(null)}
+```
 
-### Przyczyna 2: onEscapeKeyDown (brak ochrony)
-Escape jest nadal obsługiwany przez Dialog i może go zamykać w nieoczekiwanych momentach podczas ładowania iframe.
-
-### Przyczyna 3: onFocusOutside (główna przyczyna!)
-Kiedy iframe wewnątrz DialogContent zaczyna się ładować i dokument w iframe próbuje uzyskać focus, Radix Dialog interpretuje utratę focusu z głównego dokumentu jako "focus outside" i **automatycznie wywołuje zamknięcie**.
-
-Sprawdzam w dokumentacji Radix:
-- `onInteractOutside` - zapobiega zamknięciu przy kliknięciu poza dialog
-- `onPointerDownOutside` - zapobiega zamknięciu przy mousedown poza dialog  
-- **`onFocusOutside`** - zapobiega zamknięciu gdy focus przechodzi poza dialog (np. do iframe!)
+Gdy Radix wywola `onOpenChange(false)`, `previewReflink` jest ustawiany na `null`, co zamyka dialog.
 
 ---
 
-## Rozwiązanie
+## Rozwiazanie
 
-### Zmiana w `ReflinkPreviewDialog.tsx`
+### Strategia: Wlasna kontrola zamykania dialogu
 
-Dodać brakującą właściwość `onFocusOutside`:
+Zamiast polegac na `onOpenChange` do zamykania, uzyjemy wlasnej logiki:
 
-```tsx
-<DialogContent 
-  className="max-w-4xl h-[85vh] flex flex-col"
-  onInteractOutside={(e) => e.preventDefault()}
-  onPointerDownOutside={(e) => e.preventDefault()}
-  onFocusOutside={(e) => e.preventDefault()}  // ← BRAKUJĄCE!
->
-```
-
-### Dodatkowe zabezpieczenie: opóźnione ładowanie iframe
-
-Dla pewności, że dialog nie zostanie zamknięty przez żadne race conditions podczas mount:
-
-```tsx
-const [iframeSrc, setIframeSrc] = useState<string | null>(null);
-
-useEffect(() => {
-  if (open && reflinkCode) {
-    // Opóźnij ładowanie iframe o 100ms aby dialog miał czas się w pełni otworzyć
-    const timer = setTimeout(() => {
-      setIframeSrc(`/auth?ref=${reflinkCode}&preview=true`);
-    }, 100);
-    return () => clearTimeout(timer);
-  } else {
-    setIframeSrc(null);
-  }
-}, [open, reflinkCode]);
-```
-
-I w JSX:
-```tsx
-{iframeSrc ? (
-  <iframe src={iframeSrc} ... />
-) : (
-  <div className="flex items-center justify-center h-full">
-    <div className="animate-spin ...">Ładowanie...</div>
-  </div>
-)}
-```
+1. **Ignoruj `onOpenChange(false)`** - dialog bedzie kontrolowany wylacznie przez nasz stan
+2. **Dodaj wlasny przycisk X** - ktory explicite zamknie dialog
+3. **Ukryj domyslny przycisk X Radix** - uzyj `hideCloseButton` prop
 
 ---
 
-## Szczegóły implementacji
+## Zmiany w kodzie
 
-### Plik: `src/components/user-reflinks/ReflinkPreviewDialog.tsx`
+### Plik 1: `src/components/user-reflinks/ReflinkPreviewDialog.tsx`
 
-**Pełna nowa wersja:**
+**Zmiany:**
+1. Dodac wlasna funkcje `handleClose` ktora kontroluje zamkniecie
+2. Zmodyfikowac `onOpenChange` aby ignorowalo automatyczne zamkniecie
+3. Dodac wlasny przycisk X obok przycisku "Otworz w nowej karcie"
+4. Uzyc `hideCloseButton` aby ukryc domyslny X
 
 ```tsx
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, Loader2 } from 'lucide-react';
+import { ExternalLink, Loader2, X } from 'lucide-react';
 
 interface ReflinkPreviewDialogProps {
   open: boolean;
@@ -92,12 +54,10 @@ export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
   onOpenChange,
   reflinkCode,
 }) => {
-  // Delayed iframe loading to prevent focus issues during dialog mount
   const [iframeSrc, setIframeSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && reflinkCode) {
-      // Delay iframe load by 100ms to let dialog fully mount first
       const timer = setTimeout(() => {
         setIframeSrc(`/auth?ref=${reflinkCode}&preview=true`);
       }, 100);
@@ -107,28 +67,55 @@ export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
     }
   }, [open, reflinkCode]);
 
+  // Explicite zamkniecie - JEDYNY sposob na zamkniecie dialogu
+  const handleClose = () => {
+    onOpenChange(false);
+  };
+
+  // Blokuj automatyczne zamykanie - dialog zamyka sie TYLKO przez handleClose
+  const handleOpenChange = (newOpen: boolean) => {
+    // Ignoruj proby zamkniecia (newOpen === false)
+    // Dialog moze byc tylko otwarty przez rodzica, zamkniety przez handleClose
+    if (newOpen === true) {
+      // Pozwol na otwarcie (choc to i tak kontrolowane przez prop open)
+    }
+    // NIE wywoluj onOpenChange(false) automatycznie
+  };
+
   const fullUrl = `${window.location.origin}/auth?ref=${reflinkCode}`;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent 
         className="max-w-4xl h-[85vh] flex flex-col"
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
         onFocusOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
+        hideCloseButton
       >
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center justify-between">
-            <span>Podgląd strony rejestracji</span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(fullUrl, '_blank')}
-            >
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Otwórz w nowej karcie
-            </Button>
+            <span>Podglad strony rejestracji</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(fullUrl, '_blank')}
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Otworz w nowej karcie
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                className="h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+                <span className="sr-only">Zamknij</span>
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
         <div className="flex-1 border rounded-lg overflow-hidden bg-background">
@@ -136,7 +123,7 @@ export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
             <iframe
               src={iframeSrc}
               className="w-full h-full border-0"
-              title="Podgląd strony rejestracji"
+              title="Podglad strony rejestracji"
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -156,10 +143,10 @@ export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
 
 | Element | Opis |
 |---------|------|
-| `onFocusOutside={(e) => e.preventDefault()}` | **GŁÓWNA NAPRAWA** - zapobiega zamknięciu gdy focus przechodzi do iframe |
-| `onEscapeKeyDown={(e) => e.preventDefault()}` | Użytkownik musi kliknąć X aby zamknąć (nie przez Escape podczas ładowania) |
-| Opóźnione ładowanie iframe | 100ms delay pozwala dialogowi w pełni się zamontować zanim iframe zacznie ładować i walczyć o focus |
-| Loader podczas ładowania | Użytkownik widzi animację zamiast pustego miejsca |
+| `handleOpenChange` | Ignoruje `onOpenChange(false)` - blokuje automatyczne zamykanie |
+| `handleClose` | Jedyny sposob na zamkniecie dialogu - wywolywany przez przycisk X |
+| `hideCloseButton` | Ukrywa domyslny przycisk X z Radix (ktory wywoluje wewnetrzne `onOpenChange`) |
+| Wlasny przycisk X | Dodany obok "Otworz w nowej karcie" - wywoluje `handleClose` |
 
 ---
 
@@ -167,16 +154,16 @@ export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/user-reflinks/ReflinkPreviewDialog.tsx` | Pełna przebudowa z `onFocusOutside`, `onEscapeKeyDown` i opóźnionym ładowaniem iframe |
+| `src/components/user-reflinks/ReflinkPreviewDialog.tsx` | Dodanie wlasnej kontroli zamykania z `hideCloseButton` i wlasnym przyciskiem X |
 
 ---
 
 ## Oczekiwany efekt
 
-1. Kliknięcie ikony oka otwiera dialog
+1. Klikniecie ikony oka otwiera dialog
 2. Dialog pokazuje loader przez 100ms
-3. Iframe zaczyna się ładować dopiero gdy dialog jest stabilny
-4. Dialog **NIE zamyka się** gdy iframe ładuje stronę
-5. Dialog **NIE zamyka się** gdy użytkownik kliknie w iframe
-6. Dialog zamyka się **TYLKO** przez kliknięcie przycisku X
-7. Użytkownik widzi formularz rejestracji z danymi z PureLinku
+3. Iframe zaczyna sie ladowac
+4. Dialog **NIE zamyka sie** automatycznie - zadne wewnetrzne mechanizmy Radix nie moga go zamknac
+5. Dialog zamyka sie **TYLKO** przez klikniecie wlasnego przycisku X w prawym gornym rogu
+6. Uzytkownik widzi formularz rejestracji z danymi z PureLinku
+
