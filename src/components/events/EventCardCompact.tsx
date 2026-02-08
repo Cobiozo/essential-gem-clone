@@ -529,9 +529,19 @@ Zapisz się tutaj: ${inviteUrl}
     return buttons;
   };
 
-  // Count registered occurrences for header badge
-  const registeredCount = registeredOccurrences.size;
-  const hasAnyRegistration = isMultiOccurrence ? registeredCount > 0 : isRegistered;
+  // Count registered occurrences ONLY for future dates (not past)
+  const futureOccurrenceIndices = new Set(futureOccurrences.map(occ => occ.index));
+  
+  const futureRegisteredCount = isMultiOccurrence 
+    ? [...registeredOccurrences].filter(
+        occIndex => occIndex !== null && futureOccurrenceIndices.has(occIndex)
+      ).length
+    : 0;
+
+  // For header badge - only show if registered for FUTURE occurrences
+  const hasAnyRegistration = isMultiOccurrence 
+    ? futureRegisteredCount > 0 
+    : isRegistered;
 
   return (
     <div 
@@ -580,7 +590,7 @@ Zapisz się tutaj: ${inviteUrl}
             {hasAnyRegistration && (
               <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 <Check className="h-3 w-3 mr-1" />
-                {isMultiOccurrence ? `${registeredCount} zapisanych` : 'Zapisany'}
+                {isMultiOccurrence ? `${futureRegisteredCount} zapisanych` : 'Zapisany'}
               </Badge>
             )}
             {isLive && (
@@ -687,7 +697,7 @@ Zapisz się tutaj: ${inviteUrl}
                   <CalendarDays className="h-4 w-4" />
                   Terminy spotkania ({allOccurrences.length})
                   <Badge variant="secondary" className="ml-auto text-xs">
-                    {registeredOccurrences.size} / {futureOccurrences.length} zapisanych
+                    {futureRegisteredCount} / {futureOccurrences.length} zapisanych
                   </Badge>
                 </h4>
                 <div className="space-y-2 max-h-64 overflow-y-auto">

@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ReflinkStatusBadge } from './ReflinkStatusBadge';
 import { ReflinkQRCode } from './ReflinkQRCode';
 import { ReflinkStatsPanel } from './ReflinkStatsPanel';
+import { ReflinkPreviewDialog } from './ReflinkPreviewDialog';
 import { UserReflink, ReflinkGenerationSettings, getRoleLabel, getReflinkStatus } from './types';
 
 export const UserReflinksPanel: React.FC = () => {
@@ -33,6 +34,9 @@ export const UserReflinksPanel: React.FC = () => {
   
   // Regenerate dialog
   const [regeneratingLink, setRegeneratingLink] = useState<UserReflink | null>(null);
+  
+  // Preview dialog
+  const [previewReflink, setPreviewReflink] = useState<UserReflink | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user || !userRole) return;
@@ -290,7 +294,7 @@ export const UserReflinksPanel: React.FC = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => window.open(`/auth?ref=${reflink.reflink_code}`, '_blank')}
+                            onClick={() => setPreviewReflink(reflink)}
                             title="Podgląd strony rejestracji"
                           >
                             <Eye className="w-4 h-4" />
@@ -397,6 +401,13 @@ export const UserReflinksPanel: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Preview Dialog */}
+      <ReflinkPreviewDialog
+        open={!!previewReflink}
+        onOpenChange={(open) => !open && setPreviewReflink(null)}
+        reflinkCode={previewReflink?.reflink_code || ''}
+      />
     </Card>
   );
 };
