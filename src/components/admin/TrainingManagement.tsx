@@ -379,6 +379,53 @@ const TrainingManagement = () => {
           if (!deleteResult.success) {
             console.warn('Could not delete old media file:', deleteResult.error);
           }
+          
+          // Send notifications about video update to users with progress in this module
+          try {
+            const { data: moduleData } = await supabase
+              .from('training_modules')
+              .select('title')
+              .eq('id', selectedModule)
+              .single();
+            
+            const moduleTitle = moduleData?.title || 'szkolenia';
+            
+            // Get users with progress in this module
+            const { data: usersWithProgress } = await supabase
+              .from('training_progress')
+              .select('user_id, training_lessons!inner(module_id)')
+              .eq('training_lessons.module_id', selectedModule);
+            
+            const uniqueUserIds = [...new Set(usersWithProgress?.map(p => p.user_id) || [])];
+            
+            if (uniqueUserIds.length > 0) {
+              const notifications = uniqueUserIds.map(userId => ({
+                user_id: userId,
+                notification_type: 'training_content_updated',
+                source_module: 'training',
+                title: 'Zaktualizowano materiały szkoleniowe',
+                message: `Materiał wideo w lekcji "${lessonData.title}" modułu ${moduleTitle} został zaktualizowany. Sprawdź nowe treści!`,
+                link: `/training/${selectedModule}`,
+                metadata: {
+                  module_id: selectedModule,
+                  module_title: moduleTitle,
+                  lesson_id: editingLesson.id,
+                  lesson_title: lessonData.title,
+                  update_type: 'video_replaced'
+                }
+              }));
+              
+              await supabase.from('user_notifications').insert(notifications);
+              console.log(`📧 Sent ${uniqueUserIds.length} notifications about video update`);
+              
+              toast({
+                title: "Powiadomienia wysłane",
+                description: `${uniqueUserIds.length} użytkowników zostało powiadomionych o zmianie materiału`,
+              });
+            }
+          } catch (notifError) {
+            console.error('Error sending update notifications:', notifError);
+          }
         }
         
         const { error } = await supabase
@@ -613,12 +660,19 @@ const TrainingManagement = () => {
 
       if (assignmentsError) throw assignmentsError;
 
-      // Fetch all progress with full details
-      const { data: progressData, error: progressError } = await supabase
-        .from('training_progress')
-        .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds');
+      // Fetch progress only for users with assignments (avoid 1000 row limit)
+      const userIds = [...new Set(assignments?.map((a: any) => a.user_id) || [])];
+      
+      let progressData: any[] = [];
+      if (userIds.length > 0) {
+        const { data, error: progressError } = await supabase
+          .from('training_progress')
+          .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
+          .in('user_id', userIds);
 
-      if (progressError) throw progressError;
+        if (progressError) throw progressError;
+        progressData = data || [];
+      }
 
       // Fetch all lessons per module with titles
       const { data: lessonsData, error: lessonsError } = await supabase
@@ -1340,7 +1394,8 @@ const TrainingManagement = () => {
                         {/* Header */}
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h4 className="font-semibold text-sm truncate">
-                            {index + 1}. {lesson.title}
+                            <span className="text-muted-foreground mr-1">#{lesson.position}</span>
+                            {lesson.title}
                           </h4>
                           <div className="flex items-center gap-1.5 flex-shrink-0">
                             <Badge variant={lesson.is_active ? "default" : "secondary"} className="text-xs">
@@ -1900,6 +1955,7 @@ const LessonForm = ({
     is_required: lesson?.is_required ?? true,
     is_active: lesson?.is_active ?? true,
     action_buttons: lesson?.action_buttons || [],
+    position: lesson?.position ?? 0,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1938,6 +1994,27 @@ const LessonForm = ({
           onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
           required
         />
+      </div>
+
+      <div>
+        <Label htmlFor="lesson-position">Pozycja (kolejność)</Label>
+        <Input
+          id="lesson-position"
+          type="number"
+          min="0"
+          value={formData.position}
+          onChange={(e) => {
+            const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+            setFormData(prev => ({ 
+              ...prev, 
+              position: isNaN(value) ? 0 : value
+            }));
+          }}
+          placeholder="np. 1, 2, 3..."
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Mniejsza liczba = wyżej na liście. Lekcje są sortowane rosnąco.
+        </p>
       </div>
 
       <div>
