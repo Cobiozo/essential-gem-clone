@@ -14,8 +14,10 @@ export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
   onOpenChange,
   reflinkCode,
 }) => {
-  const previewUrl = `/auth?ref=${reflinkCode}`;
-  const fullUrl = `${window.location.origin}${previewUrl}`;
+  // Add preview=true to prevent redirect for logged-in users viewing iframe
+  const previewUrl = `/auth?ref=${reflinkCode}&preview=true`;
+  // Full URL for "open in new tab" - without preview flag for normal behavior
+  const fullUrl = `${window.location.origin}/auth?ref=${reflinkCode}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

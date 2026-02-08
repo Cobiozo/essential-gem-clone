@@ -257,10 +257,11 @@ const Auth = () => {
       return;
     }
     
-    // Check if user just activated their account via email link
+    // Check URL parameters - single declaration for all uses
     const urlParams = new URLSearchParams(window.location.search);
     const isActivated = urlParams.get('activated') === 'true';
     const returnTo = urlParams.get('returnTo');
+    const isPreviewMode = urlParams.get('preview') === 'true';
     
     if (isActivated) {
       toast({
@@ -279,7 +280,8 @@ const Auth = () => {
     
     // SAFE NAVIGATION: Only redirect when BOTH user exists AND rolesReady is true
     // This prevents navigation before roles are fully loaded, avoiding React Error #306
-    if (user && rolesReady) {
+    // BUT skip redirect if in preview mode (viewing reflink in iframe)
+    if (user && rolesReady && !isPreviewMode) {
       console.log('[Auth] user + rolesReady, navigating to:', redirectPath);
       navigate(redirectPath);
     }
