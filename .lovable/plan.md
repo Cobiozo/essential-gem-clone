@@ -1,163 +1,130 @@
 
-# Plan: Naprawa 4 krytycznych problemów
+# Plan: Naprawa widżetu "Moje spotkania" i limit wyświetlania
 
-## Zidentyfikowane problemy
+## Zdiagnozowany problem
 
-### Problem 1: Postęp szkoleń pokazuje 0% w panelu admina
+### Przyczyna główna
+Użytkownik Sebastian Snopek (i 24 innych) ma **legacy rejestrację** z `occurrence_index: NULL` dla wydarzenia multi-occurrence "Start nowego partnera":
 
-**Szczegóły:**
-- Szymon Latocha ma ukończone **14 lekcji z 21** w module BIZNESOWE = **67%**
-- Panel admina pokazuje **0%**
-- **Przyczyna:** Poprzednia poprawka dodała filtr `.in('user_id', userIds)`, ale problem tkwi w tym, że `userIds` pochodzi z `training_assignments`, a Szymon może nie mieć przypisania w tej tabeli (jego postęp jest zapisany w `training_progress`)
-- **Rozwiązanie:** Pobierać postępy dla WSZYSTKICH użytkowników z tabeli `training_progress` bez filtrowania po przypisaniach, lub użyć paginacji aby ominąć limit 1000 wierszy
+| event_id | occurrence_index | status |
+|----------|------------------|--------|
+| 9d15f1de... | NULL | **registered** ← Problem |
+| 9d15f1de... | 0 | cancelled |
+| 9d15f1de... | 1 | cancelled |  
+| 9d15f1de... | 2 | cancelled |
 
-### Problem 2: "Panel CMS" zamiast "Panel Administratora"
+Użytkownik wypisał się z konkretnych terminów (0, 1, 2), ale pozostała "stara" rejestracja bez określonego terminu, która jest nadal `registered`.
 
-**Lokalizacja:** `src/hooks/useTranslations.ts` linia 970
-- Aktualna wartość: `'nav.admin': 'Panel CMS'`
-- Wymagana zmiana: `'nav.admin': 'Panel Administratora'`
-
-### Problem 3: Brak napisu "PURE LIFE" pod złotą kroplą na stronie głównej
-
-**Analiza:**
-- `HeroSection.tsx` renderuje obraz z `alt="Pure Life"` ale nie ma dodatkowego tekstu pod logo
-- System texts w bazie: `header_text` = `<br>` (pusty), `author` = pusty
-- Strona główna wyświetla tylko obraz bez tekstu "PURE LIFE" pod spodem
-- **Rozwiązanie:** Dodać stylizowany tekst "PURE LIFE" bezpośrednio pod logo w `HeroSection.tsx` (jako element stały, nie konfigurowalny przez CMS)
-
-### Problem 4: "Moje spotkania" pokazuje wydarzenia, na które użytkownik nie jest zapisany
-
-**Analiza:**
-- Widżet używa hooka `getUserEvents()` z `useEvents.ts`
-- `getUserEvents()` pobiera rejestracje użytkownika z status='registered'
-- Problem: Wydarzenia multi-occurrence (np. "Start nowego partnera" z 12.02) mogą być wyświetlane mimo braku rejestracji na konkretny termin
-- **Przyczyna:** Gdy użytkownik nie jest zapisany na żadne wystąpienie, ale wydarzenie ma wiele terminów, może pojawiać się błędnie
-- Nie ma błędnych rejestracji w bazie - sprawdzono listę dla 12.02 i są tam tylko faktycznie zapisani użytkownicy
-- **Prawdopodobna przyczyna:** Problem może wynikać z faktu, że funkcja `getUserEvents` nie sprawdza poprawnie `occurrence_index` dla wydarzeń cyklicznych
+### Logika w kodzie (linia 639-642)
+```typescript
+} else {
+  // Single occurrence or legacy registration without occurrence_index
+  startTimeForDedupe = new Date(baseEvent.start_time).toISOString();
+  eventToPush = baseEvent;
+}
+```
+System traktuje `occurrence_index: null` jako wydarzenie jednorazowe - pokazuje je z pierwszym terminem (12.02).
 
 ---
 
-## Szczegółowy plan naprawy
+## Rozwiązanie dwuetapowe
 
-### Faza 1: Naprawa pobierania postępów szkoleń
+### Etap 1: Poprawka logiki w useEvents.ts
 
-**Plik:** `src/components/admin/TrainingManagement.tsx`
-
-Zmiana strategii pobierania danych w funkcji `fetchUserProgress`:
-
-```typescript
-// Zamiast filtrować po userIds z assignments, pobierz WSZYSTKIE postępy z paginacją
-const fetchUserProgress = async () => {
-  setProgressLoading(true);
-  try {
-    // Pobierz assignments (dla listy modułów)
-    const { data: assignments, error: assignmentsError } = await supabase
-      .from('training_assignments')
-      .select(`...`);
-
-    if (assignmentsError) throw assignmentsError;
-
-    // Pobierz WSZYSTKIE rekordy postępu (z paginacją dla dużych zbiorów)
-    let allProgressData: any[] = [];
-    let from = 0;
-    const batchSize = 1000;
-    
-    while (true) {
-      const { data, error } = await supabase
-        .from('training_progress')
-        .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
-        .range(from, from + batchSize - 1);
-      
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      
-      allProgressData = [...allProgressData, ...data];
-      if (data.length < batchSize) break; // Ostatnia strona
-      from += batchSize;
-    }
-    
-    progressData = allProgressData;
-    // ... reszta logiki bez zmian
-  }
-};
-```
-
-### Faza 2: Zmiana nazwy w sidebarze
-
-**Plik:** `src/hooks/useTranslations.ts`
-
-Zmiana w linii 970:
-- **Przed:** `'nav.admin': 'Panel CMS'`
-- **Po:** `'nav.admin': 'Panel Administratora'`
-
-### Faza 3: Dodanie tekstu "PURE LIFE" pod logo
-
-**Plik:** `src/components/HeroSection.tsx`
-
-Dodanie widocznego tekstu pod obrazem logo:
-
-```tsx
-{/* Logo */}
-<div className={cn(...)}>
-  <img src={headerImage} alt="Pure Life" className={...} />
-</div>
-
-{/* NOWE: Dodanie tekstu "PURE LIFE" pod logo */}
-<h1 className="text-2xl sm:text-3xl font-bold tracking-widest text-foreground mt-4">
-  PURE LIFE
-</h1>
-```
-
-Tekst będzie:
-- Widoczny w obu trybach (jasnym i ciemnym) dzięki klasie `text-foreground`
-- Stylizowany podobnie jak reszta strony (czcionka bold, tracking-widest)
-- Responsywny (mniejszy na mobile, większy na desktop)
-
-### Faza 4: Naprawa widżetu "Moje spotkania"
+Dla wydarzeń multi-occurrence z `occurrence_index: null`:
+1. Sprawdzić, czy istnieją JAKIEKOLWIEK rejestracje z konkretnymi `occurrence_index` dla tego samego `event_id`
+2. Jeśli tak - **pominąć** legacy rejestrację (konkretne rejestracje mają priorytet)
+3. Jeśli nie ma konkretnych rejestracji - rozszerzyć legacy do wszystkich przyszłych terminów
 
 **Plik:** `src/hooks/useEvents.ts`
 
-Problem polega na tym, że widżet może pokazywać wydarzenia, na które użytkownik nie jest faktycznie zapisany. Trzeba zweryfikować logikę w `getUserEvents`:
-
-1. Sprawdzić, czy zapytanie do `event_registrations` zawiera właściwe filtry
-2. Upewnić się, że dla wydarzeń multi-occurrence sprawdzany jest `occurrence_index`
-3. Dodać dodatkowe logowanie do debugowania
-
-**Obecna logika (linie 509-654):**
 ```typescript
-const getUserEvents = useCallback(async () => {
-  if (!user) return [];
+// Step 5: Expand multi-occurrence events based on user's registrations
+const expandedEvents: EventWithRegistration[] = [];
+const eventMap = new Map((events || []).map(e => [e.id, e]));
+const seenEventTimes = new Set<string>();
 
-  // Step 1: Get user's registrations WITH occurrence_index
-  const { data: registrations, error: regError } = await supabase
-    .from('event_registrations')
-    .select('event_id, occurrence_index')
-    .eq('user_id', user.id)
-    .eq('status', 'registered');
+// NEW: Build a map of event_id -> has specific occurrence registrations
+const eventHasSpecificOccurrences = new Map<string, boolean>();
+activeRegistrations.forEach(reg => {
+  if (reg.occurrence_index !== null && reg.occurrence_index !== undefined) {
+    eventHasSpecificOccurrences.set(reg.event_id, true);
+  }
+});
+
+activeRegistrations.forEach(reg => {
+  const event = eventMap.get(reg.event_id);
+  if (!event) return;
+
+  // NEW: For multi-occurrence events with null occurrence_index,
+  // skip if there are specific occurrence registrations (they take precedence)
+  if (isMultiOccurrenceEvent(event) && 
+      reg.occurrence_index === null && 
+      eventHasSpecificOccurrences.get(reg.event_id)) {
+    console.log(`📅 Skipping legacy registration for ${event.title} - has specific occurrence registrations`);
+    return;
+  }
+
+  // ... rest of existing logic
+});
 ```
 
-Ta logika wygląda poprawnie. Jednak należy sprawdzić, czy problem nie wynika z cache'owania lub nieaktualnych danych. Dodamy wymuszenie odświeżania.
+### Etap 2: Czyszczenie bazy danych
 
-**Dodatkowa weryfikacja:**
-Należy upewnić się, że realtime subscription prawidłowo odświeża dane po rejestracji/wypisaniu.
+Usunięcie legacy rejestracji dla użytkowników, którzy mają nowsze rejestracje z konkretnymi terminami:
+
+```sql
+-- Delete legacy registrations where user has newer specific occurrence registrations
+DELETE FROM event_registrations legacy
+WHERE legacy.occurrence_index IS NULL
+  AND legacy.status = 'registered'
+  AND EXISTS (
+    SELECT 1 FROM event_registrations specific
+    WHERE specific.event_id = legacy.event_id
+      AND specific.user_id = legacy.user_id
+      AND specific.occurrence_index IS NOT NULL
+  );
+```
+
+### Etap 3: Limit 3 spotkań per kategoria w widżecie
+
+**Plik:** `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+
+Zmiana linii 402 - obecnie pokazuje tylko 1 spotkanie i ma "rozwiń więcej":
+```tsx
+// Przed:
+{(expandedTypes[type] ? events : events.slice(0, 1)).map((event, idx) => (
+
+// Po - domyślnie 3, reszta zwija się:
+{(expandedTypes[type] ? events : events.slice(0, 3)).map((event, idx) => (
+```
+
+Zmiana linii 437-446 dla poprawnego tekstu:
+```tsx
+// Przed:
+{events.length > 1 && (
+  ...
+  {expandedTypes[type] ? 'Zwiń' : `+${events.length - 1} więcej`}
+
+// Po:
+{events.length > 3 && (
+  ...
+  {expandedTypes[type] ? 'Zwiń' : `+${events.length - 3} więcej`}
+```
 
 ---
 
-## Podsumowanie pliku i zmian
+## Podsumowanie zmian
 
-| Plik | Zmiana | Priorytet |
-|------|--------|-----------|
-| `src/components/admin/TrainingManagement.tsx` | Paginacja przy pobieraniu postępów (ominięcie limitu 1000) | WYSOKI |
-| `src/hooks/useTranslations.ts` | `'nav.admin': 'Panel Administratora'` | NISKI |
-| `src/components/HeroSection.tsx` | Dodanie tekstu "PURE LIFE" pod logo | ŚREDNI |
-| `src/hooks/useEvents.ts` | Dodanie lepszego logowania + weryfikacja cache | WYSOKI |
+| Plik | Zmiana |
+|------|--------|
+| `src/hooks/useEvents.ts` | Pomijanie legacy rejestracji gdy istnieją konkretne occurrence_index |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Limit 3 spotkań per kategoria |
+| Baza danych | Czyszczenie legacy rejestracji |
 
----
+## Oczekiwany efekt
 
-## Oczekiwane rezultaty
-
-1. **Postępy szkoleń** - Szymon Latocha (i inni) będą widoczni z rzeczywistym postępem (67% dla BIZNESOWE)
-2. **Sidebar** - "Panel CMS" zmieni się na "Panel Administratora"
-3. **Strona główna** - Pod złotą kroplą pojawi się napis "PURE LIFE" widoczny zarówno w jasnym jak i ciemnym trybie
-4. **Moje spotkania** - Widżet będzie pokazywał tylko wydarzenia, na które użytkownik jest faktycznie zapisany
-
+1. **Sebastian Snopek** - "Start nowego partnera" zniknie z widżetu (jest wypisany ze wszystkich terminów)
+2. **Inni użytkownicy** - zobaczą tylko spotkania, na które są faktycznie zapisani
+3. **Limit wyświetlania** - max 3 spotkania per kategoria, reszta pod "+X więcej"
+4. **Real-time** - zmiany widoczne natychmiast po zapisie/wypisie
