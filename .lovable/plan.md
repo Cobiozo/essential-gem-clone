@@ -1,252 +1,163 @@
 
-# Plan: Naprawa wyświetlania postępów szkoleń i nowe funkcje zarządzania lekcjami
+# Plan: Naprawa 4 krytycznych problemów
 
 ## Zidentyfikowane problemy
 
-### Problem 1: Postęp użytkowników pokazuje 0% zamiast rzeczywistych wartości
+### Problem 1: Postęp szkoleń pokazuje 0% w panelu admina
 
-**Przyczyna:** Zapytanie do tabeli `training_progress` w funkcji `fetchUserProgress` nie ma ustawionego limitu i domyślnie Supabase zwraca max 1000 wierszy. W bazie jest obecnie **1290 rekordów** - część danych jest obcinana.
+**Szczegóły:**
+- Szymon Latocha ma ukończone **14 lekcji z 21** w module BIZNESOWE = **67%**
+- Panel admina pokazuje **0%**
+- **Przyczyna:** Poprzednia poprawka dodała filtr `.in('user_id', userIds)`, ale problem tkwi w tym, że `userIds` pochodzi z `training_assignments`, a Szymon może nie mieć przypisania w tej tabeli (jego postęp jest zapisany w `training_progress`)
+- **Rozwiązanie:** Pobierać postępy dla WSZYSTKICH użytkowników z tabeli `training_progress` bez filtrowania po przypisaniach, lub użyć paginacji aby ominąć limit 1000 wierszy
 
-**Dane w bazie dla Szymona Latocha:**
-- Moduł BIZNESOWE: 14 ukończonych lekcji z 21 aktywnych = 67%
-- Panel admina pokazuje: 0%
+### Problem 2: "Panel CMS" zamiast "Panel Administratora"
 
-### Problem 2: Brak opcji zmiany kolejności lekcji
+**Lokalizacja:** `src/hooks/useTranslations.ts` linia 970
+- Aktualna wartość: `'nav.admin': 'Panel CMS'`
+- Wymagana zmiana: `'nav.admin': 'Panel Administratora'`
 
-Formularz `LessonForm` nie zawiera pola `position`. Admin nie może zmienić kolejności lekcji w module.
+### Problem 3: Brak napisu "PURE LIFE" pod złotą kroplą na stronie głównej
 
-### Problem 3: Brak powiadomień o zmianie materiału wideo
+**Analiza:**
+- `HeroSection.tsx` renderuje obraz z `alt="Pure Life"` ale nie ma dodatkowego tekstu pod logo
+- System texts w bazie: `header_text` = `<br>` (pusty), `author` = pusty
+- Strona główna wyświetla tylko obraz bez tekstu "PURE LIFE" pod spodem
+- **Rozwiązanie:** Dodać stylizowany tekst "PURE LIFE" bezpośrednio pod logo w `HeroSection.tsx` (jako element stały, nie konfigurowalny przez CMS)
 
-Przy edycji lekcji (w `saveLesson`) powiadomienia są wysyłane tylko dla NOWYCH lekcji, nie przy aktualizacji materiału wideo.
+### Problem 4: "Moje spotkania" pokazuje wydarzenia, na które użytkownik nie jest zapisany
 
----
-
-## Rozwiązanie
-
-### Faza 1: Naprawa pobierania postępów (limit danych)
-
-**Plik:** `src/components/admin/TrainingManagement.tsx`
-
-Zmiana w funkcji `fetchUserProgress` - dodanie zakresu do zapytania `training_progress`:
-
-**Przed (linia 617-619):**
-```typescript
-const { data: progressData, error: progressError } = await supabase
-  .from('training_progress')
-  .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds');
-```
-
-**Po:**
-```typescript
-const { data: progressData, error: progressError } = await supabase
-  .from('training_progress')
-  .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
-  .limit(10000); // Zwiększenie limitu z domyślnych 1000
-```
-
-**Alternatywa (lepsza):** Pobieranie postępów tylko dla użytkowników z przypisaniami:
-```typescript
-// Najpierw zbierz wszystkich userId z assignments
-const userIds = [...new Set(assignments?.map(a => a.user_id) || [])];
-
-// Potem pobierz progress tylko dla tych użytkowników
-const { data: progressData, error: progressError } = await supabase
-  .from('training_progress')
-  .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
-  .in('user_id', userIds);
-```
-
-Ta optymalizacja:
-- Pobiera tylko potrzebne dane (nie wszystkie rekordy)
-- Unika problemu limitu 1000 wierszy
-- Jest szybsza dla dużych zbiorów danych
+**Analiza:**
+- Widżet używa hooka `getUserEvents()` z `useEvents.ts`
+- `getUserEvents()` pobiera rejestracje użytkownika z status='registered'
+- Problem: Wydarzenia multi-occurrence (np. "Start nowego partnera" z 12.02) mogą być wyświetlane mimo braku rejestracji na konkretny termin
+- **Przyczyna:** Gdy użytkownik nie jest zapisany na żadne wystąpienie, ale wydarzenie ma wiele terminów, może pojawiać się błędnie
+- Nie ma błędnych rejestracji w bazie - sprawdzono listę dla 12.02 i są tam tylko faktycznie zapisani użytkownicy
+- **Prawdopodobna przyczyna:** Problem może wynikać z faktu, że funkcja `getUserEvents` nie sprawdza poprawnie `occurrence_index` dla wydarzeń cyklicznych
 
 ---
 
-### Faza 2: Dodanie pola pozycji do formularza lekcji
+## Szczegółowy plan naprawy
+
+### Faza 1: Naprawa pobierania postępów szkoleń
 
 **Plik:** `src/components/admin/TrainingManagement.tsx`
 
-#### 2.1 Rozszerzenie formData w LessonForm (linia ~1892):
+Zmiana strategii pobierania danych w funkcji `fetchUserProgress`:
 
 ```typescript
-const [formData, setFormData] = useState({
-  title: lesson?.title || "",
-  content: lesson?.content || "",
-  media_url: lesson?.media_url || "",
-  media_type: lesson?.media_type || "",
-  media_alt_text: lesson?.media_alt_text || "",
-  min_time_seconds: lesson?.min_time_seconds || 60,
-  video_duration_seconds: lesson?.video_duration_seconds || 0,
-  is_required: lesson?.is_required ?? true,
-  is_active: lesson?.is_active ?? true,
-  action_buttons: lesson?.action_buttons || [],
-  position: lesson?.position ?? 0, // NOWE POLE
-});
-```
+// Zamiast filtrować po userIds z assignments, pobierz WSZYSTKIE postępy z paginacją
+const fetchUserProgress = async () => {
+  setProgressLoading(true);
+  try {
+    // Pobierz assignments (dla listy modułów)
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('training_assignments')
+      .select(`...`);
 
-#### 2.2 Dodanie pola input w formularzu (po polu tytułu, około linii 1940):
+    if (assignmentsError) throw assignmentsError;
 
-```tsx
-<div>
-  <Label htmlFor="lesson-position">Pozycja (kolejność)</Label>
-  <Input
-    id="lesson-position"
-    type="number"
-    min="0"
-    value={formData.position}
-    onChange={(e) => {
-      const value = e.target.value === '' ? 0 : parseInt(e.target.value);
-      setFormData(prev => ({ 
-        ...prev, 
-        position: isNaN(value) ? 0 : value
-      }));
-    }}
-    placeholder="np. 1, 2, 3..."
-  />
-  <p className="text-xs text-muted-foreground mt-1">
-    Mniejsza liczba = wyżej na liście. Lekcje są sortowane rosnąco.
-  </p>
-</div>
-```
-
-#### 2.3 Dodanie obsługi zmiany pozycji w `saveLesson`:
-
-Przy edycji lekcji, jeśli pozycja się zmieniła - przesuń inne lekcje automatycznie:
-
-```typescript
-// W saveLesson, po zapisaniu lekcji:
-if (editingLesson && editingLesson.position !== lessonData.position) {
-  // Reorganizuj pozycje innych lekcji
-  const { data: moduleLessons } = await supabase
-    .from('training_lessons')
-    .select('id, position')
-    .eq('module_id', selectedModule)
-    .neq('id', editingLesson.id)
-    .order('position');
-
-  // Przeindeksuj pozycje aby uniknąć duplikatów
-  const updates = moduleLessons?.map((l, idx) => ({
-    id: l.id,
-    position: l.position >= lessonData.position ? idx + 1 : idx
-  }));
-
-  if (updates) {
-    for (const update of updates) {
-      await supabase
-        .from('training_lessons')
-        .update({ position: update.position })
-        .eq('id', update.id);
-    }
-  }
-}
-```
-
----
-
-### Faza 3: Powiadomienia o zmianie materiału wideo
-
-**Plik:** `src/components/admin/TrainingManagement.tsx`
-
-W funkcji `saveLesson`, po zapisaniu edycji lekcji, dodać wysyłanie powiadomień gdy zmieniono media_url:
-
-```typescript
-if (editingLesson) {
-  // Sprawdź czy materiał wideo został zmieniony
-  const oldMediaUrl = editingLesson.media_url;
-  const newMediaUrl = lessonData.media_url;
-  
-  if (oldMediaUrl && newMediaUrl && oldMediaUrl !== newMediaUrl) {
-    // ... istniejący kod usuwania starego pliku ...
+    // Pobierz WSZYSTKIE rekordy postępu (z paginacją dla dużych zbiorów)
+    let allProgressData: any[] = [];
+    let from = 0;
+    const batchSize = 1000;
     
-    // NOWE: Wyślij powiadomienia do użytkowników z postępem w tym module
-    try {
-      const { data: moduleData } = await supabase
-        .from('training_modules')
-        .select('title')
-        .eq('id', selectedModule)
-        .single();
-      
-      const moduleTitle = moduleData?.title || 'szkolenia';
-      
-      // Pobierz użytkowników z postępem w tym module
-      const { data: usersWithProgress } = await supabase
+    while (true) {
+      const { data, error } = await supabase
         .from('training_progress')
-        .select('user_id, training_lessons!inner(module_id)')
-        .eq('training_lessons.module_id', selectedModule);
+        .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
+        .range(from, from + batchSize - 1);
       
-      const uniqueUserIds = [...new Set(usersWithProgress?.map(p => p.user_id) || [])];
+      if (error) throw error;
+      if (!data || data.length === 0) break;
       
-      if (uniqueUserIds.length > 0) {
-        const notifications = uniqueUserIds.map(userId => ({
-          user_id: userId,
-          notification_type: 'training_content_updated',
-          source_module: 'training',
-          title: 'Zaktualizowano materiały szkoleniowe',
-          message: `Materiał wideo w lekcji "${lessonData.title}" modułu ${moduleTitle} został zaktualizowany. Sprawdź nowe treści!`,
-          link: `/training/${selectedModule}`,
-          metadata: {
-            module_id: selectedModule,
-            module_title: moduleTitle,
-            lesson_id: editingLesson.id,
-            lesson_title: lessonData.title,
-            update_type: 'video_replaced'
-          }
-        }));
-        
-        await supabase.from('user_notifications').insert(notifications);
-        console.log(`📧 Sent ${uniqueUserIds.length} notifications about video update`);
-        
-        toast({
-          title: "Powiadomienia wysłane",
-          description: `${uniqueUserIds.length} użytkowników zostało powiadomionych o zmianie materiału`,
-        });
-      }
-    } catch (notifError) {
-      console.error('Error sending update notifications:', notifError);
+      allProgressData = [...allProgressData, ...data];
+      if (data.length < batchSize) break; // Ostatnia strona
+      from += batchSize;
     }
+    
+    progressData = allProgressData;
+    // ... reszta logiki bez zmian
   }
-  
-  // ... reszta istniejącej logiki zapisu ...
-}
+};
 ```
 
----
+### Faza 2: Zmiana nazwy w sidebarze
 
-### Faza 4: Wyświetlanie pozycji w liście lekcji
+**Plik:** `src/hooks/useTranslations.ts`
 
-Aktualizacja widoku listy lekcji aby pokazywać numer pozycji (nie tylko index):
+Zmiana w linii 970:
+- **Przed:** `'nav.admin': 'Panel CMS'`
+- **Po:** `'nav.admin': 'Panel Administratora'`
 
-**Linia ~1343:**
+### Faza 3: Dodanie tekstu "PURE LIFE" pod logo
+
+**Plik:** `src/components/HeroSection.tsx`
+
+Dodanie widocznego tekstu pod obrazem logo:
+
 ```tsx
-{/* Przed: */}
-<h4 className="font-semibold text-sm truncate">
-  {index + 1}. {lesson.title}
-</h4>
+{/* Logo */}
+<div className={cn(...)}>
+  <img src={headerImage} alt="Pure Life" className={...} />
+</div>
 
-{/* Po: */}
-<h4 className="font-semibold text-sm truncate">
-  <span className="text-muted-foreground mr-1">#{lesson.position}</span>
-  {lesson.title}
-</h4>
+{/* NOWE: Dodanie tekstu "PURE LIFE" pod logo */}
+<h1 className="text-2xl sm:text-3xl font-bold tracking-widest text-foreground mt-4">
+  PURE LIFE
+</h1>
 ```
+
+Tekst będzie:
+- Widoczny w obu trybach (jasnym i ciemnym) dzięki klasie `text-foreground`
+- Stylizowany podobnie jak reszta strony (czcionka bold, tracking-widest)
+- Responsywny (mniejszy na mobile, większy na desktop)
+
+### Faza 4: Naprawa widżetu "Moje spotkania"
+
+**Plik:** `src/hooks/useEvents.ts`
+
+Problem polega na tym, że widżet może pokazywać wydarzenia, na które użytkownik nie jest faktycznie zapisany. Trzeba zweryfikować logikę w `getUserEvents`:
+
+1. Sprawdzić, czy zapytanie do `event_registrations` zawiera właściwe filtry
+2. Upewnić się, że dla wydarzeń multi-occurrence sprawdzany jest `occurrence_index`
+3. Dodać dodatkowe logowanie do debugowania
+
+**Obecna logika (linie 509-654):**
+```typescript
+const getUserEvents = useCallback(async () => {
+  if (!user) return [];
+
+  // Step 1: Get user's registrations WITH occurrence_index
+  const { data: registrations, error: regError } = await supabase
+    .from('event_registrations')
+    .select('event_id, occurrence_index')
+    .eq('user_id', user.id)
+    .eq('status', 'registered');
+```
+
+Ta logika wygląda poprawnie. Jednak należy sprawdzić, czy problem nie wynika z cache'owania lub nieaktualnych danych. Dodamy wymuszenie odświeżania.
+
+**Dodatkowa weryfikacja:**
+Należy upewnić się, że realtime subscription prawidłowo odświeża dane po rejestracji/wypisaniu.
 
 ---
 
-## Podsumowanie zmian
+## Podsumowanie pliku i zmian
 
-| Plik | Zmiana | Efekt |
-|------|--------|-------|
-| `TrainingManagement.tsx` | Optymalizacja `fetchUserProgress` - filtrowanie po userId | Naprawa pobierania postępów (przekroczenie limitu 1000) |
-| `TrainingManagement.tsx` | Dodanie pola `position` do `LessonForm` | Admin może zmieniać kolejność lekcji |
-| `TrainingManagement.tsx` | Dodanie logiki powiadomień przy zmianie media_url | Użytkownicy otrzymują powiadomienia o zmianie wideo |
-| `TrainingManagement.tsx` | Wyświetlanie numeru pozycji w liście lekcji | Lepsza widoczność kolejności |
+| Plik | Zmiana | Priorytet |
+|------|--------|-----------|
+| `src/components/admin/TrainingManagement.tsx` | Paginacja przy pobieraniu postępów (ominięcie limitu 1000) | WYSOKI |
+| `src/hooks/useTranslations.ts` | `'nav.admin': 'Panel Administratora'` | NISKI |
+| `src/components/HeroSection.tsx` | Dodanie tekstu "PURE LIFE" pod logo | ŚREDNI |
+| `src/hooks/useEvents.ts` | Dodanie lepszego logowania + weryfikacja cache | WYSOKI |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. **Postępy użytkowników** - Szymon Latocha będzie widoczny z 67% w module BIZNESOWE (14/21 lekcji)
-2. **Zmiana kolejności** - Admin może wpisać numer pozycji dla każdej lekcji
-3. **Powiadomienia o aktualizacji wideo** - Użytkownicy z postępem w module otrzymują powiadomienie gdy admin zmieni materiał wideo
-4. **Real-time update** - Zgodnie z memory projektu, UI odświeża się natychmiast po operacjach
+1. **Postępy szkoleń** - Szymon Latocha (i inni) będą widoczni z rzeczywistym postępem (67% dla BIZNESOWE)
+2. **Sidebar** - "Panel CMS" zmieni się na "Panel Administratora"
+3. **Strona główna** - Pod złotą kroplą pojawi się napis "PURE LIFE" widoczny zarówno w jasnym jak i ciemnym trybie
+4. **Moje spotkania** - Widżet będzie pokazywał tylko wydarzenia, na które użytkownik jest faktycznie zapisany
+
