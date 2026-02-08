@@ -9,7 +9,7 @@ const cardVariants = cva(
     variants: {
       variant: {
         default: "bg-card border-border shadow-sm",
-        premium: "bg-gradient-to-br from-[hsl(225,35%,12%)] to-[hsl(225,40%,8%)] border-white/5 shadow-xl shadow-black/20 backdrop-blur-sm",
+        premium: "bg-gradient-to-br from-white to-slate-50 border-slate-200/50 shadow-lg shadow-slate-200/50 dark:from-[hsl(225,35%,12%)] dark:to-[hsl(225,40%,8%)] dark:border-white/5 dark:shadow-xl dark:shadow-black/20 dark:backdrop-blur-sm",
         glass: "bg-white/5 backdrop-blur-xl border-white/10 shadow-lg",
       },
     },

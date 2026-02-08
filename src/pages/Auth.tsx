@@ -737,7 +737,7 @@ const Auth = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-background dark:bg-gradient-to-br dark:from-[hsl(225,50%,8%)] dark:via-[hsl(230,45%,12%)] dark:to-[hsl(240,40%,6%)] flex items-center justify-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-sm sm:max-w-md">
         {/* Language & Back to home button */}
         <div className="flex justify-between items-center mb-4">
@@ -814,7 +814,11 @@ const Auth = () => {
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#B8860B] text-black font-semibold hover:opacity-90 shadow-lg shadow-amber-500/20" 
+                    disabled={loading}
+                  >
                     {loading ? t('auth.loggingIn') : t('auth.signIn')}
                   </Button>
                 </CardFooter>
@@ -979,7 +983,11 @@ const Auth = () => {
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full" disabled={loading || !isPasswordValid || password !== confirmPassword}>
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#B8860B] text-black font-semibold hover:opacity-90 shadow-lg shadow-amber-500/20" 
+                    disabled={loading || !isPasswordValid || password !== confirmPassword}
+                  >
                     {loading ? t('auth.registering') : t('auth.signUp')}
                   </Button>
                 </CardFooter>

@@ -136,8 +136,8 @@ export const TrainingProgressWidget: React.FC = () => {
     <Card variant="premium" className="shadow-xl relative" data-tour="training-widget">
       <WidgetInfoButton description="Postęp w szkoleniach - śledź ukończone moduły i kontynuuj naukę" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between relative">
-        {/* Blur backdrop effect */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent rounded-t-2xl backdrop-blur-[2px]" />
+        {/* Blur backdrop effect - różny dla light/dark */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/[0.02] to-transparent dark:from-white/5 dark:to-transparent rounded-t-2xl dark:backdrop-blur-[2px]" />
         <CardTitle className="relative z-10 text-base font-semibold flex items-center gap-3">
           <Widget3DIcon icon={GraduationCap} variant="gold" size="md" />
           {t('dashboard.trainingProgress')}
@@ -169,7 +169,7 @@ export const TrainingProgressWidget: React.FC = () => {
             {modules.map((module) => (
               <div
                 key={module.id}
-                className="group cursor-pointer hover:bg-white/5 -mx-2 px-3 py-3 rounded-xl transition-all"
+                className="group cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 -mx-2 px-3 py-3 rounded-xl transition-all"
                 onClick={() => navigate(`/training/${module.id}`)}
               >
                 <div className="flex items-center gap-4">
