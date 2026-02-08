@@ -660,19 +660,30 @@ const TrainingManagement = () => {
 
       if (assignmentsError) throw assignmentsError;
 
-      // Fetch progress only for users with assignments (avoid 1000 row limit)
-      const userIds = [...new Set(assignments?.map((a: any) => a.user_id) || [])];
+      // Fetch ALL progress records with pagination to bypass 1000 row limit
+      // This ensures we capture progress for users who may not have assignments
+      // but have completed lessons (e.g., via direct module access)
+      let allProgressData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
       
-      let progressData: any[] = [];
-      if (userIds.length > 0) {
+      while (true) {
         const { data, error: progressError } = await supabase
           .from('training_progress')
           .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
-          .in('user_id', userIds);
-
+          .range(from, from + batchSize - 1);
+        
         if (progressError) throw progressError;
-        progressData = data || [];
+        if (!data || data.length === 0) break;
+        
+        allProgressData = [...allProgressData, ...data];
+        if (data.length < batchSize) break; // Last page
+        from += batchSize;
       }
+      
+      const progressData = allProgressData;
+      console.log(`📊 Fetched ${progressData.length} total progress records (paginated)`);
+
 
       // Fetch all lessons per module with titles
       const { data: lessonsData, error: lessonsError } = await supabase
