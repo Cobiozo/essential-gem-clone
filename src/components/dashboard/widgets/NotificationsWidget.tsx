@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Bell, ArrowRight, HandHelping, MessageSquare, BookOpen, Info } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
@@ -39,8 +40,8 @@ export const NotificationsWidget: React.FC = () => {
     <Card className="shadow-sm relative" data-tour="notifications-widget">
       <WidgetInfoButton description="Centrum powiadomień - ważne informacje od upline i systemu" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Bell className="h-4 w-4 text-primary" />
+        <CardTitle className="text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={Bell} variant="amber" size="md" pulse={notifications.some(n => !n.is_read)} />
           {t('dashboard.notifications')}
         </CardTitle>
         <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=notifications')} className="text-xs">

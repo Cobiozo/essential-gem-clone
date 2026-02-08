@@ -207,6 +207,19 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-4px)" },
         },
+        // 3D icon animations
+        "icon-float": {
+          "0%, 100%": { transform: "translateY(0) perspective(200px) rotateX(5deg)" },
+          "50%": { transform: "translateY(-2px) perspective(200px) rotateX(3deg)" },
+        },
+        "glow-pulse": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(245, 158, 11, 0.4)" },
+          "50%": { boxShadow: "0 0 20px 4px rgba(245, 158, 11, 0.6)" },
+        },
+        "metal-shine": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.3s ease-out",
@@ -236,6 +249,10 @@ export default {
         "donut-fill": "donut-fill 0.8s ease-out forwards",
         "card-glow": "card-glow 3s ease-in-out infinite",
         "float": "float 3s ease-in-out infinite",
+        // 3D icon animations
+        "icon-float": "icon-float 3s ease-in-out infinite",
+        "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "metal-shine": "metal-shine 3s linear infinite",
       },
     },
   },

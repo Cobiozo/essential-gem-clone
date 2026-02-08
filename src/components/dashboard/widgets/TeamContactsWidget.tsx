@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Users, ArrowRight, UserPlus, Mail, Phone, Network } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -100,8 +101,8 @@ export const TeamContactsWidget: React.FC = () => {
       <Card className="shadow-sm relative" data-tour="team-contacts-widget">
         <WidgetInfoButton description="Szybki dostęp do kontaktów zespołowych i wyszukiwarki specjalistów" />
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base font-semibold flex items-center gap-3">
+            <Widget3DIcon icon={Users} variant="blue" size="md" />
             {t('dashboard.team')}
           </CardTitle>
           <div className="flex items-center gap-1">
@@ -126,7 +127,9 @@ export const TeamContactsWidget: React.FC = () => {
           {/* Stats */}
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <span className="text-sm text-muted-foreground">{t('dashboard.totalContacts')}</span>
-            <span className="text-2xl font-bold text-foreground">{loading ? '...' : totalCount}</span>
+            <span className="text-3xl font-bold bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#C5A059] bg-clip-text text-transparent tabular-nums">
+              {loading ? '...' : totalCount}
+            </span>
           </div>
 
           {/* Recent contacts */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -356,8 +357,8 @@ export const MyMeetingsWidget: React.FC = () => {
       <Card className="shadow-sm relative" data-tour="my-meetings-widget">
         <WidgetInfoButton description="Twoje nadchodzące spotkania - zapisane webinary i zaplanowane konsultacje" />
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
+          <CardTitle className="text-base font-semibold flex items-center gap-3">
+            <Widget3DIcon icon={Video} variant="emerald" size="md" />
             {t('events.myMeetings') || 'Moje spotkania'}
           </CardTitle>
         </CardHeader>
@@ -374,9 +375,9 @@ export const MyMeetingsWidget: React.FC = () => {
     <Card className="shadow-sm relative" data-tour="my-meetings-widget">
       <WidgetInfoButton description="Twoje nadchodzące spotkania - zapisane webinary i zaplanowane konsultacje" />
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-primary" />
-          {t('events.myMeetings') || 'Moje spotkania'}
+          <CardTitle className="text-base font-semibold flex items-center gap-3">
+            <Widget3DIcon icon={Video} variant="emerald" size="md" />
+            {t('events.myMeetings') || 'Moje spotkania'}
         </CardTitle>
       </CardHeader>
       <CardContent>

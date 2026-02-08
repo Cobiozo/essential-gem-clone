@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Link2, ArrowRight, Copy, Check, QrCode } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -107,8 +108,8 @@ export const ReflinksWidget: React.FC = () => {
     <Card className="shadow-sm relative" data-tour="reflinks-widget">
       <WidgetInfoButton description="Twoje linki polecające - kopiuj i śledź statystyki kliknięć" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Link2 className="h-4 w-4 text-primary" />
+        <CardTitle className="text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={Link2} variant="gold-bronze" size="md" />
           {t('dashboard.pureLinki')}
         </CardTitle>
         <Button variant="ghost" size="sm" onClick={() => navigate('/my-account?tab=reflinks')} className="text-xs">

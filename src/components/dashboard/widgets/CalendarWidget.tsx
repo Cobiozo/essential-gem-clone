@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, ChevronLeft, ChevronRight, Video, Users, User, ExternalLink, UserPlus, CalendarDays, Info, X } from 'lucide-react';
+import { Widget3DIcon } from './Widget3DIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -229,8 +230,8 @@ Zapisz się tutaj: ${inviteUrl}
     <Card data-tour="calendar-widget" className="shadow-sm relative">
       <WidgetInfoButton description="Kalendarz wydarzeń - kliknij dzień aby zobaczyć zaplanowane webinary i spotkania. Kliknij kategorię w legendzie aby filtrować." />
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-primary" />
+        <CardTitle className="text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={Calendar} variant="violet" size="md" />
           {t('events.title') || 'Webinary i spotkania'}
         </CardTitle>
       </CardHeader>
