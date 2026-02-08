@@ -40,11 +40,12 @@ const Index = () => {
   const { data: systemTextsData = [] } = useSystemTexts();
   
   // Derive header values from cached system texts
-  const { headerText, authorText, siteLogo, headerImage, headerImageSize, headerImageCustomWidth, headerImageCustomHeight } = useMemo(() => {
+  const { headerText, authorText, siteLogo, headerImage, headerImageDark, headerImageSize, headerImageCustomWidth, headerImageCustomHeight } = useMemo(() => {
     const headerSystemText = systemTextsData.find(item => item.type === 'header_text');
     const authorSystemText = systemTextsData.find(item => item.type === 'author');
     const logoSystemText = systemTextsData.find(item => item.type === 'site_logo');
     const headerImageSystemText = systemTextsData.find(item => item.type === 'header_image');
+    const headerImageDarkSystemText = systemTextsData.find(item => item.type === 'header_image_dark');
     const headerImageSizeSystemText = systemTextsData.find(item => item.type === 'header_image_size');
     
     let size: 'small' | 'medium' | 'large' | 'xlarge' | 'custom' = 'medium';
@@ -67,6 +68,7 @@ const Index = () => {
       authorText: authorSystemText?.content || '',
       siteLogo: logoSystemText?.content || newPureLifeLogo,
       headerImage: headerImageSystemText?.content || niezbednikLogo,
+      headerImageDark: headerImageDarkSystemText?.content || '',
       headerImageSize: size,
       headerImageCustomWidth: customWidth,
       headerImageCustomHeight: customHeight,
@@ -547,6 +549,7 @@ const Index = () => {
       {/* Hero Section */}
       <HeroSection 
         headerImage={headerImage || niezbednikLogo}
+        headerImageDark={headerImageDark}
         headerText={headerText}
         authorText={authorText}
         showLoginButton={!user}

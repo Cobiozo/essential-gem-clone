@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/components/ThemeProvider';
 
 type ImageSize = 'small' | 'medium' | 'large' | 'xlarge' | 'custom';
 
 interface HeroSectionProps {
   headerImage: string;
+  headerImageDark?: string;
   headerText: string;
   authorText: string;
   showLoginButton?: boolean;
@@ -51,6 +53,7 @@ const sizeClasses: Record<ImageSize, string> = {
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
   headerImage,
+  headerImageDark,
   headerText,
   authorText,
   showLoginButton = false,
@@ -58,6 +61,29 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   customImageWidth,
   customImageHeight,
 }) => {
+  const { theme } = useTheme();
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const checkDarkMode = () => {
+      const isDark = theme === 'dark' || 
+        (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      setIsDarkMode(isDark);
+    };
+    
+    checkDarkMode();
+    
+    // Listen for system preference changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => checkDarkMode();
+    mediaQuery.addEventListener('change', handleChange);
+    
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
+
+  // Choose appropriate image based on theme
+  const activeImage = isDarkMode && headerImageDark ? headerImageDark : headerImage;
+  
   const hasTextContent = hasVisibleText(headerText) || hasVisibleText(authorText);
 
   return (
@@ -73,13 +99,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           "max-w-4xl mx-auto",
           hasTextContent ? "space-y-4 sm:space-y-6" : "space-y-0"
         )}>
-          {/* Logo */}
+          {/* Logo - switches between light/dark mode images */}
           <div className={cn(
             "flex flex-col items-center justify-center",
             hasTextContent ? "mb-4 sm:mb-6" : "mb-0"
           )}>
             <img 
-              src={headerImage} 
+              src={activeImage} 
               alt="Pure Life" 
               className={`object-contain ${imageSize !== 'custom' ? sizeClasses[imageSize] : ''}`}
               style={imageSize === 'custom' ? { 
@@ -87,10 +113,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 height: customImageHeight || 128 
               } : undefined}
             />
-            {/* PURE LIFE text under logo - always visible */}
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-widest text-foreground mt-4">
-              PURE LIFE
-            </h1>
           </div>
 
           {/* Description - tylko gdy jest rzeczywista treść */}
