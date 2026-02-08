@@ -1,163 +1,252 @@
 
-
-# Plan: Naprawa trybu jasnego i stylizacja strony logowania
+# Plan: Naprawa wyświetlania postępów szkoleń i nowe funkcje zarządzania lekcjami
 
 ## Zidentyfikowane problemy
 
-### 1. Widżety premium w trybie jasnym
+### Problem 1: Postęp użytkowników pokazuje 0% zamiast rzeczywistych wartości
 
-Na podstawie screenshota widoczne są problemy:
-- **Karta "Postęp szkoleń"** - ciemne tło (gradient od `hsl(225,35%,12%)` do `hsl(225,40%,8%)`) wygląda źle w jasnym trybie
-- **Panel powitalny** - efekt glassmorphism (`from-white/5`) i overlay'e nie działają prawidłowo w jasnym trybie
-- Elementy są zbyt kontrastowe i niespójne z resztą interfejsu
+**Przyczyna:** Zapytanie do tabeli `training_progress` w funkcji `fetchUserProgress` nie ma ustawionego limitu i domyślnie Supabase zwraca max 1000 wierszy. W bazie jest obecnie **1290 rekordów** - część danych jest obcinana.
 
-### 2. Strona logowania
+**Dane w bazie dla Szymona Latocha:**
+- Moduł BIZNESOWE: 14 ukończonych lekcji z 21 aktywnych = 67%
+- Panel admina pokazuje: 0%
 
-Wymagane zmiany:
-- Gradientowe tło w odcieniach granatu i szafiru (tylko w trybie ciemnym)
-- Przyciski "Zaloguj się" i "Zarejestruj się" w kolorze złotym
+### Problem 2: Brak opcji zmiany kolejności lekcji
+
+Formularz `LessonForm` nie zawiera pola `position`. Admin nie może zmienić kolejności lekcji w module.
+
+### Problem 3: Brak powiadomień o zmianie materiału wideo
+
+Przy edycji lekcji (w `saveLesson`) powiadomienia są wysyłane tylko dla NOWYCH lekcji, nie przy aktualizacji materiału wideo.
 
 ---
 
 ## Rozwiązanie
 
-### Faza 1: Aktualizacja wariantu "premium" w Card
+### Faza 1: Naprawa pobierania postępów (limit danych)
 
-**Plik:** `src/components/ui/card.tsx`
+**Plik:** `src/components/admin/TrainingManagement.tsx`
 
-Zmiana wariantu `premium` aby był responsywny na tryb:
+Zmiana w funkcji `fetchUserProgress` - dodanie zakresu do zapytania `training_progress`:
+
+**Przed (linia 617-619):**
+```typescript
+const { data: progressData, error: progressError } = await supabase
+  .from('training_progress')
+  .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds');
+```
+
+**Po:**
+```typescript
+const { data: progressData, error: progressError } = await supabase
+  .from('training_progress')
+  .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
+  .limit(10000); // Zwiększenie limitu z domyślnych 1000
+```
+
+**Alternatywa (lepsza):** Pobieranie postępów tylko dla użytkowników z przypisaniami:
+```typescript
+// Najpierw zbierz wszystkich userId z assignments
+const userIds = [...new Set(assignments?.map(a => a.user_id) || [])];
+
+// Potem pobierz progress tylko dla tych użytkowników
+const { data: progressData, error: progressError } = await supabase
+  .from('training_progress')
+  .select('user_id, lesson_id, is_completed, time_spent_seconds, video_position_seconds')
+  .in('user_id', userIds);
+```
+
+Ta optymalizacja:
+- Pobiera tylko potrzebne dane (nie wszystkie rekordy)
+- Unika problemu limitu 1000 wierszy
+- Jest szybsza dla dużych zbiorów danych
+
+---
+
+### Faza 2: Dodanie pola pozycji do formularza lekcji
+
+**Plik:** `src/components/admin/TrainingManagement.tsx`
+
+#### 2.1 Rozszerzenie formData w LessonForm (linia ~1892):
 
 ```typescript
-const cardVariants = cva(
-  "rounded-2xl border text-card-foreground transition-all duration-300",
-  {
-    variants: {
-      variant: {
-        default: "bg-card border-border shadow-sm",
-        // NOWE: różne style dla light i dark mode
-        premium: [
-          // Light mode: jasny gradient z delikatnym cieniem
-          "bg-gradient-to-br from-white to-slate-50 border-slate-200/50 shadow-lg shadow-slate-200/50",
-          // Dark mode: ciemny gradient premium
-          "dark:from-[hsl(225,35%,12%)] dark:to-[hsl(225,40%,8%)] dark:border-white/5 dark:shadow-xl dark:shadow-black/20 dark:backdrop-blur-sm"
-        ].join(" "),
-        glass: "bg-white/5 backdrop-blur-xl border-white/10 shadow-lg",
-      },
-    },
-    defaultVariants: { variant: "default" },
+const [formData, setFormData] = useState({
+  title: lesson?.title || "",
+  content: lesson?.content || "",
+  media_url: lesson?.media_url || "",
+  media_type: lesson?.media_type || "",
+  media_alt_text: lesson?.media_alt_text || "",
+  min_time_seconds: lesson?.min_time_seconds || 60,
+  video_duration_seconds: lesson?.video_duration_seconds || 0,
+  is_required: lesson?.is_required ?? true,
+  is_active: lesson?.is_active ?? true,
+  action_buttons: lesson?.action_buttons || [],
+  position: lesson?.position ?? 0, // NOWE POLE
+});
+```
+
+#### 2.2 Dodanie pola input w formularzu (po polu tytułu, około linii 1940):
+
+```tsx
+<div>
+  <Label htmlFor="lesson-position">Pozycja (kolejność)</Label>
+  <Input
+    id="lesson-position"
+    type="number"
+    min="0"
+    value={formData.position}
+    onChange={(e) => {
+      const value = e.target.value === '' ? 0 : parseInt(e.target.value);
+      setFormData(prev => ({ 
+        ...prev, 
+        position: isNaN(value) ? 0 : value
+      }));
+    }}
+    placeholder="np. 1, 2, 3..."
+  />
+  <p className="text-xs text-muted-foreground mt-1">
+    Mniejsza liczba = wyżej na liście. Lekcje są sortowane rosnąco.
+  </p>
+</div>
+```
+
+#### 2.3 Dodanie obsługi zmiany pozycji w `saveLesson`:
+
+Przy edycji lekcji, jeśli pozycja się zmieniła - przesuń inne lekcje automatycznie:
+
+```typescript
+// W saveLesson, po zapisaniu lekcji:
+if (editingLesson && editingLesson.position !== lessonData.position) {
+  // Reorganizuj pozycje innych lekcji
+  const { data: moduleLessons } = await supabase
+    .from('training_lessons')
+    .select('id, position')
+    .eq('module_id', selectedModule)
+    .neq('id', editingLesson.id)
+    .order('position');
+
+  // Przeindeksuj pozycje aby uniknąć duplikatów
+  const updates = moduleLessons?.map((l, idx) => ({
+    id: l.id,
+    position: l.position >= lessonData.position ? idx + 1 : idx
+  }));
+
+  if (updates) {
+    for (const update of updates) {
+      await supabase
+        .from('training_lessons')
+        .update({ position: update.position })
+        .eq('id', update.id);
+    }
   }
-);
+}
 ```
 
 ---
 
-### Faza 2: Poprawka WelcomeWidget dla trybu jasnego
+### Faza 3: Powiadomienia o zmianie materiału wideo
 
-**Plik:** `src/components/dashboard/widgets/WelcomeWidget.tsx`
+**Plik:** `src/components/admin/TrainingManagement.tsx`
 
-Zmiany:
-1. Overlay gradient - różne kolory dla light/dark
-2. Glass effect bar - widoczny tylko w dark mode
-3. Tekst powitania - spójny gradient w obu trybach
+W funkcji `saveLesson`, po zapisaniu edycji lekcji, dodać wysyłanie powiadomień gdy zmieniono media_url:
 
-```tsx
-{/* Gradient overlay - różny dla light/dark */}
-<div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-blue-500/5 dark:from-gold/10 dark:via-transparent dark:to-action-blue/5 pointer-events-none" />
-
-{/* Glass effect bar - tylko dark mode */}
-<div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-black/[0.02] to-transparent dark:from-white/5 dark:to-transparent dark:backdrop-blur-[1px] pointer-events-none" />
-
-{/* Powitanie - gradient widoczny w obu trybach */}
-<h2 className="text-2xl md:text-3xl font-bold 
-  bg-gradient-to-r from-slate-800 via-amber-600 to-slate-800 
-  dark:from-foreground dark:via-gold dark:to-foreground 
-  bg-clip-text text-transparent bg-[length:200%_auto] animate-[shimmer_3s_ease-in-out_infinite]">
-
-{/* Zegar - kolor złoty w obu trybach */}
-<div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-amber-600 dark:text-gold tabular-nums">
-  <Clock className="h-5 w-5 md:h-6 md:w-6 text-amber-600/70 dark:text-gold/70" />
-
-{/* Select timezone - style dla light mode */}
-<SelectTrigger className="w-[160px] h-8 text-xs bg-black/5 dark:bg-white/5 border-black/10 dark:border-white/10 backdrop-blur-sm">
+```typescript
+if (editingLesson) {
+  // Sprawdź czy materiał wideo został zmieniony
+  const oldMediaUrl = editingLesson.media_url;
+  const newMediaUrl = lessonData.media_url;
+  
+  if (oldMediaUrl && newMediaUrl && oldMediaUrl !== newMediaUrl) {
+    // ... istniejący kod usuwania starego pliku ...
+    
+    // NOWE: Wyślij powiadomienia do użytkowników z postępem w tym module
+    try {
+      const { data: moduleData } = await supabase
+        .from('training_modules')
+        .select('title')
+        .eq('id', selectedModule)
+        .single();
+      
+      const moduleTitle = moduleData?.title || 'szkolenia';
+      
+      // Pobierz użytkowników z postępem w tym module
+      const { data: usersWithProgress } = await supabase
+        .from('training_progress')
+        .select('user_id, training_lessons!inner(module_id)')
+        .eq('training_lessons.module_id', selectedModule);
+      
+      const uniqueUserIds = [...new Set(usersWithProgress?.map(p => p.user_id) || [])];
+      
+      if (uniqueUserIds.length > 0) {
+        const notifications = uniqueUserIds.map(userId => ({
+          user_id: userId,
+          notification_type: 'training_content_updated',
+          source_module: 'training',
+          title: 'Zaktualizowano materiały szkoleniowe',
+          message: `Materiał wideo w lekcji "${lessonData.title}" modułu ${moduleTitle} został zaktualizowany. Sprawdź nowe treści!`,
+          link: `/training/${selectedModule}`,
+          metadata: {
+            module_id: selectedModule,
+            module_title: moduleTitle,
+            lesson_id: editingLesson.id,
+            lesson_title: lessonData.title,
+            update_type: 'video_replaced'
+          }
+        }));
+        
+        await supabase.from('user_notifications').insert(notifications);
+        console.log(`📧 Sent ${uniqueUserIds.length} notifications about video update`);
+        
+        toast({
+          title: "Powiadomienia wysłane",
+          description: `${uniqueUserIds.length} użytkowników zostało powiadomionych o zmianie materiału`,
+        });
+      }
+    } catch (notifError) {
+      console.error('Error sending update notifications:', notifError);
+    }
+  }
+  
+  // ... reszta istniejącej logiki zapisu ...
+}
 ```
 
 ---
 
-### Faza 3: Poprawka TrainingProgressWidget dla trybu jasnego
+### Faza 4: Wyświetlanie pozycji w liście lekcji
 
-**Plik:** `src/components/dashboard/widgets/TrainingProgressWidget.tsx`
+Aktualizacja widoku listy lekcji aby pokazywać numer pozycji (nie tylko index):
 
-Zmiany w nagłówku i efektach:
-
+**Linia ~1343:**
 ```tsx
-{/* Blur backdrop - różny dla light/dark */}
-<div className="absolute inset-0 bg-gradient-to-b from-black/[0.02] to-transparent dark:from-white/5 dark:to-transparent rounded-t-2xl dark:backdrop-blur-[2px]" />
+{/* Przed: */}
+<h4 className="font-semibold text-sm truncate">
+  {index + 1}. {lesson.title}
+</h4>
 
-{/* Hover state na module - widoczny w obu trybach */}
-<div className="group cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 -mx-2 px-3 py-3 rounded-xl transition-all">
-```
-
----
-
-### Faza 4: Strona logowania - gradient i złote przyciski
-
-**Plik:** `src/pages/Auth.tsx`
-
-#### 4.1 Gradient tła (tylko dark mode)
-
-```tsx
-<div className="min-h-screen bg-background dark:bg-gradient-to-br dark:from-[hsl(225,50%,8%)] dark:via-[hsl(230,45%,12%)] dark:to-[hsl(240,40%,6%)] flex items-center justify-center p-4 sm:p-6 lg:p-8">
-```
-
-#### 4.2 Złote przyciski "Zaloguj się" i "Zarejestruj się"
-
-W CardFooter dla obu formularzy:
-
-```tsx
-{/* Przycisk logowania */}
-<Button 
-  type="submit" 
-  className="w-full bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#B8860B] text-black font-semibold hover:opacity-90 shadow-lg shadow-amber-500/20" 
-  disabled={loading}
->
-  {loading ? t('auth.loggingIn') : t('auth.signIn')}
-</Button>
-
-{/* Przycisk rejestracji */}
-<Button 
-  type="submit" 
-  className="w-full bg-gradient-to-r from-[#D4AF37] via-[#F5E050] to-[#B8860B] text-black font-semibold hover:opacity-90 shadow-lg shadow-amber-500/20" 
-  disabled={loading}
->
-  {loading ? t('auth.registering') : t('auth.signUp')}
-</Button>
+{/* Po: */}
+<h4 className="font-semibold text-sm truncate">
+  <span className="text-muted-foreground mr-1">#{lesson.position}</span>
+  {lesson.title}
+</h4>
 ```
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/ui/card.tsx` | Wariant `premium` responsywny na light/dark mode |
-| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Overlay i tekst spójne w obu trybach |
-| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Backdrop blur i hover responsywne |
-| `src/pages/Auth.tsx` | Gradient tło dark mode + złote przyciski |
+| Plik | Zmiana | Efekt |
+|------|--------|-------|
+| `TrainingManagement.tsx` | Optymalizacja `fetchUserProgress` - filtrowanie po userId | Naprawa pobierania postępów (przekroczenie limitu 1000) |
+| `TrainingManagement.tsx` | Dodanie pola `position` do `LessonForm` | Admin może zmieniać kolejność lekcji |
+| `TrainingManagement.tsx` | Dodanie logiki powiadomień przy zmianie media_url | Użytkownicy otrzymują powiadomienia o zmianie wideo |
+| `TrainingManagement.tsx` | Wyświetlanie numeru pozycji w liście lekcji | Lepsza widoczność kolejności |
 
 ---
 
-## Efekt końcowy
+## Oczekiwane rezultaty
 
-### Light mode:
-- Karty premium: jasny gradient od białego do `slate-50` z delikatnym cieniem
-- Powitanie: złoty gradient na ciemnym tekście (`slate-800` → `amber-600`)
-- Hover effects: `bg-black/5` zamiast `bg-white/5`
-
-### Dark mode:
-- Bez zmian - zachowany obecny premium wygląd
-- Gradientowe ciemne tło na stronie logowania (granat → szafir)
-
-### Strona logowania:
-- Tło: gradient granat/szafir tylko w dark mode
-- Przyciski: metaliczny złoty gradient (`#D4AF37` → `#F5E050` → `#B8860B`)
-
+1. **Postępy użytkowników** - Szymon Latocha będzie widoczny z 67% w module BIZNESOWE (14/21 lekcji)
+2. **Zmiana kolejności** - Admin może wpisać numer pozycji dla każdej lekcji
+3. **Powiadomienia o aktualizacji wideo** - Użytkownicy z postępem w module otrzymują powiadomienie gdy admin zmieni materiał wideo
+4. **Real-time update** - Zgodnie z memory projektu, UI odświeża się natychmiast po operacjach
