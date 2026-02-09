@@ -1,250 +1,283 @@
 
 
-# Plan: Naprawa zacinania się wideo w akademii szkoleniowej
+# Audyt modułu szkoleniowego - odtwarzanie wideo
 
-## Diagnoza problemu
+## Executive Summary
 
-Na podstawie analizy kodu i screenshotu zidentyfikowano następujące problemy:
+Moduł szkoleniowy posiada solidną podstawę do obsługi wideo, ale zidentyfikowałem **6 krytycznych problemów** wpływających na płynność odtwarzania i stabilność buforowania.
 
-### Problem główny: Brak obsługi buforowania dla ukończonych lekcji
+---
 
-W `SecureMedia.tsx` cała logika obsługi buforowania (handleWaiting, handleCanPlay, handleProgress, handleError z retry) jest uruchamiana **tylko gdy `disableInteraction=true`** (linia 578):
+## Zidentyfikowane problemy
 
-```tsx
-if (mediaType !== 'video' || !disableInteraction || !videoElement) return;
+### Problem 1: KRYTYCZNY - Podwójne resetowanie stanu przy zmianie lekcji
+
+**Lokalizacja:** `src/components/SecureMedia.tsx` (linie 385-419)
+
+**Opis:** W logach konsoli widzę:
+```
+[SecureMedia] mediaUrl changed, resetting all state
+[SecureMedia] mediaUrl changed, resetting all state  ← PODWÓJNE!
+[SecureMedia] Setting initial position...
 ```
 
-Gdy lekcja jest ukończona (`isLessonCompleted=true`), prop `disableInteraction=false`, więc:
-- Brak obsługi zdarzeń `waiting`, `stalled`, `canplay`, `progress`
-- Brak mechanizmu retry przy błędach sieciowych
-- Brak smart buffering i recovery
+Efekt resetowania stanu jest wywoływany dwukrotnie, co powoduje:
+- Wielokrotne żądania sieciowe do tego samego pliku
+- Przerwanie buforowania w trakcie
+- Opóźnione załadowanie wideo
 
-### Problem dodatkowy: Preload ustawiony nieprawidłowo
-
-| Tryb wideo | Preload | Problem |
-|------------|---------|---------|
-| Restricted (nieukończona lekcja) | `auto` dla purelife.info.pl | OK |
-| Native controls (ukończona lekcja) | `metadata` | Zbyt mało buforowania |
-| Secure mode (artykuły/news) | `metadata` | Zbyt mało buforowania |
+**Przyczyna:** Brak debounce/guard w useEffect, który reaguje na zmianę `mediaUrl`.
 
 ---
 
-## Rozwiązanie
+### Problem 2: WAŻNY - Brak obsługi `progress` event dla trybu unrestricted
 
-### Zmiana 1: Dodanie obsługi buforowania dla trybu unrestricted (ukończone lekcje)
+**Lokalizacja:** `src/components/SecureMedia.tsx` (linie 942-1077)
 
-Rozszerzenie `useEffect` z linii 942-1005 o handlery dla `waiting`, `stalled`, `canplay`, `progress` i `error`. 
-
-**Kluczowe handlery do dodania:**
-- `handleWaiting` - ustawia stan buforowania
-- `handleStalled` - reakcja na zatrzymanie strumienia
-- `handleCanPlay` - reset stanów buforowania
-- `handleError` - retry z exponential backoff
-
-### Zmiana 2: Poprawienie preload dla wszystkich trybów video
-
-Zmiana `preload="metadata"` na `preload="auto"` dla wideo z purelife.info.pl we wszystkich trybach renderowania (native controls i secure mode).
-
-### Zmiana 3: Dodanie spinnera buforowania dla trybu unrestricted
-
-W trybie native controls brak wizualnego wskaźnika buforowania - użytkownik widzi tylko zamrożony obraz.
-
----
-
-## Szczegóły implementacji
-
-### Plik: `src/components/SecureMedia.tsx`
-
-**Zmiana 1: Rozszerzenie handlera dla trybu unrestricted (linie ~942-1005)**
-
-Dodanie obsługi buforowania do istniejącego useEffect:
+**Opis:** W trybie unrestricted (ukończone lekcje) brakuje handlera `handleProgress`, który jest obecny w trybie restricted (linie 730-778). Skutkuje to:
+- Brakiem śledzenia postępu buforowania
+- Brakiem wizualizacji buffered ranges
+- Brakiem smart buffering recovery
 
 ```tsx
-// Time tracking for unrestricted mode and secure mode
+// RESTRICTED MODE - ma handleProgress (linia 730):
+const handleProgress = () => {
+  if (video.buffered.length > 0 && video.duration > 0) {
+    const bufferedAheadValue = getBufferedAhead(video);
+    setBufferedAhead(bufferedAheadValue);
+    setBufferProgress(progress);
+    // ... smart buffering logic
+  }
+};
+
+// UNRESTRICTED MODE - BRAK handleProgress!
+```
+
+---
+
+### Problem 3: WAŻNY - Brak canplaythrough event w niektórych trybach
+
+**Lokalizacja:** `src/components/SecureMedia.tsx`
+
+**Opis:** W trybie unrestricted nasłuchujemy `canplaythrough`, ale nie wykorzystujemy go optymalnie do resetowania stanów buforowania. Zdarzenie `canplaythrough` oznacza, że przeglądarka ocenia, że wideo może być odtwarzane do końca bez przerw - to najlepszy moment na reset stanów.
+
+---
+
+### Problem 4: ŚREDNI - Mobile preload strategy `metadata` vs `auto`
+
+**Lokalizacja:** `src/lib/videoBufferConfig.ts` (linia 33)
+
+**Opis:** Na urządzeniach mobilnych używana jest strategia `preloadStrategy: 'metadata'`, podczas gdy dla wideo z `purelife.info.pl` wymuszany jest `preload="auto"`. To powoduje niespójność:
+
+```tsx
+// videoBufferConfig.ts (mobile):
+preloadStrategy: 'metadata' as const,
+
+// SecureMedia.tsx (linia 1399):
+preload={signedUrl.includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
+```
+
+Dla VPS wideo jest `auto`, ale dla Supabase Storage na mobile jest `metadata` - może powodować wolniejsze ładowanie.
+
+---
+
+### Problem 5: ŚREDNI - Brak mechanizmu preconnect dla VPS
+
+**Lokalizacja:** Brak implementacji
+
+**Opis:** Dla wideo z `purelife.info.pl` brakuje optymalizacji połączenia:
+- Brak `<link rel="preconnect">` do domeny VPS
+- Brak `<link rel="dns-prefetch">`
+- Każde nowe wideo wymaga pełnego handshake'u SSL
+
+---
+
+### Problem 6: NISKI - Nieoptymalna obsługa przejścia między lekcjami
+
+**Lokalizacja:** `src/pages/TrainingModule.tsx` (linie 406-437)
+
+**Opis:** Prefetch następnego wideo pomija wideo z VPS (`purelife.info.pl`):
+
+```tsx
+if (isYouTube || isExternalUrl) {  // isExternalUrl = true dla purelife.info.pl
+  console.log('[TrainingModule] Skipping prefetch for external URL:', nextLesson.title);
+  return;  // ← Pomija prefetch dla VPS!
+}
+```
+
+---
+
+## Rozwiązania
+
+### Rozwiązanie 1: Debounce resetowania stanu w SecureMedia
+
+```tsx
+// Dodać ref do śledzenia ostatniego mediaUrl
+const lastMediaUrlRef = useRef<string | null>(null);
+
 useEffect(() => {
-  if (mediaType !== 'video' || !videoElement) return;
-  if (disableInteraction && controlMode !== 'secure') return;
+  // Guard: Skip if same URL (prevent double reset)
+  if (mediaUrl === lastMediaUrlRef.current) {
+    console.log('[SecureMedia] Same mediaUrl, skipping reset');
+    return;
+  }
+  lastMediaUrlRef.current = mediaUrl;
+  
+  console.log('[SecureMedia] mediaUrl changed, resetting all state');
+  // ... existing reset logic
+}, [mediaUrl]);
+```
 
-  let mounted = true;
-  const video = videoElement;
+---
 
-  // NEW: Buffering handlers for unrestricted/secure modes
-  const handleWaiting = () => {
-    if (!mounted) return;
-    console.log('[SecureMedia] Unrestricted mode - video waiting');
-    setIsBuffering(true);
-    
-    // Debounced spinner display
-    if (spinnerTimeoutRef.current) clearTimeout(spinnerTimeoutRef.current);
-    spinnerTimeoutRef.current = setTimeout(() => {
-      if (!video.paused && video.readyState < 3) {
-        setShowBufferingSpinner(true);
-      }
-    }, 1500);
-  };
+### Rozwiązanie 2: Dodanie handleProgress do trybu unrestricted
 
-  const handleStalled = () => {
-    if (!mounted) return;
-    console.log('[SecureMedia] Unrestricted mode - video stalled');
-    setIsBuffering(true);
-  };
+```tsx
+// W useEffect dla unrestricted mode (linia ~942):
+const handleProgress = () => {
+  if (!mounted || !video.buffered || video.buffered.length === 0) return;
+  
+  const bufferedAheadValue = getBufferedAhead(video);
+  setBufferedAhead(bufferedAheadValue);
+  
+  // Update buffered ranges for visualization (jeśli potrzebne)
+  setBufferedRanges(getBufferedRanges(video));
+};
 
-  const handleCanPlay = () => {
-    if (!mounted) return;
-    console.log('[SecureMedia] Unrestricted mode - can play');
-    setIsBuffering(false);
-    setShowBufferingSpinner(false);
-    if (spinnerTimeoutRef.current) {
-      clearTimeout(spinnerTimeoutRef.current);
-      spinnerTimeoutRef.current = undefined;
-    }
-  };
+// Dodać listener:
+video.addEventListener('progress', handleProgress);
 
-  const handleError = (e: Event) => {
-    if (!mounted) return;
-    const errorType = getVideoErrorType(video);
-    console.error('[SecureMedia] Unrestricted mode error:', errorType, e);
-    
-    const maxRetries = bufferConfigRef.current.maxRetries;
-    if (retryCount < maxRetries) {
-      const delay = getRetryDelay(retryCount, bufferConfigRef.current.retryDelayMs);
-      console.log(`[SecureMedia] Unrestricted retry ${retryCount + 1}/${maxRetries} after ${delay}ms`);
-      
-      setTimeout(() => {
-        if (video && mounted) {
-          const currentPos = video.currentTime;
-          video.load();
-          video.currentTime = currentPos;
-          setRetryCount(prev => prev + 1);
-        }
-      }, delay);
-    } else {
-      setHasExhaustedRetries(true);
-    }
-  };
+// Cleanup:
+video.removeEventListener('progress', handleProgress);
+```
 
-  // Existing handlers...
-  const handleTimeUpdate = () => { /* ... existing code ... */ };
-  const handlePlay = () => { /* ... existing code ... */ };
-  const handlePause = () => { /* ... existing code ... */ };
-  const handleLoadedMetadata = () => { /* ... existing code ... */ };
+---
 
-  // Add new listeners
-  video.addEventListener('waiting', handleWaiting);
-  video.addEventListener('stalled', handleStalled);
-  video.addEventListener('canplay', handleCanPlay);
-  video.addEventListener('canplaythrough', handleCanPlay);
-  video.addEventListener('error', handleError);
-  // ... existing listeners ...
+### Rozwiązanie 3: Preconnect do VPS przy wejściu na /training
 
+```tsx
+// W TrainingModule.tsx - na początku komponentu:
+useEffect(() => {
+  // Add preconnect hint for VPS
+  const preconnect = document.createElement('link');
+  preconnect.rel = 'preconnect';
+  preconnect.href = 'https://purelife.info.pl';
+  preconnect.crossOrigin = 'anonymous';
+  document.head.appendChild(preconnect);
+  
   return () => {
-    mounted = false;
-    video.removeEventListener('waiting', handleWaiting);
-    video.removeEventListener('stalled', handleStalled);
-    video.removeEventListener('canplay', handleCanPlay);
-    video.removeEventListener('canplaythrough', handleCanPlay);
-    video.removeEventListener('error', handleError);
-    // ... existing cleanup ...
-    
-    if (spinnerTimeoutRef.current) {
-      clearTimeout(spinnerTimeoutRef.current);
+    if (preconnect.parentNode) {
+      document.head.removeChild(preconnect);
     }
   };
-}, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, controlMode]);
+}, []);
 ```
 
-**Zmiana 2: Poprawienie preload dla native controls (linia ~1418)**
+---
 
-Przed:
+### Rozwiązanie 4: Włączenie prefetch dla wideo z VPS
+
 ```tsx
-preload="metadata"
+// W TrainingModule.tsx (linia ~406-437):
+useEffect(() => {
+  if (lessons.length === 0 || currentLessonIndex >= lessons.length - 1) return;
+  
+  const nextLesson = lessons[currentLessonIndex + 1];
+  if (nextLesson?.media_type === 'video' && nextLesson?.media_url) {
+    const url = nextLesson.media_url;
+    
+    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+    
+    // ZMIANA: Pozwól na prefetch dla VPS (purelife.info.pl)
+    if (isYouTube) {
+      return;
+    }
+    
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = url;
+    link.as = 'video';
+    // Dla VPS dodaj crossorigin
+    if (url.includes('purelife.info.pl')) {
+      link.crossOrigin = 'anonymous';
+    }
+    document.head.appendChild(link);
+    
+    console.log('[TrainingModule] Preloading next lesson video:', nextLesson.title);
+    
+    return () => {
+      if (link.parentNode) {
+        document.head.removeChild(link);
+      }
+    };
+  }
+}, [lessons, currentLessonIndex]);
 ```
 
-Po:
+---
+
+### Rozwiązanie 5: Ujednolicenie preload strategy dla mobile
+
 ```tsx
-preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
+// W src/lib/videoBufferConfig.ts:
+mobile: {
+  // ZMIANA: auto dla lepszego preloadingu
+  preloadStrategy: 'auto' as const,
+  // ... rest
+}
 ```
 
-**Zmiana 3: Poprawienie preload dla secure mode (linia ~1239)**
-
-Przed:
-```tsx
-preload="metadata"
-```
-
-Po:
-```tsx
-preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
-```
-
-**Zmiana 4: Dodanie spinnera buforowania do native controls (linia ~1408-1428)**
+Alternatywnie - zachować `metadata` ale dodać warunek w SecureMedia:
 
 ```tsx
-return (
-  <div className={`relative w-full aspect-video bg-black rounded-lg ${className || ''}`}>
-    <video
-      ref={videoRefCallback}
-      {...securityProps}
-      src={signedUrl}
-      controls
-      controlsList="nodownload"
-      className="absolute inset-0 w-full h-full object-contain rounded-lg"
-      preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
-      playsInline
-      webkit-playsinline="true"
-      {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
-    >
-      Twoja przeglądarka nie obsługuje odtwarzania wideo.
-    </video>
-    {/* NEW: Buffering spinner overlay */}
-    {showBufferingSpinner && (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg pointer-events-none">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
-        <span className="text-white text-sm mt-2">Ładowanie...</span>
-      </div>
-    )}
-  </div>
-);
+// Zawsze używaj 'auto' dla wideo treningowych (disableInteraction = true)
+preload={
+  signedUrl.includes('purelife.info.pl') || disableInteraction 
+    ? 'auto' 
+    : bufferConfigRef.current.preloadStrategy
+}
 ```
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/SecureMedia.tsx` | Dodanie obsługi buforowania dla trybu unrestricted (handleWaiting, handleStalled, handleCanPlay, handleError) |
-| `src/components/SecureMedia.tsx` | Zmiana preload na 'auto' dla purelife.info.pl we wszystkich trybach |
-| `src/components/SecureMedia.tsx` | Dodanie spinnera buforowania do trybu native controls |
-| `src/components/SecureMedia.tsx` | Obsługa retry z exponential backoff dla ukończonych lekcji |
+| Plik | Zmiana | Wpływ |
+|------|--------|-------|
+| `src/components/SecureMedia.tsx` | Guard przed podwójnym resetem stanu | Eliminacja podwójnych żądań sieciowych |
+| `src/components/SecureMedia.tsx` | Dodanie handleProgress dla trybu unrestricted | Lepsze śledzenie buforowania |
+| `src/pages/TrainingModule.tsx` | Preconnect do VPS na starcie | Szybsze nawiązanie połączenia |
+| `src/pages/TrainingModule.tsx` | Włączenie prefetch dla wideo VPS | Szybsze ładowanie następnych lekcji |
+| `src/lib/videoBufferConfig.ts` | Zmiana mobile preloadStrategy na 'auto' | Spójne buforowanie |
 
 ---
 
-## Oczekiwany efekt
+## Oczekiwane rezultaty
 
-1. Wideo w ukończonych lekcjach będzie miało pełną obsługę buforowania
-2. Automatyczny retry przy problemach sieciowych (do 5-6 prób)
-3. Wizualny spinner informujący o ładowaniu w każdym trybie
-4. Lepsze preloadowanie dla wideo z serwera VPS (purelife.info.pl)
-5. Recovery po stalled/waiting events bez ręcznego odświeżania strony
+1. **Eliminacja podwójnego ładowania** - jedno żądanie na zmianę lekcji
+2. **Szybsze ładowanie** - preconnect + prefetch dla VPS
+3. **Lepsze recovery po zacinaniu** - handleProgress dla wszystkich trybów
+4. **Płynniejsze przejścia** - brak resetowania stanu przy tym samym URL
+5. **Spójne UX na mobile** - jednolita strategia preload
 
 ---
 
-## Schemat działania po zmianach
+## Schemat przepływu po zmianach
 
 ```text
-Użytkownik uruchamia wideo (ukończona lekcja)
+Użytkownik otwiera lekcję
         ↓
-Preload: 'auto' dla purelife.info.pl
+Preconnect do purelife.info.pl (pierwszy raz)
         ↓
-Zdarzenie 'waiting' → setIsBuffering(true) + debounced spinner
+SecureMedia: Guard sprawdza czy mediaUrl się zmienił
         ↓
-Po 1.5s bez recovery → wyświetl spinner
+TAK → Reset stanów, załaduj wideo z preload='auto'
+NIE → Pomiń reset, zachowaj bufor
         ↓
-Zdarzenie 'canplay' → ukryj spinner, kontynuuj odtwarzanie
+handleProgress śledzi buforowanie
         ↓
-Błąd sieciowy → retry z exponential backoff (2s, 4s, 8s...)
+Prefetch następnej lekcji w tle
         ↓
-Max retries → komunikat "Nie można załadować wideo"
+Użytkownik przechodzi do następnej → natychmiastowe odtwarzanie
 ```
 
