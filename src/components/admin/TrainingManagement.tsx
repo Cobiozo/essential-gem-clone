@@ -1172,16 +1172,101 @@ const TrainingManagement = () => {
             </Card>
           )}
 
-          {/* Modules Table */}
-          <div className="rounded-md border">
+          {/* Mobile: Card layout for modules */}
+          <div className="space-y-3 md:hidden">
+            {modules.length === 0 ? (
+              <Card>
+                <CardContent className="text-center text-muted-foreground py-8">
+                  {t('admin.training.noModules') || 'Brak modułów szkoleniowych'}
+                </CardContent>
+              </Card>
+            ) : (
+              modules.map((module) => {
+                const lessonCount = lessons.filter(l => l.module_id === module.id).length;
+                return (
+                  <Card key={module.id} className={cn(!module.is_active && "opacity-60")}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium truncate">{module.title}</h3>
+                          <div className="flex flex-wrap items-center gap-2 mt-2">
+                            <Badge variant={module.is_active ? "default" : "secondary"} className="text-xs">
+                              {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {lessonCount} {lessonCount === 1 ? 'lekcja' : lessonCount < 5 ? 'lekcje' : 'lekcji'}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            {getVisibilityText(module)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => navigate(`/training/${module.id}`)}
+                            title={t('admin.training.preview') || 'Podgląd'}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedModule(module.id);
+                                setActiveTab("lessons");
+                              }}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                {t('admin.training.lessons') || 'Lekcje'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedModuleForUsers(module.id);
+                                setShowUserSelector(true);
+                              }}>
+                                <Send className="h-4 w-4 mr-2" />
+                                {t('admin.training.send') || 'Wyślij'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setEditingModule(module);
+                                setShowModuleForm(true);
+                              }}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                {t('admin.training.edit')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive" 
+                                onClick={() => deleteModule(module.id)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                {t('admin.training.delete')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop: Table layout for modules */}
+          <div className="rounded-md border hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('admin.training.moduleName') || 'Nazwa modułu'}</TableHead>
-                  <TableHead className="w-20 text-center">{t('admin.training.lessons') || 'Lekcje'}</TableHead>
-                  <TableHead className="w-28">{t('admin.training.status') || 'Status'}</TableHead>
-                  <TableHead>{t('admin.training.visibleTo') || 'Widoczność'}</TableHead>
-                  <TableHead className="text-right w-36">{t('admin.training.actions') || 'Akcje'}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('admin.training.moduleName') || 'Nazwa modułu'}</TableHead>
+                  <TableHead className="w-20 text-center whitespace-nowrap">{t('admin.training.lessons') || 'Lekcje'}</TableHead>
+                  <TableHead className="w-28 whitespace-nowrap">{t('admin.training.status') || 'Status'}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t('admin.training.visibleTo') || 'Widoczność'}</TableHead>
+                  <TableHead className="text-right w-36 whitespace-nowrap">{t('admin.training.actions') || 'Akcje'}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1206,7 +1291,7 @@ const TrainingManagement = () => {
                               module.is_active ? "bg-green-500" : "bg-gray-400"
                             )} />
                             <span className={cn(
-                              "text-sm",
+                              "text-sm whitespace-nowrap",
                               module.is_active ? "text-green-600" : "text-muted-foreground"
                             )}>
                               {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}

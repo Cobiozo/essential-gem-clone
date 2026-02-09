@@ -1285,15 +1285,15 @@ const TrainingModule = () => {
                               : 'border-border hover:border-primary/50'
                           }`}
                         >
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
                             {isLocked ? (
-                              <Lock className="h-4 w-4 text-muted-foreground" />
+                              <Lock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                             ) : isCompleted ? (
-                              <CheckCircle className="h-4 w-4 text-green-600" />
+                              <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
                             ) : (
-                              getMediaIcon(lesson.media_type)
+                              <span className="flex-shrink-0">{getMediaIcon(lesson.media_type)}</span>
                             )}
-                            <span className="text-sm font-medium truncate">
+                            <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
                               {lesson.title}
                             </span>
                           </div>
@@ -1348,15 +1348,15 @@ const TrainingModule = () => {
                           : 'border-border hover:border-primary/50'
                       }`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
                         {isLocked ? (
-                          <Lock className="h-4 w-4 text-muted-foreground" />
+                          <Lock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
                         ) : isCompleted ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
                         ) : (
-                          getMediaIcon(lesson.media_type)
+                          <span className="flex-shrink-0">{getMediaIcon(lesson.media_type)}</span>
                         )}
-                        <span className="text-sm font-medium truncate">
+                        <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
                           {lesson.title}
                         </span>
                       </div>
@@ -1381,7 +1381,7 @@ const TrainingModule = () => {
             <Card>
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0">
+                  <CardTitle className="break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0 overflow-hidden" style={{ wordBreak: 'break-word' }}>
                     {currentLesson.title}
                   </CardTitle>
                   <div className="flex items-center gap-2 flex-shrink-0">

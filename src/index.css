@@ -382,6 +382,32 @@ All colors MUST be HSL.
   }
 }
 
+/* Admin tables - ensure horizontal scroll on small screens */
+@media (max-width: 767px) {
+  /* Table containers in admin should have horizontal scroll indicator */
+  .rounded-md.border:has(table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Table cells should not wrap text vertically - prevent letter stacking */
+  table th,
+  table td {
+    white-space: nowrap;
+  }
+  
+  /* Allow specific cells to wrap when needed */
+  table th.allow-wrap,
+  table td.allow-wrap {
+    white-space: normal;
+  }
+  
+  /* Minimum table width to prevent column compression */
+  table {
+    min-width: 600px;
+  }
+}
+
 /* Fix dark mode text visibility for CMS content with hardcoded black colors */
 @layer utilities {
   /* Override inline black text colors in dark mode */
