@@ -30,7 +30,7 @@ export const VIDEO_BUFFER_CONFIG = {
   mobile: {
     minBufferSeconds: 3,           // Zwiększone z 2 na 3 dla stabilniejszego odtwarzania
     targetBufferSeconds: 12,       // Zwiększone z 10 na 12 dla mniej przerw
-    preloadStrategy: 'metadata' as const, // Light preload to save bandwidth
+    preloadStrategy: 'auto' as const, // Changed to 'auto' for consistent buffering with VPS videos
     retryDelayMs: 3000,            // Longer delay on mobile (worse networks)
     maxRetries: 6,                 // Zwiększone z 5 na 6 dla wolniejszych łączy
   },
