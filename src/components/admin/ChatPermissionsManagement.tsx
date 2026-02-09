@@ -9,6 +9,7 @@ import { MessageSquare, ArrowRight, RefreshCw, Loader2, Info } from 'lucide-reac
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ChatSidebarVisibilityCard } from './ChatSidebarVisibilityCard';
+import { BroadcastLeadersCard } from './BroadcastLeadersCard';
 
 interface ChatPermission {
   id: string;
@@ -106,6 +107,9 @@ export const ChatPermissionsManagement = () => {
     <>
       {/* Chat Sidebar Visibility Section */}
       <ChatSidebarVisibilityCard />
+      
+      {/* Broadcast Leaders Section */}
+      <BroadcastLeadersCard />
       
       {/* Chat Permissions Section */}
       <Card>
