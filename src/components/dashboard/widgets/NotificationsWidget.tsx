@@ -37,7 +37,7 @@ export const NotificationsWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm relative" data-tour="notifications-widget">
+    <Card variant="premium" className="relative" data-tour="notifications-widget">
       <WidgetInfoButton description="Centrum powiadomień - ważne informacje od upline i systemu" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-3">

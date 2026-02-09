@@ -76,7 +76,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
   }
 
   return (
-    <Card data-tour="healthy-knowledge-widget" className="relative">
+    <Card data-tour="healthy-knowledge-widget" variant="premium" className="relative">
       <WidgetInfoButton description="Wyróżnione materiały edukacyjne o zdrowym stylu życia" />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">

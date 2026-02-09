@@ -277,7 +277,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   
   if (loading) {
     return (
-      <Card className="relative">
+      <Card variant="premium" className="relative">
         <WidgetInfoButton description="Kody jednorazowe dla Twoich podopiecznych - monitoruj dostępy" />
         <CardHeader className="pb-3">
           <div className="flex items-center gap-2">
@@ -359,7 +359,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   );
 
   return (
-    <Card data-tour="otp-codes-widget" className="relative">
+    <Card data-tour="otp-codes-widget" variant="premium" className="relative">
       <WidgetInfoButton description="Kody jednorazowe dla Twoich podopiecznych - monitoruj dostępy" />
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">

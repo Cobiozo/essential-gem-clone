@@ -98,7 +98,7 @@ export const TeamContactsWidget: React.FC = () => {
 
   return (
     <>
-      <Card className="shadow-sm relative" data-tour="team-contacts-widget">
+      <Card variant="premium" className="relative" data-tour="team-contacts-widget">
         <WidgetInfoButton description="Szybki dostęp do kontaktów zespołowych i wyszukiwarki specjalistów" />
         <CardHeader className="pb-2 flex flex-row items-center justify-between">
           <CardTitle className="text-base font-semibold flex items-center gap-3">

@@ -227,7 +227,7 @@ Zapisz się tutaj: ${inviteUrl}
   };
 
   return (
-    <Card data-tour="calendar-widget" className="shadow-sm relative">
+    <Card data-tour="calendar-widget" variant="premium" className="relative">
       <WidgetInfoButton description="Kalendarz wydarzeń - kliknij dzień aby zobaczyć zaplanowane webinary i spotkania. Kliknij kategorię w legendzie aby filtrować." />
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-3">

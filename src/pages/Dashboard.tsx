@@ -19,6 +19,7 @@ const CombinedOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets
 const HealthyKnowledgeWidget = lazy(() => import('@/components/dashboard/widgets/HealthyKnowledgeWidget'));
 
 const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour'));
+const PushNotificationModal = lazy(() => import('@/components/notifications/PushNotificationModal'));
 
 // Skeleton fallback for widgets during lazy load
 const WidgetSkeleton: React.FC = () => (
@@ -144,6 +145,11 @@ const Dashboard: React.FC = () => {
       {/* Onboarding Tour */}
       <Suspense fallback={null}>
         <OnboardingTour onDropdownToggle={handleDropdownToggle} />
+      </Suspense>
+
+      {/* Push Notification Permission Modal */}
+      <Suspense fallback={null}>
+        <PushNotificationModal />
       </Suspense>
     </DashboardLayout>
   );
