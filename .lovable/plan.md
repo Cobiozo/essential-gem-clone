@@ -1,79 +1,43 @@
 
-# Implementacja promptu instalacji PWA
+# Poprawka banera PWA - widocznosc i tryb testowy
 
-## Podsumowanie
+## Problem
 
-Dodanie systemu zachecajacego uzytkownikow do instalacji aplikacji PWA. Baner pojawi sie po zalogowaniu na kazdej stronie (jesli aplikacja nie jest jeszcze zainstalowana). Dla iOS - specjalna instrukcja krok po kroku.
+Baner nie pojawia sie w podgladzie Lovable, poniewaz:
+1. Podglad dziala w iframe - zdarzenie `beforeinstallprompt` nie wystrzeliwuje w iframe
+2. Na desktopie (nie-iOS) warunek `!canInstall && !isIOS` powoduje ukrycie banera
+3. Po opublikowaniu baner powinien dzialac, ale warto to zweryfikowac
 
-## Co zostanie utworzone
+## Proponowane zmiany
 
-### 1. Hook `src/hooks/usePWAInstall.ts`
+### 1. Zmiana logiki wyswietlania banera (`PWAInstallBanner.tsx`)
 
-Nowy hook obslugujacy caly cykl zycia instalacji PWA:
-- Przechwytuje zdarzenie `beforeinstallprompt` (Chrome/Edge/Opera/Samsung Internet)
-- Wykrywa czy aplikacja jest juz zainstalowana (`display-mode: standalone` lub `navigator.standalone` dla iOS)
-- Wykrywa platforme: iOS, Android, Desktop
-- Eksportuje: `canInstall`, `isInstalled`, `isIOS`, `promptInstall()`
-- Sledzi zdarzenie `appinstalled` i automatycznie ukrywa baner
+Zamiast calkowicie ukrywac baner gdy `beforeinstallprompt` nie jest dostepne, pokazac wersje z linkiem do strony `/install` (instrukcja recznej instalacji). Dzieki temu:
+- Na Chrome/Edge: przycisk "Zainstaluj" (natywny prompt)
+- Na Firefox/Safari desktop: link "Zobacz jak zainstalowac" kierujacy do `/install`
+- Na iOS: instrukcja z ikonami Share/Dodaj do ekranu
+- Baner bedzie widoczny dla **kazdego zalogowanego uzytkownika** na nie-standalone przegladarce
 
-### 2. Komponent `src/components/pwa/PWAInstallBanner.tsx`
+Zmiana warunku z linii 46:
+```
+// BYLO:
+if (!canInstall && !isIOS) return null;
 
-Baner instalacji wzorowany na istniejacym `NotificationPermissionBanner`:
-- Wyswietla sie automatycznie gdy: uzytkownik zalogowany + aplikacja nie zainstalowana + baner nie odrzucony
-- Przycisk **"Zainstaluj"** - wywoluje natywny prompt przegladarki (Android/Desktop)
-- Przycisk **"Nie teraz"** - ukrywa baner na 14 dni (localStorage, klucz `pwa_install_banner_dismissed`)
-- Na **iOS**: zamiast przycisku instalacji, wyswietla krotka instrukcje: "Kliknij Udostepnij > Dodaj do ekranu glownego" z ikonami
-- Styl: `Alert` z ikona `Download`, kolor primary, analogicznie do NotificationPermissionBanner
-- NIE wyswietla sie na stronach publicznych (InfoLink, rejestracja gosci)
-
-### 3. Strona `src/pages/InstallPage.tsx` + trasa `/install`
-
-Dedykowana strona z pelna instrukcja instalacji:
-- Sekcja dla Android/Chrome: przycisk wywolujacy prompt + instrukcja reczna
-- Sekcja dla iOS/Safari: krok po kroku ze zrzutami (ikona Share > "Dodaj do ekranu glownego")
-- Sekcja dla Desktop: instrukcja dla Chrome/Edge
-- Automatyczne wykrywanie platformy i podswietlenie odpowiedniej sekcji
-- Dostepna bez logowania (publiczna)
-
-### 4. Integracja w `src/App.tsx`
-
-- Import `PWAInstallBanner` i dodanie go w glownym ukladzie (obok `CookieConsentBanner`), widoczny tylko dla zalogowanych
-- Dodanie trasy `/install` do routera
-
-## Logika wyswietlania banera
-
-```text
-Uzytkownik zalogowany?
-  |-- NIE --> nic nie pokazuj
-  |-- TAK --> Aplikacja juz zainstalowana (standalone)?
-                |-- TAK --> nic nie pokazuj
-                |-- NIE --> Baner odrzucony < 14 dni temu?
-                              |-- TAK --> nic nie pokazuj
-                              |-- NIE --> POKAZ BANER
-                                           |-- iOS? --> instrukcja reczna
-                                           |-- Inne? --> przycisk "Zainstaluj"
+// BEDZIE:
+// Baner pokazuje sie zawsze (jesli user zalogowany, nie zainstalowane, nie odrzucone)
+// Rozna tresc w zaleznosci od platformy
 ```
 
-## Kompatybilnosc z platformami
+### 2. Trzy warianty tresci banera
 
-| Platforma | Automatyczny prompt | Rozwiazanie |
-|-----------|-------------------|-------------|
-| Android Chrome/Edge | TAK | Przycisk wywoluje natywny dialog |
-| Android Firefox | NIE | Instrukcja reczna (menu > Zainstaluj) |
-| iOS Safari 16.4+ | NIE | Instrukcja: Udostepnij > Dodaj do ekranu |
-| iOS < 16.4 | NIE | Instrukcja j.w. (bez push notifications) |
-| Desktop Chrome/Edge | TAK | Przycisk wywoluje natywny dialog |
-| Desktop Firefox | NIE | Instrukcja reczna |
-| Desktop Safari | NIE | Nie wspiera PWA install - baner ukryty |
+- **canInstall = true** (Chrome/Edge): przycisk "Zainstaluj" wywolujacy natywny dialog
+- **isIOS = true**: instrukcja iOS (Udostepnij > Dodaj do ekranu)
+- **Pozostale** (Firefox, Safari desktop, inne): tekst zachecajacy + link "Zobacz instrukcje" do `/install`
 
-## Fetch handler w Service Worker
+### 3. Pliki do edycji
 
-Dodanie minimalnego fetch handlera do `public/sw-push.js` (cache-first dla statycznych zasobow, network-first dla API). Nie jest to wymagane do instalacji, ale poprawia dzialanie zainstalowanej aplikacji - ikony i manifest beda ladowane z cache.
+- `src/components/pwa/PWAInstallBanner.tsx` - usunac restrykcyjny warunek, dodac trzeci wariant tresci z linkiem do /install
 
-## Pliki do utworzenia/edycji
+## Efekt
 
-- **Nowy:** `src/hooks/usePWAInstall.ts`
-- **Nowy:** `src/components/pwa/PWAInstallBanner.tsx`
-- **Nowy:** `src/pages/InstallPage.tsx`
-- **Edycja:** `src/App.tsx` (dodanie banera + trasa `/install`)
-- **Edycja:** `public/sw-push.js` (dodanie fetch handlera)
+Baner bedzie widoczny dla kazdego zalogowanego uzytkownika ktory nie ma zainstalowanej aplikacji (niezaleznie od przegladarki), z odpowiednia trescia dopasowana do platformy.
