@@ -211,9 +211,28 @@ All colors MUST be HSL.
 
   /* Ensure interactive elements are large enough on touch devices */
   @media (hover: none) and (pointer: coarse) {
-    button:not([role="switch"]), a, [role="button"]:not([role="switch"]) {
+    button:not([role="switch"]), 
+    a, 
+    [role="button"]:not([role="switch"]),
+    [data-radix-collection-item],
+    [role="tab"],
+    [role="menuitem"],
+    [data-sidebar="menu-button"],
+    [data-sidebar="menu-sub-button"] {
       min-height: 44px;
       min-width: 44px;
+    }
+    
+    /* Zwiększone obszary dla kart i tabów */
+    [role="tablist"] [role="tab"] {
+      min-height: 48px;
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    
+    /* Lepsze odstępy w sidebarze */
+    [data-sidebar="menu"] [data-sidebar="menu-item"] {
+      margin-bottom: 4px;
     }
     
     /* Switch - enlarged touch area via pseudo-element (iOS compatible) */
@@ -354,6 +373,12 @@ All colors MUST be HSL.
   .dark input[type="time"],
   .dark input[type="date"] {
     color-scheme: dark;
+  }
+  
+  /* Touch action utility for eliminating 300ms tap delay on iOS */
+  .touch-action-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
