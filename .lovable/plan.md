@@ -1,283 +1,218 @@
 
-
-# Audyt modułu szkoleniowego - odtwarzanie wideo
-
-## Executive Summary
-
-Moduł szkoleniowy posiada solidną podstawę do obsługi wideo, ale zidentyfikowałem **6 krytycznych problemów** wpływających na płynność odtwarzania i stabilność buforowania.
-
----
+# Plan: Naprawa wyświetlania treści na urządzeniach mobilnych
 
 ## Zidentyfikowane problemy
 
-### Problem 1: KRYTYCZNY - Podwójne resetowanie stanu przy zmianie lekcji
+### Problem 1: KRYTYCZNY - Tabela modułów szkoleń w panelu administratora
 
-**Lokalizacja:** `src/components/SecureMedia.tsx` (linie 385-419)
+**Lokalizacja:** `src/components/admin/TrainingManagement.tsx` (linie 1175-1285)
 
-**Opis:** W logach konsoli widzę:
-```
-[SecureMedia] mediaUrl changed, resetting all state
-[SecureMedia] mediaUrl changed, resetting all state  ← PODWÓJNE!
-[SecureMedia] Setting initial position...
-```
+**Opis:** Na screenie widać tekst w kolumnach tabeli wyświetlany **pionowo** (litera pod literą) zamiast poziomo. Problem wynika z:
+- Tabela z 5 kolumnami: "Nazwa modułu", "Lekcje", "Status", "Widoczność", "Akcje"
+- Na małych ekranach komponent `Table` ma `overflow-auto`, ale kolumny mają sztywne szerokości (`w-20`, `w-28`, `w-36`)
+- Gdy szerokość ekranu jest mniejsza niż suma minimalnych szerokości kolumn, tekst w nagłówkach kompresuje się pionowo
 
-Efekt resetowania stanu jest wywoływany dwukrotnie, co powoduje:
-- Wielokrotne żądania sieciowe do tego samego pliku
-- Przerwanie buforowania w trakcie
-- Opóźnione załadowanie wideo
-
-**Przyczyna:** Brak debounce/guard w useEffect, który reaguje na zmianę `mediaUrl`.
+**Rozwiązanie:** Zamiana tabeli na responsywny układ kart dla urządzeń mobilnych - tabela będzie widoczna tylko na desktopie (`hidden md:block`), a karty na mobile.
 
 ---
 
-### Problem 2: WAŻNY - Brak obsługi `progress` event dla trybu unrestricted
+### Problem 2: Długie tytuły lekcji w TrainingModule
 
-**Lokalizacja:** `src/components/SecureMedia.tsx` (linie 942-1077)
+**Lokalizacja:** `src/pages/TrainingModule.tsx` (linie 1384-1386)
 
-**Opis:** W trybie unrestricted (ukończone lekcje) brakuje handlera `handleProgress`, który jest obecny w trybie restricted (linie 730-778). Skutkuje to:
-- Brakiem śledzenia postępu buforowania
-- Brakiem wizualizacji buffered ranges
-- Brakiem smart buffering recovery
+**Opis:** Obecnie tytuł lekcji ma klasy `break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0`. To jest poprawne podejście, ale na bardzo małych ekranach długie słowa (np. "OMEGA-3") mogą rozciągać kontener.
+
+**Rozwiązanie:** Dodanie `overflow-hidden` i `word-break: break-word` do tytułu oraz upewnienie się, że nadrzędny flex container nie rozciąga się.
+
+---
+
+### Problem 3: Lista lekcji na bocznym panelu (mobile)
+
+**Lokalizacja:** `src/pages/TrainingModule.tsx` (linie 1288-1298)
+
+**Opis:** Tytuły lekcji na liście mają tylko `truncate`, co jest OK dla jednej linii, ale mogą rozciągać kontener gdy kontener ma zmienną szerokość.
+
+**Rozwiązanie:** Dodanie `overflow-hidden` i `max-w-full` do kontenera tytułu.
+
+---
+
+### Problem 4: Inne tabele w panelu administracyjnym
+
+**Lokalizacja:** Wiele plików w `src/components/admin/`:
+- HealthyKnowledgeManagement.tsx
+- HtmlPagesManagement.tsx
+- WebinarList.tsx
+- TeamTrainingList.tsx
+- NotificationSystemManagement.tsx
+- I inne...
+
+**Opis:** Wszystkie te komponenty używają komponentu `Table` bez responsywnego fallbacku dla mobile.
+
+**Rozwiązanie:** Globalny styl CSS dla tabel w panelu administratora - wymuszenie minimalnej szerokości tabeli i poziomego przewijania na mobile z wyraźnym wskaźnikiem.
+
+---
+
+## Szczegóły implementacji
+
+### Zmiana 1: Responsywna tabela modułów szkoleń
+
+**Plik:** `src/components/admin/TrainingManagement.tsx`
+
+Zamiana sekcji tabeli (linie 1175-1285) na dwa warianty:
+1. **Mobile (domyślne):** Lista kart z najważniejszymi informacjami
+2. **Desktop (md:block):** Obecna tabela
 
 ```tsx
-// RESTRICTED MODE - ma handleProgress (linia 730):
-const handleProgress = () => {
-  if (video.buffered.length > 0 && video.duration > 0) {
-    const bufferedAheadValue = getBufferedAhead(video);
-    setBufferedAhead(bufferedAheadValue);
-    setBufferProgress(progress);
-    // ... smart buffering logic
+{/* Mobile: Card layout */}
+<div className="space-y-3 md:hidden">
+  {modules.map((module) => {
+    const lessonCount = lessons.filter(l => l.module_id === module.id).length;
+    return (
+      <Card key={module.id} className={cn(!module.is_active && "opacity-60")}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium truncate">{module.title}</h3>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <Badge variant={module.is_active ? "default" : "secondary"} className="text-xs">
+                  {module.is_active ? "Aktywny" : "Nieaktywny"}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {lessonCount} lekcji
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                {getVisibilityText(module)}
+              </p>
+            </div>
+            <div className="flex items-center gap-1">
+              {/* Akcje w dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {/* ... akcje ... */}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  })}
+</div>
+
+{/* Desktop: Table layout */}
+<div className="rounded-md border hidden md:block">
+  <Table>
+    {/* ... istniejąca tabela ... */}
+  </Table>
+</div>
+```
+
+---
+
+### Zmiana 2: Lepsze zabezpieczenie tytułów lekcji
+
+**Plik:** `src/pages/TrainingModule.tsx`
+
+Linia 1384 - CardTitle:
+```tsx
+<CardTitle className="break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0 overflow-hidden" style={{ wordBreak: 'break-word' }}>
+  {currentLesson.title}
+</CardTitle>
+```
+
+Linie 1288-1298 - lista lekcji mobile:
+```tsx
+<div className="flex items-center gap-2 mb-1 min-w-0">
+  {/* icon */}
+  <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
+    {lesson.title}
+  </span>
+</div>
+```
+
+---
+
+### Zmiana 3: Globalny CSS dla tabel administracyjnych
+
+**Plik:** `src/index.css`
+
+Dodanie stylów wymuszających poprawne zachowanie tabel:
+
+```css
+/* Admin tables - ensure horizontal scroll on small screens */
+@media (max-width: 767px) {
+  /* Table containers in admin should have horizontal scroll indicator */
+  .rounded-md.border:has(table) {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
-};
-
-// UNRESTRICTED MODE - BRAK handleProgress!
-```
-
----
-
-### Problem 3: WAŻNY - Brak canplaythrough event w niektórych trybach
-
-**Lokalizacja:** `src/components/SecureMedia.tsx`
-
-**Opis:** W trybie unrestricted nasłuchujemy `canplaythrough`, ale nie wykorzystujemy go optymalnie do resetowania stanów buforowania. Zdarzenie `canplaythrough` oznacza, że przeglądarka ocenia, że wideo może być odtwarzane do końca bez przerw - to najlepszy moment na reset stanów.
-
----
-
-### Problem 4: ŚREDNI - Mobile preload strategy `metadata` vs `auto`
-
-**Lokalizacja:** `src/lib/videoBufferConfig.ts` (linia 33)
-
-**Opis:** Na urządzeniach mobilnych używana jest strategia `preloadStrategy: 'metadata'`, podczas gdy dla wideo z `purelife.info.pl` wymuszany jest `preload="auto"`. To powoduje niespójność:
-
-```tsx
-// videoBufferConfig.ts (mobile):
-preloadStrategy: 'metadata' as const,
-
-// SecureMedia.tsx (linia 1399):
-preload={signedUrl.includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
-```
-
-Dla VPS wideo jest `auto`, ale dla Supabase Storage na mobile jest `metadata` - może powodować wolniejsze ładowanie.
-
----
-
-### Problem 5: ŚREDNI - Brak mechanizmu preconnect dla VPS
-
-**Lokalizacja:** Brak implementacji
-
-**Opis:** Dla wideo z `purelife.info.pl` brakuje optymalizacji połączenia:
-- Brak `<link rel="preconnect">` do domeny VPS
-- Brak `<link rel="dns-prefetch">`
-- Każde nowe wideo wymaga pełnego handshake'u SSL
-
----
-
-### Problem 6: NISKI - Nieoptymalna obsługa przejścia między lekcjami
-
-**Lokalizacja:** `src/pages/TrainingModule.tsx` (linie 406-437)
-
-**Opis:** Prefetch następnego wideo pomija wideo z VPS (`purelife.info.pl`):
-
-```tsx
-if (isYouTube || isExternalUrl) {  // isExternalUrl = true dla purelife.info.pl
-  console.log('[TrainingModule] Skipping prefetch for external URL:', nextLesson.title);
-  return;  // ← Pomija prefetch dla VPS!
+  
+  /* Table cells should not wrap text vertically */
+  table th,
+  table td {
+    white-space: nowrap;
+  }
+  
+  /* But allow specific cells to wrap */
+  table th.allow-wrap,
+  table td.allow-wrap {
+    white-space: normal;
+  }
+  
+  /* Minimum table width to prevent column compression */
+  table {
+    min-width: 600px;
+  }
 }
 ```
 
 ---
 
-## Rozwiązania
+### Zmiana 4: Poprawa nagłówków tabeli
 
-### Rozwiązanie 1: Debounce resetowania stanu w SecureMedia
+**Plik:** `src/components/admin/TrainingManagement.tsx`
 
-```tsx
-// Dodać ref do śledzenia ostatniego mediaUrl
-const lastMediaUrlRef = useRef<string | null>(null);
-
-useEffect(() => {
-  // Guard: Skip if same URL (prevent double reset)
-  if (mediaUrl === lastMediaUrlRef.current) {
-    console.log('[SecureMedia] Same mediaUrl, skipping reset');
-    return;
-  }
-  lastMediaUrlRef.current = mediaUrl;
-  
-  console.log('[SecureMedia] mediaUrl changed, resetting all state');
-  // ... existing reset logic
-}, [mediaUrl]);
-```
-
----
-
-### Rozwiązanie 2: Dodanie handleProgress do trybu unrestricted
+Dodanie `whitespace-nowrap` do nagłówków tabeli:
 
 ```tsx
-// W useEffect dla unrestricted mode (linia ~942):
-const handleProgress = () => {
-  if (!mounted || !video.buffered || video.buffered.length === 0) return;
-  
-  const bufferedAheadValue = getBufferedAhead(video);
-  setBufferedAhead(bufferedAheadValue);
-  
-  // Update buffered ranges for visualization (jeśli potrzebne)
-  setBufferedRanges(getBufferedRanges(video));
-};
-
-// Dodać listener:
-video.addEventListener('progress', handleProgress);
-
-// Cleanup:
-video.removeEventListener('progress', handleProgress);
-```
-
----
-
-### Rozwiązanie 3: Preconnect do VPS przy wejściu na /training
-
-```tsx
-// W TrainingModule.tsx - na początku komponentu:
-useEffect(() => {
-  // Add preconnect hint for VPS
-  const preconnect = document.createElement('link');
-  preconnect.rel = 'preconnect';
-  preconnect.href = 'https://purelife.info.pl';
-  preconnect.crossOrigin = 'anonymous';
-  document.head.appendChild(preconnect);
-  
-  return () => {
-    if (preconnect.parentNode) {
-      document.head.removeChild(preconnect);
-    }
-  };
-}, []);
-```
-
----
-
-### Rozwiązanie 4: Włączenie prefetch dla wideo z VPS
-
-```tsx
-// W TrainingModule.tsx (linia ~406-437):
-useEffect(() => {
-  if (lessons.length === 0 || currentLessonIndex >= lessons.length - 1) return;
-  
-  const nextLesson = lessons[currentLessonIndex + 1];
-  if (nextLesson?.media_type === 'video' && nextLesson?.media_url) {
-    const url = nextLesson.media_url;
-    
-    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-    
-    // ZMIANA: Pozwól na prefetch dla VPS (purelife.info.pl)
-    if (isYouTube) {
-      return;
-    }
-    
-    const link = document.createElement('link');
-    link.rel = 'prefetch';
-    link.href = url;
-    link.as = 'video';
-    // Dla VPS dodaj crossorigin
-    if (url.includes('purelife.info.pl')) {
-      link.crossOrigin = 'anonymous';
-    }
-    document.head.appendChild(link);
-    
-    console.log('[TrainingModule] Preloading next lesson video:', nextLesson.title);
-    
-    return () => {
-      if (link.parentNode) {
-        document.head.removeChild(link);
-      }
-    };
-  }
-}, [lessons, currentLessonIndex]);
-```
-
----
-
-### Rozwiązanie 5: Ujednolicenie preload strategy dla mobile
-
-```tsx
-// W src/lib/videoBufferConfig.ts:
-mobile: {
-  // ZMIANA: auto dla lepszego preloadingu
-  preloadStrategy: 'auto' as const,
-  // ... rest
-}
-```
-
-Alternatywnie - zachować `metadata` ale dodać warunek w SecureMedia:
-
-```tsx
-// Zawsze używaj 'auto' dla wideo treningowych (disableInteraction = true)
-preload={
-  signedUrl.includes('purelife.info.pl') || disableInteraction 
-    ? 'auto' 
-    : bufferConfigRef.current.preloadStrategy
-}
+<TableHead className="whitespace-nowrap">{t('admin.training.moduleName')}</TableHead>
+<TableHead className="w-20 text-center whitespace-nowrap">{t('admin.training.lessons')}</TableHead>
+<TableHead className="w-28 whitespace-nowrap">{t('admin.training.status')}</TableHead>
+<TableHead className="whitespace-nowrap">{t('admin.training.visibleTo')}</TableHead>
+<TableHead className="text-right w-36 whitespace-nowrap">{t('admin.training.actions')}</TableHead>
 ```
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana | Wpływ |
-|------|--------|-------|
-| `src/components/SecureMedia.tsx` | Guard przed podwójnym resetem stanu | Eliminacja podwójnych żądań sieciowych |
-| `src/components/SecureMedia.tsx` | Dodanie handleProgress dla trybu unrestricted | Lepsze śledzenie buforowania |
-| `src/pages/TrainingModule.tsx` | Preconnect do VPS na starcie | Szybsze nawiązanie połączenia |
-| `src/pages/TrainingModule.tsx` | Włączenie prefetch dla wideo VPS | Szybsze ładowanie następnych lekcji |
-| `src/lib/videoBufferConfig.ts` | Zmiana mobile preloadStrategy na 'auto' | Spójne buforowanie |
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/TrainingManagement.tsx` | Responsywny układ: karty na mobile, tabela na desktop |
+| `src/pages/TrainingModule.tsx` | Lepsze zabezpieczenie długich tytułów lekcji |
+| `src/index.css` | Globalne style dla tabel administracyjnych na mobile |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. **Eliminacja podwójnego ładowania** - jedno żądanie na zmianę lekcji
-2. **Szybsze ładowanie** - preconnect + prefetch dla VPS
-3. **Lepsze recovery po zacinaniu** - handleProgress dla wszystkich trybów
-4. **Płynniejsze przejścia** - brak resetowania stanu przy tym samym URL
-5. **Spójne UX na mobile** - jednolita strategia preload
+1. **Panel administratora (Szkolenia):** Czytelne karty na mobile zamiast skompresowanej tabeli
+2. **TrainingModule:** Długie tytuły nie rozciągają ekranu
+3. **Wszystkie tabele:** Poziome przewijanie zamiast pionowej kompresji tekstu
+4. **Konsystentne UX:** Wszystkie elementy czytelne na urządzeniach mobilnych
 
 ---
 
-## Schemat przepływu po zmianach
+## Dodatkowe zalecenia
 
-```text
-Użytkownik otwiera lekcję
-        ↓
-Preconnect do purelife.info.pl (pierwszy raz)
-        ↓
-SecureMedia: Guard sprawdza czy mediaUrl się zmienił
-        ↓
-TAK → Reset stanów, załaduj wideo z preload='auto'
-NIE → Pomiń reset, zachowaj bufor
-        ↓
-handleProgress śledzi buforowanie
-        ↓
-Prefetch następnej lekcji w tle
-        ↓
-Użytkownik przechodzi do następnej → natychmiastowe odtwarzanie
-```
-
+Po wdrożeniu zmian przetestuj na:
+- iPhone SE (najmniejszy ekran)
+- iPhone 14 Pro Max (największy iPhone)
+- Tablet w orientacji pionowej
+- Różne przeglądarki (Safari, Chrome)
