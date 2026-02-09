@@ -1,169 +1,175 @@
 
 
-# Plan: Definitywna naprawa dialogu podglądu PureLink
+# Plan: Naprawa integracji Google Calendar - brak wykrywania zajętych terminów
 
 ## Diagnoza problemu
 
-Problem polega na tym, że Radix Dialog wywoluje `onOpenChange(false)` mimo dodania `preventDefault()` na eventach. Te handlery blokuja konkretne zdarzenia (klikniecie, focus), ale Radix moze nadal wewnetrznie wywolac `onOpenChange(false)` z innych powodow (np. podczas montowania iframe).
+Lider (sebastiansnopek.eqology) ustawił dostępność na poniedziałek:
+- **Konsultacje**: 17:00-18:00 (Europe/Prague)
+- **Spotkania trójstronne**: 18:00-19:00 (Europe/Prague)
 
-W `UserReflinksPanel.tsx` (linia 408):
-```tsx
-onOpenChange={(open) => !open && setPreviewReflink(null)}
+Dodał w Google Calendar termin zajętości 17:00-19:00, ale aplikacja nadal pokazuje te sloty jako dostępne.
+
+### Analiza logów
+Edge function `check-google-calendar-busy` zwraca:
+```json
+{"connected": true, "busy": []}
 ```
 
-Gdy Radix wywola `onOpenChange(false)`, `previewReflink` jest ustawiany na `null`, co zamyka dialog.
+**Token Google jest aktywny** (google_email: sebastiansnopek.eqology@gmail.com), ale FreeBusy API zwraca **pustą listę zajętych terminów**.
+
+### Możliwe przyczyny
+
+| Przyczyna | Prawdopodobieństwo | Opis |
+|-----------|-------------------|------|
+| **Wydarzenie w innym kalendarzu** | Wysoka | FreeBusy sprawdza tylko kalendarz "primary". Jeśli lider ma wiele kalendarzy i utworzył wydarzenie w kalendarzu roboczym/osobnym, nie zostanie wykryte |
+| **Błąd parsowania odpowiedzi** | Średnia | Google może zwracać klucz z adresem email zamiast "primary" |
+| **Brak szczegółowych logów** | - | Nie logujemy pełnej odpowiedzi z Google API |
 
 ---
 
-## Rozwiazanie
+## Rozwiązanie
 
-### Strategia: Wlasna kontrola zamykania dialogu
+### Zmiana 1: Sprawdzanie wszystkich kalendarzy użytkownika
 
-Zamiast polegac na `onOpenChange` do zamykania, uzyjemy wlasnej logiki:
+Zamiast sprawdzać tylko kalendarz `primary`, pobierzemy listę wszystkich kalendarzy użytkownika i sprawdzimy FreeBusy dla każdego z nich.
 
-1. **Ignoruj `onOpenChange(false)`** - dialog bedzie kontrolowany wylacznie przez nasz stan
-2. **Dodaj wlasny przycisk X** - ktory explicite zamknie dialog
-3. **Ukryj domyslny przycisk X Radix** - uzyj `hideCloseButton` prop
+### Zmiana 2: Dodanie szczegółowego logowania
+
+Logujemy pełną odpowiedź z Google API aby diagnozować przyszłe problemy.
+
+### Zmiana 3: Lepsza obsługa kluczy odpowiedzi
+
+Google może zwracać dane pod różnymi kluczami (np. `primary`, email lub calendar_id).
 
 ---
 
-## Zmiany w kodzie
+## Szczegóły implementacji
 
-### Plik 1: `src/components/user-reflinks/ReflinkPreviewDialog.tsx`
+### Plik: `supabase/functions/check-google-calendar-busy/index.ts`
 
 **Zmiany:**
-1. Dodac wlasna funkcje `handleClose` ktora kontroluje zamkniecie
-2. Zmodyfikowac `onOpenChange` aby ignorowalo automatyczne zamkniecie
-3. Dodac wlasny przycisk X obok przycisku "Otworz w nowej karcie"
-4. Uzyc `hideCloseButton` aby ukryc domyslny X
 
-```tsx
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { ExternalLink, Loader2, X } from 'lucide-react';
+1. Pobranie listy kalendarzy użytkownika przez CalendarList API
+2. Sprawdzenie FreeBusy dla wszystkich kalendarzy (primary + dodatkowe)
+3. Agregacja wyników z wszystkich kalendarzy
+4. Szczegółowe logowanie odpowiedzi Google API
 
-interface ReflinkPreviewDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  reflinkCode: string;
+```typescript
+// Przed wywołaniem FreeBusy API - pobierz listę kalendarzy
+const calendarListResponse = await fetch(
+  'https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=owner',
+  {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  }
+);
+
+const calendarList = await calendarListResponse.json();
+const calendarIds = calendarList.items
+  ?.filter(cal => cal.accessRole === 'owner' && !cal.deleted)
+  ?.map(cal => ({ id: cal.id })) 
+  || [{ id: 'primary' }];
+
+console.log('[check-google-calendar-busy] Checking calendars:', calendarIds.map(c => c.id));
+
+// FreeBusy dla wszystkich kalendarzy
+const freeBusyResponse = await fetch(
+  'https://www.googleapis.com/calendar/v3/freeBusy',
+  {
+    method: 'POST',
+    headers: { ... },
+    body: JSON.stringify({
+      timeMin,
+      timeMax,
+      timeZone: 'Europe/Warsaw',
+      items: calendarIds, // Wszystkie kalendarze, nie tylko primary
+    }),
+  }
+);
+
+// Agreguj wyniki z wszystkich kalendarzy
+const freeBusyData = await freeBusyResponse.json();
+console.log('[check-google-calendar-busy] Full FreeBusy response:', JSON.stringify(freeBusyData));
+
+let allBusySlots: BusySlot[] = [];
+for (const calendarId of Object.keys(freeBusyData.calendars || {})) {
+  const calendarBusy = freeBusyData.calendars[calendarId]?.busy || [];
+  allBusySlots = [...allBusySlots, ...calendarBusy];
 }
 
-export const ReflinkPreviewDialog: React.FC<ReflinkPreviewDialogProps> = ({
-  open,
-  onOpenChange,
-  reflinkCode,
-}) => {
-  const [iframeSrc, setIframeSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (open && reflinkCode) {
-      const timer = setTimeout(() => {
-        setIframeSrc(`/auth?ref=${reflinkCode}&preview=true`);
-      }, 100);
-      return () => clearTimeout(timer);
-    } else {
-      setIframeSrc(null);
-    }
-  }, [open, reflinkCode]);
-
-  // Explicite zamkniecie - JEDYNY sposob na zamkniecie dialogu
-  const handleClose = () => {
-    onOpenChange(false);
-  };
-
-  // Blokuj automatyczne zamykanie - dialog zamyka sie TYLKO przez handleClose
-  const handleOpenChange = (newOpen: boolean) => {
-    // Ignoruj proby zamkniecia (newOpen === false)
-    // Dialog moze byc tylko otwarty przez rodzica, zamkniety przez handleClose
-    if (newOpen === true) {
-      // Pozwol na otwarcie (choc to i tak kontrolowane przez prop open)
-    }
-    // NIE wywoluj onOpenChange(false) automatycznie
-  };
-
-  const fullUrl = `${window.location.origin}/auth?ref=${reflinkCode}`;
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent 
-        className="max-w-4xl h-[85vh] flex flex-col"
-        onInteractOutside={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onFocusOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        hideCloseButton
-      >
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center justify-between">
-            <span>Podglad strony rejestracji</span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(fullUrl, '_blank')}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Otworz w nowej karcie
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClose}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-                <span className="sr-only">Zamknij</span>
-              </Button>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
-        <div className="flex-1 border rounded-lg overflow-hidden bg-background">
-          {iframeSrc ? (
-            <iframe
-              src={iframeSrc}
-              className="w-full h-full border-0"
-              title="Podglad strony rejestracji"
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
+// Usuń duplikaty (nakładające się sloty)
+const uniqueBusySlots = deduplicateBusySlots(allBusySlots);
 ```
 
 ---
 
-## Kluczowe zmiany
-
-| Element | Opis |
-|---------|------|
-| `handleOpenChange` | Ignoruje `onOpenChange(false)` - blokuje automatyczne zamykanie |
-| `handleClose` | Jedyny sposob na zamkniecie dialogu - wywolywany przez przycisk X |
-| `hideCloseButton` | Ukrywa domyslny przycisk X z Radix (ktory wywoluje wewnetrzne `onOpenChange`) |
-| Wlasny przycisk X | Dodany obok "Otworz w nowej karcie" - wywoluje `handleClose` |
-
----
-
-## Pliki do edycji
+## Plik do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/user-reflinks/ReflinkPreviewDialog.tsx` | Dodanie wlasnej kontroli zamykania z `hideCloseButton` i wlasnym przyciskiem X |
+| `supabase/functions/check-google-calendar-busy/index.ts` | Sprawdzanie wszystkich kalendarzy użytkownika, szczegółowe logowanie |
+
+---
+
+## Dodatkowe ulepszenia
+
+### Funkcja deduplikacji nakładających się slotów
+
+```typescript
+function deduplicateBusySlots(slots: BusySlot[]): BusySlot[] {
+  if (slots.length === 0) return [];
+  
+  // Sortuj po czasie rozpoczęcia
+  const sorted = [...slots].sort((a, b) => 
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+  
+  const merged: BusySlot[] = [sorted[0]];
+  
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    const current = sorted[i];
+    
+    if (new Date(current.start) <= new Date(last.end)) {
+      // Nakładają się - rozszerz ostatni slot
+      last.end = new Date(Math.max(
+        new Date(last.end).getTime(),
+        new Date(current.end).getTime()
+      )).toISOString();
+    } else {
+      merged.push(current);
+    }
+  }
+  
+  return merged;
+}
+```
 
 ---
 
 ## Oczekiwany efekt
 
-1. Klikniecie ikony oka otwiera dialog
-2. Dialog pokazuje loader przez 100ms
-3. Iframe zaczyna sie ladowac
-4. Dialog **NIE zamyka sie** automatycznie - zadne wewnetrzne mechanizmy Radix nie moga go zamknac
-5. Dialog zamyka sie **TYLKO** przez klikniecie wlasnego przycisku X w prawym gornym rogu
-6. Uzytkownik widzi formularz rejestracji z danymi z PureLinku
+1. Edge function pobiera listę wszystkich kalendarzy użytkownika
+2. FreeBusy API sprawdza zajętość we wszystkich kalendarzach (nie tylko primary)
+3. Wyniki są agregowane i deduplikowane
+4. Logi pokazują pełną odpowiedź z Google API (do debugowania)
+5. Sloty kolidujące z wydarzeniami w **dowolnym** kalendarzu Google są usuwane z dostępności
+
+---
+
+## Schemat działania po zmianach
+
+```text
+Użytkownik wybiera datę
+        ↓
+Edge function pobiera listę kalendarzy (CalendarList API)
+        ↓
+FreeBusy API dla wszystkich kalendarzy
+        ↓
+Agregacja zajętych terminów ze wszystkich kalendarzy
+        ↓
+Filtrowanie slotów w PartnerMeetingBooking
+        ↓
+Użytkownik widzi tylko faktycznie wolne terminy
+```
 
