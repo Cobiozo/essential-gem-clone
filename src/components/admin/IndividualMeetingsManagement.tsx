@@ -17,6 +17,7 @@ interface PartnerWithPermissions {
   individual_meetings_enabled: boolean;
   tripartite_meeting_enabled: boolean;
   partner_consultation_enabled: boolean;
+  can_broadcast: boolean;
   permission_id?: string;
 }
 
@@ -57,7 +58,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
       // Fetch leader permissions
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
-        .select('id, user_id, individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled');
+        .select('id, user_id, individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_broadcast');
 
       if (permError) throw permError;
 
@@ -76,6 +77,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
             individual_meetings_enabled: perm?.individual_meetings_enabled || false,
             tripartite_meeting_enabled: perm?.tripartite_meeting_enabled || false,
             partner_consultation_enabled: perm?.partner_consultation_enabled || false,
+            can_broadcast: perm?.can_broadcast || false,
             permission_id: perm?.id,
           };
         });
@@ -91,7 +93,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
 
   const togglePermission = async (
     partner: PartnerWithPermissions,
-    field: 'tripartite_meeting_enabled' | 'partner_consultation_enabled',
+    field: 'tripartite_meeting_enabled' | 'partner_consultation_enabled' | 'can_broadcast',
     value: boolean
   ) => {
     setSaving(partner.user_id);
@@ -211,6 +213,12 @@ export const IndividualMeetingsManagement: React.FC = () => {
                     <span>{t('admin.meetings.partnerConsultation')}</span>
                   </div>
                 </TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Users className="h-4 w-4" />
+                    <span>Lider (broadcast)</span>
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -240,11 +248,20 @@ export const IndividualMeetingsManagement: React.FC = () => {
                       disabled={saving === partner.user_id}
                     />
                   </TableCell>
+                  <TableCell className="text-center">
+                    <Switch
+                      checked={partner.can_broadcast}
+                      onCheckedChange={(checked) => 
+                        togglePermission(partner, 'can_broadcast', checked)
+                      }
+                      disabled={saving === partner.user_id}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
               {filteredPartners.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                     {searchQuery ? t('admin.meetings.noPartnersFound') : t('admin.meetings.noPartnersInSystem')}
                   </TableCell>
                 </TableRow>

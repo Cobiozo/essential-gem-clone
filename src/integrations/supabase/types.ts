@@ -3198,6 +3198,7 @@ export type Database = {
         Row: {
           activated_at: string | null
           activated_by: string | null
+          can_broadcast: boolean | null
           can_host_private_meetings: boolean | null
           consultation_slot_duration: number | null
           created_at: string | null
@@ -3216,6 +3217,7 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           activated_by?: string | null
+          can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
@@ -3234,6 +3236,7 @@ export type Database = {
         Update: {
           activated_at?: string | null
           activated_by?: string | null
+          can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
@@ -4943,6 +4946,7 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          is_broadcast: boolean | null
           is_read: boolean | null
           message_type: string | null
           read_at: string | null
@@ -4958,6 +4962,7 @@ export type Database = {
           content: string
           created_at?: string | null
           id?: string
+          is_broadcast?: boolean | null
           is_read?: boolean | null
           message_type?: string | null
           read_at?: string | null
@@ -4973,6 +4978,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           id?: string
+          is_broadcast?: boolean | null
           is_read?: boolean | null
           message_type?: string | null
           read_at?: string | null
