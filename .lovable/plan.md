@@ -1,181 +1,229 @@
 
-# Plan: Efekt 3D dla widżetów + Modal powiadomień push
+# Plan: Dodanie wysyłki testowych powiadomień do wybranych użytkowników
 
 ## Zakres zmian
 
-### Zadanie 1: Efekt głębi 3D dla wszystkich kafelków widżetów
-
-Na podstawie screena i analizy kodu, widżety powinny mieć jednolity efekt trójwymiarowości podobny do obecnego wariantu "premium" w Card, ale stosowany konsekwentnie.
-
-**Pliki do zmiany:**
-
-| Widżet | Plik | Obecny styl | Zmiana |
-|--------|------|------------|--------|
-| CalendarWidget | `CalendarWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| NotificationsWidget | `NotificationsWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| ResourcesWidget | `ResourcesWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| ReflinksWidget | `ReflinksWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| QuickStatsWidget | `QuickStatsWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| TeamContactsWidget | `TeamContactsWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| InfoLinksWidget | `InfoLinksWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| MyMeetingsWidget | `MyMeetingsWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| HealthyKnowledgeWidget | `HealthyKnowledgeWidget.tsx` | `shadow-sm` | `variant="premium"` |
-| CombinedOtpCodesWidget | `CombinedOtpCodesWidget.tsx` | `shadow-sm` | `variant="premium"` |
-
-**TrainingProgressWidget** i **WelcomeWidget** już używają `variant="premium"`.
+Rozszerzenie panelu "Test powiadomień" o możliwość wysyłki powiadomienia do konkretnego użytkownika wybranego z listy z funkcją wyszukiwania.
 
 ---
 
-### Zadanie 2: Nowy modal powiadomień push (na wzór screena)
+## Rozwiązanie
 
-Utworzenie nowego komponentu dialogowego, który pojawi się:
-- Po zalogowaniu (na dashboardzie)
-- Gdy użytkownik nie ma jeszcze subskrypcji push
-- Gdy nie odrzucił prośby na 7 dni
+### Zmiana 1: Rozszerzenie TestNotificationPanel
 
-**Nowy plik:** `src/components/notifications/PushNotificationModal.tsx`
+**Plik:** `src/components/admin/push-notifications/TestNotificationPanel.tsx`
 
-**Design wzorowany na screenie:**
-- Ikona dzwonka w kółku (niebieski gradient)
-- Tytuł: "Włącz powiadomienia"
-- Opis: "Otrzymuj powiadomienia o nowych wiadomościach, webinarach i ważnych wydarzeniach."
-- Lista korzyści z ikonami check (niebieski):
-  - "Natychmiastowe powiadomienia" - "Bądź na bieżąco z nowymi wiadomościami"
-  - "Przypomnienia o webinarach" - "Nie przegap żadnego wydarzenia"
-- Przycisk główny: niebieski "Włącz powiadomienia" z ikoną dzwonka
-- Przycisk drugorzędny: biały z obramowaniem "Później"
+**Nowe funkcjonalności:**
+1. Combobox z listą użytkowników posiadających subskrypcje push
+2. Wyszukiwanie po emailu użytkownika
+3. Przycisk "Wyślij do wybranego" (aktywny gdy wybrany użytkownik)
 
-**Struktura komponentu:**
-
+**Nowe stany:**
 ```tsx
-import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Bell, CheckCircle2 } from 'lucide-react';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
+const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+const [sendingToSelected, setSendingToSelected] = useState(false);
+const [comboboxOpen, setComboboxOpen] = useState(false);
+```
 
-// Local storage key + 7-day dismissal logic
-const DISMISS_KEY = 'push_notification_modal_dismissed';
-const DISMISS_DURATION_DAYS = 7;
+**Query do pobrania użytkowników z subskrypcjami:**
+```tsx
+const { data: usersWithSubscriptions, isLoading: loadingUsers } = useQuery({
+  queryKey: ['users-with-push-subscriptions'],
+  queryFn: async () => {
+    // 1. Pobierz unikalne user_id z subskrypcji
+    const { data: subs, error } = await supabase
+      .from('user_push_subscriptions')
+      .select('user_id')
+      .limit(1000);
+    
+    if (error) throw error;
+    
+    const uniqueUserIds = [...new Set(subs?.map(s => s.user_id) || [])];
+    
+    if (uniqueUserIds.length === 0) return [];
+    
+    // 2. Pobierz emaile przez edge function
+    const { data: usersData, error: emailError } = await supabase.functions.invoke(
+      'get-user-emails',
+      { body: { userIds: uniqueUserIds } }
+    );
+    
+    if (emailError) throw emailError;
+    
+    return usersData as { id: string; email: string }[];
+  },
+});
+```
 
-export const PushNotificationModal = () => {
-  // Logika wyświetlania:
-  // - isSupported && pushConfig?.enabled
-  // - !isSubscribed
-  // - !dismissed (7 dni)
-  // - permission !== 'denied'
+**Nowa funkcja wysyłki:**
+```tsx
+const sendToSelected = async () => {
+  if (!selectedUserId) return;
+  
+  setSendingToSelected(true);
+  try {
+    const { data, error } = await supabase.functions.invoke('send-push-notification', {
+      body: {
+        userId: selectedUserId,
+        title,
+        body,
+        url: '/dashboard',
+        tag: `test-selected-${Date.now()}`,
+      },
+    });
 
-  return (
-    <Dialog open={showModal} onOpenChange={setShowModal}>
-      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
-        {/* Ikona z gradientem */}
-        <div className="pt-8 pb-4 flex justify-center">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-sky-400 to-blue-500 flex items-center justify-center shadow-lg">
-            <Bell className="h-7 w-7 text-white" />
-          </div>
-        </div>
-        
-        {/* Tytuł i opis */}
-        <div className="text-center px-6 pb-4">
-          <h2 className="text-xl font-semibold text-foreground">
-            Włącz powiadomienia
-          </h2>
-          <p className="text-sm text-muted-foreground mt-2">
-            Otrzymuj powiadomienia o nowych wiadomościach, webinarach i ważnych wydarzeniach.
-          </p>
-        </div>
-        
-        {/* Lista korzyści */}
-        <div className="px-6 pb-6 space-y-3">
-          <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-            <CheckCircle2 className="h-5 w-5 text-sky-500 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Natychmiastowe powiadomienia</p>
-              <p className="text-xs text-muted-foreground">Bądź na bieżąco z nowymi wiadomościami</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
-            <CheckCircle2 className="h-5 w-5 text-sky-500 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-sm font-medium">Przypomnienia o webinarach</p>
-              <p className="text-xs text-muted-foreground">Nie przegap żadnego wydarzenia</p>
-            </div>
-          </div>
-        </div>
-        
-        {/* Przyciski */}
-        <div className="px-6 pb-6 space-y-2">
-          <Button 
-            className="w-full bg-sky-500 hover:bg-sky-600" 
-            onClick={handleEnable}
-            disabled={isLoading}
-          >
-            <Bell className="h-4 w-4 mr-2" />
-            {isLoading ? 'Włączanie...' : 'Włącz powiadomienia'}
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full" 
-            onClick={handleDismiss}
-          >
-            Później
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
+    if (error) throw error;
+
+    const selectedUser = usersWithSubscriptions?.find(u => u.id === selectedUserId);
+    
+    if (data?.sent > 0) {
+      toast({
+        title: 'Wysłano',
+        description: `Powiadomienie wysłane do ${selectedUser?.email || 'wybranego użytkownika'} (${data.sent} urządzeń).`,
+      });
+    } else {
+      toast({
+        title: 'Brak aktywnych urządzeń',
+        description: 'Użytkownik nie ma aktywnych subskrypcji push.',
+        variant: 'destructive',
+      });
+    }
+  } catch (error: any) {
+    toast({
+      title: 'Błąd',
+      description: error.message || 'Nie udało się wysłać powiadomienia.',
+      variant: 'destructive',
+    });
+  } finally {
+    setSendingToSelected(false);
+  }
 };
 ```
 
----
-
-### Zadanie 3: Integracja modalu w Dashboard
-
-**Plik:** `src/pages/Dashboard.tsx`
-
-Dodanie importu i renderowania `PushNotificationModal`:
-
+**Nowy UI - Combobox z wyszukiwaniem:**
 ```tsx
-// Import
-const PushNotificationModal = lazy(() => import('@/components/notifications/PushNotificationModal').then(m => ({ default: m.PushNotificationModal })));
+{/* Sekcja wyboru użytkownika */}
+<div className="space-y-2">
+  <Label>Wyślij do wybranego użytkownika</Label>
+  <div className="flex flex-wrap gap-2">
+    <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={comboboxOpen}
+          className="w-full md:w-[300px] justify-between"
+          disabled={loadingUsers}
+        >
+          {loadingUsers ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : selectedUserId ? (
+            usersWithSubscriptions?.find(u => u.id === selectedUserId)?.email || 'Wybierz użytkownika'
+          ) : (
+            'Wybierz użytkownika...'
+          )}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[300px] p-0">
+        <Command>
+          <CommandInput placeholder="Szukaj po emailu..." />
+          <CommandList>
+            <CommandEmpty>Nie znaleziono użytkowników.</CommandEmpty>
+            <CommandGroup>
+              {usersWithSubscriptions?.map((user) => (
+                <CommandItem
+                  key={user.id}
+                  value={user.email}
+                  onSelect={() => {
+                    setSelectedUserId(user.id === selectedUserId ? null : user.id);
+                    setComboboxOpen(false);
+                  }}
+                >
+                  <Check className={cn(
+                    "mr-2 h-4 w-4",
+                    selectedUserId === user.id ? "opacity-100" : "opacity-0"
+                  )} />
+                  <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
+                  {user.email}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
 
-// W komponencie, przed </DashboardLayout>:
-<Suspense fallback={null}>
-  <PushNotificationModal />
-</Suspense>
+    <Button
+      variant="secondary"
+      onClick={sendToSelected}
+      disabled={!selectedUserId || sendingToSelected || sendingToSelf || sendingToAll || !title}
+    >
+      {sendingToSelected ? (
+        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+      ) : (
+        <User className="w-4 h-4 mr-2" />
+      )}
+      Wyślij do wybranego
+    </Button>
+  </div>
+</div>
 ```
 
 ---
 
-### Zadanie 4: Usunięcie lub zachowanie starego bannera
+## Schemat interfejsu
 
-Komponent `NotificationPermissionBanner` w `/messages` może pozostać jako alternatywna forma prośby, ale można go również zastąpić nowym modalem. 
-
-**Rekomendacja:** Zachować stary banner na stronie wiadomości jako dodatkowe przypomnienie, a modal wyświetlać tylko na dashboardzie po zalogowaniu.
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  ✈ Test powiadomień                                         │
+│  Wyślij testowe powiadomienie push do siebie lub wybranych  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Tytuł powiadomienia          Treść powiadomienia           │
+│  ┌───────────────────────┐   ┌───────────────────────────┐  │
+│  │ Test powiadomienia    │   │ To jest testowe...        │  │
+│  └───────────────────────┘   └───────────────────────────┘  │
+│                                                             │
+│  Wyślij do wybranego użytkownika                           │
+│  ┌─────────────────────────────────┐  ┌──────────────────┐ │
+│  │ 🔽 Wybierz użytkownika...       │  │ 👤 Wyślij do     │ │
+│  └─────────────────────────────────┘  │   wybranego      │ │
+│                                        └──────────────────┘ │
+│                                                             │
+│  ┌────────────────┐  ┌─────────────────────┐               │
+│  │ 🔔 Wyślij do   │  │ 👥 Wyślij do        │               │
+│  │   siebie       │  │   wszystkich        │               │
+│  └────────────────┘  └─────────────────────┘               │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Podsumowanie zmian plików
+## Nowe importy
+
+```tsx
+import { useQuery } from '@tanstack/react-query';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Check, ChevronsUpDown, User, Mail } from 'lucide-react';
+import { cn } from '@/lib/utils';
+```
+
+---
+
+## Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/widgets/CalendarWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/NotificationsWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/ResourcesWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/ReflinksWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/QuickStatsWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/TeamContactsWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/InfoLinksWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/HealthyKnowledgeWidget.tsx` | `variant="premium"` |
-| `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx` | `variant="premium"` |
-| `src/components/notifications/PushNotificationModal.tsx` | **NOWY** - modal powiadomień push |
-| `src/pages/Dashboard.tsx` | Import i renderowanie modalu |
+| `src/components/admin/push-notifications/TestNotificationPanel.tsx` | Dodanie combobox z użytkownikami i przycisk "Wyślij do wybranego" |
 
 ---
 
 ## Oczekiwane rezultaty
 
-1. Wszystkie widżety na dashboardzie będą miały jednolity efekt 3D/głębi
-2. Modal powiadomień push pojawi się automatycznie po zalogowaniu (jeśli użytkownik nie ma jeszcze subskrypcji)
-3. Użytkownik może odłożyć decyzję na 7 dni (przycisk "Później")
-4. Design modalu zgodny z wizualizacją na screenie - nowoczesny, z listą korzyści
+1. **Lista użytkowników** - Combobox wyświetla tylko użytkowników z aktywnymi subskrypcjami push
+2. **Wyszukiwanie** - Można wyszukiwać użytkowników po adresie email
+3. **Wysyłka do wybranego** - Nowy przycisk wysyła powiadomienie do konkretnego użytkownika
+4. **Informacja zwrotna** - Toast pokazuje email użytkownika i liczbę urządzeń
+5. **Walidacja** - Przycisk jest nieaktywny gdy nie wybrano użytkownika lub brak tytułu
