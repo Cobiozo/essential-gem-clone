@@ -52,11 +52,16 @@ export const PushNotificationModal: React.FC = () => {
     return () => clearTimeout(timer);
   }, [isSupported, isSubscribed, permission, pushConfig?.enabled]);
 
-  const handleEnable = async () => {
-    const success = await subscribe();
-    if (success) {
+  // Reactive close when subscription succeeds
+  useEffect(() => {
+    if (isSubscribed && showModal) {
       setShowModal(false);
     }
+  }, [isSubscribed, showModal]);
+
+  const handleEnable = async () => {
+    await subscribe();
+    setShowModal(false); // always close - user made their choice
   };
 
   const handleDismiss = () => {
