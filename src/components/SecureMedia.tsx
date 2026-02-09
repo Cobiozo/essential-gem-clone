@@ -939,7 +939,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]); // Added isSmartBuffering, isInitialBuffering
 
-  // Time tracking for unrestricted mode and secure mode
+  // Time tracking for unrestricted mode and secure mode - WITH BUFFERING SUPPORT
   useEffect(() => {
     if (mediaType !== 'video' || !videoElement) return;
     // Skip if restricted mode (has its own handlers) and not secure mode
@@ -947,6 +947,61 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     let mounted = true; // Prevent state updates after unmount
     const video = videoElement;
+
+    // NEW: Buffering handlers for unrestricted/secure modes
+    const handleWaiting = () => {
+      if (!mounted) return;
+      console.log('[SecureMedia] Unrestricted mode - video waiting');
+      setIsBuffering(true);
+      
+      // Debounced spinner display - shows after 1.5s without pausing video
+      if (spinnerTimeoutRef.current) clearTimeout(spinnerTimeoutRef.current);
+      spinnerTimeoutRef.current = setTimeout(() => {
+        if (!video.paused && video.readyState < 3) {
+          setShowBufferingSpinner(true);
+        }
+      }, 1500);
+    };
+
+    const handleStalled = () => {
+      if (!mounted) return;
+      console.log('[SecureMedia] Unrestricted mode - video stalled');
+      setIsBuffering(true);
+    };
+
+    const handleCanPlay = () => {
+      if (!mounted) return;
+      console.log('[SecureMedia] Unrestricted mode - can play');
+      setIsBuffering(false);
+      setShowBufferingSpinner(false);
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
+    };
+
+    const handleError = (e: Event) => {
+      if (!mounted) return;
+      const errorType = getVideoErrorType(video);
+      console.error('[SecureMedia] Unrestricted mode error:', errorType, e);
+      
+      const maxRetries = bufferConfigRef.current.maxRetries;
+      if (retryCount < maxRetries) {
+        const delay = getRetryDelay(retryCount, bufferConfigRef.current.retryDelayMs);
+        console.log(`[SecureMedia] Unrestricted retry ${retryCount + 1}/${maxRetries} after ${delay}ms`);
+        
+        setTimeout(() => {
+          if (video && mounted) {
+            const currentPos = video.currentTime;
+            video.load();
+            video.currentTime = currentPos;
+            setRetryCount(prev => prev + 1);
+          }
+        }, delay);
+      } else {
+        setHasExhaustedRetries(true);
+      }
+    };
 
     const handleTimeUpdate = () => {
       if (!mounted) return;
@@ -990,6 +1045,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setDuration(video.duration);
     };
 
+    // Add buffering listeners for unrestricted mode
+    video.addEventListener('waiting', handleWaiting);
+    video.addEventListener('stalled', handleStalled);
+    video.addEventListener('canplay', handleCanPlay);
+    video.addEventListener('canplaythrough', handleCanPlay);
+    video.addEventListener('error', handleError);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
@@ -997,12 +1058,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     
     return () => {
       mounted = false;
+      video.removeEventListener('waiting', handleWaiting);
+      video.removeEventListener('stalled', handleStalled);
+      video.removeEventListener('canplay', handleCanPlay);
+      video.removeEventListener('canplaythrough', handleCanPlay);
+      video.removeEventListener('error', handleError);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      
+      // Clear pending spinner timeout
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
     };
-  }, [mediaType, disableInteraction, signedUrl, videoElement]);
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, controlMode]);
 
   // Visibility API - pause video when tab is hidden (for ALL video types)
   useEffect(() => {
@@ -1236,7 +1308,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
-              preload="metadata"
+              preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
@@ -1415,7 +1487,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           controls
           controlsList="nodownload"
           className="absolute inset-0 w-full h-full object-contain rounded-lg"
-          preload="metadata"
+          preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
           playsInline
           // @ts-ignore - webkit-playsinline for older iOS
           webkit-playsinline="true"
@@ -1424,6 +1496,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         >
           Twoja przeglądarka nie obsługuje odtwarzania wideo.
         </video>
+        {/* Buffering spinner overlay for native controls */}
+        {showBufferingSpinner && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg pointer-events-none">
+            <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
+            <span className="text-white text-sm mt-2">Ładowanie...</span>
+          </div>
+        )}
       </div>
     );
   }
