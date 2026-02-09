@@ -19,8 +19,18 @@ interface FreeBusyResponse {
   calendars: {
     [key: string]: {
       busy: BusySlot[];
+      errors?: Array<{ domain: string; reason: string }>;
     };
   };
+}
+
+interface CalendarListResponse {
+  items?: Array<{
+    id: string;
+    accessRole: string;
+    deleted?: boolean;
+    primary?: boolean;
+  }>;
 }
 
 interface RefreshTokenResult {
@@ -28,6 +38,35 @@ interface RefreshTokenResult {
   expires_in?: number;
   error?: string;
   token_revoked?: boolean;
+}
+
+// Funkcja deduplikacji nakładających się slotów
+function deduplicateBusySlots(slots: BusySlot[]): BusySlot[] {
+  if (slots.length === 0) return [];
+  
+  // Sortuj po czasie rozpoczęcia
+  const sorted = [...slots].sort((a, b) => 
+    new Date(a.start).getTime() - new Date(b.start).getTime()
+  );
+  
+  const merged: BusySlot[] = [sorted[0]];
+  
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    const current = sorted[i];
+    
+    if (new Date(current.start) <= new Date(last.end)) {
+      // Nakładają się - rozszerz ostatni slot
+      last.end = new Date(Math.max(
+        new Date(last.end).getTime(),
+        new Date(current.end).getTime()
+      )).toISOString();
+    } else {
+      merged.push(current);
+    }
+  }
+  
+  return merged;
 }
 
 async function refreshAccessToken(refreshToken: string): Promise<RefreshTokenResult | null> {
@@ -72,6 +111,37 @@ async function refreshAccessToken(refreshToken: string): Promise<RefreshTokenRes
   } catch (error) {
     console.error('[check-google-calendar-busy] Token refresh error:', error);
     return null;
+  }
+}
+
+// Pobierz listę kalendarzy użytkownika
+async function fetchUserCalendars(accessToken: string): Promise<Array<{ id: string }>> {
+  try {
+    const response = await fetch(
+      'https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=owner',
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      }
+    );
+
+    if (!response.ok) {
+      console.error('[check-google-calendar-busy] CalendarList API error:', await response.text());
+      return [{ id: 'primary' }];
+    }
+
+    const data = await response.json() as CalendarListResponse;
+    
+    const calendarIds = data.items
+      ?.filter(cal => cal.accessRole === 'owner' && !cal.deleted)
+      ?.map(cal => ({ id: cal.id })) 
+      || [{ id: 'primary' }];
+
+    console.log('[check-google-calendar-busy] Found calendars:', calendarIds.map(c => c.id));
+    
+    return calendarIds.length > 0 ? calendarIds : [{ id: 'primary' }];
+  } catch (error) {
+    console.error('[check-google-calendar-busy] Failed to fetch calendar list:', error);
+    return [{ id: 'primary' }];
   }
 }
 
@@ -177,9 +247,14 @@ Deno.serve(async (req) => {
         .eq('user_id', leader_user_id);
     }
 
-    // Call Google Calendar FreeBusy API
+    // Pobierz listę wszystkich kalendarzy użytkownika
+    const calendarIds = await fetchUserCalendars(accessToken);
+
+    // Call Google Calendar FreeBusy API for ALL calendars
     const timeMin = `${date}T00:00:00Z`;
     const timeMax = `${date}T23:59:59Z`;
+
+    console.log(`[check-google-calendar-busy] Checking FreeBusy for ${calendarIds.length} calendars:`, calendarIds.map(c => c.id));
 
     const freeBusyResponse = await fetch(
       'https://www.googleapis.com/calendar/v3/freeBusy',
@@ -193,7 +268,7 @@ Deno.serve(async (req) => {
           timeMin,
           timeMax,
           timeZone: 'Europe/Warsaw',
-          items: [{ id: 'primary' }],
+          items: calendarIds, // Wszystkie kalendarze, nie tylko primary
         }),
       }
     );
@@ -236,14 +311,36 @@ Deno.serve(async (req) => {
     }
 
     const freeBusyData = await freeBusyResponse.json() as FreeBusyResponse;
-    const busySlots = freeBusyData.calendars?.primary?.busy || [];
+    
+    // Szczegółowe logowanie pełnej odpowiedzi
+    console.log('[check-google-calendar-busy] Full FreeBusy response:', JSON.stringify(freeBusyData));
 
-    console.log(`[check-google-calendar-busy] Found ${busySlots.length} busy slots for ${date}`);
+    // Agreguj wyniki z WSZYSTKICH kalendarzy
+    let allBusySlots: BusySlot[] = [];
+    for (const calendarId of Object.keys(freeBusyData.calendars || {})) {
+      const calendarData = freeBusyData.calendars[calendarId];
+      
+      // Log errors for individual calendars
+      if (calendarData.errors) {
+        console.warn(`[check-google-calendar-busy] Errors for calendar ${calendarId}:`, calendarData.errors);
+      }
+      
+      const calendarBusy = calendarData?.busy || [];
+      console.log(`[check-google-calendar-busy] Calendar ${calendarId}: ${calendarBusy.length} busy slots`);
+      
+      allBusySlots = [...allBusySlots, ...calendarBusy];
+    }
+
+    // Deduplikuj nakładające się sloty
+    const uniqueBusySlots = deduplicateBusySlots(allBusySlots);
+
+    console.log(`[check-google-calendar-busy] Total: ${allBusySlots.length} raw slots, ${uniqueBusySlots.length} unique slots for ${date}`);
 
     return new Response(
       JSON.stringify({ 
         connected: true,
-        busy: busySlots 
+        busy: uniqueBusySlots,
+        calendars_checked: calendarIds.length
       }),
       { 
         status: 200, 
