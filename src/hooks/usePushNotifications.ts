@@ -247,6 +247,12 @@ export const usePushNotifications = () => {
 
       // Save subscription to database
       const subscriptionJSON = subscription.toJSON();
+      console.log('[usePushNotifications] Subscription details:', {
+        endpoint: subscription.endpoint,
+        hasP256dh: !!subscriptionJSON.keys?.p256dh,
+        hasAuth: !!subscriptionJSON.keys?.auth,
+        browser: browserInfo.name,
+      });
       const { error: dbError } = await supabase
         .from('user_push_subscriptions')
         .upsert({
@@ -271,6 +277,22 @@ export const usePushNotifications = () => {
       }
 
       console.log('[usePushNotifications] Subscription saved to database');
+
+      // Send test notification to verify delivery
+      try {
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            userId: user.id,
+            title: 'Powiadomienia włączone!',
+            body: 'Będziesz otrzymywać powiadomienia o nowych wiadomościach.',
+            url: '/dashboard',
+            tag: 'subscription-confirmed',
+          },
+        });
+        console.log('[usePushNotifications] Test notification sent after subscription');
+      } catch (testErr) {
+        console.warn('[usePushNotifications] Failed to send test notification:', testErr);
+      }
 
       setState(prev => ({
         ...prev,
