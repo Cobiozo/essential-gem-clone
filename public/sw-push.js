@@ -162,6 +162,36 @@ self.addEventListener('message', (event) => {
   }
 });
 
+// Fetch handler - cache-first for static assets, network-first for everything else
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Only handle same-origin GET requests
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
+  
+  // Cache-first for manifest, icons, and static assets
+  const cacheablePatterns = ['/manifest.json', '/pwa-192.png', '/pwa-512.png', '/pwa-maskable-512.png', '/favicon.ico'];
+  const isCacheable = cacheablePatterns.some(p => url.pathname === p);
+  
+  if (isCacheable) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  
+  // Network-first for everything else (don't interfere with app routing)
+});
+
 // Handle push subscription change
 self.addEventListener('pushsubscriptionchange', (event) => {
   console.log('[SW-Push] Push subscription changed');

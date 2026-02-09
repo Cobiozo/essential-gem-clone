@@ -22,6 +22,7 @@ import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
+import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 
 // Helper function for lazy loading with automatic retry on chunk errors
 // Improved: More retries, cache clearing, loop detection
@@ -113,6 +114,7 @@ const CommissionCalculatorPage = lazyWithRetry(() => import("./pages/CommissionC
 const SpecialistCalculatorPage = lazyWithRetry(() => import("./pages/SpecialistCalculator"));
 const HtmlPage = lazyWithRetry(() => import("./pages/HtmlPage"));
 const HtmlEditorPage = lazyWithRetry(() => import("./pages/HtmlEditorPage"));
+const InstallPage = lazyWithRetry(() => import("./pages/InstallPage"));
 const HealthyKnowledge = lazyWithRetry(() => import("./pages/HealthyKnowledge"));
 const HealthyKnowledgePlayer = lazyWithRetry(() => import("./pages/HealthyKnowledgePlayer"));
 const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKnowledgePublicPage"));
@@ -342,6 +344,7 @@ const AppContent = () => {
               <Route path="/messages" element={<MessagesPage />} />
               <Route path="/paid-events" element={<PaidEventsListPage />} />
               <Route path="/events/:slug" element={<PaidEventPage />} />
+              <Route path="/install" element={<InstallPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -350,6 +353,7 @@ const AppContent = () => {
         
         {/* Chat widgets - inside BrowserRouter to access location */}
         <ChatWidgetsWrapper />
+        <PWAInstallBanner />
       </BrowserRouter>
       <CookieConsentBanner />
       
