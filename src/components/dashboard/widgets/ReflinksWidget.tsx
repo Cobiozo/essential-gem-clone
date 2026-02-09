@@ -105,7 +105,7 @@ export const ReflinksWidget: React.FC = () => {
   }
 
   return (
-    <Card className="shadow-sm relative" data-tour="reflinks-widget">
+    <Card variant="premium" className="relative" data-tour="reflinks-widget">
       <WidgetInfoButton description="Twoje linki polecające - kopiuj i śledź statystyki kliknięć" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-3">

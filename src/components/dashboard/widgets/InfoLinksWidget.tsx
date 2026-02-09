@@ -124,7 +124,7 @@ export const InfoLinksWidget: React.FC = () => {
 
   if (loading) {
     return (
-      <Card className="shadow-sm relative" data-tour="infolinks-widget">
+      <Card variant="premium" className="relative" data-tour="infolinks-widget">
         <WidgetInfoButton description="Przydatne linki zewnętrzne skonfigurowane przez administrację" />
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-3">
@@ -148,7 +148,7 @@ export const InfoLinksWidget: React.FC = () => {
   }
 
   return (
-    <Card className="shadow-sm relative" data-tour="infolinks-widget">
+    <Card variant="premium" className="relative" data-tour="infolinks-widget">
       <WidgetInfoButton description="Przydatne linki zewnętrzne skonfigurowane przez administrację" />
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-3">

@@ -101,7 +101,7 @@ export const ResourcesWidget: React.FC = () => {
   };
 
   return (
-    <Card className="shadow-sm relative" data-tour="resources-widget">
+    <Card variant="premium" className="relative" data-tour="resources-widget">
       <WidgetInfoButton description="Najnowsze materiały z biblioteki - pobieraj dokumenty i grafiki" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-base font-semibold flex items-center gap-3">
