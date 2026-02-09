@@ -118,7 +118,7 @@ export const ChatPermissionsManagement = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Kierunki komunikacji
+                Zarządzanie czatem
               </CardTitle>
               <CardDescription className="mt-1">
                 Konfiguruj kto może wysyłać wiadomości do kogo w systemie

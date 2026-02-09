@@ -4,9 +4,12 @@ import { Switch } from '@/components/ui/switch';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Search, Radio, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Search, Radio, Loader2, ChevronDown, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface PartnerBroadcast {
   user_id: string;
@@ -22,6 +25,7 @@ export const BroadcastLeadersCard = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
 
   const loadPartners = async () => {
     try {
@@ -67,6 +71,13 @@ export const BroadcastLeadersCard = () => {
 
   useEffect(() => { loadPartners(); }, []);
 
+  // Auto-expand when searching
+  useEffect(() => {
+    if (searchQuery.length > 0) {
+      setIsOpen(true);
+    }
+  }, [searchQuery]);
+
   const toggleBroadcast = async (partner: PartnerBroadcast, value: boolean) => {
     setSaving(partner.user_id);
     try {
@@ -98,6 +109,8 @@ export const BroadcastLeadersCard = () => {
     return p.first_name?.toLowerCase().includes(q) || p.last_name?.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
   });
 
+  const activeLeaders = partners.filter(p => p.can_broadcast).length;
+
   if (loading) {
     return (
       <Card>
@@ -114,13 +127,19 @@ export const BroadcastLeadersCard = () => {
         <CardTitle className="flex items-center gap-2">
           <Radio className="h-5 w-5" />
           Liderzy — kanały jednokierunkowe
+          {activeLeaders > 0 && (
+            <Badge variant="secondary" className="ml-1">
+              <Users className="h-3 w-3 mr-1" />
+              {activeLeaders} {activeLeaders === 1 ? 'lider aktywny' : 'liderów aktywnych'}
+            </Badge>
+          )}
         </CardTitle>
         <CardDescription>
           Nadaj partnerowi rolę Lidera, aby mógł wysyłać wiadomości broadcast do swoich partnerów, specjalistów i klientów
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="mb-4 relative">
+      <CardContent className="space-y-3">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Szukaj partnera..."
@@ -130,42 +149,52 @@ export const BroadcastLeadersCard = () => {
           />
         </div>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Partner</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead className="text-center">Lider (broadcast)</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map(partner => (
-              <TableRow key={partner.user_id}>
-                <TableCell className="font-medium">
-                  {partner.first_name} {partner.last_name}
-                  {partner.can_broadcast && (
-                    <Badge variant="secondary" className="ml-2 text-xs">Lider</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-muted-foreground">{partner.email}</TableCell>
-                <TableCell className="text-center">
-                  <Switch
-                    checked={partner.can_broadcast}
-                    onCheckedChange={(checked) => toggleBroadcast(partner, checked)}
-                    disabled={saving === partner.user_id}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-            {filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                  {searchQuery ? 'Nie znaleziono partnerów' : 'Brak partnerów w systemie'}
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground">
+              <span>{isOpen ? 'Ukryj listę' : 'Pokaż listę'} ({filtered.length} partnerów)</span>
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isOpen && "rotate-180")} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Partner</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-center">Lider (broadcast)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map(partner => (
+                  <TableRow key={partner.user_id}>
+                    <TableCell className="font-medium">
+                      {partner.first_name} {partner.last_name}
+                      {partner.can_broadcast && (
+                        <Badge variant="secondary" className="ml-2 text-xs">Lider</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">{partner.email}</TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={partner.can_broadcast}
+                        onCheckedChange={(checked) => toggleBroadcast(partner, checked)}
+                        disabled={saving === partner.user_id}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                      {searchQuery ? 'Nie znaleziono partnerów' : 'Brak partnerów w systemie'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CollapsibleContent>
+        </Collapsible>
       </CardContent>
     </Card>
   );

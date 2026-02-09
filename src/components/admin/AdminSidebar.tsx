@@ -246,7 +246,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const hardcodedLabels: Record<string, string> = {
     calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
-    chatPermissions: 'Kierunki komunikacji',
+    chatPermissions: 'Zarządzanie czatem',
     sidebarIcons: 'Ikony paska bocznego',
     healthyKnowledge: 'Zdrowa Wiedza',
     systemHealth: 'Alerty systemowe',
@@ -256,6 +256,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     newsTicker: 'Pasek informacyjny',
     paidEvents: 'Płatne wydarzenia',
     pushNotifications: 'Powiadomienia Push',
+    notifications: 'Powiadomienia systemowe',
   };
 
   const getLabel = (key: string): string => {
