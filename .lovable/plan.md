@@ -1,35 +1,86 @@
 
-# Poprawki banera instalacji PWA - pozycja i wskazowki
+
+# Precyzyjne wskazywanie ikony instalacji w zaleznosci od przegladarki
 
 ## Podsumowanie
 
-Trzy zmiany w banerze instalacji PWA:
-1. Przeniesienie banera z dolu na gore ekranu
-2. Automatyczne ukrycie banera po przejsciu na strone `/install`
-3. Dodanie animowanej strzalki wskazujacej na lewy gorny rog (pasek adresu przegladarki), gdzie znajduje sie ikona instalacji
+Rozbudowa detekcji przegladarki i dopasowanie pozycji animowanej strzalki do konkretnego miejsca, w ktorym dana przegladarka wyswietla ikone instalacji PWA.
+
+## Lokalizacja ikony instalacji w roznych przegladarkach
+
+| Przegladarka | Gdzie jest ikona | Pozycja strzalki |
+|---|---|---|
+| Chrome (desktop) | Prawa strona paska adresu (ikona monitora ze strzalka) | Gora-prawo, blisko paska adresu |
+| Edge (desktop) | Prawa strona paska adresu (ikona "App available") | Gora-prawo, blisko paska adresu |
+| Chrome (Android) | Menu (trzy kropki) prawy gorny rog | Gora-prawo z tekstem "Menu > Zainstaluj" |
+| Samsung Internet | Menu (trzy kreski) prawy dolny rog | Dol-prawo |
+| Safari (iOS) | Ikona "Udostepnij" (kwadrat ze strzalka) na dolnym pasku | Dol-srodek |
+| Safari (macOS) | Brak natywnej ikony - menu Plik lub przycisk Share | Gora-lewo z instrukcja tekstowa |
+| Firefox (desktop) | Brak natywnej obslugi PWA | Link do strony /install |
+| Opera (desktop) | Prawa strona paska adresu (jesli wspierane) | Gora-prawo |
 
 ## Zmiany techniczne
 
-### 1. `src/components/pwa/PWAInstallBanner.tsx`
+### 1. Rozbudowa detekcji przegladarki (`usePWAInstall.ts`)
 
-**Pozycja**: Zmiana z `fixed bottom-4` na `fixed top-4` z animacja `slide-in-from-top-4` (zamiast `slide-in-from-bottom-4`). Na mobilkach baner bedzie tuz pod paskiem przegladarki, co wizualnie sugeruje polaczenie z ikonami przegladarki.
+Dodanie szczegolowej detekcji przegladarki:
 
-**Ukrycie na /install**: Dodanie `/install` do listy sciezek, na ktorych baner sie nie wyswietla. Gdy uzytkownik kliknie "Zobacz instrukcje" i przejdzie na `/install`, baner automatycznie zniknie (bo React Router zmieni `location.pathname`).
+```
+isChrome: boolean    // Chrome (nie Edge, nie Opera)
+isEdge: boolean      // Microsoft Edge
+isFirefox: boolean   // Firefox
+isOpera: boolean     // Opera
+isSamsungBrowser: boolean  // Samsung Internet
+```
 
-**Wskaznik na ikone instalacji**: Dla wariantu desktop (nie iOS, nie Android) - dodanie animowanego elementu ze strzalka skierowana w gore-lewo z tekstem "Kliknij ikone instalacji w pasku adresu". Strzalka bedzie pulsowac/migac, aby przyciagnac uwage uzytkownika do odpowiedniego miejsca w przegladarce.
+Detekcja oparta na `navigator.userAgent` - juz czesciowo zaimplementowana (isIOS, isAndroid, isSafari).
 
-Na iOS strzalka wskazuje na ikone udostepniania (dol ekranu lub gorny prawy rog w zaleznosci od wersji Safari).
+### 2. Warianty strzalki w banerze (`PWAInstallBanner.tsx`)
 
-### 2. Szczegoly implementacji
+Zamiast dwoch wariantow (iOS / reszta), wprowadzenie 5-6 wariantow pozycji strzalki:
 
-Zmienione elementy w `PWAInstallBanner.tsx`:
-- Linia 126: `fixed bottom-4` zmieniona na `fixed top-16` (pod headerem dashboardu) z `slide-in-from-top-4`
-- Linia 57-58: Dodanie `'/install'` do listy sciezek ukrywajacych baner
-- Nowy element UI: animowana strzalka (CSS `animate-bounce` lub custom animation) wskazujaca kierunek ikony instalacji w pasku przegladarki
-- Na desktopie: strzalka w gore-prawo z tekstem "Szukaj ikony instalacji w pasku adresu"
-- Na iOS: strzalka w dol (do ikony Share na dole Safari) lub w gore-prawo
-- Tekst banera zaktualizowany aby jasno wskazywac co kliknac
+**a) Chrome/Edge/Opera desktop** (`canInstall = true`):
+- Strzalka `ArrowUp` wyrownana do prawej (`justify-end pr-8`)
+- Tekst: "Kliknij ikone instalacji w pasku adresu"
+- Pozycja: prawy gorny rog ekranu
 
-### Pliki do edycji
+**b) Chrome Android** (`isAndroid && isChrome`):
+- Strzalka `ArrowUp` skierowana w prawo-gore
+- Tekst: "Menu (⋮) > Zainstaluj aplikacje"
+- Pozycja: prawy gorny rog
 
-- `src/components/pwa/PWAInstallBanner.tsx` - pozycja, ukrywanie na /install, animowana strzalka
+**c) Samsung Internet Android** (`isSamsungBrowser`):
+- Strzalka `ArrowDown` skierowana w prawo-dol
+- Tekst: "Menu (☰) > Dodaj do ekranu"
+- Pozycja: prawy dolny rog
+
+**d) Safari iOS** (`isIOS`):
+- Strzalka `ArrowDown` skierowana na dol-srodek
+- Tekst: "Udostepnij > Dodaj do ekranu glownego"
+- Pozycja: dolny srodek ekranu (nad paskiem Safari)
+
+**e) Safari macOS** (`isSafari && !isIOS`):
+- Strzalka `ArrowUp` skierowana w gore
+- Tekst: "Dodaj do Docka z menu Plik lub przez przycisk Udostepnij"
+- Pozycja: gora ekranu
+
+**f) Firefox / inne** (fallback):
+- Brak strzalki kierunkowej
+- Tekst: "Ta przegladarka nie wspiera bezposredniej instalacji"
+- Link: "Zobacz instrukcje" do /install
+
+### 3. Pozycjonowanie strzalek niezaleznie od banera
+
+Strzalki beda w osobnych kontenerach `fixed` z odpowiednim pozycjonowaniem:
+- `fixed top-1 right-8` - dla Chrome/Edge desktop
+- `fixed top-1 right-4` - dla Android Chrome (menu w prawym gornym rogu)
+- `fixed bottom-16 right-4` - dla Samsung Internet
+- `fixed bottom-12 left-1/2 -translate-x-1/2` - dla iOS Safari (srodek dolu)
+
+Baner pozostanie w `fixed top-2 left-4 right-4 max-w-md mx-auto`.
+
+## Pliki do edycji
+
+1. **`src/hooks/usePWAInstall.ts`** - dodanie detekcji Chrome, Edge, Firefox, Opera, Samsung Internet
+2. **`src/components/pwa/PWAInstallBanner.tsx`** - rozbudowa wariantow strzalek z precyzyjnym pozycjonowaniem per przegladarka
+
