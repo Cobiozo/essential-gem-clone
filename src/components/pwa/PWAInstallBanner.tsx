@@ -27,6 +27,16 @@ export function PWAInstallBanner() {
     }
   }, []);
 
+  // Listen for manual reset event from footer
+  useEffect(() => {
+    const handleReset = () => {
+      localStorage.removeItem(DISMISS_KEY);
+      setDismissed(false);
+    };
+    window.addEventListener('resetPWAInstallBanner', handleReset);
+    return () => window.removeEventListener('resetPWAInstallBanner', handleReset);
+  }, []);
+
   const handleDismiss = () => {
     localStorage.setItem(DISMISS_KEY, Date.now().toString());
     setDismissed(true);

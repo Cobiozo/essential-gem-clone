@@ -42,6 +42,12 @@ export const DashboardFooterSection: React.FC = () => {
     window.dispatchEvent(new CustomEvent('openCookieSettings'));
   };
 
+  const handleOpenInstallBanner = () => {
+    window.dispatchEvent(new CustomEvent('resetPWAInstallBanner'));
+  };
+
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -153,9 +159,17 @@ export const DashboardFooterSection: React.FC = () => {
             {t('footer.terms')}
           </a>
           <span>•</span>
-          <button onClick={handleOpenCookieSettings} className="hover:text-primary transition-colors">
+           <button onClick={handleOpenCookieSettings} className="hover:text-primary transition-colors">
             {t('footer.cookieSettings')}
           </button>
+          {!isStandalone && (
+            <>
+              <span>•</span>
+              <button onClick={handleOpenInstallBanner} className="hover:text-primary transition-colors">
+                Zainstaluj aplikację
+              </button>
+            </>
+          )}
         </div>
       </footer>
     </div>
