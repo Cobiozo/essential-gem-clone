@@ -1,213 +1,80 @@
 
-# Plan: Dodanie wysyłki testowych powiadomień do wybranych użytkowników
 
-## Zakres zmian
+# Plan: Naprawa modalu powiadomien + diagnostyka Brave
 
-Rozszerzenie panelu "Test powiadomień" o możliwość wysyłki powiadomienia do konkretnego użytkownika wybranego z listy z funkcją wyszukiwania.
+## Problem 1: Modal nie zamyka sie po wyrazeniu zgody
+
+**Plik:** `src/components/notifications/PushNotificationModal.tsx`
+
+Aktualnie `handleEnable` zamyka modal tylko gdy `subscribe()` zwroci `true`. Jesli subskrypcja sie nie powiedzie (np. blad zapisu do bazy), modal pozostaje otwarty mimo ze uzytkownik wyrazil zgode w przegladarce.
+
+### Rozwiazanie:
+
+1. Zamykac modal po kazdej probie (uzytkownik juz podjal decyzje)
+2. Dodac reaktywny `useEffect` zamykajacy modal gdy `isSubscribed` zmieni sie na `true`
+
+```tsx
+// Zmiana handleEnable - zawsze zamykaj
+const handleEnable = async () => {
+  await subscribe();
+  setShowModal(false); // zawsze zamknij, niezaleznie od wyniku
+};
+
+// Dodatkowy useEffect - reaktywne zamkniecie
+useEffect(() => {
+  if (isSubscribed && showModal) {
+    setShowModal(false);
+  }
+}, [isSubscribed, showModal]);
+```
 
 ---
 
-## Rozwiązanie
+## Problem 2: Brave nie otrzymuje powiadomien push
 
-### Zmiana 1: Rozszerzenie TestNotificationPanel
+### Analiza
 
-**Plik:** `src/components/admin/push-notifications/TestNotificationPanel.tsx`
+Subskrypcja Brave w bazie (user `818aef5e`, urzadzenie mobilne) posiada prawidlowy endpoint FCM (`fcm.googleapis.com`), ale:
+- `last_success_at` = null (zadne powiadomienie nigdy nie dotarlo)
+- Brak wpisow w `push_notification_logs` dla tego uzytkownika
+- Oznacza to, ze **zadne powiadomienie nie bylo nigdy wyslane** do tego uzytkownika
 
-**Nowe funkcjonalności:**
-1. Combobox z listą użytkowników posiadających subskrypcje push
-2. Wyszukiwanie po emailu użytkownika
-3. Przycisk "Wyślij do wybranego" (aktywny gdy wybrany użytkownik)
+### Mozliwe przyczyny na Brave:
+1. **Brave Shields** blokuja Service Worker lub push events
+2. Brave moze wymagac wylaczenia "Block cross-site trackers" dla powiadomien push
+3. Na Androidzie Brave moze wymagac dodatkowych uprawnien systemowych
 
-**Nowe stany:**
+### Rozwiazanie - diagnostyka i lepsze logowanie:
+
+Dodanie w `usePushNotifications.ts` dodatkowego logowania po subskrypcji, aby zweryfikowac czy subskrypcja Brave jest prawidlowa:
+
 ```tsx
-const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-const [sendingToSelected, setSendingToSelected] = useState(false);
-const [comboboxOpen, setComboboxOpen] = useState(false);
-```
-
-**Query do pobrania użytkowników z subskrypcjami:**
-```tsx
-const { data: usersWithSubscriptions, isLoading: loadingUsers } = useQuery({
-  queryKey: ['users-with-push-subscriptions'],
-  queryFn: async () => {
-    // 1. Pobierz unikalne user_id z subskrypcji
-    const { data: subs, error } = await supabase
-      .from('user_push_subscriptions')
-      .select('user_id')
-      .limit(1000);
-    
-    if (error) throw error;
-    
-    const uniqueUserIds = [...new Set(subs?.map(s => s.user_id) || [])];
-    
-    if (uniqueUserIds.length === 0) return [];
-    
-    // 2. Pobierz emaile przez edge function
-    const { data: usersData, error: emailError } = await supabase.functions.invoke(
-      'get-user-emails',
-      { body: { userIds: uniqueUserIds } }
-    );
-    
-    if (emailError) throw emailError;
-    
-    return usersData as { id: string; email: string }[];
-  },
+console.log('[usePushNotifications] Subscription details:', {
+  endpoint: subscription.endpoint,
+  hasP256dh: !!subscriptionJSON.keys?.p256dh,
+  hasAuth: !!subscriptionJSON.keys?.auth,
+  browser: browserInfo.name,
 });
 ```
 
-**Nowa funkcja wysyłki:**
-```tsx
-const sendToSelected = async () => {
-  if (!selectedUserId) return;
-  
-  setSendingToSelected(true);
-  try {
-    const { data, error } = await supabase.functions.invoke('send-push-notification', {
-      body: {
-        userId: selectedUserId,
-        title,
-        body,
-        url: '/dashboard',
-        tag: `test-selected-${Date.now()}`,
-      },
-    });
-
-    if (error) throw error;
-
-    const selectedUser = usersWithSubscriptions?.find(u => u.id === selectedUserId);
-    
-    if (data?.sent > 0) {
-      toast({
-        title: 'Wysłano',
-        description: `Powiadomienie wysłane do ${selectedUser?.email || 'wybranego użytkownika'} (${data.sent} urządzeń).`,
-      });
-    } else {
-      toast({
-        title: 'Brak aktywnych urządzeń',
-        description: 'Użytkownik nie ma aktywnych subskrypcji push.',
-        variant: 'destructive',
-      });
-    }
-  } catch (error: any) {
-    toast({
-      title: 'Błąd',
-      description: error.message || 'Nie udało się wysłać powiadomienia.',
-      variant: 'destructive',
-    });
-  } finally {
-    setSendingToSelected(false);
-  }
-};
-```
-
-**Nowy UI - Combobox z wyszukiwaniem:**
-```tsx
-{/* Sekcja wyboru użytkownika */}
-<div className="space-y-2">
-  <Label>Wyślij do wybranego użytkownika</Label>
-  <div className="flex flex-wrap gap-2">
-    <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={comboboxOpen}
-          className="w-full md:w-[300px] justify-between"
-          disabled={loadingUsers}
-        >
-          {loadingUsers ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : selectedUserId ? (
-            usersWithSubscriptions?.find(u => u.id === selectedUserId)?.email || 'Wybierz użytkownika'
-          ) : (
-            'Wybierz użytkownika...'
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0">
-        <Command>
-          <CommandInput placeholder="Szukaj po emailu..." />
-          <CommandList>
-            <CommandEmpty>Nie znaleziono użytkowników.</CommandEmpty>
-            <CommandGroup>
-              {usersWithSubscriptions?.map((user) => (
-                <CommandItem
-                  key={user.id}
-                  value={user.email}
-                  onSelect={() => {
-                    setSelectedUserId(user.id === selectedUserId ? null : user.id);
-                    setComboboxOpen(false);
-                  }}
-                >
-                  <Check className={cn(
-                    "mr-2 h-4 w-4",
-                    selectedUserId === user.id ? "opacity-100" : "opacity-0"
-                  )} />
-                  <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-                  {user.email}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-
-    <Button
-      variant="secondary"
-      onClick={sendToSelected}
-      disabled={!selectedUserId || sendingToSelected || sendingToSelf || sendingToAll || !title}
-    >
-      {sendingToSelected ? (
-        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-      ) : (
-        <User className="w-4 h-4 mr-2" />
-      )}
-      Wyślij do wybranego
-    </Button>
-  </div>
-</div>
-```
-
----
-
-## Schemat interfejsu
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  ✈ Test powiadomień                                         │
-│  Wyślij testowe powiadomienie push do siebie lub wybranych  │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Tytuł powiadomienia          Treść powiadomienia           │
-│  ┌───────────────────────┐   ┌───────────────────────────┐  │
-│  │ Test powiadomienia    │   │ To jest testowe...        │  │
-│  └───────────────────────┘   └───────────────────────────┘  │
-│                                                             │
-│  Wyślij do wybranego użytkownika                           │
-│  ┌─────────────────────────────────┐  ┌──────────────────┐ │
-│  │ 🔽 Wybierz użytkownika...       │  │ 👤 Wyślij do     │ │
-│  └─────────────────────────────────┘  │   wybranego      │ │
-│                                        └──────────────────┘ │
-│                                                             │
-│  ┌────────────────┐  ┌─────────────────────┐               │
-│  │ 🔔 Wyślij do   │  │ 👥 Wyślij do        │               │
-│  │   siebie       │  │   wszystkich        │               │
-│  └────────────────┘  └─────────────────────┘               │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Nowe importy
+Oraz wyslanie testowego powiadomienia natychmiast po subskrypcji, aby zweryfikowac dzialanie:
 
 ```tsx
-import { useQuery } from '@tanstack/react-query';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Check, ChevronsUpDown, User, Mail } from 'lucide-react';
-import { cn } from '@/lib/utils';
+// Po zapisaniu subskrypcji do bazy, wyslij testowe powiadomienie
+try {
+  await supabase.functions.invoke('send-push-notification', {
+    body: {
+      userId: user.id,
+      title: 'Powiadomienia wlaczone!',
+      body: 'Bedziesz otrzymywac powiadomienia o nowych wiadomosciach.',
+      url: '/dashboard',
+      tag: 'subscription-confirmed',
+    },
+  });
+  console.log('[usePushNotifications] Test notification sent after subscription');
+} catch (testErr) {
+  console.warn('[usePushNotifications] Failed to send test notification:', testErr);
+}
 ```
 
 ---
@@ -216,14 +83,12 @@ import { cn } from '@/lib/utils';
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/push-notifications/TestNotificationPanel.tsx` | Dodanie combobox z użytkownikami i przycisk "Wyślij do wybranego" |
-
----
+| `src/components/notifications/PushNotificationModal.tsx` | Zamykanie modalu po kazdej probie + reaktywny useEffect |
+| `src/hooks/usePushNotifications.ts` | Dodatkowe logowanie + automatyczne testowe powiadomienie po subskrypcji |
 
 ## Oczekiwane rezultaty
 
-1. **Lista użytkowników** - Combobox wyświetla tylko użytkowników z aktywnymi subskrypcjami push
-2. **Wyszukiwanie** - Można wyszukiwać użytkowników po adresie email
-3. **Wysyłka do wybranego** - Nowy przycisk wysyła powiadomienie do konkretnego użytkownika
-4. **Informacja zwrotna** - Toast pokazuje email użytkownika i liczbę urządzeń
-5. **Walidacja** - Przycisk jest nieaktywny gdy nie wybrano użytkownika lub brak tytułu
+1. Modal zamyka sie natychmiast po kliknieciu "Wlacz powiadomienia"
+2. Po subskrypcji uzytkownik otrzymuje testowe powiadomienie potwierdzajace dzialanie
+3. Lepsze logowanie pozwoli zdiagnozowac problemy z Brave
+
