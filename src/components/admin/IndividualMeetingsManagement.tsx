@@ -213,12 +213,6 @@ export const IndividualMeetingsManagement: React.FC = () => {
                     <span>{t('admin.meetings.partnerConsultation')}</span>
                   </div>
                 </TableHead>
-                <TableHead className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <Users className="h-4 w-4" />
-                    <span>Lider (broadcast)</span>
-                  </div>
-                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -248,20 +242,11 @@ export const IndividualMeetingsManagement: React.FC = () => {
                       disabled={saving === partner.user_id}
                     />
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Switch
-                      checked={partner.can_broadcast}
-                      onCheckedChange={(checked) => 
-                        togglePermission(partner, 'can_broadcast', checked)
-                      }
-                      disabled={saving === partner.user_id}
-                    />
-                  </TableCell>
                 </TableRow>
               ))}
               {filteredPartners.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                     {searchQuery ? t('admin.meetings.noPartnersFound') : t('admin.meetings.noPartnersInSystem')}
                   </TableCell>
                 </TableRow>
