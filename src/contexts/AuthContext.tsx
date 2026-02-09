@@ -92,12 +92,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
+    let debounceTimeout: NodeJS.Timeout | null = null;
+    
     const handleVisibilityChange = () => {
-      isPageHiddenRef.current = document.hidden;
+      // Debounce to prevent rapid state changes when switching tabs quickly
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        isPageHiddenRef.current = document.hidden;
+      }, 100);
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (debounceTimeout) clearTimeout(debounceTimeout);
+    };
   }, []);
 
   const fetchProfile = useCallback(async (userId: string): Promise<void> => {

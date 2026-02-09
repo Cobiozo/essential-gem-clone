@@ -60,6 +60,7 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
 interface HtmlPageSidebar {
@@ -139,6 +140,7 @@ export const DashboardSidebar: React.FC = () => {
   const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
+  const isMobile = useIsMobile();
 
   // Calculator access
   const { data: calculatorAccess } = useCalculatorAccess();
@@ -705,8 +707,19 @@ export const DashboardSidebar: React.FC = () => {
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </Collapsible>
+              ) : isMobile ? (
+                // On mobile - render without Tooltip to prevent touch issues
+                <SidebarMenuButton
+                  onClick={() => handleMenuClick(item)}
+                  isActive={isActive(item)}
+                  className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary touch-action-manipulation"
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span>{t(item.labelKey)}</span>
+                </SidebarMenuButton>
               ) : (
-              <Tooltip delayDuration={3000}>
+                // On desktop - use Tooltip with delay
+                <Tooltip delayDuration={3000}>
                   <TooltipTrigger asChild>
                     <SidebarMenuButton
                       onClick={() => handleMenuClick(item)}
