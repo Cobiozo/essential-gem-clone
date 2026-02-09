@@ -1,29 +1,35 @@
 
+# Poprawki banera instalacji PWA - pozycja i wskazowki
 
-# Reczne wywolanie banera instalacji PWA
+## Podsumowanie
 
-## Problem
+Trzy zmiany w banerze instalacji PWA:
+1. Przeniesienie banera z dolu na gore ekranu
+2. Automatyczne ukrycie banera po przejsciu na strone `/install`
+3. Dodanie animowanej strzalki wskazujacej na lewy gorny rog (pasek adresu przegladarki), gdzie znajduje sie ikona instalacji
 
-Po kliknieciu "Nie teraz" baner znika na 14 dni. Uzytkownik nie ma mozliwosci ponownego wywolania go wczesniej.
+## Zmiany techniczne
 
-## Rozwiazanie
+### 1. `src/components/pwa/PWAInstallBanner.tsx`
 
-Dodanie linku **"Zainstaluj aplikacje"** w stopce dashboardu (`DashboardFooterSection.tsx`), analogicznie do istniejacego linku "Ustawienia cookie" ktory korzysta z CustomEvent.
+**Pozycja**: Zmiana z `fixed bottom-4` na `fixed top-4` z animacja `slide-in-from-top-4` (zamiast `slide-in-from-bottom-4`). Na mobilkach baner bedzie tuz pod paskiem przegladarki, co wizualnie sugeruje polaczenie z ikonami przegladarki.
 
-### Mechanizm
+**Ukrycie na /install**: Dodanie `/install` do listy sciezek, na ktorych baner sie nie wyswietla. Gdy uzytkownik kliknie "Zobacz instrukcje" i przejdzie na `/install`, baner automatycznie zniknie (bo React Router zmieni `location.pathname`).
 
-1. Stopka wysyla `CustomEvent('resetPWAInstallBanner')` po kliknieciu
-2. `PWAInstallBanner.tsx` nasluchuje tego zdarzenia, czysci klucz `pwa_install_banner_dismissed` z localStorage i ustawia `dismissed = false`
-3. Baner pojawia sie ponownie
+**Wskaznik na ikone instalacji**: Dla wariantu desktop (nie iOS, nie Android) - dodanie animowanego elementu ze strzalka skierowana w gore-lewo z tekstem "Kliknij ikone instalacji w pasku adresu". Strzalka bedzie pulsowac/migac, aby przyciagnac uwage uzytkownika do odpowiedniego miejsca w przegladarce.
 
-Ten wzorzec jest juz uzyty w projekcie - dokladnie tak samo dziala link "Ustawienia cookie" (zdarzenie `openCookieSettings`).
+Na iOS strzalka wskazuje na ikone udostepniania (dol ekranu lub gorny prawy rog w zaleznosci od wersji Safari).
 
-### Dodatkowy warunek
+### 2. Szczegoly implementacji
 
-Link "Zainstaluj aplikacje" bedzie widoczny tylko gdy aplikacja NIE jest juz zainstalowana (`display-mode: standalone`).
+Zmienione elementy w `PWAInstallBanner.tsx`:
+- Linia 126: `fixed bottom-4` zmieniona na `fixed top-16` (pod headerem dashboardu) z `slide-in-from-top-4`
+- Linia 57-58: Dodanie `'/install'` do listy sciezek ukrywajacych baner
+- Nowy element UI: animowana strzalka (CSS `animate-bounce` lub custom animation) wskazujaca kierunek ikony instalacji w pasku przegladarki
+- Na desktopie: strzalka w gore-prawo z tekstem "Szukaj ikony instalacji w pasku adresu"
+- Na iOS: strzalka w dol (do ikony Share na dole Safari) lub w gore-prawo
+- Tekst banera zaktualizowany aby jasno wskazywac co kliknac
 
-## Pliki do edycji
+### Pliki do edycji
 
-- **`src/components/pwa/PWAInstallBanner.tsx`** - dodanie listenera na `resetPWAInstallBanner` event
-- **`src/components/dashboard/DashboardFooterSection.tsx`** - dodanie linku "Zainstaluj aplikacje" obok "Ustawienia cookie"
-
+- `src/components/pwa/PWAInstallBanner.tsx` - pozycja, ukrywanie na /install, animowana strzalka
