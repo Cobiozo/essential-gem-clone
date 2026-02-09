@@ -1,34 +1,49 @@
 
 
-# Plan: Przeniesienie przełącznika "Lider (broadcast)" do zakładki Czat
+# Zmiany w zakladkach i wyglad listy liderow
 
-## Problem
+## 1. Zmiana nazwy zakladki "Kierunki komunikacji" na "Zarzadzanie czatem"
 
-Przełącznik `can_broadcast` (nadanie roli Lidera) jest obecnie w zakładce "Spotkania indywidualne", ale dotyczy czatu - powinien być w zakładce "Uprawnienia czatu" (`chat-permissions`).
+**Plik:** `src/components/admin/AdminSidebar.tsx` (linia 249)
 
-## Rozwiązanie
+Zmiana w `hardcodedLabels`:
+```
+chatPermissions: 'Kierunki komunikacji'  -->  chatPermissions: 'Zarządzanie czatem'
+```
 
-Najprościej i bez komplikowania zależności: **przenieść kolumnę "Lider (broadcast)" z `IndividualMeetingsManagement` do `ChatPermissionsManagement`** jako osobną kartę (Card) z listą partnerów i przełącznikami.
+Dodatkowo zmiana tytulu karty w `src/components/admin/ChatPermissionsManagement.tsx` (linia 121):
+```
+Kierunki komunikacji  -->  Zarządzanie czatem
+```
 
-Obie funkcje korzystają z tej samej tabeli `leader_permissions` - nie trzeba tworzyć nowej tabeli ani duplikować danych. Spotkania indywidualne czytają swoje kolumny, czat czyta `can_broadcast`.
+## 2. Zmiana nazwy zakladki "Powiadomienia" na "Powiadomienia systemowe"
 
-## Zakres zmian
+**Plik:** `src/components/admin/AdminSidebar.tsx`
 
-### 1. `src/components/admin/ChatPermissionsManagement.tsx`
+Dodanie klucza `notifications` do `hardcodedLabels`:
+```
+notifications: 'Powiadomienia systemowe'
+```
 
-Dodanie nowej karty **"Liderzy - kanały jednokierunkowe"** (pod istniejącymi kartami "Widoczność sidebar" i "Kierunki komunikacji"):
-- Lista partnerów z wyszukiwarką (jak w IndividualMeetingsManagement)
-- Przełącznik `can_broadcast` przy każdym partnerze
-- Pobieranie danych z `profiles` + `user_roles` (filtr partner) + `leader_permissions`
-- Zapis do `leader_permissions.can_broadcast`
+## 3. Przebudowa listy liderow - zwijana sekcja
 
-### 2. `src/components/admin/IndividualMeetingsManagement.tsx`
+**Plik:** `src/components/admin/BroadcastLeadersCard.tsx`
 
-Usunięcie kolumny "Lider (broadcast)" z tabeli - zostają tylko kolumny dotyczące spotkań (tripartite, partner consultation).
+Aktualna lista to pelna tabela ze wszystkimi partnerami widoczna od razu - przy 200+ uzytkownikach jest nieuzyteczna.
 
-## Efekt
+Nowy uklad:
+- Pasek wyszukiwania **zawsze widoczny** na gorze
+- Lista partnerow **domyslnie zwinięta** (schowana)
+- Po wpisaniu frazy w wyszukiwarkę lista **automatycznie się rozwija** i pokazuje przefiltrowane wyniki
+- Mozliwosc recznego rozwijania/zwijania klikajac przycisk "Pokaz liste" / "Ukryj liste"
+- Uzycie komponentu `Collapsible` z Radix UI (juz zainstalowany w projekcie)
+- Licznik aktywnych liderow widoczny obok tytulu (np. "3 liderow aktywnych")
 
-- Zakładka **"Spotkania indywidualne"**: tylko uprawnienia do spotkań
-- Zakładka **"Uprawnienia czatu"**: widoczność sidebar + kierunki komunikacji + nadawanie roli Lidera (broadcast)
-- Baza danych: bez zmian - ta sama tabela `leader_permissions`, te same kolumny
+### Szczegoly techniczne
+
+- Import `Collapsible`, `CollapsibleContent`, `CollapsibleTrigger` z `@radix-ui/react-collapsible`
+- Stan `isOpen` domyslnie `false`
+- Efekt: gdy `searchQuery.length > 0` to `setIsOpen(true)`
+- Tabela renderuje sie wewnatrz `CollapsibleContent`
+- Przycisk rozwijania pod wyszukiwarka z ikona chevron i tekstem informacyjnym
 
