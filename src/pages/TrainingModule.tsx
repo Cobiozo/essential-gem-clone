@@ -403,6 +403,31 @@ const TrainingModule = () => {
     };
   }, [currentLessonIndex, lessons, progress, isNotesDialogOpen]);
 
+  // Preconnect to VPS for faster SSL handshake (runs once on mount)
+  useEffect(() => {
+    const preconnect = document.createElement('link');
+    preconnect.rel = 'preconnect';
+    preconnect.href = 'https://purelife.info.pl';
+    preconnect.crossOrigin = 'anonymous';
+    document.head.appendChild(preconnect);
+    
+    const dnsPrefetch = document.createElement('link');
+    dnsPrefetch.rel = 'dns-prefetch';
+    dnsPrefetch.href = 'https://purelife.info.pl';
+    document.head.appendChild(dnsPrefetch);
+    
+    console.log('[TrainingModule] Added preconnect hint for VPS');
+    
+    return () => {
+      if (preconnect.parentNode) {
+        document.head.removeChild(preconnect);
+      }
+      if (dnsPrefetch.parentNode) {
+        document.head.removeChild(dnsPrefetch);
+      }
+    };
+  }, []);
+
   // Preload następnej lekcji wideo dla płynniejszego przejścia
   useEffect(() => {
     if (lessons.length === 0 || currentLessonIndex >= lessons.length - 1) return;
@@ -411,20 +436,23 @@ const TrainingModule = () => {
     if (nextLesson?.media_type === 'video' && nextLesson?.media_url) {
       const url = nextLesson.media_url;
       
-      // Nie prefetchuj YouTube ani zewnętrznych URL (powodują błędy CORS)
+      // Nie prefetchuj YouTube (powodują błędy CORS)
       const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-      const isExternalUrl = !url.includes('supabase.co');
       
-      if (isYouTube || isExternalUrl) {
-        console.log('[TrainingModule] Skipping prefetch for external URL:', nextLesson.title);
+      if (isYouTube) {
+        console.log('[TrainingModule] Skipping prefetch for YouTube:', nextLesson.title);
         return;
       }
       
-      // Prefetch tylko dla plików z Supabase Storage
+      // Prefetch dla plików z Supabase Storage i VPS (purelife.info.pl)
       const link = document.createElement('link');
       link.rel = 'prefetch';
       link.href = url;
       link.as = 'video';
+      // Dodaj crossorigin dla VPS
+      if (url.includes('purelife.info.pl')) {
+        link.crossOrigin = 'anonymous';
+      }
       document.head.appendChild(link);
       
       console.log('[TrainingModule] Preloading next lesson video:', nextLesson.title);

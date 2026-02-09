@@ -113,6 +113,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   }>({});
   const [bufferedAhead, setBufferedAhead] = useState(0);
   
+  // Guard to prevent double state reset on same mediaUrl
+  const lastMediaUrlRef = useRef<string | null>(null);
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastValidTimeRef = useRef<number>(initialTime);
@@ -384,7 +387,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
   // FULL RESET when mediaUrl changes - prevents state leakage between lessons
   // Uses 0 for lastValidTimeRef because initialTime may not be ready yet
+  // Guard: Skip if same URL (prevent double reset from React strict mode or duplicate triggers)
   useEffect(() => {
+    if (mediaUrl === lastMediaUrlRef.current) {
+      console.log('[SecureMedia] Same mediaUrl, skipping reset');
+      return;
+    }
+    lastMediaUrlRef.current = mediaUrl;
+    
     console.log('[SecureMedia] mediaUrl changed, resetting all state');
     initialPositionSetRef.current = false;
     lastValidTimeRef.current = 0;
@@ -1045,12 +1055,34 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setDuration(video.duration);
     };
 
+    // NEW: Track buffering progress for unrestricted mode (same as restricted mode)
+    const handleProgress = () => {
+      if (!mounted || !video.buffered || video.buffered.length === 0) return;
+      
+      const bufferedAheadValue = getBufferedAhead(video);
+      setBufferedAhead(bufferedAheadValue);
+      
+      // Update buffered ranges for visualization
+      setBufferedRanges(getBufferedRanges(video));
+      
+      // Calculate buffer progress percentage
+      if (video.duration > 0) {
+        let totalBuffered = 0;
+        for (let i = 0; i < video.buffered.length; i++) {
+          totalBuffered += video.buffered.end(i) - video.buffered.start(i);
+        }
+        const progress = (totalBuffered / video.duration) * 100;
+        setBufferProgress(Math.min(progress, 100));
+      }
+    };
+
     // Add buffering listeners for unrestricted mode
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('stalled', handleStalled);
     video.addEventListener('canplay', handleCanPlay);
     video.addEventListener('canplaythrough', handleCanPlay);
     video.addEventListener('error', handleError);
+    video.addEventListener('progress', handleProgress);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
@@ -1063,6 +1095,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('canplay', handleCanPlay);
       video.removeEventListener('canplaythrough', handleCanPlay);
       video.removeEventListener('error', handleError);
+      video.removeEventListener('progress', handleProgress);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
