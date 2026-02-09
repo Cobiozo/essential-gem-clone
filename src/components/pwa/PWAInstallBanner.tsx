@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { useLocation } from 'react-router-dom';
-import { Download, X, Share, PlusSquare, MoreVertical } from 'lucide-react';
+import { Download, X, Share, PlusSquare, ArrowUpLeft, ArrowUp, ArrowDownRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -13,9 +13,8 @@ export function PWAInstallBanner() {
   const { user } = useAuth();
   const { canInstall, isInstalled, isIOS, promptInstall } = usePWAInstall();
   const location = useLocation();
-  const [dismissed, setDismissed] = useState(true); // Start hidden, show after check
+  const [dismissed, setDismissed] = useState(true);
 
-  // Check localStorage dismiss state
   useEffect(() => {
     const stored = localStorage.getItem(DISMISS_KEY);
     if (stored) {
@@ -27,7 +26,6 @@ export function PWAInstallBanner() {
     }
   }, []);
 
-  // Listen for manual reset event from footer
   useEffect(() => {
     const handleReset = () => {
       localStorage.removeItem(DISMISS_KEY);
@@ -53,14 +51,11 @@ export function PWAInstallBanner() {
   if (!user) return null;
   if (isInstalled) return null;
   if (dismissed) return null;
-  // Hide on public pages
-  const publicPaths = ['/infolink/', '/events/register/'];
+  const publicPaths = ['/infolink/', '/events/register/', '/install'];
   if (publicPaths.some(p => location.pathname.startsWith(p))) return null;
 
-  // Determine which variant to show
   const renderContent = () => {
     if (isIOS) {
-      // iOS: manual instructions
       return (
         <div className="space-y-1.5">
           <p className="text-muted-foreground text-xs">
@@ -77,12 +72,15 @@ export function PWAInstallBanner() {
               Do ekranu głównego
             </span>
           </div>
+          {/* Arrow pointing down to Share icon in Safari */}
+          <div className="flex justify-center pt-1 animate-bounce">
+            <ArrowDownRight className="h-5 w-5 text-primary" />
+          </div>
         </div>
       );
     }
 
     if (canInstall) {
-      // Chrome/Edge: native install prompt
       return (
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
@@ -101,7 +99,7 @@ export function PWAInstallBanner() {
       );
     }
 
-    // Fallback: Firefox, Safari desktop, etc. — link to /install
+    // Fallback: Firefox, Safari desktop, etc.
     return (
       <div className="space-y-2">
         <p className="text-muted-foreground text-xs">
@@ -123,7 +121,25 @@ export function PWAInstallBanner() {
   };
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-bottom-4 duration-300">
+    <div className="fixed top-2 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-top-4 duration-300">
+      {/* Animated arrow pointing to browser install icon */}
+      {!isIOS && !canInstall && (
+        <div className="flex items-center gap-2 mb-1 pl-1 animate-bounce">
+          <ArrowUpLeft className="h-6 w-6 text-primary drop-shadow-md" />
+          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
+            Szukaj ikony instalacji w pasku adresu ↑
+          </span>
+        </div>
+      )}
+      {canInstall && (
+        <div className="flex items-center gap-2 mb-1 pl-1 animate-bounce">
+          <ArrowUp className="h-6 w-6 text-primary drop-shadow-md" />
+          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
+            Kliknij ikonę instalacji w pasku przeglądarki ↑
+          </span>
+        </div>
+      )}
+
       <Alert className="border-primary/30 bg-background shadow-lg relative">
         <button
           onClick={handleDismiss}
