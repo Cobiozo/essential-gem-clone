@@ -33,6 +33,7 @@ export const ROLE_HIERARCHY: Record<string, number> = {
 
 export const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrator',
+  lider: 'Lider',
   partner: 'Partner',
   specjalista: 'Specjalista',
   client: 'Klient',

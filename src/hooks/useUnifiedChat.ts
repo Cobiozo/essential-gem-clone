@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
+import { toast } from 'sonner';
 
 export interface UnifiedChannel {
   id: string;
@@ -60,10 +61,30 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const [unreadCounts, setUnreadCounts] = useState<Map<string, number>>(new Map());
   const [teamMembers, setTeamMembers] = useState<TeamMemberChannel[]>([]);
   const [upline, setUpline] = useState<TeamMemberChannel | null>(null);
+  const [canBroadcast, setCanBroadcast] = useState(false);
 
   const enableRealtime = options?.enableRealtime ?? false;
   const currentRole = userRole?.role?.toLowerCase() || 'client';
   const currentLevel = ROLE_HIERARCHY[currentRole] || 25;
+
+  // Check if current partner has broadcast permission
+  const checkBroadcastPermission = useCallback(async () => {
+    if (!user || currentRole !== 'partner') {
+      setCanBroadcast(false);
+      return;
+    }
+    try {
+      const { data } = await supabase
+        .from('leader_permissions')
+        .select('can_broadcast')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setCanBroadcast(data?.can_broadcast || false);
+    } catch (error) {
+      console.error('Error checking broadcast permission:', error);
+      setCanBroadcast(false);
+    }
+  }, [user, currentRole]);
 
   // Fetch team members (upline + downline)
   const fetchTeamMembers = useCallback(async () => {
@@ -338,7 +359,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const channels = useMemo((): UnifiedChannel[] => {
     const result: UnifiedChannel[] = [];
     
-    // Admin can send to all roles
+    // ===== ADMIN BROADCAST CHANNELS (5 outgoing) =====
     if (currentRole === 'admin') {
       result.push({
         id: 'broadcast-all',
@@ -353,128 +374,185 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       });
       
       result.push({
-        id: 'role-partner',
-        type: 'role',
+        id: 'broadcast-lider',
+        type: 'broadcast',
+        name: 'Liderzy',
+        targetRole: 'lider',
+        icon: 'Crown',
+        unreadCount: unreadCounts.get('broadcast-lider') || 0,
+        canSend: true,
+        canReceive: false,
+        isIncoming: false,
+      });
+      
+      result.push({
+        id: 'broadcast-partner',
+        type: 'broadcast',
         name: 'Partnerzy',
         targetRole: 'partner',
         icon: 'Users',
-        unreadCount: unreadCounts.get('role-partner') || 0,
+        unreadCount: unreadCounts.get('broadcast-partner') || 0,
         canSend: true,
         canReceive: false,
         isIncoming: false,
       });
       
       result.push({
-        id: 'role-specjalista',
-        type: 'role',
+        id: 'broadcast-specjalista',
+        type: 'broadcast',
         name: 'Specjaliści',
         targetRole: 'specjalista',
         icon: 'UserCheck',
-        unreadCount: unreadCounts.get('role-specjalista') || 0,
+        unreadCount: unreadCounts.get('broadcast-specjalista') || 0,
         canSend: true,
         canReceive: false,
         isIncoming: false,
       });
       
       result.push({
-        id: 'role-client',
-        type: 'role',
+        id: 'broadcast-client',
+        type: 'broadcast',
         name: 'Klienci',
         targetRole: 'client',
         icon: 'User',
-        unreadCount: unreadCounts.get('role-client') || 0,
+        unreadCount: unreadCounts.get('broadcast-client') || 0,
         canSend: true,
         canReceive: false,
         isIncoming: false,
       });
     }
     
-    // Partner can send to specjalista and client
-    if (currentRole === 'partner') {
-      result.push({
-        id: 'role-specjalista',
-        type: 'role',
-        name: 'Specjaliści',
-        targetRole: 'specjalista',
-        icon: 'UserCheck',
-        unreadCount: unreadCounts.get('role-specjalista') || 0,
-        canSend: true,
-        canReceive: false,
-        isIncoming: false,
-      });
+    // ===== LEADER BROADCAST CHANNELS (4 outgoing, filtered by downline) =====
+    if (currentRole === 'partner' && canBroadcast) {
+      // Check if there are sub-leaders in downline
+      const hasSubLeaders = teamMembers.some(m => m.role === 'partner');
+      if (hasSubLeaders) {
+        result.push({
+          id: 'leader-broadcast-lider',
+          type: 'broadcast',
+          name: 'Liderzy w strukturze',
+          targetRole: 'lider',
+          icon: 'Crown',
+          unreadCount: unreadCounts.get('leader-broadcast-lider') || 0,
+          canSend: true,
+          canReceive: false,
+          isIncoming: false,
+        });
+      }
       
       result.push({
-        id: 'role-client',
-        type: 'role',
-        name: 'Klienci',
-        targetRole: 'client',
-        icon: 'User',
-        unreadCount: unreadCounts.get('role-client') || 0,
-        canSend: true,
-        canReceive: false,
-        isIncoming: false,
-      });
-      
-      // Partner receives from admin
-      result.push({
-        id: 'incoming-admin',
-        type: 'role',
-        name: 'Od Administratorów',
-        targetRole: 'admin',
-        icon: 'Shield',
-        unreadCount: unreadCounts.get('incoming-admin') || 0,
-        canSend: false,
-        canReceive: true,
-        isIncoming: true,
-      });
-    }
-    
-    // Specjalista can send to client only
-    if (currentRole === 'specjalista') {
-      result.push({
-        id: 'role-client',
-        type: 'role',
-        name: 'Klienci',
-        targetRole: 'client',
-        icon: 'User',
-        unreadCount: unreadCounts.get('role-client') || 0,
-        canSend: true,
-        canReceive: false,
-        isIncoming: false,
-      });
-      
-      // Specjalista receives from admin and partner
-      result.push({
-        id: 'incoming-admin',
-        type: 'role',
-        name: 'Od Administratorów',
-        targetRole: 'admin',
-        icon: 'Shield',
-        unreadCount: unreadCounts.get('incoming-admin') || 0,
-        canSend: false,
-        canReceive: true,
-        isIncoming: true,
-      });
-      
-      result.push({
-        id: 'incoming-partner',
-        type: 'role',
-        name: 'Od Partnerów',
+        id: 'leader-broadcast-partner',
+        type: 'broadcast',
+        name: 'Partnerzy w strukturze',
         targetRole: 'partner',
         icon: 'Users',
-        unreadCount: unreadCounts.get('incoming-partner') || 0,
+        unreadCount: unreadCounts.get('leader-broadcast-partner') || 0,
+        canSend: true,
+        canReceive: false,
+        isIncoming: false,
+      });
+      
+      result.push({
+        id: 'leader-broadcast-specjalista',
+        type: 'broadcast',
+        name: 'Specjaliści w strukturze',
+        targetRole: 'specjalista',
+        icon: 'UserCheck',
+        unreadCount: unreadCounts.get('leader-broadcast-specjalista') || 0,
+        canSend: true,
+        canReceive: false,
+        isIncoming: false,
+      });
+      
+      result.push({
+        id: 'leader-broadcast-client',
+        type: 'broadcast',
+        name: 'Klienci w strukturze',
+        targetRole: 'client',
+        icon: 'User',
+        unreadCount: unreadCounts.get('leader-broadcast-client') || 0,
+        canSend: true,
+        canReceive: false,
+        isIncoming: false,
+      });
+    }
+    
+    // ===== INCOMING CHANNELS (read-only) =====
+    // Leader (partner with can_broadcast): receives "Od Admina"
+    if (currentRole === 'partner' && canBroadcast) {
+      result.push({
+        id: 'incoming-admin',
+        type: 'broadcast',
+        name: 'Od Administratora',
+        targetRole: 'admin',
+        icon: 'Shield',
+        unreadCount: unreadCounts.get('incoming-admin') || 0,
         canSend: false,
         canReceive: true,
         isIncoming: true,
       });
     }
     
-    // Client can only receive
+    // Partner (without broadcast): receives "Od Admina" + "Od Lidera"
+    if (currentRole === 'partner' && !canBroadcast) {
+      result.push({
+        id: 'incoming-admin',
+        type: 'broadcast',
+        name: 'Od Administratora',
+        targetRole: 'admin',
+        icon: 'Shield',
+        unreadCount: unreadCounts.get('incoming-admin') || 0,
+        canSend: false,
+        canReceive: true,
+        isIncoming: true,
+      });
+      
+      result.push({
+        id: 'incoming-lider',
+        type: 'broadcast',
+        name: 'Od Lidera',
+        targetRole: 'lider',
+        icon: 'Crown',
+        unreadCount: unreadCounts.get('incoming-lider') || 0,
+        canSend: false,
+        canReceive: true,
+        isIncoming: true,
+      });
+    }
+    
+    // Specjalista: receives "Od Admina" + "Od Lidera"
+    if (currentRole === 'specjalista') {
+      result.push({
+        id: 'incoming-admin',
+        type: 'broadcast',
+        name: 'Od Administratora',
+        targetRole: 'admin',
+        icon: 'Shield',
+        unreadCount: unreadCounts.get('incoming-admin') || 0,
+        canSend: false,
+        canReceive: true,
+        isIncoming: true,
+      });
+      
+      result.push({
+        id: 'incoming-lider',
+        type: 'broadcast',
+        name: 'Od Lidera',
+        targetRole: 'lider',
+        icon: 'Crown',
+        unreadCount: unreadCounts.get('incoming-lider') || 0,
+        canSend: false,
+        canReceive: true,
+        isIncoming: true,
+      });
+    }
+    
+    // Client: receives "Od Admina" + "Od Lidera"
     if (currentRole === 'client') {
       result.push({
         id: 'incoming-admin',
-        type: 'role',
-        name: 'Od Administratorów',
+        type: 'broadcast',
+        name: 'Od Administratora',
         targetRole: 'admin',
         icon: 'Shield',
         unreadCount: unreadCounts.get('incoming-admin') || 0,
@@ -484,24 +562,12 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       });
       
       result.push({
-        id: 'incoming-partner',
-        type: 'role',
-        name: 'Od Partnerów',
-        targetRole: 'partner',
-        icon: 'Users',
-        unreadCount: unreadCounts.get('incoming-partner') || 0,
-        canSend: false,
-        canReceive: true,
-        isIncoming: true,
-      });
-      
-      result.push({
-        id: 'incoming-specjalista',
-        type: 'role',
-        name: 'Od Specjalistów',
-        targetRole: 'specjalista',
-        icon: 'UserCheck',
-        unreadCount: unreadCounts.get('incoming-specjalista') || 0,
+        id: 'incoming-lider',
+        type: 'broadcast',
+        name: 'Od Lidera',
+        targetRole: 'lider',
+        icon: 'Crown',
+        unreadCount: unreadCounts.get('incoming-lider') || 0,
         canSend: false,
         canReceive: true,
         isIncoming: true,
@@ -509,7 +575,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     }
     
     return result;
-  }, [currentRole, unreadCounts]);
+  }, [currentRole, unreadCounts, canBroadcast, teamMembers]);
 
   const selectedChannel = useMemo(() => 
     channels.find(c => c.id === selectedChannelId) || null,
@@ -528,23 +594,43 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       let query = supabase
         .from('role_chat_messages')
         .select('*')
+        .eq('is_broadcast', true)
         .order('created_at', { ascending: true })
         .limit(100);
 
-      // Filter based on channel type
       if (channel.isIncoming) {
-        // Incoming messages from a specific role TO current role
+        // Incoming broadcast messages
+        if (channel.targetRole === 'admin') {
+          // "Od Administratora" - messages sent by admin to my role or 'all'
+          query = query
+            .eq('sender_role', 'admin')
+            .or(`recipient_role.eq.${currentRole},recipient_role.eq.all`)
+            .or(`recipient_id.eq.${user.id},recipient_id.is.null`);
+        } else if (channel.targetRole === 'lider') {
+          // "Od Lidera" - broadcast messages from leaders where I'm a recipient
+          query = query
+            .eq('sender_role', 'lider')
+            .eq('recipient_id', user.id);
+        }
+      } else if (channelId === 'broadcast-all') {
+        // Admin broadcast to all - show sent messages
         query = query
-          .eq('sender_role', channel.targetRole)
-          .eq('recipient_role', currentRole);
-      } else if (channel.targetRole) {
-        // Outgoing messages from current role TO target role
+          .eq('sender_id', user.id)
+          .eq('recipient_role', 'all');
+      } else if (channelId.startsWith('broadcast-')) {
+        // Admin broadcast to specific role
+        const role = channelId.replace('broadcast-', '');
         query = query
-          .eq('sender_role', currentRole)
-          .eq('recipient_role', channel.targetRole);
-      } else {
-        // Broadcast to all - show all messages sent by current user
-        query = query.eq('sender_id', user.id);
+          .eq('sender_id', user.id)
+          .eq('sender_role', 'admin')
+          .eq('recipient_role', role);
+      } else if (channelId.startsWith('leader-broadcast-')) {
+        // Leader broadcast to specific role in downline
+        const role = channelId.replace('leader-broadcast-', '');
+        query = query
+          .eq('sender_id', user.id)
+          .eq('sender_role', 'lider')
+          .eq('recipient_role', role);
       }
 
       const { data, error } = await query;
@@ -552,6 +638,11 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       // Fetch sender profiles
       const senderIds = [...new Set((data || []).map(m => m.sender_id))];
+      if (senderIds.length === 0) {
+        setMessages([]);
+        return;
+      }
+
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, first_name, last_name, avatar_url')
@@ -559,14 +650,25 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
-      const enrichedMessages: UnifiedMessage[] = (data || []).map(m => {
+      // Deduplicate messages (admin sends one per recipient, but show once in outgoing view)
+      const seenContent = new Map<string, boolean>();
+      const enrichedMessages: UnifiedMessage[] = [];
+      
+      for (const m of (data || [])) {
+        // For outgoing channels, deduplicate by content+timestamp
+        if (!channel.isIncoming) {
+          const key = `${m.content}-${m.created_at}`;
+          if (seenContent.has(key)) continue;
+          seenContent.set(key, true);
+        }
+
         const senderProfile = profileMap.get(m.sender_id);
         const firstName = senderProfile?.first_name || '';
         const lastName = senderProfile?.last_name || '';
         const fullName = `${firstName} ${lastName}`.trim() || 'Nieznany';
         const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '??';
 
-        return {
+        enrichedMessages.push({
           id: m.id,
           channelId: m.channel_id,
           senderId: m.sender_id,
@@ -581,8 +683,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           messageType: m.message_type,
           attachmentUrl: m.attachment_url,
           attachmentName: m.attachment_name,
-        };
-      });
+        });
+      }
 
       setMessages(enrichedMessages);
     } catch (error) {
@@ -619,55 +721,116 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     }
   }, [user, currentRole]);
 
-  // Send message to channel
+  // Send broadcast message to channel
   const sendMessage = useCallback(async (content: string): Promise<boolean> => {
     if (!user || !profile || !selectedChannel || !selectedChannel.canSend) return false;
 
     try {
-      const targetRole = selectedChannel.targetRole;
-      
-      // Insert message
-      const { error: msgError } = await supabase
-        .from('role_chat_messages')
-        .insert({
-          sender_id: user.id,
-          sender_role: currentRole,
-          recipient_role: targetRole || 'all',
-          recipient_id: null, // Broadcast to role
-          content,
-          channel_id: null,
-        });
+      const channelId = selectedChannel.id;
+      const senderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik';
+      const isLeaderBroadcast = channelId.startsWith('leader-broadcast-');
+      const senderRole = isLeaderBroadcast ? 'lider' : 'admin';
 
-      if (msgError) throw msgError;
+      if (channelId === 'broadcast-all') {
+        // Admin broadcast to ALL - insert one message per role
+        const roles = ['partner', 'specjalista', 'client'];
+        for (const role of roles) {
+          await supabase.from('role_chat_messages').insert({
+            sender_id: user.id,
+            sender_role: 'admin',
+            recipient_role: 'all',
+            recipient_id: null,
+            content,
+            channel_id: null,
+            is_broadcast: true,
+          });
+        }
+      } else if (channelId === 'broadcast-lider') {
+        // Admin broadcast to leaders - find partners with can_broadcast
+        const { data: leaders } = await supabase
+          .from('leader_permissions')
+          .select('user_id')
+          .eq('can_broadcast', true);
 
-      // Send notification to all users of target role
-      if (targetRole) {
-        const senderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik';
+        for (const leader of (leaders || [])) {
+          await supabase.from('role_chat_messages').insert({
+            sender_id: user.id,
+            sender_role: 'admin',
+            recipient_role: 'lider',
+            recipient_id: leader.user_id,
+            content,
+            channel_id: null,
+            is_broadcast: true,
+          });
+        }
+      } else if (channelId.startsWith('broadcast-')) {
+        // Admin broadcast to specific role
+        const targetRole = channelId.replace('broadcast-', '');
+        const { data: targetUsers } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('role', targetRole)
+          .eq('is_active', true);
+
+        for (const targetUser of (targetUsers || [])) {
+          await supabase.from('role_chat_messages').insert({
+            sender_id: user.id,
+            sender_role: 'admin',
+            recipient_role: targetRole,
+            recipient_id: targetUser.user_id,
+            content,
+            channel_id: null,
+            is_broadcast: true,
+          });
+        }
+      } else if (isLeaderBroadcast) {
+        // Leader broadcast to specific role in downline
+        const targetRole = channelId.replace('leader-broadcast-', '');
         
-        await supabase.from('user_notifications').insert({
-          user_id: null, // Broadcast - will use target_role
-          target_role: targetRole,
-          sender_id: user.id,
-          notification_type: 'role_chat_message',
-          source_module: 'role_chat',
-          title: `Nowa wiadomość od ${ROLE_LABELS[currentRole] || currentRole}`,
-          message: content.length > 100 ? content.substring(0, 100) + '...' : content,
-          link: '/my-account?tab=communication',
-          metadata: {
-            sender_name: senderName,
-            sender_role: currentRole,
-          },
-        });
+        // Filter downline by target role
+        let recipients = teamMembers;
+        if (targetRole === 'lider') {
+          // Sub-leaders: partners with can_broadcast in downline
+          const downlineIds = teamMembers.filter(m => m.role === 'partner').map(m => m.userId);
+          if (downlineIds.length > 0) {
+            const { data: leaderPerms } = await supabase
+              .from('leader_permissions')
+              .select('user_id')
+              .eq('can_broadcast', true)
+              .in('user_id', downlineIds);
+            const leaderIds = new Set((leaderPerms || []).map(l => l.user_id));
+            recipients = teamMembers.filter(m => leaderIds.has(m.userId));
+          } else {
+            recipients = [];
+          }
+        } else {
+          recipients = teamMembers.filter(m => m.role === targetRole);
+        }
+
+        for (const recipient of recipients) {
+          await supabase.from('role_chat_messages').insert({
+            sender_id: user.id,
+            sender_role: 'lider',
+            recipient_role: targetRole,
+            recipient_id: recipient.userId,
+            content,
+            channel_id: null,
+            is_broadcast: true,
+          });
+        }
       }
+
+      toast.success('Wiadomość wysłana');
 
       // Refresh messages
       await fetchMessages(selectedChannel.id);
       return true;
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending broadcast message:', error);
+      toast.error('Błąd wysyłania wiadomości');
       return false;
     }
-  }, [user, profile, selectedChannel, currentRole, fetchMessages]);
+  }, [user, profile, selectedChannel, currentRole, fetchMessages, teamMembers]);
 
   // Mark channel messages as read
   const markChannelAsRead = useCallback(async (channelId: string) => {
@@ -712,7 +875,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     if (!user) return;
     fetchUnreadCounts();
     fetchTeamMembers();
-  }, [user, fetchUnreadCounts, fetchTeamMembers]);
+    checkBroadcastPermission();
+  }, [user, fetchUnreadCounts, fetchTeamMembers, checkBroadcastPermission]);
 
   // Refs for stable function references in realtime subscription
   const fetchMessagesRef = useRef(fetchMessages);
