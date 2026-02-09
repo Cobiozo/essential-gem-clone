@@ -1,94 +1,118 @@
 
 
-# Plan: Naprawa modalu powiadomien + diagnostyka Brave
+# Plan: Kanaly jednokierunkowe (broadcast) - poprawione kanaly lidera
 
-## Problem 1: Modal nie zamyka sie po wyrazeniu zgody
+## Poprawiony schemat komunikacji
 
-**Plik:** `src/components/notifications/PushNotificationModal.tsx`
+```text
+NADAWCY (jednokierunkowe - brak odpowiedzi)
+============================================
 
-Aktualnie `handleEnable` zamyka modal tylko gdy `subscribe()` zwroci `true`. Jesli subskrypcja sie nie powiedzie (np. blad zapisu do bazy), modal pozostaje otwarty mimo ze uzytkownik wyrazil zgode w przegladarce.
+ADMIN
+  |---> Wszyscy
+  |---> Liderzy
+  |---> Partnerzy
+  |---> Specjalisci
+  |---> Klienci
 
-### Rozwiazanie:
+LIDER (partner z can_broadcast=true)
+  |---> Liderzy w mojej strukturze (sub-liderzy w downline)
+  |---> Partnerzy w mojej strukturze
+  |---> Specjalisci w mojej strukturze
+  |---> Klienci w mojej strukturze
+  (kazdy kanal filtruje TYLKO uzytkownikow z downline danego lidera)
 
-1. Zamykac modal po kazdej probie (uzytkownik juz podjal decyzje)
-2. Dodac reaktywny `useEffect` zamykajacy modal gdy `isSubscribed` zmieni sie na `true`
+
+ODBIORCY (tylko odczyt - nie moga odpowiadac)
+==============================================
+
+Lider:       "Od Admina"
+Partner:     "Od Admina", "Od Lidera"
+Specjalista: "Od Admina", "Od Lidera"
+Klient:      "Od Admina", "Od Lidera"
+```
+
+---
+
+## Zmiany w bazie danych
+
+### Migracja SQL
+
+```sql
+ALTER TABLE leader_permissions 
+  ADD COLUMN IF NOT EXISTS can_broadcast boolean DEFAULT false;
+
+ALTER TABLE role_chat_messages 
+  ADD COLUMN IF NOT EXISTS is_broadcast boolean DEFAULT false;
+```
+
+---
+
+## Zmiany w kodzie
+
+### 1. `src/types/roleChat.ts`
+
+Dodanie etykiety "Lider":
 
 ```tsx
-// Zmiana handleEnable - zawsze zamykaj
-const handleEnable = async () => {
-  await subscribe();
-  setShowModal(false); // zawsze zamknij, niezaleznie od wyniku
+export const ROLE_LABELS: Record<string, string> = {
+  admin: 'Administrator',
+  lider: 'Lider',
+  partner: 'Partner',
+  specjalista: 'Specjalista',
+  client: 'Klient',
 };
-
-// Dodatkowy useEffect - reaktywne zamkniecie
-useEffect(() => {
-  if (isSubscribed && showModal) {
-    setShowModal(false);
-  }
-}, [isSubscribed, showModal]);
 ```
+
+### 2. `src/hooks/useUnifiedChat.ts` - Przebudowa kanalow
+
+**Kanaly nadawcze Admina (5 kanalow):**
+- "Wszyscy" - broadcast do wszystkich
+- "Liderzy" - partnerzy z `can_broadcast = true`
+- "Partnerzy" - wszyscy partnerzy
+- "Specjalisci" - wszyscy specjalisci
+- "Klienci" - wszyscy klienci
+
+**Kanaly nadawcze Lidera (4 kanaly, filtrowane po downline):**
+- "Liderzy w strukturze" - sub-liderzy (partnerzy z `can_broadcast`) w downline
+- "Partnerzy w strukturze" - partnerzy w downline
+- "Specjalisci w strukturze" - specjalisci w downline
+- "Klienci w strukturze" - klienci w downline
+
+Przy wyborze kanalu np. "Specjalisci w strukturze":
+1. Pobrac downline z `get_organization_tree`
+2. Odfiltrowac tylko tych z `role = 'specjalista'`
+3. Wyslac wiadomosc z `is_broadcast: true` do kazdego z nich (`recipient_id`)
+
+**Kanaly odbiorcze (tylko odczyt):**
+- Lider: "Od Admina"
+- Partner: "Od Admina", "Od Lidera"
+- Specjalista: "Od Admina", "Od Lidera"
+- Klient: "Od Admina", "Od Lidera"
+
+### 3. `src/components/messages/FullChatWindow.tsx`
+
+Potwierdzenie blokady odpowiedzi na kanalach incoming - juz czesciowo istnieje w logice `canSend`. Upewnienie sie ze kanaly broadcast sa zawsze read-only.
+
+### 4. Panel admin - przelacznik `can_broadcast`
+
+W komponencie zarzadzania liderami dodanie przelacznika "Moze wysylac wiadomosci do zespolu" (`can_broadcast = true` w `leader_permissions`).
 
 ---
 
-## Problem 2: Brave nie otrzymuje powiadomien push
+## Kluczowa roznica wzgledem poprzedniego planu
 
-### Analiza
-
-Subskrypcja Brave w bazie (user `818aef5e`, urzadzenie mobilne) posiada prawidlowy endpoint FCM (`fcm.googleapis.com`), ale:
-- `last_success_at` = null (zadne powiadomienie nigdy nie dotarlo)
-- Brak wpisow w `push_notification_logs` dla tego uzytkownika
-- Oznacza to, ze **zadne powiadomienie nie bylo nigdy wyslane** do tego uzytkownika
-
-### Mozliwe przyczyny na Brave:
-1. **Brave Shields** blokuja Service Worker lub push events
-2. Brave moze wymagac wylaczenia "Block cross-site trackers" dla powiadomien push
-3. Na Androidzie Brave moze wymagac dodatkowych uprawnien systemowych
-
-### Rozwiazanie - diagnostyka i lepsze logowanie:
-
-Dodanie w `usePushNotifications.ts` dodatkowego logowania po subskrypcji, aby zweryfikowac czy subskrypcja Brave jest prawidlowa:
-
-```tsx
-console.log('[usePushNotifications] Subscription details:', {
-  endpoint: subscription.endpoint,
-  hasP256dh: !!subscriptionJSON.keys?.p256dh,
-  hasAuth: !!subscriptionJSON.keys?.auth,
-  browser: browserInfo.name,
-});
-```
-
-Oraz wyslanie testowego powiadomienia natychmiast po subskrypcji, aby zweryfikowac dzialanie:
-
-```tsx
-// Po zapisaniu subskrypcji do bazy, wyslij testowe powiadomienie
-try {
-  await supabase.functions.invoke('send-push-notification', {
-    body: {
-      userId: user.id,
-      title: 'Powiadomienia wlaczone!',
-      body: 'Bedziesz otrzymywac powiadomienia o nowych wiadomosciach.',
-      url: '/dashboard',
-      tag: 'subscription-confirmed',
-    },
-  });
-  console.log('[usePushNotifications] Test notification sent after subscription');
-} catch (testErr) {
-  console.warn('[usePushNotifications] Failed to send test notification:', testErr);
-}
-```
+Poprzednio lider mial jeden kanal "Moj zespol" wysylajacy do calego downline. Teraz lider ma **4 oddzielne kanaly** filtrujace po roli w obrebie swojego downline, co daje mu precyzyjne kierowanie wiadomosci np. tylko do specjalistow w jego strukturze, bez zasmiecania klientow.
 
 ---
 
-## Podsumowanie zmian
+## Podsumowanie plikow do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/notifications/PushNotificationModal.tsx` | Zamykanie modalu po kazdej probie + reaktywny useEffect |
-| `src/hooks/usePushNotifications.ts` | Dodatkowe logowanie + automatyczne testowe powiadomienie po subskrypcji |
-
-## Oczekiwane rezultaty
-
-1. Modal zamyka sie natychmiast po kliknieciu "Wlacz powiadomienia"
-2. Po subskrypcji uzytkownik otrzymuje testowe powiadomienie potwierdzajace dzialanie
-3. Lepsze logowanie pozwoli zdiagnozowac problemy z Brave
+| Migracja SQL | `can_broadcast` w `leader_permissions`, `is_broadcast` w `role_chat_messages` |
+| `src/types/roleChat.ts` | Etykieta "Lider" |
+| `src/hooks/useUnifiedChat.ts` | Admin: 5 kanalow nadawczych. Lider: 4 kanaly nadawcze filtrowane po downline. Odbiorcy: "Od Admina" + "Od Lidera" |
+| `src/components/messages/FullChatWindow.tsx` | Blokada odpowiedzi na kanalach broadcast |
+| Panel admin | Przelacznik `can_broadcast` |
 
