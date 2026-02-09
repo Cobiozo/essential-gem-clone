@@ -11,6 +11,11 @@ interface PWAInstallState {
   isIOS: boolean;
   isAndroid: boolean;
   isSafari: boolean;
+  isChrome: boolean;
+  isEdge: boolean;
+  isFirefox: boolean;
+  isOpera: boolean;
+  isSamsungBrowser: boolean;
   promptInstall: () => Promise<boolean>;
 }
 
@@ -20,9 +25,15 @@ export function usePWAInstall(): PWAInstallState {
   const [isInstalled, setIsInstalled] = useState(false);
 
   // Platform detection
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-  const isAndroid = /Android/.test(navigator.userAgent);
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isOpera = /OPR\/|Opera/.test(ua);
+  const isEdge = /Edg\//.test(ua);
+  const isSamsungBrowser = /SamsungBrowser/.test(ua);
+  const isChrome = /Chrome/.test(ua) && !isEdge && !isOpera && !isSamsungBrowser;
+  const isFirefox = /Firefox/.test(ua) && !/Seamonkey/.test(ua);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(ua);
 
   // Check if already installed
   useEffect(() => {
@@ -88,5 +99,5 @@ export function usePWAInstall(): PWAInstallState {
     }
   }, []);
 
-  return { canInstall, isInstalled, isIOS, isAndroid, isSafari, promptInstall };
+  return { canInstall, isInstalled, isIOS, isAndroid, isSafari, isChrome, isEdge, isFirefox, isOpera, isSamsungBrowser, promptInstall };
 }
