@@ -43,11 +43,74 @@ export function PWAInstallBanner() {
   if (!user) return null;
   if (isInstalled) return null;
   if (dismissed) return null;
-  if (!canInstall && !isIOS) return null; // No prompt available and not iOS
-
   // Hide on public pages
   const publicPaths = ['/infolink/', '/events/register/'];
   if (publicPaths.some(p => location.pathname.startsWith(p))) return null;
+
+  // Determine which variant to show
+  const renderContent = () => {
+    if (isIOS) {
+      // iOS: manual instructions
+      return (
+        <div className="space-y-1.5">
+          <p className="text-muted-foreground text-xs">
+            Dodaj aplikację do ekranu głównego:
+          </p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Share className="h-3.5 w-3.5 text-primary" />
+              Udostępnij
+            </span>
+            <span>→</span>
+            <span className="flex items-center gap-1">
+              <PlusSquare className="h-3.5 w-3.5 text-primary" />
+              Do ekranu głównego
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    if (canInstall) {
+      // Chrome/Edge: native install prompt
+      return (
+        <div className="space-y-2">
+          <p className="text-muted-foreground text-xs">
+            Szybki dostęp z ekranu głównego, jak zwykła aplikacja.
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleInstall} className="h-8 text-xs">
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Zainstaluj
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
+              Nie teraz
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Fallback: Firefox, Safari desktop, etc. — link to /install
+    return (
+      <div className="space-y-2">
+        <p className="text-muted-foreground text-xs">
+          Zainstaluj aplikację na swoim urządzeniu dla szybszego dostępu.
+        </p>
+        <div className="flex gap-2">
+          <Button size="sm" asChild className="h-8 text-xs">
+            <a href="/install">
+              <Download className="h-3.5 w-3.5 mr-1" />
+              Zobacz instrukcję
+            </a>
+          </Button>
+          <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
+            Nie teraz
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-bottom-4 duration-300">
@@ -72,42 +135,7 @@ export function PWAInstallBanner() {
               <p className="font-semibold text-foreground mb-1">
                 Zainstaluj Pure Life Center
               </p>
-
-              {isIOS ? (
-                // iOS: manual instructions
-                <div className="space-y-1.5">
-                  <p className="text-muted-foreground text-xs">
-                    Dodaj aplikację do ekranu głównego:
-                  </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Share className="h-3.5 w-3.5 text-primary" />
-                      Udostępnij
-                    </span>
-                    <span>→</span>
-                    <span className="flex items-center gap-1">
-                      <PlusSquare className="h-3.5 w-3.5 text-primary" />
-                      Do ekranu głównego
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                // Android/Desktop: install button
-                <div className="space-y-2">
-                  <p className="text-muted-foreground text-xs">
-                    Szybki dostęp z ekranu głównego, jak zwykła aplikacja.
-                  </p>
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={handleInstall} className="h-8 text-xs">
-                      <Download className="h-3.5 w-3.5 mr-1" />
-                      Zainstaluj
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-                      Nie teraz
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {renderContent()}
             </AlertDescription>
           </div>
         </div>
