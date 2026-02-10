@@ -1,86 +1,53 @@
 
 
-# Precyzyjne wskazywanie ikony instalacji w zaleznosci od przegladarki
+# Poprawki PWA banera, powiadomien mobilnych i strzalki iOS
 
-## Podsumowanie
+## Trzy problemy do naprawienia
 
-Rozbudowa detekcji przegladarki i dopasowanie pozycji animowanej strzalki do konkretnego miejsca, w ktorym dana przegladarka wyswietla ikone instalacji PWA.
+### 1. Baner instalacji na srodku zamiast po prawej (desktop)
+Na zrzucie ekranu widac, ze baner z instrukcja jest wycentrowany (`max-w-md mx-auto`), podczas gdy ikona instalacji w przegladarce jest w prawym gornym rogu paska adresu. Baner powinien byc wyrownany do prawej, aby wizualnie wskazywac na ikone instalacji.
 
-## Lokalizacja ikony instalacji w roznych przegladarkach
+### 2. Klikniecie powiadomienia na mobilce nie przenosi do rozmowy
+Powiadomienia typu "Wiadomosc od Sebastian Snopek" maja `link: '/messages'`, ale nie zawieraja informacji o nadawcy. Po kliknieciu uzytkownik trafia na strone wiadomosci, ale nie otwiera sie konkretna rozmowa. Trzeba dodac `sender_id` do linku i obsluge w `MessagesPage`.
 
-| Przegladarka | Gdzie jest ikona | Pozycja strzalki |
-|---|---|---|
-| Chrome (desktop) | Prawa strona paska adresu (ikona monitora ze strzalka) | Gora-prawo, blisko paska adresu |
-| Edge (desktop) | Prawa strona paska adresu (ikona "App available") | Gora-prawo, blisko paska adresu |
-| Chrome (Android) | Menu (trzy kropki) prawy gorny rog | Gora-prawo z tekstem "Menu > Zainstaluj" |
-| Samsung Internet | Menu (trzy kreski) prawy dolny rog | Dol-prawo |
-| Safari (iOS) | Ikona "Udostepnij" (kwadrat ze strzalka) na dolnym pasku | Dol-srodek |
-| Safari (macOS) | Brak natywnej ikony - menu Plik lub przycisk Share | Gora-lewo z instrukcja tekstowa |
-| Firefox (desktop) | Brak natywnej obslugi PWA | Link do strony /install |
-| Opera (desktop) | Prawa strona paska adresu (jesli wspierane) | Gora-prawo |
+### 3. Strzalka iOS wskazuje na dol, a przycisk Udostepnij jest na gorze
+Na iPhonie w Safari strzalka "Kliknij Udostepnij" wskazuje na dol ekranu, ale ikona udostepniania jest w prawym gornym rogu paska adresu (widoczne na zrzucie - ikona Share jest na gorze obok paska adresu).
 
 ## Zmiany techniczne
 
-### 1. Rozbudowa detekcji przegladarki (`usePWAInstall.ts`)
+### Plik 1: `src/components/pwa/PWAInstallBanner.tsx`
 
-Dodanie szczegolowej detekcji przegladarki:
+**Problem 1 - pozycja banera na desktopie:**
+- Dla wariantow desktop (Chrome/Edge/Opera z `canInstall`, oraz Safari macOS): zmiana kontenera z `mx-auto max-w-md` na wyrownanie do prawej: `ml-auto mr-4 max-w-sm`
+- Na mobilce (iOS, Android) baner pozostaje wycentrowany
+- Logika: `const bannerAlign = (isIOS || isAndroid) ? 'mx-auto max-w-md' : 'ml-auto max-w-sm'`
 
-```
-isChrome: boolean    // Chrome (nie Edge, nie Opera)
-isEdge: boolean      // Microsoft Edge
-isFirefox: boolean   // Firefox
-isOpera: boolean     // Opera
-isSamsungBrowser: boolean  // Samsung Internet
-```
+**Problem 3 - strzalka iOS:**
+- Zmiana pozycji strzalki z `fixed bottom-12 left-1/2` na `fixed top-1 right-2`
+- Zmiana ikony z `ArrowDown` na `ArrowUp`
+- Tekst: "Kliknij Udostepnij" ze strzalka w gore wskazujaca na ikone Share w prawym gornym rogu paska adresu Safari
 
-Detekcja oparta na `navigator.userAgent` - juz czesciowo zaimplementowana (isIOS, isAndroid, isSafari).
+### Plik 2: `src/hooks/useUnifiedChat.ts`
 
-### 2. Warianty strzalki w banerze (`PWAInstallBanner.tsx`)
+**Problem 2 - link w powiadomieniu:**
+- Linia 254: zmiana `link: '/messages'` na `link: '/messages?user=${user.id}'` (sender_id)
+- Dzieki temu klikniecie powiadomienia przeniesie uzytkownika na strone wiadomosci z parametrem identyfikujacym nadawce
 
-Zamiast dwoch wariantow (iOS / reszta), wprowadzenie 5-6 wariantow pozycji strzalki:
+### Plik 3: `src/pages/MessagesPage.tsx`
 
-**a) Chrome/Edge/Opera desktop** (`canInstall = true`):
-- Strzalka `ArrowUp` wyrownana do prawej (`justify-end pr-8`)
-- Tekst: "Kliknij ikone instalacji w pasku adresu"
-- Pozycja: prawy gorny rog ekranu
+**Problem 2 - obsluga parametru URL:**
+- Dodanie `useSearchParams` z react-router-dom
+- Odczyt parametru `user` z URL
+- Po zaladowaniu strony: automatyczne wywolanie `handleSelectDirectMember(userId)` jesli parametr jest obecny
+- Czyszczenie parametru z URL po otwarciu rozmowy (aby odswiezenie nie powtarzalo operacji)
 
-**b) Chrome Android** (`isAndroid && isChrome`):
-- Strzalka `ArrowUp` skierowana w prawo-gore
-- Tekst: "Menu (⋮) > Zainstaluj aplikacje"
-- Pozycja: prawy gorny rog
+### Plik 4: `src/hooks/usePrivateChat.ts`
 
-**c) Samsung Internet Android** (`isSamsungBrowser`):
-- Strzalka `ArrowDown` skierowana w prawo-dol
-- Tekst: "Menu (☰) > Dodaj do ekranu"
-- Pozycja: prawy dolny rog
-
-**d) Safari iOS** (`isIOS`):
-- Strzalka `ArrowDown` skierowana na dol-srodek
-- Tekst: "Udostepnij > Dodaj do ekranu glownego"
-- Pozycja: dolny srodek ekranu (nad paskiem Safari)
-
-**e) Safari macOS** (`isSafari && !isIOS`):
-- Strzalka `ArrowUp` skierowana w gore
-- Tekst: "Dodaj do Docka z menu Plik lub przez przycisk Udostepnij"
-- Pozycja: gora ekranu
-
-**f) Firefox / inne** (fallback):
-- Brak strzalki kierunkowej
-- Tekst: "Ta przegladarka nie wspiera bezposredniej instalacji"
-- Link: "Zobacz instrukcje" do /install
-
-### 3. Pozycjonowanie strzalek niezaleznie od banera
-
-Strzalki beda w osobnych kontenerach `fixed` z odpowiednim pozycjonowaniem:
-- `fixed top-1 right-8` - dla Chrome/Edge desktop
-- `fixed top-1 right-4` - dla Android Chrome (menu w prawym gornym rogu)
-- `fixed bottom-16 right-4` - dla Samsung Internet
-- `fixed bottom-12 left-1/2 -translate-x-1/2` - dla iOS Safari (srodek dolu)
-
-Baner pozostanie w `fixed top-2 left-4 right-4 max-w-md mx-auto`.
+- Sprawdzenie i analogiczna poprawka linku w powiadomieniach (jesli ten hook rowniez tworzy powiadomienia z `link: '/messages'`)
 
 ## Pliki do edycji
 
-1. **`src/hooks/usePWAInstall.ts`** - dodanie detekcji Chrome, Edge, Firefox, Opera, Samsung Internet
-2. **`src/components/pwa/PWAInstallBanner.tsx`** - rozbudowa wariantow strzalek z precyzyjnym pozycjonowaniem per przegladarka
-
+1. `src/components/pwa/PWAInstallBanner.tsx` - wyrownanie banera do prawej na desktopie, poprawka strzalki iOS
+2. `src/hooks/useUnifiedChat.ts` - dodanie sender_id do linku powiadomienia
+3. `src/pages/MessagesPage.tsx` - obsluga parametru `?user=` do automatycznego otwarcia rozmowy
+4. `src/hooks/usePrivateChat.ts` - analogiczna poprawka linku (jesli dotyczy)
