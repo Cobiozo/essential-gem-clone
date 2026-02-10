@@ -28,6 +28,7 @@ export interface TeamMemberChannel {
   eqId: string | null;
   avatarUrl: string | null;
   isUpline: boolean;
+  isLeader?: boolean;
   level: number;
 }
 
@@ -39,6 +40,7 @@ export interface UnifiedMessage {
   senderAvatar?: string;
   senderInitials: string;
   senderRole: string;
+  isLeader?: boolean;
   content: string;
   createdAt: string;
   isOwn: boolean;
@@ -123,8 +125,24 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
         if (treeData && Array.isArray(treeData)) {
           // Filter only members below root (level > 0)
-          const downlineMembers: TeamMemberChannel[] = treeData
-            .filter((m: any) => m.level > 0)
+          const downlineRaw = treeData.filter((m: any) => m.level > 0);
+          
+          // Fetch leader permissions for downline partners
+          const partnerIds = downlineRaw
+            .filter((m: any) => (m.role || 'client') === 'partner')
+            .map((m: any) => m.id);
+
+          let leaderSet = new Set<string>();
+          if (partnerIds.length > 0) {
+            const { data: leaderPerms } = await supabase
+              .from('leader_permissions')
+              .select('user_id, can_broadcast')
+              .in('user_id', partnerIds)
+              .eq('can_broadcast', true);
+            leaderSet = new Set(leaderPerms?.map(lp => lp.user_id) || []);
+          }
+
+          const downlineMembers: TeamMemberChannel[] = downlineRaw
             .map((m: any) => ({
               userId: m.id,
               firstName: m.first_name || '',
@@ -133,6 +151,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
               eqId: m.eq_id,
               avatarUrl: m.avatar_url,
               isUpline: false,
+              isLeader: leaderSet.has(m.id),
               level: m.level,
             }));
 
@@ -167,6 +186,14 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         .select('user_id, first_name, last_name, avatar_url')
         .in('user_id', senderIds);
 
+      // Fetch leader permissions for senders
+      const { data: leaderPerms } = await supabase
+        .from('leader_permissions')
+        .select('user_id, can_broadcast')
+        .in('user_id', senderIds)
+        .eq('can_broadcast', true);
+
+      const leaderSet = new Set(leaderPerms?.map(lp => lp.user_id) || []);
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
       const enrichedMessages: UnifiedMessage[] = (data || []).map(m => {
@@ -184,6 +211,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           senderAvatar: senderProfile?.avatar_url,
           senderInitials: initials,
           senderRole: m.sender_role,
+          isLeader: leaderSet.has(m.sender_id),
           content: m.content,
           createdAt: m.created_at,
           isOwn: m.sender_id === user.id,

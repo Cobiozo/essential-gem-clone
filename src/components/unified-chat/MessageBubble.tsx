@@ -1,6 +1,6 @@
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { FileText, Download } from 'lucide-react';
+import { RoleBadgedAvatar } from '@/components/chat/RoleBadgedAvatar';
 import type { UnifiedMessage } from '@/hooks/useUnifiedChat';
 
 interface MessageBubbleProps {
@@ -73,15 +73,14 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
 
   return (
     <div className="flex items-start gap-3">
-      {/* Avatar */}
-      <Avatar className="h-9 w-9 shrink-0">
-        {message.senderAvatar && (
-          <AvatarImage src={message.senderAvatar} alt={message.senderName} />
-        )}
-        <AvatarFallback className="text-xs bg-primary text-primary-foreground font-medium">
-          {message.senderInitials}
-        </AvatarFallback>
-      </Avatar>
+      {/* Avatar with role badge */}
+      <RoleBadgedAvatar
+        role={message.senderRole}
+        isLeader={message.isLeader}
+        avatarUrl={message.senderAvatar}
+        initials={message.senderInitials}
+        size="md"
+      />
 
       {/* Message content */}
       <div className="flex-1 min-w-0">
