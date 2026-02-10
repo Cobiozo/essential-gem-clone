@@ -1,75 +1,38 @@
 
-# System wizualnych odznak rol w czacie
 
-## Cel
+# Poprawki wizualnych odznak rol w czacie
 
-Dodanie kolorowych odznak przy awatarach w interfejsie czatu, rozrozniajacych 5 poziomow rol: Administrator, Lider, Partner, Specjalista, Klient.
+## Zmiany w `src/components/chat/RoleBadgedAvatar.tsx`
 
-## Nowy komponent: `src/components/chat/RoleBadgedAvatar.tsx`
+### 1. Wieksze awatary
+Zwiekszenie rozmiarow w `SIZE_MAP`:
+- `sm`: z `h-7 w-7` na `h-9 w-9` (badge z `w-3.5 h-3.5` na `w-4 h-4`)
+- `md`: z `h-9 w-9` na `h-11 w-11` (badge z `w-4 h-4` na `w-4.5 h-4.5`)
 
-Wspolny komponent wielokrotnego uzytku, renderujacy awatar z kolorowa obramowka i mala ikona roli w naroznym znaku:
+### 2. Usuniecie ikon z odznak — z wyjatkiem Administratora
+Zmiana logiki renderowania naroznego badge:
+- Tylko rola `admin` wyswietla ikone (Shield) w naroznym kole
+- Dla pozostalych rol (lider, partner, specjalista, klient) — badge narozny jest nadal widoczny jako kolorowe kolko (identyfikacja roli), ale **bez ikony w srodku**
+- Alternatywnie: calkowite usuniecie badge naroznego dla nie-adminow, pozostawiajac jedynie kolorowa obramowke (`ring`) jako identyfikator roli
 
-| Rola         | Obramowka         | Ikona       | Kolor ikony        |
-|-------------|-------------------|-------------|-------------------|
-| Admin       | `ring-red-500`    | Shield      | czerwona           |
-| Lider       | `ring-amber-500`  | Star        | zlota              |
-| Partner     | `ring-orange-700` | Handshake   | brazowa            |
-| Specjalista | `ring-blue-500`   | Wrench      | niebieska          |
-| Klient      | `ring-green-500`  | User        | zielona            |
+### 3. Kolor Partnera: srebrzysta zamiast brazowej
+Zmiana w `ROLE_CONFIG`:
+- `partner.ring`: z `ring-orange-700` na `ring-neutral-400` (srebrzysta obramowka)
+- `partner.bg`: z `bg-orange-700` na `bg-neutral-400` (jesli badge zostaje)
 
-Komponent przyjmuje propsy: `role`, `isLeader?`, `avatarUrl?`, `initials`, `size` (sm/md).
+### 4. Logika Lidera
+Komponent juz obsluguje logike `isLeader` — partner z `isLeader === true` otrzymuje zlota odznake Lidera. Hook `useUnifiedChat` sprawdza `leader_permissions.can_broadcast` i ustawia `isLeader: true`. Sebastian Snopek (partner z uprawnieniami broadcast) bedzie poprawnie oznaczony jako Lider ze zlota gwiazdka — pod warunkiem ze ma `can_broadcast = true` w tabeli `leader_permissions`.
 
-Logika rozpoznawania Lidera: jesli `role === 'partner'` i `isLeader === true`, traktuj jako Lidera (zlota odznaka).
+## Podsumowanie wizualne
 
-Struktura HTML:
-```
-<div className="relative">
-  <Avatar className="ring-2 ring-{kolor_roli}">
-    ...
-  </Avatar>
-  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-{kolor} flex items-center justify-center">
-    <Icon className="w-2.5 h-2.5 text-white" />
-  </div>
-</div>
-```
+| Rola        | Obramowka (ring)     | Badge narozny       |
+|-------------|---------------------|---------------------|
+| Admin       | czerwona (`red-500`) | czerwone kolko + Shield |
+| Lider       | zlota (`amber-500`)  | tylko kolorowe kolko |
+| Partner     | srebrzysta (`neutral-400`) | tylko kolorowe kolko |
+| Specjalista | niebieska (`blue-500`) | tylko kolorowe kolko |
+| Klient      | zielona (`green-500`) | tylko kolorowe kolko |
 
-## Zmiany w istniejacych komponentach
+## Plik do edycji
+- `src/components/chat/RoleBadgedAvatar.tsx` — jedyny plik wymagajacy zmian
 
-### 1. `src/components/unified-chat/MessageBubble.tsx`
-- Import `RoleBadgedAvatar`
-- Zastapic obecny blok `<Avatar>` (linie 77-84) nowym komponentem
-- Przekazac `message.senderRole` i `message.isLeader` (nowe pole)
-
-### 2. `src/components/messages/TeamMemberItem.tsx`
-- Import `RoleBadgedAvatar`
-- Zastapic obecny blok `<Avatar>` (linie 30-35) nowym komponentem
-- Przekazac `member.role` i ewentualnie `member.isLeader`
-
-### 3. `src/hooks/useUnifiedChat.ts`
-
-Rozszerzenie interfejsow:
-
-**`UnifiedMessage`** — dodanie pola `isLeader?: boolean`
-
-**`TeamMemberChannel`** — dodanie pola `isLeader?: boolean`
-
-**Logika Lidera w wiadomosciach (`fetchDirectMessages`):**
-- Po pobraniu profili nadawcow, sprawdzic w tabeli `leader_permissions` czy `can_broadcast === true` dla kazdego nadawcy
-- Ustawic `isLeader: true` w danych wiadomosci
-
-**Logika Lidera w czlonkach zespolu (`fetchTeamMembers`):**
-- Przy pobieraniu downline, pobrac rowniez `leader_permissions` dla tych uzytkownikow
-- Ustawic `isLeader: true` w `TeamMemberChannel` dla partnerow z uprawnieniami broadcast
-
-## Responsywnosc
-
-- Rozmiar `sm` (h-7 w-7, ikona w-3 h-3) dla listy czlonkow zespolu i wiadomosci
-- Rozmiar `md` (h-9 w-9, ikona w-4 h-4) domyslny
-- Obramowka `ring-2` — cienka, widoczna zarowno na desktop jak i mobile
-- Ikona roli w naroznym kole ma staly rozmiar 16px — czytelna na kazdym urzadzeniu
-
-## Wynik
-
-- 1 nowy plik: `RoleBadgedAvatar.tsx`
-- 3 pliki edytowane: `MessageBubble.tsx`, `TeamMemberItem.tsx`, `useUnifiedChat.ts`
-- Kazdy uzytkownik w czacie ma wizualnie rozpoznawalna role — na pierwszy rzut oka
