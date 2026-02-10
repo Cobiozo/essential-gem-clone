@@ -73,6 +73,7 @@ export function PWAInstallBanner() {
               Do ekranu głównego
             </span>
           </div>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
         </div>
       );
     }
@@ -84,6 +85,7 @@ export function PWAInstallBanner() {
           <p className="text-muted-foreground text-xs">
             Otwórz menu <Menu className="inline h-3.5 w-3.5" /> na dolnym pasku i wybierz „Dodaj stronę do" → „Ekran startowy".
           </p>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
           <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
             Nie teraz
           </Button>
@@ -98,6 +100,7 @@ export function PWAInstallBanner() {
           <p className="text-muted-foreground text-xs">
             Otwórz menu <MoreVertical className="inline h-3.5 w-3.5" /> i wybierz „Zainstaluj aplikację".
           </p>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
           <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
             Nie teraz
           </Button>
@@ -123,6 +126,7 @@ export function PWAInstallBanner() {
               Nie teraz
             </Button>
           </div>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
         </div>
       );
     }
@@ -139,6 +143,7 @@ export function PWAInstallBanner() {
               Nie teraz
             </Button>
           </div>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
         </div>
       );
     }
@@ -155,6 +160,7 @@ export function PWAInstallBanner() {
               Nie teraz
             </Button>
           </div>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
         </div>
       );
     }
@@ -175,6 +181,7 @@ export function PWAInstallBanner() {
               Nie teraz
             </Button>
           </div>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
         </div>
       );
     }
@@ -191,6 +198,7 @@ export function PWAInstallBanner() {
               Nie teraz
             </Button>
           </div>
+          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
         </div>
       );
     }
