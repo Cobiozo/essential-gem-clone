@@ -1,36 +1,35 @@
 
+# Usunięcie widżetu Powiadomień z dashboardu + poprawki dzwoneczka
 
-# Naprawa detekcji Lidera w czacie
+## 1. Usunięcie NotificationsWidget z dashboardu
 
-## Problem
+**Plik: `src/pages/Dashboard.tsx`**
+- Usunięcie importu `NotificationsWidget` (lazy import, linia ~11)
+- Usunięcie bloku renderowania widżetu (linie 108-111: Suspense + NotificationsWidget)
 
-Obecny kod sprawdza **tylko** `can_broadcast` aby oznaczyc partnera jako Lidera. Tymczasem Lider to partner, ktoremu admin przydzielil **dowolne** z uprawnien liderskich:
-- `tripartite_meeting_enabled` (spotkania trojstronne)
-- `partner_consultation_enabled` (konsultacje z partnerami)  
-- `can_broadcast` (dostep do czatu broadcast)
+Dzwoneczek w górnym pasku (NotificationBellEnhanced) pozostaje jako jedyne miejsce do obsługi powiadomień.
 
-## Zmiana
+## 2. Poprawki dzwoneczka (NotificationBellEnhanced)
 
-### Plik: `src/hooks/useUnifiedChat.ts`
+**Plik: `src/components/notifications/NotificationBellEnhanced.tsx`**
 
-W dwoch miejscach (team members ~linia 137 i messages ~linia 190) zmiana zapytania z:
+### a) Pulsowanie dzwoneczka przy nieodczytanych
+- Dodanie klasy `animate-pulse` na ikonie Bell gdy `unreadCount > 0`
 
-```
-.select('user_id, can_broadcast')
-.eq('can_broadcast', true)
-```
+### b) Pełna treść powiadomień (nie ucięta)
+- Zmiana `line-clamp-1` na `line-clamp-2` dla message (linia 111) — pokaże więcej treści
+- Zmiana `truncate` na `line-clamp-2` dla title (linia 106) — tytuł nie będzie ucięty
+- Poszerzenie popovera z `w-80` na `w-96` dla lepszej czytelności
 
-na:
+### c) Przycisk "Odczytaj wszystkie" — zawsze widoczny
+- Przeniesienie przycisku "Przeczytane" do stopki popovera, obok "Zobacz wszystkie"
+- Zmiana tekstu na "Odczytaj wszystkie"
+- Przycisk widoczny gdy są nieodczytane powiadomienia, niezależnie od liczby powiadomień
 
-```
-.select('user_id, can_broadcast, tripartite_meeting_enabled, partner_consultation_enabled')
-.or('can_broadcast.eq.true,tripartite_meeting_enabled.eq.true,partner_consultation_enabled.eq.true')
-```
+### d) Stopka popovera — zawsze widoczna
+- Stopka z "Zobacz wszystkie" będzie wyświetlana zawsze (nie tylko gdy > 5 powiadomień)
+- Obok przycisku "Zobacz wszystkie" dodany przycisk "Odczytaj wszystkie" (gdy unreadCount > 0)
 
-Dzieki temu kazdy partner posiadajacy **chociaz jedno** z tych uprawnien zostanie oznaczony zlota odznaka Lidera w czacie.
-
-### Zakres zmian
-
-- 1 plik: `src/hooks/useUnifiedChat.ts` — dwie edycje (fetchTeamMembers + fetchDirectMessages)
-- Zadnych zmian w komponentach wizualnych — `RoleBadgedAvatar.tsx` dziala poprawnie, logika `isLeader` jest juz obslugiwana
-
+## Zakres zmian
+- `src/pages/Dashboard.tsx` — usunięcie widżetu
+- `src/components/notifications/NotificationBellEnhanced.tsx` — poprawki UX
