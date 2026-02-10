@@ -157,64 +157,69 @@ export function PWAInstallBanner() {
     );
   };
 
+  const indicatorStyle = "z-[51] flex items-center gap-1.5 animate-bounce rounded-full bg-primary text-primary-foreground px-3 py-1.5 shadow-lg border-2 border-primary-foreground/20";
+
   /** Render the browser-specific floating arrow indicator */
   const renderArrowIndicator = () => {
-    // iOS Safari: arrow pointing up toward Share icon (top-right in modern Safari)
+    // iOS Safari: Share icon is top-right
     if (isIOS) {
       return (
-        <div className="fixed top-1 right-2 z-[51] flex items-center gap-1 animate-bounce">
-          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
-            Udostępnij
-          </span>
-          <ArrowUp className="h-6 w-6 text-primary drop-shadow-md" />
+        <div className={`fixed top-2 right-2 ${indicatorStyle}`}>
+          <Share className="h-5 w-5" />
+          <span className="text-sm font-bold">Kliknij Udostępnij</span>
+          <ArrowUp className="h-7 w-7" />
         </div>
       );
     }
 
-    // Samsung Internet: arrow pointing down-right toward bottom menu
+    // Samsung Internet: bottom menu bar
     if (isAndroid && isSamsungBrowser) {
       return (
-        <div className="fixed bottom-16 right-4 z-[51] flex items-center gap-1 animate-bounce">
-          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
-            Menu ☰
-          </span>
-          <ArrowDownRight className="h-6 w-6 text-primary drop-shadow-md" />
+        <div className={`fixed bottom-16 right-4 ${indicatorStyle}`}>
+          <span className="text-sm font-bold">Menu ☰</span>
+          <ArrowDownRight className="h-7 w-7" />
         </div>
       );
     }
 
-    // Chrome Android (no native prompt): arrow to three-dot menu top-right
+    // Chrome Android (no native prompt): three-dot menu top-right
     if (isAndroid && isChrome && !canInstall) {
       return (
-        <div className="fixed top-1 right-2 z-[51] flex items-center gap-1 animate-bounce">
-          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
-            Menu ⋮
-          </span>
-          <ArrowUpRight className="h-6 w-6 text-primary drop-shadow-md" />
+        <div className={`fixed top-2 right-2 ${indicatorStyle}`}>
+          <span className="text-sm font-bold">Menu ⋮ → Zainstaluj</span>
+          <ArrowUp className="h-7 w-7" />
         </div>
       );
     }
 
-    // Chrome/Edge/Opera desktop with native install prompt: arrow to address bar icon (right side)
+    // Desktop Chrome/Edge/Opera with native install prompt
     if (canInstall && (isChrome || isEdge || isOpera)) {
       return (
-        <div className="fixed top-1 right-8 z-[51] flex items-center gap-1 animate-bounce">
-          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
-            Ikona instalacji ↑
-          </span>
-          <ArrowUp className="h-6 w-6 text-primary drop-shadow-md" />
+        <div className={`fixed top-2 right-12 ${indicatorStyle}`}>
+          <Download className="h-5 w-5" />
+          <span className="text-sm font-bold">Kliknij i zainstaluj</span>
+          <ArrowUp className="h-7 w-7" />
         </div>
       );
     }
 
-    // Safari macOS: arrow toward top Share/File area
+    // Desktop Chrome/Edge without canInstall (fallback to browser menu)
+    if (!canInstall && (isChrome || isEdge) && !isAndroid) {
+      return (
+        <div className={`fixed top-2 right-4 ${indicatorStyle}`}>
+          <span className="text-sm font-bold">Menu → Zainstaluj</span>
+          <ArrowUp className="h-7 w-7" />
+        </div>
+      );
+    }
+
+    // Safari macOS
     if (isSafari && !isIOS) {
       return (
-        <div className="fixed top-1 right-24 z-[51] flex items-center gap-1 animate-bounce">
-          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
-            Udostępnij ↑
-          </span>
-          <ArrowUp className="h-6 w-6 text-primary drop-shadow-md" />
+        <div className={`fixed top-2 right-24 ${indicatorStyle}`}>
+          <Share className="h-5 w-5" />
+          <span className="text-sm font-bold">Udostępnij → Dodaj do Docka</span>
+          <ArrowUp className="h-7 w-7" />
         </div>
       );
     }
