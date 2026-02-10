@@ -1,37 +1,65 @@
 
-# Dodanie linku do pelnej instrukcji w banerze PWA
+
+# Rozbudowa strony /install o instrukcje dla wszystkich przegladarek i systemow
 
 ## Problem
 
-Baner instalacji PWA na dashboardzie pokazuje tylko krotka instrukcje dla wykrytej przegladarki (np. "Kliknij ikone w pasku adresu"), ale brakuje linku do pelnej strony z instrukcjami dla wszystkich przegladarek i systemow (strona `/install`).
+Strona `/install` (InstallPage.tsx) ma tylko 3 sekcje:
+1. iPhone/iPad (Safari)
+2. Android (Chrome)
+3. Komputer (Chrome/Edge) — ogolna, bez rozroznienia
+
+Brakuje dedykowanych instrukcji dla: **Edge**, **Opera**, **Firefox**, **Safari macOS**, **Samsung Internet**.
 
 ## Rozwiazanie
 
-Dodanie linku "Zobacz pelna instrukcje" do kazdego wariantu `renderContent()` w banerze, ktory prowadzi do strony `/install` z instrukcjami dla wszystkich platform (iOS Safari, Android Chrome, Edge, Opera, Safari macOS, Firefox itd.).
+Rozbudowac strone `/install` o pelne instrukcje dla kazdej przegladarki i systemu operacyjnego.
 
-### Plik: `src/components/pwa/PWAInstallBanner.tsx`
+### Nowe sekcje na stronie `/install` (InstallPage.tsx):
 
-W kazdym wariancie `renderContent()` (Edge, Chrome, Opera, Safari, iOS, Android, fallback) dodanie na koncu linku:
+1. **iPhone / iPad (Safari)** — bez zmian, juz jest OK
+2. **Android (Chrome)** — bez zmian, juz jest OK  
+3. **Android (Samsung Internet)** — NOWA sekcja:
+   - Otworz menu na dolnym pasku
+   - Wybierz "Dodaj strone do" -> "Ekran startowy"
+   - Potwierdz
+4. **Android (Firefox)** — NOWA sekcja:
+   - Kliknij menu (trzy kropki)
+   - Wybierz "Zainstaluj"
+   - Potwierdz
+5. **Android (Opera)** — NOWA sekcja:
+   - Kliknij menu (trzy kropki)
+   - Wybierz "Ekran glowny" lub "Dodaj do..."
+   - Potwierdz
+6. **Komputer — Microsoft Edge** — NOWA sekcja (zamiast ogolnej):
+   - Kliknij ikone trzech kwadracikow z plusem w pasku adresu
+   - Lub: Menu -> Aplikacje -> Zainstaluj te witryne jako aplikacje
+7. **Komputer — Google Chrome** — NOWA sekcja:
+   - Kliknij ikone instalacji w pasku adresu (monitor ze strzalka)
+   - Lub: Menu -> Zainstaluj aplikacje
+8. **Komputer — Opera** — NOWA sekcja:
+   - Menu -> Zainstaluj aplikacje
+9. **Komputer — Safari (macOS)** — NOWA sekcja:
+   - Kliknij Udostepnij -> Dodaj do Docka
+10. **Komputer — Firefox** — NOWA sekcja:
+    - Firefox nie wspiera instalacji PWA natywnie
+    - Zalecenie: uzyj Chrome, Edge lub Opery
 
-```
-<a href="/install" className="text-xs text-primary underline">
-  Zobacz instrukcje dla wszystkich przegladarek
-</a>
-```
+### Detekcja urzadzenia
 
-Konkretne zmiany:
+Kazda sekcja bedzie podswietlona (`ring-2 ring-primary/30` + badge "Twoje urzadzenie") jesli odpowiada wykrytej przegladarce uzytkownika — wykorzystujac istniejacy hook `usePWAInstall`.
 
-1. **iOS Safari** (linie 59-78): Dodanie linku pod istniejaca instrukcja
-2. **Android Samsung Internet** (linie 81-91): Dodanie linku przed przyciskiem "Nie teraz"
-3. **Android Chrome** (linie 95-106): Dodanie linku
-4. **Edge desktop** (linie 109-128): Dodanie linku
-5. **Chrome desktop** (linie 131-144): Dodanie linku
-6. **Opera desktop** (linie 147-160): Dodanie linku
-7. **Generic canInstall** (linie 163-180): Dodanie linku
-8. **Safari macOS** (linie 183-196): Dodanie linku
-9. **Fallback** (linie 199-216): Juz ma link do `/install` - zostaje bez zmian
+### Grupowanie
 
-Kazdy wariant bedzie mial strukture:
-- Krotka instrukcja specyficzna dla przegladarki (jak jest teraz)
-- Link "Instrukcje dla innych przegladarek" prowadzacy do `/install`
-- Przyciski (Zainstaluj / Nie teraz)
+Sekcje beda pogrupowane:
+- **Urzadzenia mobilne**: iOS Safari, Android Chrome, Android Samsung, Android Firefox, Android Opera
+- **Komputery**: Edge, Chrome, Opera, Safari macOS, Firefox
+
+### Importy
+
+Dodanie brakujacych ikon z lucide: `Menu`, `LayoutGrid`, `Globe`.
+
+### Plik do edycji
+
+- `src/pages/InstallPage.tsx` — rozbudowa o nowe sekcje przegladarek
+
