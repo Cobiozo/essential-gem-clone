@@ -1,55 +1,63 @@
 
 
-# Poprawka animowanej strzalki instalacji PWA
+# Poprawki wskaznika instalacji PWA
 
-## Problem
+## Problemy widoczne na zrzutach
 
-Strzalki wskazujace miejsce instalacji w przegladarce sa pozycjonowane na `top-1`, co moze powodowac, ze sa niewidoczne lub nachodzą na pasek adresu przegladarki. Na zrzucie ekranu (desktop Edge/Chrome) baner jest widoczny, ale brak skaczacej strzalki z napisem "Kliknij i zainstaluj" wskazujacej na ikone instalacji w pasku adresu.
+1. **Nachodzenie**: Baner i strzalka oba sa w `top-2 right-4`, nachodza na siebie
+2. **Edge**: Strzalka wskazuje "Menu -> Zainstaluj", ale w Edge ikona instalacji to trzy kwadraciki z plusem w pasku adresowym (po lewej stronie ikon rozszerzen)
+3. **Opera**: Nie pokazuje strzalki - warunek `canInstall && (isChrome || isEdge || isOpera)` moze nie dzialac, bo Opera moze nie emitowac `beforeinstallprompt`
+4. **Styl**: Uzytkownik chce zloty kolor strzalki z czarnym tlem i mniejszy tekst
 
-## Rozwiazanie
+## Zmiany w `src/components/pwa/PWAInstallBanner.tsx`
 
-### Plik: `src/components/pwa/PWAInstallBanner.tsx`
+### 1. Nowy styl wskaznika (zloty z czarnym tlem)
 
-Zmiana pozycjonowania i stylu wszystkich wariantow strzalek, aby byly wyrazne i widoczne na kazdej platformie:
+Zmiana `indicatorStyle` z `bg-primary text-primary-foreground` na:
+```
+bg-black text-amber-400 border-amber-500/50
+```
+Mniejszy tekst: `text-xs` zamiast `text-sm`.
 
-1. **Wszystkie strzalki**: Przesunac z `top-1` na `top-2` lub `top-3`, aby nie chowaly sie za paskiem przegladarki. Dodac wyrazniejszy styl - wieksza czcionke, mocniejsze tlo, wieksza strzalke.
+### 2. Przesuniecie banera w lewo
 
-2. **Desktop Chrome/Edge/Opera** (`canInstall`):
-   - Pozycja: `fixed top-2 right-12` - celuje w prawy gorny rog, blisko ikon rozszerzen/instalacji
-   - Tekst: "Kliknij i zainstaluj ↑" z animacja `animate-bounce`
-   - Strzalka `ArrowUp` skierowana w gore
+Baner na desktopie: zmiana z `right-4 max-w-sm` na `right-20 max-w-sm` lub `right-[120px]`, aby nie nachodzil na strzalke w prawym gornym rogu.
 
-3. **Desktop Chrome/Edge bez `canInstall`** (brak natywnego prompta):
-   - Pozycja: `fixed top-2 right-4` - celuje w menu przegladarki
-   - Tekst: "Menu > Zainstaluj" z `ArrowUp`
+### 3. Poprawka pozycji dla Edge
 
-4. **Android Chrome** (bez natywnego prompta):
-   - Pozycja: `fixed top-2 right-2`
-   - Tekst: "Menu (⋮) > Zainstaluj"
+Edge ma ikone instalacji (trzy kwadraciki z plusem) w pasku adresowym, po prawej stronie URL ale przed ikonami rozszerzen. Strzalka powinna celowac bardziej w lewo niz obecne `right-12`. Zmiana na `right-[200px]` lub podobne, z tekstem "Kliknij ikonke instalacji" zamiast "Menu -> Zainstaluj".
 
-5. **Samsung Internet**:
-   - Pozycja: `fixed bottom-16 right-4`
-   - Tekst: "Menu (☰)"
+Rozdzielenie warunkow Chrome i Edge:
+- **Edge** (`isEdge && !isAndroid`): `fixed top-2 right-[140px]` - celuje w ikone w pasku adresowym, tekst: "Zainstaluj z paska adresu"
+- **Chrome** (`isChrome && !isAndroid`): `fixed top-2 right-12` - celuje w ikone instalacji przy rozszerzeniach
 
-6. **iOS Safari**:
-   - Pozycja: `fixed top-2 right-2` (Share jest na gorze w nowym Safari)
-   - Tekst: "Udostepnij"
+### 4. Dodanie wariantu Opera bez `canInstall`
 
-7. **Safari macOS**:
-   - Pozycja: `fixed top-2 right-24`
-   - Tekst: "Udostepnij"
+Dodanie fallbacku dla Opery desktopowej gdy `canInstall` jest `false`:
+```
+if (isOpera && !isAndroid && !canInstall) {
+  // Strzalka do menu Opery (top-right)
+  return indicator z tekstem "Menu → Zainstaluj"
+}
+```
 
-8. **Styl wskaznika**: Kazdy wskaznik bedzie mial wiekszy padding, wyrazniejsze tlo (`bg-primary text-primary-foreground` zamiast obecnego `bg-background/90`), i wieksza ikone strzalki (`h-7 w-7`), zeby byl dobrze widoczny na wszystkich urzadzeniach.
+### 5. Kolejnosc warunkow w `renderArrowIndicator()`
 
-9. **Fallback** (Firefox/inne bez obslugi PWA): Brak strzalki - baner sam w sobie wystarczy z linkiem do `/install`.
-
-### Zmiany w kodzie
-
-- Linie 160-224: Przepisanie `renderArrowIndicator()` z wiekszymi, wyrazniejszymi elementami
-- Kazdy wariant: wiekszy font (`text-sm` zamiast `text-xs`), mocniejsze kolory, wieksza strzalka
-- Dodanie wariantu dla desktop Chrome/Edge bez `canInstall` (fallback do menu przegladarki)
+```
+1. iOS Safari -> top-2 right-2
+2. Samsung Internet -> bottom-16 right-4  
+3. Android Chrome (no prompt) -> top-2 right-2
+4. Edge desktop (canInstall) -> top-2 right-[140px], tekst "Zainstaluj z paska"
+5. Chrome desktop (canInstall) -> top-2 right-12
+6. Opera desktop (canInstall) -> top-2 right-12
+7. Edge desktop (no canInstall) -> top-2 right-[140px]
+8. Chrome desktop (no canInstall) -> top-2 right-4
+9. Opera desktop (no canInstall) -> top-2 right-4
+10. Safari macOS -> top-2 right-24
+11. Fallback -> null
+```
 
 ### Pliki do edycji
 
-- `src/components/pwa/PWAInstallBanner.tsx`
+- `src/components/pwa/PWAInstallBanner.tsx` - styl, pozycjonowanie, rozdzielenie Edge/Chrome/Opera
 
