@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const WelcomeWidget = lazy(() => import('@/components/dashboard/widgets/WelcomeWidget'));
 const TrainingProgressWidget = lazy(() => import('@/components/dashboard/widgets/TrainingProgressWidget'));
 const ResourcesWidget = lazy(() => import('@/components/dashboard/widgets/ResourcesWidget'));
-const NotificationsWidget = lazy(() => import('@/components/dashboard/widgets/NotificationsWidget'));
+
 const TeamContactsWidget = lazy(() => import('@/components/dashboard/widgets/TeamContactsWidget'));
 const ReflinksWidget = lazy(() => import('@/components/dashboard/widgets/ReflinksWidget'));
 const InfoLinksWidget = lazy(() => import('@/components/dashboard/widgets/InfoLinksWidget'));
@@ -105,10 +105,6 @@ const Dashboard: React.FC = () => {
             <TrainingProgressWidget />
           </Suspense>
 
-          {/* Notifications */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <NotificationsWidget />
-          </Suspense>
 
           {/* Combined OTP Codes Widget - for partners/admins */}
           <Suspense fallback={<WidgetSkeleton />}>
