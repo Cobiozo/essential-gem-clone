@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { useLocation } from 'react-router-dom';
-import { Download, X, Share, PlusSquare, ArrowUp, ArrowDownRight, MoreVertical, Menu, LayoutGrid } from 'lucide-react';
+import { Download, X, Share, PlusSquare, ArrowUp, ArrowDown, ArrowDownRight, MoreVertical, Menu, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -227,7 +227,18 @@ export function PWAInstallBanner() {
   const indicatorStyle = "z-[51] flex items-center gap-1.5 animate-bounce rounded-full bg-black text-amber-400 px-2.5 py-1 shadow-lg border-2 border-amber-500/50";
 
   const renderArrowIndicator = () => {
-    // iOS Safari
+    // iOS Safari — przycisk Udostępnij na dolnym pasku
+    if (isIOS && isSafari) {
+      return (
+        <div className={`fixed bottom-20 left-1/2 -translate-x-1/2 ${indicatorStyle}`}>
+          <Share className="h-4 w-4" />
+          <span className="text-xs font-bold">Udostępnij</span>
+          <ArrowDown className="h-5 w-5" />
+        </div>
+      );
+    }
+
+    // iOS Chrome / inne — przycisk Udostępnij na górnym pasku
     if (isIOS) {
       return (
         <div className={`fixed top-2 right-2 ${indicatorStyle}`}>
