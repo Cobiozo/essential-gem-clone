@@ -1,5 +1,5 @@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Shield, Star, Handshake, Wrench, User } from 'lucide-react';
+import { Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type RoleKey = 'admin' | 'lider' | 'partner' | 'specjalista' | 'client';
@@ -7,20 +7,20 @@ type RoleKey = 'admin' | 'lider' | 'partner' | 'specjalista' | 'client';
 interface RoleConfig {
   ring: string;
   bg: string;
-  Icon: React.ElementType;
+  showIcon: boolean;
 }
 
 const ROLE_CONFIG: Record<RoleKey, RoleConfig> = {
-  admin:       { ring: 'ring-red-500',    bg: 'bg-red-500',    Icon: Shield },
-  lider:       { ring: 'ring-amber-500',  bg: 'bg-amber-500',  Icon: Star },
-  partner:     { ring: 'ring-orange-700', bg: 'bg-orange-700', Icon: Handshake },
-  specjalista: { ring: 'ring-blue-500',   bg: 'bg-blue-500',   Icon: Wrench },
-  client:      { ring: 'ring-green-500',  bg: 'bg-green-500',  Icon: User },
+  admin:       { ring: 'ring-red-500',      bg: 'bg-red-500',      showIcon: true },
+  lider:       { ring: 'ring-amber-500',    bg: 'bg-amber-500',    showIcon: false },
+  partner:     { ring: 'ring-neutral-400',  bg: 'bg-neutral-400',  showIcon: false },
+  specjalista: { ring: 'ring-blue-500',     bg: 'bg-blue-500',     showIcon: false },
+  client:      { ring: 'ring-green-500',    bg: 'bg-green-500',    showIcon: false },
 };
 
 const SIZE_MAP = {
-  sm: { avatar: 'h-7 w-7', badge: 'w-3.5 h-3.5', icon: 'w-2 h-2' },
-  md: { avatar: 'h-9 w-9', badge: 'w-4 h-4',   icon: 'w-2.5 h-2.5' },
+  sm: { avatar: 'h-9 w-9',  badge: 'w-4 h-4',   icon: 'w-2.5 h-2.5' },
+  md: { avatar: 'h-11 w-11', badge: 'w-5 h-5',   icon: 'w-3 h-3' },
 };
 
 interface RoleBadgedAvatarProps {
@@ -60,7 +60,7 @@ export const RoleBadgedAvatar = ({
           config.bg
         )}
       >
-        <config.Icon className={cn(sizes.icon, 'text-white')} />
+        {config.showIcon && <Shield className={cn(sizes.icon, 'text-white')} />}
       </div>
     </div>
   );
