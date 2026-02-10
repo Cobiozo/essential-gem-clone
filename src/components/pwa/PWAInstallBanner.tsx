@@ -136,7 +136,7 @@ export function PWAInstallBanner() {
       return (
         <div className="space-y-2">
           <p className="text-muted-foreground text-xs">
-            Otwórz menu <MoreVertical className="inline h-3.5 w-3.5" /> i wybierz „Zainstaluj aplikację".
+            Kliknij ikonę instalacji <Download className="inline h-3.5 w-3.5" /> w pasku adresu, obok gwiazdki.
           </p>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
@@ -272,7 +272,7 @@ export function PWAInstallBanner() {
     // Edge desktop (canInstall) — address bar icon ⊞
     if (isEdge && !isAndroid && canInstall) {
       return (
-        <div className={`fixed top-2 right-[220px] ${indicatorStyle}`}>
+        <div className={`fixed top-2 right-[140px] ${indicatorStyle}`}>
           <LayoutGrid className="h-4 w-4" />
           <span className="text-xs font-bold">⊞ Zainstaluj</span>
           <ArrowUp className="h-5 w-5" />
@@ -305,7 +305,7 @@ export function PWAInstallBanner() {
     // Edge desktop (no canInstall)
     if (isEdge && !isAndroid && !canInstall) {
       return (
-        <div className={`fixed top-2 right-[220px] ${indicatorStyle}`}>
+        <div className={`fixed top-2 right-[140px] ${indicatorStyle}`}>
           <LayoutGrid className="h-4 w-4" />
           <span className="text-xs font-bold">⊞ Zainstaluj</span>
           <ArrowUp className="h-5 w-5" />
@@ -316,8 +316,9 @@ export function PWAInstallBanner() {
     // Chrome desktop (no canInstall)
     if (isChrome && !isAndroid && !canInstall) {
       return (
-        <div className={`fixed top-2 right-4 ${indicatorStyle}`}>
-          <span className="text-xs font-bold">⋮ → Zainstaluj</span>
+        <div className={`fixed top-2 right-12 ${indicatorStyle}`}>
+          <Download className="h-4 w-4" />
+          <span className="text-xs font-bold">Zainstaluj</span>
           <ArrowUp className="h-5 w-5" />
         </div>
       );
