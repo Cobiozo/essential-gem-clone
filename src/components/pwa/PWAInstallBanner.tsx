@@ -157,7 +157,7 @@ export function PWAInstallBanner() {
     );
   };
 
-  const indicatorStyle = "z-[51] flex items-center gap-1.5 animate-bounce rounded-full bg-primary text-primary-foreground px-3 py-1.5 shadow-lg border-2 border-primary-foreground/20";
+  const indicatorStyle = "z-[51] flex items-center gap-1.5 animate-bounce rounded-full bg-black text-amber-400 px-2.5 py-1 shadow-lg border-2 border-amber-500/50";
 
   /** Render the browser-specific floating arrow indicator */
   const renderArrowIndicator = () => {
@@ -165,9 +165,9 @@ export function PWAInstallBanner() {
     if (isIOS) {
       return (
         <div className={`fixed top-2 right-2 ${indicatorStyle}`}>
-          <Share className="h-5 w-5" />
-          <span className="text-sm font-bold">Kliknij Udostępnij</span>
-          <ArrowUp className="h-7 w-7" />
+          <Share className="h-4 w-4" />
+          <span className="text-xs font-bold">Udostępnij</span>
+          <ArrowUp className="h-5 w-5" />
         </div>
       );
     }
@@ -176,8 +176,8 @@ export function PWAInstallBanner() {
     if (isAndroid && isSamsungBrowser) {
       return (
         <div className={`fixed bottom-16 right-4 ${indicatorStyle}`}>
-          <span className="text-sm font-bold">Menu ☰</span>
-          <ArrowDownRight className="h-7 w-7" />
+          <span className="text-xs font-bold">Menu ☰</span>
+          <ArrowDownRight className="h-5 w-5" />
         </div>
       );
     }
@@ -186,29 +186,71 @@ export function PWAInstallBanner() {
     if (isAndroid && isChrome && !canInstall) {
       return (
         <div className={`fixed top-2 right-2 ${indicatorStyle}`}>
-          <span className="text-sm font-bold">Menu ⋮ → Zainstaluj</span>
-          <ArrowUp className="h-7 w-7" />
+          <span className="text-xs font-bold">Menu ⋮ → Zainstaluj</span>
+          <ArrowUp className="h-5 w-5" />
         </div>
       );
     }
 
-    // Desktop Chrome/Edge/Opera with native install prompt
-    if (canInstall && (isChrome || isEdge || isOpera)) {
+    // Edge desktop with native install prompt - targets address bar icon (three squares with plus)
+    if (isEdge && !isAndroid && canInstall) {
+      return (
+        <div className={`fixed top-2 right-[140px] ${indicatorStyle}`}>
+          <Download className="h-4 w-4" />
+          <span className="text-xs font-bold">Zainstaluj z paska</span>
+          <ArrowUp className="h-5 w-5" />
+        </div>
+      );
+    }
+
+    // Chrome desktop with native install prompt
+    if (isChrome && !isAndroid && canInstall) {
       return (
         <div className={`fixed top-2 right-12 ${indicatorStyle}`}>
-          <Download className="h-5 w-5" />
-          <span className="text-sm font-bold">Kliknij i zainstaluj</span>
-          <ArrowUp className="h-7 w-7" />
+          <Download className="h-4 w-4" />
+          <span className="text-xs font-bold">Kliknij i zainstaluj</span>
+          <ArrowUp className="h-5 w-5" />
         </div>
       );
     }
 
-    // Desktop Chrome/Edge without canInstall (fallback to browser menu)
-    if (!canInstall && (isChrome || isEdge) && !isAndroid) {
+    // Opera desktop with native install prompt
+    if (isOpera && !isAndroid && canInstall) {
+      return (
+        <div className={`fixed top-2 right-12 ${indicatorStyle}`}>
+          <Download className="h-4 w-4" />
+          <span className="text-xs font-bold">Kliknij i zainstaluj</span>
+          <ArrowUp className="h-5 w-5" />
+        </div>
+      );
+    }
+
+    // Edge desktop without canInstall - fallback to address bar icon
+    if (isEdge && !isAndroid && !canInstall) {
+      return (
+        <div className={`fixed top-2 right-[140px] ${indicatorStyle}`}>
+          <span className="text-xs font-bold">Zainstaluj z paska</span>
+          <ArrowUp className="h-5 w-5" />
+        </div>
+      );
+    }
+
+    // Chrome desktop without canInstall
+    if (isChrome && !isAndroid && !canInstall) {
       return (
         <div className={`fixed top-2 right-4 ${indicatorStyle}`}>
-          <span className="text-sm font-bold">Menu → Zainstaluj</span>
-          <ArrowUp className="h-7 w-7" />
+          <span className="text-xs font-bold">Menu → Zainstaluj</span>
+          <ArrowUp className="h-5 w-5" />
+        </div>
+      );
+    }
+
+    // Opera desktop without canInstall
+    if (isOpera && !isAndroid && !canInstall) {
+      return (
+        <div className={`fixed top-2 right-4 ${indicatorStyle}`}>
+          <span className="text-xs font-bold">Menu → Zainstaluj</span>
+          <ArrowUp className="h-5 w-5" />
         </div>
       );
     }
@@ -217,9 +259,9 @@ export function PWAInstallBanner() {
     if (isSafari && !isIOS) {
       return (
         <div className={`fixed top-2 right-24 ${indicatorStyle}`}>
-          <Share className="h-5 w-5" />
-          <span className="text-sm font-bold">Udostępnij → Dodaj do Docka</span>
-          <ArrowUp className="h-7 w-7" />
+          <Share className="h-4 w-4" />
+          <span className="text-xs font-bold">Udostępnij → Dodaj do Docka</span>
+          <ArrowUp className="h-5 w-5" />
         </div>
       );
     }
@@ -232,7 +274,7 @@ export function PWAInstallBanner() {
     <>
       {renderArrowIndicator()}
 
-      <div className={`fixed top-2 z-50 animate-in slide-in-from-top-4 duration-300 ${(isIOS || isAndroid) ? 'left-4 right-4 mx-auto max-w-md' : 'right-4 max-w-sm'}`}>
+      <div className={`fixed top-2 z-50 animate-in slide-in-from-top-4 duration-300 ${(isIOS || isAndroid) ? 'left-4 right-4 mx-auto max-w-md' : 'right-20 max-w-sm'}`}>
         <Alert className="border-primary/30 bg-background shadow-lg relative">
           <button
             onClick={handleDismiss}
