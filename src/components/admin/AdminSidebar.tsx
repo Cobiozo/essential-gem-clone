@@ -68,17 +68,14 @@ const SIDEBAR_KEYS = {
   trainings: 'admin.sidebar.trainings',
   certificates: 'admin.sidebar.certificates',
   resources: 'admin.sidebar.resources',
-  features: 'admin.sidebar.features',
   dailySignal: 'admin.sidebar.dailySignal',
   importantInfo: 'admin.sidebar.importantInfo',
   events: 'admin.sidebar.events',
-  guestRegistrations: 'admin.sidebar.guestRegistrations',
   communication: 'admin.sidebar.communication',
   translations: 'admin.sidebar.translations',
   teamContacts: 'admin.sidebar.teamContacts',
   notifications: 'admin.sidebar.notifications',
   system: 'admin.sidebar.system',
-  systemHealth: 'admin.sidebar.systemHealth',
   maintenance: 'admin.sidebar.maintenance',
   cronJobs: 'admin.sidebar.cronJobs',
   googleCalendar: 'admin.sidebar.googleCalendar',
@@ -97,16 +94,6 @@ const SIDEBAR_KEYS = {
   dashboardFooter: 'admin.sidebar.dashboardFooter',
   adminPanel: 'admin.sidebar.adminPanel',
   administrator: 'admin.sidebar.administrator',
-  calculator: 'admin.sidebar.calculator',
-  chatPermissions: 'admin.sidebar.chatPermissions',
-  sidebarIcons: 'admin.sidebar.sidebarIcons',
-  mediaLibrary: 'admin.sidebar.mediaLibrary',
-  htmlPages: 'admin.sidebar.htmlPages',
-  specialistCalculator: 'admin.sidebar.specialistCalculator',
-  healthyKnowledge: 'admin.sidebar.healthyKnowledge',
-  organizationTree: 'admin.sidebar.organizationTree',
-  eventRegistrations: 'admin.sidebar.eventRegistrations',
-  newsTicker: 'admin.sidebar.newsTicker',
 };
 
 interface AdminSidebarProps {
@@ -132,8 +119,8 @@ interface NavCategory {
 
 const navCategories: NavCategory[] = [
   {
-    id: 'content',
-    labelKey: 'content',
+    id: 'site',
+    labelKey: 'siteAndAppearance',
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -141,17 +128,10 @@ const navCategories: NavCategory[] = [
       { value: 'layout', labelKey: 'layout', icon: Type },
       { value: 'pages', labelKey: 'pages', icon: FileText },
       { value: 'html-pages', labelKey: 'htmlPages', icon: FileCode },
+      { value: 'colors', labelKey: 'colorsAndThemes', icon: Palette },
+      { value: 'settings', labelKey: 'settings', icon: Settings2 },
       { value: 'dashboard-footer', labelKey: 'dashboardFooter', icon: LayoutDashboard },
       { value: 'sidebar-icons', labelKey: 'sidebarIcons', icon: Palette },
-    ],
-  },
-  {
-    id: 'appearance',
-    labelKey: 'appearance',
-    icon: Palette,
-    items: [
-      { value: 'colors', labelKey: 'colors', icon: Palette },
-      { value: 'settings', labelKey: 'settings', icon: Settings2 },
     ],
   },
   {
@@ -165,29 +145,27 @@ const navCategories: NavCategory[] = [
   },
   {
     id: 'training',
-    labelKey: 'training',
+    labelKey: 'trainingAndKnowledge',
     icon: BookOpen,
     items: [
       { value: 'training', labelKey: 'trainings', icon: BookOpen },
       { value: 'certificates', labelKey: 'certificates', icon: Award },
       { value: 'knowledge', labelKey: 'resources', icon: FolderOpen },
-      { value: 'media-library', labelKey: 'mediaLibrary', icon: Images },
       { value: 'healthy-knowledge', labelKey: 'healthyKnowledge', icon: Heart },
+      { value: 'media-library', labelKey: 'mediaLibrary', icon: Images },
     ],
   },
   {
-    id: 'features',
-    labelKey: 'features',
-    icon: Sparkles,
+    id: 'events-tools',
+    labelKey: 'eventsAndTools',
+    icon: CalendarDays,
     items: [
-      { value: 'cookies', labelKey: 'cookies', icon: Cookie },
-      { value: 'ai-compass', labelKey: 'compass', icon: Compass },
+      { value: 'events', labelKey: 'events', icon: CalendarDays },
+      { value: 'event-registrations', labelKey: 'eventRegistrations', icon: UserPlus },
+      { value: 'paid-events', labelKey: 'paidEvents', icon: Ticket },
       { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
       { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
-      { value: 'events', labelKey: 'events', icon: CalendarDays },
-      { value: 'event-registrations', labelKey: 'eventRegistrations', icon: Users },
-      { value: 'paid-events', labelKey: 'paidEvents', icon: Ticket },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
       { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
@@ -205,6 +183,7 @@ const navCategories: NavCategory[] = [
       { value: 'push-notifications', labelKey: 'pushNotifications', icon: Bell },
       { value: 'emails', labelKey: 'email', icon: Mail },
       { value: 'support', labelKey: 'support', icon: HelpCircle },
+      { value: 'cookies', labelKey: 'cookies', icon: Cookie },
     ],
   },
   {
@@ -216,6 +195,7 @@ const navCategories: NavCategory[] = [
       { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
+      { value: 'ai-compass', labelKey: 'compass', icon: Compass },
     ],
   },
 ];
@@ -244,6 +224,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
   const hardcodedLabels: Record<string, string> = {
+    siteAndAppearance: 'Strona i wygląd',
+    trainingAndKnowledge: 'Szkolenia i wiedza',
+    eventsAndTools: 'Wydarzenia i narzędzia',
+    colorsAndThemes: 'Kolory i motywy',
     calculator: 'Kalkulator Influencerów',
     specialistCalculator: 'Kalkulator Specjalistów',
     chatPermissions: 'Zarządzanie czatem',
