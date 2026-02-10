@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 const MessagesPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +47,15 @@ const MessagesPage = () => {
 
   // REMOVED: Duplicate subscription - useUnifiedChat already handles realtime messages
   // Browser notifications are handled via user_notifications table and service worker
+
+  // Handle ?user= URL parameter for notification deep-linking
+  useEffect(() => {
+    const userId = searchParams.get('user');
+    if (userId && teamMembers.length > 0) {
+      handleSelectDirectMember(userId);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, teamMembers]);
 
   const handleSelectChannel = (channelId: string) => {
     selectChannel(channelId);

@@ -251,7 +251,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         source_module: 'role_chat',
         title: `Wiadomość od ${senderName}`,
         message: notificationMessage,
-        link: '/messages',
+        link: `/messages?user=${user.id}`,
         metadata: {
           sender_name: senderName,
           sender_role: currentRole,
@@ -319,7 +319,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           source_module: 'role_chat',
           title: `Nowy czat grupowy: ${subject}`,
           message: `${senderName} zaprosił(a) Cię do czatu grupowego`,
-          link: '/messages',
+          link: `/messages`,
           metadata: {
             sender_name: senderName,
             group_subject: subject,
