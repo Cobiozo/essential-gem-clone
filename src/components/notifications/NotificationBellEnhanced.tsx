@@ -50,7 +50,7 @@ export const NotificationBellEnhanced = () => {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+          <Bell className={`h-5 w-5 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
           {unreadCount > 0 && (
             <Badge 
               variant="destructive" 
@@ -61,20 +61,9 @@ export const NotificationBellEnhanced = () => {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-96 p-0" align="end">
         <div className="flex items-center justify-between p-3 border-b">
           <h4 className="font-semibold">Powiadomienia</h4>
-          {unreadCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-xs h-7"
-              onClick={markAllAsRead}
-            >
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Przeczytane
-            </Button>
-          )}
         </div>
 
         <ScrollArea className="max-h-[300px]">
@@ -103,12 +92,12 @@ export const NotificationBellEnhanced = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        <p className="text-sm font-medium truncate">{notification.title}</p>
+                        <p className="text-sm font-medium line-clamp-2">{notification.title}</p>
                         {!notification.is_read && (
                           <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground line-clamp-1">
+                      <p className="text-xs text-muted-foreground line-clamp-2">
                         {notification.message}
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
@@ -125,20 +114,29 @@ export const NotificationBellEnhanced = () => {
           )}
         </ScrollArea>
 
-        {notifications.length > 5 && (
-          <div className="p-2 border-t">
+        <div className="p-2 border-t flex items-center gap-1">
+          <Button 
+            variant="ghost" 
+            className="flex-1 text-sm h-8"
+            onClick={() => {
+              navigate('/my-account?tab=notifications');
+              setOpen(false);
+            }}
+          >
+            Zobacz wszystkie
+          </Button>
+          {unreadCount > 0 && (
             <Button 
               variant="ghost" 
-              className="w-full text-sm h-8"
-              onClick={() => {
-                navigate('/my-account?tab=notifications');
-                setOpen(false);
-              }}
+              size="sm" 
+              className="text-xs h-8"
+              onClick={markAllAsRead}
             >
-              Zobacz wszystkie
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Odczytaj wszystkie
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </PopoverContent>
     </Popover>
   );
