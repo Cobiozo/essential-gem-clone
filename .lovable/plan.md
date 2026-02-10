@@ -1,41 +1,102 @@
 
-# Poprawki wskaznikow PWA na Edge i Chrome desktop
 
-## Problem 1: Edge desktop — wskaznik zaslania przycisk X banera
-Skaczacy wskaznik `right-[220px]` naklada sie na przycisk zamykania (X) banera, ktory jest ustawiony na `right-[280px]`. Trzeba przesunac wskaznik bardziej w prawo, blizej faktycznej ikony instalacji w pasku adresu Edge.
+# Reorganizacja panelu bocznego CMS
 
-## Problem 2: Chrome desktop — bledna instrukcja
-Gdy Chrome ma dostepny prompt instalacji (`canInstall`), wskaznik poprawnie wskazuje ikone monitora obok gwiazdki. Ale gdy `canInstall` jest false, wyswietla sie "trzy kropeczki -> Zainstaluj" zamiast wskazywac ikone monitora ze strzalka w pasku adresu. Na screenie widac, ze ikona instalacji (monitor) jest dostepna — wiec Chrome desktop powinien zawsze wskazywac te ikone, nie menu z trzema kropkami.
+## Obecny stan
+
+7 kategorii, 37 pozycji. Kategoria "Funkcje" ma az 11 elementow — jest workiem na wszystko. Nawigacja wymaga duzego scrollowania, a grupowanie jest nieintuicyjne.
+
+## Proponowany nowy uklad
+
+Zmniejszenie do **6 kategorii** z bardziej logicznym podzialem i polaczeniem powiazanych elementow:
+
+```text
++------------------------------------------+
+|  Panel administratora                    |
+|  Administrator                           |
++------------------------------------------+
+|  Glowna (powrot do pulpitu)              |
++------------------------------------------+
+|                                          |
+|  STRONA I WYGLAD (6)                     |
+|    Zawartosc glowna                      |
+|    Uklad stron                           |
+|    Strony                                |
+|    Strony HTML                           |
+|    Kolory i motywy                       |
+|    Stopka i ikony paska                  |
++------------------------------------------+
+|  UZYTKOWNICY (2)                         |
+|    Lista uzytkownikow                    |
+|    Moje konto                            |
++------------------------------------------+
+|  SZKOLENIA I WIEDZA (5)                  |
+|    Szkolenia                             |
+|    Certyfikaty                           |
+|    Baza wiedzy                           |
+|    Zdrowa Wiedza                         |
+|    Biblioteka mediow                     |
++------------------------------------------+
+|  WYDARZENIA I NARZEDZIA (7)              |
+|    Zdarzenia i rejestracje               |
+|    Platne wydarzenia                     |
+|    Sygnal Dnia                           |
+|    Wazne informacje                      |
+|    Pasek informacyjny                    |
+|    Kalkulatory                           |
+|    Struktura organizacji                 |
++------------------------------------------+
+|  KOMUNIKACJA (7)                         |
+|    Tlumaczenia                           |
+|    Kontakty zespolu                      |
+|    Zarzadzanie czatem                    |
+|    Powiadomienia                         |
+|    E-mail                                |
+|    Wsparcie                              |
+|    Cookies i zgody                       |
++------------------------------------------+
+|  SYSTEM (5)                              |
+|    Alerty systemowe                      |
+|    Konserwacja                           |
+|    Zadania CRON                          |
+|    Google Calendar                       |
+|    Kompas AI                             |
++------------------------------------------+
+```
+
+## Kluczowe zmiany logiczne
+
+1. **Polaczenie "Zawartosc" + "Wyglad"** w jedna kategorie "Strona i wyglad" — bo kolory, uklad i strony to wszystko dotyczy wygladu witryny. Pozycje "Stopka dashboardu" i "Ikony paska bocznego" lacza sie w jedna pozycje "Stopka i ikony paska" (przelaczanie zaklakami wewnatrz komponentu).
+
+2. **Rozwiazanie "worka" Funkcje** — rozdzielenie na:
+   - Wydarzenia trafiaja do nowej kategorii "Wydarzenia i narzedzia"
+   - "Zdarzenia" + "Rejestracje na wydarzenia" lacza sie w jedna pozycje (i tak rejestracje sa powiazane ze zdarzeniami)
+   - Oba kalkulatory lacza sie w jedna pozycje "Kalkulatory" (przelaczanie wewnatrz)
+   - Cookies przeniesione do "Komunikacja" (bo dotyczy zgod uzytkownikow)
+   - Kompas AI przeniesiony do "System" (bo to narzedzie AI, nie funkcja uzytkownikow)
+
+3. **Polaczenie powiadomien** — "Powiadomienia systemowe" i "Powiadomienia Push" lacza sie w jedna pozycje "Powiadomienia" (zakladki wewnatrz).
 
 ## Zmiany techniczne
 
-### Plik: `src/components/pwa/PWAInstallBanner.tsx`
+### Plik: `src/components/admin/AdminSidebar.tsx`
 
-**1. Edge desktop (obie wersje canInstall/no canInstall, linie 273-314):**
-- Przesunac wskaznik z `right-[220px]` na `right-[140px]` — blizej prawego rogu, gdzie faktycznie znajduje sie ikona instalacji w Edge (widoczna na screenie)
+Przebudowa tablicy `navCategories`:
 
-**2. Chrome desktop no canInstall (linie 316-324):**
-- Zmienic tekst z "trzy kropeczki -> Zainstaluj" na ikone monitora ze strzalka i tekst "Zainstaluj"
-- Zmienic pozycje z `right-4` na `right-12` — aby wskazywac ikone monitora obok gwiazdki w pasku adresu
-- Uzyc ikony `Download` zamiast tekstu "trzy kropeczki"
-- Zmienic tresc banera w `renderContent()` (wariant Chrome desktop no canInstall, linie 131-144) — zamiast "Otworz menu i wybierz Zainstaluj aplikacje" na "Kliknij ikone instalacji w pasku adresu" (ikona monitora ze strzalka, obok gwiazdki)
+- **Strona i wyglad** (`site`): content, layout, pages, html-pages, colors+settings (polaczone), dashboard-footer+sidebar-icons (polaczone)
+- **Uzytkownicy** (`users`): users, account — bez zmian
+- **Szkolenia i wiedza** (`training`): training, certificates, knowledge, healthy-knowledge, media-library — bez zmian
+- **Wydarzenia i narzedzia** (`events-tools`): events (polaczone z event-registrations), paid-events, daily-signal, important-info, news-ticker, calculator (polaczone z specialist-calculator), organization-tree
+- **Komunikacja** (`communication`): translations, team-contacts, chat-permissions, notifications (polaczone z push-notifications), emails, support, cookies
+- **System** (`system`): system-health, maintenance, cron-jobs, google-calendar, ai-compass
 
-### Szczegoly zmian:
+Aktualizacja `hardcodedLabels` i `SIDEBAR_KEYS` odpowiednio.
 
-**Wskaznik Edge (linie 275, 308):** `right-[220px]` zamienione na `right-[140px]`
+### Wynik
 
-**Wskaznik Chrome no canInstall (linie 317-323):**
-```
-if (isChrome && !isAndroid && !canInstall) {
-  return (
-    <div className={`fixed top-2 right-12 ${indicatorStyle}`}>
-      <Download className="h-4 w-4" />
-      <span className="text-xs font-bold">Zainstaluj</span>
-      <ArrowUp className="h-5 w-5" />
-    </div>
-  );
-}
-```
+- Z **37** pozycji spada do **32** (5 par polaczonych)
+- Z **7** kategorii spada do **6**
+- Kategoria "Funkcje" (11 pozycji) znika — jej elementy sa logicznie rozdzielone
+- Zadna kategoria nie przekracza 7 pozycji
+- Powiazane elementy sa blisko siebie
 
-**Tresc banera Chrome no canInstall (linie 131-144):**
-Zamiana tekstu z "Otworz menu i wybierz Zainstaluj aplikacje" na "Kliknij ikone instalacji (monitor ze strzalka) w pasku adresu, obok gwiazdki."
