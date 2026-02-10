@@ -159,14 +159,14 @@ export function PWAInstallBanner() {
 
   /** Render the browser-specific floating arrow indicator */
   const renderArrowIndicator = () => {
-    // iOS Safari: arrow pointing down-center toward Share icon
+    // iOS Safari: arrow pointing up toward Share icon (top-right in modern Safari)
     if (isIOS) {
       return (
-        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-[51] flex flex-col items-center animate-bounce">
-          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20 mb-1">
-            Kliknij Udostępnij
+        <div className="fixed top-1 right-2 z-[51] flex items-center gap-1 animate-bounce">
+          <span className="text-xs font-semibold text-primary bg-background/90 px-2 py-0.5 rounded-full shadow-sm border border-primary/20">
+            Udostępnij
           </span>
-          <ArrowDown className="h-6 w-6 text-primary drop-shadow-md" />
+          <ArrowUp className="h-6 w-6 text-primary drop-shadow-md" />
         </div>
       );
     }
@@ -227,7 +227,7 @@ export function PWAInstallBanner() {
     <>
       {renderArrowIndicator()}
 
-      <div className="fixed top-2 left-4 right-4 z-50 mx-auto max-w-md animate-in slide-in-from-top-4 duration-300">
+      <div className={`fixed top-2 z-50 animate-in slide-in-from-top-4 duration-300 ${(isIOS || isAndroid) ? 'left-4 right-4 mx-auto max-w-md' : 'right-4 max-w-sm'}`}>
         <Alert className="border-primary/30 bg-background shadow-lg relative">
           <button
             onClick={handleDismiss}
