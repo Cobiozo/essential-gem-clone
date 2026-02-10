@@ -50,7 +50,7 @@ export const NotificationBell: React.FC = () => {
       <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
+          <Bell className={`w-5 h-5 ${unreadCount > 0 ? 'animate-pulse' : ''}`} />
           {unreadCount > 0 && (
             <Badge 
               className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
@@ -61,17 +61,11 @@ export const NotificationBell: React.FC = () => {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-96 p-0" align="end">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <h4 className="font-semibold text-sm">
             Powiadomienia
           </h4>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" onClick={markAllAsRead}>
-              <CheckCheck className="w-4 h-4 mr-1" />
-              Oznacz wszystkie
-            </Button>
-          )}
         </div>
         
         <ScrollArea className="h-[300px]">
@@ -100,7 +94,7 @@ export const NotificationBell: React.FC = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm font-medium truncate ${!notification.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
+                        <p className={`text-sm font-medium line-clamp-2 ${!notification.is_read ? 'text-foreground' : 'text-muted-foreground'}`}>
                           {notification.title}
                         </p>
                         {!notification.is_read && (
@@ -123,6 +117,29 @@ export const NotificationBell: React.FC = () => {
             </div>
           )}
         </ScrollArea>
+        <div className="p-2 border-t flex items-center gap-1">
+          <Button 
+            variant="ghost" 
+            className="flex-1 text-sm h-8"
+            onClick={() => {
+              navigate('/my-account?tab=notifications');
+              setOpen(false);
+            }}
+          >
+            Zobacz wszystkie
+          </Button>
+          {unreadCount > 0 && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-xs h-8"
+              onClick={markAllAsRead}
+            >
+              <CheckCheck className="w-3 h-3 mr-1" />
+              Odczytaj wszystkie
+            </Button>
+          )}
+        </div>
       </PopoverContent>
       </Popover>
     </div>
