@@ -136,9 +136,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           if (partnerIds.length > 0) {
             const { data: leaderPerms } = await supabase
               .from('leader_permissions')
-              .select('user_id, can_broadcast')
+              .select('user_id, can_broadcast, tripartite_meeting_enabled, partner_consultation_enabled')
               .in('user_id', partnerIds)
-              .eq('can_broadcast', true);
+              .or('can_broadcast.eq.true,tripartite_meeting_enabled.eq.true,partner_consultation_enabled.eq.true');
             leaderSet = new Set(leaderPerms?.map(lp => lp.user_id) || []);
           }
 
@@ -189,9 +189,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       // Fetch leader permissions for senders
       const { data: leaderPerms } = await supabase
         .from('leader_permissions')
-        .select('user_id, can_broadcast')
+        .select('user_id, can_broadcast, tripartite_meeting_enabled, partner_consultation_enabled')
         .in('user_id', senderIds)
-        .eq('can_broadcast', true);
+        .or('can_broadcast.eq.true,tripartite_meeting_enabled.eq.true,partner_consultation_enabled.eq.true');
 
       const leaderSet = new Set(leaderPerms?.map(lp => lp.user_id) || []);
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
