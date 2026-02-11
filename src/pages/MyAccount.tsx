@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, Globe } from 'lucide-react';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -29,6 +29,7 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
+import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
@@ -104,6 +105,7 @@ const MyAccount = () => {
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
   const { isLeader, leaderPermission, loading: leaderLoading } = useLeaderAvailability();
+  const { hasAccess: hasPartnerPageAccess } = usePartnerPageAccess();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -126,7 +128,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'individual-meetings', 'communication'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'individual-meetings', 'communication', 'partner-page'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -225,8 +227,9 @@ const MyAccount = () => {
     hkCodes: isPartner || isUserAdmin, // NEW: Healthy Knowledge codes history
     reflinks: canGenerateReflinks,
     individualMeetings: leaderPermission?.individual_meetings_enabled || false,
+    partnerPage: hasPartnerPageAccess,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, leaderPermission, isUserAdmin]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, leaderPermission, isUserAdmin, hasPartnerPageAccess]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -599,6 +602,12 @@ const MyAccount = () => {
                 <TabsTrigger value="individual-meetings" disabled={mustCompleteProfile}>
                   <CalendarDays className="w-4 h-4 mr-2" />
                   Spotkania indywidualne
+                </TabsTrigger>
+              )}
+              {visibleTabs.partnerPage && (
+                <TabsTrigger value="partner-page" disabled={mustCompleteProfile}>
+                  <Globe className="w-4 h-4 mr-2" />
+                  Moja strona
                 </TabsTrigger>
               )}
             </TabsList>
@@ -1052,6 +1061,14 @@ const MyAccount = () => {
             {visibleTabs.individualMeetings && (
               <TabsContent value="individual-meetings" className="mt-6">
                 <UnifiedMeetingSettingsForm />
+              </TabsContent>
+            )}
+
+            {visibleTabs.partnerPage && (
+              <TabsContent value="partner-page" className="mt-6">
+                <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+                  {React.createElement(React.lazy(() => import('@/components/partner-page/PartnerPageEditor')))}
+                </React.Suspense>
               </TabsContent>
             )}
           </Tabs>

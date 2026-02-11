@@ -121,6 +121,7 @@ const HealthyKnowledgePublicPage = lazyWithRetry(() => import("./pages/HealthyKn
 const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
 const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPage"));
+const PartnerPage = lazyWithRetry(() => import("./pages/PartnerPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -345,6 +346,7 @@ const AppContent = () => {
               <Route path="/paid-events" element={<PaidEventsListPage />} />
               <Route path="/events/:slug" element={<PaidEventPage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
