@@ -1,87 +1,37 @@
 
-# Integracja grafik z zasobów wiedzy do Kataloga produktów
 
-## Problem
-Aktualnie admin może dodać obrazek produktu przez:
-1. Wpisanie URL ręcznie
-2. Wybranie z AdminMediaLibrary (biblioteka mediów)
+# Dodanie uploadu plikow z komputera do edytora strony partnerskiej
 
-Życzeniem użytkownika jest dodanie trzeciej opcji: **wybór grafiki z sekcji "Zasoby wiedzy > Grafiki"** (knowledge_resources z resource_type = 'image'), które są już zarządzane w panelu administracyjnym.
+## Cel
+Aktualnie pola typu `editable_image` (np. "Zdjecie partnera") w edytorze partnera (`PartnerPageEditor.tsx`) pozwalaja jedynie na wklejenie URL. Trzeba dodac mozliwosc przeslania pliku z komputera — upload do Supabase Storage (bucket `cms-images`), po czym URL zostaje automatycznie wstawiony.
 
-## Obecny stan
-- Tabela `knowledge_resources` zawiera wszystkie zasoby z polem `resource_type` ('image', 'pdf', 'doc', itd.)
-- W `KnowledgeResourcesManagement.tsx` grafiki są filtrowane: `graphicsResources = resources.filter(r => r.resource_type === 'image')`
-- Grafiki mają pole `source_url` zawierające URL do grafiki
-- `ProductCatalogManager.tsx` już integruje `AdminMediaLibrary` w trybie picker
+## Zmiany
 
-## Rozwiązanie
+### Plik: `src/components/partner-page/PartnerPageEditor.tsx`
 
-### 1. Nowy komponent: `KnowledgeGraphicsPicker.tsx`
-Wewnętrzny komponent do wyboru grafik z zasobów wiedzy, analogiczny do AdminMediaLibrary, ale z danymi z `knowledge_resources`:
+W sekcji renderujacej pola `editable_image` (linie 189-205):
 
-- Fetch graphics: `knowledge_resources` z `resource_type = 'image'` i `status = 'active'`
-- Funkcjonalność: wyszukiwanie, filtrowanie po kategorii, podgląd thumbnailów
-- Na klikniecie: callback `onSelect` z wybraną grafiką (zwraca `{ id, title, source_url }`)
-- Responsywna siatka pokazująca thumbnaile (podobnie jak AdminMediaLibrary)
+1. **Dodanie przycisku "Przeslij z komputera"** obok pola URL — przycisk z ikona `Upload` otwiera ukryty `<input type="file" accept="image/*">`
+2. **Funkcja `handleImageUpload`**:
+   - Walidacja typu pliku (tylko obrazy) i rozmiaru (max 2MB — limit Supabase Storage)
+   - Upload do bucketu `cms-images` w sciezce `partner-photos/{userId}/{timestamp}_{filename}`
+   - Pobranie publicznego URL (`getPublicUrl`)
+   - Ustawienie URL w `customData[element.id]`
+   - Stan ladowania (`uploading`) z animacja spinnera na przycisku
+3. **Layout**: Pole URL + przycisk "Przeslij" w jednym wierszu (`flex gap-2`)
 
-### 2. Aktualizacja: `ProductCatalogManager.tsx`
-- Dodanie przełącznika/tabs do wyboru źródła obrazka: **"Biblioteka mediów"** vs **"Zasoby wiedzy"**
-- Alternatywnie: dodanie drugiego przycisku obok "Biblioteka" — przycisk **"Zasoby wiedzy"**
-- Oba przyciski otwierają osobne dialogi
-- Stan `showKnowledgeGraphicsPicker: boolean`
-- Callback z `KnowledgeGraphicsPicker` ustawia `editingProduct.image_url` na `source_url` wybranej grafiki
+### Szczegoly techniczne
 
-### 3. Design decyzji
-**Opcja A** (tabbed):
-```
-[URL ręczny] [Biblioteka mediów] [Zasoby wiedzy]
-```
-Trzy niezależne źródła — elegancko, ale więcej kodu.
+- Import `Upload`, `Loader2` z `lucide-react`
+- Import `supabase` z `@/integrations/supabase/client`  
+- Uzycie `useRef` dla ukrytego inputa plikow
+- Bucket `cms-images` juz istnieje i jest uzywany w calym projekcie do uploadow obrazow
+- Stan `uploadingField: string | null` — wskazuje ktore pole aktualnie uploaduje (obsluga wielu pol `editable_image`)
+- Walidacja: max 2MB, typy `image/*`
+- Sciezka uploadu: `partner-photos/{user_id}/{Date.now()}_nazwa.ext` — zapobiega kolizjom nazw
 
-**Opcja B** (przyciski obok URL):
-```
-[Input URL]  [Biblioteka]  [Zasoby wiedzy]
-```
-Dwa przyciski otwierające dialogi pickera — kompaktowo, bardziej intuicyjnie.
-
-Rekomendacja: **Opcja B** — najbliżej obecnego desingu.
-
-### 4. Szczegóły techniczne
-
-#### Plik: `src/components/admin/KnowledgeGraphicsPicker.tsx` (nowy)
-```typescript
-interface KnowledgeGraphic {
-  id: string;
-  title: string;
-  source_url: string;
-}
-
-interface KnowledgeGraphicsPickerProps {
-  onSelect: (graphic: KnowledgeGraphic) => void;
-}
-
-export const KnowledgeGraphicsPicker: React.FC<KnowledgeGraphicsPickerProps> = ({ onSelect }) => {
-  // fetch knowledge_resources WHERE resource_type = 'image' AND status = 'active'
-  // renderuj grid z thumbnailami
-  // onClick -> onSelect(graphic)
-}
-```
-
-#### Plik: `src/components/admin/ProductCatalogManager.tsx`
-- Import `KnowledgeGraphicsPicker`
-- Nowy stan: `showKnowledgeGraphicsPicker: boolean`
-- Dialog dla knowledge graphics pickera (analogicznie do AdminMediaLibrary picker dialog)
-- W sekcji obrazka produktu: drugi przycisk obok "Biblioteka" — "Zasoby wiedzy"
-- Callback `onSelect` ustawia `image_url` i zamyka dialog
-
-#### Workflow
-1. Admin otwiera dialog edycji produktu
-2. Widzi pole URL + 2 przyciski: "Biblioteka" (AdminMediaLibrary) i "Zasoby wiedzy" (KnowledgeGraphicsPicker)
-3. Kliknie "Zasoby wiedzy" → otwiera się dialog z siatką grafik z knowledge_resources
-4. Wybiera grafikę → `source_url` jest wstawiany w pole `image_url`
-5. Dialog zamyka się, admin widzi preview wybranej grafiki
-6. Kliknie Save → produkt jest zapisany
-
-### 5. Brak zmian w bazie danych
-Istniejąca struktura `knowledge_resources` w pełni obsługuje tę funkcjonalność.
+### Wplyw na UX
+- Partner widzi: `[Input URL] [Przeslij z komputera]`
+- Klika przycisk → wybiera plik → spinner na przycisku → URL automatycznie wstawiony + podglad obrazka ponizej
+- Nadal moze wkleic URL recznie jako alternatywe
 
