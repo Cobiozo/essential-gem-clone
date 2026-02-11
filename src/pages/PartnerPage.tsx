@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Mail, Phone, Facebook, User } from 'lucide-react';
 
 interface PartnerProfile {
   first_name: string | null;
@@ -26,7 +26,6 @@ const PartnerPageView: React.FC = () => {
     const fetchPage = async () => {
       if (!alias) { setNotFound(true); setLoading(false); return; }
 
-      // Fetch partner page by alias
       const { data: pageData, error } = await supabase
         .from('partner_pages')
         .select('*')
@@ -42,10 +41,9 @@ const PartnerPageView: React.FC = () => {
 
       setPage(pageData as any);
 
-      // Fetch template, profile, products, and links in parallel
       const [templateRes, profileRes, productsRes, linksRes] = await Promise.all([
         supabase.from('partner_page_template').select('template_data').limit(1).maybeSingle(),
-        supabase.from('profiles').select('first_name, last_name').eq('user_id', pageData.user_id).maybeSingle(),
+        supabase.from('profiles').select('first_name, last_name, avatar_url').eq('user_id', pageData.user_id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
       ]);
@@ -65,7 +63,6 @@ const PartnerPageView: React.FC = () => {
 
   const customData = page.custom_data || {};
 
-  // Get products that have links from this partner
   const linkedProducts = productLinks
     .map(link => ({
       ...link,
@@ -73,97 +70,206 @@ const PartnerPageView: React.FC = () => {
     }))
     .filter(lp => lp.product && lp.purchase_url);
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
-        {/* Partner name */}
-        {profile && (
-          <div className="text-center">
-            <h1 className="text-3xl font-bold">
-              {profile.first_name} {profile.last_name}
-            </h1>
-          </div>
-        )}
+  const partnerName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
+  const partnerTitle = customData['partner_title'] || '';
+  const partnerPhoto = customData['partner_photo'] || '';
+  const partnerBio = customData['partner_bio'] || '';
+  const contactEmail = customData['contact_email'] || '';
+  const contactPhone = customData['contact_phone'] || '';
+  const contactFacebook = customData['contact_facebook'] || '';
 
-        {/* Template elements */}
-        {template.map((element) => (
-          <div key={element.id}>
-            {element.type === 'static' && element.content && (
+  // Find template elements by id for static content
+  const heroElement = template.find(e => e.id === 'hero_banner');
+  const aboutHeadingElement = template.find(e => e.id === 'about_heading');
+
+  const hasAboutSection = partnerPhoto || partnerBio || contactEmail || contactPhone || contactFacebook;
+
+  return (
+    <div className="min-h-screen bg-card">
+      {/* ===== TOP BAR ===== */}
+      <header className="bg-card border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={partnerName}
+                className="w-10 h-10 rounded-full object-cover border-2 border-primary/30"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+            )}
+            <div>
+              <p className="font-semibold text-foreground text-sm sm:text-base">{partnerName}</p>
+              {partnerTitle && (
+                <p className="text-xs text-muted-foreground">{partnerTitle}</p>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-lg sm:text-xl font-bold text-primary tracking-tight">Pure Life</span>
+          </div>
+        </div>
+      </header>
+
+      {/* ===== HERO BANNER ===== */}
+      {heroElement?.content && (
+        <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-background">
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: 'radial-gradient(circle at 25% 25%, hsl(var(--primary)) 1px, transparent 1px)',
+            backgroundSize: '32px 32px'
+          }} />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16 text-center">
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert text-foreground"
+              dangerouslySetInnerHTML={{ __html: heroElement.content }}
+            />
+            {linkedProducts.length > 0 && (
+              <a
+                href="#products"
+                className="inline-flex items-center gap-2 mt-6 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
+              >
+                Zobacz produkty
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ===== PRODUCTS SECTION ===== */}
+      {linkedProducts.length > 0 && (
+        <section id="products" className="bg-background">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-8 text-center">Produkty</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {linkedProducts.map(({ product, purchase_url }) => (
+                <div
+                  key={product!.id}
+                  className="group bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                >
+                  {product!.image_url && (
+                    <div className="aspect-[4/3] overflow-hidden bg-muted">
+                      <img
+                        src={product!.image_url}
+                        alt={product!.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  )}
+                  <div className="p-5 space-y-3">
+                    <h3 className="font-semibold text-foreground text-base">{product!.name}</h3>
+                    {product!.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        {product!.description}
+                      </p>
+                    )}
+                    <a
+                      href={purchase_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+                    >
+                      Kup teraz
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== ABOUT / CONTACT SECTION ===== */}
+      {hasAboutSection && (
+        <section className="bg-card border-t border-border">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            {/* About heading from template */}
+            {aboutHeadingElement?.content && (
               <div
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: element.content }}
+                className="prose prose-sm max-w-none dark:prose-invert mb-8 text-center text-foreground"
+                dangerouslySetInnerHTML={{ __html: aboutHeadingElement.content }}
               />
             )}
 
-            {element.type === 'editable_text' && customData[element.id] && (
-              <div className="space-y-2">
-                {element.label && (
-                  <h3 className="text-lg font-semibold">{element.label}</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+              {/* Photo */}
+              <div className="flex justify-center md:justify-start">
+                {partnerPhoto ? (
+                  <img
+                    src={partnerPhoto}
+                    alt={partnerName}
+                    className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl object-cover shadow-md border border-border"
+                  />
+                ) : (
+                  <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl bg-muted flex items-center justify-center border border-border">
+                    <User className="w-16 h-16 text-muted-foreground/40" />
+                  </div>
                 )}
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {customData[element.id]}
-                </p>
               </div>
-            )}
 
-            {element.type === 'editable_image' && customData[element.id] && (
-              <div className="space-y-2">
-                {element.label && (
-                  <h3 className="text-lg font-semibold">{element.label}</h3>
+              {/* Bio */}
+              <div className="md:col-span-1">
+                {partnerBio && (
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+                    {partnerBio}
+                  </p>
                 )}
-                <img
-                  src={customData[element.id]}
-                  alt={element.label || ''}
-                  className="max-w-full rounded-lg shadow-md"
-                />
               </div>
-            )}
 
-            {element.type === 'product_slot' && linkedProducts.length > 0 && (
+              {/* Contact */}
               <div className="space-y-4">
-                {element.label && (
-                  <h3 className="text-xl font-semibold">{element.label}</h3>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {linkedProducts.map(({ product, purchase_url }) => (
-                    <div key={product!.id} className="border rounded-xl overflow-hidden bg-card shadow-sm hover:shadow-md transition-shadow">
-                      {product!.image_url && (
-                        <img
-                          src={product!.image_url}
-                          alt={product!.name}
-                          className="w-full h-48 object-cover"
-                        />
-                      )}
-                      <div className="p-4 space-y-3">
-                        <h4 className="font-semibold">{product!.name}</h4>
-                        {product!.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-3">
-                            {product!.description}
-                          </p>
-                        )}
-                        <a
-                          href={purchase_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity w-full justify-center"
-                        >
-                          Kup teraz
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
+                <h3 className="font-semibold text-foreground text-base">Kontakt</h3>
+                {contactEmail && (
+                  <a
+                    href={`mailto:${contactEmail}`}
+                    className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Mail className="w-4 h-4 text-primary" />
                     </div>
-                  ))}
-                </div>
+                    <span className="break-all">{contactEmail}</span>
+                  </a>
+                )}
+                {contactPhone && (
+                  <a
+                    href={`tel:${contactPhone}`}
+                    className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Phone className="w-4 h-4 text-primary" />
+                    </div>
+                    <span>{contactPhone}</span>
+                  </a>
+                )}
+                {contactFacebook && (
+                  <a
+                    href={contactFacebook.startsWith('http') ? contactFacebook : `https://${contactFacebook}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+                  >
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Facebook className="w-4 h-4 text-primary" />
+                    </div>
+                    <span>Facebook</span>
+                  </a>
+                )}
               </div>
-            )}
+            </div>
           </div>
-        ))}
+        </section>
+      )}
 
-        {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground pt-8 border-t">
-          <p>Pure Life Center</p>
+      {/* ===== FOOTER ===== */}
+      <footer className="border-t border-border bg-background">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 text-center">
+          <p className="text-sm text-muted-foreground font-medium">Pure Life Center</p>
         </div>
-      </div>
+      </footer>
     </div>
   );
 };
