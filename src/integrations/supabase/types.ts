@@ -4352,6 +4352,159 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_page_settings: {
+        Row: {
+          created_at: string
+          enabled_for_admin: boolean
+          enabled_for_client: boolean
+          enabled_for_partner: boolean
+          enabled_for_specjalista: boolean
+          id: string
+          is_system_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled_for_admin?: boolean
+          enabled_for_client?: boolean
+          enabled_for_partner?: boolean
+          enabled_for_specjalista?: boolean
+          id?: string
+          is_system_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled_for_admin?: boolean
+          enabled_for_client?: boolean
+          enabled_for_partner?: boolean
+          enabled_for_specjalista?: boolean
+          id?: string
+          is_system_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      partner_page_template: {
+        Row: {
+          created_at: string
+          id: string
+          template_data: Json
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          template_data?: Json
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          template_data?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      partner_page_user_access: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          is_enabled: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          is_enabled?: boolean
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partner_pages: {
+        Row: {
+          alias: string | null
+          created_at: string
+          custom_data: Json
+          id: string
+          is_active: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alias?: string | null
+          created_at?: string
+          custom_data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alias?: string | null
+          created_at?: string
+          custom_data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partner_product_links: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          partner_page_id: string
+          position: number
+          product_id: string
+          purchase_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          partner_page_id: string
+          position?: number
+          product_id: string
+          purchase_url?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          partner_page_id?: string
+          position?: number
+          product_id?: string
+          purchase_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_product_links_partner_page_id_fkey"
+            columns: ["partner_page_id"]
+            isOneToOne: false
+            referencedRelation: "partner_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_product_links_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "product_catalog"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       private_chat_messages: {
         Row: {
           content: string
@@ -4458,6 +4611,39 @@ export type Database = {
           status?: string
           subject?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      product_catalog: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          position?: number
+          updated_at?: string
         }
         Relationships: []
       }

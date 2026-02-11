@@ -23,6 +23,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import {
   Settings2,
+  Globe,
   Type,
   Palette,
   FileText,
@@ -168,6 +169,7 @@ const navCategories: NavCategory[] = [
       { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
       { value: 'calculator', labelKey: 'calculator', icon: Calculator },
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
+      { value: 'partner-pages', labelKey: 'partnerPages', icon: Globe },
       { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
     ],
   },
@@ -239,6 +241,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     eventRegistrations: 'Rejestracje na wydarzenia',
     newsTicker: 'Pasek informacyjny',
     paidEvents: 'Płatne wydarzenia',
+    partnerPages: 'Strony partnerskie',
     pushNotifications: 'Powiadomienia Push',
     notifications: 'Powiadomienia systemowe',
   };
