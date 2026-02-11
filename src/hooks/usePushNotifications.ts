@@ -164,7 +164,7 @@ export const usePushNotifications = () => {
       let isSubscribed = false;
       
       if (registration) {
-        const subscription = await registration.pushManager.getSubscription();
+        const subscription = await (registration as any).pushManager?.getSubscription();
         isSubscribed = !!subscription;
       }
 
@@ -231,7 +231,7 @@ export const usePushNotifications = () => {
 
       // Subscribe to push
       const applicationServerKeyArray = urlBase64ToUint8Array(config.publicKey);
-      const subscription = await registration.pushManager.subscribe({
+      const subscription = await (registration as any).pushManager.subscribe({
         userVisibleOnly: true,
         // Cast to avoid TypeScript issues with Uint8Array buffer type
         applicationServerKey: applicationServerKeyArray as unknown as BufferSource,
@@ -326,7 +326,7 @@ export const usePushNotifications = () => {
     try {
       const registration = await navigator.serviceWorker.getRegistration('/sw-push.js');
       if (registration) {
-        const subscription = await registration.pushManager.getSubscription();
+        const subscription = await (registration as any).pushManager?.getSubscription();
         if (subscription) {
           // Remove from database first
           await supabase

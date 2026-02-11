@@ -217,7 +217,7 @@ export const SystemHealthAlertsPanel: React.FC = () => {
     setActionLoading(alert.id);
     try {
       // Get affected user IDs from alert metadata
-      const sampleUsers: string[] = alert.metadata?.sample_users?.map((u: any) => u.user_id || u.id || u) || [];
+      const sampleUsers: string[] = alert.metadata?.sample_users?.map((u: any) => u.user_id || u.userId || u.id || u) || [];
       const affectedCount: number = alert.metadata?.affected_count || alert.metadata?.count || sampleUsers.length;
       
       if (sampleUsers.length === 0) {
