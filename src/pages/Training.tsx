@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -43,6 +43,7 @@ const Training = () => {
   const [downloading, setDownloading] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasRefreshReminder, setHasRefreshReminder] = useState(false);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string}}>({});
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
@@ -57,11 +58,47 @@ const Training = () => {
       if (user) {
         const certMap = await fetchCertificates();
         await fetchTrainingModules(certMap);
+        await checkRefreshReminder();
       }
       setLoading(false);
     };
     loadData();
   }, [user]);
+
+  // Check for training refresh reminder notifications
+  const checkRefreshReminder = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('user_notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('notification_type', 'training_refresh_reminder')
+        .eq('is_read', false)
+        .limit(1);
+      
+      setHasRefreshReminder((data?.length || 0) > 0);
+    } catch (error) {
+      console.error('Error checking refresh reminder:', error);
+    }
+  };
+
+  // Mark refresh reminders as read
+  const markRefreshReminderRead = async () => {
+    if (!user) return;
+    try {
+      await supabase
+        .from('user_notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('notification_type', 'training_refresh_reminder')
+        .eq('is_read', false);
+      
+      setHasRefreshReminder(false);
+    } catch (error) {
+      console.error('Error marking reminder as read:', error);
+    }
+  };
 
   const fetchCertificates = async (): Promise<{[key: string]: {id: string, url: string, issuedAt: string}}> => {
     if (!user) return {};
@@ -557,6 +594,31 @@ const Training = () => {
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Refresh reminder banner */}
+        {hasRefreshReminder && (
+          <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-yellow-800 dark:text-yellow-200">Wykryto brakujące szkolenia</p>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">Kliknij przycisk poniżej, aby zsynchronizować dostępne materiały szkoleniowe.</p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              onClick={async () => {
+                await refreshAcademy();
+                await markRefreshReminderRead();
+              }}
+              disabled={refreshing}
+              className="flex-shrink-0"
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+              Odśwież akademię
+            </Button>
+          </div>
+        )}
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">{t('training.title')}</h1>
           <p className="text-muted-foreground">
