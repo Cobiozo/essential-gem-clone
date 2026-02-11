@@ -1,47 +1,87 @@
 
-# Dodanie sekcji "Grafiki produktow" z linkami partnerow
+# Integracja grafik z zasobów wiedzy do Kataloga produktów
 
-## Opis funkcjonalnosci
+## Problem
+Aktualnie admin może dodać obrazek produktu przez:
+1. Wpisanie URL ręcznie
+2. Wybranie z AdminMediaLibrary (biblioteka mediów)
 
-Nowa sekcja na stronie partnerskiej -- **"Moje polecane produkty"** (widoczna na screenie). Admin dodaje grafiki produktow (zdjecia) do centralnego katalogu, a partner wybiera ktore chce wyswietlic i podpina pod kazde zdjecie wlasny link przekierowujacy (np. do sklepu).
-
-Na publicznej stronie partnerskiej grafiki wyswietlaja sie w siatce (jak na screenie -- 3 kolumny), kazda z nazwa produktu i klikalna -- prowadzi do linku partnera.
+Życzeniem użytkownika jest dodanie trzeciej opcji: **wybór grafiki z sekcji "Zasoby wiedzy > Grafiki"** (knowledge_resources z resource_type = 'image'), które są już zarządzane w panelu administracyjnym.
 
 ## Obecny stan
+- Tabela `knowledge_resources` zawiera wszystkie zasoby z polem `resource_type` ('image', 'pdf', 'doc', itd.)
+- W `KnowledgeResourcesManagement.tsx` grafiki są filtrowane: `graphicsResources = resources.filter(r => r.resource_type === 'image')`
+- Grafiki mają pole `source_url` zawierające URL do grafiki
+- `ProductCatalogManager.tsx` już integruje `AdminMediaLibrary` w trybie picker
 
-System juz posiada tabele `product_catalog` (grafiki + nazwy produktow dodawane przez admina) oraz `partner_product_links` (linki partnerow do tych produktow). Renderer `PartnerPage.tsx` juz wyswietla te produkty w sekcji "Produkty" z przyciskami "Kup teraz".
+## Rozwiązanie
 
-**Problem**: W `ProductCatalogManager` (admin) dodawanie obrazka produktu wymaga recznego wklejenia URL -- brak integracji z biblioteka mediow. Ponadto wyglad sekcji produktow na stronie publicznej nie odpowiada screenom (brak naglowka "Moje polecane produkty", zbyt duze karty).
+### 1. Nowy komponent: `KnowledgeGraphicsPicker.tsx`
+Wewnętrzny komponent do wyboru grafik z zasobów wiedzy, analogiczny do AdminMediaLibrary, ale z danymi z `knowledge_resources`:
 
-## Zmiany
+- Fetch graphics: `knowledge_resources` z `resource_type = 'image'` i `status = 'active'`
+- Funkcjonalność: wyszukiwanie, filtrowanie po kategorii, podgląd thumbnailów
+- Na klikniecie: callback `onSelect` z wybraną grafiką (zwraca `{ id, title, source_url }`)
+- Responsywna siatka pokazująca thumbnaile (podobnie jak AdminMediaLibrary)
 
-### 1. `ProductCatalogManager.tsx` -- picker obrazkow z biblioteki mediow
+### 2. Aktualizacja: `ProductCatalogManager.tsx`
+- Dodanie przełącznika/tabs do wyboru źródła obrazka: **"Biblioteka mediów"** vs **"Zasoby wiedzy"**
+- Alternatywnie: dodanie drugiego przycisku obok "Biblioteka" — przycisk **"Zasoby wiedzy"**
+- Oba przyciski otwierają osobne dialogi
+- Stan `showKnowledgeGraphicsPicker: boolean`
+- Callback z `KnowledgeGraphicsPicker` ustawia `editingProduct.image_url` na `source_url` wybranej grafiki
 
-- Dodanie przycisku **"Wybierz z biblioteki"** w dialogu edycji produktu obok pola URL
-- Przycisk otwiera `AdminMediaLibrary` w trybie `mode="picker"` z `allowedTypes={['image']}`
-- Po wybraniu obrazka z biblioteki, URL automatycznie wstawia sie w pole `image_url`
-- Zachowane pole recznego URL jako alternatywa
-- Nowy stan `showMediaPicker` i dodatkowy `Dialog` do osadzenia pickera
+### 3. Design decyzji
+**Opcja A** (tabbed):
+```
+[URL ręczny] [Biblioteka mediów] [Zasoby wiedzy]
+```
+Trzy niezależne źródła — elegancko, ale więcej kodu.
 
-### 2. `PartnerPage.tsx` -- dostosowanie wygladu sekcji produktow
+**Opcja B** (przyciski obok URL):
+```
+[Input URL]  [Biblioteka]  [Zasoby wiedzy]
+```
+Dwa przyciski otwierające dialogi pickera — kompaktowo, bardziej intuicyjnie.
 
-- Zmiana naglowka sekcji z "Produkty" na **"Moje polecane produkty"**
-- Lekkie dostosowanie kart produktow -- grafika z nazwa pod spodem, klikalna calosc karty (bez osobnego przycisku "Kup teraz"), aby pasowalo do stylu ze screena
-- Zachowanie responsywnej siatki 1-3 kolumny
+Rekomendacja: **Opcja B** — najbliżej obecnego desingu.
 
-### 3. Brak zmian w bazie danych
+### 4. Szczegóły techniczne
 
-Istniejace tabele `product_catalog` i `partner_product_links` w pelni pokrywaja te funkcjonalnosc. Nie trzeba tworzyc nowych tabel.
+#### Plik: `src/components/admin/KnowledgeGraphicsPicker.tsx` (nowy)
+```typescript
+interface KnowledgeGraphic {
+  id: string;
+  title: string;
+  source_url: string;
+}
 
-## Szczegoly techniczne
+interface KnowledgeGraphicsPickerProps {
+  onSelect: (graphic: KnowledgeGraphic) => void;
+}
 
-### Plik: `src/components/admin/ProductCatalogManager.tsx`
-- Import `AdminMediaLibrary` z `@/components/admin/AdminMediaLibrary`
-- Import `Dialog` (dodatkowy) do wyswietlenia pickera
-- Nowy stan: `showMediaPicker: boolean`
-- W dialogu edycji produktu: przycisk "Wybierz z biblioteki" pod polem URL
-- Callback `onSelect`: ustawia `editingProduct.image_url` na `file.file_url`, zamyka picker
+export const KnowledgeGraphicsPicker: React.FC<KnowledgeGraphicsPickerProps> = ({ onSelect }) => {
+  // fetch knowledge_resources WHERE resource_type = 'image' AND status = 'active'
+  // renderuj grid z thumbnailami
+  // onClick -> onSelect(graphic)
+}
+```
 
-### Plik: `src/pages/PartnerPage.tsx`
-- Zmiana naglowka sekcji produktow na "Moje polecane produkty"
-- Karty produktow: cala karta jako `<a>` z linkiem partnera, grafika na gorze, nazwa produktu pod grafika (bez opisu i przycisku -- czysty styl jak na screenie)
+#### Plik: `src/components/admin/ProductCatalogManager.tsx`
+- Import `KnowledgeGraphicsPicker`
+- Nowy stan: `showKnowledgeGraphicsPicker: boolean`
+- Dialog dla knowledge graphics pickera (analogicznie do AdminMediaLibrary picker dialog)
+- W sekcji obrazka produktu: drugi przycisk obok "Biblioteka" — "Zasoby wiedzy"
+- Callback `onSelect` ustawia `image_url` i zamyka dialog
+
+#### Workflow
+1. Admin otwiera dialog edycji produktu
+2. Widzi pole URL + 2 przyciski: "Biblioteka" (AdminMediaLibrary) i "Zasoby wiedzy" (KnowledgeGraphicsPicker)
+3. Kliknie "Zasoby wiedzy" → otwiera się dialog z siatką grafik z knowledge_resources
+4. Wybiera grafikę → `source_url` jest wstawiany w pole `image_url`
+5. Dialog zamyka się, admin widzi preview wybranej grafiki
+6. Kliknie Save → produkt jest zapisany
+
+### 5. Brak zmian w bazie danych
+Istniejąca struktura `knowledge_resources` w pełni obsługuje tę funkcjonalność.
+
