@@ -105,7 +105,7 @@ const MyAccount = () => {
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
   const { isLeader, leaderPermission, loading: leaderLoading } = useLeaderAvailability();
-  const { hasAccess: hasPartnerPageAccess } = usePartnerPageAccess();
+  const { hasAccess: hasPartnerPageAccess, loading: partnerPageLoading } = usePartnerPageAccess();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
