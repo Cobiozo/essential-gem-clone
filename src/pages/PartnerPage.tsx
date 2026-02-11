@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
-import { ExternalLink, Mail, Phone, Facebook, User } from 'lucide-react';
+import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 
 interface PartnerProfile {
   first_name: string | null;
@@ -78,9 +79,13 @@ const PartnerPageView: React.FC = () => {
   const contactPhone = customData['contact_phone'] || '';
   const contactFacebook = customData['contact_facebook'] || '';
 
-  // Find template elements by id for static content
+  // Find template elements by id
   const heroElement = template.find(e => e.id === 'hero_banner');
+  const welcomeElement = template.find(e => e.id === 'welcome_section');
+  const orderElement = template.find(e => e.id === 'order_section');
+  const contactStaticElement = template.find(e => e.id === 'contact_section_static');
   const aboutHeadingElement = template.find(e => e.id === 'about_heading');
+  const footerElement = template.find(e => e.id === 'footer_branding');
 
   const hasAboutSection = partnerPhoto || partnerBio || contactEmail || contactPhone || contactFacebook;
 
@@ -139,6 +144,18 @@ const PartnerPageView: React.FC = () => {
         </section>
       )}
 
+      {/* ===== WELCOME SECTION ===== */}
+      {welcomeElement?.content && (
+        <section className="bg-background">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <div
+              className="prose prose-sm sm:prose-base max-w-none dark:prose-invert text-foreground text-center"
+              dangerouslySetInnerHTML={{ __html: welcomeElement.content }}
+            />
+          </div>
+        </section>
+      )}
+
       {/* ===== PRODUCTS SECTION ===== */}
       {linkedProducts.length > 0 && (
         <section id="products" className="bg-background">
@@ -183,11 +200,54 @@ const PartnerPageView: React.FC = () => {
         </section>
       )}
 
+      {/* ===== ORDER SECTION (Accordion) ===== */}
+      {orderElement?.content && (
+        <section className="bg-background">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full bg-card border border-border rounded-xl px-5 py-4 text-left hover:bg-muted/50 transition-colors group">
+                <span className="font-semibold text-foreground text-base">
+                  {(orderElement as any).title || 'Zamówienie'}
+                </span>
+                <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 bg-card border border-border rounded-xl px-5 py-4">
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert text-foreground"
+                  dangerouslySetInnerHTML={{ __html: orderElement.content }}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </section>
+      )}
+
+      {/* ===== CONTACT STATIC SECTION (Accordion) ===== */}
+      {contactStaticElement?.content && (
+        <section className="bg-background">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center justify-between w-full bg-card border border-border rounded-xl px-5 py-4 text-left hover:bg-muted/50 transition-colors group">
+                <span className="font-semibold text-foreground text-base">
+                  {(contactStaticElement as any).title || 'Bądź z nami w kontakcie!'}
+                </span>
+                <ChevronDown className="w-5 h-5 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-2 bg-card border border-border rounded-xl px-5 py-4">
+                <div
+                  className="prose prose-sm max-w-none dark:prose-invert text-foreground"
+                  dangerouslySetInnerHTML={{ __html: contactStaticElement.content }}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </section>
+      )}
+
       {/* ===== ABOUT / CONTACT SECTION ===== */}
       {hasAboutSection && (
         <section className="bg-card border-t border-border">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-            {/* About heading from template */}
             {aboutHeadingElement?.content && (
               <div
                 className="prose prose-sm max-w-none dark:prose-invert mb-8 text-center text-foreground"
@@ -267,7 +327,14 @@ const PartnerPageView: React.FC = () => {
       {/* ===== FOOTER ===== */}
       <footer className="border-t border-border bg-background">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 text-center">
-          <p className="text-sm text-muted-foreground font-medium">Pure Life Center</p>
+          {footerElement?.content ? (
+            <div
+              className="prose prose-sm max-w-none dark:prose-invert text-muted-foreground"
+              dangerouslySetInnerHTML={{ __html: footerElement.content }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground font-medium">Pure Life Center</p>
+          )}
         </div>
       </footer>
     </div>
