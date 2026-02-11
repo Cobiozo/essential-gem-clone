@@ -160,15 +160,18 @@ const PartnerPageView: React.FC = () => {
       {linkedProducts.length > 0 && (
         <section id="products" className="bg-background">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
-            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-8 text-center">Produkty</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-8 text-center">Moje polecane produkty</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
               {linkedProducts.map(({ product, purchase_url }) => (
-                <div
+                <a
                   key={product!.id}
-                  className="group bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                  href={purchase_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                 >
                   {product!.image_url && (
-                    <div className="aspect-[4/3] overflow-hidden bg-muted">
+                    <div className="aspect-square overflow-hidden bg-muted">
                       <img
                         src={product!.image_url}
                         alt={product!.name}
@@ -176,24 +179,10 @@ const PartnerPageView: React.FC = () => {
                       />
                     </div>
                   )}
-                  <div className="p-5 space-y-3">
-                    <h3 className="font-semibold text-foreground text-base">{product!.name}</h3>
-                    {product!.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                        {product!.description}
-                      </p>
-                    )}
-                    <a
-                      href={purchase_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-                    >
-                      Kup teraz
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
+                  <div className="p-3 text-center">
+                    <h3 className="font-medium text-foreground text-sm">{product!.name}</h3>
                   </div>
-                </div>
+                </a>
               ))}
             </div>
           </div>
