@@ -4,38 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
-import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown } from 'lucide-react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ExternalLink, Mail, Phone, Facebook, User } from 'lucide-react';
 
 interface PartnerProfile {
   first_name: string | null;
   last_name: string | null;
   avatar_url?: string | null;
 }
-
-const AccordionSection: React.FC<{ title: string; content: string; children?: React.ReactNode }> = ({ title, content, children }) => {
-  const [open, setOpen] = useState(false);
-  return (
-    <Collapsible open={open} onOpenChange={setOpen}>
-      <div className="bg-white rounded-2xl shadow-sm border border-stone-200/60 overflow-hidden">
-        <CollapsibleTrigger className="w-full flex items-center justify-between px-6 py-5 text-left hover:bg-stone-50 transition-colors">
-          <h3 className="text-lg font-bold text-stone-800">{title}</h3>
-          <ChevronDown className={`w-5 h-5 text-stone-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-6 pb-6">
-            <hr className="mb-5 border-stone-200" />
-            <div
-              className="prose prose-sm max-w-none text-stone-600 text-center leading-relaxed [&_p]:mb-4 [&_hr]:my-5 [&_hr]:border-stone-200 [&_strong]:text-stone-800"
-              dangerouslySetInnerHTML={{ __html: content }}
-            />
-            {children}
-          </div>
-        </CollapsibleContent>
-      </div>
-    </Collapsible>
-  );
-};
 
 const PartnerPageView: React.FC = () => {
   const { alias } = useParams<{ alias: string }>();
@@ -103,158 +78,158 @@ const PartnerPageView: React.FC = () => {
   const contactPhone = customData['contact_phone'] || '';
   const contactFacebook = customData['contact_facebook'] || '';
 
-  const getElement = (id: string) => template.find(e => e.id === id);
-
-  const heroElement = getElement('hero_banner');
-  const welcomeElement = getElement('welcome_section');
-  const orderElement = getElement('order_section');
-  const contactStaticElement = getElement('contact_section_static');
-  const aboutHeadingElement = getElement('about_heading');
-  const footerElement = getElement('footer_branding');
+  // Find template elements by id for static content
+  const heroElement = template.find(e => e.id === 'hero_banner');
+  const aboutHeadingElement = template.find(e => e.id === 'about_heading');
 
   const hasAboutSection = partnerPhoto || partnerBio || contactEmail || contactPhone || contactFacebook;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f0e8' }}>
+    <div className="min-h-screen bg-card">
+      {/* ===== TOP BAR ===== */}
+      <header className="bg-card border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={partnerName}
+                className="w-10 h-10 rounded-full object-cover border-2 border-primary/30"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="w-5 h-5 text-primary" />
+              </div>
+            )}
+            <div>
+              <p className="font-semibold text-foreground text-sm sm:text-base">{partnerName}</p>
+              {partnerTitle && (
+                <p className="text-xs text-muted-foreground">{partnerTitle}</p>
+              )}
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-lg sm:text-xl font-bold text-primary tracking-tight">Pure Life</span>
+          </div>
+        </div>
+      </header>
+
       {/* ===== HERO BANNER ===== */}
       {heroElement?.content && (
-        <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #5b8ca8 0%, #7bacc4 50%, #6a9db8 100%)' }}>
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14 text-center text-white">
+        <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-primary/5 to-background">
+          <div className="absolute inset-0 opacity-[0.03]" style={{
+            backgroundImage: 'radial-gradient(circle at 25% 25%, hsl(var(--primary)) 1px, transparent 1px)',
+            backgroundSize: '32px 32px'
+          }} />
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-12 sm:py-16 text-center">
             <div
-              className="[&_h1]:text-white [&_h1]:text-2xl [&_h1]:sm:text-3xl [&_h1]:font-extrabold [&_h1]:uppercase [&_h1]:leading-tight [&_h1]:tracking-wide"
+              className="prose prose-sm max-w-none dark:prose-invert text-foreground"
               dangerouslySetInnerHTML={{ __html: heroElement.content }}
             />
-            {/* Product images row could go here */}
-            <div className="mt-6 flex items-center justify-center gap-3">
-              <span className="text-xl sm:text-2xl font-bold tracking-wider">EQOLOGY</span>
-              <div className="w-px h-8 bg-white/40" />
-              <div className="text-right">
-                {partnerTitle && <p className="text-xs opacity-80">{partnerTitle}</p>}
-                <span className="text-lg font-bold">Pure Life</span>
-              </div>
-            </div>
+            {linkedProducts.length > 0 && (
+              <a
+                href="#products"
+                className="inline-flex items-center gap-2 mt-6 bg-primary text-primary-foreground px-6 py-3 rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
+              >
+                Zobacz produkty
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
           </div>
         </section>
       )}
 
-      {/* ===== MAIN CONTENT ===== */}
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-
-        {/* ===== WELCOME SECTION ===== */}
-        {welcomeElement?.content && (
-          <section className="text-center">
-            <div
-              className="prose prose-sm max-w-none text-stone-700 leading-relaxed [&_h2]:text-stone-800 [&_h2]:text-xl [&_h2]:sm:text-2xl [&_h2]:font-bold [&_h2]:italic [&_h2]:mb-4 [&_p]:mb-4 [&_p]:text-sm [&_p]:sm:text-base"
-              dangerouslySetInnerHTML={{ __html: welcomeElement.content }}
-            />
-          </section>
-        )}
-
-        {/* ===== PRODUCTS SECTION ===== */}
-        {linkedProducts.length > 0 && (
-          <section>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* ===== PRODUCTS SECTION ===== */}
+      {linkedProducts.length > 0 && (
+        <section id="products" className="bg-background">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-8 text-center">Produkty</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {linkedProducts.map(({ product, purchase_url }) => (
                 <div
                   key={product!.id}
-                  className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-200/60 hover:shadow-md transition-shadow"
+                  className="group bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                 >
                   {product!.image_url && (
-                    <div className="aspect-[4/3] overflow-hidden bg-stone-100">
+                    <div className="aspect-[4/3] overflow-hidden bg-muted">
                       <img
                         src={product!.image_url}
                         alt={product!.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
                   )}
-                  <div className="p-4 space-y-2">
-                    <h3 className="font-semibold text-stone-800 text-sm">{product!.name}</h3>
+                  <div className="p-5 space-y-3">
+                    <h3 className="font-semibold text-foreground text-base">{product!.name}</h3>
                     {product!.description && (
-                      <p className="text-xs text-stone-500 line-clamp-2 leading-relaxed">{product!.description}</p>
+                      <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                        {product!.description}
+                      </p>
                     )}
                     <a
                       href={purchase_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 w-full bg-stone-800 text-white px-4 py-2 rounded-xl text-xs font-medium hover:bg-stone-700 transition-colors"
+                      className="inline-flex items-center justify-center gap-2 w-full bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
                     >
                       Kup teraz
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-4 h-4" />
                     </a>
                   </div>
                 </div>
               ))}
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-        {/* ===== ORDER ACCORDION ===== */}
-        {orderElement?.content && (
-          <AccordionSection title={orderElement.title || 'Zamówienie'} content={orderElement.content} />
-        )}
-
-        {/* ===== CONTACT STATIC ACCORDION ===== */}
-        {contactStaticElement?.content && (
-          <AccordionSection title={contactStaticElement.title || 'Bądź z nami w kontakcie!'} content={contactStaticElement.content}>
-            <div className="flex justify-center mt-4">
-              <a
-                href="https://www.facebook.com/groups/twojaomega3"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-white text-sm font-semibold transition-colors"
-                style={{ backgroundColor: '#1a5c2a' }}
-              >
-                <Facebook className="w-4 h-4" />
-                Twoja omega-3 (Pure Life)
-              </a>
-            </div>
-          </AccordionSection>
-        )}
-
-        {/* ===== ABOUT / CONTACT SECTION ===== */}
-        {hasAboutSection && (
-          <section className="bg-white rounded-2xl shadow-sm border border-stone-200/60 p-6 sm:p-8">
+      {/* ===== ABOUT / CONTACT SECTION ===== */}
+      {hasAboutSection && (
+        <section className="bg-card border-t border-border">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+            {/* About heading from template */}
             {aboutHeadingElement?.content && (
               <div
-                className="prose prose-sm max-w-none mb-6 text-center text-stone-800 [&_h2]:text-lg [&_h2]:font-bold"
+                className="prose prose-sm max-w-none dark:prose-invert mb-8 text-center text-foreground"
                 dangerouslySetInnerHTML={{ __html: aboutHeadingElement.content }}
               />
             )}
 
-            <div className="flex flex-col items-center gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
               {/* Photo */}
-              {partnerPhoto ? (
-                <img
-                  src={partnerPhoto}
-                  alt={partnerName}
-                  className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl object-cover shadow-sm border border-stone-200"
-                />
-              ) : (
-                <div className="w-40 h-40 sm:w-48 sm:h-48 rounded-2xl bg-stone-100 flex items-center justify-center border border-stone-200">
-                  <User className="w-14 h-14 text-stone-300" />
-                </div>
-              )}
-
-              {/* Name */}
-              {partnerName && (
-                <h3 className="font-semibold text-stone-800 text-base">{partnerName}</h3>
-              )}
+              <div className="flex justify-center md:justify-start">
+                {partnerPhoto ? (
+                  <img
+                    src={partnerPhoto}
+                    alt={partnerName}
+                    className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl object-cover shadow-md border border-border"
+                  />
+                ) : (
+                  <div className="w-48 h-48 sm:w-56 sm:h-56 rounded-2xl bg-muted flex items-center justify-center border border-border">
+                    <User className="w-16 h-16 text-muted-foreground/40" />
+                  </div>
+                )}
+              </div>
 
               {/* Bio */}
-              {partnerBio && (
-                <p className="text-stone-600 leading-relaxed text-sm text-center whitespace-pre-wrap max-w-md">{partnerBio}</p>
-              )}
+              <div className="md:col-span-1">
+                {partnerBio && (
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap text-sm sm:text-base">
+                    {partnerBio}
+                  </p>
+                )}
+              </div>
 
-              {/* Contact links */}
-              <div className="space-y-3 w-full max-w-xs">
+              {/* Contact */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-foreground text-base">Kontakt</h3>
                 {contactEmail && (
                   <a
                     href={`mailto:${contactEmail}`}
-                    className="flex items-center gap-3 text-sm text-stone-600 hover:text-stone-800 transition-colors"
+                    className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center">
-                      <Mail className="w-4 h-4 text-stone-500" />
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Mail className="w-4 h-4 text-primary" />
                     </div>
                     <span className="break-all">{contactEmail}</span>
                   </a>
@@ -262,10 +237,10 @@ const PartnerPageView: React.FC = () => {
                 {contactPhone && (
                   <a
                     href={`tel:${contactPhone}`}
-                    className="flex items-center gap-3 text-sm text-stone-600 hover:text-stone-800 transition-colors"
+                    className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center">
-                      <Phone className="w-4 h-4 text-stone-500" />
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Phone className="w-4 h-4 text-primary" />
                     </div>
                     <span>{contactPhone}</span>
                   </a>
@@ -275,37 +250,24 @@ const PartnerPageView: React.FC = () => {
                     href={contactFacebook.startsWith('http') ? contactFacebook : `https://${contactFacebook}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-3 text-sm text-stone-600 hover:text-stone-800 transition-colors"
+                    className="flex items-center gap-3 text-sm text-muted-foreground hover:text-foreground transition-colors group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-stone-100 flex items-center justify-center">
-                      <Facebook className="w-4 h-4 text-stone-500" />
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                      <Facebook className="w-4 h-4 text-primary" />
                     </div>
                     <span>Facebook</span>
                   </a>
                 )}
               </div>
             </div>
-          </section>
-        )}
-      </div>
+          </div>
+        </section>
+      )}
 
       {/* ===== FOOTER ===== */}
-      <footer className="py-10 text-center" style={{ backgroundColor: '#f5f0e8' }}>
-        <div className="max-w-2xl mx-auto px-4 space-y-2">
-          {/* Pure Life logo placeholder */}
-          <p className="text-2xl font-bold text-stone-700 tracking-wide">PURE LIFE</p>
-          {footerElement?.content ? (
-            <div
-              className="prose prose-sm max-w-none text-stone-600 [&_p]:mb-1 [&_p]:text-sm"
-              dangerouslySetInnerHTML={{ __html: footerElement.content }}
-            />
-          ) : (
-            <>
-              <p className="text-sm text-stone-600 italic">w Eqology zmieniamy zdrowie i życie ludzi na lepsze</p>
-              <p className="text-sm text-stone-600">Pozdrawiamy</p>
-              <p className="text-sm text-stone-700 font-semibold">zespół Pure Life</p>
-            </>
-          )}
+      <footer className="border-t border-border bg-background">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 text-center">
+          <p className="text-sm text-muted-foreground font-medium">Pure Life Center</p>
         </div>
       </footer>
     </div>
