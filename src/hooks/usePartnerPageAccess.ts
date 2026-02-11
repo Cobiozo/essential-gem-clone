@@ -3,18 +3,28 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const usePartnerPageAccess = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, rolesReady } = useAuth();
   const [hasAccess, setHasAccess] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkAccess = async () => {
-      if (!user || !userRole) {
-        setHasAccess(false);
-        setLoading(false);
-        return;
-      }
+  const userId = user?.id;
+  const role = userRole?.role;
 
+  useEffect(() => {
+    // Don't check until roles are fully loaded
+    if (!rolesReady) {
+      setLoading(true);
+      return;
+    }
+
+    if (!userId) {
+      setHasAccess(false);
+      setLoading(false);
+      return;
+    }
+
+    const checkAccess = async () => {
+      setLoading(true);
       try {
         // Fetch global settings
         const { data: settings } = await supabase
@@ -33,7 +43,7 @@ export const usePartnerPageAccess = () => {
         const { data: userAccess } = await supabase
           .from('partner_page_user_access')
           .select('is_enabled')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .maybeSingle();
 
         if (userAccess) {
@@ -43,7 +53,6 @@ export const usePartnerPageAccess = () => {
         }
 
         // Check role-based access
-        const role = userRole.role;
         let roleEnabled = false;
         if (role === 'partner') roleEnabled = settings.enabled_for_partner;
         else if (role === 'specjalista') roleEnabled = settings.enabled_for_specjalista;
@@ -60,7 +69,7 @@ export const usePartnerPageAccess = () => {
     };
 
     checkAccess();
-  }, [user, userRole]);
+  }, [userId, role, rolesReady]);
 
   return { hasAccess, loading };
 };
