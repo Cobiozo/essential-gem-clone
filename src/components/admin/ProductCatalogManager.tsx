@@ -7,10 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Save, Pencil, Package, ChevronUp, ChevronDown, ImageIcon } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, Package, ChevronUp, ChevronDown, ImageIcon, BookOpen } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
+import { KnowledgeGraphicsPicker } from '@/components/admin/KnowledgeGraphicsPicker';
 import type { ProductCatalogItem } from '@/types/partnerPage';
 
 export const ProductCatalogManager: React.FC = () => {
@@ -20,6 +21,7 @@ export const ProductCatalogManager: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Partial<ProductCatalogItem> | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [showKnowledgeGraphicsPicker, setShowKnowledgeGraphicsPicker] = useState(false);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -151,7 +153,7 @@ export const ProductCatalogManager: React.FC = () => {
       </Card>
 
       {/* Edit/Create Dialog */}
-      <Dialog open={!!editingProduct && !showMediaPicker} onOpenChange={(open) => !open && setEditingProduct(null)}>
+      <Dialog open={!!editingProduct && !showMediaPicker && !showKnowledgeGraphicsPicker} onOpenChange={(open) => !open && setEditingProduct(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{isNew ? 'Nowy produkt' : 'Edytuj produkt'}</DialogTitle>
@@ -193,6 +195,14 @@ export const ProductCatalogManager: React.FC = () => {
                     <ImageIcon className="w-4 h-4 mr-1" />
                     Biblioteka
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowKnowledgeGraphicsPicker(true)}
+                  >
+                    <BookOpen className="w-4 h-4 mr-1" />
+                    Zasoby wiedzy
+                  </Button>
                 </div>
                 {editingProduct.image_url && (
                   <img src={editingProduct.image_url} alt="" className="mt-2 max-w-[200px] max-h-[150px] rounded-md border object-cover" />
@@ -230,6 +240,23 @@ export const ProductCatalogManager: React.FC = () => {
               onSelect={(file) => {
                 setEditingProduct(prev => ({ ...prev!, image_url: file.file_url }));
                 setShowMediaPicker(false);
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Knowledge Graphics Picker Dialog */}
+      <Dialog open={showKnowledgeGraphicsPicker} onOpenChange={setShowKnowledgeGraphicsPicker}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Wybierz grafikę z zasobów wiedzy</DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto max-h-[60vh]">
+            <KnowledgeGraphicsPicker
+              onSelect={(graphic) => {
+                setEditingProduct(prev => ({ ...prev!, image_url: graphic.source_url }));
+                setShowKnowledgeGraphicsPicker(false);
               }}
             />
           </div>
