@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BATCH_SIZE = 8; // Reduced for better stability
+const BATCH_SIZE = 20; // Increased for faster processing
 const PAGE_SIZE = 1000;
 const MAX_EXECUTION_TIME = 25000; // 25 seconds (Supabase limit is 30s)
 
@@ -267,7 +267,7 @@ async function processI18nJob(supabase: any, job: any, lovableApiKey: string | u
       .eq('id', jobId);
 
     // Small delay between batches to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
 
   // Mark job as completed
@@ -415,30 +415,22 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
     const batch = itemsToTranslate.slice(i, i + BATCH_SIZE);
 
-    for (const item of batch) {
-      try {
-        const translations: any = {};
+    // Batch translate all items at once using a single AI call
+    try {
+      const batchTranslations = await translateCMSItemsBatch(batch, source_language, target_language, lovableApiKey);
+      
+      for (let idx = 0; idx < batch.length; idx++) {
+        const item = batch[idx];
+        const translated = batchTranslations[idx] || {};
         
-        if (item.title) {
-          translations.title = await translateText(item.title, source_language, target_language, lovableApiKey);
-        }
-
-        if (item.description) {
-          translations.description = await translateText(item.description, source_language, target_language, lovableApiKey);
-        }
-
-        if (item.cells && Array.isArray(item.cells)) {
-          translations.cells = await translateCells(item.cells, source_language, target_language, lovableApiKey);
-        }
-
         const { error: upsertError } = await supabase
           .from('cms_item_translations')
           .upsert({
             item_id: item.id,
             language_code: target_language,
-            title: translations.title || null,
-            description: translations.description || null,
-            cells: translations.cells || null,
+            title: translated.title || null,
+            description: translated.description || null,
+            cells: translated.cells || null,
             updated_at: new Date().toISOString()
           }, {
             onConflict: 'item_id,language_code'
@@ -450,13 +442,13 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         } else {
           processedKeys++;
         }
-      } catch (itemError) {
-        console.error(`Error translating CMS item ${item.id}:`, itemError);
-        errors++;
       }
-
-      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (batchError) {
+      console.error('Batch CMS item translation error:', batchError);
+      errors += batch.length;
     }
+
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Update progress after each batch
     await supabase
@@ -500,30 +492,22 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
     const batch = sectionsToTranslate.slice(i, i + BATCH_SIZE);
 
-    for (const section of batch) {
-      try {
-        const translations: any = {};
+    // Batch translate all sections at once using a single AI call
+    try {
+      const batchTranslations = await translateCMSSectionsBatch(batch, source_language, target_language, lovableApiKey);
+      
+      for (let idx = 0; idx < batch.length; idx++) {
+        const section = batch[idx];
+        const translated = batchTranslations[idx] || {};
         
-        if (section.title) {
-          translations.title = await translateText(section.title, source_language, target_language, lovableApiKey);
-        }
-
-        if (section.description) {
-          translations.description = await translateText(section.description, source_language, target_language, lovableApiKey);
-        }
-
-        if (section.collapsible_header) {
-          translations.collapsible_header = await translateText(section.collapsible_header, source_language, target_language, lovableApiKey);
-        }
-
         const { error: upsertError } = await supabase
           .from('cms_section_translations')
           .upsert({
             section_id: section.id,
             language_code: target_language,
-            title: translations.title || null,
-            description: translations.description || null,
-            collapsible_header: translations.collapsible_header || null,
+            title: translated.title || null,
+            description: translated.description || null,
+            collapsible_header: translated.collapsible_header || null,
             updated_at: new Date().toISOString()
           }, {
             onConflict: 'section_id,language_code'
@@ -535,13 +519,13 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         } else {
           processedKeys++;
         }
-      } catch (sectionError) {
-        console.error(`Error translating CMS section ${section.id}:`, sectionError);
-        errors++;
       }
-
-      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (batchError) {
+      console.error('Batch CMS section translation error:', batchError);
+      errors += batch.length;
     }
+
+    await new Promise(resolve => setTimeout(resolve, 100));
 
     // Update progress after each batch
     await supabase
@@ -593,58 +577,172 @@ async function translateCells(cells: any[], sourceLanguage: string, targetLangua
   return translatedCells;
 }
 
-async function translateText(text: string, sourceLanguage: string, targetLanguage: string, apiKey: string | undefined): Promise<string> {
-  if (!apiKey || !text || text.trim() === '') {
-    return text;
+const LANGUAGE_NAMES: Record<string, string> = {
+  'pl': 'Polish',
+  'de': 'German',
+  'en': 'English',
+  'it': 'Italian',
+  'fr': 'French',
+  'es': 'Spanish',
+  'pt': 'Portuguese',
+  'nl': 'Dutch',
+  'cs': 'Czech',
+  'sk': 'Slovak',
+  'uk': 'Ukrainian',
+  'ru': 'Russian',
+};
+
+async function aiRequest(apiKey: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userContent }
+          ],
+          temperature: 0.3
+        }),
+      });
+
+      if (!response.ok) {
+        if (response.status === 429 && attempt < retries) {
+          const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s
+          console.warn(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        if (response.status === 402) {
+          throw new Error('API credits exhausted. Please add more credits.');
+        }
+        throw new Error(`AI API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content?.trim() || '';
+    } catch (error) {
+      if (attempt === retries) throw error;
+    }
   }
+  return '';
+}
 
-  const languageNames: Record<string, string> = {
-    'pl': 'Polish',
-    'de': 'German',
-    'en': 'English',
-    'it': 'Italian',
-    'fr': 'French',
-    'es': 'Spanish'
-  };
+// Batch translate multiple CMS items in a single AI call
+async function translateCMSItemsBatch(
+  items: any[],
+  sourceLanguage: string,
+  targetLanguage: string,
+  apiKey: string | undefined
+): Promise<any[]> {
+  if (!apiKey || items.length === 0) return items.map(() => ({}));
 
-  const sourceLang = languageNames[sourceLanguage] || sourceLanguage;
-  const targetLang = languageNames[targetLanguage] || targetLanguage;
+  const sourceLang = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+  const targetLang = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
+
+  // Build batch payload
+  const payload = items.map((item, idx) => ({
+    idx,
+    title: item.title || null,
+    description: item.description || null,
+    cells: item.cells?.map((c: any) => ({
+      content: c.content || null,
+      button_text: c.button_text || null,
+      buttonText: c.buttonText || null,
+    })) || null
+  }));
+
+  const systemPrompt = `You are a professional translator. Translate UI content from ${sourceLang} to ${targetLang}.
+Return ONLY a valid JSON array with same structure. Translate only text values (title, description, content, button_text, buttonText). Keep idx unchanged. Preserve HTML tags and placeholders like {name}.`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { 
-            role: 'system', 
-            content: `You are a professional translator. Translate the following text from ${sourceLang} to ${targetLang}. Return ONLY the translated text, nothing else. Preserve any HTML tags, placeholders like {name}, and formatting.`
-          },
-          { role: 'user', content: text }
-        ],
-        temperature: 0.3
-      }),
+    const content = await aiRequest(apiKey, systemPrompt, JSON.stringify(payload));
+    const cleanJson = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    // Map back to items structure
+    return items.map((item, idx) => {
+      const translated = parsed.find((p: any) => p.idx === idx) || parsed[idx] || {};
+      const result: any = {};
+      if (translated.title) result.title = translated.title;
+      if (translated.description) result.description = translated.description;
+      if (translated.cells && item.cells) {
+        result.cells = item.cells.map((origCell: any, ci: number) => {
+          const tc = translated.cells?.[ci] || {};
+          return {
+            ...origCell,
+            ...(tc.content ? { content: tc.content } : {}),
+            ...(tc.button_text ? { button_text: tc.button_text } : {}),
+            ...(tc.buttonText ? { buttonText: tc.buttonText } : {}),
+          };
+        });
+      }
+      return result;
     });
+  } catch (error) {
+    console.error('Batch CMS items translation failed:', error);
+    return items.map(() => ({}));
+  }
+}
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        console.warn('Rate limited, waiting before retry...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        return text;
-      }
-      if (response.status === 402) {
-        console.error('API credits exhausted (402). Stopping translation.');
-        throw new Error('API credits exhausted. Please add more credits.');
-      }
-      throw new Error(`AI API error: ${response.status}`);
-    }
+// Batch translate multiple CMS sections in a single AI call
+async function translateCMSSectionsBatch(
+  sections: any[],
+  sourceLanguage: string,
+  targetLanguage: string,
+  apiKey: string | undefined
+): Promise<any[]> {
+  if (!apiKey || sections.length === 0) return sections.map(() => ({}));
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || text;
+  const sourceLang = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+  const targetLang = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
+
+  const payload = sections.map((s, idx) => ({
+    idx,
+    title: s.title || null,
+    description: s.description || null,
+    collapsible_header: s.collapsible_header || null,
+  }));
+
+  const systemPrompt = `You are a professional translator. Translate UI section headers from ${sourceLang} to ${targetLang}.
+Return ONLY a valid JSON array with same structure. Translate only text values. Keep idx unchanged.`;
+
+  try {
+    const content = await aiRequest(apiKey, systemPrompt, JSON.stringify(payload));
+    const cleanJson = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    
+    return sections.map((_, idx) => {
+      const translated = parsed.find((p: any) => p.idx === idx) || parsed[idx] || {};
+      return {
+        title: translated.title || null,
+        description: translated.description || null,
+        collapsible_header: translated.collapsible_header || null,
+      };
+    });
+  } catch (error) {
+    console.error('Batch CMS sections translation failed:', error);
+    return sections.map(() => ({}));
+  }
+}
+
+async function translateText(text: string, sourceLanguage: string, targetLanguage: string, apiKey: string | undefined): Promise<string> {
+  if (!apiKey || !text || text.trim() === '') return text;
+
+  const sourceLang = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+  const targetLang = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
+
+  try {
+    return await aiRequest(
+      apiKey,
+      `You are a professional translator. Translate the following text from ${sourceLang} to ${targetLang}. Return ONLY the translated text, nothing else. Preserve any HTML tags, placeholders like {name}, and formatting.`,
+      text
+    ) || text;
   } catch (error) {
     console.error('Translation error:', error);
     return text;
@@ -662,17 +760,8 @@ async function translateBatch(
     return keysObject;
   }
 
-  const languageNames: Record<string, string> = {
-    'pl': 'Polish',
-    'de': 'German',
-    'en': 'English',
-    'it': 'Italian',
-    'fr': 'French',
-    'es': 'Spanish'
-  };
-
-  const sourceLang = languageNames[sourceLanguage] || sourceLanguage;
-  const targetLang = languageNames[targetLanguage] || targetLanguage;
+  const sourceLang = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+  const targetLang = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
 
   const systemPrompt = `You are a professional translator for UI/UX applications. Translate the following i18n keys from ${sourceLang} to ${targetLang}. 
 Rules:
@@ -704,9 +793,30 @@ Rules:
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.warn('Rate limited, waiting before retry...');
+        console.warn('Rate limited in translateBatch, retrying with backoff...');
         await new Promise(resolve => setTimeout(resolve, 3000));
-        return keysObject;
+        // Retry once
+        const retryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'google/gemini-2.5-flash',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.3
+          }),
+        });
+        if (!retryResponse.ok) return keysObject;
+        const retryData = await retryResponse.json();
+        const retryContent = retryData.choices?.[0]?.message?.content || '';
+        try {
+          return JSON.parse(retryContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim());
+        } catch { return keysObject; }
       }
       if (response.status === 402) {
         console.error('API credits exhausted (402). Stopping translation.');

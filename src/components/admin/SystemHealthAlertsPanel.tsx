@@ -17,10 +17,14 @@ import {
   Clock,
   Users,
   BookOpen,
-  Shield
+  Shield,
+  Send,
+  ExternalLink,
+  Bell
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -92,9 +96,11 @@ const getAlertTypeIcon = (alertType: string) => {
 
 export const SystemHealthAlertsPanel: React.FC = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [alerts, setAlerts] = useState<AdminAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [resolveDialogOpen, setResolveDialogOpen] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState<AdminAlert | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState('');
@@ -203,6 +209,158 @@ export const SystemHealthAlertsPanel: React.FC = () => {
         variant: "destructive"
       });
     }
+  };
+
+  // === ACTION HANDLERS FOR ALERT RESOLUTION ===
+  
+  const handleSendRefreshBanner = async (alert: AdminAlert) => {
+    setActionLoading(alert.id);
+    try {
+      // Get affected user IDs from alert metadata
+      const sampleUsers: string[] = alert.metadata?.sample_users?.map((u: any) => u.user_id || u.id || u) || [];
+      const affectedCount: number = alert.metadata?.affected_count || alert.metadata?.count || sampleUsers.length;
+      
+      if (sampleUsers.length === 0) {
+        toast({
+          title: "Brak danych",
+          description: "Alert nie zawiera listy użytkowników. Uruchom ponownie sprawdzenie systemu.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Create notification for each affected user
+      const notifications = sampleUsers.map(userId => ({
+        user_id: userId,
+        notification_type: 'training_refresh_reminder',
+        source_module: 'system_health',
+        title: 'Wykryto brakujące szkolenia',
+        message: 'Wykryto brakujące szkolenia w Twojej akademii. Kliknij "Odśwież akademię" na stronie Szkolenia, aby zsynchronizować dostępne materiały.',
+        link: '/training',
+        metadata: { alert_id: alert.id, auto_action: true }
+      }));
+
+      const { error } = await supabase
+        .from('user_notifications')
+        .insert(notifications);
+
+      if (error) throw error;
+
+      toast({
+        title: "Baner wysłany",
+        description: `Wysłano baner informacyjny do ${sampleUsers.length} użytkowników (z ${affectedCount} dotkniętych).`,
+      });
+    } catch (error) {
+      console.error('Error sending refresh banner:', error);
+      toast({
+        title: "Błąd",
+        description: "Nie udało się wysłać baneru",
+        variant: "destructive"
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleNavigateToUsers = (filter?: string) => {
+    const params = filter ? `&filter=${filter}` : '';
+    navigate(`/admin?tab=users${params}`);
+  };
+
+  const handleSendCalendarReminder = async (alert: AdminAlert) => {
+    setActionLoading(alert.id);
+    try {
+      const userId = alert.affected_user_id;
+      if (!userId) {
+        toast({ title: "Brak danych", description: "Alert nie zawiera ID użytkownika.", variant: "destructive" });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_notifications')
+        .insert({
+          user_id: userId,
+          notification_type: 'calendar_reminder',
+          source_module: 'system_health',
+          title: 'Połącz Google Calendar',
+          message: 'Administrator prosi o ponowne połączenie kalendarza Google w ustawieniach konta.',
+          link: '/my-account?tab=calendar',
+          metadata: { alert_id: alert.id }
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Przypomnienie wysłane",
+        description: "Wysłano powiadomienie do użytkownika o konieczności połączenia kalendarza.",
+      });
+    } catch (error) {
+      console.error('Error sending calendar reminder:', error);
+      toast({ title: "Błąd", description: "Nie udało się wysłać przypomnienia", variant: "destructive" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const renderActionButtons = (alert: AdminAlert) => {
+    const isLoading = actionLoading === alert.id;
+    const alertType = alert.alert_type;
+
+    // Missing training group → send refresh banner
+    if (alertType === 'missing_training_group' || alertType === 'missing_training') {
+      return (
+        <Button 
+          size="sm" 
+          onClick={() => handleSendRefreshBanner(alert)}
+          disabled={isLoading}
+        >
+          {isLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+          Wyślij baner: Odśwież akademię
+        </Button>
+      );
+    }
+
+    // Missing role → navigate to users
+    if (alertType === 'missing_role' || alertType === 'missing_role_group') {
+      return (
+        <Button 
+          size="sm" 
+          onClick={() => handleNavigateToUsers('no-role')}
+        >
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Przejdź do użytkowników
+        </Button>
+      );
+    }
+
+    // Unapproved user → navigate to pending users
+    if (alertType === 'unapproved_user_24h' || alertType === 'unapproved_user') {
+      return (
+        <Button 
+          size="sm" 
+          onClick={() => handleNavigateToUsers('pending')}
+        >
+          <Users className="h-4 w-4 mr-2" />
+          Pokaż oczekujących
+        </Button>
+      );
+    }
+
+    // Google Calendar disconnected → send reminder
+    if (alertType === 'google_calendar_disconnected') {
+      return (
+        <Button 
+          size="sm" 
+          onClick={() => handleSendCalendarReminder(alert)}
+          disabled={isLoading}
+        >
+          {isLoading ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+          Wyślij przypomnienie
+        </Button>
+      );
+    }
+
+    return null;
   };
 
   const activeAlerts = alerts.filter(a => !a.is_resolved);
@@ -345,7 +503,8 @@ export const SystemHealthAlertsPanel: React.FC = () => {
                         </details>
                       )}
 
-                      <div className="flex justify-end pt-2">
+                      <div className="flex flex-wrap items-center gap-2 justify-end pt-2">
+                        {renderActionButtons(alert)}
                         <Button 
                           variant="outline" 
                           size="sm"
