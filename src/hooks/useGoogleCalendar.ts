@@ -190,11 +190,9 @@ export const useGoogleCalendar = () => {
         throw error;
       }
 
-      // Also delete all sync records for this user
-      await supabase
-        .from('event_google_sync')
-        .delete()
-        .eq('user_id', user.id);
+      // Keep event_google_sync records so that after reconnecting,
+      // the system knows which events are already synced in Google Calendar.
+      // This prevents duplicate creation on "Synchronizuj teraz".
 
       setState({ isConnected: false, isLoading: false, expiresAt: null, googleEmail: null });
 
@@ -371,7 +369,7 @@ export const useGoogleCalendar = () => {
             body: {
               user_id: user.id,
               event_id: reg.event_id,
-              action: 'create',
+              action: 'upsert',
               occurrence_index: reg.occurrence_index, // Pass occurrence_index for proper sync
             },
           });

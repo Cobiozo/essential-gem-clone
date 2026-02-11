@@ -9,7 +9,7 @@ interface SyncRequest {
   user_id?: string;
   user_ids?: string[]; // Support batch sync
   event_id?: string;
-  action: 'create' | 'update' | 'delete' | 'test';
+  action: 'create' | 'update' | 'delete' | 'test' | 'upsert';
   occurrence_index?: number; // For cyclic events - which occurrence to sync
 }
 
@@ -380,6 +380,72 @@ async function deleteGoogleEvent(accessToken: string, calendarId: string, google
   }
 }
 
+// Find existing Google Calendar event by title and time to prevent duplicates
+async function findExistingGoogleEvent(
+  accessToken: string, 
+  calendarId: string, 
+  title: string, 
+  startTime: string, 
+  endTime: string,
+  isLocalTime: boolean,
+  timezone: string
+): Promise<string | null> {
+  try {
+    // Build time range for search: +/- 2 minutes around the event time
+    let timeMinDate: Date;
+    let timeMaxDate: Date;
+    
+    if (isLocalTime) {
+      // For local times, we need to interpret them in the given timezone
+      // Create approximate UTC times for the API query
+      const startISO = new Date(startTime).getTime();
+      const endISO = new Date(endTime).getTime();
+      timeMinDate = new Date(startISO - 2 * 60 * 1000);
+      timeMaxDate = new Date(endISO + 2 * 60 * 1000);
+    } else {
+      timeMinDate = new Date(new Date(startTime).getTime() - 2 * 60 * 1000);
+      timeMaxDate = new Date(new Date(endTime).getTime() + 2 * 60 * 1000);
+    }
+
+    const params = new URLSearchParams({
+      timeMin: timeMinDate.toISOString(),
+      timeMax: timeMaxDate.toISOString(),
+      q: 'PureLife',
+      singleEvents: 'true',
+      maxResults: '10',
+    });
+
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
+      {
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      }
+    );
+
+    if (!response.ok) {
+      console.error('[sync-google-calendar] Search for duplicates failed:', await response.text());
+      return null;
+    }
+
+    const result = await response.json();
+    const events = result.items || [];
+
+    // Look for an event with matching title
+    for (const ev of events) {
+      if (ev.summary === title) {
+        console.log('[sync-google-calendar] Found existing Google event:', ev.id, 'title:', ev.summary);
+        return ev.id;
+      }
+    }
+
+    console.log('[sync-google-calendar] No duplicate found for:', title, '(checked', events.length, 'events)');
+    return null;
+  } catch (error) {
+    console.error('[sync-google-calendar] findExistingGoogleEvent error:', error);
+    return null;
+  }
+}
+
 // Process sync for a single user
 async function processSyncForUser(
   supabaseAdmin: any,
@@ -506,7 +572,7 @@ async function processSyncForUser(
 
     const googleEventData = formatGoogleEvent(eventData, hostName, occurrenceData);
 
-    if (action === 'update' && eventId) {
+    if ((action === 'update' || action === 'upsert') && eventId) {
       // Check for existing sync record - include occurrence_index
       let syncQuery = supabaseAdmin
         .from('event_google_sync')
@@ -549,7 +615,72 @@ async function processSyncForUser(
       // No existing record, fall through to create
     }
 
-    // Create new event
+    // Before creating, check for duplicates in Google Calendar
+    if (eventId && (action === 'create' || action === 'upsert')) {
+      const eventTitle = `${eventData.title} - PureLife`;
+      const searchStart = occurrenceData?.start_time || eventData.start_time;
+      const searchEnd = occurrenceData?.end_time || eventData.end_time || eventData.start_time;
+      const isLocal = occurrenceData?.is_local_time || false;
+      const tz = occurrenceData?.timezone || 'Europe/Warsaw';
+      
+      const existingGoogleId = await findExistingGoogleEvent(
+        accessToken, calendarId, eventTitle, searchStart, searchEnd, isLocal, tz
+      );
+      
+      if (existingGoogleId) {
+        console.log('[sync-google-calendar] Found duplicate, linking to existing Google event:', existingGoogleId);
+        
+        // Link the existing Google event to our sync record instead of creating new
+        const upsertData: any = {
+          event_id: eventId,
+          user_id: userId,
+          google_event_id: existingGoogleId,
+          synced_at: new Date().toISOString(),
+          occurrence_index: occurrenceIndex ?? null,
+        };
+        
+        let existingQuery = supabaseAdmin
+          .from('event_google_sync')
+          .select('id')
+          .eq('event_id', eventId)
+          .eq('user_id', userId);
+        
+        if (occurrenceIndex !== undefined) {
+          existingQuery = existingQuery.eq('occurrence_index', occurrenceIndex);
+        } else {
+          existingQuery = existingQuery.is('occurrence_index', null);
+        }
+        
+        const { data: existing } = await existingQuery.maybeSingle();
+        
+        if (existing) {
+          let updateQuery = supabaseAdmin
+            .from('event_google_sync')
+            .update({ google_event_id: existingGoogleId, synced_at: new Date().toISOString() })
+            .eq('event_id', eventId)
+            .eq('user_id', userId);
+          if (occurrenceIndex !== undefined) {
+            updateQuery = updateQuery.eq('occurrence_index', occurrenceIndex);
+          } else {
+            updateQuery = updateQuery.is('occurrence_index', null);
+          }
+          await updateQuery;
+        } else {
+          await supabaseAdmin.from('event_google_sync').insert(upsertData);
+        }
+        
+        // Also update the Google event with latest data
+        await updateGoogleEvent(accessToken, calendarId, existingGoogleId, googleEventData);
+        
+        const responseTime = Date.now() - startTime;
+        logSyncOperation(supabaseAdmin, userId, eventId, action, 'success', responseTime, undefined, { 
+          occurrence_index: occurrenceIndex, duplicate_linked: true, google_event_id: existingGoogleId 
+        });
+        return { success: true, google_event_id: existingGoogleId };
+      }
+    }
+
+    // Create new event (no duplicate found)
     const googleEventId = await createGoogleEvent(accessToken, calendarId, googleEventData);
 
     if (!googleEventId) {
