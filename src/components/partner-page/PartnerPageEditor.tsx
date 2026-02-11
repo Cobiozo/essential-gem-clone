@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Globe, Save, Copy, ExternalLink, Check, Image, Package } from 'lucide-react';
+import { Globe, Save, Copy, ExternalLink, Check, Image, Package, Upload, Loader2 } from 'lucide-react';
 import { usePartnerPage } from '@/hooks/usePartnerPage';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import type { TemplateElement } from '@/types/partnerPage';
 
 export const PartnerPageEditor: React.FC = () => {
@@ -33,6 +34,8 @@ export const PartnerPageEditor: React.FC = () => {
   const [selectedProducts, setSelectedProducts] = useState<Record<string, string>>({});
   const [aliasError, setAliasError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // Initialize state from fetched data
   useEffect(() => {
@@ -98,6 +101,33 @@ export const PartnerPageEditor: React.FC = () => {
       }
       return { ...prev, [productId]: '' };
     });
+  };
+
+  const handleImageUpload = async (elementId: string, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Błąd', description: 'Dozwolone są tylko pliki graficzne', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Błąd', description: 'Maksymalny rozmiar pliku to 2MB', variant: 'destructive' });
+      return;
+    }
+    setUploadingField(elementId);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Nie jesteś zalogowany');
+      const ext = file.name.split('.').pop();
+      const path = `partner-photos/${user.id}/${Date.now()}_${file.name}`;
+      const { error: uploadError } = await supabase.storage.from('cms-images').upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage.from('cms-images').getPublicUrl(path);
+      setCustomData(prev => ({ ...prev, [elementId]: publicUrl }));
+      toast({ title: 'Sukces', description: 'Zdjęcie zostało przesłane' });
+    } catch (err: any) {
+      toast({ title: 'Błąd uploadu', description: err.message || 'Nie udało się przesłać pliku', variant: 'destructive' });
+    } finally {
+      setUploadingField(null);
+    }
   };
 
   if (loading) {
@@ -188,12 +218,40 @@ export const PartnerPageEditor: React.FC = () => {
                 )}
                 {element.type === 'editable_image' && (
                   <div className="space-y-2">
-                    <Input
-                      value={customData[element.id] || ''}
-                      onChange={(e) => setCustomData(prev => ({ ...prev, [element.id]: e.target.value }))}
-                      placeholder="Wklej URL obrazka..."
-                      type="url"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={customData[element.id] || ''}
+                        onChange={(e) => setCustomData(prev => ({ ...prev, [element.id]: e.target.value }))}
+                        placeholder="Wklej URL obrazka..."
+                        type="url"
+                        className="flex-1"
+                      />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        ref={(el) => { fileInputRefs.current[element.id] = el; }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUpload(element.id, file);
+                          e.target.value = '';
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="default"
+                        disabled={uploadingField === element.id}
+                        onClick={() => fileInputRefs.current[element.id]?.click()}
+                      >
+                        {uploadingField === element.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                        ) : (
+                          <Upload className="w-4 h-4 mr-1" />
+                        )}
+                        Prześlij
+                      </Button>
+                    </div>
                     {customData[element.id] && (
                       <img
                         src={customData[element.id]}
