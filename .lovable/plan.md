@@ -1,28 +1,47 @@
 
-# Dodanie brakujacych sekcji tekstowych do renderera strony partnerskiej
+# Dodanie sekcji "Grafiki produktow" z linkami partnerow
 
-## Problem
-Szablon w bazie danych zawiera juz wszystkie teksty ze screenow (welcome_section, order_section, contact_section_static, footer_branding), ale renderer (`PartnerPage.tsx`) ich nie wyswietla — obsluguje tylko `hero_banner` i `about_heading`.
+## Opis funkcjonalnosci
 
-## Co zostanie zmienione
+Nowa sekcja na stronie partnerskiej -- **"Moje polecane produkty"** (widoczna na screenie). Admin dodaje grafiki produktow (zdjecia) do centralnego katalogu, a partner wybiera ktore chce wyswietlic i podpina pod kazde zdjecie wlasny link przekierowujacy (np. do sklepu).
+
+Na publicznej stronie partnerskiej grafiki wyswietlaja sie w siatce (jak na screenie -- 3 kolumny), kazda z nazwa produktu i klikalna -- prowadzi do linku partnera.
+
+## Obecny stan
+
+System juz posiada tabele `product_catalog` (grafiki + nazwy produktow dodawane przez admina) oraz `partner_product_links` (linki partnerow do tych produktow). Renderer `PartnerPage.tsx` juz wyswietla te produkty w sekcji "Produkty" z przyciskami "Kup teraz".
+
+**Problem**: W `ProductCatalogManager` (admin) dodawanie obrazka produktu wymaga recznego wklejenia URL -- brak integracji z biblioteka mediow. Ponadto wyglad sekcji produktow na stronie publicznej nie odpowiada screenom (brak naglowka "Moje polecane produkty", zbyt duze karty).
+
+## Zmiany
+
+### 1. `ProductCatalogManager.tsx` -- picker obrazkow z biblioteki mediow
+
+- Dodanie przycisku **"Wybierz z biblioteki"** w dialogu edycji produktu obok pola URL
+- Przycisk otwiera `AdminMediaLibrary` w trybie `mode="picker"` z `allowedTypes={['image']}`
+- Po wybraniu obrazka z biblioteki, URL automatycznie wstawia sie w pole `image_url`
+- Zachowane pole recznego URL jako alternatywa
+- Nowy stan `showMediaPicker` i dodatkowy `Dialog` do osadzenia pickera
+
+### 2. `PartnerPage.tsx` -- dostosowanie wygladu sekcji produktow
+
+- Zmiana naglowka sekcji z "Produkty" na **"Moje polecane produkty"**
+- Lekkie dostosowanie kart produktow -- grafika z nazwa pod spodem, klikalna calosc karty (bez osobnego przycisku "Kup teraz"), aby pasowalo do stylu ze screena
+- Zachowanie responsywnej siatki 1-3 kolumny
+
+### 3. Brak zmian w bazie danych
+
+Istniejace tabele `product_catalog` i `partner_product_links` w pelni pokrywaja te funkcjonalnosc. Nie trzeba tworzyc nowych tabel.
+
+## Szczegoly techniczne
+
+### Plik: `src/components/admin/ProductCatalogManager.tsx`
+- Import `AdminMediaLibrary` z `@/components/admin/AdminMediaLibrary`
+- Import `Dialog` (dodatkowy) do wyswietlenia pickera
+- Nowy stan: `showMediaPicker: boolean`
+- W dialogu edycji produktu: przycisk "Wybierz z biblioteki" pod polem URL
+- Callback `onSelect`: ustawia `editingProduct.image_url` na `file.file_url`, zamyka picker
 
 ### Plik: `src/pages/PartnerPage.tsx`
-
-Dodanie renderowania 4 brakujacych sekcji szablonu, zachowujac obecny design:
-
-1. **Welcome section** (po hero banerze) — wyswietlenie tresci HTML z szablonu ("Witaj w swojej podrozy po zdrowie!" + 3 akapity) jako centowany blok tekstowy
-
-2. **Order section** (po produktach) — sekcja "Zamowienie" renderowana jako rozwijany akordeon (Collapsible z Radix UI), poniewaz szablon ma `display: "accordion"`. Zawiera instrukcje zamawiania w kolorze czerwonym, info o e-booku i instrukcje krok po kroku
-
-3. **Contact section static** (po zamowieniu) — sekcja "Badz z nami w kontakcie!" rowniez jako akordeon. Zawiera zaproszenie do grupy FB "Twoja omega-3" z przyciskiem
-
-4. **Footer branding** (zamiana obecnej prostej stopki) — "w Eqology zmieniamy zdrowie i zycie ludzi na lepsze", "Pozdrawiamy", "zespol Pure Life"
-
-### Szczegoly techniczne
-
-- Import `Collapsible`, `CollapsibleTrigger`, `CollapsibleContent` z `@/components/ui/collapsible`
-- Import `ChevronDown` z lucide-react dla ikony akordeonu
-- Sekcje `order_section` i `contact_section_static` maja w szablonie pole `display: "accordion"` i `title` — renderer uzyje ich do stworzenia rozwijanych kart
-- Sekcja `welcome_section` renderowana przez `dangerouslySetInnerHTML` (tak jak hero_banner)
-- Sekcja `footer_branding` zastapi obecny prosty tekst "Pure Life Center" w stopce
-- Brak zmian w kolorystyce, layoutcie ani pozostalych sekcjach
+- Zmiana naglowka sekcji produktow na "Moje polecane produkty"
+- Karty produktow: cala karta jako `<a>` z linkiem partnera, grafika na gorze, nazwa produktu pod grafika (bez opisu i przycisku -- czysty styl jak na screenie)
