@@ -7,6 +7,8 @@ export interface TemplateElement {
   max_length?: number;
   position: number;
   style?: Record<string, any>;
+  display?: 'accordion' | 'default';
+  title?: string;
 }
 
 export interface PartnerPageSettings {

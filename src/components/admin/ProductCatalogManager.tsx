@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Save, Pencil, Package, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Save, Pencil, Package, ChevronUp, ChevronDown, ImageIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
 import type { ProductCatalogItem } from '@/types/partnerPage';
 
 export const ProductCatalogManager: React.FC = () => {
@@ -18,6 +19,7 @@ export const ProductCatalogManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingProduct, setEditingProduct] = useState<Partial<ProductCatalogItem> | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -82,6 +84,11 @@ export const ProductCatalogManager: React.FC = () => {
       await supabase.from('product_catalog').update({ position: u.position }).eq('id', u.id);
     }
     fetchProducts();
+  };
+
+  const handleMediaSelect = (file: any) => {
+    setEditingProduct(prev => ({ ...prev!, image_url: file.file_url }));
+    setShowMediaPicker(false);
   };
 
   if (loading) {
@@ -174,13 +181,25 @@ export const ProductCatalogManager: React.FC = () => {
                 />
               </div>
               <div>
-                <Label>URL obrazka</Label>
-                <Input
-                  value={editingProduct.image_url || ''}
-                  onChange={(e) => setEditingProduct(prev => ({ ...prev!, image_url: e.target.value }))}
-                  placeholder="https://..."
-                  type="url"
-                />
+                <Label>Obrazek produktu</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    value={editingProduct.image_url || ''}
+                    onChange={(e) => setEditingProduct(prev => ({ ...prev!, image_url: e.target.value }))}
+                    placeholder="https://... lub wybierz z biblioteki"
+                    type="url"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowMediaPicker(true)}
+                    className="shrink-0"
+                  >
+                    <ImageIcon className="w-4 h-4 mr-1" />
+                    Biblioteka
+                  </Button>
+                </div>
                 {editingProduct.image_url && (
                   <img src={editingProduct.image_url} alt="" className="mt-2 max-w-[200px] max-h-[150px] rounded-md border object-cover" />
                 )}
@@ -201,6 +220,20 @@ export const ProductCatalogManager: React.FC = () => {
               Zapisz
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Media Library Picker Dialog */}
+      <Dialog open={showMediaPicker} onOpenChange={setShowMediaPicker}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Wybierz obrazek z biblioteki</DialogTitle>
+          </DialogHeader>
+          <AdminMediaLibrary
+            mode="picker"
+            onSelect={handleMediaSelect}
+            allowedTypes={['image']}
+          />
         </DialogContent>
       </Dialog>
     </div>
