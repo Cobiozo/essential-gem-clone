@@ -1,56 +1,52 @@
 
 
-# Udostepnienie stron partnerskich dla niezalogowanych uzytkownikow
+# Naprawa pobierania obrazow na komputerze
 
 ## Problem
-Strona partnerska (np. `/sebastian-snopek`) jest dostepna pod trasa `/:alias`, ktora przechodzi przez `ProfileCompletionGuard`. Ten komponent przekierowuje niezalogowanych uzytkownikow na `/auth`, co blokuje dostep do stron partnerskich dla osob bez konta.
+Funkcja `shareOrDownloadImage` w `src/lib/imageShareUtils.ts` sprawdza tylko czy przegladarka obsluguje Web Share API (`canUseWebShare()`). Przegladarka Edge na Windowsie obsluguje to API, wiec zamiast okna pobierania wyswietla sie okno "Udostepnij" systemu Windows -- co jest niepozadane na komputerze.
 
 ## Przyczyna
-W pliku `src/components/profile/ProfileCompletionGuard.tsx` (linia 28-35) zdefiniowana jest lista `PUBLIC_PATHS` -- tras dostepnych bez logowania. Trasa `/:alias` (strony partnerskie) nie jest na tej liscie.
+Linia 34: `if (canUseWebShare())` -- brak sprawdzenia czy uzytkownik jest na urzadzeniu mobilnym. Web Share API powinno byc uzywane **tylko na telefonach/tabletach**, gdzie pozwala zapisac obraz do galerii.
 
 ## Rozwiazanie
 
-### Plik: `src/components/profile/ProfileCompletionGuard.tsx`
+### Plik: `src/lib/imageShareUtils.ts`
 
-Dodanie logiki rozpoznajacej strony partnerskie jako publiczne. Poniewaz `/:alias` to dynamiczna trasa na poziomie roota (np. `/sebastian-snopek`), nie mozna jej dodac jako prosty prefix. Zamiast tego:
-
-1. Pobranie aktualnego `pathname` i sprawdzenie, czy pasuje do wzorca strony partnerskiej -- czyli jest to sciezka z jednym segmentem (np. `/sebastian-snopek`), ktora nie jest zadna z juz znanych tras (np. `/auth`, `/dashboard`, `/admin`, `/training`, `/knowledge`, `/messages` itd.)
-2. Dodanie listy znanych tras aplikacji (statycznych prefiksow) i traktowanie kazdej nieznanej jednosegmentowej sciezki jako potencjalnej strony partnerskiej -- przepuszczenie jej bez logowania.
-
-Alternatywnie, prostsze podejscie: komponent `PartnerPage.tsx` sam pobiera dane z bazy -- jesli alias nie istnieje, pokazuje `NotFound`. Wystarczy wiec dodac do `ProfileCompletionGuard` warunek, ze jednosegmentowe sciezki (bez ukosnika na koncu, np. `/cokolwiek` ale nie `/cos/dalszego`) sa traktowane jako publiczne.
-
-### Konkretna zmiana
-
-W liscie `PUBLIC_PATHS` lub w logice `isPublicPath` dodac warunek:
-
+Zmiana warunku w linii 34 z:
 ```
-const KNOWN_APP_ROUTES = [
-  '/auth', '/admin', '/dashboard', '/my-account', '/training', 
-  '/knowledge', '/messages', '/calculator', '/paid-events', 
-  '/events', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza'
-];
-
-const isSingleSegmentPath = location.pathname.match(/^\/[^/]+$/);
-const isKnownRoute = KNOWN_APP_ROUTES.some(r => 
-  location.pathname === r || location.pathname.startsWith(r + '/')
-);
-const isPartnerPage = isSingleSegmentPath && !isKnownRoute;
+if (canUseWebShare())
+```
+na:
+```
+if (isMobileDevice() && canUseWebShare())
 ```
 
-Nastepnie w warunku `isPublicPath` uwzglednic rowniez `isPartnerPage`:
+Ta jedna zmiana sprawia, ze:
+- **Na komputerze**: zawsze uzywa standardowego pobierania (okno "Zapisz jako...")
+- **Na telefonie/tablecie**: nadal uzywa Web Share API (natywny share sheet z opcja "Zapisz do galerii")
 
+### Dodatkowe usprawnienie pobierania na komputerze
+
+Obecny fallback uzywa `<a>` z atrybutem `download`, ale dla obrazow z innej domeny (cross-origin) atrybut `download` moze nie dzialac -- przegladarka otwiera obraz zamiast pobierac. Aby to naprawic, nalezy pobrac obraz jako blob i utworzyc lokalny URL:
+
+```typescript
+// Zamiast link.href = imageUrl, pobierz jako blob:
+const response = await fetch(imageUrl, { mode: 'cors' });
+const blob = await response.blob();
+const blobUrl = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = blobUrl;
+link.download = fileName;
+document.body.appendChild(link);
+link.click();
+document.body.removeChild(link);
+URL.revokeObjectURL(blobUrl);
 ```
-if (isPublicPath || isPartnerPage) {
-  return <>{children}</>;
-}
-```
 
-### Efekt
-- Niezalogowani uzytkownicy moga wejsc na `/sebastian-snopek` (lub dowolna strone partnerska) bez przekierowania na logowanie
-- Strona partnerska dziala jak samodzielna strona ladowania -- uzytkownik moze jedynie klikac linki umieszczone na niej przez partnera
-- Jesli alias nie istnieje, `PartnerPage.tsx` sam pokaze strone 404
-- Zadne inne trasy aplikacji nie zostaja naruszone
+To gwarantuje, ze przegladarka otworzy okno pobierania zamiast otwierac obraz w nowej karcie.
 
-### Brak zmian w bazie danych
-Zmiana dotyczy wylacznie logiki routingu po stronie frontendu.
+### Podsumowanie zmian
+- **1 plik**: `src/lib/imageShareUtils.ts`
+- Dodanie warunku `isMobileDevice()` przed uzyciem Web Share API
+- Zmiana fallbacku na pobieranie przez blob URL (gwarantuje okno "Zapisz jako")
 
