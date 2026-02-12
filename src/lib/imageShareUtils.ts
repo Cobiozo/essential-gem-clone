@@ -21,17 +21,37 @@ export const canUseWebShare = (): boolean => {
 };
 
 /**
+ * Download an image using blob URL to force "Save As" dialog (works cross-origin).
+ */
+const downloadViaBlob = async (imageUrl: string, fileName: string): Promise<boolean> => {
+  const response = await fetch(imageUrl, { mode: 'cors' });
+  if (!response.ok) {
+    throw new Error(`Failed to fetch image: ${response.status}`);
+  }
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(blobUrl);
+  return true;
+};
+
+/**
  * Share or download an image.
  * On mobile devices with Web Share API, shows native share sheet with "Save Image" option.
- * On other platforms, falls back to standard download.
+ * On other platforms, falls back to blob-based download (forces "Save As" dialog).
  */
 export const shareOrDownloadImage = async (
   imageUrl: string,
   fileName: string = 'image.jpg'
 ): Promise<boolean> => {
   try {
-    // On mobile, use Web Share API to enable "Save to Photos/Gallery"
-    if (canUseWebShare()) {
+    // On mobile only, use Web Share API to enable "Save to Photos/Gallery"
+    if (isMobileDevice() && canUseWebShare()) {
       console.log('[imageShareUtils] Using Web Share API for mobile');
       
       const response = await fetch(imageUrl, { mode: 'cors' });
@@ -54,16 +74,9 @@ export const shareOrDownloadImage = async (
       }
     }
     
-    // Fallback - standard download
-    console.log('[imageShareUtils] Using standard download');
-    const link = document.createElement('a');
-    link.href = imageUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return true;
+    // Desktop or fallback - blob-based download (forces "Save As" dialog)
+    console.log('[imageShareUtils] Using blob-based download');
+    return await downloadViaBlob(imageUrl, fileName);
   } catch (error) {
     // User cancelled share is not an error
     if (error instanceof Error && error.name === 'AbortError') {
@@ -73,7 +86,7 @@ export const shareOrDownloadImage = async (
     
     console.error('[imageShareUtils] Share/download failed:', error);
     
-    // Try fallback on error
+    // Last resort fallback
     try {
       const link = document.createElement('a');
       link.href = imageUrl;
