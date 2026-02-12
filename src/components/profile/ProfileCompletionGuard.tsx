@@ -37,15 +37,25 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   // Sprawdź czy ścieżka jest publiczna
   const isPublicPath = PUBLIC_PATHS.some(path => {
     if (path === '/') {
-      // Strona główna - tylko dokładnie "/"
       return location.pathname === '/';
     }
-    // Inne ścieżki - dokładne lub prefix
     return location.pathname === path || location.pathname.startsWith(path);
   });
+
+  // Detect partner pages: single-segment paths that are not known app routes
+  const KNOWN_APP_ROUTES = [
+    '/auth', '/admin', '/dashboard', '/my-account', '/training',
+    '/knowledge', '/messages', '/calculator', '/paid-events',
+    '/events', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza'
+  ];
+  const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);
+  const isKnownRoute = KNOWN_APP_ROUTES.some(r =>
+    location.pathname === r || location.pathname.startsWith(r + '/')
+  );
+  const isPartnerPage = isSingleSegmentPath && !isKnownRoute;
   
-  // Jeśli to ścieżka publiczna, przepuść bez sprawdzania
-  if (isPublicPath) {
+  // Jeśli to ścieżka publiczna lub strona partnerska, przepuść bez sprawdzania
+  if (isPublicPath || isPartnerPage) {
     return <>{children}</>;
   }
   
