@@ -1,37 +1,56 @@
 
 
-# Dodanie uploadu plikow z komputera do edytora strony partnerskiej
+# Udostepnienie stron partnerskich dla niezalogowanych uzytkownikow
 
-## Cel
-Aktualnie pola typu `editable_image` (np. "Zdjecie partnera") w edytorze partnera (`PartnerPageEditor.tsx`) pozwalaja jedynie na wklejenie URL. Trzeba dodac mozliwosc przeslania pliku z komputera — upload do Supabase Storage (bucket `cms-images`), po czym URL zostaje automatycznie wstawiony.
+## Problem
+Strona partnerska (np. `/sebastian-snopek`) jest dostepna pod trasa `/:alias`, ktora przechodzi przez `ProfileCompletionGuard`. Ten komponent przekierowuje niezalogowanych uzytkownikow na `/auth`, co blokuje dostep do stron partnerskich dla osob bez konta.
 
-## Zmiany
+## Przyczyna
+W pliku `src/components/profile/ProfileCompletionGuard.tsx` (linia 28-35) zdefiniowana jest lista `PUBLIC_PATHS` -- tras dostepnych bez logowania. Trasa `/:alias` (strony partnerskie) nie jest na tej liscie.
 
-### Plik: `src/components/partner-page/PartnerPageEditor.tsx`
+## Rozwiazanie
 
-W sekcji renderujacej pola `editable_image` (linie 189-205):
+### Plik: `src/components/profile/ProfileCompletionGuard.tsx`
 
-1. **Dodanie przycisku "Przeslij z komputera"** obok pola URL — przycisk z ikona `Upload` otwiera ukryty `<input type="file" accept="image/*">`
-2. **Funkcja `handleImageUpload`**:
-   - Walidacja typu pliku (tylko obrazy) i rozmiaru (max 2MB — limit Supabase Storage)
-   - Upload do bucketu `cms-images` w sciezce `partner-photos/{userId}/{timestamp}_{filename}`
-   - Pobranie publicznego URL (`getPublicUrl`)
-   - Ustawienie URL w `customData[element.id]`
-   - Stan ladowania (`uploading`) z animacja spinnera na przycisku
-3. **Layout**: Pole URL + przycisk "Przeslij" w jednym wierszu (`flex gap-2`)
+Dodanie logiki rozpoznajacej strony partnerskie jako publiczne. Poniewaz `/:alias` to dynamiczna trasa na poziomie roota (np. `/sebastian-snopek`), nie mozna jej dodac jako prosty prefix. Zamiast tego:
 
-### Szczegoly techniczne
+1. Pobranie aktualnego `pathname` i sprawdzenie, czy pasuje do wzorca strony partnerskiej -- czyli jest to sciezka z jednym segmentem (np. `/sebastian-snopek`), ktora nie jest zadna z juz znanych tras (np. `/auth`, `/dashboard`, `/admin`, `/training`, `/knowledge`, `/messages` itd.)
+2. Dodanie listy znanych tras aplikacji (statycznych prefiksow) i traktowanie kazdej nieznanej jednosegmentowej sciezki jako potencjalnej strony partnerskiej -- przepuszczenie jej bez logowania.
 
-- Import `Upload`, `Loader2` z `lucide-react`
-- Import `supabase` z `@/integrations/supabase/client`  
-- Uzycie `useRef` dla ukrytego inputa plikow
-- Bucket `cms-images` juz istnieje i jest uzywany w calym projekcie do uploadow obrazow
-- Stan `uploadingField: string | null` — wskazuje ktore pole aktualnie uploaduje (obsluga wielu pol `editable_image`)
-- Walidacja: max 2MB, typy `image/*`
-- Sciezka uploadu: `partner-photos/{user_id}/{Date.now()}_nazwa.ext` — zapobiega kolizjom nazw
+Alternatywnie, prostsze podejscie: komponent `PartnerPage.tsx` sam pobiera dane z bazy -- jesli alias nie istnieje, pokazuje `NotFound`. Wystarczy wiec dodac do `ProfileCompletionGuard` warunek, ze jednosegmentowe sciezki (bez ukosnika na koncu, np. `/cokolwiek` ale nie `/cos/dalszego`) sa traktowane jako publiczne.
 
-### Wplyw na UX
-- Partner widzi: `[Input URL] [Przeslij z komputera]`
-- Klika przycisk → wybiera plik → spinner na przycisku → URL automatycznie wstawiony + podglad obrazka ponizej
-- Nadal moze wkleic URL recznie jako alternatywe
+### Konkretna zmiana
+
+W liscie `PUBLIC_PATHS` lub w logice `isPublicPath` dodac warunek:
+
+```
+const KNOWN_APP_ROUTES = [
+  '/auth', '/admin', '/dashboard', '/my-account', '/training', 
+  '/knowledge', '/messages', '/calculator', '/paid-events', 
+  '/events', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza'
+];
+
+const isSingleSegmentPath = location.pathname.match(/^\/[^/]+$/);
+const isKnownRoute = KNOWN_APP_ROUTES.some(r => 
+  location.pathname === r || location.pathname.startsWith(r + '/')
+);
+const isPartnerPage = isSingleSegmentPath && !isKnownRoute;
+```
+
+Nastepnie w warunku `isPublicPath` uwzglednic rowniez `isPartnerPage`:
+
+```
+if (isPublicPath || isPartnerPage) {
+  return <>{children}</>;
+}
+```
+
+### Efekt
+- Niezalogowani uzytkownicy moga wejsc na `/sebastian-snopek` (lub dowolna strone partnerska) bez przekierowania na logowanie
+- Strona partnerska dziala jak samodzielna strona ladowania -- uzytkownik moze jedynie klikac linki umieszczone na niej przez partnera
+- Jesli alias nie istnieje, `PartnerPage.tsx` sam pokaze strone 404
+- Zadne inne trasy aplikacji nie zostaja naruszone
+
+### Brak zmian w bazie danych
+Zmiana dotyczy wylacznie logiki routingu po stronie frontendu.
 
