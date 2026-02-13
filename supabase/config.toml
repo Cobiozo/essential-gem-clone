@@ -93,6 +93,9 @@ verify_jwt = false
 [functions.retry-failed-email]
 verify_jwt = false
 
+[functions.cleanup-old-certificates]
+verify_jwt = false
+
 [functions.cleanup-training-media]
 verify_jwt = true
 
