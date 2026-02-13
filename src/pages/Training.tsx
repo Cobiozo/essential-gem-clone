@@ -131,8 +131,8 @@ const Training = () => {
   const handleGenerateCertificate = async (moduleId: string, moduleTitle: string) => {
     if (!user) return;
 
-    // Check if certificate already exists
-    if (certificates[moduleId]) {
+    // Check if certificate already exists and has a valid file
+    if (certificates[moduleId] && certificates[moduleId].url !== 'downloaded-and-deleted') {
       toast({
         title: "Certyfikat już wygenerowany",
         description: "Możesz go pobrać klikając przycisk 'Pobierz certyfikat'.",
@@ -284,10 +284,41 @@ const Training = () => {
         
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
+
+        // Auto-delete certificate file from Storage after successful download
+        try {
+          if (cert.url && !cert.url.startsWith('pending') && !cert.url.startsWith('downloaded')) {
+            let filePath = cert.url;
+            // Extract path if it's a full URL
+            if (filePath.includes('/storage/v1/object/')) {
+              const parts = filePath.split('certificates/');
+              if (parts.length > 1) {
+                filePath = parts[1];
+              }
+            }
+            await supabase.storage.from('certificates').remove([filePath]);
+            await supabase.from('certificates').update({ file_url: 'downloaded-and-deleted' }).eq('id', cert.id);
+            // Update local state
+            setCertificates(prev => ({
+              ...prev,
+              [moduleId]: { ...prev[moduleId], url: 'downloaded-and-deleted' }
+            }));
+            console.log('Certificate file deleted from Storage after download');
+          }
+        } catch (cleanupError) {
+          console.warn('Could not clean up certificate file from Storage:', cleanupError);
+          // Don't fail the download if cleanup fails
+        }
         
         toast({
           title: "Sukces",
           description: "Certyfikat został pobrany.",
+        });
+      } else if (data?.deleted) {
+        toast({
+          title: "Certyfikat już pobrany",
+          description: "Użyj opcji 'Regeneruj certyfikat' aby wygenerować nowy.",
+          variant: "default"
         });
       } else if (data?.pending) {
         toast({
@@ -644,6 +675,7 @@ const Training = () => {
               const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
               const status = getModuleStatus(module.completed_lessons, module.lessons_count);
               const hasCertificate = !!certificates[module.id];
+              const certDeleted = certificates[module.id]?.url === 'downloaded-and-deleted';
               
               return (
                 <Card key={module.id} className="hover:shadow-lg transition-shadow">
@@ -691,13 +723,15 @@ const Training = () => {
                             <div className="flex items-center gap-2">
                               <Award className="h-5 w-5 text-primary" />
                               <span className="text-sm font-medium">
-                                {hasCertificate 
-                                  ? "Certyfikat gotowy do pobrania" 
-                                  : "Certyfikat dostępny do wygenerowania"}
+                                {certDeleted
+                                  ? "Certyfikat pobrany — wygeneruj ponownie"
+                                  : hasCertificate 
+                                    ? "Certyfikat gotowy do pobrania" 
+                                    : "Certyfikat dostępny do wygenerowania"}
                               </span>
                             </div>
                             
-                            {hasCertificate ? (
+                            {hasCertificate && !certDeleted ? (
                               <div className="flex flex-col gap-1">
                                 <Button
                                   size="sm"
