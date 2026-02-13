@@ -91,6 +91,18 @@ serve(async (req) => {
     
     console.log('Original file_url:', filePath);
 
+    // Check if file was already downloaded and deleted
+    if (filePath === 'downloaded-and-deleted') {
+      console.log('Certificate file was already downloaded and deleted:', certificateId);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Certyfikat został już pobrany. Użyj opcji "Regeneruj certyfikat" aby wygenerować nowy.',
+          deleted: true 
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Check if file_url is a placeholder (not yet generated)
     if (filePath.startsWith('pending-generation')) {
       console.error('Certificate file not yet generated:', filePath);
