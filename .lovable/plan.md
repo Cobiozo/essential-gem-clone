@@ -1,65 +1,49 @@
 
-# Plan: Automatyczne czyszczenie starych certyfikatów (starszych niż 1 miesiąc)
 
-## Problem
-Bucket `certificates` zawiera 1260 MB plików PDF, co stanowi 66% całego storage i powoduje przekroczenie limitów. Certyfikaty nigdy nie są czyszczone. Potrzebny jest automatyczny mechanizm do usuwania starych plików.
+# Plan: Automatyczne usuwanie certyfikatu po pobraniu
 
-## Rozwiązanie
+## Obecny flow
+1. Generowanie PDF (jsPDF) -> upload do Storage -> zapis rekordu w DB
+2. Pobranie: edge function `get-certificate-url` -> signed URL -> download w przegladarce
+3. Plik zostaje w Storage na zawsze
 
-### 1. Nowa Edge Function: `cleanup-old-certificates`
-Lokalizacja: `supabase/functions/cleanup-old-certificates/index.ts`
-
-Funkcjonalność:
-- Pobiera wszystkie obiekty z bucketu `certificates` przy użyciu SQL query na `storage.objects`
-- Filtruje pliki ze względu na `created_at < teraz - 30 dni`
-- Usuwa znalezione pliki w partiach po 100
-- Loguje wyniki (ile plików usunięto, błędy)
-- Zwraca raport JSON
-
-Struktura:
-- Korzysta z `SUPABASE_SERVICE_ROLE_KEY` (admin access)
-- Query na `storage.objects` zamiast list API (bardziej efektywne dla dużej liczby plików)
-- Obsługuje cross-origin i CORS
-- `verify_jwt = false` w config.toml (uruchamiana scheduled, bez user context)
-
-### 2. Konfiguracja w `supabase/config.toml`
-Dodać nową sekcję funkcji (około linia 174, w kolejności alfabetycznej):
-```toml
-[functions.cleanup-old-certificates]
-verify_jwt = false
-```
-
-### 3. Zaplanowany job (Scheduled Cleanup)
-Po deploymencie edge function, użytkownik będzie mógł:
-- Ręcznie wyzwolić funkcję poprzez przycisk w adminpanelu
-- LUB wykorzystać SQL cron job w Supabase (pg_cron) do automatycznego uruchamiania codziennie o północy
-
-**SQL cron job** (opcjonalnie, jeśli Supabase ma pg_cron włączony):
-```sql
-select cron.schedule(
-  'cleanup-old-certificates-daily',
-  '0 0 * * *', -- codziennie o 00:00 UTC
-  $$
-  select net.http_post(
-    url:='https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/cleanup-old-certificates',
-    headers:='{"Authorization": "Bearer <ANON_KEY>"}'::jsonb,
-    body:='{}'::jsonb
-  );
-  $$
-);
-```
-
-## Przychód
-- **Przed**: 1260 MB w bucket `certificates`
-- **Po 30 dni**: Wszystkie certyfikaty sprzed 1 miesiąca zostaną automatycznie usunięte
-- **Oszczędność**: Szacunkowo 200-400 MB w zależności od liczby wygenerowanych certyfikatów w ciągu miesiąca
-- **Wynik**: Projekt będzie działać poniżej limitów storage
+## Nowy flow
+1. Generowanie PDF -> upload do Storage -> zapis rekordu w DB (bez zmian)
+2. Pobranie: signed URL -> download w przegladarce -> **automatyczne usuniecie pliku ze Storage**
 
 ## Zmiany
-- **1 plik**: Nowa edge function `supabase/functions/cleanup-old-certificates/index.ts`
-- **1 plik**: Aktualizacja `supabase/config.toml` (dodanie konfiguracji funkcji)
-- **Opcjonalnie**: Setup SQL cron job (wymaga `pg_cron` w Supabase)
 
-## Brak zmian
-- Baza danych — żadne nowe tabele
-- Frontend — brak zmian w UI
+### 1. `src/pages/Training.tsx` - funkcja `downloadCertificate` (linie 272-291)
+Po udanym pobraniu (po `link.click()`), dodac:
+- Wywolanie `supabase.storage.from('certificates').remove([filePath])` aby usunac plik ze Storage
+- Filtr sciezki pliku z `cert.url` (pole przechowywane w stanie)
+- Opcjonalnie: zaktualizowac `file_url` w bazie na `'downloaded-and-deleted'`
+
+```typescript
+// Po udanym pobraniu:
+if (cert.url && !cert.url.startsWith('pending') && !cert.url.startsWith('downloaded')) {
+  await supabase.storage.from('certificates').remove([cert.url]);
+  await supabase.from('certificates').update({ file_url: 'downloaded-and-deleted' }).eq('id', cert.id);
+}
+```
+
+### 2. `supabase/functions/get-certificate-url/index.ts` (linie 95-100)
+Dodac obsluge markera `'downloaded-and-deleted'` -- jesli plik zostal juz usuniety, zwrocic odpowiedni komunikat (np. "Certyfikat zostal juz pobrany. Wygeneruj ponownie.").
+
+### 3. `src/pages/Training.tsx` - obsluga statusu `downloaded-and-deleted`
+W UI, jesli certyfikat ma status `downloaded-and-deleted`:
+- Zamiast przycisku "Pobierz" pokazac "Wygeneruj ponownie"
+- Lub automatycznie regenerowac PDF przy probie pobrania
+
+## Pliki do zmiany
+| Plik | Zmiana |
+|------|--------|
+| `src/pages/Training.tsx` | Dodac usuwanie pliku ze Storage po pobraniu + obsluga statusu |
+| `supabase/functions/get-certificate-url/index.ts` | Obsluga markera `downloaded-and-deleted` |
+
+## Efekt
+- Certyfikaty sa generowane i pobierane dokladnie tak jak do tej pory
+- Po pobraniu plik PDF jest automatycznie usuwany ze Storage
+- Rekord w bazie pozostaje (z markerem ze plik zostal pobrany i usuniety)
+- Storage nie rosnie -- kazdy certyfikat istnieje tylko przez czas potrzebny na pobranie
+
