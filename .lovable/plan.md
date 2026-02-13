@@ -1,52 +1,65 @@
 
-
-# Naprawa pobierania obrazow na komputerze
+# Plan: Automatyczne czyszczenie starych certyfikatów (starszych niż 1 miesiąc)
 
 ## Problem
-Funkcja `shareOrDownloadImage` w `src/lib/imageShareUtils.ts` sprawdza tylko czy przegladarka obsluguje Web Share API (`canUseWebShare()`). Przegladarka Edge na Windowsie obsluguje to API, wiec zamiast okna pobierania wyswietla sie okno "Udostepnij" systemu Windows -- co jest niepozadane na komputerze.
+Bucket `certificates` zawiera 1260 MB plików PDF, co stanowi 66% całego storage i powoduje przekroczenie limitów. Certyfikaty nigdy nie są czyszczone. Potrzebny jest automatyczny mechanizm do usuwania starych plików.
 
-## Przyczyna
-Linia 34: `if (canUseWebShare())` -- brak sprawdzenia czy uzytkownik jest na urzadzeniu mobilnym. Web Share API powinno byc uzywane **tylko na telefonach/tabletach**, gdzie pozwala zapisac obraz do galerii.
+## Rozwiązanie
 
-## Rozwiazanie
+### 1. Nowa Edge Function: `cleanup-old-certificates`
+Lokalizacja: `supabase/functions/cleanup-old-certificates/index.ts`
 
-### Plik: `src/lib/imageShareUtils.ts`
+Funkcjonalność:
+- Pobiera wszystkie obiekty z bucketu `certificates` przy użyciu SQL query na `storage.objects`
+- Filtruje pliki ze względu na `created_at < teraz - 30 dni`
+- Usuwa znalezione pliki w partiach po 100
+- Loguje wyniki (ile plików usunięto, błędy)
+- Zwraca raport JSON
 
-Zmiana warunku w linii 34 z:
-```
-if (canUseWebShare())
-```
-na:
-```
-if (isMobileDevice() && canUseWebShare())
-```
+Struktura:
+- Korzysta z `SUPABASE_SERVICE_ROLE_KEY` (admin access)
+- Query na `storage.objects` zamiast list API (bardziej efektywne dla dużej liczby plików)
+- Obsługuje cross-origin i CORS
+- `verify_jwt = false` w config.toml (uruchamiana scheduled, bez user context)
 
-Ta jedna zmiana sprawia, ze:
-- **Na komputerze**: zawsze uzywa standardowego pobierania (okno "Zapisz jako...")
-- **Na telefonie/tablecie**: nadal uzywa Web Share API (natywny share sheet z opcja "Zapisz do galerii")
-
-### Dodatkowe usprawnienie pobierania na komputerze
-
-Obecny fallback uzywa `<a>` z atrybutem `download`, ale dla obrazow z innej domeny (cross-origin) atrybut `download` moze nie dzialac -- przegladarka otwiera obraz zamiast pobierac. Aby to naprawic, nalezy pobrac obraz jako blob i utworzyc lokalny URL:
-
-```typescript
-// Zamiast link.href = imageUrl, pobierz jako blob:
-const response = await fetch(imageUrl, { mode: 'cors' });
-const blob = await response.blob();
-const blobUrl = URL.createObjectURL(blob);
-const link = document.createElement('a');
-link.href = blobUrl;
-link.download = fileName;
-document.body.appendChild(link);
-link.click();
-document.body.removeChild(link);
-URL.revokeObjectURL(blobUrl);
+### 2. Konfiguracja w `supabase/config.toml`
+Dodać nową sekcję funkcji (około linia 174, w kolejności alfabetycznej):
+```toml
+[functions.cleanup-old-certificates]
+verify_jwt = false
 ```
 
-To gwarantuje, ze przegladarka otworzy okno pobierania zamiast otwierac obraz w nowej karcie.
+### 3. Zaplanowany job (Scheduled Cleanup)
+Po deploymencie edge function, użytkownik będzie mógł:
+- Ręcznie wyzwolić funkcję poprzez przycisk w adminpanelu
+- LUB wykorzystać SQL cron job w Supabase (pg_cron) do automatycznego uruchamiania codziennie o północy
 
-### Podsumowanie zmian
-- **1 plik**: `src/lib/imageShareUtils.ts`
-- Dodanie warunku `isMobileDevice()` przed uzyciem Web Share API
-- Zmiana fallbacku na pobieranie przez blob URL (gwarantuje okno "Zapisz jako")
+**SQL cron job** (opcjonalnie, jeśli Supabase ma pg_cron włączony):
+```sql
+select cron.schedule(
+  'cleanup-old-certificates-daily',
+  '0 0 * * *', -- codziennie o 00:00 UTC
+  $$
+  select net.http_post(
+    url:='https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/cleanup-old-certificates',
+    headers:='{"Authorization": "Bearer <ANON_KEY>"}'::jsonb,
+    body:='{}'::jsonb
+  );
+  $$
+);
+```
 
+## Przychód
+- **Przed**: 1260 MB w bucket `certificates`
+- **Po 30 dni**: Wszystkie certyfikaty sprzed 1 miesiąca zostaną automatycznie usunięte
+- **Oszczędność**: Szacunkowo 200-400 MB w zależności od liczby wygenerowanych certyfikatów w ciągu miesiąca
+- **Wynik**: Projekt będzie działać poniżej limitów storage
+
+## Zmiany
+- **1 plik**: Nowa edge function `supabase/functions/cleanup-old-certificates/index.ts`
+- **1 plik**: Aktualizacja `supabase/config.toml` (dodanie konfiguracji funkcji)
+- **Opcjonalnie**: Setup SQL cron job (wymaga `pg_cron` w Supabase)
+
+## Brak zmian
+- Baza danych — żadne nowe tabele
+- Frontend — brak zmian w UI
