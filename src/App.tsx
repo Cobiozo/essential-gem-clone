@@ -23,6 +23,7 @@ import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
+import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 
 // Helper function for lazy loading with automatic retry on chunk errors
 // Improved: More retries, cache clearing, loop detection
@@ -358,6 +359,7 @@ const AppContent = () => {
         <PWAInstallBanner />
       </BrowserRouter>
       <CookieConsentBanner />
+      <SWUpdateBanner />
       
       {/* Only show banners for logged in users after FRESH login (not refresh) */}
       {shouldShowBanners && (
