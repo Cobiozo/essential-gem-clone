@@ -1,38 +1,58 @@
 /**
- * Push Notification Service Worker
- * Handles push events, notification clicks, and notification clearing
+ * Push Notification & Caching Service Worker
+ * Handles push events, notification clicks, and multi-strategy caching
  */
 
-// PWA Cache Configuration
-const CACHE_NAME = 'purelife-pwa-v1';
+// Cache Configuration
+const CACHE_STATIC = 'purelife-static-v2';
+const CACHE_ASSETS = 'purelife-assets-v1';
+const CACHE_API = 'purelife-api-v1';
+const CACHE_FONTS = 'purelife-fonts-v1';
+const ALL_CACHES = [CACHE_STATIC, CACHE_ASSETS, CACHE_API, CACHE_FONTS];
+
 const STATIC_ASSETS = [
   '/manifest.json',
   '/pwa-192.png',
   '/pwa-512.png',
+  '/pwa-maskable-512.png',
+  '/favicon.ico',
 ];
 
-// Log Service Worker lifecycle
+// API cache TTL: 24 hours
+const API_CACHE_TTL = 24 * 60 * 60 * 1000;
+// Font cache TTL: 30 days
+const FONT_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
+
+// Supabase cookie-related endpoints to cache
+const COOKIE_API_PATTERNS = [
+  'rest/v1/cookie_consent_settings',
+  'rest/v1/cookie_banner_settings',
+  'rest/v1/cookie_categories',
+];
+
+// ─── Install ───────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW-Push] Service Worker installed');
+  console.log('[SW] Service Worker installed');
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('[SW-Push] Caching static assets');
+    caches.open(CACHE_STATIC).then(cache => {
+      console.log('[SW] Caching static assets');
       return cache.addAll(STATIC_ASSETS).catch(err => {
-        console.log('[SW-Push] Failed to cache static assets:', err);
+        console.log('[SW] Failed to cache static assets:', err);
       });
     })
   );
   self.skipWaiting();
 });
 
+// ─── Activate ──────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW-Push] Service Worker activated');
+  console.log('[SW] Service Worker activated');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('[SW-Push] Deleting old cache:', cacheName);
+          if (!ALL_CACHES.includes(cacheName)) {
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -41,10 +61,133 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Handle incoming push notifications
+// ─── Fetch Handler ─────────────────────────────────────────────────────
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // Only handle GET requests
+  if (event.request.method !== 'GET') return;
+
+  // 1. Static assets (same-origin manifest, icons, favicon)
+  if (url.origin === self.location.origin) {
+    const isStatic = STATIC_ASSETS.some(p => url.pathname === p);
+    if (isStatic) {
+      event.respondWith(cacheFirst(event.request, CACHE_STATIC));
+      return;
+    }
+
+    // 2. Vite hashed assets (immutable — cache forever)
+    if (url.pathname.startsWith('/assets/') && /\.[a-f0-9]{8,}\./.test(url.pathname)) {
+      event.respondWith(cacheFirst(event.request, CACHE_ASSETS));
+      return;
+    }
+  }
+
+  // 3. Supabase cookie API — stale-while-revalidate
+  if (COOKIE_API_PATTERNS.some(p => url.pathname.includes(p))) {
+    event.respondWith(staleWhileRevalidate(event.request, CACHE_API, API_CACHE_TTL));
+    return;
+  }
+
+  // 4. Google Fonts — cache-first with TTL
+  if (url.origin === 'https://fonts.googleapis.com' || url.origin === 'https://fonts.gstatic.com') {
+    event.respondWith(cacheFirst(event.request, CACHE_FONTS, FONT_CACHE_TTL));
+    return;
+  }
+
+  // Everything else — network only (don't interfere)
+});
+
+// ─── Cache Strategies ──────────────────────────────────────────────────
+
+/**
+ * Cache-first: return cached if available, else fetch and cache.
+ * Optional TTL — if cached response is older than maxAge, refetch.
+ */
+async function cacheFirst(request, cacheName, maxAge) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  if (cached) {
+    // If no maxAge or within TTL, return cached
+    if (!maxAge) return cached;
+    const cachedDate = cached.headers.get('sw-cached-at');
+    if (cachedDate && (Date.now() - parseInt(cachedDate, 10)) < maxAge) {
+      return cached;
+    }
+  }
+
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cloned = response.clone();
+      // Add timestamp header for TTL checking
+      const headers = new Headers(cloned.headers);
+      headers.set('sw-cached-at', Date.now().toString());
+      const body = await cloned.blob();
+      const timestamped = new Response(body, { status: cloned.status, statusText: cloned.statusText, headers });
+      cache.put(request, timestamped);
+    }
+    return response;
+  } catch (err) {
+    if (cached) return cached;
+    throw err;
+  }
+}
+
+/**
+ * Stale-while-revalidate: return cached immediately, fetch fresh in background.
+ * Respects TTL — if cache is older than maxAge, wait for network.
+ */
+async function staleWhileRevalidate(request, cacheName, maxAge) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+
+  const fetchAndCache = async () => {
+    try {
+      const response = await fetch(request);
+      if (response.ok) {
+        const cloned = response.clone();
+        const headers = new Headers(cloned.headers);
+        headers.set('sw-cached-at', Date.now().toString());
+        const body = await cloned.blob();
+        const timestamped = new Response(body, { status: cloned.status, statusText: cloned.statusText, headers });
+        await cache.put(request, timestamped);
+      }
+      return response;
+    } catch (err) {
+      if (cached) return cached;
+      throw err;
+    }
+  };
+
+  if (cached) {
+    const cachedDate = cached.headers.get('sw-cached-at');
+    const isExpired = !cachedDate || (Date.now() - parseInt(cachedDate, 10)) > maxAge;
+
+    if (isExpired) {
+      // Expired — try network, fall back to stale cache
+      try {
+        return await fetchAndCache();
+      } catch {
+        return cached;
+      }
+    }
+
+    // Fresh cache — return it, revalidate in background
+    fetchAndCache();
+    return cached;
+  }
+
+  // No cache — must fetch
+  return fetchAndCache();
+}
+
+// ─── Push Notifications ────────────────────────────────────────────────
+
 self.addEventListener('push', (event) => {
-  console.log('[SW-Push] Push notification received');
-  
+  console.log('[SW] Push notification received');
+
   let data = {
     title: 'Pure Life Center',
     body: 'Masz nową wiadomość',
@@ -56,24 +199,17 @@ self.addEventListener('push', (event) => {
     silent: false,
     vibrate: [100, 50, 100],
   };
-  
-  // Parse push data if available
+
   if (event.data) {
     try {
       const payload = event.data.json();
       data = { ...data, ...payload };
     } catch (e) {
-      console.error('[SW-Push] Error parsing push data:', e);
-      // Try as text
-      try {
-        data.body = event.data.text();
-      } catch (e2) {
-        console.error('[SW-Push] Error getting push text:', e2);
-      }
+      console.error('[SW] Error parsing push data:', e);
+      try { data.body = event.data.text(); } catch (e2) { /* ignore */ }
     }
   }
 
-  // Build notification options
   const options = {
     body: data.body,
     icon: data.icon || '/pwa-192.png',
@@ -94,108 +230,51 @@ self.addEventListener('push', (event) => {
     ]
   };
 
-  // Add vibration pattern if not silent and vibrate is provided
   if (!data.silent && data.vibrate && Array.isArray(data.vibrate) && data.vibrate.length > 0) {
     options.vibrate = data.vibrate;
   }
 
-  console.log('[SW-Push] Showing notification:', data.title, 'silent:', data.silent, 'vibrate:', options.vibrate);
-  
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
-// Handle notification click
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW-Push] Notification clicked:', event.action);
-  
   event.notification.close();
-  
-  // If user clicked dismiss, do nothing
-  if (event.action === 'dismiss') {
-    return;
-  }
+  if (event.action === 'dismiss') return;
 
   const urlToOpen = event.notification.data?.url || '/messages';
   const fullUrl = new URL(urlToOpen, self.location.origin).href;
 
   event.waitUntil(
-    self.clients.matchAll({ 
-      type: 'window', 
-      includeUncontrolled: true 
-    }).then((windowClients) => {
-      // Check if app is already open
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
         if (client.url.includes(self.location.origin)) {
-          console.log('[SW-Push] Found existing window, focusing and navigating');
           client.focus();
           return client.navigate(fullUrl);
         }
       }
-      // Open new window
-      console.log('[SW-Push] Opening new window:', fullUrl);
       return self.clients.openWindow(fullUrl);
     })
   );
 });
 
-// Handle notification close (user dismissed without clicking)
-self.addEventListener('notificationclose', (event) => {
-  console.log('[SW-Push] Notification closed by user');
-});
+self.addEventListener('notificationclose', () => {});
 
-// Handle messages from the main app
+// ─── Messages from App ────────────────────────────────────────────────
+
 self.addEventListener('message', (event) => {
-  console.log('[SW-Push] Message received:', event.data);
-  
   if (event.data === 'CLEAR_NOTIFICATIONS') {
-    // Clear all notifications (useful when user opens messages page)
     self.registration.getNotifications().then((notifications) => {
-      console.log('[SW-Push] Clearing', notifications.length, 'notification(s)');
-      notifications.forEach(notification => notification.close());
+      notifications.forEach(n => n.close());
     });
   }
-  
   if (event.data === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
-// Fetch handler - cache-first for static assets, network-first for everything else
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-  
-  // Only handle same-origin GET requests
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
-  
-  // Cache-first for manifest, icons, and static assets
-  const cacheablePatterns = ['/manifest.json', '/pwa-192.png', '/pwa-512.png', '/pwa-maskable-512.png', '/favicon.ico'];
-  const isCacheable = cacheablePatterns.some(p => url.pathname === p);
-  
-  if (isCacheable) {
-    event.respondWith(
-      caches.match(event.request).then(cached => {
-        if (cached) return cached;
-        return fetch(event.request).then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-          }
-          return response;
-        });
-      }).catch(() => caches.match(event.request))
-    );
-    return;
-  }
-  
-  // Network-first for everything else (don't interfere with app routing)
-});
+// ─── Push Subscription Change ──────────────────────────────────────────
 
-// Handle push subscription change
 self.addEventListener('pushsubscriptionchange', (event) => {
-  console.log('[SW-Push] Push subscription changed');
-  // The main app should handle resubscription
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clients) => {
       clients.forEach((client) => {

@@ -6,6 +6,13 @@ const VISITOR_ID_KEY = 'cookie_visitor_id';
 const CONSENT_KEY = 'cookie_consents';
 const CONSENT_DATE_KEY = 'cookie_consent_date';
 
+// localStorage cache keys
+const CACHE_SETTINGS_KEY = 'cookie_cache_settings';
+const CACHE_BANNER_KEY = 'cookie_cache_banner';
+const CACHE_CATEGORIES_KEY = 'cookie_cache_categories';
+const CACHE_TIMESTAMP_KEY = 'cookie_cache_ts';
+const CACHE_MAX_AGE = 60 * 60 * 1000; // 1 hour
+
 function generateVisitorId(): string {
   return 'v_' + Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
@@ -19,6 +26,35 @@ function getVisitorId(): string {
   return visitorId;
 }
 
+function getCachedData(): { settings: CookieConsentSettings | null; banner: CookieBannerSettings | null; categories: CookieCategory[]; isFresh: boolean } {
+  try {
+    const ts = localStorage.getItem(CACHE_TIMESTAMP_KEY);
+    const isFresh = ts ? (Date.now() - parseInt(ts, 10)) < CACHE_MAX_AGE : false;
+
+    const settings = localStorage.getItem(CACHE_SETTINGS_KEY);
+    const banner = localStorage.getItem(CACHE_BANNER_KEY);
+    const categories = localStorage.getItem(CACHE_CATEGORIES_KEY);
+
+    return {
+      settings: settings ? JSON.parse(settings) : null,
+      banner: banner ? JSON.parse(banner) : null,
+      categories: categories ? JSON.parse(categories) : [],
+      isFresh,
+    };
+  } catch {
+    return { settings: null, banner: null, categories: [], isFresh: false };
+  }
+}
+
+function setCachedData(settings: CookieConsentSettings | null, banner: CookieBannerSettings | null, categories: CookieCategory[]) {
+  try {
+    if (settings) localStorage.setItem(CACHE_SETTINGS_KEY, JSON.stringify(settings));
+    if (banner) localStorage.setItem(CACHE_BANNER_KEY, JSON.stringify(banner));
+    if (categories.length) localStorage.setItem(CACHE_CATEGORIES_KEY, JSON.stringify(categories));
+    localStorage.setItem(CACHE_TIMESTAMP_KEY, Date.now().toString());
+  } catch { /* quota exceeded — ignore */ }
+}
+
 export function useCookieConsent() {
   const [settings, setSettings] = useState<CookieConsentSettings | null>(null);
   const [bannerSettings, setBannerSettings] = useState<CookieBannerSettings | null>(null);
@@ -29,55 +65,87 @@ export function useCookieConsent() {
   const [showPreferences, setShowPreferences] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load settings and check existing consent
   useEffect(() => {
-    async function loadData() {
+    // 1. Load from localStorage cache instantly
+    const cached = getCachedData();
+    if (cached.settings) setSettings(cached.settings);
+    if (cached.banner) setBannerSettings(cached.banner);
+    if (cached.categories.length) setCategories(cached.categories);
+
+    // Check existing consent
+    const storedConsents = localStorage.getItem(CONSENT_KEY);
+    const consentDate = localStorage.getItem(CONSENT_DATE_KEY);
+
+    if (storedConsents && consentDate && cached.settings) {
+      const consentTimestamp = new Date(consentDate).getTime();
+      const expirationMs = cached.settings.consent_expiration_days * 24 * 60 * 60 * 1000;
+      const isExpired = Date.now() - consentTimestamp > expirationMs;
+
+      if (!isExpired) {
+        setConsents(JSON.parse(storedConsents));
+        setHasConsented(true);
+        setShowBanner(false);
+      } else {
+        localStorage.removeItem(CONSENT_KEY);
+        localStorage.removeItem(CONSENT_DATE_KEY);
+        setShowBanner(cached.settings.is_active);
+      }
+    } else if (cached.settings) {
+      setShowBanner(cached.settings.is_active);
+    }
+
+    // If cache is fresh, skip Supabase entirely
+    if (cached.isFresh && cached.settings) {
+      setIsLoading(false);
+      return;
+    }
+
+    // 2. Background fetch from Supabase
+    async function fetchFromSupabase() {
       try {
-        // Load settings
         const [settingsRes, bannerRes, categoriesRes] = await Promise.all([
           supabase.from('cookie_consent_settings').select('*').single(),
           supabase.from('cookie_banner_settings').select('*').single(),
           supabase.from('cookie_categories').select('*').order('position'),
         ]);
 
-        if (settingsRes.data) {
-          setSettings(settingsRes.data as CookieConsentSettings);
-        }
-        
+        const newSettings = settingsRes.data as CookieConsentSettings | null;
+        let newBanner: CookieBannerSettings | null = null;
+        const newCategories = (categoriesRes.data as CookieCategory[]) || [];
+
         if (bannerRes.data) {
           const data = bannerRes.data;
-          setBannerSettings({
+          newBanner = {
             ...data,
             colors: (typeof data.colors === 'string' ? JSON.parse(data.colors) : data.colors) as CookieBannerColors,
-          } as CookieBannerSettings);
-        }
-        
-        if (categoriesRes.data) {
-          setCategories(categoriesRes.data as CookieCategory[]);
+          } as CookieBannerSettings;
         }
 
-        // Check existing consent from localStorage
-        const storedConsents = localStorage.getItem(CONSENT_KEY);
-        const consentDate = localStorage.getItem(CONSENT_DATE_KEY);
-        
-        if (storedConsents && consentDate && settingsRes.data) {
-          const consentTimestamp = new Date(consentDate).getTime();
-          const expirationMs = (settingsRes.data as CookieConsentSettings).consent_expiration_days * 24 * 60 * 60 * 1000;
-          const isExpired = Date.now() - consentTimestamp > expirationMs;
-          
-          if (!isExpired) {
-            setConsents(JSON.parse(storedConsents));
-            setHasConsented(true);
-            setShowBanner(false);
+        if (newSettings) setSettings(newSettings);
+        if (newBanner) setBannerSettings(newBanner);
+        if (newCategories.length) setCategories(newCategories);
+
+        // Update cache
+        setCachedData(newSettings, newBanner, newCategories);
+
+        // Re-evaluate consent with fresh settings (only if no cached settings were used)
+        if (!cached.settings && newSettings) {
+          if (storedConsents && consentDate) {
+            const consentTimestamp = new Date(consentDate).getTime();
+            const expirationMs = newSettings.consent_expiration_days * 24 * 60 * 60 * 1000;
+            const isExpired = Date.now() - consentTimestamp > expirationMs;
+            if (!isExpired) {
+              setConsents(JSON.parse(storedConsents));
+              setHasConsented(true);
+              setShowBanner(false);
+            } else {
+              localStorage.removeItem(CONSENT_KEY);
+              localStorage.removeItem(CONSENT_DATE_KEY);
+              setShowBanner(newSettings.is_active);
+            }
           } else {
-            // Consent expired
-            localStorage.removeItem(CONSENT_KEY);
-            localStorage.removeItem(CONSENT_DATE_KEY);
-            setShowBanner(settingsRes.data.is_active);
+            setShowBanner(newSettings.is_active);
           }
-        } else {
-          // No consent yet
-          setShowBanner(settingsRes.data?.is_active ?? false);
         }
       } catch (error) {
         console.error('Error loading cookie consent settings:', error);
@@ -86,23 +154,20 @@ export function useCookieConsent() {
       }
     }
 
-    loadData();
+    fetchFromSupabase();
   }, []);
 
   const saveConsent = useCallback(async (newConsents: Record<string, boolean>) => {
     const visitorId = getVisitorId();
     const now = new Date().toISOString();
-    const expiresAt = settings 
+    const expiresAt = settings
       ? new Date(Date.now() + settings.consent_expiration_days * 24 * 60 * 60 * 1000).toISOString()
       : null;
 
-    // Save to localStorage
     localStorage.setItem(CONSENT_KEY, JSON.stringify(newConsents));
     localStorage.setItem(CONSENT_DATE_KEY, now);
 
-    // Save to database - UPSERT: update if exists, insert if not
     try {
-      // First check if consent record exists for this visitor
       const { data: existingConsent } = await supabase
         .from('user_cookie_consents')
         .select('id')
@@ -110,7 +175,6 @@ export function useCookieConsent() {
         .maybeSingle();
 
       if (existingConsent) {
-        // UPDATE existing record
         await supabase
           .from('user_cookie_consents')
           .update({
@@ -121,7 +185,6 @@ export function useCookieConsent() {
           })
           .eq('visitor_id', visitorId);
       } else {
-        // INSERT new record
         await supabase.from('user_cookie_consents').insert({
           visitor_id: visitorId,
           consents: newConsents,
@@ -139,7 +202,6 @@ export function useCookieConsent() {
     setShowBanner(false);
     setShowPreferences(false);
 
-    // Reload page if setting is enabled
     if (settings?.reload_on_consent) {
       window.location.reload();
     }
@@ -147,62 +209,34 @@ export function useCookieConsent() {
 
   const acceptAll = useCallback(() => {
     const allConsents: Record<string, boolean> = {};
-    categories.forEach(cat => {
-      allConsents[cat.id] = true;
-    });
+    categories.forEach(cat => { allConsents[cat.id] = true; });
     saveConsent(allConsents);
   }, [categories, saveConsent]);
 
   const rejectAll = useCallback(() => {
     const necessaryOnly: Record<string, boolean> = {};
-    categories.forEach(cat => {
-      necessaryOnly[cat.id] = cat.is_necessary;
-    });
+    categories.forEach(cat => { necessaryOnly[cat.id] = cat.is_necessary; });
     saveConsent(necessaryOnly);
   }, [categories, saveConsent]);
 
   const savePreferences = useCallback((selectedConsents: Record<string, boolean>) => {
-    // Ensure necessary cookies are always enabled
     const finalConsents: Record<string, boolean> = { ...selectedConsents };
-    categories.forEach(cat => {
-      if (cat.is_necessary) {
-        finalConsents[cat.id] = true;
-      }
-    });
+    categories.forEach(cat => { if (cat.is_necessary) finalConsents[cat.id] = true; });
     saveConsent(finalConsents);
   }, [categories, saveConsent]);
 
-  const openPreferences = useCallback(() => {
-    setShowPreferences(true);
-  }, []);
-
-  const closePreferences = useCallback(() => {
-    setShowPreferences(false);
-  }, []);
-
-  const reopenBanner = useCallback(() => {
-    setShowBanner(true);
-  }, []);
+  const openPreferences = useCallback(() => { setShowPreferences(true); }, []);
+  const closePreferences = useCallback(() => { setShowPreferences(false); }, []);
+  const reopenBanner = useCallback(() => { setShowBanner(true); }, []);
 
   const hasConsentFor = useCallback((categoryId: string): boolean => {
     return consents[categoryId] ?? false;
   }, [consents]);
 
   return {
-    settings,
-    bannerSettings,
-    categories,
-    consents,
-    hasConsented,
-    showBanner,
-    showPreferences,
-    isLoading,
-    acceptAll,
-    rejectAll,
-    savePreferences,
-    openPreferences,
-    closePreferences,
-    reopenBanner,
-    hasConsentFor,
+    settings, bannerSettings, categories, consents, hasConsented,
+    showBanner, showPreferences, isLoading,
+    acceptAll, rejectAll, savePreferences,
+    openPreferences, closePreferences, reopenBanner, hasConsentFor,
   };
 }
