@@ -1,131 +1,111 @@
 
+# Polaczenie tlumaczen dynamicznych z widokami uzytkownika + automatyzacja
 
-# Modul tlumaczen tresci dynamicznych (Szkolenia, Zasoby, Zdrowa Wiedza)
+## Co jest gotowe
 
-## Problem
+- 4 tabele tlumaczen w bazie danych (training_module/lesson_translations, knowledge_resource_translations, healthy_knowledge_translations)
+- 3 hooki frontendowe (useTrainingTranslations, useKnowledgeTranslations, useHealthyKnowledgeTranslations)
+- Edge function `background-translate` obsluguje job_type: training, knowledge, healthy_knowledge
+- Panel admin DynamicContentTranslation z reczna edycja i przyciskiem "Tlumacz AI"
 
-Aktualnie system tlumaczen obsluguje:
-- **i18n_translations** — statyczne klucze UI (przyciski, etykiety)
-- **cms_item_translations / cms_section_translations** — tresci CMS (sekcje stron)
+## Co brakuje
 
-Brakuje tlumaczen dla tresci dynamicznych dodawanych przez admina:
-- **Szkolenia** — tytuły modulow ("Biznesowe", "Podstawy zdrowia") i lekcji
-- **Baza wiedzy** — tytuły zasobow ("Relacja omega-342"), opisy
-- **Zdrowa Wiedza** — tytuły, opisy materialow
+1. **Hooki NIE SA podlaczone** do stron uzytkownika — Training.tsx, TrainingModule.tsx, KnowledgeCenter.tsx, HealthyKnowledge.tsx, HealthyKnowledgePlayer.tsx nie uzywaja tlumaczen
+2. **Brak automatycznego tlumaczenia** przy dodawaniu nowej tresci (np. nowy modul szkoleniowy)
+3. **Brak automatycznego tlumaczenia** przy dodaniu nowego jezyka globalnego
 
-## Rozwiazanie
+## Plan implementacji
 
-### 1. Nowe tabele w bazie danych
+### 1. Podlaczenie hookow do stron uzytkownika
 
-Trzy nowe tabele tlumaczen, wzorowane na istniejacym `cms_item_translations`:
+Kazda strona zostanie zmodyfikowana aby uzywac odpowiedniego hooka tlumaczen z aktualnym jezykiem interfejsu:
 
-**`training_module_translations`**
+**Training.tsx** — po pobraniu modulow, przepuscic je przez useTrainingTranslations (wymaga osobnego hooka bo Training.tsx nie pobiera lekcji, tylko moduly z przeliczonymi statystykami)
 
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | UUID PK | |
-| module_id | UUID FK -> training_modules | |
-| language_code | TEXT FK -> i18n_languages | |
-| title | TEXT | Przetlumaczony tytul modulu |
-| description | TEXT | Przetlumaczony opis |
-| created_at / updated_at | TIMESTAMPTZ | |
-| UNIQUE | (module_id, language_code) | |
+**TrainingModule.tsx** — po pobraniu modulu i lekcji, uzyc useTrainingTranslations do przetlumaczenia tytulu modulu, tytulow i tresci lekcji
 
-**`training_lesson_translations`**
+**KnowledgeCenter.tsx** — juz istnieje useKnowledgeTranslations — podlaczyc go po fetchResources
 
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | UUID PK | |
-| lesson_id | UUID FK -> training_lessons | |
-| language_code | TEXT FK -> i18n_languages | |
-| title | TEXT | Przetlumaczony tytul lekcji |
-| content | TEXT | Przetlumaczona tresc lekcji |
-| media_alt_text | TEXT | Przetlumaczony alt text |
-| created_at / updated_at | TIMESTAMPTZ | |
-| UNIQUE | (lesson_id, language_code) | |
+**HealthyKnowledge.tsx** — uzyc useHealthyKnowledgeTranslations na pobranych materialach
 
-**`knowledge_resource_translations`**
+**HealthyKnowledgePlayer.tsx** — uzyc useHealthyKnowledgeTranslations dla pojedynczego materialu
 
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | UUID PK | |
-| resource_id | UUID FK -> knowledge_resources | |
-| language_code | TEXT FK -> i18n_languages | |
-| title | TEXT | Przetlumaczony tytul |
-| description | TEXT | Przetlumaczony opis |
-| context_of_use | TEXT | Przetlumaczony kontekst |
-| created_at / updated_at | TIMESTAMPTZ | |
-| UNIQUE | (resource_id, language_code) | |
+### 2. Nowa edge function: auto-translate-content
 
-**`healthy_knowledge_translations`**
+Nowa funkcja ktora automatycznie uruchamia tlumaczenie na WSZYSTKIE aktywne jezyki (poza pl) gdy:
+- Admin doda nowy modul szkoleniowy, lekcje, zasob wiedzy, lub material Zdrowej Wiedzy
+- Admin doda nowy jezyk globalny
 
-| Kolumna | Typ | Opis |
-|---------|-----|------|
-| id | UUID PK | |
-| item_id | UUID FK -> healthy_knowledge | |
-| language_code | TEXT FK -> i18n_languages | |
-| title | TEXT | |
-| description | TEXT | |
-| text_content | TEXT | Przetlumaczona tresc tekstowa |
-| created_at / updated_at | TIMESTAMPTZ | |
-| UNIQUE | (item_id, language_code) | |
+Logika:
+1. Przyjmuje parametry: `type` (training_module, training_lesson, knowledge_resource, healthy_knowledge, new_language), `item_id` (opcjonalnie), `language_code` (opcjonalnie)
+2. Dla nowej tresci: pobiera wszystkie aktywne jezyki (poza pl), tworzy translation_jobs dla kazdego jezyka
+3. Dla nowego jezyka: tworzy 4 translation_jobs (training, knowledge, healthy_knowledge, i18n) dla tego jezyka
 
-Kazda tabela: RLS wlaczone, admini pelny dostep, wszyscy SELECT.
+### 3. Wyzwalacze w panelach administracyjnych
 
-### 2. Hooki do pobierania tlumaczen (frontend)
+Dodanie wywolania `auto-translate-content` w istniejacych komponentach admina:
+- Po zapisaniu nowego modulu szkoleniowego
+- Po zapisaniu nowej lekcji
+- Po dodaniu nowego zasobu wiedzy
+- Po dodaniu nowego materialu Zdrowej Wiedzy
+- Po dodaniu nowego jezyka w TranslationsManagement
 
-Nowe hooki wzorowane na istniejacym `useCMSTranslations`:
+Wywolanie bedzie asynchroniczne (fire-and-forget) z toastem informujacym "Automatyczne tlumaczenie w tle rozpoczete".
 
-- **`useTrainingTranslations(modules, lessons, languageCode)`** — zwraca przetlumaczone moduly i lekcje
-- **`useKnowledgeTranslations(resources, languageCode)`** — zwraca przetlumaczone zasoby
-- **`useHealthyKnowledgeTranslations(items, languageCode)`** — zwraca przetlumaczone materialy
+### 4. Obsluga nowego jezyka
 
-Kazdy hook: pobiera tlumaczenia z bazy, merguje z oryginalem, zwraca oryginaly jesli brak tlumaczenia.
+Gdy admin doda nowy jezyk w TranslationsManagement:
+- Automatycznie uruchomia sie tlumaczenie CALEJ tresci (i18n + CMS + training + knowledge + healthy_knowledge) na nowy jezyk
+- Uzytkownik zobaczy toast z informacja o rozpoczeciu procesu
 
-### 3. Nowa zakladka w panelu tlumaczen
+## Szczegoly techniczne
 
-W `TranslationsManagement.tsx` — nowa zakladka **"Tresci dynamiczne"** obok istniejacych "Jezyki", "Tlumaczenia", "Tresci CMS", "JSON":
+### Pliki do zmiany
 
-- Podsekcje: Szkolenia | Baza wiedzy | Zdrowa Wiedza
-- Kazda podsekcja: lista elementow z polami do edycji tlumaczen per jezyk
-- Przycisk "Tlumacz AI" do automatycznego tlumaczenia (analogicznie do CMS)
-- Pasek postepu tlumaczenia z wykorzystaniem istniejacego `useTranslationJobs`
+| Plik | Zmiana |
+|------|--------|
+| `src/pages/Training.tsx` | Import i uzycie useTrainingTranslations (tylko moduly) |
+| `src/pages/TrainingModule.tsx` | Import i uzycie useTrainingTranslations (modul + lekcje) |
+| `src/pages/KnowledgeCenter.tsx` | Import i uzycie useKnowledgeTranslations |
+| `src/pages/HealthyKnowledge.tsx` | Import i uzycie useHealthyKnowledgeTranslations |
+| `src/pages/HealthyKnowledgePlayer.tsx` | Import i uzycie useHealthyKnowledgeTranslations |
+| `src/components/admin/TranslationsManagement.tsx` | Wywolanie auto-translate po dodaniu jezyka |
 
-### 4. Rozszerzenie edge function `background-translate`
+### Pliki do utworzenia
 
-Dodanie obslugi nowych `job_type` wartosci:
-- `training` — tlumaczenie modulow i lekcji szkoleniowych
-- `knowledge` — tlumaczenie zasobow bazy wiedzy
-- `healthy_knowledge` — tlumaczenie Zdrowej Wiedzy
+| Plik | Opis |
+|------|------|
+| `supabase/functions/auto-translate-content/index.ts` | Edge function automatycznego tlumaczenia |
 
-Wykorzystanie istniejacego wzorca: pobranie elementow z bazy, wyslanie do AI w batchach, zapis wynikow do odpowiedniej tabeli tlumaczen.
+### Aktualizacja config.toml
 
-### 5. Integracja z widokami uzytkownika
+Dodanie wpisu dla nowej edge function:
+```text
+[functions.auto-translate-content]
+verify_jwt = false
+```
 
-Podlaczenie hookow tlumaczen w komponentach wyswietlajacych te tresci:
-- Strona szkolen — `useTrainingTranslations` przed renderowaniem modulow/lekcji
-- Baza wiedzy — `useKnowledgeTranslations` przed renderowaniem zasobow
-- Zdrowa Wiedza — `useHealthyKnowledgeTranslations` przed renderowaniem materialow
+### Schemat edge function auto-translate-content
 
-## Pliki do utworzenia / zmiany
+Przyjmuje body:
+```text
+{
+  "type": "training_module" | "training_lesson" | "knowledge_resource" | "healthy_knowledge" | "new_language",
+  "item_id": "uuid" (opcjonalnie, dla nowej tresci),
+  "language_code": "en" (opcjonalnie, dla nowego jezyka)
+}
+```
 
-| Plik | Akcja |
-|------|-------|
-| Migracja SQL | Utworzenie 4 nowych tabel z RLS |
-| `src/hooks/useTrainingTranslations.ts` | Nowy hook |
-| `src/hooks/useKnowledgeTranslations.ts` | Nowy hook |
-| `src/hooks/useHealthyKnowledgeTranslations.ts` | Nowy hook |
-| `src/components/admin/DynamicContentTranslation.tsx` | Nowy komponent — zakladka tlumaczen dynamicznych |
-| `src/components/admin/TranslationsManagement.tsx` | Dodanie nowej zakladki |
-| `supabase/functions/background-translate/index.ts` | Obsluga nowych job_type |
-| Komponenty szkolen / wiedzy | Integracja hookow tlumaczen |
+Dla `type = "new_language"`:
+- Tworzy 5 translation_jobs: i18n, cms, training, knowledge, healthy_knowledge
+- Kazdy job ma source_language=pl, target_language=nowy jezyk, mode=missing
 
-## Kolejnosc implementacji
+Dla pozostalych typow:
+- Pobiera wszystkie aktywne jezyki poza pl
+- Dla kazdego jezyka wywoluje background-translate z odpowiednim job_type
 
-1. Migracja bazy danych (4 tabele)
-2. Hooki tlumaczen (3 pliki)
-3. Komponent admin DynamicContentTranslation
-4. Zakladka w TranslationsManagement
-5. Rozszerzenie background-translate
-6. Integracja z widokami uzytkownika
+### Wazne: Kompatybilnosc hookow z typami stron
 
+Training.tsx definiuje wlasny interface `TrainingModule` z dodatkowymi polami (lessons_count, completed_lessons, total_time_minutes). Hook useTrainingTranslations wymaga typu z `@/types/training`. Rozwiazanie: stworzyc wrapper ktory tlumaczy tylko pola title/description na podstawie id, bez wymogu pelnego typu.
+
+Alternatywnie: uzyc osobnego prostego useEffect ktory pobiera tlumaczenia modulow i podmienia title/description na listacie modulow. To bedzie prostsze niz zmiana typow.
