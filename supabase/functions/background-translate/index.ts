@@ -320,7 +320,8 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   const { data: existingItemTranslations } = await supabase
     .from('cms_item_translations')
     .select('item_id')
-    .eq('language_code', target_language);
+    .eq('language_code', target_language)
+    .not('title', 'is', null);
 
   const existingItemIds = new Set(existingItemTranslations?.map(t => t.item_id) || []);
 
@@ -355,7 +356,8 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   const { data: existingSectionTranslations } = await supabase
     .from('cms_section_translations')
     .select('section_id')
-    .eq('language_code', target_language);
+    .eq('language_code', target_language)
+    .not('title', 'is', null);
 
   const existingSectionIds = new Set(existingSectionTranslations?.map(t => t.section_id) || []);
 
@@ -861,8 +863,8 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
   const { data: lessons } = await supabase.from('training_lessons').select('id, title, content, media_alt_text').eq('is_active', true);
 
   // Get existing translations
-  const { data: existModT } = await supabase.from('training_module_translations').select('module_id').eq('language_code', target_language);
-  const { data: existLessT } = await supabase.from('training_lesson_translations').select('lesson_id').eq('language_code', target_language);
+  const { data: existModT } = await supabase.from('training_module_translations').select('module_id').eq('language_code', target_language).not('title', 'is', null);
+  const { data: existLessT } = await supabase.from('training_lesson_translations').select('lesson_id').eq('language_code', target_language).not('title', 'is', null);
 
   const existModIds = new Set(existModT?.map((t: any) => t.module_id) || []);
   const existLessIds = new Set(existLessT?.map((t: any) => t.lesson_id) || []);
@@ -921,7 +923,7 @@ async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: strin
   const { id: jobId, source_language, target_language } = job;
 
   const { data: resources } = await supabase.from('knowledge_resources').select('id, title, description, context_of_use');
-  const { data: existT } = await supabase.from('knowledge_resource_translations').select('resource_id').eq('language_code', target_language);
+  const { data: existT } = await supabase.from('knowledge_resource_translations').select('resource_id').eq('language_code', target_language).not('title', 'is', null);
   const existIds = new Set(existT?.map((t: any) => t.resource_id) || []);
   const toTranslate = job.mode === 'all' ? (resources || []) : (resources || []).filter((r: any) => !existIds.has(r.id));
 
@@ -958,7 +960,7 @@ async function processHealthyKnowledgeJob(supabase: any, job: any, lovableApiKey
   const { id: jobId, source_language, target_language } = job;
 
   const { data: items } = await supabase.from('healthy_knowledge').select('id, title, description, text_content').eq('is_active', true);
-  const { data: existT } = await supabase.from('healthy_knowledge_translations').select('item_id').eq('language_code', target_language);
+  const { data: existT } = await supabase.from('healthy_knowledge_translations').select('item_id').eq('language_code', target_language).not('title', 'is', null);
   const existIds = new Set(existT?.map((t: any) => t.item_id) || []);
   const toTranslate = job.mode === 'all' ? (items || []) : (items || []).filter((i: any) => !existIds.has(i.id));
 
