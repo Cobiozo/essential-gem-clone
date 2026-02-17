@@ -1,59 +1,83 @@
 
-# Zamiana hardcoded polskich tekstow w menu bocznym i tooltipach
+
+# Naprawa wyswietlania kluczy tlumaczen zamiast tekstu
 
 ## Problem
 
-Menu boczne (`DashboardSidebar.tsx`) zawiera wiele hardcoded polskich tekstow:
-- **Etykiety menu**: "Zdrowa Wiedza", "Eventy", "Spotkanie indywidualne", "Kalkulator", "Dla Influenserow", "Dla Specjalistow", "Ustaw spotkanie trojstronne", "Ustaw konsultacje dla partnerow"
-- **Tooltipy**: Caly obiekt `menuTooltipDescriptions` (17 opisow) jest po polsku bez uzycia `t()`
-- Wiekszość pozycji menu juz uzywa kluczy `t()` (np. `dashboard.menu.dashboard`), ale kilka zostalo pominiete
+Funkcja `t()` zwraca sam klucz (np. `"dashboard.menu.healthyKnowledge"`) gdy tlumaczenie nie istnieje w bazie. Poniewaz jest to truthy string, wzorzec `t('key') || 'fallback'` **nigdy nie uzywa fallbacka** - zamiast tego wyswietla surowy klucz.
 
-## Zakres zmian
+Klucze takie jak `dashboard.menu.healthyKnowledge`, `tooltip.*`, `common.*`, `cache.*` **nie istnieja** w tabeli `i18n_translations`.
 
-### 1. DashboardSidebar.tsx - etykiety menu (labelKey)
+## Rozwiazanie
 
-| Obecna wartosc PL | Nowy klucz t() |
-|-------------------|----------------|
-| `'Zdrowa Wiedza'` | `'dashboard.menu.healthyKnowledge'` |
-| `'Eventy'` | `'dashboard.menu.paidEvents'` |
-| `'Spotkanie indywidualne'` | `'dashboard.menu.individualMeeting'` |
-| `'Ustaw spotkanie trojstronne'` | `'dashboard.menu.setupTripartiteMeeting'` |
-| `'Ustaw konsultacje dla partnerow'` | `'dashboard.menu.setupPartnerConsultation'` |
-| `'Kalkulator'` | `'dashboard.menu.calculator'` |
-| `'Dla Influenserow'` | `'dashboard.menu.forInfluencers'` |
-| `'Dla Specjalistow'` | `'dashboard.menu.forSpecialists'` |
+Dwuetapowe podejscie:
 
-### 2. DashboardSidebar.tsx - tooltipDescriptions
+### 1. Naprawic `t()` w LanguageContext - dodac polskie fallbacki jako mape
 
-Zamienic statyczny obiekt `menuTooltipDescriptions` na funkcje uzywajaca `t()`:
+Zamiast zwracac klucz gdy brak tlumaczenia, system powinien zwracac polski tekst z wbudowanej mapy fallbackow. To rozwiaze problem globalnie.
 
-```text
-Przed: dashboard: 'Twoja strona glowna z podgladem...'
-Po:    dashboard: t('tooltip.dashboard') || 'Twoja strona glowna z podgladem...'
+Ale to duza zmiana. Prostsze rozwiazanie:
+
+### 2. Zamienic wzorzec `||` na helper ktory sprawdza czy t() zwrocil klucz
+
+Dodac globalna funkcje pomocnicza `tf()` (translate with fallback) ktora:
+- Wywoluje `t(key)`
+- Sprawdza czy wynik === key (czyli brak tlumaczenia)
+- Jesli tak, zwraca podany fallback
+
+```typescript
+// W LanguageContext.tsx - dodac do kontekstu
+const tf = useCallback((key: string, fallback: string): string => {
+  const translated = t(key);
+  return translated !== key ? translated : fallback;
+}, [t]);
 ```
 
-Poniewaz obiekt jest zdefiniowany poza komponentem, trzeba go przeniesc do wnetrza komponentu (zeby miec dostep do `t()`) lub zamienic na funkcje.
+### 3. Zastosowac we wszystkich zmienionych plikach
 
-### 3. Dodatkowe pliki z hardcoded polskimi tekstami
+**DashboardSidebar.tsx** - menu labelKeys:
+Problem: `t('dashboard.menu.healthyKnowledge')` zwraca klucz.
+Rozwiazanie: Wrocic do hardcoded PL w `labelKey` i dodac mapowanie klucz->polski w osobnym obiekcie, lub uzyc `tf()`.
 
-| Plik | Tekst PL | Klucz t() |
-|------|----------|-----------|
-| `CacheManagementWidget.tsx` | "Anuluj" | `t('common.cancel')` |
-| `CacheManagementDialog.tsx` | "Anuluj", "Potwierdz", "Tak, wyczysc wszystko" | `t('common.cancel')`, `t('common.confirm')`, `t('common.clearAll')` |
-| `loading-spinner.tsx` | "Ladowanie..." (domyslny text) | Parametryczne - bez zmian lub `t('common.loading')` |
-| `Disclaimer.tsx` (kalkulator) | Caly paragraf po polsku | `t('calculator.disclaimer')` |
+Najlepsze rozwiazanie dla sidebar: **Wrocic do polskich stringow w labelKey**, ale dodac mapowanie na klucze i18n w renderowaniu:
 
-## Podejscie techniczne
+```typescript
+// Mapa polskich fallbackow dla kluczy menu
+const menuFallbacks: Record<string, string> = {
+  'dashboard.menu.healthyKnowledge': 'Zdrowa Wiedza',
+  'dashboard.menu.paidEvents': 'Eventy',
+  'dashboard.menu.individualMeeting': 'Spotkanie indywidualne',
+  'dashboard.menu.setupTripartiteMeeting': 'Ustaw spotkanie trójstronne',
+  'dashboard.menu.setupPartnerConsultation': 'Ustaw konsultacje dla partnerów',
+  'dashboard.menu.calculator': 'Kalkulator',
+  'dashboard.menu.forInfluencers': 'Dla Influenserów',
+  'dashboard.menu.forSpecialists': 'Dla Specjalistów',
+  // ... inne klucze
+};
 
-- `labelKey` w menuItems: zamiana hardcoded stringow na klucze `t()` - system juz automatycznie wywoluje `t(item.labelKey)` przy renderowaniu, wiec wystarczy uzyc kluczy
-- `menuTooltipDescriptions`: przeniesienie do wnetrza komponentu i owijka `t()` z fallbackiem
-- Fallbacki `|| 'tekst PL'` zapewnia dzialanie nawet bez kluczy w bazie
+// Renderowanie:
+<span>{tf(item.labelKey, menuFallbacks[item.labelKey] || item.labelKey)}</span>
+```
+
+**Tooltipy** - analogicznie, juz maja fallbacki ale wzorzec `||` nie dziala. Zamienic na `tf()`.
+
+**CacheManagementDialog.tsx i CacheManagementWidget.tsx** - analogicznie zamienic `t('cache.xxx') || 'fallback'` na `tf('cache.xxx', 'fallback')`.
+
+**Disclaimer.tsx** - zamienic `t('calculator.disclaimer') || '...'` na `tf('calculator.disclaimer', '...')`.
 
 ## Pliki do zmiany
 
-| Plik | Zakres zmian |
-|------|-------------|
-| `src/components/dashboard/DashboardSidebar.tsx` | 8 labelKey + 17 tooltipow -> t() |
-| `src/components/dashboard/CacheManagementDialog.tsx` | ~6 hardcoded stringow -> t() |
-| `src/components/dashboard/widgets/CacheManagementWidget.tsx` | 1 hardcoded string -> t() |
-| `src/components/specialist-calculator/Disclaimer.tsx` | 1 paragraf -> t() |
+| Plik | Zmiana |
+|------|--------|
+| `src/contexts/LanguageContext.tsx` | Dodac funkcje `tf()` do kontekstu |
+| `src/components/dashboard/DashboardSidebar.tsx` | Uzyc `tf()` dla labelKeys i tooltipow |
+| `src/components/dashboard/CacheManagementDialog.tsx` | Zamienic `t() \|\|` na `tf()` |
+| `src/components/dashboard/widgets/CacheManagementWidget.tsx` | Zamienic `t() \|\|` na `tf()` |
+| `src/components/specialist-calculator/Disclaimer.tsx` | Zamienic `t() \|\|` na `tf()` |
+| `src/components/dashboard/widgets/DashboardFooterSection.tsx` | Helper `ft()` juz poprawnie sprawdza `!== key`, OK |
+
+## Wazne
+
+Komponent `DashboardFooterSection.tsx` juz ma poprawna logike (helper `ft()` sprawdza `translated !== translationKey`), wiec nie wymaga zmian.
+
+Glowny problem to wzorzec `t('key') || 'fallback'` - klucz jest truthy stringiem, wiec `||` nigdy nie odpala fallbacka. Funkcja `tf()` to naprawi globalnie.
