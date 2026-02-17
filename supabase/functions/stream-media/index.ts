@@ -86,47 +86,19 @@ Deno.serve(async (req) => {
       .then(() => {})
 
     const realUrl = tokenRecord.real_url
-    const contentType = getContentType(realUrl)
 
-    // Support Range requests for video seeking/streaming
-    const rangeHeader = req.headers.get('Range')
-    const fetchHeaders: Record<string, string> = {}
-    if (rangeHeader) {
-      fetchHeaders['Range'] = rangeHeader
-    }
+    // Redirect 302 to the real URL — browser fetches directly from VPS
+    // This avoids Edge Function timeout limits on large video files
+    console.log(`Redirecting to media for token ${mediaToken}`)
 
-    // Fetch the actual media file
-    const mediaResponse = await fetch(realUrl, {
-      headers: fetchHeaders
-    })
-
-    if (!mediaResponse.ok && mediaResponse.status !== 206) {
-      console.error(`Failed to fetch media: ${mediaResponse.status} from ${realUrl}`)
-      return new Response('Failed to fetch media', {
-        status: 502,
-        headers: corsHeaders
-      })
-    }
-
-    // Build response headers
-    const responseHeaders: Record<string, string> = {
-      ...corsHeaders,
-      'Content-Type': contentType,
-      'Cache-Control': 'no-store, no-cache, must-revalidate',
-      'Pragma': 'no-cache',
-      'Accept-Ranges': 'bytes',
-    }
-
-    // Forward content-range and content-length for Range responses
-    const contentRange = mediaResponse.headers.get('Content-Range')
-    const contentLength = mediaResponse.headers.get('Content-Length')
-    if (contentRange) responseHeaders['Content-Range'] = contentRange
-    if (contentLength) responseHeaders['Content-Length'] = contentLength
-
-    // Stream the response body through
-    return new Response(mediaResponse.body, {
-      status: mediaResponse.status, // 200 or 206
-      headers: responseHeaders
+    return new Response(null, {
+      status: 302,
+      headers: {
+        ...corsHeaders,
+        'Location': realUrl,
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Content-Disposition': 'inline',
+      }
     })
 
   } catch (error) {
