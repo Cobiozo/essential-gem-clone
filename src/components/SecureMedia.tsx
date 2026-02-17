@@ -762,7 +762,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             setBufferedRanges(getBufferedRanges(video));
             
             // Disable initial buffering when buffer is ready
-            if (isInitialBuffering && (bufferedAheadValue >= targetBuffer || progress >= 100)) {
+            if (isInitialBuffering && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70)) {
               console.log('[SecureMedia] Initial buffer complete via canPlay, Play button enabled');
               setIsInitialBuffering(false);
             }
@@ -807,7 +807,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setBufferedRanges(getBufferedRanges(video));
         
         // NEW: Check initial buffering - unlock Play button when buffer is ready
-        if (isInitialBuffering && (bufferedAheadValue >= targetBuffer || progress >= 100)) {
+        if (isInitialBuffering && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70)) {
           console.log('[SecureMedia] Initial buffer ready (' + bufferedAheadValue.toFixed(1) + 's), Play button enabled');
           setIsInitialBuffering(false);
         }
@@ -1509,7 +1509,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             networkQuality={networkQuality}
             // Admin diagnostics props
             showDiagnostics={isAdmin}
-            videoSrc={signedUrl}
+            videoSrc={mediaTokenRef.current ? `[protected] token:${mediaTokenRef.current.slice(0,8)}...` : undefined}
             retryCount={retryCount}
             smartBufferingActive={isSmartBuffering}
             bufferedAheadSeconds={bufferedAhead}
