@@ -161,12 +161,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if ((isPageHiddenRef.current || globalEditingStateRef.current) && event !== 'SIGNED_OUT') {
           // Cicho zaktualizuj sesję bez resetowania UI
           setSession(newSession);
-          setUser(newSession?.user ?? null);
+          setUser(prev => {
+            const newUser = newSession?.user ?? null;
+            if (prev?.id === newUser?.id) return prev;
+            return newUser;
+          });
           return;
         }
         
         setSession(newSession);
-        setUser(newSession?.user ?? null);
+        setUser(prev => {
+          const newUser = newSession?.user ?? null;
+          if (prev?.id === newUser?.id) return prev;
+          return newUser;
+        });
         
         // Increment login trigger on SIGNED_IN to reset banner states
         // Tylko prawdziwe logowanie (przez formularz) - nie refresh/tab switch
@@ -187,8 +195,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Jeśli profil już istnieje dla tego użytkownika - pomiń refetch
           const profileAlreadyLoaded = profile && profile.user_id === newSession.user.id;
           
-          if (event === 'TOKEN_REFRESHED' || profileAlreadyLoaded) {
-            // Token odświeżony lub profil już załadowany - zachowaj stan UI
+          if (event === 'TOKEN_REFRESHED') {
+            // Token odświeżony - NIGDY nie resetuj UI
+            return;
+          }
+          if (profileAlreadyLoaded) {
             return;
           }
           
