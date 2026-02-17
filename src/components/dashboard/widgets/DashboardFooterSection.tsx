@@ -35,8 +35,15 @@ const DynamicIcon = ({ name, className }: { name: string; className?: string }) 
 };
 
 export const DashboardFooterSection: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [settings, setSettings] = useState<DashboardFooterSettings | null>(null);
+
+  // Helper: for PL use DB settings (admin-editable), for other langs use i18n translations
+  const ft = (settingsValue: string | undefined, translationKey: string) => {
+    if (language === 'pl') return settingsValue || t(translationKey);
+    const translated = t(translationKey);
+    return translated !== translationKey ? translated : (settingsValue || translated);
+  };
 
   const handleOpenCookieSettings = () => {
     window.dispatchEvent(new CustomEvent('openCookieSettings'));
@@ -68,18 +75,18 @@ export const DashboardFooterSection: React.FC = () => {
   const teamFeatures = [
     { 
       icon: settings?.feature_1_icon || 'Heart', 
-      title: settings?.feature_1_title || t('footer.passion'), 
-      description: settings?.feature_1_description || t('footer.passionDescription') 
+      title: ft(settings?.feature_1_title, 'footer.passion'), 
+      description: ft(settings?.feature_1_description, 'footer.passionDescription') 
     },
     { 
       icon: settings?.feature_2_icon || 'Users', 
-      title: settings?.feature_2_title || t('footer.community'), 
-      description: settings?.feature_2_description || t('footer.communityDescription') 
+      title: ft(settings?.feature_2_title, 'footer.community'), 
+      description: ft(settings?.feature_2_description, 'footer.communityDescription') 
     },
     { 
       icon: settings?.feature_3_icon || 'Check', 
-      title: settings?.feature_3_title || t('footer.missionTitle'), 
-      description: settings?.feature_3_description || t('footer.missionDescription') 
+      title: ft(settings?.feature_3_title, 'footer.missionTitle'), 
+      description: ft(settings?.feature_3_description, 'footer.missionDescription') 
     },
   ];
 
@@ -88,20 +95,20 @@ export const DashboardFooterSection: React.FC = () => {
       {/* Cytat - misja */}
       <section className="text-center py-8">
         <h2 className="text-3xl font-bold italic mb-4 text-foreground">
-          "{settings?.quote_text || t('footer.quote')}"
+          "{ft(settings?.quote_text, 'footer.quote')}"
         </h2>
         <p className="text-muted-foreground max-w-3xl mx-auto text-sm leading-relaxed">
-          "{settings?.mission_statement || t('footer.missionStatement')}"
+          "{ft(settings?.mission_statement, 'footer.missionStatement')}"
         </p>
       </section>
 
       {/* Zespół Pure Life */}
       <section className="text-center py-8 bg-muted/30 rounded-lg">
         <h3 className="text-2xl font-bold mb-2 text-foreground">
-          {settings?.team_title || t('footer.teamTitle')}
+          {ft(settings?.team_title, 'footer.teamTitle')}
         </h3>
         <p className="text-muted-foreground text-sm max-w-2xl mx-auto mb-8">
-          {settings?.team_description || t('footer.teamDescription')}
+          {ft(settings?.team_description, 'footer.teamDescription')}
         </p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-4">
           {teamFeatures.map((feature, index) => (
@@ -119,20 +126,20 @@ export const DashboardFooterSection: React.FC = () => {
       {/* Kontakt */}
       <section className="text-center py-8">
         <h3 className="text-2xl font-bold uppercase tracking-wide mb-4 text-foreground">
-          {settings?.contact_title || t('footer.contact')}
+          {ft(settings?.contact_title, 'footer.contact')}
         </h3>
         <p className="text-muted-foreground text-sm mb-4">
-          {settings?.contact_description || t('footer.contactDescription')}
+          {ft(settings?.contact_description, 'footer.contactDescription')}
         </p>
         <p className="text-xs text-muted-foreground mb-6 max-w-md mx-auto">
-          {settings?.contact_reminder || t('footer.contactReminder')}
+          {ft(settings?.contact_reminder, 'footer.contactReminder')}
         </p>
         <div className="flex flex-col items-center">
           <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center mb-3">
             <DynamicIcon name={settings?.contact_icon || 'Mail'} className="w-7 h-7 text-primary-foreground" />
           </div>
           <span className="font-semibold text-sm text-foreground">
-            {settings?.contact_email_label || t('footer.emailSupport')}
+            {ft(settings?.contact_email_label, 'footer.emailSupport')}
           </span>
           <a 
             href={`mailto:${settings?.contact_email_address || 'support@purelife.info.pl'}`}
@@ -166,7 +173,7 @@ export const DashboardFooterSection: React.FC = () => {
             <>
               <span>•</span>
               <button onClick={handleOpenInstallBanner} className="hover:text-primary transition-colors">
-                Zainstaluj aplikację
+                {t('footer.installApp') !== 'footer.installApp' ? t('footer.installApp') : 'Zainstaluj aplikację'}
               </button>
             </>
           )}
