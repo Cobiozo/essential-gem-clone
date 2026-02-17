@@ -1,77 +1,59 @@
 
-
-# Tlumaczenie tresci stopki dashboardu (DashboardFooterSection)
+# Zamiana hardcoded polskich tekstow w menu bocznym i tooltipach
 
 ## Problem
 
-Komponent `DashboardFooterSection.tsx` pobiera tresci z tabeli `dashboard_footer_settings` w bazie danych. Te tresci sa zapisane po polsku. Komponent ma fallbacki `t('footer.xxx')`, ale sa one uzywane TYLKO gdy `settings` jest null - co praktycznie nigdy nie zachodzi, bo rekord w bazie istnieje.
+Menu boczne (`DashboardSidebar.tsx`) zawiera wiele hardcoded polskich tekstow:
+- **Etykiety menu**: "Zdrowa Wiedza", "Eventy", "Spotkanie indywidualne", "Kalkulator", "Dla Influenserow", "Dla Specjalistow", "Ustaw spotkanie trojstronne", "Ustaw konsultacje dla partnerow"
+- **Tooltipy**: Caly obiekt `menuTooltipDescriptions` (17 opisow) jest po polsku bez uzycia `t()`
+- Wiekszość pozycji menu juz uzywa kluczy `t()` (np. `dashboard.menu.dashboard`), ale kilka zostalo pominiete
 
-Wzorzec w kodzie:
+## Zakres zmian
+
+### 1. DashboardSidebar.tsx - etykiety menu (labelKey)
+
+| Obecna wartosc PL | Nowy klucz t() |
+|-------------------|----------------|
+| `'Zdrowa Wiedza'` | `'dashboard.menu.healthyKnowledge'` |
+| `'Eventy'` | `'dashboard.menu.paidEvents'` |
+| `'Spotkanie indywidualne'` | `'dashboard.menu.individualMeeting'` |
+| `'Ustaw spotkanie trojstronne'` | `'dashboard.menu.setupTripartiteMeeting'` |
+| `'Ustaw konsultacje dla partnerow'` | `'dashboard.menu.setupPartnerConsultation'` |
+| `'Kalkulator'` | `'dashboard.menu.calculator'` |
+| `'Dla Influenserow'` | `'dashboard.menu.forInfluencers'` |
+| `'Dla Specjalistow'` | `'dashboard.menu.forSpecialists'` |
+
+### 2. DashboardSidebar.tsx - tooltipDescriptions
+
+Zamienic statyczny obiekt `menuTooltipDescriptions` na funkcje uzywajaca `t()`:
+
 ```text
-{settings?.quote_text || t('footer.quote')}
-```
-Poniewaz `settings.quote_text` zawsze ma wartosc ("Zmieniamy zycie..."), `t('footer.quote')` nigdy sie nie wykona.
-
-Dodatkowo "Zainstaluj aplikacje" (linia 169) jest hardcoded bez t().
-
-## Rozwiazanie
-
-Odwrocic logike: uzywac `t()` jako zrodla glownego, a `settings` tylko jako fallback dla jezyka domyslnego (PL). Dzieki temu:
-- Dla PL: wyswietli `settings` z bazy (edytowalne przez admina)
-- Dla innych jezykow: wyswietli tlumaczenie z systemu i18n (`t()`)
-
-### Zmiana w DashboardFooterSection.tsx
-
-Dodac `language` z `useLanguage()` i zmienic kazde wyrazenie z:
-```text
-{settings?.quote_text || t('footer.quote')}
-```
-na:
-```text
-{language === 'pl' ? (settings?.quote_text || t('footer.quote')) : (t('footer.quote') || settings?.quote_text)}
+Przed: dashboard: 'Twoja strona glowna z podgladem...'
+Po:    dashboard: t('tooltip.dashboard') || 'Twoja strona glowna z podgladem...'
 ```
 
-Dotyczy to nastepujacych pol (okolo 12 miejsc):
-- `quote_text` / `footer.quote`
-- `mission_statement` / `footer.missionStatement`
-- `team_title` / `footer.teamTitle`
-- `team_description` / `footer.teamDescription`
-- `feature_1_title`, `feature_1_description` / `footer.passion`, `footer.passionDescription`
-- `feature_2_title`, `feature_2_description` / `footer.community`, `footer.communityDescription`
-- `feature_3_title`, `feature_3_description` / `footer.missionTitle`, `footer.missionDescription`
-- `contact_title` / `footer.contact`
-- `contact_description` / `footer.contactDescription`
-- `contact_reminder` / `footer.contactReminder`
-- `contact_email_label` / `footer.emailSupport`
+Poniewaz obiekt jest zdefiniowany poza komponentem, trzeba go przeniesc do wnetrza komponentu (zeby miec dostep do `t()`) lub zamienic na funkcje.
 
-Dodatkowo:
-- Zamienic `'Zainstaluj aplikacje'` na `t('footer.installApp') || 'Zainstaluj aplikacje'`
+### 3. Dodatkowe pliki z hardcoded polskimi tekstami
 
-### Uproszczenie - helper function
+| Plik | Tekst PL | Klucz t() |
+|------|----------|-----------|
+| `CacheManagementWidget.tsx` | "Anuluj" | `t('common.cancel')` |
+| `CacheManagementDialog.tsx` | "Anuluj", "Potwierdz", "Tak, wyczysc wszystko" | `t('common.cancel')`, `t('common.confirm')`, `t('common.clearAll')` |
+| `loading-spinner.tsx` | "Ladowanie..." (domyslny text) | Parametryczne - bez zmian lub `t('common.loading')` |
+| `Disclaimer.tsx` (kalkulator) | Caly paragraf po polsku | `t('calculator.disclaimer')` |
 
-Aby nie powtarzac logiki, stworzyc helper w komponencie:
-```typescript
-const { t, language } = useLanguage();
+## Podejscie techniczne
 
-const ft = (settingsValue: string | undefined, translationKey: string) => {
-  if (language === 'pl') return settingsValue || t(translationKey);
-  const translated = t(translationKey);
-  // Jesli t() zwraca sam klucz (brak tlumaczenia), uzyj settings jako fallback
-  return translated !== translationKey ? translated : (settingsValue || translated);
-};
-```
+- `labelKey` w menuItems: zamiana hardcoded stringow na klucze `t()` - system juz automatycznie wywoluje `t(item.labelKey)` przy renderowaniu, wiec wystarczy uzyc kluczy
+- `menuTooltipDescriptions`: przeniesienie do wnetrza komponentu i owijka `t()` z fallbackiem
+- Fallbacki `|| 'tekst PL'` zapewnia dzialanie nawet bez kluczy w bazie
 
-Wtedy kazde uzycie staje sie proste:
-```text
-{ft(settings?.quote_text, 'footer.quote')}
-```
+## Pliki do zmiany
 
-## Plik do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/dashboard/widgets/DashboardFooterSection.tsx` | Dodac helper `ft()`, zamienic ~12 wyrazen, dodac t() dla "Zainstaluj aplikacje" |
-
-## Warunek
-
-Klucze `footer.*` musza istniec w bazie `i18n_translations` z tlumaczeniami na inne jezyki. Jezeli ich nie ma, system wyswietli polskie `settings` jako fallback - czyli zachowanie nie pogorszy sie.
+| Plik | Zakres zmian |
+|------|-------------|
+| `src/components/dashboard/DashboardSidebar.tsx` | 8 labelKey + 17 tooltipow -> t() |
+| `src/components/dashboard/CacheManagementDialog.tsx` | ~6 hardcoded stringow -> t() |
+| `src/components/dashboard/widgets/CacheManagementWidget.tsx` | 1 hardcoded string -> t() |
+| `src/components/specialist-calculator/Disclaimer.tsx` | 1 paragraf -> t() |
