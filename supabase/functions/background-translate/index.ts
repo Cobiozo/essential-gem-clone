@@ -845,6 +845,11 @@ Rules:
     } catch {
       console.error('Failed to parse AI response:', content);
       return keysObject;
+    }
+  } catch (error) {
+    console.error('Translation API error:', error);
+    throw error;
+  }
 }
 
 // ============ TRAINING JOB ============
@@ -1025,10 +1030,5 @@ Return ONLY a valid JSON array with same structure. Translate only text values. 
   } catch (error) {
     console.error('Generic batch translation failed:', error);
     return items.map(() => ({}));
-  }
-}
-  } catch (error) {
-    console.error('Translation API error:', error);
-    throw error; // Re-throw to stop job on credits error
   }
 }
