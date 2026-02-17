@@ -297,7 +297,7 @@ export const MyMeetingsWidget: React.FC = () => {
             onClick={() => setDetailsEvent(event)}
           >
             <Info className="h-3 w-3 mr-1" />
-            {t('events.details') || 'Szczegóły'}
+            {tf('events.details', 'Szczegóły')}
           </Button>
           {/* Cancel button (more than 2 hours before) */}
           {minutesUntilEvent > 120 && (

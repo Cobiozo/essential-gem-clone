@@ -301,3 +301,57 @@ export const COMMON_TIMEZONES = [
   { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
   { value: 'Pacific/Auckland', label: 'Auckland (NZST)' },
 ];
+
+/**
+ * Localized common timezones - use inside React components with tf() from useLanguage()
+ */
+type TfFunc = (key: string, fallback: string) => string;
+
+export const getCommonTimezones = (tf: TfFunc) => [
+  // Europe
+  { value: 'Europe/Warsaw', label: tf('tz.poland', 'Polska') + ' (CET)' },
+  { value: 'Europe/London', label: tf('tz.uk', 'Wielka Brytania') + ' (GMT)' },
+  { value: 'Europe/Berlin', label: tf('tz.germany', 'Niemcy') + ' (CET)' },
+  { value: 'Europe/Paris', label: tf('tz.france', 'Francja') + ' (CET)' },
+  { value: 'Europe/Amsterdam', label: tf('tz.netherlands', 'Holandia') + ' (CET)' },
+  { value: 'Europe/Brussels', label: tf('tz.belgium', 'Belgia') + ' (CET)' },
+  { value: 'Europe/Vienna', label: tf('tz.austria', 'Austria') + ' (CET)' },
+  { value: 'Europe/Rome', label: tf('tz.italy', 'Włochy') + ' (CET)' },
+  { value: 'Europe/Madrid', label: tf('tz.spain', 'Hiszpania') + ' (CET)' },
+  { value: 'Europe/Prague', label: tf('tz.czechia', 'Czechy') + ' (CET)' },
+  { value: 'Europe/Budapest', label: tf('tz.hungary', 'Węgry') + ' (CET)' },
+  { value: 'Europe/Stockholm', label: tf('tz.sweden', 'Szwecja') + ' (CET)' },
+  { value: 'Europe/Helsinki', label: tf('tz.finland', 'Finlandia') + ' (EET)' },
+  { value: 'Europe/Athens', label: tf('tz.greece', 'Grecja') + ' (EET)' },
+  { value: 'Europe/Moscow', label: tf('tz.russia', 'Rosja') + ' (MSK)' },
+  { value: 'Europe/Istanbul', label: tf('tz.turkey', 'Turcja') + ' (TRT)' },
+  // Americas - USA
+  { value: 'America/New_York', label: tf('tz.newYork', 'Nowy Jork') + ' (EST)' },
+  { value: 'America/Chicago', label: 'Chicago (CST)' },
+  { value: 'America/Denver', label: 'Denver (MST)' },
+  { value: 'America/Phoenix', label: tf('tz.arizona', 'Arizona') + ' (MST)' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (PST)' },
+  { value: 'America/Anchorage', label: tf('tz.alaska', 'Alaska') + ' (AKST)' },
+  { value: 'Pacific/Honolulu', label: tf('tz.hawaii', 'Hawaje') + ' (HST)' },
+  // Americas - Canada
+  { value: 'America/Toronto', label: 'Toronto (EST)' },
+  { value: 'America/Vancouver', label: 'Vancouver (PST)' },
+  { value: 'America/St_Johns', label: tf('tz.newfoundland', 'Nowa Fundlandia') + ' (NST)' },
+  // Americas - Other
+  { value: 'America/Mexico_City', label: tf('tz.mexico', 'Meksyk') + ' (CST)' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo (BRT)' },
+  { value: 'America/Buenos_Aires', label: 'Buenos Aires (ART)' },
+  // Asia & Middle East
+  { value: 'Asia/Tokyo', label: tf('tz.tokyo', 'Tokio') + ' (JST)' },
+  { value: 'Asia/Seoul', label: tf('tz.seoul', 'Seul') + ' (KST)' },
+  { value: 'Asia/Shanghai', label: tf('tz.shanghai', 'Szanghaj') + ' (CST)' },
+  { value: 'Asia/Hong_Kong', label: 'Hongkong (HKT)' },
+  { value: 'Asia/Singapore', label: tf('tz.singapore', 'Singapur') + ' (SGT)' },
+  { value: 'Asia/Bangkok', label: 'Bangkok (ICT)' },
+  { value: 'Asia/Dubai', label: tf('tz.dubai', 'Dubaj') + ' (GST)' },
+  { value: 'Asia/Jerusalem', label: tf('tz.jerusalem', 'Jerozolima') + ' (IST)' },
+  { value: 'Asia/Kolkata', label: tf('tz.india', 'Indie') + ' (IST)' },
+  // Oceania
+  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
+  { value: 'Pacific/Auckland', label: 'Auckland (NZST)' },
+];

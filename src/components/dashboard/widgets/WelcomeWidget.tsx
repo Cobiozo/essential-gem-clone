@@ -15,11 +15,11 @@ import {
 } from '@/components/ui/select';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { NewsTicker } from '@/components/news-ticker';
-import { COMMON_TIMEZONES, getTimezoneAbbr } from '@/utils/timezoneHelpers';
+import { getCommonTimezones, getTimezoneAbbr } from '@/utils/timezoneHelpers';
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
-  const { t, language } = useLanguage();
+  const { t, tf, language } = useLanguage();
   
   const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -65,10 +65,11 @@ export const WelcomeWidget: React.FC = () => {
 
   // Timezone list - use central COMMON_TIMEZONES, auto-add user's timezone if not in list
   const timezones = useMemo(() => {
-    const userTzExists = COMMON_TIMEZONES.some(tz => tz.value === userTimezone);
+    const base = getCommonTimezones(tf);
+    const userTzExists = base.some(tz => tz.value === userTimezone);
     
     if (userTzExists) {
-      return COMMON_TIMEZONES;
+      return base;
     }
     
     // Add user's timezone at the top
@@ -77,9 +78,9 @@ export const WelcomeWidget: React.FC = () => {
     
     return [
       { value: userTimezone, label: `${cityName} (${abbr})` },
-      ...COMMON_TIMEZONES
+      ...base
     ];
-  }, [userTimezone]);
+  }, [userTimezone, tf]);
 
   const firstName = profile?.first_name || '';
   const now = new Date();
