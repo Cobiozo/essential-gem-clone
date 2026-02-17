@@ -1,65 +1,66 @@
 
+# Eliminacja efektu odswiezania stron przy powrocie do aplikacji
 
-# Pelne pokrycie pauzy wideo na Apple platforms (macOS, iPhone, iPad)
+## Diagnoza
 
-## Obecny stan
+Kazda strona z `useEffect([user])` re-renderuje sie po powrocie do karty, poniewaz:
 
-Aktualnie mamy dwa eventy:
-- `visibilitychange` — dziala na desktop i wiekszosc mobilnych
-- `window blur` — fallback dla przelaczania aplikacji
+1. Supabase emituje `TOKEN_REFRESHED` event po powrocie
+2. AuthContext wola `setUser(newSession?.user)` — tworzy NOWA referencje obiektu `user`
+3. React widzi nowy obiekt i odpala wszystkie `useEffect` ktore zaleza od `user`
+4. Strony jak Training ustawiaja `setLoading(true)` i ponownie pobieraja dane z bazy
 
-## Problem na iOS/iPadOS
-
-Na urzadzeniach Apple sa dodatkowe scenariusze ktore moga nie wyzwalac powyzszych eventow:
-
-1. **iOS Safari — app switcher (swipe up)**: moze emitowac `pagehide` zamiast `visibilitychange`
-2. **iOS PWA (standalone mode)**: przejscie do innej aplikacji czesto wyzwala tylko `pagehide`/`pageshow`
-3. **iPad Split View / Slide Over**: zmiana rozmiaru okna bez pelnego ukrycia
+Ochrona w linii 161 (`isPageHiddenRef`) czesto nie dziala, bo 100ms debounce powoduje ze ref wraca do `false` zanim Supabase zdazy odpalic event.
 
 ## Rozwiazanie
 
-Dodac nasluchiwanie na `pagehide` i `pageshow` jako trzeci fallback, specyficzny dla Safari/iOS:
+### 1. AuthContext — nie aktualizuj `user` jesli ID sie nie zmienilo
 
-### Zmiany w `src/components/SecureMedia.tsx`
-
-W useEffect z visibilitychange (linia 1166) dodac:
+W `onAuthStateChange` callback, zamiast zawsze `setUser(newSession?.user)`, porownac ID:
 
 ```text
-const handlePageHide = () => {
-  if (videoRef.current && !videoRef.current.paused) {
-    videoRef.current.pause();
-    setIsTabHidden(true);
-  }
-};
+// PRZED (linia 163-164, i 168-169):
+setSession(newSession);
+setUser(newSession?.user ?? null);
 
-const handlePageShow = (e: PageTransitionEvent) => {
-  if (e.persisted) {
-    // Strona wraca z bfcache — stan "tab hidden" do zdjecia przez uzytkownika (klik Play)
-    setIsTabHidden(true);
-  }
-};
-
-window.addEventListener('pagehide', handlePageHide);
-window.addEventListener('pageshow', handlePageShow);
+// PO:
+setSession(newSession);
+// Nie twórz nowej referencji user jeśli to ten sam użytkownik
+setUser(prev => {
+  const newUser = newSession?.user ?? null;
+  if (prev?.id === newUser?.id) return prev;
+  return newUser;
+});
 ```
 
-I cleanup:
+Ta zmiana musi byc zastosowana w DWOCH miejscach w `onAuthStateChange`:
+- Linia 163-164 (ciche odswiezenie przy ukrytej karcie)
+- Linia 168-169 (normalne przetwarzanie eventu)
+
+### 2. Dodatkowe zabezpieczenie — TOKEN_REFRESHED z profilem
+
+Upewnic sie ze linia 190 prawidlowo robi early return dla `TOKEN_REFRESHED`:
+
 ```text
-window.removeEventListener('pagehide', handlePageHide);
-window.removeEventListener('pageshow', handlePageShow);
+if (event === 'TOKEN_REFRESHED') {
+  // Token odswiezony - NIGDY nie resetuj UI
+  return;
+}
+if (profileAlreadyLoaded) {
+  return;
+}
 ```
 
-## Podsumowanie eventow po zmianach
+Rozdzielenie tych warunkow eliminuje ryzyko ze `profileAlreadyLoaded` jest `false` podczas TOKEN_REFRESHED (np. gdy profil jeszcze sie nie zaladowal).
 
-| Event | Pokrycie |
-|-------|----------|
-| `visibilitychange` | Desktop (Chrome, Firefox, Safari), Android, iOS Safari (przelaczanie kart) |
-| `window blur` | Desktop (przelaczanie okien), czesc mobilnych |
-| `pagehide` / `pageshow` | iOS Safari (app switcher), iOS PWA standalone, iPad multitasking |
+## Wplyw
 
-## Plik do zmiany
+- Strony z `useEffect([user])` (Training, Dashboard, KnowledgeCenter, itp.) przestana sie odswiezac przy powrocie do karty
+- Prawdziwe logowanie/zmiana uzytkownika nadal bedzie dzialac poprawnie (inne ID)
+- Zero ryzyka regresji — ref do `user` zmienia sie tylko gdy zmieni sie uzytkownik
+
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Dodanie `pagehide`/`pageshow` listenerow w useEffect obok istniejacych |
-
+| `src/contexts/AuthContext.tsx` | Stabilna referencja `user` (porownanie ID), rozdzielenie TOKEN_REFRESHED guard |
