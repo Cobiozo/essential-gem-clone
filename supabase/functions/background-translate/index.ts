@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 20; // Increased for faster processing
+const LESSON_BATCH_SIZE = 3; // Smaller batch for lessons with long content
 
 // Validates that a translated object has at least one non-empty field
 function hasTranslatedContent(obj: any, fields: string[]): boolean {
@@ -919,8 +920,8 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
   }
 
   // Translate lessons
-  for (let i = 0; i < lessToTranslate.length; i += BATCH_SIZE) {
-    const batch = lessToTranslate.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < lessToTranslate.length; i += LESSON_BATCH_SIZE) {
+    const batch = lessToTranslate.slice(i, i + LESSON_BATCH_SIZE);
     try {
       const translated = await translateGenericBatch(batch, ['title', 'content', 'media_alt_text'], source_language, target_language, lovableApiKey);
       for (let idx = 0; idx < batch.length; idx++) {
@@ -1053,7 +1054,20 @@ Return ONLY a valid JSON array with same structure. Translate only text values. 
 
   try {
     const content = await aiRequest(apiKey, systemPrompt, JSON.stringify(payload));
-    const cleanJson = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    // Aggressive JSON cleaning
+    let cleanJson = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    // Find first [ and last ]
+    const firstBracket = cleanJson.indexOf('[');
+    const lastBracket = cleanJson.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+      cleanJson = cleanJson.substring(firstBracket, lastBracket + 1);
+    }
+    
+    // Remove trailing commas before } or ]
+    cleanJson = cleanJson.replace(/,\s*([}\]])/g, '$1');
+    
     const parsed = JSON.parse(cleanJson);
 
     return items.map((_, idx) => {
@@ -1066,6 +1080,25 @@ Return ONLY a valid JSON array with same structure. Translate only text values. 
     });
   } catch (error) {
     console.error('Generic batch translation failed:', error);
+    
+    // Fallback: translate each item individually (1-by-1)
+    if (items.length > 1) {
+      console.log(`Retrying ${items.length} items one-by-one...`);
+      const results: any[] = [];
+      for (const item of items) {
+        try {
+          const single = await translateGenericBatch([item], fields, sourceLanguage, targetLanguage, apiKey);
+          results.push(single[0]);
+        } catch {
+          console.warn(`Single item translation failed for item`);
+          results.push({});
+        }
+        // Small delay between individual calls
+        await new Promise(r => setTimeout(r, 200));
+      }
+      return results;
+    }
+    
     return items.map(() => ({}));
   }
 }
