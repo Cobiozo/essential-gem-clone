@@ -75,26 +75,7 @@ interface HtmlPageSidebar {
   visible_to_everyone: boolean;
 }
 
-// Tooltip descriptions for navigation items (2s delay)
-const menuTooltipDescriptions: Record<string, string> = {
-  dashboard: 'Twoja strona główna z podglądem wszystkich najważniejszych informacji',
-  academy: 'Szkolenia i materiały edukacyjne - zdobywaj wiedzę i certyfikaty',
-  'healthy-knowledge': 'Materiały o zdrowym stylu życia i produktach',
-  resources: 'Biblioteka dokumentów, grafik i materiałów do pobrania',
-  pureContacts: 'Zarządzaj kontaktami prywatnymi i zespołowymi',
-  news: 'Aktualności i ważne ogłoszenia od zespołu',
-  events: 'Webinary, spotkania zespołowe i indywidualne konsultacje',
-  'paid-events': 'Płatne szkolenia i wydarzenia z biletami',
-  chat: 'Komunikacja z upline i zespołem',
-  support: 'Potrzebujesz pomocy? Wyślij zgłoszenie do zespołu wsparcia',
-  reflinks: 'Twoje unikalne linki polecające - śledź kliknięcia',
-  infolinks: 'Przydatne linki i materiały informacyjne',
-  community: 'Dołącz do społeczności na różnych platformach',
-  settings: 'Ustawienia profilu, powiadomień i preferencji',
-  calculator: 'Kalkulator prowizji i symulacje zarobków',
-  admin: 'Panel administracyjny - zarządzanie systemem',
-  'individual-meetings-setup': 'Zarządzaj spotkaniami indywidualnymi',
-};
+// Tooltip descriptions moved inside component to access t()
 
 interface SubMenuItem {
   id: string;
@@ -136,7 +117,28 @@ export const DashboardSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  // Tooltip descriptions using t() with Polish fallbacks
+  const menuTooltipDescriptions: Record<string, string> = {
+    dashboard: t('tooltip.dashboard') || 'Twoja strona główna z podglądem wszystkich najważniejszych informacji',
+    academy: t('tooltip.academy') || 'Szkolenia i materiały edukacyjne - zdobywaj wiedzę i certyfikaty',
+    'healthy-knowledge': t('tooltip.healthyKnowledge') || 'Materiały o zdrowym stylu życia i produktach',
+    resources: t('tooltip.resources') || 'Biblioteka dokumentów, grafik i materiałów do pobrania',
+    pureContacts: t('tooltip.pureContacts') || 'Zarządzaj kontaktami prywatnymi i zespołowymi',
+    news: t('tooltip.news') || 'Aktualności i ważne ogłoszenia od zespołu',
+    events: t('tooltip.events') || 'Webinary, spotkania zespołowe i indywidualne konsultacje',
+    'paid-events': t('tooltip.paidEvents') || 'Płatne szkolenia i wydarzenia z biletami',
+    chat: t('tooltip.chat') || 'Komunikacja z upline i zespołem',
+    support: t('tooltip.support') || 'Potrzebujesz pomocy? Wyślij zgłoszenie do zespołu wsparcia',
+    reflinks: t('tooltip.reflinks') || 'Twoje unikalne linki polecające - śledź kliknięcia',
+    infolinks: t('tooltip.infolinks') || 'Przydatne linki i materiały informacyjne',
+    community: t('tooltip.community') || 'Dołącz do społeczności na różnych platformach',
+    settings: t('tooltip.settings') || 'Ustawienia profilu, powiadomień i preferencji',
+    calculator: t('tooltip.calculator') || 'Kalkulator prowizji i symulacje zarobków',
+    admin: t('tooltip.admin') || 'Panel administracyjny - zarządzanie systemem',
+    'individual-meetings-setup': t('tooltip.individualMeetingsSetup') || 'Zarządzaj spotkaniami indywidualnymi',
+  };
   const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
@@ -354,7 +356,7 @@ export const DashboardSidebar: React.FC = () => {
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
-    { id: 'healthy-knowledge', icon: Heart, labelKey: 'Zdrowa Wiedza', path: '/zdrowa-wiedza' },
+    { id: 'healthy-knowledge', icon: Heart, labelKey: 'dashboard.menu.healthyKnowledge', path: '/zdrowa-wiedza' },
     { id: 'resources', icon: FolderOpen, labelKey: 'dashboard.menu.resources', path: '/knowledge' },
     { 
       id: 'pureContacts', 
@@ -380,23 +382,23 @@ export const DashboardSidebar: React.FC = () => {
         { id: 'individual-meetings', labelKey: 'dashboard.menu.individualMeetings', path: '/events/individual-meetings', icon: UserRound },
       ],
     },
-    { id: 'paid-events', icon: Ticket, labelKey: 'Eventy', path: '/paid-events' },
+    { id: 'paid-events', icon: Ticket, labelKey: 'dashboard.menu.paidEvents', path: '/paid-events' },
     // Individual meetings for partners with permissions
     ...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
       id: 'individual-meetings-setup',
       icon: UserRound,
-      labelKey: 'Spotkanie indywidualne',
+      labelKey: 'dashboard.menu.individualMeeting',
       hasSubmenu: true,
       submenuItems: [
         ...(individualMeetingsEnabled.tripartite ? [{
           id: 'tripartite-meeting',
-          labelKey: 'Ustaw spotkanie trójstronne',
+          labelKey: 'dashboard.menu.setupTripartiteMeeting',
           path: '/my-account?tab=individual-meetings&type=tripartite',
           icon: Users,
         }] : []),
         ...(individualMeetingsEnabled.consultation ? [{
           id: 'partner-consultation',
-          labelKey: 'Ustaw konsultacje dla partnerów',
+          labelKey: 'dashboard.menu.setupPartnerConsultation',
           path: '/my-account?tab=individual-meetings&type=consultation',
           icon: UserRound,
         }] : []),
@@ -440,18 +442,18 @@ export const DashboardSidebar: React.FC = () => {
     ...(calculatorAccess?.hasAccess ? [{
       id: 'calculator',
       icon: Calculator,
-      labelKey: 'Kalkulator',
+      labelKey: 'dashboard.menu.calculator',
       hasSubmenu: true,
       submenuItems: [
         { 
           id: 'calculator-influencer', 
-          labelKey: 'Dla Influenserów', 
+          labelKey: 'dashboard.menu.forInfluencers', 
           path: '/calculator/influencer', 
           icon: Users,
         },
         { 
           id: 'calculator-specialist', 
-          labelKey: 'Dla Specjalistów', 
+          labelKey: 'dashboard.menu.forSpecialists', 
           path: '/calculator/specialist', 
           icon: UserRound,
         },
