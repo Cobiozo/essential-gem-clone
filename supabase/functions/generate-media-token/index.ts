@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
         real_url: media_url,
         user_id: userId,
         expires_at: expiresAt.toISOString(),
-        max_uses: 5
+        max_uses: 100
       })
 
     if (insertError) {
