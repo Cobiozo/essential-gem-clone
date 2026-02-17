@@ -1,84 +1,100 @@
 
 
-# Poprawa layoutu panelu "Tresci dynamiczne"
+# Naprawa ladowania tlumaczen - Race Condition
 
-## Problemy widoczne na screenshocie
+## Problem
 
-1. **Zbyt wiele warstw kontrolek** - pasek postepu AI, selektor jezyka + przycisk AI + wyszukiwarka, a pod nimi jeszcze zakladki (Szkolenia/Baza wiedzy/Zdrowa Wiedza) - wszystko sie tloczy
-2. **Elementy zle sie zawijaja** - na mniejszych ekranach przycisk "Tlumacz AI" i wyszukiwarka nakladaja sie na siebie
-3. **Pasek postepu AI wyswietla sie i w TranslationsManagement i w DynamicContentTranslation** - podwojny komunikat
-4. **TabsList wewnatrz TabsList** - zakladki glowne (Jezyki/Klucze/CMS/JSON/Tresci dynamiczne) + zakladki podrzedne (Szkolenia/Baza/Zdrowa) wyglada chaotycznie
+Tlumaczenia nie laduja sie na zadnej stronie gdy uzytkownik ma wybrany jezyk inny niz polski (np. angielski). Interfejs pokazuje polski tekst pomimo wybranej flagi UK.
+
+## Przyczyna
+
+Race condition miedzy dwoma useEffect w LanguageContext.tsx:
+
+1. **useEffect #1** (mount, linia 42): wywoluje `loadTranslationsCache()` z domyslnym `'pl'` - ustawia `cacheLoading = true`, zaczyna pobierac PL
+2. **useEffect #2** (language='en', linia 53): wywoluje `loadLanguageTranslations('en')` - tworzy `translationsCache = {}`, laduje EN do cache, oznacza 'en' jako zaladowany
+3. **useEffect #1 konczy sie**: robi `translationsCache = map` (tylko PL!) - **nadpisuje** dane EN, ktore wlasnie zostaly zaladowane
+4. `loadedLanguages` nadal ma 'en' ale dane zniknely - przyszle wywolania pomijaja pobieranie bo mysla ze EN jest zaladowany
 
 ## Rozwiazanie
 
-### Plik: `src/components/admin/DynamicContentTranslation.tsx`
+### Plik 1: `src/contexts/LanguageContext.tsx`
 
-Przeprojektowanie layoutu:
+Usunac pierwszy useEffect (mount-only) i polaczyc jego logike z drugim useEffectem. Zamiast dwoch rownoleglych useEffectow ktore sie scigaja, bedzie jeden ktory laduje tlumaczenia dla aktualnego jezyka (wlacznie z polskim jako fallback):
 
-1. **Kontrolki w jednym wierszu** - selektor jezyka i przycisk AI po lewej, wyszukiwarka po prawej, ale z lepszym breakpointem i rozmiarami:
-   - Selektor jezyka: `w-[140px]` zamiast `w-48`
-   - Przycisk AI: kompaktowy, bez tekstu na mobile (tylko ikona)
-   - Wyszukiwarka: `flex-1` zamiast stalej szerokosci
-
-2. **Sekcje zamiast zagniezdzonego Tabs** - zamiast Tabs wewnatrz Tabs, uzyc prostych przyciskow segmentowych (inline flex z `data-active` stylami) lub ToggleGroup z Radix. To usunie wizualny konflikt dwoch TabsList.
-
-3. **Pasek postepu** - bardziej kompaktowy, w jednej linii z mniejszym paddingiem
-
-4. **Mobile-first** - na mobile:
-   - Kontrolki ukladaja sie pionowo: jezyk+AI w jednym wierszu, wyszukiwarka w drugim
-   - Przyciski sekcji (Szkolenia/Baza/Zdrowa) jako pelna szerokosc, nie TabsList
-   - Accordion items z wiekszymi obszarami dotykowymi (min-h-[44px])
-
-### Konkretne zmiany w kodzie
-
-**Kontrolki** (linie 364-398):
 ```
-<div className="flex flex-col gap-2">
-  <div className="flex items-center gap-2">
-    <Select ...>
-      <SelectTrigger className="w-[140px] h-9 text-sm">
-    </Select>
-    <Button size="sm" ...>
-      <Bot className="w-4 h-4" />
-      <span className="hidden sm:inline ml-1">Tlumacz AI</span>
-    </Button>
-    <div className="relative flex-1 min-w-0">
-      <Search ... />
-      <Input className="pl-8 h-9 text-sm" />
-    </div>
-  </div>
-</div>
+// USUNAC useEffect z linii 42-50
+
+// ZMODYFIKOWAC useEffect z linii 53-75:
+useEffect(() => {
+  const loadLangTranslations = async () => {
+    // Jeden punkt wejscia - laduje PL + aktualny jezyk
+    const { translations: t, languages } = await loadTranslationsCache(language);
+    setDbTranslations(t);
+    const def = languages.find(l => l.is_default);
+    if (def) setDefaultLang(def.code);
+
+    // Jesli jezyk != pl, doladuj lazy
+    if (language !== 'pl') {
+      await loadLanguageTranslations(language);
+      const { translations: t2 } = await loadTranslationsCache(language);
+      setDbTranslations(t2);
+    }
+
+    setTranslationVersion(v => v + 1);
+  };
+  loadLangTranslations();
+
+  try {
+    localStorage.setItem('pure-life-language', language);
+    document.documentElement.lang = language;
+  } catch (error) {
+    console.warn('Failed to save language to localStorage');
+  }
+}, [language]);
 ```
 
-**Sekcje** (linie 402-416) - zamiana Tabs na proste przyciski:
+### Plik 2: `src/hooks/useTranslations.ts`
+
+Zmienic `loadTranslationsCache` aby MERGOWALO dane zamiast nadpisywac (linia 321):
+
 ```
-<div className="flex gap-1 p-1 bg-muted rounded-lg">
-  <button onClick={() => setActiveSection('training')}
-    className={cn("flex-1 px-3 py-1.5 rounded text-sm font-medium transition-colors",
-      activeSection === 'training' ? "bg-background shadow-sm" : "text-muted-foreground"
-    )}>
-    Szkolenia
-  </button>
-  ...
-</div>
+// ZAMIAST: translationsCache = map;
+// ZROBIC: merge z istniejacym cache
+if (!translationsCache) {
+  translationsCache = map;
+} else {
+  for (const lang of Object.keys(map)) {
+    if (!translationsCache[lang]) translationsCache[lang] = {};
+    for (const ns of Object.keys(map[lang])) {
+      translationsCache[lang][ns] = { ...translationsCache[lang][ns], ...map[lang][ns] };
+    }
+  }
+}
 ```
 
-**Pasek postepu** (linie 346-361) - kompaktowy:
+Dodatkowo w `loadLanguageTranslations` (linia 256-275) - dodac weryfikacje czy dane faktycznie sa w cache przed oznaczeniem jako zaladowane:
+
 ```
-<div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
-  <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
-  <Progress value={progress} className="h-1.5 flex-1" />
-  <span className="text-xs text-muted-foreground whitespace-nowrap">
-    {activeJob.processed_keys}/{activeJob.total_keys}
-  </span>
-</div>
+// Po linii 268, przed loadedLanguages.add(langCode):
+// Weryfikuj czy dane faktycznie sa w cache
+if (translationsCache[langCode] && Object.keys(translationsCache[langCode]).length > 0) {
+  loadedLanguages.add(langCode);
+} else {
+  console.warn(`[i18n] Language ${langCode} loaded but no data in cache`);
+}
 ```
 
-**Listy elementow** - kompaktniejsze naglowki sekcji i mniejsze paddingi w AccordionItem
+### Plik 3: `src/components/dashboard/widgets/TrainingProgressWidget.tsx`
+
+Hardcoded polski tekst na liniach 187:
+- `'✓ Ukończono'` -> `t('dashboard.completed')`
+- `` `${module.progress}% ukończono` `` -> `` `${module.progress}% ${t('dashboard.completed').toLowerCase()}` ``
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/DynamicContentTranslation.tsx` | Przeprojektowanie layoutu kontrolek, zamiana zagniezdzonego Tabs na przyciski segmentowe, kompaktowy pasek postepu, mobile-first |
+| `src/contexts/LanguageContext.tsx` | Polaczenie dwoch useEffectow w jeden, eliminacja race condition |
+| `src/hooks/useTranslations.ts` | Merge zamiast overwrite w loadTranslationsCache + weryfikacja w loadLanguageTranslations |
+| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Zamiana hardcoded polskiego tekstu na t() |
 
