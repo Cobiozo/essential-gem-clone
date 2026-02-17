@@ -119,6 +119,39 @@ export const DashboardSidebar: React.FC = () => {
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
   const { t, tf, language } = useLanguage();
 
+  // Fallback map for menu labels (used when DB translations are missing)
+  const menuLabelFallbacks: Record<string, string> = {
+    'dashboard.menu.dashboard': 'Dashboard',
+    'dashboard.menu.academy': 'Akademia',
+    'dashboard.menu.healthyKnowledge': 'Zdrowa Wiedza',
+    'dashboard.menu.resources': 'Biblioteka',
+    'dashboard.menu.pureContacts': 'Pure-Kontakty',
+    'dashboard.menu.privateContacts': 'Kontakty prywatne',
+    'dashboard.menu.teamContacts': 'Kontakty zespołu',
+    'dashboard.menu.searchSpecialist': 'Szukaj specjalisty',
+    'dashboard.menu.news': 'Aktualności',
+    'dashboard.menu.events': 'Eventy',
+    'dashboard.menu.webinars': 'Webinary',
+    'dashboard.menu.teamMeetings': 'Spotkania zespołu',
+    'dashboard.menu.individualMeetings': 'Spotkania indywidualne',
+    'dashboard.menu.paidEvents': 'Eventy płatne',
+    'dashboard.menu.individualMeeting': 'Spotkanie indywidualne',
+    'dashboard.menu.setupTripartiteMeeting': 'Ustaw spotkanie trójstronne',
+    'dashboard.menu.setupPartnerConsultation': 'Ustaw konsultacje dla partnerów',
+    'dashboard.menu.chat': 'Chat',
+    'dashboard.menu.support': 'Wsparcie i pomoc',
+    'dashboard.pureLinki': 'PureLinki',
+    'dashboard.menu.infolinks': 'PureLinki',
+    'dashboard.menu.community': 'Społeczność',
+    'dashboard.menu.settings': 'Ustawienia',
+    'dashboard.menu.calculator': 'Kalkulator',
+    'dashboard.menu.forInfluencers': 'Dla Influenserów',
+    'dashboard.menu.forSpecialists': 'Dla Specjalistów',
+    'dashboard.menu.admin': 'CMS Panel',
+  };
+
+  const getLabel = (key: string) => tf(key, menuLabelFallbacks[key] || key);
+
   // Tooltip descriptions using tf() with Polish fallbacks
   const menuTooltipDescriptions: Record<string, string> = {
     dashboard: tf('tooltip.dashboard', 'Twoja strona główna z podglądem wszystkich najważniejszych informacji'),
@@ -668,12 +701,12 @@ export const DashboardSidebar: React.FC = () => {
                 >
                   <CollapsibleTrigger asChild>
                      <SidebarMenuButton
-                       tooltip={tf(item.labelKey, item.labelKey)}
+                       tooltip={getLabel(item.labelKey)}
                        isActive={isSubmenuParentActive(item)}
                        className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
                      >
                        <item.icon className="h-4 w-4" />
-                       <span className="flex-1">{tf(item.labelKey, item.labelKey)}</span>
+                       <span className="flex-1">{getLabel(item.labelKey)}</span>
                       <ChevronDown 
                         className={`h-4 w-4 transition-transform ${isSubmenuOpen(item) ? 'rotate-180' : ''}`} 
                       />
@@ -687,7 +720,7 @@ export const DashboardSidebar: React.FC = () => {
                             onClick={() => handleSubmenuClick(subItem)}
                             isActive={isSubmenuActive(subItem)}
                             className="cursor-pointer h-auto min-h-8 py-1.5"
-                           title={subItem.isDynamic ? subItem.labelKey : tf(subItem.labelKey, subItem.labelKey)}
+                           title={subItem.isDynamic ? subItem.labelKey : getLabel(subItem.labelKey)}
                           >
                             {subItem.icon && (
                               <subItem.icon 
@@ -701,7 +734,7 @@ export const DashboardSidebar: React.FC = () => {
                               />
                             )}
                             <span className="whitespace-normal break-words leading-tight text-left">
-                              {subItem.isDynamic ? subItem.labelKey : tf(subItem.labelKey, subItem.labelKey)}
+                              {subItem.isDynamic ? subItem.labelKey : getLabel(subItem.labelKey)}
                             </span>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -717,7 +750,7 @@ export const DashboardSidebar: React.FC = () => {
                   className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary touch-action-manipulation"
                 >
                   <item.icon className="h-4 w-4" />
-                  <span>{tf(item.labelKey, item.labelKey)}</span>
+                  <span>{getLabel(item.labelKey)}</span>
                 </SidebarMenuButton>
               ) : (
                 // On desktop - use Tooltip with delay
@@ -729,7 +762,7 @@ export const DashboardSidebar: React.FC = () => {
                       className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
                     >
                       <item.icon className="h-4 w-4" />
-                      <span>{tf(item.labelKey, item.labelKey)}</span>
+                      <span>{getLabel(item.labelKey)}</span>
                     </SidebarMenuButton>
                   </TooltipTrigger>
                   {menuTooltipDescriptions[item.id] && (
