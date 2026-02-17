@@ -1,82 +1,77 @@
 
 
-# Zastosowanie tlumaczen dynamicznych tresci w widgetach dashboardu
+# Tlumaczenie tresci stopki dashboardu (DashboardFooterSection)
 
 ## Problem
 
-Tlumaczenia dynamicznych tresci (tytulow modulow szkoleniowych, zasobow wiedzy, materialow Zdrowa Wiedza) sa zapisane w bazie danych w tabelach `*_translations`, ale widgety na dashboardzie pobieraja dane bezposrednio z tabel zrodlowych i wyswietlaja polskie tytuly bez aplikowania tlumaczen.
+Komponent `DashboardFooterSection.tsx` pobiera tresci z tabeli `dashboard_footer_settings` w bazie danych. Te tresci sa zapisane po polsku. Komponent ma fallbacki `t('footer.xxx')`, ale sa one uzywane TYLKO gdy `settings` jest null - co praktycznie nigdy nie zachodzi, bo rekord w bazie istnieje.
 
-Hooki do tlumaczen juz istnieja:
-- `useTrainingTranslations` - uzywany na stronie /training
-- `useKnowledgeTranslations` - uzywany na stronie /knowledge
-- `useHealthyKnowledgeTranslations` - uzywany na stronie /zdrowa-wiedza
+Wzorzec w kodzie:
+```text
+{settings?.quote_text || t('footer.quote')}
+```
+Poniewaz `settings.quote_text` zawsze ma wartosc ("Zmieniamy zycie..."), `t('footer.quote')` nigdy sie nie wykona.
 
-Ale NIE sa uzywane w widgetach dashboardu.
+Dodatkowo "Zainstaluj aplikacje" (linia 169) jest hardcoded bez t().
 
-## Zakres zmian
+## Rozwiazanie
 
-### 1. TrainingProgressWidget.tsx
+Odwrocic logike: uzywac `t()` jako zrodla glownego, a `settings` tylko jako fallback dla jezyka domyslnego (PL). Dzieki temu:
+- Dla PL: wyswietli `settings` z bazy (edytowalne przez admina)
+- Dla innych jezykow: wyswietli tlumaczenie z systemu i18n (`t()`)
 
-**Problem**: Pobiera `training_modules.title` i wyswietla bez tlumaczenia (linia 117, 184).
+### Zmiana w DashboardFooterSection.tsx
 
-**Rozwiazanie**: Po pobraniu modulow, doladowac tlumaczenia z `training_module_translations` dla aktualnego jezyka i zastapic tytuly.
-
-- Dodac import `useLanguage`  (juz jest)
-- Po pobraniu modulow, pobrac tlumaczenia z `training_module_translations` dla `language`
-- Zastosowac przetlumaczone tytuly w `modulesWithProgress`
-
-### 2. ResourcesWidget.tsx
-
-**Problem**: Pobiera `knowledge_resources.title` i wyswietla bez tlumaczenia (linia 148).
-
-**Rozwiazanie**: Po pobraniu zasobow, doladowac tlumaczenia z `knowledge_resource_translations`.
-
-- Dodac pobieranie tlumaczen z `knowledge_resource_translations` po zaladowaniu zasobow
-- Zastosowac przetlumaczone tytuly
-
-### 3. HealthyKnowledgeWidget.tsx
-
-**Problem**: Pobiera `healthy_knowledge.title` bez tlumaczenia (linia 117). Dodatkowo ma hardcoded polskie stringi:
-- "Zdrowa Wiedza" (linie 62, 85)
-- "Zobacz wszystkie" (linia 93)
-- "Wyrosnione materialy edukacyjne" (linia 97)
-- "Nowe" (linia 123)
-
-**Rozwiazanie**:
-- Dodac `useLanguage` i `useHealthyKnowledgeTranslations`
-- Zastosowac przetlumaczone tytuly materialow
-- Zamienic hardcoded stringi na `t()` z fallbackami
-
-## Podejscie techniczne
-
-Zamiast kopiowac logike tlumaczen, mozna:
-
-**Opcja A** (prosta): W kazdym widgecie po pobraniu danych zrodlowych, pobrac rowniez rekordy z odpowiedniej tabeli `*_translations` i podmenic tytuly inline.
-
-**Opcja B** (z hookami): Uzyc istniejacych hookow (`useTrainingTranslations`, `useKnowledgeTranslations`, `useHealthyKnowledgeTranslations`) - wymaga dopasowania typow danych.
-
-Wybior: **Opcja A** - jest prostsza, nie wymaga konwersji typow, i widgety pobieraja ograniczone dane (limit 3-4 rekordy).
-
-Przyklad dla TrainingProgressWidget:
-```typescript
-// Po pobraniu modulesData, pobierz tlumaczenia
-if (language !== 'pl' && modulesData?.length) {
-  const { data: translations } = await supabase
-    .from('training_module_translations')
-    .select('module_id, title')
-    .eq('language_code', language)
-    .in('module_id', modulesData.map(m => m.id));
-  
-  const transMap = new Map(translations?.map(t => [t.module_id, t.title]) || []);
-  // Zastosuj w mapowaniu modulesWithProgress
-  // title: transMap.get(mod.id) || mod.title
-}
+Dodac `language` z `useLanguage()` i zmienic kazde wyrazenie z:
+```text
+{settings?.quote_text || t('footer.quote')}
+```
+na:
+```text
+{language === 'pl' ? (settings?.quote_text || t('footer.quote')) : (t('footer.quote') || settings?.quote_text)}
 ```
 
-## Pliki do zmiany
+Dotyczy to nastepujacych pol (okolo 12 miejsc):
+- `quote_text` / `footer.quote`
+- `mission_statement` / `footer.missionStatement`
+- `team_title` / `footer.teamTitle`
+- `team_description` / `footer.teamDescription`
+- `feature_1_title`, `feature_1_description` / `footer.passion`, `footer.passionDescription`
+- `feature_2_title`, `feature_2_description` / `footer.community`, `footer.communityDescription`
+- `feature_3_title`, `feature_3_description` / `footer.missionTitle`, `footer.missionDescription`
+- `contact_title` / `footer.contact`
+- `contact_description` / `footer.contactDescription`
+- `contact_reminder` / `footer.contactReminder`
+- `contact_email_label` / `footer.emailSupport`
+
+Dodatkowo:
+- Zamienic `'Zainstaluj aplikacje'` na `t('footer.installApp') || 'Zainstaluj aplikacje'`
+
+### Uproszczenie - helper function
+
+Aby nie powtarzac logiki, stworzyc helper w komponencie:
+```typescript
+const { t, language } = useLanguage();
+
+const ft = (settingsValue: string | undefined, translationKey: string) => {
+  if (language === 'pl') return settingsValue || t(translationKey);
+  const translated = t(translationKey);
+  // Jesli t() zwraca sam klucz (brak tlumaczenia), uzyj settings jako fallback
+  return translated !== translationKey ? translated : (settingsValue || translated);
+};
+```
+
+Wtedy kazde uzycie staje sie proste:
+```text
+{ft(settings?.quote_text, 'footer.quote')}
+```
+
+## Plik do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Pobieranie i aplikowanie tlumaczen tytulow modulow |
-| `src/components/dashboard/widgets/ResourcesWidget.tsx` | Pobieranie i aplikowanie tlumaczen tytulow zasobow |
-| `src/components/dashboard/widgets/HealthyKnowledgeWidget.tsx` | Pobieranie i aplikowanie tlumaczen + zamiana hardcoded PL na t() |
+| `src/components/dashboard/widgets/DashboardFooterSection.tsx` | Dodac helper `ft()`, zamienic ~12 wyrazen, dodac t() dla "Zainstaluj aplikacje" |
+
+## Warunek
+
+Klucze `footer.*` musza istniec w bazie `i18n_translations` z tlumaczeniami na inne jezyki. Jezeli ich nie ma, system wyswietli polskie `settings` jako fallback - czyli zachowanie nie pogorszy sie.
