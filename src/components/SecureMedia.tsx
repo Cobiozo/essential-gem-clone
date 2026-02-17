@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { generateMediaToken, getStreamMediaUrl, shouldProtectUrl } from '@/lib/mediaTokenService';
+import { generateMediaToken, getStreamMediaUrl, shouldProtectUrl, resolveStreamUrl } from '@/lib/mediaTokenService';
 import { useAuth } from '@/contexts/AuthContext';
 import { VideoControls } from '@/components/training/VideoControls';
 import { SecureVideoControls } from '@/components/training/SecureVideoControls';
@@ -289,8 +289,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           const token = await generateMediaToken(mediaUrl);
           if (!mounted) return;
           mediaTokenRef.current = token;
-          const proxyUrl = getStreamMediaUrl(token);
-          setSignedUrl(proxyUrl);
+          const realUrl = await resolveStreamUrl(token);
+          if (!mounted) return;
+          setSignedUrl(realUrl);
           setLoading(false);
           
           // Schedule token refresh 3.5 minutes from now (token TTL is 5 min)
@@ -303,12 +304,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               const newToken = await generateMediaToken(mediaUrl);
               if (!mounted) return;
               mediaTokenRef.current = newToken;
-              const newProxyUrl = getStreamMediaUrl(newToken);
+              const newRealUrl = await resolveStreamUrl(newToken);
+              if (!mounted) return;
               
               // Save position, swap URL, restore position
               lastValidTimeRef.current = currentVideoTime;
               initialPositionSetRef.current = false;
-              setSignedUrl(newProxyUrl);
+              setSignedUrl(newRealUrl);
             } catch (err) {
               console.error('[SecureMedia] Token refresh failed:', err);
             }

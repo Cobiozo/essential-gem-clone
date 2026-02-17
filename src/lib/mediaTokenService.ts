@@ -52,4 +52,17 @@ export function getStreamMediaUrl(token: string): string {
   return `${SUPABASE_URL}/functions/v1/stream-media?token=${token}`;
 }
 
+/**
+ * Resolve a media token to the actual media URL via the stream-media endpoint.
+ */
+export async function resolveStreamUrl(token: string): Promise<string> {
+  const response = await fetch(getStreamMediaUrl(token));
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to resolve stream URL: ${error}`);
+  }
+  const data = await response.json();
+  return data.url;
+}
+
 export { shouldProtectUrl };
