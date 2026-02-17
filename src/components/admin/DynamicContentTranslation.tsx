@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,11 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslationJobs } from '@/hooks/useTranslationJobs';
-import { Bot, Loader2, Save, BookOpen, Database, Heart } from 'lucide-react';
+import { Bot, Loader2, Save, BookOpen, Database, Heart, Search, CheckCircle2, Circle, X } from 'lucide-react';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface Language {
   code: string;
@@ -33,14 +35,30 @@ interface TranslationRow {
   [key: string]: any;
 }
 
+interface FieldDef {
+  key: string;
+  label: string;
+  multiline?: boolean;
+}
+
+const ITEMS_PER_PAGE = 20;
+
 export const DynamicContentTranslation: React.FC = () => {
   const { toast } = useToast();
-  const { startJob } = useTranslationJobs();
+  const { startJob, activeJob, progress } = useTranslationJobs();
 
   const [activeSection, setActiveSection] = useState('training');
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [languages, setLanguages] = useState<Language[]>([]);
   const [saving, setSaving] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
+
+  // Pagination
+  const [visibleModules, setVisibleModules] = useState(ITEMS_PER_PAGE);
+  const [visibleLessons, setVisibleLessons] = useState(ITEMS_PER_PAGE);
+  const [visibleResources, setVisibleResources] = useState(ITEMS_PER_PAGE);
+  const [visibleHk, setVisibleHk] = useState(ITEMS_PER_PAGE);
 
   // Data states
   const [modules, setModules] = useState<TranslationItem[]>([]);
@@ -66,20 +84,26 @@ export const DynamicContentTranslation: React.FC = () => {
       });
   }, []);
 
-  // Load content based on active section
   useEffect(() => {
     if (activeSection === 'training') loadTrainingData();
     else if (activeSection === 'knowledge') loadKnowledgeData();
     else if (activeSection === 'healthy') loadHealthyData();
   }, [activeSection]);
 
-  // Load translations when language changes
   useEffect(() => {
     if (!selectedLanguage) return;
     if (activeSection === 'training') loadTrainingTranslations();
     else if (activeSection === 'knowledge') loadKnowledgeTranslations();
     else if (activeSection === 'healthy') loadHealthyTranslations();
   }, [selectedLanguage, activeSection]);
+
+  // Reset pagination on search/section change
+  useEffect(() => {
+    setVisibleModules(ITEMS_PER_PAGE);
+    setVisibleLessons(ITEMS_PER_PAGE);
+    setVisibleResources(ITEMS_PER_PAGE);
+    setVisibleHk(ITEMS_PER_PAGE);
+  }, [debouncedSearch, activeSection]);
 
   const loadTrainingData = async () => {
     const [{ data: mods }, { data: less }] = await Promise.all([
@@ -153,10 +177,8 @@ export const DynamicContentTranslation: React.FC = () => {
         ...fields,
         updated_at: new Date().toISOString(),
       };
-
       const { error } = await (supabase.from(table as any) as any)
         .upsert(payload, { onConflict: `${fkColumn},language_code` });
-
       if (error) throw error;
       toast({ title: 'Zapisano', description: 'Tłumaczenie zostało zapisane.' });
     } catch (err: any) {
@@ -176,60 +198,139 @@ export const DynamicContentTranslation: React.FC = () => {
     await startJob('pl', selectedLanguage, 'missing', jobType as any);
   };
 
-  const renderItemEditor = (
-    item: TranslationItem,
+  // Filter items by search
+  const filterItems = (items: TranslationItem[]) => {
+    if (!debouncedSearch) return items;
+    const q = debouncedSearch.toLowerCase();
+    return items.filter(item => item.title?.toLowerCase().includes(q));
+  };
+
+  // Check if item has translation
+  const hasTranslation = (itemId: string, translations: Record<string, Record<string, string>>, fields: FieldDef[]) => {
+    const t = translations[itemId];
+    if (!t) return false;
+    return fields.some(f => t[f.key] && t[f.key].trim() !== '');
+  };
+
+  // Count translated items
+  const countTranslated = (items: TranslationItem[], translations: Record<string, Record<string, string>>, fields: FieldDef[]) => {
+    return items.filter(item => hasTranslation(item.id, translations, fields)).length;
+  };
+
+  const moduleFields: FieldDef[] = [
+    { key: 'title', label: 'Tytuł' },
+    { key: 'description', label: 'Opis', multiline: true },
+  ];
+  const lessonFields: FieldDef[] = [
+    { key: 'title', label: 'Tytuł' },
+    { key: 'content', label: 'Treść', multiline: true },
+    { key: 'media_alt_text', label: 'Alt text' },
+  ];
+  const resourceFields: FieldDef[] = [
+    { key: 'title', label: 'Tytuł' },
+    { key: 'description', label: 'Opis', multiline: true },
+    { key: 'context_of_use', label: 'Kontekst użycia', multiline: true },
+  ];
+  const hkFields: FieldDef[] = [
+    { key: 'title', label: 'Tytuł' },
+    { key: 'description', label: 'Opis', multiline: true },
+    { key: 'text_content', label: 'Treść', multiline: true },
+  ];
+
+  const renderItemList = (
+    items: TranslationItem[],
     translations: Record<string, Record<string, string>>,
     setter: React.Dispatch<React.SetStateAction<Record<string, Record<string, string>>>>,
     table: string,
     fkColumn: string,
-    fields: { key: string; label: string; multiline?: boolean }[]
+    fields: FieldDef[],
+    visibleCount: number,
+    setVisibleCount: React.Dispatch<React.SetStateAction<number>>,
+    label: string,
   ) => {
-    const t = translations[item.id] || {};
+    const filtered = filterItems(items);
+    const translated = countTranslated(items, translations, fields);
+    const shown = filtered.slice(0, visibleCount);
+
     return (
-      <Card key={item.id} className="mb-3">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <span className="font-medium text-sm">{item.title}</span>
-              {item.description && (
-                <span className="text-xs text-muted-foreground ml-2">— {item.description?.substring(0, 60)}...</span>
-              )}
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={saving === item.id}
-              onClick={() => saveTranslation(table, fkColumn, item.id, t)}
-            >
-              {saving === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-              <span className="ml-1">Zapisz</span>
-            </Button>
-          </div>
-          <div className="grid gap-2 mt-2">
-            {fields.map(f => (
-              <div key={f.key}>
-                <Label className="text-xs text-muted-foreground">{f.label}</Label>
-                {f.multiline ? (
-                  <Textarea
-                    value={t[f.key] || ''}
-                    onChange={e => updateTranslation(setter, item.id, f.key, e.target.value)}
-                    rows={3}
-                    className="text-sm"
-                    placeholder={`${f.label} (${selectedLanguage.toUpperCase()})`}
-                  />
-                ) : (
-                  <Input
-                    value={t[f.key] || ''}
-                    onChange={e => updateTranslation(setter, item.id, f.key, e.target.value)}
-                    className="text-sm"
-                    placeholder={`${f.label} (${selectedLanguage.toUpperCase()})`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm text-muted-foreground">
+            {label} ({filtered.length})
+          </h4>
+          <Badge variant={translated === items.length ? 'default' : 'secondary'} className="text-xs">
+            {translated}/{items.length} przetłumaczonych
+          </Badge>
+        </div>
+
+        <Accordion type="multiple" className="space-y-1">
+          {shown.map(item => {
+            const isTranslated = hasTranslation(item.id, translations, fields);
+            const t = translations[item.id] || {};
+
+            return (
+              <AccordionItem key={item.id} value={item.id} className="border rounded-md px-3">
+                <AccordionTrigger className="py-2 hover:no-underline">
+                  <div className="flex items-center gap-2 text-left flex-1 min-w-0">
+                    {isTranslated ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                    ) : (
+                      <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
+                    )}
+                    <span className="text-sm font-medium truncate">{item.title}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <div className="grid gap-2 pt-1 pb-2">
+                    {fields.map(f => (
+                      <div key={f.key}>
+                        <Label className="text-xs text-muted-foreground">{f.label}</Label>
+                        {f.multiline ? (
+                          <Textarea
+                            value={t[f.key] || ''}
+                            onChange={e => updateTranslation(setter, item.id, f.key, e.target.value)}
+                            rows={2}
+                            className="text-sm mt-1"
+                            placeholder={`${f.label} (${selectedLanguage.toUpperCase()})`}
+                          />
+                        ) : (
+                          <Input
+                            value={t[f.key] || ''}
+                            onChange={e => updateTranslation(setter, item.id, f.key, e.target.value)}
+                            className="text-sm mt-1"
+                            placeholder={`${f.label} (${selectedLanguage.toUpperCase()})`}
+                          />
+                        )}
+                      </div>
+                    ))}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-fit mt-1"
+                      disabled={saving === item.id}
+                      onClick={() => saveTranslation(table, fkColumn, item.id, t)}
+                    >
+                      {saving === item.id ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Save className="w-3 h-3 mr-1" />}
+                      Zapisz
+                    </Button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+
+        {filtered.length > visibleCount && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground"
+            onClick={() => setVisibleCount(prev => prev + ITEMS_PER_PAGE)}
+          >
+            Pokaż więcej ({filtered.length - visibleCount} pozostałych)
+          </Button>
+        )}
+      </div>
     );
   };
 
@@ -237,28 +338,67 @@ export const DynamicContentTranslation: React.FC = () => {
     return <div className="text-muted-foreground text-sm p-4">Brak aktywnych języków do tłumaczenia (poza polskim).</div>;
   }
 
+  const isJobActive = activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing');
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {languages.map(l => (
-              <SelectItem key={l.code} value={l.code}>
-                {l.flag_emoji} {l.name} ({l.code.toUpperCase()})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Active job progress */}
+      {isJobActive && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                Tłumaczenie AI w toku...
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {activeJob.processed_keys}/{activeJob.total_keys} kluczy
+              </span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </CardContent>
+        </Card>
+      )}
 
-        <Button variant="outline" size="sm" onClick={handleAiTranslate}>
-          <Bot className="w-4 h-4 mr-2" />
-          Tłumacz AI ({activeSection === 'training' ? 'Szkolenia' : activeSection === 'knowledge' ? 'Zasoby' : 'Zdrowa Wiedza'})
-        </Button>
+      {/* Controls */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        <div className="flex gap-2 items-center">
+          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {languages.map(l => (
+                <SelectItem key={l.code} value={l.code}>
+                  {l.flag_emoji} {l.name} ({l.code.toUpperCase()})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Button variant="outline" size="sm" onClick={handleAiTranslate} disabled={!!isJobActive}>
+            <Bot className="w-4 h-4 mr-2" />
+            Tłumacz AI
+          </Button>
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Szukaj po tytule..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="pl-9 text-sm"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-2.5">
+              <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Tabs */}
       <Tabs value={activeSection} onValueChange={setActiveSection}>
         <TabsList>
           <TabsTrigger value="training">
@@ -275,44 +415,17 @@ export const DynamicContentTranslation: React.FC = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="training">
-          <ScrollArea className="max-h-[600px]">
-            <div className="space-y-4">
-              <h4 className="font-medium text-sm text-muted-foreground">Moduły szkoleniowe ({modules.length})</h4>
-              {modules.map(m => renderItemEditor(m, moduleTranslations, setModuleTranslations, 'training_module_translations', 'module_id', [
-                { key: 'title', label: 'Tytuł' },
-                { key: 'description', label: 'Opis', multiline: true },
-              ]))}
-              <h4 className="font-medium text-sm text-muted-foreground mt-6">Lekcje ({lessons.length})</h4>
-              {lessons.map(l => renderItemEditor(l, lessonTranslations, setLessonTranslations, 'training_lesson_translations', 'lesson_id', [
-                { key: 'title', label: 'Tytuł' },
-                { key: 'content', label: 'Treść', multiline: true },
-                { key: 'media_alt_text', label: 'Alt text' },
-              ]))}
-            </div>
-          </ScrollArea>
+        <TabsContent value="training" className="space-y-6">
+          {renderItemList(modules, moduleTranslations, setModuleTranslations, 'training_module_translations', 'module_id', moduleFields, visibleModules, setVisibleModules, 'Moduły szkoleniowe')}
+          {renderItemList(lessons, lessonTranslations, setLessonTranslations, 'training_lesson_translations', 'lesson_id', lessonFields, visibleLessons, setVisibleLessons, 'Lekcje')}
         </TabsContent>
 
         <TabsContent value="knowledge">
-          <ScrollArea className="max-h-[600px]">
-            <h4 className="font-medium text-sm text-muted-foreground">Zasoby ({resources.length})</h4>
-            {resources.map(r => renderItemEditor(r, resourceTranslations, setResourceTranslations, 'knowledge_resource_translations', 'resource_id', [
-              { key: 'title', label: 'Tytuł' },
-              { key: 'description', label: 'Opis', multiline: true },
-              { key: 'context_of_use', label: 'Kontekst użycia', multiline: true },
-            ]))}
-          </ScrollArea>
+          {renderItemList(resources, resourceTranslations, setResourceTranslations, 'knowledge_resource_translations', 'resource_id', resourceFields, visibleResources, setVisibleResources, 'Zasoby')}
         </TabsContent>
 
         <TabsContent value="healthy">
-          <ScrollArea className="max-h-[600px]">
-            <h4 className="font-medium text-sm text-muted-foreground">Materiały ({hkItems.length})</h4>
-            {hkItems.map(item => renderItemEditor(item, hkTranslations, setHkTranslations, 'healthy_knowledge_translations', 'item_id', [
-              { key: 'title', label: 'Tytuł' },
-              { key: 'description', label: 'Opis', multiline: true },
-              { key: 'text_content', label: 'Treść', multiline: true },
-            ]))}
-          </ScrollArea>
+          {renderItemList(hkItems, hkTranslations, setHkTranslations, 'healthy_knowledge_translations', 'item_id', hkFields, visibleHk, setVisibleHk, 'Materiały')}
         </TabsContent>
       </Tabs>
     </div>
