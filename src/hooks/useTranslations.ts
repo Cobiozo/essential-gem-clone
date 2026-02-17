@@ -267,8 +267,13 @@ export const loadLanguageTranslations = async (langCode: string): Promise<void> 
       translationsCache[t.language_code][t.namespace][t.key] = t.value;
     }
     
-    loadedLanguages.add(langCode);
-    if (isDev) console.log(`Lazy loaded translations for: ${langCode}`);
+    // Verify data actually exists in cache before marking as loaded
+    if (translationsCache[langCode] && Object.keys(translationsCache[langCode]).length > 0) {
+      loadedLanguages.add(langCode);
+      if (isDev) console.log(`Lazy loaded translations for: ${langCode}`);
+    } else {
+      console.warn(`[i18n] Language ${langCode} loaded but no data in cache`);
+    }
   } catch (error) {
     console.error(`Error loading translations for ${langCode}:`, error);
   }
@@ -318,7 +323,17 @@ export const loadTranslationsCache = async (currentLanguage: string = 'pl'): Pro
       if (!map[t.language_code][t.namespace]) map[t.language_code][t.namespace] = {};
       map[t.language_code][t.namespace][t.key] = t.value;
     }
-    translationsCache = map;
+    // Merge instead of overwrite to prevent race conditions
+    if (!translationsCache) {
+      translationsCache = map;
+    } else {
+      for (const lang of Object.keys(map)) {
+        if (!translationsCache[lang]) translationsCache[lang] = {};
+        for (const ns of Object.keys(map[lang])) {
+          translationsCache[lang][ns] = { ...translationsCache[lang][ns], ...map[lang][ns] };
+        }
+      }
+    }
     languagesToLoad.forEach(lang => loadedLanguages.add(lang));
 
     notifyListeners();

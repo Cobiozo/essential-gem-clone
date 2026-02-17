@@ -184,7 +184,7 @@ export const TrainingProgressWidget: React.FC = () => {
                       {module.title}
                     </span>
                     <span className={`text-xs ${module.isCompleted ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                      {module.isCompleted ? '✓ Ukończono' : `${module.progress}% ukończono`}
+                      {module.isCompleted ? `✓ ${t('dashboard.completed')}` : `${module.progress}% ${t('dashboard.completed').toLowerCase()}`}
                     </span>
                   </div>
                 </div>
