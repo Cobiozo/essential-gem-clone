@@ -155,7 +155,7 @@ export const WelcomeWidget: React.FC = () => {
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground mr-[168px]">
                 <span className="text-sm">🇵🇱</span>
                 <span className="font-mono tabular-nums">{polishTime}</span>
-                <span className="text-[10px]">(Polska)</span>
+                <span className="text-[10px]">({t('common.poland') || 'Polska'})</span>
               </div>
             )}
           </div>
