@@ -338,12 +338,21 @@ const TrainingManagement = () => {
         if (error) throw error;
         toast({ title: t('admin.training.success'), description: t('admin.training.moduleUpdated') });
       } else {
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('training_modules')
-          .insert([{ ...moduleData, position: modules.length, title: moduleData.title || t('admin.training.newModule') }]);
+          .insert([{ ...moduleData, position: modules.length, title: moduleData.title || t('admin.training.newModule') }])
+          .select('id')
+          .single();
         
         if (error) throw error;
         toast({ title: t('admin.training.success'), description: t('admin.training.moduleCreated') });
+        
+        // Auto-translate new module
+        if (insertedData?.id) {
+          import('@/utils/autoTranslate').then(({ triggerAutoTranslate }) => {
+            triggerAutoTranslate('training_module', { item_id: insertedData.id });
+          }).catch(() => {});
+        }
       }
 
       await fetchModules();
@@ -436,17 +445,26 @@ const TrainingManagement = () => {
         if (error) throw error;
         toast({ title: t('admin.training.success'), description: t('admin.training.lessonUpdated') });
       } else {
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('training_lessons')
           .insert([{ 
             ...dbData, 
             module_id: selectedModule,
             position: lessons.length,
             title: lessonData.title || t('admin.training.newLesson')
-          }]);
+          }])
+          .select('id')
+          .single();
         
         if (error) throw error;
         toast({ title: t('admin.training.success'), description: t('admin.training.lessonCreated') });
+        
+        // Auto-translate new lesson
+        if (insertedData?.id) {
+          import('@/utils/autoTranslate').then(({ triggerAutoTranslate }) => {
+            triggerAutoTranslate('training_lesson', { item_id: insertedData.id });
+          }).catch(() => {});
+        }
         
         // Send notifications to ALL users with progress in this module
         try {

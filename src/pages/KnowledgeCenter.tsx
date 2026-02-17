@@ -24,6 +24,7 @@ import {
 } from '@/types/knowledge';
 import { SocialShareDialog, GraphicsCard } from '@/components/share';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import { useKnowledgeTranslations } from '@/hooks/useKnowledgeTranslations';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5 text-red-500" />,
@@ -46,6 +47,9 @@ export default function KnowledgeCenter() {
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [resources, setResources] = useState<KnowledgeResource[]>([]);
+
+  // Apply translations to resources
+  const translatedResources = useKnowledgeTranslations(resources, language);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -133,9 +137,9 @@ export default function KnowledgeCenter() {
     setLoading(false);
   };
 
-  // Split resources into documents and graphics
-  const documentResources = resources.filter(r => r.resource_type !== 'image');
-  const graphicsResources = resources.filter(r => r.resource_type === 'image');
+  // Split resources into documents and graphics (use translated)
+  const documentResources = translatedResources.filter(r => r.resource_type !== 'image');
+  const graphicsResources = translatedResources.filter(r => r.resource_type === 'image');
 
   // Get download endpoint URL for a resource
   const getDownloadUrl = (resourceId: string): string => {

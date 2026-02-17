@@ -15,6 +15,7 @@ import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, 
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge, CONTENT_TYPE_LABELS, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
+import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 
 const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
   const icons: Record<string, React.ReactNode> = {
@@ -28,7 +29,7 @@ const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type,
 };
 
 const HealthyKnowledgePage: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, isPartner, isAdmin } = useAuth();
   const navigate = useNavigate();
   
@@ -71,23 +72,26 @@ const HealthyKnowledgePage: React.FC = () => {
     }
   };
 
+  // Apply translations
+  const translatedMaterials = useHealthyKnowledgeTranslations(materials, language);
+
   const categories = useMemo(() => {
     const cats = new Set<string>();
-    materials.forEach(m => {
+    translatedMaterials.forEach(m => {
       if (m.category) cats.add(m.category);
     });
     return Array.from(cats).sort();
-  }, [materials]);
+  }, [translatedMaterials]);
 
   const filteredMaterials = useMemo(() => {
-    return materials.filter(m => {
+    return translatedMaterials.filter(m => {
       const matchesSearch = !searchTerm || 
         m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.description?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = !selectedCategory || m.category === selectedCategory;
       return matchesSearch && matchesCategory;
     });
-  }, [materials, searchTerm, selectedCategory]);
+  }, [translatedMaterials, searchTerm, selectedCategory]);
 
   const canShare = isPartner || isAdmin;
 

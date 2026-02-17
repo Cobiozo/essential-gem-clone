@@ -199,12 +199,21 @@ const HealthyKnowledgeManagement: React.FC = () => {
           ...dataToSave,
           created_by: user?.id,
         };
-        const { error } = await supabase
+        const { data: insertedData, error } = await supabase
           .from('healthy_knowledge')
-          .insert(insertData as any);
+          .insert(insertData as any)
+          .select('id')
+          .single();
 
         if (error) throw error;
         toast.success('Materiał utworzony');
+        
+        // Auto-translate new healthy knowledge item
+        if (insertedData?.id) {
+          import('@/utils/autoTranslate').then(({ triggerAutoTranslate }) => {
+            triggerAutoTranslate('healthy_knowledge', { item_id: insertedData.id });
+          }).catch(() => {});
+        }
       }
 
       setEditDialogOpen(false);

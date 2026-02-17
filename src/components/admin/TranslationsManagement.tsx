@@ -183,6 +183,14 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
       } else {
         await createLanguage(languageForm);
         toast({ title: t('toast.success'), description: t('translations.languageAdded') });
+        
+        // Auto-translate all content to the new language
+        try {
+          const { triggerAutoTranslate } = await import('@/utils/autoTranslate');
+          triggerAutoTranslate('new_language', { language_code: languageForm.code });
+        } catch (e) {
+          console.error('Failed to trigger auto-translate for new language:', e);
+        }
       }
       setLanguageDialog(false);
       resetLanguageForm();

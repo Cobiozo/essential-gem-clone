@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ const TrainingModule = () => {
   const [textLessonTime, setTextLessonTime] = useState(0);
   
   const { user } = useAuth();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   const timerRef = useRef<NodeJS.Timeout>();
@@ -99,6 +101,49 @@ const TrainingModule = () => {
   // Notes dialog state
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
   const seekToTimeRef = useRef<((time: number) => void) | null>(null);
+  
+  // Translation state
+  const [moduleTranslations, setModuleTranslations] = useState<Record<string, { title?: string; description?: string }>>({});
+  const [lessonTranslations, setLessonTranslations] = useState<Record<string, { title?: string; content?: string; media_alt_text?: string }>>({});
+  
+  // Fetch translations when language changes
+  useEffect(() => {
+    if (language === 'pl' || !module || lessons.length === 0) {
+      setModuleTranslations({});
+      setLessonTranslations({});
+      return;
+    }
+    
+    const fetchTranslations = async () => {
+      const [{ data: modTrans }, { data: lessTrans }] = await Promise.all([
+        supabase.from('training_module_translations').select('*').eq('language_code', language).eq('module_id', module.id),
+        supabase.from('training_lesson_translations').select('*').eq('language_code', language).in('lesson_id', lessons.map(l => l.id)),
+      ]);
+      
+      const modMap: typeof moduleTranslations = {};
+      modTrans?.forEach((t: any) => { modMap[t.module_id] = { title: t.title, description: t.description }; });
+      setModuleTranslations(modMap);
+      
+      const lessMap: typeof lessonTranslations = {};
+      lessTrans?.forEach((t: any) => { lessMap[t.lesson_id] = { title: t.title, content: t.content, media_alt_text: t.media_alt_text }; });
+      setLessonTranslations(lessMap);
+    };
+    fetchTranslations();
+  }, [language, module?.id, lessons.length]);
+  
+  // Apply translations
+  const displayModule = useMemo(() => {
+    if (!module) return null;
+    const t = moduleTranslations[module.id];
+    return t ? { ...module, title: t.title || module.title, description: t.description || module.description } : module;
+  }, [module, moduleTranslations]);
+  
+  const displayLessons = useMemo(() => {
+    return lessons.map(l => {
+      const t = lessonTranslations[l.id];
+      return t ? { ...l, title: t.title || l.title, content: t.content || l.content, media_alt_text: t.media_alt_text || l.media_alt_text } : l;
+    });
+  }, [lessons, lessonTranslations]);
   
   // Get current lesson for notes hook (must be before any conditional returns)
   const currentLesson = lessons[currentLessonIndex];
@@ -1236,9 +1281,9 @@ const TrainingModule = () => {
           </Button>
           <Separator orientation="vertical" className="h-6" />
           <div>
-            <h1 className="text-lg font-semibold">{module.title}</h1>
-            {module.description && (
-              <p className="text-sm text-muted-foreground">{module.description}</p>
+            <h1 className="text-lg font-semibold">{displayModule?.title || module.title}</h1>
+            {(displayModule?.description || module.description) && (
+              <p className="text-sm text-muted-foreground">{displayModule?.description || module.description}</p>
             )}
           </div>
         </div>
@@ -1260,7 +1305,7 @@ const TrainingModule = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="space-y-2 pt-0">
-                    {lessons.map((lesson, index) => {
+                    {displayLessons.map((lesson, index) => {
                       const lessonProgress = progress[lesson.id];
                       const isCompleted = lessonProgress?.is_completed;
                       const isCurrent = index === currentLessonIndex;
@@ -1323,7 +1368,7 @@ const TrainingModule = () => {
                 <CardTitle className="text-lg">Lekcje</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {lessons.map((lesson, index) => {
+                {displayLessons.map((lesson, index) => {
                   const lessonProgress = progress[lesson.id];
                   const isCompleted = lessonProgress?.is_completed;
                   const isCurrent = index === currentLessonIndex;
@@ -1382,7 +1427,7 @@ const TrainingModule = () => {
               <CardHeader className="p-4 sm:p-6">
                 <div className="flex items-start justify-between gap-2">
                   <CardTitle className="break-words line-clamp-2 text-lg sm:text-xl lg:text-2xl flex-1 min-w-0 overflow-hidden" style={{ wordBreak: 'break-word' }}>
-                    {currentLesson.title}
+                    {displayLessons[currentLessonIndex]?.title || currentLesson.title}
                   </CardTitle>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {/* Notes button - only for video lessons */}
@@ -1452,7 +1497,7 @@ const TrainingModule = () => {
                 <LessonNotesDialog
                   open={isNotesDialogOpen}
                   onOpenChange={setIsNotesDialogOpen}
-                  lessonTitle={currentLesson.title}
+                  lessonTitle={displayLessons[currentLessonIndex]?.title || currentLesson.title}
                   currentVideoTime={videoPosition}
                   isLessonCompleted={isLessonCompleted}
                   notes={notes}
@@ -1463,9 +1508,9 @@ const TrainingModule = () => {
                   onSeekToTime={handleSeekToTime}
                 />
 
-                {currentLesson.content && (
+                {(displayLessons[currentLessonIndex]?.content || currentLesson.content) && (
                   <div className="prose dark:prose-invert max-w-none">
-                    <div dangerouslySetInnerHTML={{ __html: currentLesson.content }} />
+                    <div dangerouslySetInnerHTML={{ __html: displayLessons[currentLessonIndex]?.content || currentLesson.content }} />
                   </div>
                 )}
 

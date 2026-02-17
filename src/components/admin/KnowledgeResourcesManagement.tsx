@@ -206,7 +206,7 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         fetchResources();
       }
     } else {
-      const { error } = await supabase
+      const { data: insertedData, error } = await supabase
         .from('knowledge_resources')
         .insert([{
           title: resourceData.title || '',
@@ -236,7 +236,9 @@ export const KnowledgeResourcesManagement: React.FC = () => {
           allow_click_redirect: resourceData.allow_click_redirect ?? false,
           click_redirect_url: resourceData.click_redirect_url || null,
           language_code: resourceData.language_code || 'pl'
-        }]);
+        }])
+        .select('id')
+        .single();
       
       if (error) {
         toast({ title: t('toast.error'), description: t('admin.knowledge.createError'), variant: 'destructive' });
@@ -245,6 +247,13 @@ export const KnowledgeResourcesManagement: React.FC = () => {
         toast({ title: t('toast.success'), description: t('admin.knowledge.resourceCreated') });
         setDialogOpen(false);
         fetchResources();
+        
+        // Auto-translate new resource
+        if (insertedData?.id) {
+          import('@/utils/autoTranslate').then(({ triggerAutoTranslate }) => {
+            triggerAutoTranslate('knowledge_resource', { item_id: insertedData.id });
+          }).catch(() => {});
+        }
       }
     }
   };
