@@ -1,91 +1,55 @@
 
 
-# Naprawa bledu "src_not_supported" po zmianie na redirect 302
+# Naprawa wskaznika buforowania 81% i ukrycie zrodla w diagnostyce
 
-## Problem
+## Problem 1: Buforowanie pokazuje 81% mimo normalnego odtwarzania
 
-Element `<video src="stream-media?token=...">` otrzymuje odpowiedz 302 z Edge Function, ale przegladarka nie moze podazyc za cross-origin redirectem do VPS (`purelife.info.pl`), poniewaz VPS nie wysyla naglowkow CORS. Skutek: `MEDIA_ERR_SRC_NOT_SUPPORTED` w petli.
+Wskaznik bufferProgress jest obliczany jako `(bufferedAhead / minBufferSeconds) * 100`. Dla desktopa `minBufferSeconds = 2`, wiec jesli przegladarka zbuforowala np. 1.62s do przodu, progress = 81%.
 
-## Rozwiazanie
+Ale odtwarzanie dziala normalnie, bo przegladarka pobiera dane bezposrednio z VPS (po naszej zmianie na JSON resolve) i buforuje na biezaco. Problem: wskaznik "Buforowanie: 81%" jest pokazywany uzytkownikowi mimo ze wideo gra plynnie — to dezorientujace.
 
-Zamiast ustawiac URL proxy jako `<video src>`, klient wykona `fetch()` do `stream-media?token=...` z `redirect: 'manual'`, odczyta naglowek `Location` z odpowiedzi 302, i uzyje tego URL bezposrednio jako `<video src>`.
+**Rozwiazanie:** Wskaznik buforowania powinien byc widoczny TYLKO gdy wideo jest faktycznie wstrzymane z powodu buforowania (`isInitialBuffering || isSmartBuffering`). Aktualnie `bufferProgress` jest przekazywany zawsze, a VideoControls pokazuje go gdy `isBuffering` jest true. Problem jest w tym ze `isInitialBuffering` lub `isSmartBuffering` moze byc true mimo plynnego odtwarzania — logika "canPlay" nie zawsze wystarczy.
 
-Alternatywnie (prostsze): zmiana `stream-media` Edge Function aby zamiast 302 zwracala JSON z prawdziwym URL, a klient pobiera ten URL i ustawia go jako src. To jest rownowazne z obecnym podejsciem, ale dziala z `<video>`.
+Po analizie kodu: `bufferProgress` jest obliczany wzgledem `minBufferSeconds` (2s na desktopie). Jesli bufor wyprzedza aktualna pozycje o 1.6s, to 1.6/2 = 80%. Ale wideo gra bo 1.6s bufora wystarczy dla plynnego odtwarzania. Stan `isInitialBuffering` zostaje `true` dopoki bufor nie osiagnie 100% — to blokuje play i pokazuje wskaznik mimo gotowosci.
 
-### Wybrane podejscie: JSON response zamiast 302
+**Fix:** Zmienic warunek odblokowania z `bufferedAheadValue >= targetBuffer` na bardziej tolerancyjny prog, np. 80% bufora wystarczy do odblokowania odtwarzania. Alternatywnie: jesli wideo juz gra (nie jest paused), ukryc wskaznik buforowania.
 
-Edge Function `stream-media` bedzie zwracac:
-```text
-{ "url": "https://purelife.info.pl/uploads/..." }
-```
+## Problem 2: Diagnostyka admina pokazuje zrodlowy URL
 
-Klient (`SecureMedia.tsx`) zamiast ustawiac `getStreamMediaUrl(token)` jako src, wykona fetch do tego URL i uzyje zwroconego `url` jako src.
+W `VideoControls.tsx` diagnostyka admina zawiera:
+- Pole "Zrodlo" z `videoSrc` (linia z `videoSrc.slice(-50)`)
+- Funkcja `copyDiagnostics` kopiuje `videoSrc` do schowka
+
+Po naszej zmianie `signedUrl` to teraz prawdziwy URL VPS (`purelife.info.pl/...`). Trzeba go ukryc w diagnostyce.
 
 ## Zmiany techniczne
 
-### 1. `supabase/functions/stream-media/index.ts`
+### 1. `src/components/SecureMedia.tsx` — tolerancyjniejszy prog buforowania
 
-Zmiana z `302 redirect` na `200 JSON response`:
-
-```text
-PRZED:
-  return new Response(null, {
-    status: 302,
-    headers: { Location: realUrl, ... }
-  })
-
-PO:
-  return new Response(JSON.stringify({ url: realUrl }), {
-    status: 200,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-  })
-```
-
-### 2. `src/lib/mediaTokenService.ts`
-
-Nowa funkcja `resolveStreamUrl(token)` ktora:
-1. Wykonuje fetch do `stream-media?token=...`
-2. Parsuje JSON response
-3. Zwraca prawdziwy URL
+Zmienic warunek odblokowania odtwarzania z wymagania 100% bufora na 70%:
 
 ```text
-export async function resolveStreamUrl(token: string): Promise<string> {
-  const response = await fetch(getStreamMediaUrl(token));
-  const data = await response.json();
-  return data.url;
-}
+PRZED: if (isInitialBuffering && (bufferedAheadValue >= targetBuffer || progress >= 100))
+PO:    if (isInitialBuffering && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70))
 ```
 
-### 3. `src/components/SecureMedia.tsx`
+Analogiczna zmiana w handleProgress i handleCanPlay.
 
-W bloku generowania tokenu (linie ~286-294):
+### 2. `src/components/SecureMedia.tsx` — nie przekazuj prawdziwego URL do diagnostyki
 
 ```text
-PRZED:
-  const token = await generateMediaToken(mediaUrl);
-  const proxyUrl = getStreamMediaUrl(token);
-  setSignedUrl(proxyUrl);  // <video src="stream-media?token=..."> -- nie dziala z 302!
-
-PO:
-  const token = await generateMediaToken(mediaUrl);
-  const realUrl = await resolveStreamUrl(token);
-  setSignedUrl(realUrl);  // <video src="https://purelife.info.pl/..."> -- dziala!
+PRZED: videoSrc={signedUrl}
+PO:    videoSrc={mediaTokenRef.current ? `[protected] token:${mediaTokenRef.current.slice(0,8)}...` : undefined}
 ```
 
-Analogiczna zmiana w bloku odswiezania tokenu (linie ~298-314).
+### 3. `src/components/training/VideoControls.tsx` — usun pole "Zrodlo" z diagnostyki
 
-## Bezpieczenstwo
+Usunac sekcje wyswietlajaca `videoSrc` URL i usunac `videoSrc` z funkcji `copyDiagnostics`.
 
-- Prawdziwy URL pojawia sie w `<video src>` i w Network tab, ale jest chroniony tokenem jednorazowym
-- Uzytkownik musi byc zalogowany aby uzyskac token
-- Token wygasa po 5 minutach / 100 uzyciach
-- URL nie jest widoczny w kodzie zrodlowym strony (ustawiany dynamicznie przez JavaScript)
-
-## Pliki do zmiany
+## Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/stream-media/index.ts` | 302 redirect -> 200 JSON response |
-| `src/lib/mediaTokenService.ts` | Dodanie `resolveStreamUrl()` |
-| `src/components/SecureMedia.tsx` | Uzycie `resolveStreamUrl()` zamiast `getStreamMediaUrl()` |
+| `src/components/SecureMedia.tsx` | Prog buforowania 100% -> 70%, zamaskowanie URL w diagnostyce |
+| `src/components/training/VideoControls.tsx` | Usuniecie prawdziwego URL z widoku diagnostyki i kopiowania |
 
