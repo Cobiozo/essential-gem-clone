@@ -734,7 +734,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setIsBuffering(false);
         isBufferingRef.current = false;
         lastValidTimeRef.current = video.currentTime;
-        video.play().catch(console.error);
+        if (!document.hidden) {
+          video.play().catch(console.error);
+        }
         wasPlayingBeforeBufferRef.current = false;
         return;
       }
@@ -771,7 +773,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             
             if (bufferedAheadValue >= targetBuffer || bufferedAheadValue >= remainingDuration) {
               setIsSmartBuffering(false);
-              if (wasPlayingBeforeBufferRef.current) {
+            if (wasPlayingBeforeBufferRef.current && !document.hidden) {
                 video.play().catch(console.error);
                 wasPlayingBeforeBufferRef.current = false;
               }
@@ -821,7 +823,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           isBufferingRef.current = false;
           setIsBuffering(false);
           
-          if (wasPlayingBeforeBufferRef.current) {
+          if (wasPlayingBeforeBufferRef.current && !document.hidden) {
             video.play().catch(console.error);
             wasPlayingBeforeBufferRef.current = false;
           }
@@ -1175,10 +1177,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
     };
 
+    const handleWindowBlur = () => {
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+        setIsTabHidden(true);
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
     };
   }, [mediaType]);
 
