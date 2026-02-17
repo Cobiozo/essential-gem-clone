@@ -87,17 +87,15 @@ Deno.serve(async (req) => {
 
     const realUrl = tokenRecord.real_url
 
-    // Redirect 302 to the real URL — browser fetches directly from VPS
-    // This avoids Edge Function timeout limits on large video files
-    console.log(`Redirecting to media for token ${mediaToken}`)
+    // Return JSON with real URL — client sets it as <video src>
+    console.log(`Resolved media URL for token ${mediaToken}`)
 
-    return new Response(null, {
-      status: 302,
+    return new Response(JSON.stringify({ url: realUrl }), {
+      status: 200,
       headers: {
         ...corsHeaders,
-        'Location': realUrl,
+        'Content-Type': 'application/json',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
-        'Content-Disposition': 'inline',
       }
     })
 
