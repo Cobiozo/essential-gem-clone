@@ -1,73 +1,82 @@
 
 
-# Zamiana hardcoded polskich tekstow na t() w widgetach dashboardu
+# Zastosowanie tlumaczen dynamicznych tresci w widgetach dashboardu
 
 ## Problem
 
-System tlumaczen dziala poprawnie (naglowki jak "Training Progress", "My meetings", "View All" sa po angielsku), ale wiele tekstow w widgetach jest zapisanych na sztywno po polsku zamiast uzywac funkcji `t()`.
+Tlumaczenia dynamicznych tresci (tytulow modulow szkoleniowych, zasobow wiedzy, materialow Zdrowa Wiedza) sa zapisane w bazie danych w tabelach `*_translations`, ale widgety na dashboardzie pobieraja dane bezposrednio z tabel zrodlowych i wyswietlaja polskie tytuly bez aplikowania tlumaczen.
+
+Hooki do tlumaczen juz istnieja:
+- `useTrainingTranslations` - uzywany na stronie /training
+- `useKnowledgeTranslations` - uzywany na stronie /knowledge
+- `useHealthyKnowledgeTranslations` - uzywany na stronie /zdrowa-wiedza
+
+Ale NIE sa uzywane w widgetach dashboardu.
 
 ## Zakres zmian
 
-### 1. CalendarWidget.tsx - legenda i przyciski
+### 1. TrainingProgressWidget.tsx
 
-Hardcoded teksty do zamiany:
+**Problem**: Pobiera `training_modules.title` i wyswietla bez tlumaczenia (linia 117, 184).
 
-| Tekst PL | Klucz t() |
-|----------|-----------|
-| `'Webinar'` | `t('events.type.webinar')` |
-| `'Spotkanie zespolu'` | `t('events.type.teamMeeting')` |
-| `'Spotkanie trojstronne'` | `t('events.type.tripartiteMeeting')` |
-| `'Konsultacje'` | `t('events.type.consultation')` |
-| `'Zakonczone'` | `t('events.ended')` |
-| `'WEJDZ'` | `t('events.join')` |
-| `'Trwa teraz'` | `t('events.liveNow')` |
-| `'Wypisz sie'` | `t('events.unregister')` |
-| `'Usun z kalendarza'` | `t('events.removeFromCalendar')` |
-| `'Dodaj do kalendarza'` | `t('events.addToCalendar')` |
-| `'Cykliczne'` | `t('events.recurring')` |
-| `'Szczegoly'` | `t('events.details')` |
-| `'Prowadzacy'` | `t('events.host')` |
-| `'Rezerwujacy'` | `t('events.bookedBy')` |
-| `'Skopiowano!'` | `t('common.copied')` |
-| `'Zaproszenie zostalo skopiowane...'` | `t('events.invitationCopied')` |
-| `'Ladowanie...'` | `t('common.loading')` |
-| `'Zaproszenie na webinar:'` | `t('events.webinarInvitation')` |
-| Toast w anulowaniu spotkan | `t('events.meetingCancelled')` itd. |
+**Rozwiazanie**: Po pobraniu modulow, doladowac tlumaczenia z `training_module_translations` dla aktualnego jezyka i zastapic tytuly.
 
-### 2. MyMeetingsWidget.tsx - nazwy typow i przyciski
+- Dodac import `useLanguage`  (juz jest)
+- Po pobraniu modulow, pobrac tlumaczenia z `training_module_translations` dla `language`
+- Zastosowac przetlumaczone tytuly w `modulesWithProgress`
 
-Funkcja `getEventTypeName()` (linie 117-134) - zamiana na t():
-| Tekst PL | Klucz t() |
-|----------|-----------|
-| `'Webinary'` | `t('events.type.webinars')` |
-| `'Spotkanie zespolu'` | `t('events.type.teamMeeting')` |
-| `'Spotkania publiczne'` | `t('events.type.publicMeetings')` |
-| `'Spotkanie indywidualne'` | `t('events.type.individualMeeting')` |
-| `'Spotkanie trojstronne'` | `t('events.type.tripartiteMeeting')` |
-| `'Konsultacje dla partnerow'` | `t('events.type.partnerConsultation')` |
-| `'Wydarzenia'` | `t('events.events')` |
+### 2. ResourcesWidget.tsx
 
-Inne hardcoded: `'Ladowanie...'`, `'Rozpocznij'`, `'WEJDZ'`, `'Wejdz'`, `'Szczegoly'`, `'Anuluj'`, `'Spotkanie anulowane'`, `'Za X min'`, `'Zoom'`, `'Blad'`
+**Problem**: Pobiera `knowledge_resources.title` i wyswietla bez tlumaczenia (linia 148).
 
-### 3. WelcomeWidget.tsx - drobne
+**Rozwiazanie**: Po pobraniu zasobow, doladowac tlumaczenia z `knowledge_resource_translations`.
 
-| Tekst PL | Klucz t() |
-|----------|-----------|
-| `'(Polska)'` (linia 158) | `'(Poland)'` lub `t('common.poland')` |
-| WidgetInfoButton description | uzywane wewnetrznie, mniejszy priorytet |
+- Dodac pobieranie tlumaczen z `knowledge_resource_translations` po zaladowaniu zasobow
+- Zastosowac przetlumaczone tytuly
+
+### 3. HealthyKnowledgeWidget.tsx
+
+**Problem**: Pobiera `healthy_knowledge.title` bez tlumaczenia (linia 117). Dodatkowo ma hardcoded polskie stringi:
+- "Zdrowa Wiedza" (linie 62, 85)
+- "Zobacz wszystkie" (linia 93)
+- "Wyrosnione materialy edukacyjne" (linia 97)
+- "Nowe" (linia 123)
+
+**Rozwiazanie**:
+- Dodac `useLanguage` i `useHealthyKnowledgeTranslations`
+- Zastosowac przetlumaczone tytuly materialow
+- Zamienic hardcoded stringi na `t()` z fallbackami
 
 ## Podejscie techniczne
 
-- Kazdy hardcoded string zostanie zastapiony wywolaniem `t('klucz')` z polskim fallbackiem: `t('events.join') \|\| 'WEJDZ'`
-- Fallback zapewnia ze jezeli klucz nie istnieje jeszcze w bazie, uzytkownik nadal widzi polski tekst
-- Klucze uzywaja istniejacych namespace'ow (`events.*`, `common.*`, `dashboard.*`)
-- Nie trzeba dodawac kluczy do bazy - system automatycznie wyswietla klucz jako fallback, a tlumaczenia mozna dodac pozniej w panelu admina
+Zamiast kopiowac logike tlumaczen, mozna:
+
+**Opcja A** (prosta): W kazdym widgecie po pobraniu danych zrodlowych, pobrac rowniez rekordy z odpowiedniej tabeli `*_translations` i podmenic tytuly inline.
+
+**Opcja B** (z hookami): Uzyc istniejacych hookow (`useTrainingTranslations`, `useKnowledgeTranslations`, `useHealthyKnowledgeTranslations`) - wymaga dopasowania typow danych.
+
+Wybior: **Opcja A** - jest prostsza, nie wymaga konwersji typow, i widgety pobieraja ograniczone dane (limit 3-4 rekordy).
+
+Przyklad dla TrainingProgressWidget:
+```typescript
+// Po pobraniu modulesData, pobierz tlumaczenia
+if (language !== 'pl' && modulesData?.length) {
+  const { data: translations } = await supabase
+    .from('training_module_translations')
+    .select('module_id, title')
+    .eq('language_code', language)
+    .in('module_id', modulesData.map(m => m.id));
+  
+  const transMap = new Map(translations?.map(t => [t.module_id, t.title]) || []);
+  // Zastosuj w mapowaniu modulesWithProgress
+  // title: transMap.get(mod.id) || mod.title
+}
+```
 
 ## Pliki do zmiany
 
-| Plik | Zakres zmian |
-|------|-------------|
-| `src/components/dashboard/widgets/CalendarWidget.tsx` | ~25 hardcoded stringow -> t() |
-| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | ~15 hardcoded stringow -> t() |
-| `src/components/dashboard/widgets/WelcomeWidget.tsx` | 1-2 hardcoded stringi -> t() |
-
+| Plik | Zmiana |
+|------|--------|
+| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Pobieranie i aplikowanie tlumaczen tytulow modulow |
+| `src/components/dashboard/widgets/ResourcesWidget.tsx` | Pobieranie i aplikowanie tlumaczen tytulow zasobow |
+| `src/components/dashboard/widgets/HealthyKnowledgeWidget.tsx` | Pobieranie i aplikowanie tlumaczen + zamiana hardcoded PL na t() |
