@@ -1,6 +1,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface TotalResultCardProps {
@@ -25,8 +26,8 @@ export function TotalResultCard({
   maxClients
 }: TotalResultCardProps) {
   const { currency, formatAmount, eurToPlnRate } = useCurrency();
+  const { tf } = useLanguage();
   
-  // Sum ALL achieved thresholds (not just highest one)
   const getVolumeBonus = (clientCount: number): number => {
     return thresholds
       .filter(t => clientCount >= t.threshold_clients)
@@ -35,7 +36,6 @@ export function TotalResultCard({
 
   const directCommission = clients * baseCommission;
   const volumeBonus = getVolumeBonus(clients);
-  // Fixed formula: passivePerClientEur per client per month
   const passiveIncome = clients * passivePerClientEur * passiveMonths;
   const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
   
@@ -43,7 +43,6 @@ export function TotalResultCard({
 
   const progressPercent = Math.min((clients / maxClients) * 100, 100);
 
-  // Secondary display (opposite currency)
   const secondaryAmount = currency === 'EUR' 
     ? `~ ${(totalEUR * eurToPlnRate).toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł`
     : `~ ${totalEUR.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} €`;
@@ -53,7 +52,7 @@ export function TotalResultCard({
       <CardContent className="pt-6 space-y-4">
         <div className="text-center">
           <p className="text-sm text-muted-foreground mb-2">
-            Szacowany przychód całkowity (6 miesięcy)
+            {tf('calc.inf.estimatedTotal', 'Szacowany przychód całkowity (6 miesięcy)')}
           </p>
           <p className="text-4xl md:text-5xl font-bold text-emerald-600 transition-all duration-300">
             {formatAmount(totalEUR)}
@@ -69,12 +68,12 @@ export function TotalResultCard({
             className="h-2 bg-emerald-100 dark:bg-emerald-900/50 transition-all duration-300"
           />
           <p className="text-xs text-center text-muted-foreground">
-            {clients.toLocaleString('pl-PL')} klientów z {maxClients.toLocaleString('pl-PL')} możliwych
+            {clients.toLocaleString('pl-PL')} {tf('calc.inf.clientsOf', 'klientów z')} {maxClients.toLocaleString('pl-PL')} {tf('calc.inf.possible', 'możliwych')}
           </p>
         </div>
 
         <p className="text-xs text-muted-foreground text-center italic">
-          *Założenie minimalnej stawki {baseCommission}€/klient. Rzeczywiste wyniki zależą od zaangażowania.
+          *{tf('calc.inf.assumption', `Założenie minimalnej stawki ${baseCommission}€/klient. Rzeczywiste wyniki zależą od zaangażowania.`)}
         </p>
       </CardContent>
     </Card>

@@ -20,7 +20,7 @@ import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
 export const CalendarWidget: React.FC = () => {
-  const { t, language } = useLanguage();
+  const { t, tf, language } = useLanguage();
   const { user } = useAuth();
   const { events, loading, registerForEvent, cancelRegistration } = useEvents();
   const { toast } = useToast();
@@ -33,10 +33,10 @@ export const CalendarWidget: React.FC = () => {
 
   // Legend items configuration
   const legendItems = [
-    { type: 'webinar', color: 'bg-blue-500', label: t('events.type.webinar') || 'Webinar' },
-    { type: 'team_training', color: 'bg-green-500', label: t('events.type.teamMeeting') || 'Spotkanie zespołu' },
-    { type: 'tripartite_meeting', color: 'bg-violet-500', label: t('events.type.tripartiteMeeting') || 'Spotkanie trójstronne' },
-    { type: 'partner_consultation', color: 'bg-fuchsia-500', label: t('events.type.consultation') || 'Konsultacje' }
+    { type: 'webinar', color: 'bg-blue-500', label: tf('events.type.webinar', 'Webinar') },
+    { type: 'team_training', color: 'bg-green-500', label: tf('events.type.teamMeeting', 'Spotkanie zespołu') },
+    { type: 'tripartite_meeting', color: 'bg-violet-500', label: tf('events.type.tripartiteMeeting', 'Spotkanie trójstronne') },
+    { type: 'partner_consultation', color: 'bg-fuchsia-500', label: tf('events.type.consultation', 'Konsultacje') }
   ];
 
   // Copy webinar invitation to clipboard
@@ -46,9 +46,9 @@ export const CalendarWidget: React.FC = () => {
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
     const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
-    const webinarInvLabel = t('events.webinarInvitation') || 'Zaproszenie na webinar';
-    const hostLabel = t('events.host') || 'Prowadzący';
-    const signUpLabel = t('events.signUpHere') || 'Zapisz się tutaj';
+    const webinarInvLabel = tf('events.webinarInvitation', 'Zaproszenie na webinar');
+    const hostLabel = tf('events.host', 'Prowadzący');
+    const signUpLabel = tf('events.signUpHere', 'Zapisz się tutaj');
     const invitationText = `
 🎥 ${webinarInvLabel}: ${event.title}
 
@@ -61,8 +61,8 @@ ${signUpLabel}: ${inviteUrl}
     
     navigator.clipboard.writeText(invitationText);
     toast({ 
-      title: t('common.copied') || 'Skopiowano!', 
-      description: t('events.invitationCopied') || 'Zaproszenie zostało skopiowane do schowka' 
+      title: tf('common.copied', 'Skopiowano!'), 
+      description: tf('events.invitationCopied', 'Zaproszenie zostało skopiowane do schowka') 
     });
   };
 
@@ -154,7 +154,7 @@ ${signUpLabel}: ${inviteUrl}
     
     // Wydarzenie zakończone
     if (isAfter(now, eventEnd)) {
-      return <Badge variant="secondary" className="text-xs">{t('events.ended') || 'Zakończone'}</Badge>;
+      return <Badge variant="secondary" className="text-xs">{tf('events.ended', 'Zakończone')}</Badge>;
     }
     
     // Można dołączyć (15 min przed lub trwa)
@@ -164,12 +164,12 @@ ${signUpLabel}: ${inviteUrl}
           <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
             <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="h-3 w-3 mr-1" />
-              {t('events.join') || 'WEJDŹ'}
+              {tf('events.join', 'WEJDŹ')}
             </a>
           </Button>
         );
       }
-      return <Badge className="text-xs bg-emerald-600">{t('events.liveNow') || 'Trwa teraz'}</Badge>;
+      return <Badge className="text-xs bg-emerald-600">{tf('events.liveNow', 'Trwa teraz')}</Badge>;
     }
     
     // Zarejestrowany
@@ -184,7 +184,7 @@ ${signUpLabel}: ${inviteUrl}
             onClick={() => cancelRegistration(event.id, occurrenceIndex)}
           >
             <X className="h-3 w-3 mr-1" />
-            {t('events.removeFromCalendar') || 'Usuń z kalendarza'}
+            {tf('events.removeFromCalendar', 'Usuń z kalendarza')}
           </Button>
         );
       }
@@ -197,7 +197,7 @@ ${signUpLabel}: ${inviteUrl}
           onClick={() => cancelRegistration(event.id, occurrenceIndex)}
         >
           <X className="h-3 w-3 mr-1" />
-          {t('events.unregister') || 'Wypisz się'}
+          {tf('events.unregister', 'Wypisz się')}
         </Button>
       );
     }
@@ -212,7 +212,7 @@ ${signUpLabel}: ${inviteUrl}
           onClick={() => registerForEvent(event.id, occurrenceIndex)}
         >
           <Calendar className="h-3 w-3 mr-1" />
-          {t('events.addToCalendar') || 'Dodaj do kalendarza'}
+          {tf('events.addToCalendar', 'Dodaj do kalendarza')}
         </Button>
       );
     }
@@ -224,7 +224,7 @@ ${signUpLabel}: ${inviteUrl}
         className="h-6 text-xs"
         onClick={() => registerForEvent(event.id, occurrenceIndex)}
       >
-        {t('events.registerButton') || 'Zapisz się'}
+        {tf('events.registerButton', 'Zapisz się')}
       </Button>
     );
   };
@@ -235,7 +235,7 @@ ${signUpLabel}: ${inviteUrl}
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-semibold flex items-center gap-3">
           <Widget3DIcon icon={Calendar} variant="violet" size="md" />
-          {t('events.title') || 'Webinary i spotkania'}
+          {tf('events.title', 'Webinary i spotkania')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -342,7 +342,7 @@ ${signUpLabel}: ${inviteUrl}
             </h4>
             {selectedDayEvents.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                {t('events.noUpcoming') || 'Brak wydarzeń'}
+                {tf('events.noUpcoming', 'Brak wydarzeń')}
               </p>
             ) : (
               <div className="space-y-2">
@@ -362,7 +362,7 @@ ${signUpLabel}: ${inviteUrl}
                         {(event as any)._is_multi_occurrence && (
                            <Badge variant="outline" className="text-xs ml-1 px-1.5 py-0">
                              <CalendarDays className="h-3 w-3 mr-0.5" />
-                             {t('events.recurring') || 'Cykliczne'}
+                             {tf('events.recurring', 'Cykliczne')}
                            </Badge>
                         )}
                       </div>
@@ -374,13 +374,13 @@ ${signUpLabel}: ${inviteUrl}
                         {event.host_profile && event.host_user_id !== user?.id && (
                           <div className="flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {t('events.host') || 'Prowadzący'}: {event.host_profile.first_name} {event.host_profile.last_name}
+                            {tf('events.host', 'Prowadzący')}: {event.host_profile.first_name} {event.host_profile.last_name}
                           </div>
                         )}
                         {event.participant_profile && event.host_user_id === user?.id && (
                           <div className="flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {t('events.bookedBy') || 'Rezerwujący'}: {event.participant_profile.first_name} {event.participant_profile.last_name}
+                            {tf('events.bookedBy', 'Rezerwujący')}: {event.participant_profile.first_name} {event.participant_profile.last_name}
                           </div>
                         )}
                       </div>
@@ -399,10 +399,10 @@ ${signUpLabel}: ${inviteUrl}
                             e.stopPropagation();
                             setDetailsEvent(event);
                           }}
-                           title={t('events.details') || 'Szczegóły'}
+                           title={tf('events.details', 'Szczegóły')}
                          >
                            <Info className="h-3 w-3 mr-1" />
-                           {t('events.details') || 'Szczegóły'}
+                           {tf('events.details', 'Szczegóły')}
                         </Button>
                         {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
                           <Button
@@ -450,7 +450,7 @@ ${signUpLabel}: ${inviteUrl}
 
         {loading && (
           <div className="text-center text-sm text-muted-foreground py-4">
-            {t('common.loading') || 'Ładowanie...'}
+            {tf('common.loading', 'Ładowanie...')}
           </div>
         )}
 
@@ -464,7 +464,7 @@ ${signUpLabel}: ${inviteUrl}
             // For individual meetings (tripartite/partner_consultation) use Edge Function
             const event = detailsEvent;
             if (event && ['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
-              const confirmed = window.confirm('Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.');
+              const confirmed = window.confirm(tf('events.confirmCancelMeeting', 'Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.'));
               if (!confirmed) return;
               
               try {
@@ -474,28 +474,28 @@ ${signUpLabel}: ${inviteUrl}
                 
                 if (error || !data?.success) {
                 toast({
-                    title: t('common.error') || 'Błąd',
-                    description: data?.error || t('events.cancelFailed') || 'Nie udało się anulować spotkania',
+                    title: tf('common.error', 'Błąd'),
+                    description: data?.error || tf('events.cancelFailed', 'Nie udało się anulować spotkania'),
                     variant: 'destructive'
                   });
                   return;
                 }
                 
                 toast({
-                  title: t('events.meetingCancelled') || 'Spotkanie anulowane',
-                  description: `${t('events.emailNotificationsSent') || 'Powiadomienia email wysłane'} (${data.emails_sent}/${data.total_participants}).`
+                  title: tf('events.meetingCancelled', 'Spotkanie anulowane'),
+                  description: `${tf('events.emailNotificationsSent', 'Powiadomienia email wysłane')} (${data.emails_sent}/${data.total_participants}).`
                 });
               } catch (err: any) {
                 toast({
-                  title: t('common.error') || 'Błąd',
-                  description: err.message || t('events.cancelFailed') || 'Nie udało się anulować spotkania',
+                  title: tf('common.error', 'Błąd'),
+                  description: err.message || tf('events.cancelFailed', 'Nie udało się anulować spotkania'),
                   variant: 'destructive'
                 });
                 return;
               }
             } else {
               // For other event types, use standard cancelRegistration with occurrenceIndex
-              const confirmed = window.confirm('Czy na pewno chcesz anulować rezerwację?');
+              const confirmed = window.confirm(tf('events.confirmCancelReservation', 'Czy na pewno chcesz anulować rezerwację?'));
               if (!confirmed) return;
               await cancelRegistration(eventId, occurrenceIndex);
             }

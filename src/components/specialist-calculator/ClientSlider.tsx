@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface ClientSliderProps {
   clients: number;
@@ -36,6 +37,7 @@ const sliderToValue = (sliderPos: number): number => {
 };
 
 export function ClientSlider({ clients, onClientsChange, minClients, maxClients }: ClientSliderProps) {
+  const { tf } = useLanguage();
   const [inputValue, setInputValue] = useState(clients.toString());
 
   // Sync when external value changes (e.g., from slider)
@@ -83,7 +85,7 @@ export function ClientSlider({ clients, onClientsChange, minClients, maxClients 
       <CardContent className="py-6">
         <div className="space-y-4">
           <label className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
-            Liczba klientów (6-miesięczna kuracja)
+            {tf('calc.spec.clientCount', 'Liczba klientów (6-miesięczna kuracja)')}
           </label>
           
           <div className="flex items-center gap-6">
@@ -115,7 +117,7 @@ export function ClientSlider({ clients, onClientsChange, minClients, maxClients 
                 onKeyDown={handleKeyDown}
                 className="w-20 text-center text-lg font-semibold"
               />
-              <span className="text-xs text-muted-foreground mt-1">osób</span>
+              <span className="text-xs text-muted-foreground mt-1">{tf('calc.spec.people', 'osób')}</span>
             </div>
           </div>
         </div>

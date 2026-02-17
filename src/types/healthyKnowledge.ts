@@ -1,7 +1,9 @@
 // Types for the "Zdrowa Wiedza" (Healthy Knowledge) module
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export type ContentType = 'video' | 'audio' | 'document' | 'image' | 'text';
 
+// Define the interface for Healthy Knowledge data structure
 export interface HealthyKnowledge {
   id: string;
   title: string;
@@ -45,15 +47,11 @@ export interface HkOtpCode {
   recipient_name: string | null;
   recipient_email: string | null;
   created_at: string;
-  // First use tracking - timer starts from this moment
   first_used_at: string | null;
-  // Soft-delete for user
   is_deleted_by_user: boolean;
   deleted_by_user_at: string | null;
-  // Relations - partial for queries
   healthy_knowledge?: Partial<HealthyKnowledge> & { id: string; title: string; slug: string; otp_validity_hours?: number };
   partner?: { first_name: string; last_name: string; email: string; role?: string };
-  // Computed for widget
   first_session_expires_at?: string | null;
 }
 
@@ -81,6 +79,7 @@ export const HEALTHY_KNOWLEDGE_CATEGORIES = [
 
 export type HealthyKnowledgeCategory = typeof HEALTHY_KNOWLEDGE_CATEGORIES[number];
 
+// Static fallback (used in non-component contexts like admin)
 export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   video: 'Wideo',
   audio: 'Audio',
@@ -88,6 +87,18 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   image: 'Obraz',
   text: 'Tekst'
 };
+
+// Hook for translated content type labels
+export function useContentTypeLabels(): Record<ContentType, string> {
+  const { tf } = useLanguage();
+  return {
+    video: tf('hk.type.video', 'Wideo'),
+    audio: tf('hk.type.audio', 'Audio'),
+    document: tf('hk.type.document', 'Dokument'),
+    image: tf('hk.type.image', 'Obraz'),
+    text: tf('hk.type.text', 'Tekst')
+  };
+}
 
 export const DEFAULT_SHARE_MESSAGE_TEMPLATE = `Cześć!
 

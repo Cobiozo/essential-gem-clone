@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Lightbulb } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { SpecialistVolumeThreshold } from "@/hooks/useSpecialistCalculatorSettings";
 
 interface BottomSectionProps {
@@ -25,6 +26,7 @@ export function BottomSection({
   eurToPlnRate
 }: BottomSectionProps) {
   const { currency, formatAmount } = useCurrency();
+  const { tf } = useLanguage();
   
   const commission = clients * baseCommissionEur;
   const passiveIncome = clients * passivePerMonthEur * passiveMonths;
@@ -37,7 +39,6 @@ export function BottomSection({
   const totalPln = totalEur * eurToPlnRate;
   const monthlyAvgEur = totalEur / 6;
 
-  // Calculate percentages
   const startPercent = totalEur > 0 ? Math.round((commission / totalEur) * 100) : 0;
   const passivePercent = totalEur > 0 ? Math.round((passiveIncome / totalEur) * 100) : 0;
   const bonusesPercent = totalEur > 0 ? Math.round(((retentionBonus + volumeBonus) / totalEur) * 100) : 0;
@@ -49,25 +50,22 @@ export function BottomSection({
     }).format(value);
   };
 
-  // Find max threshold bonus for tip
   const maxThreshold = thresholds.length > 0 
     ? thresholds.reduce((max, t) => t.threshold_clients > max.threshold_clients ? t : max, thresholds[0])
     : null;
   
   const totalPossibleBonus = thresholds.reduce((sum, t) => sum + t.bonus_amount, 0);
 
-  // Secondary display (opposite currency)
   const secondaryAmount = currency === 'EUR' 
     ? `~${formatNumber(totalPln)} zł`
     : `~${formatNumber(totalEur)} €`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      {/* Left - Dark Card */}
       <Card className="bg-slate-800 text-white border-0">
         <CardContent className="py-6 px-6">
           <p className="text-xs font-bold tracking-wide uppercase text-slate-300 mb-2">
-            Łączny przychód (6 miesięcy)
+            {tf('calc.spec.totalIncome', 'Łączny przychód (6 miesięcy)')}
           </p>
           <p className="text-5xl font-bold mb-2">
             {formatAmount(totalEur)}
@@ -76,26 +74,24 @@ export function BottomSection({
             ({secondaryAmount})
           </p>
           <p className="text-sm text-slate-300 mb-4">
-            To estymacja przy założeniu, że klienci pozostaną na pełnej kuracji. Kwota zawiera wszystkie prowizje i bonusy.
+            {tf('calc.spec.estimationNote', 'To estymacja przy założeniu, że klienci pozostaną na pełnej kuracji. Kwota zawiera wszystkie prowizje i bonusy.')}
           </p>
           <div className="border-t border-slate-600 pt-4">
             <p className="text-sm text-slate-300">
-              Średnio miesięcznie: <span className="text-emerald-400 font-semibold">{formatAmount(monthlyAvgEur)}</span>
+              {tf('calc.spec.monthlyAvg', 'Średnio miesięcznie:')} <span className="text-emerald-400 font-semibold">{formatAmount(monthlyAvgEur)}</span>
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Right - White Card */}
       <Card>
         <CardContent className="py-6 px-6">
-          <p className="font-semibold text-lg mb-4">Struktura przychodu</p>
+          <p className="font-semibold text-lg mb-4">{tf('calc.spec.incomeStructure', 'Struktura przychodu')}</p>
           
           <div className="space-y-4">
-            {/* Start bar */}
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Start (Miesiąc 1)</span>
+                <span className="text-muted-foreground">{tf('calc.spec.startMonth1', 'Start (Miesiąc 1)')}</span>
                 <span className="font-medium">{startPercent}%</span>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
@@ -109,10 +105,9 @@ export function BottomSection({
               </div>
             </div>
 
-            {/* Passive bar */}
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Pasywny (Mies. 2-6)</span>
+                <span className="text-muted-foreground">{tf('calc.spec.passiveMonths26', 'Pasywny (Mies. 2-6)')}</span>
                 <span className="font-medium">{passivePercent}%</span>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
@@ -126,10 +121,9 @@ export function BottomSection({
               </div>
             </div>
 
-            {/* Bonuses bar */}
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Bonusy (Wolumen + Retention)</span>
+                <span className="text-muted-foreground">{tf('calc.spec.bonusesVolumeRetention', 'Bonusy (Wolumen + Retention)')}</span>
                 <span className="font-medium">{bonusesPercent}%</span>
               </div>
               <div className="h-3 bg-muted rounded-full overflow-hidden">
@@ -144,15 +138,13 @@ export function BottomSection({
             </div>
           </div>
 
-          {/* Tip */}
           {maxThreshold && (
             <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
               <div className="flex gap-2">
                 <Lightbulb className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <span className="font-medium">Wskazówka:</span> Przy {formatNumber(maxThreshold.threshold_clients)} klientów 
-                  przekraczasz wszystkie progi bonusowe, co daje dodatkowe{" "}
-                  <span className="font-bold">{formatAmount(totalPossibleBonus)}</span> w samych premiach motywacyjnych.
+                  <span className="font-medium">{tf('calc.spec.tip', 'Wskazówka:')}</span> {tf('calc.spec.tipAt', 'Przy')} {formatNumber(maxThreshold.threshold_clients)} {tf('calc.spec.tipClients', 'klientów przekraczasz wszystkie progi bonusowe, co daje dodatkowe')}{" "}
+                  <span className="font-bold">{formatAmount(totalPossibleBonus)}</span> {tf('calc.spec.tipInBonuses', 'w samych premiach motywacyjnych.')}
                 </p>
               </div>
             </div>

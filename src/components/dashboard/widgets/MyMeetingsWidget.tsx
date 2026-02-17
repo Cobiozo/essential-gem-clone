@@ -19,7 +19,7 @@ import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
 export const MyMeetingsWidget: React.FC = () => {
-  const { t, language } = useLanguage();
+  const { t, tf, language } = useLanguage();
   const { user } = useAuth();
   const { getUserEvents } = useEvents();
   const { toast } = useToast();
@@ -117,19 +117,19 @@ export const MyMeetingsWidget: React.FC = () => {
   const getEventTypeName = (type: string) => {
     switch (type) {
       case 'webinar':
-        return t('events.type.webinars') || 'Webinary';
+        return tf('events.type.webinars', 'Webinary');
       case 'team_training':
-        return t('events.type.teamMeeting') || 'Spotkanie zespołu';
+        return tf('events.type.teamMeeting', 'Spotkanie zespołu');
       case 'meeting_public':
-        return t('events.type.publicMeetings') || 'Spotkania publiczne';
+        return tf('events.type.publicMeetings', 'Spotkania publiczne');
       case 'meeting_private':
-        return t('events.type.individualMeeting') || 'Spotkanie indywidualne';
+        return tf('events.type.individualMeeting', 'Spotkanie indywidualne');
       case 'tripartite_meeting':
-        return t('events.type.tripartiteMeeting') || 'Spotkanie trójstronne';
+        return tf('events.type.tripartiteMeeting', 'Spotkanie trójstronne');
       case 'partner_consultation':
-        return t('events.type.partnerConsultation') || 'Konsultacje dla partnerów';
+        return tf('events.type.partnerConsultation', 'Konsultacje dla partnerów');
       default:
-        return t('events.events') || 'Wydarzenia';
+        return tf('events.events', 'Wydarzenia');
     }
   };
 
@@ -153,7 +153,7 @@ export const MyMeetingsWidget: React.FC = () => {
   const handleCancelMeeting = async (event: EventWithRegistration) => {
     if (!user) return;
     
-    const confirmed = window.confirm(t('events.confirmCancelMeeting') || 'Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.');
+    const confirmed = window.confirm(tf('events.confirmCancelMeeting', 'Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.'));
     if (!confirmed) return;
 
     setCancellingEventId(event.id);
@@ -167,19 +167,19 @@ export const MyMeetingsWidget: React.FC = () => {
 
       if (error) {
         console.error('[MyMeetingsWidget] Edge function error:', error);
-        throw new Error(error.message || t('common.error') || 'Błąd wywołania funkcji');
+        throw new Error(error.message || tf('common.error', 'Błąd wywołania funkcji'));
       }
 
       if (!data?.success) {
         console.error('[MyMeetingsWidget] Cancellation failed:', data?.error);
-        throw new Error(data?.error || t('events.cancelFailed') || 'Nie udało się anulować spotkania');
+        throw new Error(data?.error || tf('events.cancelFailed', 'Nie udało się anulować spotkania'));
       }
 
       console.log('[MyMeetingsWidget] Meeting cancelled successfully:', data);
 
       toast({
-        title: t('events.meetingCancelled') || 'Spotkanie anulowane',
-        description: `${t('events.emailNotificationsSent') || 'Powiadomienia email wysłane'} (${data.emails_sent}/${data.total_participants}).`,
+        title: tf('events.meetingCancelled', 'Spotkanie anulowane'),
+        description: `${tf('events.emailNotificationsSent', 'Powiadomienia email wysłane')} (${data.emails_sent}/${data.total_participants}).`,
       });
 
       // Refresh the list
@@ -190,8 +190,8 @@ export const MyMeetingsWidget: React.FC = () => {
     } catch (error: any) {
       console.error('[MyMeetingsWidget] Error cancelling meeting:', error);
       toast({
-        title: t('common.error') || 'Błąd',
-        description: error.message || t('events.cancelFailed') || 'Nie udało się anulować spotkania',
+        title: tf('common.error', 'Błąd'),
+        description: error.message || tf('events.cancelFailed', 'Nie udało się anulować spotkania'),
         variant: 'destructive',
       });
     } finally {
@@ -219,7 +219,7 @@ export const MyMeetingsWidget: React.FC = () => {
     const eventAny = event as any;
     const isHost = event.host_user_id === user?.id || (event as any).created_by === user?.id;
     const zoomUrl = isHost && eventAny.zoom_start_url ? eventAny.zoom_start_url : event.zoom_link;
-    const buttonLabel = isHost && eventAny.zoom_start_url ? (t('events.start') || 'Rozpocznij') : (t('events.join') || 'WEJDŹ');
+    const buttonLabel = isHost && eventAny.zoom_start_url ? (tf('events.start', 'Rozpocznij')) : (tf('events.join', 'WEJDŹ'));
     
     // 15 min before or during event - show WEJDŹ button with pulsing red dot
     if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
@@ -253,7 +253,7 @@ export const MyMeetingsWidget: React.FC = () => {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
           </span>
-           {t('events.join') || 'Wejdź'}
+           {tf('events.join', 'Wejdź')}
         </Button>
       );
     }
@@ -263,7 +263,7 @@ export const MyMeetingsWidget: React.FC = () => {
       return (
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Clock className="h-3 w-3" />
-          {t('events.inMinutes') || 'Za'} {minutesUntilEvent} min
+          {tf('events.inMinutes', 'Za')} {minutesUntilEvent} min
         </div>
       );
     }
@@ -281,7 +281,7 @@ export const MyMeetingsWidget: React.FC = () => {
           onClick={() => navigate(detailsPath)}
         >
           <Info className="h-3 w-3 mr-1" />
-           {t('events.details') || 'Szczegóły'}
+           {tf('events.details', 'Szczegóły')}
         </Button>
       );
     }
@@ -326,7 +326,7 @@ export const MyMeetingsWidget: React.FC = () => {
         >
           <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-3 w-3 mr-1" />
-            {isHost ? (t('events.start') || 'Rozpocznij') : 'Zoom'}
+            {isHost ? (tf('events.start', 'Rozpocznij')) : 'Zoom'}
           </a>
         </Button>
       );
@@ -344,7 +344,7 @@ export const MyMeetingsWidget: React.FC = () => {
           disabled={cancellingEventId === event.id}
         >
           <X className="h-3 w-3 mr-1" />
-          {t('common.cancel') || 'Anuluj'}
+          {tf('common.cancel', 'Anuluj')}
         </Button>
       );
     }
@@ -359,12 +359,12 @@ export const MyMeetingsWidget: React.FC = () => {
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-3">
             <Widget3DIcon icon={Video} variant="emerald" size="md" />
-            {t('events.myMeetings') || 'Moje spotkania'}
+            {tf('events.myMeetings', 'Moje spotkania')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center text-sm text-muted-foreground py-4">
-            {t('common.loading') || 'Ładowanie...'}
+            {tf('common.loading', 'Ładowanie...')}
           </div>
         </CardContent>
       </Card>
@@ -377,7 +377,7 @@ export const MyMeetingsWidget: React.FC = () => {
       <CardHeader className="pb-2">
           <CardTitle className="text-base font-semibold flex items-center gap-3">
             <Widget3DIcon icon={Video} variant="emerald" size="md" />
-            {t('events.myMeetings') || 'Moje spotkania'}
+            {tf('events.myMeetings', 'Moje spotkania')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -385,7 +385,7 @@ export const MyMeetingsWidget: React.FC = () => {
           <div className="flex flex-col items-center justify-center py-6 text-center">
             <Calendar className="h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground">
-              {t('events.noUpcoming') || 'Brak nadchodzących wydarzeń'}
+              {tf('events.noUpcoming', 'Brak nadchodzących wydarzeń')}
             </p>
           </div>
         ) : (
@@ -442,8 +442,8 @@ export const MyMeetingsWidget: React.FC = () => {
                       onClick={() => toggleExpand(type)}
                     >
                        {expandedTypes[type] 
-                        ? (t('common.collapse') || 'Zwiń')
-                        : `+${events.length - 3} ${t('common.more') || 'więcej'}`}
+                        ? (tf('common.collapse', 'Zwiń'))
+                        : `+${events.length - 3} ${tf('common.more', 'więcej')}`}
                     </Button>
                   )}
                 </div>
