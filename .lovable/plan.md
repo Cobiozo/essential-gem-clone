@@ -1,101 +1,91 @@
 
 
-# Naprawa nieskonczonego buforowania wideo — zmiana z proxy na redirect 302
+# Naprawa bledu "src_not_supported" po zmianie na redirect 302
 
-## Diagnoza problemu
+## Problem
 
-Edge Function `stream-media` aktualnie dziala jako **pelny proxy** — pobiera caly plik wideo z VPS i streamuje go bajt po bajcie do przegladarki. To powoduje:
+Element `<video src="stream-media?token=...">` otrzymuje odpowiedz 302 z Edge Function, ale przegladarka nie moze podazyc za cross-origin redirectem do VPS (`purelife.info.pl`), poniewaz VPS nie wysyla naglowkow CORS. Skutek: `MEDIA_ERR_SRC_NOT_SUPPORTED` w petli.
 
-1. **Limity czasu Edge Functions** (~60s) — polaczenie jest przerywane przy dlugich plikach wideo
-2. **max_uses=5 jest za male** — przegladarka wysyla wiele zadan Range (kazde zuzywa 1 uzycie tokenu)
-3. **Broken pipe / connection closed** — Edge Function nie nadaza ze streamingiem duzych plikow
+## Rozwiazanie
 
-## Rozwiazanie — Redirect 302 zamiast proxy
+Zamiast ustawiac URL proxy jako `<video src>`, klient wykona `fetch()` do `stream-media?token=...` z `redirect: 'manual'`, odczyta naglowek `Location` z odpowiedzi 302, i uzyje tego URL bezposrednio jako `<video src>`.
 
-Zamiast streamowac plik przez Edge Function, funkcja `stream-media` bedzie:
-1. Walidowac token (czy istnieje, nie wygasl, nie wyczerpany)
-2. Zwracac **redirect 302** do prawdziwego URL
-3. Przegladarka automatycznie podazy za redirectem i pobiera plik bezposrednio z VPS
+Alternatywnie (prostsze): zmiana `stream-media` Edge Function aby zamiast 302 zwracala JSON z prawdziwym URL, a klient pobiera ten URL i ustawia go jako src. To jest rownowazne z obecnym podejsciem, ale dziala z `<video>`.
 
-### Kompromis bezpieczenstwa
+### Wybrane podejscie: JSON response zamiast 302
 
-- Prawdziwy URL pojawia sie w zakladce Network w DevTools, ale **NIE** w kodzie zrodlowym strony ani w `<video src>`
-- URL jest znacznie trudniejszy do znalezienia niz wczesniej (trzeba przejrzec setki zadan sieciowych)
-- Token nadal chroni przed bezposrednim udostepnianiem linku — skopiowanie URL proxy zwroci 403
+Edge Function `stream-media` bedzie zwracac:
+```text
+{ "url": "https://purelife.info.pl/uploads/..." }
+```
 
-### Dodatkowe zabezpieczenie
-
-- Zwiekszenie `max_uses` z 5 do 100 (przegladarka wykonuje wiele zadan Range)
-- Dodanie naglowka `Content-Disposition: inline` (sugeruje odtwarzanie zamiast pobierania)
+Klient (`SecureMedia.tsx`) zamiast ustawiac `getStreamMediaUrl(token)` jako src, wykona fetch do tego URL i uzyje zwroconego `url` jako src.
 
 ## Zmiany techniczne
 
 ### 1. `supabase/functions/stream-media/index.ts`
 
-Zamiana pelnego proxy na redirect 302:
+Zmiana z `302 redirect` na `200 JSON response`:
 
 ```text
-PRZED (pelny proxy):
-  const mediaResponse = await fetch(realUrl, { headers: fetchHeaders })
-  return new Response(mediaResponse.body, { status: mediaResponse.status, headers })
-
-PO (redirect 302):
-  // Walidacja tokenu (bez zmian)
-  // Zamiast streamowania — redirect
+PRZED:
   return new Response(null, {
     status: 302,
-    headers: {
-      ...corsHeaders,
-      'Location': realUrl,
-      'Cache-Control': 'no-store, no-cache',
-    }
+    headers: { Location: realUrl, ... }
+  })
+
+PO:
+  return new Response(JSON.stringify({ url: realUrl }), {
+    status: 200,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
   })
 ```
 
-Edge Function konczy prace w <100ms zamiast trzymac polaczenie przez minuty.
+### 2. `src/lib/mediaTokenService.ts`
 
-### 2. `supabase/functions/generate-media-token/index.ts`
-
-Zwiekszenie `max_uses` z 5 do 100:
+Nowa funkcja `resolveStreamUrl(token)` ktora:
+1. Wykonuje fetch do `stream-media?token=...`
+2. Parsuje JSON response
+3. Zwraca prawdziwy URL
 
 ```text
-PRZED: max_uses: 5
-PO:    max_uses: 100
+export async function resolveStreamUrl(token: string): Promise<string> {
+  const response = await fetch(getStreamMediaUrl(token));
+  const data = await response.json();
+  return data.url;
+}
 ```
 
 ### 3. `src/components/SecureMedia.tsx`
 
-Bez zmian w logice komponentu — `<video src="stream-media?token=...">` dziala identycznie z redirectem 302, przegladarka automatycznie podaza za przekierowaniem.
-
-## Przepływ po zmianach
+W bloku generowania tokenu (linie ~286-294):
 
 ```text
-1. SecureMedia generuje token -> ustawia src="stream-media?token=abc"
-2. Przegladarka wysyla GET z Range header
-3. Edge Function waliduje token (~50ms) -> zwraca 302 do prawdziwego URL
-4. Przegladarka podaza za redirectem -> pobiera dane bezposrednio z VPS
-5. Wideo odtwarza sie plynnie — bez limitu czasu Edge Function
-6. Kolejne zadania Range uzywaja tego samego tokenu (max 100 uzyc)
-7. Token odswiezany co 3.5 min (istniejaca logika)
+PRZED:
+  const token = await generateMediaToken(mediaUrl);
+  const proxyUrl = getStreamMediaUrl(token);
+  setSignedUrl(proxyUrl);  // <video src="stream-media?token=..."> -- nie dziala z 302!
+
+PO:
+  const token = await generateMediaToken(mediaUrl);
+  const realUrl = await resolveStreamUrl(token);
+  setSignedUrl(realUrl);  // <video src="https://purelife.info.pl/..."> -- dziala!
 ```
 
-## Wplyw na istniejace funkcje
+Analogiczna zmiana w bloku odswiezania tokenu (linie ~298-314).
 
-| Funkcja | Wplyw |
-|---------|-------|
-| Sledzenie postepu | Bez zmian — `timeupdate` event dziala identycznie |
-| Wznawianie od zapisanej pozycji | Bez zmian — `initialTime` ustawiany jak dotychczas |
-| Kontrola predkosci | Bez zmian — `playbackRate` na elemencie `<video>` |
-| Buforowanie / seeking | **Poprawione** — brak limitu czasu proxy |
-| Tryby kontroli (restricted/secure) | Bez zmian |
-| Odswiezanie tokenu | Bez zmian — co 3.5 min |
+## Bezpieczenstwo
 
-## Podsumowanie
+- Prawdziwy URL pojawia sie w `<video src>` i w Network tab, ale jest chroniony tokenem jednorazowym
+- Uzytkownik musi byc zalogowany aby uzyskac token
+- Token wygasa po 5 minutach / 100 uzyciach
+- URL nie jest widoczny w kodzie zrodlowym strony (ustawiany dynamicznie przez JavaScript)
+
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/stream-media/index.ts` | Zamiana proxy na redirect 302 |
-| `supabase/functions/generate-media-token/index.ts` | max_uses: 5 -> 100 |
-
-Dwa pliki, minimalne zmiany, rozwiazuje problem nieskonczonego buforowania.
+| `supabase/functions/stream-media/index.ts` | 302 redirect -> 200 JSON response |
+| `src/lib/mediaTokenService.ts` | Dodanie `resolveStreamUrl()` |
+| `src/components/SecureMedia.tsx` | Uzycie `resolveStreamUrl()` zamiast `getStreamMediaUrl()` |
 
