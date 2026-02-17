@@ -7,6 +7,11 @@ const corsHeaders = {
 };
 
 const BATCH_SIZE = 20; // Increased for faster processing
+
+// Validates that a translated object has at least one non-empty field
+function hasTranslatedContent(obj: any, fields: string[]): boolean {
+  return fields.some(f => obj[f] && typeof obj[f] === 'string' && obj[f].trim() !== '');
+}
 const PAGE_SIZE = 1000;
 const MAX_EXECUTION_TIME = 25000; // 25 seconds (Supabase limit is 30s)
 
@@ -431,24 +436,29 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         const item = batch[idx];
         const translated = batchTranslations[idx] || {};
         
-        const { error: upsertError } = await supabase
-          .from('cms_item_translations')
-          .upsert({
-            item_id: item.id,
-            language_code: target_language,
-            title: translated.title || null,
-            description: translated.description || null,
-            cells: translated.cells || null,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'item_id,language_code'
-          });
-
-        if (upsertError) {
-          console.error(`Failed to save CMS item translation for ${item.id}:`, upsertError);
+        if (!hasTranslatedContent(translated, ['title'])) {
           errors++;
+          console.warn(`Empty translation for CMS item ${item.id}`);
         } else {
-          processedKeys++;
+          const { error: upsertError } = await supabase
+            .from('cms_item_translations')
+            .upsert({
+              item_id: item.id,
+              language_code: target_language,
+              title: translated.title || null,
+              description: translated.description || null,
+              cells: translated.cells || null,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'item_id,language_code'
+            });
+
+          if (upsertError) {
+            console.error(`Failed to save CMS item translation for ${item.id}:`, upsertError);
+            errors++;
+          } else {
+            processedKeys++;
+          }
         }
       }
     } catch (batchError) {
@@ -508,24 +518,29 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         const section = batch[idx];
         const translated = batchTranslations[idx] || {};
         
-        const { error: upsertError } = await supabase
-          .from('cms_section_translations')
-          .upsert({
-            section_id: section.id,
-            language_code: target_language,
-            title: translated.title || null,
-            description: translated.description || null,
-            collapsible_header: translated.collapsible_header || null,
-            updated_at: new Date().toISOString()
-          }, {
-            onConflict: 'section_id,language_code'
-          });
-
-        if (upsertError) {
-          console.error(`Failed to save CMS section translation for ${section.id}:`, upsertError);
+        if (!hasTranslatedContent(translated, ['title'])) {
           errors++;
+          console.warn(`Empty translation for CMS section ${section.id}`);
         } else {
-          processedKeys++;
+          const { error: upsertError } = await supabase
+            .from('cms_section_translations')
+            .upsert({
+              section_id: section.id,
+              language_code: target_language,
+              title: translated.title || null,
+              description: translated.description || null,
+              collapsible_header: translated.collapsible_header || null,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'section_id,language_code'
+            });
+
+          if (upsertError) {
+            console.error(`Failed to save CMS section translation for ${section.id}:`, upsertError);
+            errors++;
+          } else {
+            processedKeys++;
+          }
         }
       }
     } catch (batchError) {
@@ -888,10 +903,15 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
     try {
       const translated = await translateGenericBatch(batch, ['title', 'description'], source_language, target_language, lovableApiKey);
       for (let idx = 0; idx < batch.length; idx++) {
-        const { error } = await supabase.from('training_module_translations').upsert({
-          module_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
-        }, { onConflict: 'module_id,language_code' });
-        if (error) errors++; else processedKeys++;
+        if (!hasTranslatedContent(translated[idx], ['title', 'description'])) {
+          errors++;
+          console.warn(`Empty translation for module ${batch[idx].id}`);
+        } else {
+          const { error } = await supabase.from('training_module_translations').upsert({
+            module_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+          }, { onConflict: 'module_id,language_code' });
+          if (error) errors++; else processedKeys++;
+        }
       }
     } catch { errors += batch.length; }
     await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
@@ -904,10 +924,15 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
     try {
       const translated = await translateGenericBatch(batch, ['title', 'content', 'media_alt_text'], source_language, target_language, lovableApiKey);
       for (let idx = 0; idx < batch.length; idx++) {
-        const { error } = await supabase.from('training_lesson_translations').upsert({
-          lesson_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
-        }, { onConflict: 'lesson_id,language_code' });
-        if (error) errors++; else processedKeys++;
+        if (!hasTranslatedContent(translated[idx], ['title', 'content'])) {
+          errors++;
+          console.warn(`Empty translation for lesson ${batch[idx].id}`);
+        } else {
+          const { error } = await supabase.from('training_lesson_translations').upsert({
+            lesson_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+          }, { onConflict: 'lesson_id,language_code' });
+          if (error) errors++; else processedKeys++;
+        }
       }
     } catch { errors += batch.length; }
     await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
@@ -941,10 +966,15 @@ async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: strin
     try {
       const translated = await translateGenericBatch(batch, ['title', 'description', 'context_of_use'], source_language, target_language, lovableApiKey);
       for (let idx = 0; idx < batch.length; idx++) {
-        const { error } = await supabase.from('knowledge_resource_translations').upsert({
-          resource_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
-        }, { onConflict: 'resource_id,language_code' });
-        if (error) errors++; else processedKeys++;
+        if (!hasTranslatedContent(translated[idx], ['title', 'description'])) {
+          errors++;
+          console.warn(`Empty translation for resource ${batch[idx].id}`);
+        } else {
+          const { error } = await supabase.from('knowledge_resource_translations').upsert({
+            resource_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+          }, { onConflict: 'resource_id,language_code' });
+          if (error) errors++; else processedKeys++;
+        }
       }
     } catch { errors += batch.length; }
     await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
@@ -978,10 +1008,15 @@ async function processHealthyKnowledgeJob(supabase: any, job: any, lovableApiKey
     try {
       const translated = await translateGenericBatch(batch, ['title', 'description', 'text_content'], source_language, target_language, lovableApiKey);
       for (let idx = 0; idx < batch.length; idx++) {
-        const { error } = await supabase.from('healthy_knowledge_translations').upsert({
-          item_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
-        }, { onConflict: 'item_id,language_code' });
-        if (error) errors++; else processedKeys++;
+        if (!hasTranslatedContent(translated[idx], ['title', 'description'])) {
+          errors++;
+          console.warn(`Empty translation for healthy knowledge item ${batch[idx].id}`);
+        } else {
+          const { error } = await supabase.from('healthy_knowledge_translations').upsert({
+            item_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+          }, { onConflict: 'item_id,language_code' });
+          if (error) errors++; else processedKeys++;
+        }
       }
     } catch { errors += batch.length; }
     await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
