@@ -5,6 +5,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Ticket, CalendarX } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PaidEvent {
   id: string;
@@ -22,24 +23,15 @@ interface PaidEvent {
 }
 
 const PaidEventsListPage: React.FC = () => {
+  const { tf } = useLanguage();
   const { data: events, isLoading } = useQuery({
     queryKey: ['paid-events-list'],
     queryFn: async () => {
-      // Fetch events with lowest ticket price
       const { data: eventsData, error } = await supabase
         .from('paid_events')
         .select(`
-          id,
-          slug,
-          title,
-          short_description,
-          event_date,
-          event_end_date,
-          location,
-          is_online,
-          banner_url,
-          max_tickets,
-          tickets_sold
+          id, slug, title, short_description, event_date, event_end_date,
+          location, is_online, banner_url, max_tickets, tickets_sold
         `)
         .eq('is_published', true)
         .eq('is_active', true)
@@ -47,7 +39,6 @@ const PaidEventsListPage: React.FC = () => {
 
       if (error) throw error;
 
-      // Fetch lowest prices for each event
       const eventIds = eventsData?.map(e => e.id) || [];
       const { data: ticketsData } = await supabase
         .from('paid_event_tickets')
@@ -56,7 +47,6 @@ const PaidEventsListPage: React.FC = () => {
         .eq('is_active', true)
         .order('price_pln', { ascending: true });
 
-      // Map lowest prices to events
       const priceMap = new Map<string, number>();
       ticketsData?.forEach(ticket => {
         if (!priceMap.has(ticket.event_id)) {
@@ -88,24 +78,22 @@ const PaidEventsListPage: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-lg bg-primary/10">
             <Ticket className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Eventy</h1>
+            <h1 className="text-2xl font-bold">{tf('events.eventsTitle', 'Eventy')}</h1>
             <p className="text-muted-foreground">
-              Płatne szkolenia i wydarzenia
+              {tf('events.paidTrainings', 'Płatne szkolenia i wydarzenia')}
             </p>
           </div>
         </div>
 
-        {/* Upcoming Events */}
         <section>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            Nadchodzące wydarzenia
+            {tf('events.upcoming', 'Nadchodzące wydarzenia')}
           </h2>
           
           {upcomingEvents.length > 0 ? (
@@ -118,21 +106,20 @@ const PaidEventsListPage: React.FC = () => {
             <div className="text-center py-12 bg-muted/30 rounded-lg border border-dashed">
               <CalendarX className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
-                Brak zaplanowanych wydarzeń
+                {tf('events.noPlanned', 'Brak zaplanowanych wydarzeń')}
               </p>
               <p className="text-sm text-muted-foreground mt-1">
-                Sprawdź ponownie później
+                {tf('events.checkLater', 'Sprawdź ponownie później')}
               </p>
             </div>
           )}
         </section>
 
-        {/* Past Events */}
         {pastEvents.length > 0 && (
           <section>
             <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
-              Zakończone wydarzenia
+              {tf('events.past', 'Zakończone wydarzenia')}
             </h2>
             
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-1 opacity-70">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSpecialistCalculatorSettings } from "@/hooks/useSpecialistCalculatorSettings";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { ClientSlider } from "./ClientSlider";
 import { ResultCards } from "./ResultCards";
 import { BottomSection } from "./BottomSection";
@@ -11,6 +12,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function SpecialistCalculator() {
   const { data, isLoading, error } = useSpecialistCalculatorSettings();
+  const { tf } = useLanguage();
   const [clients, setClients] = useState(50);
 
   useEffect(() => {
@@ -41,9 +43,9 @@ export function SpecialistCalculator() {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Błąd</AlertTitle>
+        <AlertTitle>{tf('common.error', 'Błąd')}</AlertTitle>
         <AlertDescription>
-          Nie udało się załadować ustawień kalkulatora. Spróbuj odświeżyć stronę.
+          {tf('calc.spec.loadError', 'Nie udało się załadować ustawień kalkulatora. Spróbuj odświeżyć stronę.')}
         </AlertDescription>
       </Alert>
     );

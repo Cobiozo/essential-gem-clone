@@ -13,9 +13,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { HealthyKnowledge, CONTENT_TYPE_LABELS, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
+import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
+import { useContentTypeLabels } from '@/types/healthyKnowledge';
 
 const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
   const icons: Record<string, React.ReactNode> = {
@@ -29,22 +30,21 @@ const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type,
 };
 
 const HealthyKnowledgePage: React.FC = () => {
-  const { t, language } = useLanguage();
+  const { t, tf, language } = useLanguage();
   const { user, isPartner, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const contentTypeLabels = useContentTypeLabels();
   
   const [materials, setMaterials] = useState<HealthyKnowledge[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
-  // Share dialog state
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<HealthyKnowledge | null>(null);
   const [shareMessage, setShareMessage] = useState('');
   const [generating, setGenerating] = useState(false);
   
-  // Preview dialog state
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
 
@@ -66,13 +66,12 @@ const HealthyKnowledgePage: React.FC = () => {
       setMaterials((data as HealthyKnowledge[]) || []);
     } catch (error) {
       console.error('Error fetching materials:', error);
-      toast.error('Nie udało się pobrać materiałów');
+      toast.error(tf('hk.fetchError', 'Nie udało się pobrać materiałów'));
     } finally {
       setLoading(false);
     }
   };
 
-  // Apply translations
   const translatedMaterials = useHealthyKnowledgeTranslations(materials, language);
 
   const categories = useMemo(() => {
@@ -97,15 +96,14 @@ const HealthyKnowledgePage: React.FC = () => {
 
   const handleOpenShare = (material: HealthyKnowledge) => {
     setSelectedMaterial(material);
-    // Prepare message template
     const template = material.share_message_template || DEFAULT_SHARE_MESSAGE_TEMPLATE;
     const previewMessage = template
       .replace('{title}', material.title)
       .replace('{description}', material.description || '')
-      .replace('{share_url}', `[link zostanie wygenerowany]`)
-      .replace('{otp_code}', '[kod zostanie wygenerowany]')
+      .replace('{share_url}', `[${tf('hk.linkWillBeGenerated', 'link zostanie wygenerowany')}]`)
+      .replace('{otp_code}', `[${tf('hk.codeWillBeGenerated', 'kod zostanie wygenerowany')}]`)
       .replace('{validity_hours}', String(material.otp_validity_hours || 24))
-      .replace('{partner_name}', '[Twoje imię]');
+      .replace('{partner_name}', `[${tf('hk.yourName', 'Twoje imię')}]`);
     setShareMessage(previewMessage);
     setShareDialogOpen(true);
   };
@@ -117,49 +115,43 @@ const HealthyKnowledgePage: React.FC = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        toast.error('Musisz być zalogowany');
+        toast.error(tf('common.mustBeLoggedIn', 'Musisz być zalogowany'));
         return;
       }
 
       const response = await supabase.functions.invoke('generate-hk-otp', {
-        body: {
-          knowledge_id: selectedMaterial.id,
-        },
+        body: { knowledge_id: selectedMaterial.id },
       });
 
       if (response.error) {
-        throw new Error(response.error.message || 'Błąd generowania kodu');
+        throw new Error(response.error.message || tf('hk.generateError', 'Błąd generowania kodu'));
       }
 
       const { clipboard_message, otp_code } = response.data;
       
       await navigator.clipboard.writeText(clipboard_message);
-      toast.success(`Kod ${otp_code} wygenerowany i skopiowany do schowka!`);
+      toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otp_code} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
       setShareDialogOpen(false);
       
-      // Dispatch event for widget refresh
       window.dispatchEvent(new CustomEvent('hkOtpCodeGenerated'));
       
     } catch (error: any) {
       console.error('Error generating OTP:', error);
-      toast.error(error.message || 'Nie udało się wygenerować kodu');
+      toast.error(error.message || tf('hk.generateFailed', 'Nie udało się wygenerować kodu'));
     } finally {
       setGenerating(false);
     }
   };
 
   const handleViewMaterial = (material: HealthyKnowledge) => {
-    // For video/audio - navigate to dedicated player page
     if (material.content_type === 'video' || material.content_type === 'audio') {
       navigate(`/zdrowa-wiedza/player/${material.id}`);
       return;
     }
     
-    // For other types - use modal dialog
     setPreviewMaterial(material);
     setPreviewDialogOpen(true);
     
-    // Increment view count for non-video/audio
     supabase
       .from('healthy_knowledge')
       .update({ view_count: material.view_count + 1 })
@@ -177,29 +169,27 @@ const HealthyKnowledgePage: React.FC = () => {
   }
 
   return (
-    <DashboardLayout title="Zdrowa Wiedza">
+    <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary/10">
               <Heart className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold">Zdrowa Wiedza</h1>
+              <h1 className="text-2xl font-bold">{tf('hk.title', 'Zdrowa Wiedza')}</h1>
               <p className="text-muted-foreground text-sm">
-                Materiały edukacyjne o zdrowiu i wellness
+                {tf('hk.subtitle', 'Materiały edukacyjne o zdrowiu i wellness')}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Szukaj materiałów..."
+              placeholder={tf('hk.searchPlaceholder', 'Szukaj materiałów...')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -212,7 +202,7 @@ const HealthyKnowledgePage: React.FC = () => {
                 size="sm"
                 onClick={() => setSelectedCategory(null)}
               >
-                Wszystkie
+                {tf('common.all', 'Wszystkie')}
               </Button>
               {categories.map((cat) => (
                 <Button
@@ -228,7 +218,6 @@ const HealthyKnowledgePage: React.FC = () => {
           )}
         </div>
 
-        {/* Materials Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -239,8 +228,8 @@ const HealthyKnowledgePage: React.FC = () => {
               <Heart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <p className="text-muted-foreground">
                 {searchTerm || selectedCategory 
-                  ? 'Nie znaleziono materiałów spełniających kryteria'
-                  : 'Brak dostępnych materiałów'}
+                  ? tf('hk.noResults', 'Nie znaleziono materiałów spełniających kryteria')
+                  : tf('hk.noMaterials', 'Brak dostępnych materiałów')}
               </p>
             </CardContent>
           </Card>
@@ -248,9 +237,7 @@ const HealthyKnowledgePage: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
             {filteredMaterials.map((material) => (
               <Card key={material.id} className="group hover:shadow-lg transition-shadow overflow-hidden">
-                {/* Thumbnail */}
                 <div className="relative aspect-video bg-muted overflow-hidden">
-                  {/* Thumbnail */}
                   {material.thumbnail_url ? (
                     <img 
                       src={material.thumbnail_url} 
@@ -273,7 +260,6 @@ const HealthyKnowledgePage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Play overlay for video/audio - navigates to player page */}
                   {(material.content_type === 'video' || material.content_type === 'audio') && (
                     <div 
                       className="absolute inset-0 flex items-center justify-center cursor-pointer"
@@ -288,7 +274,6 @@ const HealthyKnowledgePage: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Click overlay for other types - opens preview dialog */}
                   {material.content_type !== 'video' && material.content_type !== 'audio' && (
                     <div 
                       className="absolute inset-0 cursor-pointer"
@@ -299,16 +284,14 @@ const HealthyKnowledgePage: React.FC = () => {
                     />
                   )}
                   
-                  {/* Featured badge on thumbnail */}
                   {material.is_featured && (
                     <Badge className="absolute top-1 right-1 sm:top-2 sm:right-2 bg-yellow-500/90 text-yellow-950 text-[10px] sm:text-xs px-1 sm:px-2">
-                      Wyróżnione
+                      {tf('hk.featured', 'Wyróżnione')}
                     </Badge>
                   )}
                 </div>
 
                 <CardHeader className="p-2 sm:p-4 pb-1 sm:pb-2">
-                  {/* Content type badge - hidden on mobile */}
                   <div className="hidden sm:flex items-center gap-2">
                     <div className={cn(
                       "p-1.5 rounded",
@@ -321,13 +304,12 @@ const HealthyKnowledgePage: React.FC = () => {
                       <ContentTypeIcon type={material.content_type} className="w-3 h-3" />
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {CONTENT_TYPE_LABELS[material.content_type as keyof typeof CONTENT_TYPE_LABELS] || material.content_type}
+                      {contentTypeLabels[material.content_type as keyof typeof contentTypeLabels] || material.content_type}
                     </Badge>
                   </div>
                   <CardTitle className="text-xs sm:text-base font-medium line-clamp-1 sm:line-clamp-2 mt-0 sm:mt-2">
                     {material.title}
                   </CardTitle>
-                  {/* Description - hidden on mobile */}
                   {material.description && (
                     <CardDescription className="hidden sm:block line-clamp-2 text-xs">
                       {material.description}
@@ -335,7 +317,6 @@ const HealthyKnowledgePage: React.FC = () => {
                   )}
                 </CardHeader>
                 <CardContent className="p-2 sm:p-4 pt-0">
-                  {/* Metadata - hidden on mobile */}
                   <div className="hidden sm:flex items-center gap-4 text-xs text-muted-foreground mb-3">
                     {material.category && (
                       <Badge variant="secondary" className="text-xs">
@@ -354,7 +335,6 @@ const HealthyKnowledgePage: React.FC = () => {
                     </span>
                   </div>
                   
-                  {/* Buttons - icons only on mobile */}
                   <div className="flex gap-1 sm:gap-2">
                     <Button 
                       variant="outline" 
@@ -363,7 +343,7 @@ const HealthyKnowledgePage: React.FC = () => {
                       onClick={() => handleViewMaterial(material)}
                     >
                       <Eye className="w-3 h-3 sm:mr-1" />
-                      <span className="hidden sm:inline">Podgląd</span>
+                      <span className="hidden sm:inline">{tf('hk.preview', 'Podgląd')}</span>
                     </Button>
                     {canShare && material.allow_external_share && (
                       <Button 
@@ -372,7 +352,7 @@ const HealthyKnowledgePage: React.FC = () => {
                         onClick={() => handleOpenShare(material)}
                       >
                         <Share2 className="w-3 h-3 sm:mr-1" />
-                        <span className="hidden sm:inline">Udostępnij</span>
+                        <span className="hidden sm:inline">{tf('hk.share', 'Udostępnij')}</span>
                       </Button>
                     )}
                   </div>
@@ -387,9 +367,9 @@ const HealthyKnowledgePage: React.FC = () => {
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Udostępnij materiał</DialogTitle>
+            <DialogTitle>{tf('hk.shareMaterial', 'Udostępnij materiał')}</DialogTitle>
             <DialogDescription>
-              Wygeneruj kod dostępu i skopiuj wiadomość do wysłania
+              {tf('hk.generateCodeDesc', 'Wygeneruj kod dostępu i skopiuj wiadomość do wysłania')}
             </DialogDescription>
           </DialogHeader>
           
@@ -398,12 +378,12 @@ const HealthyKnowledgePage: React.FC = () => {
               <div className="p-3 bg-muted rounded-lg">
                 <p className="font-medium">{selectedMaterial.title}</p>
                 <p className="text-sm text-muted-foreground">
-                  Kod ważny przez {selectedMaterial.otp_validity_hours || 24} godzin
+                  {tf('hk.codeValidFor', 'Kod ważny przez')} {selectedMaterial.otp_validity_hours || 24} {tf('hk.hours', 'godzin')}
                 </p>
               </div>
 
               <div>
-                <label className="text-sm font-medium">Podgląd wiadomości</label>
+                <label className="text-sm font-medium">{tf('hk.messagePreview', 'Podgląd wiadomości')}</label>
                 <Textarea
                   value={shareMessage}
                   readOnly
@@ -411,7 +391,7 @@ const HealthyKnowledgePage: React.FC = () => {
                   className="mt-1 text-sm bg-muted"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Link i kod zostaną automatycznie uzupełnione po wygenerowaniu
+                  {tf('hk.linkAndCodeNote', 'Link i kod zostaną automatycznie uzupełnione po wygenerowaniu')}
                 </p>
               </div>
             </div>
@@ -419,18 +399,18 @@ const HealthyKnowledgePage: React.FC = () => {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
-              Anuluj
+              {tf('common.cancel', 'Anuluj')}
             </Button>
             <Button onClick={handleGenerateAndCopy} disabled={generating}>
               {generating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generowanie...
+                  {tf('hk.generating', 'Generowanie...')}
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4 mr-2" />
-                  Generuj kod i kopiuj
+                  {tf('hk.generateAndCopy', 'Generuj kod i kopiuj')}
                 </>
               )}
             </Button>
@@ -450,7 +430,6 @@ const HealthyKnowledgePage: React.FC = () => {
           
           {previewMaterial && (
             <div className="space-y-4">
-              {/* Video/Audio/Image */}
               {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
                 <SecureMedia
                   mediaUrl={previewMaterial.media_url}
@@ -459,7 +438,6 @@ const HealthyKnowledgePage: React.FC = () => {
                 />
               )}
               
-              {/* Text content */}
               {previewMaterial.content_type === 'text' && previewMaterial.text_content && (
                 <div 
                   className="prose prose-sm dark:prose-invert max-w-none p-4 bg-muted/50 rounded-lg"
@@ -467,17 +445,15 @@ const HealthyKnowledgePage: React.FC = () => {
                 />
               )}
               
-              {/* Document download link */}
               {previewMaterial.content_type === 'document' && previewMaterial.media_url && (
                 <Button asChild className="w-full">
                   <a href={previewMaterial.media_url} target="_blank" rel="noopener noreferrer">
                     <FileText className="w-4 h-4 mr-2" />
-                    Otwórz dokument
+                    {tf('hk.openDocument', 'Otwórz dokument')}
                   </a>
                 </Button>
               )}
               
-              {/* Metadata */}
               <div className="flex items-center flex-wrap gap-4 text-sm text-muted-foreground pt-2 border-t">
                 {previewMaterial.category && (
                   <Badge variant="outline">{previewMaterial.category}</Badge>
@@ -490,7 +466,7 @@ const HealthyKnowledgePage: React.FC = () => {
                 )}
                 <span className="flex items-center gap-1">
                   <Eye className="w-3 h-3" />
-                  {previewMaterial.view_count} wyświetleń
+                  {previewMaterial.view_count} {tf('hk.views', 'wyświetleń')}
                 </span>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Input } from '@/components/ui/input';
 import { Settings, Users, TrendingUp, UserCheck } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ParametersPanelProps {
   followers: number;
@@ -15,15 +16,6 @@ interface ParametersPanelProps {
   conversionMax: number;
 }
 
-const formatFollowers = (value: number): string => {
-  if (value >= 1000000) {
-    return `${(value / 1000000).toFixed(1)} mln`;
-  } else if (value >= 1000) {
-    return `${Math.round(value / 1000)} tys.`;
-  }
-  return value.toString();
-};
-
 export function ParametersPanel({
   followers,
   conversionRate,
@@ -34,13 +26,21 @@ export function ParametersPanel({
   conversionMin,
   conversionMax
 }: ParametersPanelProps) {
+  const { tf } = useLanguage();
   const clients = Math.round(followers * (conversionRate / 100));
 
-  // Local state for text inputs
+  const formatFollowers = (value: number): string => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)} ${tf('calc.inf.million', 'mln')}`;
+    } else if (value >= 1000) {
+      return `${Math.round(value / 1000)} ${tf('calc.inf.thousand', 'tys.')}`;
+    }
+    return value.toString();
+  };
+
   const [followersInput, setFollowersInput] = useState(followers.toString());
   const [conversionInput, setConversionInput] = useState(conversionRate.toFixed(1));
 
-  // Sync when external values change (e.g., from sliders)
   useEffect(() => {
     setFollowersInput(followers.toString());
   }, [followers]);
@@ -66,7 +66,6 @@ export function ParametersPanel({
   };
 
   const handleConversionInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow digits, one decimal point, and one digit after decimal
     const value = e.target.value.replace(/[^0-9.]/g, '');
     setConversionInput(value);
   };
@@ -95,16 +94,15 @@ export function ParametersPanel({
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Settings className="h-4 w-4 text-emerald-600" />
-            Parametry
+            {tf('calc.inf.parameters', 'Parametry')}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          {/* Followers Slider */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                Liczba Obserwujących / Baza kontaktów
+                {tf('calc.inf.followersBase', 'Liczba Obserwujących / Baza kontaktów')}
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -143,12 +141,11 @@ export function ParametersPanel({
             </div>
           </div>
 
-          {/* Conversion Rate Slider */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                Szacowana Konwersja (%)
+                {tf('calc.inf.estimatedConversion', 'Szacowana Konwersja (%)')}
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -189,14 +186,13 @@ export function ParametersPanel({
         </CardContent>
       </Card>
 
-      {/* Clients Result - Separate Card */}
       <Card className="bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
         <CardContent className="py-4">
           <div className="text-center">
             <div className="flex items-center justify-center gap-2 mb-1">
               <UserCheck className="h-4 w-4 text-emerald-600" />
               <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                Pozyskanych Klientów
+                {tf('calc.inf.acquiredClients', 'Pozyskanych Klientów')}
               </span>
             </div>
             <p className="text-4xl font-bold text-emerald-600 transition-all duration-300">

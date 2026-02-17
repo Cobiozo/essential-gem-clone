@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { BarChart3, Users, Wallet, Gift, TrendingUp } from 'lucide-react';
 import { useCurrency } from '@/contexts/CurrencyContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { VolumeThreshold } from '@/hooks/useCalculatorSettings';
 
 interface IncomeBreakdownProps {
@@ -24,8 +25,8 @@ export function IncomeBreakdown({
   thresholds
 }: IncomeBreakdownProps) {
   const { formatAmount } = useCurrency();
+  const { tf } = useLanguage();
   
-  // Sum ALL achieved thresholds (not just highest one)
   const getVolumeBonus = (clientCount: number): number => {
     return thresholds
       .filter(t => clientCount >= t.threshold_clients)
@@ -34,35 +35,34 @@ export function IncomeBreakdown({
 
   const directCommission = clients * baseCommission;
   const volumeBonus = getVolumeBonus(clients);
-  // Fixed formula: passivePerClientEur per client per month
   const passiveIncome = clients * passivePerClientEur * passiveMonths;
   const extensionBonuses = clients * extensionBonusPerClient * extensionMonthsCount;
 
   const items = [
     {
       icon: Users,
-      label: 'Prowizja Startowa',
-      description: `1. miesiąc (${baseCommission}€/klient)`,
+      label: tf('calc.inf.startCommission', 'Prowizja Startowa'),
+      description: `1. ${tf('calc.inf.month', 'miesiąc')} (${baseCommission}€/${tf('calc.inf.client', 'klient')})`,
       value: directCommission,
       highlight: false
     },
     {
       icon: Wallet,
-      label: 'Dochód Pasywny',
-      description: `Miesiące 2-${passiveMonths + 1} (${passivePerClientEur}€/msc)`,
+      label: tf('calc.inf.passiveIncome', 'Dochód Pasywny'),
+      description: `${tf('calc.inf.months', 'Miesiące')} 2-${passiveMonths + 1} (${passivePerClientEur}€/${tf('calc.inf.perMonth', 'msc')})`,
       value: passiveIncome,
       highlight: false
     },
     {
       icon: Gift,
-      label: 'Premie za przedłużenia',
-      description: `Miesiąc 4. i 6. (+${extensionBonusPerClient}€)`,
+      label: tf('calc.inf.extensionBonuses', 'Premie za przedłużenia'),
+      description: `${tf('calc.inf.month', 'Miesiąc')} 4. ${tf('calc.inf.and', 'i')} 6. (+${extensionBonusPerClient}€)`,
       value: extensionBonuses,
       highlight: false
     },
     {
       icon: TrendingUp,
-      label: 'Premie Motywacyjne',
+      label: tf('calc.inf.motivationalBonuses', 'Premie Motywacyjne'),
       description: 'Volume Bonus',
       value: volumeBonus,
       highlight: true
@@ -74,7 +74,7 @@ export function IncomeBreakdown({
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <BarChart3 className="h-4 w-4 text-emerald-600" />
-          Struktura przychodu
+          {tf('calc.inf.incomeStructure', 'Struktura przychodu')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-0">

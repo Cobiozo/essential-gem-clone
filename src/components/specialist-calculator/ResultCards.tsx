@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Euro, TrendingUp, RefreshCw, Award } from "lucide-react";
 import { useCurrency } from "@/contexts/CurrencyContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { SpecialistVolumeThreshold } from "@/hooks/useSpecialistCalculatorSettings";
 
 interface ResultCardsProps {
@@ -23,6 +24,7 @@ export function ResultCards({
   thresholds
 }: ResultCardsProps) {
   const { formatAmount } = useCurrency();
+  const { tf } = useLanguage();
   
   const commission = clients * baseCommissionEur;
   const passiveIncome = clients * passivePerMonthEur * passiveMonths;
@@ -33,37 +35,37 @@ export function ResultCards({
 
   const cards = [
     {
-      title: "Prowizja (1. miesiąc)",
+      title: tf('calc.spec.commission', 'Prowizja (1. miesiąc)'),
       icon: Euro,
       valueEur: commission,
-      description: `${baseCommissionEur}€ za każdego klienta (start)`,
+      description: `${baseCommissionEur}€ ${tf('calc.spec.perClient', 'za każdego klienta (start)')}`,
       iconBg: "bg-emerald-100",
       iconColor: "text-emerald-600",
       valueColor: "text-foreground"
     },
     {
-      title: "Dochód Pasywny",
+      title: tf('calc.spec.passiveIncome', 'Dochód Pasywny'),
       icon: TrendingUp,
       valueEur: passiveIncome,
-      description: `Suma za miesiące 2-6 (${passivePerMonthEur}€/mc)`,
+      description: `${tf('calc.spec.sumMonths', 'Suma za miesiące 2-6')} (${passivePerMonthEur}€/${tf('calc.spec.perMonth', 'mc')})`,
       iconBg: "bg-blue-100",
       iconColor: "text-blue-600",
       valueColor: "text-foreground"
     },
     {
-      title: "Premia za Przedłużenie",
+      title: tf('calc.spec.retentionBonus', 'Premia za Przedłużenie'),
       icon: RefreshCw,
       valueEur: retentionBonus,
-      description: `Dodatkowe ${retentionBonusEur}€ w 4. i 6. miesiącu`,
+      description: `${tf('calc.spec.additional', 'Dodatkowe')} ${retentionBonusEur}€ ${tf('calc.spec.inMonth4and6', 'w 4. i 6. miesiącu')}`,
       iconBg: "bg-purple-100",
       iconColor: "text-purple-600",
       valueColor: "text-foreground"
     },
     {
-      title: "Premie Motywacyjne",
+      title: tf('calc.spec.motivationalBonuses', 'Premie Motywacyjne'),
       icon: Award,
       valueEur: volumeBonus,
-      description: "Sumowane bonusy za progi klientów",
+      description: tf('calc.spec.summedBonuses', 'Sumowane bonusy za progi klientów'),
       iconBg: "bg-orange-100",
       iconColor: "text-orange-500",
       valueColor: "text-orange-500"

@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Award, Check, Target } from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { SpecialistVolumeThreshold } from "@/hooks/useSpecialistCalculatorSettings";
 
 interface ThresholdProgressProps {
@@ -9,22 +10,21 @@ interface ThresholdProgressProps {
 }
 
 export function ThresholdProgress({ clients, thresholds }: ThresholdProgressProps) {
+  const { tf } = useLanguage();
   const sortedThresholds = [...thresholds].sort((a, b) => (a.position || 0) - (b.position || 0));
   
-  // Find current and next threshold
   const currentThreshold = sortedThresholds.filter(t => clients >= t.threshold_clients).pop();
   const nextThreshold = sortedThresholds.find(t => clients < t.threshold_clients);
   
-  // Calculate progress to next threshold
   let progressPercent = 100;
-  let progressLabel = "Maksymalny poziom!";
+  let progressLabel = tf('calc.spec.maxLevel', 'Maksymalny poziom!');
   
   if (nextThreshold) {
     const prevThreshold = currentThreshold?.threshold_clients || 0;
     const range = nextThreshold.threshold_clients - prevThreshold;
     const progress = clients - prevThreshold;
     progressPercent = Math.min((progress / range) * 100, 100);
-    progressLabel = `${clients}/${nextThreshold.threshold_clients} klientów`;
+    progressLabel = `${clients}/${nextThreshold.threshold_clients} ${tf('calc.spec.clients', 'klientów')}`;
   }
 
   const formatBonus = (value: number) => {
@@ -34,7 +34,6 @@ export function ThresholdProgress({ clients, thresholds }: ThresholdProgressProp
     }).format(value);
   };
 
-  // Calculate total earned bonuses
   const totalEarnedBonus = sortedThresholds
     .filter(t => clients >= t.threshold_clients)
     .reduce((sum, t) => sum + t.bonus_amount, 0);
@@ -44,25 +43,23 @@ export function ThresholdProgress({ clients, thresholds }: ThresholdProgressProp
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-lg">
           <Award className="h-5 w-5 text-primary" />
-          Premie motywacyjne
+          {tf('calc.spec.motivationalBonuses', 'Premie motywacyjne')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Current level info */}
         <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">
-              {currentThreshold ? `Poziom ${currentThreshold.position}` : "Poziom startowy"}
+              {currentThreshold ? `${tf('calc.spec.level', 'Poziom')} ${currentThreshold.position}` : tf('calc.spec.startLevel', 'Poziom startowy')}
             </span>
             <span className="text-lg font-bold text-primary">
-              {formatBonus(totalEarnedBonus)} € zdobyte
+              {formatBonus(totalEarnedBonus)} € {tf('calc.spec.earned', 'zdobyte')}
             </span>
           </div>
           <Progress value={progressPercent} className="h-2" />
           <p className="text-xs text-muted-foreground mt-2">{progressLabel}</p>
         </div>
 
-        {/* Thresholds list */}
         <div className="space-y-3">
           {sortedThresholds.map((threshold) => {
             const isAchieved = clients >= threshold.threshold_clients;
@@ -92,14 +89,14 @@ export function ThresholdProgress({ clients, thresholds }: ThresholdProgressProp
                   </div>
                   <div>
                     <p className={`font-medium ${isAchieved ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {threshold.threshold_clients} klientów
+                      {threshold.threshold_clients} {tf('calc.spec.clients', 'klientów')}
                     </p>
                     {isCurrent && (
-                      <span className="text-xs text-primary">Aktualny poziom</span>
+                      <span className="text-xs text-primary">{tf('calc.spec.currentLevel', 'Aktualny poziom')}</span>
                     )}
                     {isNext && (
                       <span className="text-xs text-muted-foreground">
-                        Brakuje: {threshold.threshold_clients - clients}
+                        {tf('calc.spec.remaining', 'Brakuje:')} {threshold.threshold_clients - clients}
                       </span>
                     )}
                   </div>

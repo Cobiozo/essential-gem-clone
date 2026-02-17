@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, Globe, ArrowRight, Users } from 'lucide-react';
 import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { pl, enUS } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PaidEvent {
   id: string;
@@ -29,6 +30,8 @@ interface PaidEventCardProps {
 
 export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false }) => {
   const navigate = useNavigate();
+  const { tf, language } = useLanguage();
+  const dateLocale = language === 'pl' ? pl : enUS;
   
   const formatPrice = (priceInGrosze: number) => {
     return `${(priceInGrosze / 100).toFixed(0)} zł`;
@@ -45,19 +48,17 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
     >
       <CardContent className="p-4">
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* Date Badge */}
           <div className="flex-shrink-0">
             <div className="w-16 h-16 rounded-lg bg-primary/10 flex flex-col items-center justify-center text-primary">
               <span className="text-2xl font-bold leading-none">
                 {format(eventDate, 'd')}
               </span>
               <span className="text-xs uppercase">
-                {format(eventDate, 'MMM', { locale: pl })}
+                {format(eventDate, 'MMM', { locale: dateLocale })}
               </span>
             </div>
           </div>
 
-          {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 mb-2">
               <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
@@ -65,7 +66,7 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
               </h3>
               {!isPast && event.lowest_price && (
                 <Badge variant="secondary" className="flex-shrink-0 whitespace-nowrap">
-                  od {formatPrice(event.lowest_price)}
+                  {tf('events.from', 'od')} {formatPrice(event.lowest_price)}
                 </Badge>
               )}
             </div>
@@ -77,46 +78,42 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
             )}
 
             <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-              {/* Date & Time */}
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 <span>
-                  {format(eventDate, 'd MMM yyyy, HH:mm', { locale: pl })}
+                  {format(eventDate, 'd MMM yyyy, HH:mm', { locale: dateLocale })}
                 </span>
               </div>
 
-              {/* Location */}
               <div className="flex items-center gap-1">
                 {event.is_online ? (
                   <>
                     <Globe className="h-4 w-4 text-blue-500" />
-                    <span>Online</span>
+                    <span>{tf('events.online', 'Online')}</span>
                   </>
                 ) : (
                   <>
                     <MapPin className="h-4 w-4" />
-                    <span>{event.location || 'Lokalizacja'}</span>
+                    <span>{event.location || tf('events.location', 'Lokalizacja')}</span>
                   </>
                 )}
               </div>
 
-              {/* Spots left */}
               {!isPast && spotsLeft !== null && spotsLeft > 0 && spotsLeft <= 10 && (
                 <div className="flex items-center gap-1 text-amber-600">
                   <Users className="h-4 w-4" />
-                  <span>Zostało {spotsLeft} miejsc</span>
+                  <span>{tf('events.spotsLeft', 'Zostało')} {spotsLeft} {tf('events.spots', 'miejsc')}</span>
                 </div>
               )}
 
               {isSoldOut && !isPast && (
                 <Badge variant="destructive" className="text-xs">
-                  Wyprzedane
+                  {tf('events.soldOut', 'Wyprzedane')}
                 </Badge>
               )}
             </div>
           </div>
 
-          {/* Action */}
           {!isPast && (
             <div className="flex-shrink-0 self-center">
               <Button 
@@ -124,7 +121,7 @@ export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = fa
                 size="sm"
                 className="gap-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
               >
-                Zobacz
+                {tf('events.view', 'Zobacz')}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             </div>

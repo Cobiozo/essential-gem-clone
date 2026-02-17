@@ -37,7 +37,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 }) => {
   const navigate = useNavigate();
   const { profile, signOut, isAdmin } = useAuth();
-  const { t } = useLanguage();
+  const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
@@ -104,7 +104,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           size="icon"
           onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
           className="h-9 w-9"
-          title="Samouczek"
+          title={tf('nav.tutorial', 'Samouczek')}
           data-tour="tutorial-button"
         >
           <HelpCircle className="h-4 w-4" />
@@ -147,7 +147,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <Link2 className="mr-2 h-4 w-4" />
-                Synchronizacja API
+                {tf('nav.apiSync', 'Synchronizacja API')}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="w-48">
                 <DropdownMenuItem onClick={() => setIsGoogleCalendarOpen(true)}>
@@ -162,7 +162,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
                 onSelect={(e) => e.preventDefault()}
               >
                 <Wrench className="mr-2 h-4 w-4" />
-                Panel narzędziowy
+                {tf('nav.toolPanel', 'Panel narzędziowy')}
               </DropdownMenuItem>
             </CacheManagementDialog>
             <DropdownMenuSeparator />

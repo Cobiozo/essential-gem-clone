@@ -9,15 +9,17 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, Clock, Eye, Loader2, Heart, RotateCcw } from 'lucide-react';
-import { HealthyKnowledge, CONTENT_TYPE_LABELS } from '@/types/healthyKnowledge';
+import { HealthyKnowledge } from '@/types/healthyKnowledge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
+import { useContentTypeLabels } from '@/types/healthyKnowledge';
 
 const HealthyKnowledgePlayerPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { language } = useLanguage();
+  const { tf, language } = useLanguage();
+  const contentTypeLabels = useContentTypeLabels();
   
   const [material, setMaterial] = useState<HealthyKnowledge | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,14 +32,12 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
   const currentTimeRef = useRef(0);
   const hasIncrementedViewRef = useRef(false);
 
-  // Translate material
   const translatedItems = useHealthyKnowledgeTranslations(
     material ? [material] : [],
     language
   );
   const displayMaterial = translatedItems.length > 0 ? translatedItems[0] : material;
 
-  // Load material and saved progress
   useEffect(() => {
     if (!id) return;
     
@@ -52,15 +52,13 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
         if (error) throw error;
         setMaterial(data as HealthyKnowledge);
         
-        // Load saved progress
         const saved = localStorage.getItem(`hk_progress_${id}`);
         if (saved) {
           try {
             const progress = JSON.parse(saved);
-            // Check if not older than 7 days and position > 5 seconds
             if (Date.now() - progress.updatedAt < 7 * 24 * 60 * 60 * 1000 && progress.position > 5) {
               setSavedPosition(progress.position);
-              setInitialTime(progress.position); // Set initial time immediately for video preview
+              setInitialTime(progress.position);
               setShowResumePrompt(true);
             }
           } catch (e) {
@@ -68,7 +66,6 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
           }
         }
         
-        // Increment view count once
         if (!hasIncrementedViewRef.current) {
           hasIncrementedViewRef.current = true;
           await supabase
@@ -78,7 +75,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
         }
       } catch (error) {
         console.error('Error fetching material:', error);
-        toast.error('Nie udało się pobrać materiału');
+        toast.error(tf('hk.fetchMaterialError', 'Nie udało się pobrać materiału'));
         navigate('/zdrowa-wiedza');
       } finally {
         setLoading(false);
@@ -88,7 +85,6 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     fetchMaterial();
   }, [id, navigate]);
 
-  // Save progress to localStorage
   const saveProgress = useCallback((position: number) => {
     if (!id || position <= 0) return;
     localStorage.setItem(`hk_progress_${id}`, JSON.stringify({
@@ -97,12 +93,10 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     }));
   }, [id]);
 
-  // Update ref when time changes
   useEffect(() => {
     currentTimeRef.current = currentTime;
   }, [currentTime]);
 
-  // Save on visibility change (tab switch)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && currentTimeRef.current > 0) {
@@ -113,7 +107,6 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [saveProgress]);
 
-  // Save on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (currentTimeRef.current > 0) {
@@ -124,7 +117,6 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveProgress]);
 
-  // Periodic save every 5 seconds during playback
   useEffect(() => {
     if (!isPlaying) return;
     
@@ -137,39 +129,32 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [isPlaying, saveProgress]);
 
-  // Handle time update from SecureMedia
   const handleTimeUpdate = useCallback((time: number) => {
     setCurrentTime(time);
   }, []);
 
-  // Handle play state change
   const handlePlayStateChange = useCallback((playing: boolean) => {
     setIsPlaying(playing);
   }, []);
 
-  // Resume from saved position (initialTime already set)
   const handleResume = () => {
     setShowResumePrompt(false);
   };
 
-  // Start from beginning
   const handleStartOver = () => {
-    setInitialTime(0); // Reset to beginning
+    setInitialTime(0);
     setShowResumePrompt(false);
-    // Clear saved progress
     if (id) {
       localStorage.removeItem(`hk_progress_${id}`);
     }
   };
 
-  // Format time helper
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Auth check
   if (!user) {
     navigate('/auth');
     return null;
@@ -177,7 +162,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardLayout title="Zdrowa Wiedza">
+      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -187,11 +172,11 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
 
   if (!material) {
     return (
-      <DashboardLayout title="Zdrowa Wiedza">
+      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
         <div className="text-center py-12">
-          <p className="text-muted-foreground">Materiał nie został znaleziony</p>
+          <p className="text-muted-foreground">{tf('hk.notFound', 'Materiał nie został znaleziony')}</p>
           <Button onClick={() => navigate('/zdrowa-wiedza')} className="mt-4">
-            Wróć do listy
+            {tf('hk.backToList', 'Wróć do listy')}
           </Button>
         </div>
       </DashboardLayout>
@@ -199,14 +184,12 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
   }
 
   return (
-    <DashboardLayout title="Zdrowa Wiedza">
+    <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
       <div className="space-y-4 max-w-5xl mx-auto">
-        {/* Back button */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => {
-            // Save progress before leaving
             if (currentTimeRef.current > 0) {
               saveProgress(currentTimeRef.current);
             }
@@ -215,10 +198,9 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
           className="gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Powrót do listy
+          {tf('hk.backToListShort', 'Powrót do listy')}
         </Button>
 
-        {/* Title */}
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-lg bg-primary/10">
             <Heart className="w-5 h-5 text-primary" />
@@ -231,7 +213,6 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Video Player - always visible */}
         <Card className="overflow-hidden">
           <CardContent className="p-0 relative">
             <SecureMedia
@@ -243,23 +224,22 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
               initialTime={initialTime}
             />
             
-            {/* Resume Overlay - on top of video */}
             {showResumePrompt && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-lg">
                 <div className="bg-card border border-primary/50 rounded-xl p-6 max-w-sm mx-4 text-center shadow-xl">
                   <RotateCcw className="w-8 h-8 text-primary mx-auto mb-3" />
                   <p className="text-lg font-medium mb-1">
-                    Kontynuować od <span className="text-primary font-bold">{formatTime(savedPosition)}</span>?
+                    {tf('hk.continueFrom', 'Kontynuować od')} <span className="text-primary font-bold">{formatTime(savedPosition)}</span>?
                   </p>
                   <p className="text-sm text-muted-foreground mb-4">
-                    Ostatnio oglądałeś to wideo
+                    {tf('hk.lastWatched', 'Ostatnio oglądałeś to wideo')}
                   </p>
                   <div className="flex gap-3 justify-center">
                     <Button variant="outline" onClick={handleStartOver}>
-                      Od początku
+                      {tf('hk.fromBeginning', 'Od początku')}
                     </Button>
                     <Button onClick={handleResume}>
-                      Kontynuuj
+                      {tf('hk.continue', 'Kontynuuj')}
                     </Button>
                   </div>
                 </div>
@@ -268,10 +248,9 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Metadata */}
         <div className="flex items-center flex-wrap gap-3 text-sm text-muted-foreground">
           <Badge variant="outline">
-            {CONTENT_TYPE_LABELS[material.content_type as keyof typeof CONTENT_TYPE_LABELS]}
+            {contentTypeLabels[material.content_type as keyof typeof contentTypeLabels]}
           </Badge>
           {material.category && (
             <Badge variant="secondary">{material.category}</Badge>
@@ -284,7 +263,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
           )}
           <span className="flex items-center gap-1">
             <Eye className="w-3 h-3" />
-            {material.view_count} wyświetleń
+            {material.view_count} {tf('hk.views', 'wyświetleń')}
           </span>
         </div>
       </div>
