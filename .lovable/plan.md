@@ -1,49 +1,101 @@
 
 
-# Baner aktualizacji Service Worker — "Dostępna nowa wersja aplikacji"
+# Naprawa nieskonczonego buforowania wideo — zmiana z proxy na redirect 302
 
-## Problem
-Obecny kod w `main.tsx` automatycznie wysyla `SKIP_WAITING` do nowego Service Workera, co powoduje ciche odswiezenie w tle. Uzytkownik nie widzi zadnego baneru z informacja o nowej wersji — bo taki komponent nie istnieje.
+## Diagnoza problemu
 
-## Rozwiazanie
+Edge Function `stream-media` aktualnie dziala jako **pelny proxy** — pobiera caly plik wideo z VPS i streamuje go bajt po bajcie do przegladarki. To powoduje:
 
-### 1. Nowy komponent `src/components/pwa/SWUpdateBanner.tsx`
-Baner wyswietlany na dole ekranu (fixed bottom), wyglad jak na przykladowym screenshocie:
-- Tekst: **"Dostepna nowa wersja aplikacji"** + "Odswiez strone, aby korzystac z najnowszej wersji."
-- Przycisk: **"Odswiez"**
-- Po kliknieciu: wysyla `SKIP_WAITING` do nowego SW, nasluchuje na `controllerchange` i wykonuje `window.location.reload()`
-- Komponent nasluchuje na customowy event `swUpdateAvailable` emitowany z `main.tsx`
+1. **Limity czasu Edge Functions** (~60s) — polaczenie jest przerywane przy dlugich plikach wideo
+2. **max_uses=5 jest za male** — przegladarka wysyla wiele zadan Range (kazde zuzywa 1 uzycie tokenu)
+3. **Broken pipe / connection closed** — Edge Function nie nadaza ze streamingiem duzych plikow
 
-### 2. Zmiana logiki w `src/main.tsx`
-Zamiast automatycznego `newWorker.postMessage('SKIP_WAITING')`, emitowanie zdarzenia:
+## Rozwiazanie — Redirect 302 zamiast proxy
+
+Zamiast streamowac plik przez Edge Function, funkcja `stream-media` bedzie:
+1. Walidowac token (czy istnieje, nie wygasl, nie wyczerpany)
+2. Zwracac **redirect 302** do prawdziwego URL
+3. Przegladarka automatycznie podazy za redirectem i pobiera plik bezposrednio z VPS
+
+### Kompromis bezpieczenstwa
+
+- Prawdziwy URL pojawia sie w zakladce Network w DevTools, ale **NIE** w kodzie zrodlowym strony ani w `<video src>`
+- URL jest znacznie trudniejszy do znalezienia niz wczesniej (trzeba przejrzec setki zadan sieciowych)
+- Token nadal chroni przed bezposrednim udostepnianiem linku — skopiowanie URL proxy zwroci 403
+
+### Dodatkowe zabezpieczenie
+
+- Zwiekszenie `max_uses` z 5 do 100 (przegladarka wykonuje wiele zadan Range)
+- Dodanie naglowka `Content-Disposition: inline` (sugeruje odtwarzanie zamiast pobierania)
+
+## Zmiany techniczne
+
+### 1. `supabase/functions/stream-media/index.ts`
+
+Zamiana pelnego proxy na redirect 302:
+
 ```text
-PRZED: newWorker.postMessage('SKIP_WAITING')  // cicha aktualizacja
-PO:    window.dispatchEvent(new CustomEvent('swUpdateAvailable'))  // pokaz baner
+PRZED (pelny proxy):
+  const mediaResponse = await fetch(realUrl, { headers: fetchHeaders })
+  return new Response(mediaResponse.body, { status: mediaResponse.status, headers })
+
+PO (redirect 302):
+  // Walidacja tokenu (bez zmian)
+  // Zamiast streamowania — redirect
+  return new Response(null, {
+    status: 302,
+    headers: {
+      ...corsHeaders,
+      'Location': realUrl,
+      'Cache-Control': 'no-store, no-cache',
+    }
+  })
 ```
-Referencja do `registration` zapisana globalnie (np. `window.__swRegistration`), aby komponent mogl pozniej wyslac `SKIP_WAITING`.
 
-### 3. Osadzenie baneru w `src/App.tsx`
-Dodanie `<SWUpdateBanner />` na koncu drzewa komponentow, obok istniejacych elementow globalnych (Toaster, CookieBanner itp.).
+Edge Function konczy prace w <100ms zamiast trzymac polaczenie przez minuty.
 
-## Szczegoly techniczne
+### 2. `supabase/functions/generate-media-token/index.ts`
+
+Zwiekszenie `max_uses` z 5 do 100:
+
+```text
+PRZED: max_uses: 5
+PO:    max_uses: 100
+```
+
+### 3. `src/components/SecureMedia.tsx`
+
+Bez zmian w logice komponentu — `<video src="stream-media?token=...">` dziala identycznie z redirectem 302, przegladarka automatycznie podaza za przekierowaniem.
+
+## Przepływ po zmianach
+
+```text
+1. SecureMedia generuje token -> ustawia src="stream-media?token=abc"
+2. Przegladarka wysyla GET z Range header
+3. Edge Function waliduje token (~50ms) -> zwraca 302 do prawdziwego URL
+4. Przegladarka podaza za redirectem -> pobiera dane bezposrednio z VPS
+5. Wideo odtwarza sie plynnie — bez limitu czasu Edge Function
+6. Kolejne zadania Range uzywaja tego samego tokenu (max 100 uzyc)
+7. Token odswiezany co 3.5 min (istniejaca logika)
+```
+
+## Wplyw na istniejace funkcje
+
+| Funkcja | Wplyw |
+|---------|-------|
+| Sledzenie postepu | Bez zmian — `timeupdate` event dziala identycznie |
+| Wznawianie od zapisanej pozycji | Bez zmian — `initialTime` ustawiany jak dotychczas |
+| Kontrola predkosci | Bez zmian — `playbackRate` na elemencie `<video>` |
+| Buforowanie / seeking | **Poprawione** — brak limitu czasu proxy |
+| Tryby kontroli (restricted/secure) | Bez zmian |
+| Odswiezanie tokenu | Bez zmian — co 3.5 min |
+
+## Podsumowanie
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/pwa/SWUpdateBanner.tsx` | Nowy komponent — nasluchuje na `swUpdateAvailable`, wyswietla baner, po kliknieciu "Odswiez" aktywuje nowy SW i przeladowuje strone |
-| `src/main.tsx` | Zamiana `SKIP_WAITING` na `dispatchEvent('swUpdateAvailable')`, zapis referencji do SW registration |
-| `src/App.tsx` | Import i dodanie `<SWUpdateBanner />` |
+| `supabase/functions/stream-media/index.ts` | Zamiana proxy na redirect 302 |
+| `supabase/functions/generate-media-token/index.ts` | max_uses: 5 -> 100 |
 
-## Przepływ
+Dwa pliki, minimalne zmiany, rozwiazuje problem nieskonczonego buforowania.
 
-```text
-1. Uzytkownik otwiera strone -> SW rejestruje sie
-2. Nowa wersja SW wykryta (updatefound) -> nowy SW w stanie 'installed'
-3. main.tsx emituje event 'swUpdateAvailable'
-4. SWUpdateBanner nasluchuje -> wyswietla baner na dole ekranu
-5. Uzytkownik klika "Odswiez"
-6. Komponent wysyla SKIP_WAITING do nowego SW
-7. Nasłuch na 'controllerchange' -> window.location.reload()
-```
-
-## Wyglad baneru
-Baner uzywa istniejacych komponentow UI (Card/Alert) z Tailwind, fixed na dole ekranu z cienkim cieniem. Styl zbliżony do screenshota: bialy/jasny background, czarny tekst, przycisk "Odswiez" po prawej stronie.
