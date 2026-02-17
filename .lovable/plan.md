@@ -1,71 +1,41 @@
 
 
-# Naprawa wyswietlania kluczy zamiast polskich nazw w menu bocznym
+# Naprawa brakujacego tf() w MyMeetingsWidget + lokalizacja stref czasowych
 
-## Problem
+## 1. MyMeetingsWidget.tsx - linia 300
 
-W `DashboardSidebar.tsx` na liniach renderowania menu uzyto wzorca:
-```
-tf(item.labelKey, item.labelKey)
-```
+Jedna linia nadal uzywa starego wzorca `t('events.details') || 'Szczegoly'`. Zamienic na `tf('events.details', 'Szczegoly')`.
 
-Gdy tlumaczenie nie istnieje w bazie, `tf()` poprawnie zwraca fallback - ale fallbackiem jest **sam klucz** (np. `dashboard.menu.healthyKnowledge`), a nie polski tekst. Dlatego w menu widac surowe klucze tlumaczen.
+## 2. timezoneHelpers.ts - COMMON_TIMEZONES
 
-## Rozwiazanie
+Statyczna tablica `COMMON_TIMEZONES` zawiera polskie nazwy krajow (np. "Polska (CET)", "Wielka Brytania (GMT)", "Nowy Jork (EST)"). Nie mozna uzyc `tf()` w stalej poza komponentem.
 
-Dodac mape fallbackow wewnatrz komponentu, ktora mapuje kazdy klucz na polski tekst. Nastepnie zamienic `tf(item.labelKey, item.labelKey)` na `tf(item.labelKey, menuLabelFallbacks[item.labelKey] || item.labelKey)`.
+**Rozwiazanie**: Dodac nowa funkcje `getCommonTimezones(tf)` ktora zwraca przetlumaczona tablice. Stara stala `COMMON_TIMEZONES` pozostaje jako fallback.
 
 ```typescript
-const menuLabelFallbacks: Record<string, string> = {
-  'dashboard.menu.dashboard': 'Dashboard',
-  'dashboard.menu.academy': 'Akademia',
-  'dashboard.menu.healthyKnowledge': 'Zdrowa Wiedza',
-  'dashboard.menu.resources': 'Biblioteka',
-  'dashboard.menu.pureContacts': 'Pure-Kontakty',
-  'dashboard.menu.privateContacts': 'Kontakty prywatne',
-  'dashboard.menu.teamContacts': 'Kontakty zespolu',
-  'dashboard.menu.searchSpecialist': 'Szukaj specjalisty',
-  'dashboard.menu.news': 'Aktualnosci',
-  'dashboard.menu.events': 'Eventy',
-  'dashboard.menu.webinars': 'Webinary',
-  'dashboard.menu.teamMeetings': 'Spotkania zespolu',
-  'dashboard.menu.individualMeetings': 'Spotkania indywidualne',
-  'dashboard.menu.paidEvents': 'Eventy platne',
-  'dashboard.menu.individualMeeting': 'Spotkanie indywidualne',
-  'dashboard.menu.setupTripartiteMeeting': 'Ustaw spotkanie trojstronne',
-  'dashboard.menu.setupPartnerConsultation': 'Ustaw konsultacje dla partnerow',
-  'dashboard.menu.chat': 'Chat',
-  'dashboard.menu.support': 'Wsparcie i pomoc',
-  'dashboard.pureLinki': 'PureLinki',
-  'dashboard.menu.infolinks': 'PureLinki',
-  'dashboard.menu.community': 'Spolecznosc',
-  'dashboard.menu.settings': 'Ustawienia',
-  'dashboard.menu.calculator': 'Kalkulator',
-  'dashboard.menu.forInfluencers': 'Dla Influenserow',
-  'dashboard.menu.forSpecialists': 'Dla Specjalistow',
-  'dashboard.menu.admin': 'CMS Panel',
-};
+type TfFunc = (key: string, fallback: string) => string;
+
+export const getCommonTimezones = (tf: TfFunc) => [
+  { value: 'Europe/Warsaw', label: tf('tz.poland', 'Polska') + ' (CET)' },
+  { value: 'Europe/London', label: tf('tz.uk', 'Wielka Brytania') + ' (GMT)' },
+  // ... wszystkie 30 pozycji
+];
 ```
 
-Nastepnie helper `getLabel`:
+## 3. WelcomeWidget.tsx - jedyny konsument COMMON_TIMEZONES
+
+Zamienic import `COMMON_TIMEZONES` na `getCommonTimezones` i wywolac wewnatrz komponentu z `tf` z `useLanguage()`.
+
 ```typescript
-const getLabel = (key: string) => tf(key, menuLabelFallbacks[key] || key);
+const { tf } = useLanguage();
+const localizedTimezones = useMemo(() => getCommonTimezones(tf), [tf]);
 ```
 
-I zamienic wszystkie `tf(item.labelKey, item.labelKey)` na `getLabel(item.labelKey)` oraz `tf(subItem.labelKey, subItem.labelKey)` na `getLabel(subItem.labelKey)` (tylko dla nie-dynamicznych itemow).
-
-## Dotyczy miejsc w pliku (linie)
-
-- Linia 671: tooltip dla submenu parent
-- Linia 676: label dla submenu parent  
-- Linia 690: title dla submenu item
-- Linia 704: label dla submenu item
-- Linia 720: label na mobile
-- Oraz dalsze linie z tym samym wzorcem (desktop tooltip render)
-
-## Plik do zmiany
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/DashboardSidebar.tsx` | Dodac mape fallbackow + helper `getLabel()`, zamienic ~8 miejsc `tf(x, x)` na `getLabel(x)` |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Linia 300: `t() \|\|` -> `tf()` |
+| `src/utils/timezoneHelpers.ts` | Dodac `getCommonTimezones(tf)` z kluczami i18n |
+| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Uzyc `getCommonTimezones(tf)` zamiast `COMMON_TIMEZONES` |
 
