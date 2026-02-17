@@ -126,6 +126,12 @@ async function processTranslationJob(jobId: string) {
 
     if (jobType === 'cms') {
       await processCMSJob(supabase, job, lovableApiKey);
+    } else if (jobType === 'training') {
+      await processTrainingJob(supabase, job, lovableApiKey);
+    } else if (jobType === 'knowledge') {
+      await processKnowledgeJob(supabase, job, lovableApiKey);
+    } else if (jobType === 'healthy_knowledge') {
+      await processHealthyKnowledgeJob(supabase, job, lovableApiKey);
     } else {
       await processI18nJob(supabase, job, lovableApiKey);
     }
@@ -839,7 +845,188 @@ Rules:
     } catch {
       console.error('Failed to parse AI response:', content);
       return keysObject;
+}
+
+// ============ TRAINING JOB ============
+async function processTrainingJob(supabase: any, job: any, lovableApiKey: string | undefined) {
+  const { id: jobId, source_language, target_language } = job;
+
+  // Fetch modules and lessons
+  const { data: modules } = await supabase.from('training_modules').select('id, title, description').eq('is_active', true);
+  const { data: lessons } = await supabase.from('training_lessons').select('id, title, content, media_alt_text').eq('is_active', true);
+
+  // Get existing translations
+  const { data: existModT } = await supabase.from('training_module_translations').select('module_id').eq('language_code', target_language);
+  const { data: existLessT } = await supabase.from('training_lesson_translations').select('lesson_id').eq('language_code', target_language);
+
+  const existModIds = new Set(existModT?.map((t: any) => t.module_id) || []);
+  const existLessIds = new Set(existLessT?.map((t: any) => t.lesson_id) || []);
+
+  const modsToTranslate = job.mode === 'all' ? (modules || []) : (modules || []).filter((m: any) => !existModIds.has(m.id));
+  const lessToTranslate = job.mode === 'all' ? (lessons || []) : (lessons || []).filter((l: any) => !existLessIds.has(l.id));
+
+  const totalKeys = modsToTranslate.length + lessToTranslate.length;
+  await supabase.from('translation_jobs').update({ total_keys: totalKeys, updated_at: new Date().toISOString() }).eq('id', jobId);
+
+  if (totalKeys === 0) {
+    await supabase.from('translation_jobs').update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+    return;
+  }
+
+  let processedKeys = 0, errors = 0;
+
+  // Translate modules
+  for (let i = 0; i < modsToTranslate.length; i += BATCH_SIZE) {
+    const batch = modsToTranslate.slice(i, i + BATCH_SIZE);
+    try {
+      const translated = await translateGenericBatch(batch, ['title', 'description'], source_language, target_language, lovableApiKey);
+      for (let idx = 0; idx < batch.length; idx++) {
+        const { error } = await supabase.from('training_module_translations').upsert({
+          module_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+        }, { onConflict: 'module_id,language_code' });
+        if (error) errors++; else processedKeys++;
+      }
+    } catch { errors += batch.length; }
+    await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  // Translate lessons
+  for (let i = 0; i < lessToTranslate.length; i += BATCH_SIZE) {
+    const batch = lessToTranslate.slice(i, i + BATCH_SIZE);
+    try {
+      const translated = await translateGenericBatch(batch, ['title', 'content', 'media_alt_text'], source_language, target_language, lovableApiKey);
+      for (let idx = 0; idx < batch.length; idx++) {
+        const { error } = await supabase.from('training_lesson_translations').upsert({
+          lesson_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+        }, { onConflict: 'lesson_id,language_code' });
+        if (error) errors++; else processedKeys++;
+      }
+    } catch { errors += batch.length; }
+    await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  await supabase.from('translation_jobs').update({ status: 'completed', processed_keys: processedKeys, errors, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+  console.log(`Training job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
+}
+
+// ============ KNOWLEDGE JOB ============
+async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: string | undefined) {
+  const { id: jobId, source_language, target_language } = job;
+
+  const { data: resources } = await supabase.from('knowledge_resources').select('id, title, description, context_of_use');
+  const { data: existT } = await supabase.from('knowledge_resource_translations').select('resource_id').eq('language_code', target_language);
+  const existIds = new Set(existT?.map((t: any) => t.resource_id) || []);
+  const toTranslate = job.mode === 'all' ? (resources || []) : (resources || []).filter((r: any) => !existIds.has(r.id));
+
+  await supabase.from('translation_jobs').update({ total_keys: toTranslate.length, updated_at: new Date().toISOString() }).eq('id', jobId);
+
+  if (toTranslate.length === 0) {
+    await supabase.from('translation_jobs').update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+    return;
+  }
+
+  let processedKeys = 0, errors = 0;
+
+  for (let i = 0; i < toTranslate.length; i += BATCH_SIZE) {
+    const batch = toTranslate.slice(i, i + BATCH_SIZE);
+    try {
+      const translated = await translateGenericBatch(batch, ['title', 'description', 'context_of_use'], source_language, target_language, lovableApiKey);
+      for (let idx = 0; idx < batch.length; idx++) {
+        const { error } = await supabase.from('knowledge_resource_translations').upsert({
+          resource_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+        }, { onConflict: 'resource_id,language_code' });
+        if (error) errors++; else processedKeys++;
+      }
+    } catch { errors += batch.length; }
+    await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  await supabase.from('translation_jobs').update({ status: 'completed', processed_keys: processedKeys, errors, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+  console.log(`Knowledge job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
+}
+
+// ============ HEALTHY KNOWLEDGE JOB ============
+async function processHealthyKnowledgeJob(supabase: any, job: any, lovableApiKey: string | undefined) {
+  const { id: jobId, source_language, target_language } = job;
+
+  const { data: items } = await supabase.from('healthy_knowledge').select('id, title, description, text_content').eq('is_active', true);
+  const { data: existT } = await supabase.from('healthy_knowledge_translations').select('item_id').eq('language_code', target_language);
+  const existIds = new Set(existT?.map((t: any) => t.item_id) || []);
+  const toTranslate = job.mode === 'all' ? (items || []) : (items || []).filter((i: any) => !existIds.has(i.id));
+
+  await supabase.from('translation_jobs').update({ total_keys: toTranslate.length, updated_at: new Date().toISOString() }).eq('id', jobId);
+
+  if (toTranslate.length === 0) {
+    await supabase.from('translation_jobs').update({ status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+    return;
+  }
+
+  let processedKeys = 0, errors = 0;
+
+  for (let i = 0; i < toTranslate.length; i += BATCH_SIZE) {
+    const batch = toTranslate.slice(i, i + BATCH_SIZE);
+    try {
+      const translated = await translateGenericBatch(batch, ['title', 'description', 'text_content'], source_language, target_language, lovableApiKey);
+      for (let idx = 0; idx < batch.length; idx++) {
+        const { error } = await supabase.from('healthy_knowledge_translations').upsert({
+          item_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+        }, { onConflict: 'item_id,language_code' });
+        if (error) errors++; else processedKeys++;
+      }
+    } catch { errors += batch.length; }
+    await supabase.from('translation_jobs').update({ processed_keys: processedKeys, errors, updated_at: new Date().toISOString() }).eq('id', jobId);
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  await supabase.from('translation_jobs').update({ status: 'completed', processed_keys: processedKeys, errors, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', jobId);
+  console.log(`Healthy Knowledge job ${jobId} completed. Processed: ${processedKeys}, Errors: ${errors}`);
+}
+
+// ============ GENERIC BATCH TRANSLATOR ============
+async function translateGenericBatch(
+  items: any[],
+  fields: string[],
+  sourceLanguage: string,
+  targetLanguage: string,
+  apiKey: string | undefined
+): Promise<any[]> {
+  if (!apiKey || items.length === 0) return items.map(() => ({}));
+
+  const sourceLang = LANGUAGE_NAMES[sourceLanguage] || sourceLanguage;
+  const targetLang = LANGUAGE_NAMES[targetLanguage] || targetLanguage;
+
+  const payload = items.map((item, idx) => {
+    const obj: any = { idx };
+    for (const f of fields) {
+      obj[f] = item[f] || null;
     }
+    return obj;
+  });
+
+  const systemPrompt = `You are a professional translator. Translate content from ${sourceLang} to ${targetLang}.
+Return ONLY a valid JSON array with same structure. Translate only text values. Keep idx unchanged. Preserve HTML tags and placeholders.`;
+
+  try {
+    const content = await aiRequest(apiKey, systemPrompt, JSON.stringify(payload));
+    const cleanJson = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+
+    return items.map((_, idx) => {
+      const translated = parsed.find((p: any) => p.idx === idx) || parsed[idx] || {};
+      const result: any = {};
+      for (const f of fields) {
+        if (translated[f]) result[f] = translated[f];
+      }
+      return result;
+    });
+  } catch (error) {
+    console.error('Generic batch translation failed:', error);
+    return items.map(() => ({}));
+  }
+}
   } catch (error) {
     console.error('Translation API error:', error);
     throw error; // Re-throw to stop job on credits error

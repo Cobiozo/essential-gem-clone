@@ -15,7 +15,7 @@ export interface TranslationJob {
   created_at: string;
   updated_at: string;
   completed_at: string | null;
-  job_type: 'i18n' | 'cms';
+  job_type: 'i18n' | 'cms' | 'training' | 'knowledge' | 'healthy_knowledge';
   page_id: string | null;
 }
 
@@ -101,7 +101,7 @@ export const useTranslationJobs = () => {
     sourceLanguage: string,
     targetLanguage: string,
     mode: 'all' | 'missing' = 'missing',
-    jobType: 'i18n' | 'cms' = 'i18n',
+    jobType: 'i18n' | 'cms' | 'training' | 'knowledge' | 'healthy_knowledge' = 'i18n',
     pageId?: string | null
   ) => {
     setIsLoading(true);

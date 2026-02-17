@@ -2527,6 +2527,54 @@ export type Database = {
         }
         Relationships: []
       }
+      healthy_knowledge_translations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          item_id: string
+          language_code: string
+          text_content: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_id: string
+          language_code: string
+          text_content?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_id?: string
+          language_code?: string
+          text_content?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "healthy_knowledge_translations_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "healthy_knowledge"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "healthy_knowledge_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       hk_otp_codes: {
         Row: {
           code: string
@@ -2950,6 +2998,54 @@ export type Database = {
             columns: ["otp_code_id"]
             isOneToOne: false
             referencedRelation: "infolink_otp_codes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_resource_translations: {
+        Row: {
+          context_of_use: string | null
+          created_at: string
+          description: string | null
+          id: string
+          language_code: string
+          resource_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          context_of_use?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code: string
+          resource_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          context_of_use?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code?: string
+          resource_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_resource_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "knowledge_resource_translations_resource_id_fkey"
+            columns: ["resource_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_resources"
             referencedColumns: ["id"]
           },
         ]
@@ -5926,6 +6022,54 @@ export type Database = {
           },
         ]
       }
+      training_lesson_translations: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          language_code: string
+          lesson_id: string
+          media_alt_text: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          language_code: string
+          lesson_id: string
+          media_alt_text?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          language_code?: string
+          lesson_id?: string
+          media_alt_text?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_lesson_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "training_lesson_translations_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "training_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_lessons: {
         Row: {
           action_buttons: Json | null
@@ -5981,6 +6125,51 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "training_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "training_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_module_translations: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          language_code: string
+          module_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code: string
+          module_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          language_code?: string
+          module_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_module_translations_language_code_fkey"
+            columns: ["language_code"]
+            isOneToOne: false
+            referencedRelation: "i18n_languages"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "training_module_translations_module_id_fkey"
             columns: ["module_id"]
             isOneToOne: false
             referencedRelation: "training_modules"

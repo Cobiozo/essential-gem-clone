@@ -22,6 +22,7 @@ import {
 import { useTranslationsAdmin, I18nLanguage, TranslationsMap, LanguageTranslations } from '@/hooks/useTranslations';
 import { useTranslationJobs } from '@/hooks/useTranslationJobs';
 import { CMSContentTranslation } from './CMSContentTranslation';
+import { DynamicContentTranslation } from './DynamicContentTranslation';
 import { FlagEmojiPicker } from '@/components/cms/FlagEmojiPicker';
 
 interface TranslationsManagementProps {
@@ -583,7 +584,16 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
                 <FileJson className="w-4 h-4 mr-2" />
                 Edytor JSON
               </TabsTrigger>
+              <TabsTrigger value="dynamic">
+                <FileText className="w-4 h-4 mr-2" />
+                Treści dynamiczne
+              </TabsTrigger>
             </TabsList>
+
+            {/* Dynamic Content Tab */}
+            <TabsContent value="dynamic">
+              <DynamicContentTranslation />
+            </TabsContent>
 
             {/* Languages Tab */}
             <TabsContent value="languages">
