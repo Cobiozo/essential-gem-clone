@@ -1,64 +1,100 @@
 
-# Naprawa pustych tlumaczen dynamicznych tresci
+# Naprawa falszywie raportowanych tlumaczen
 
-## Problem
+## Przyczyna
 
-W tabeli `training_lesson_translations` istnieje 20 rekordow dla jezyka angielskiego (EN) z pustymi polami (`title = NULL`, `content = NULL`, `media_alt_text = NULL`). Edge function `background-translate` sprawdza jedynie **istnienie wiersza** w trybie "missing", a nie czy pola sa wypelnione. Dlatego przy kliknieciu "Tlumacz AI" system raportuje "Przetlumaczono 0 kluczy" - bo rekordy juz istnieja (choc sa puste).
+Funkcja `translateGenericBatch` (linia 1032-1034) w przypadku bledu AI zwraca tablice pustych obiektow `[{}, {}, ...]`. Nastepnie w petli upsert (np. linia 907-909):
+
+```typescript
+const { error } = await supabase.from('training_lesson_translations').upsert({
+  lesson_id: batch[idx].id, language_code: target_language, ...translated[idx], // <-- {} pusty obiekt
+  updated_at: new Date().toISOString()
+}, { onConflict: 'lesson_id,language_code' });
+if (error) errors++; else processedKeys++; // <-- liczy jako sukces!
+```
+
+Spread pustego obiektu `...{}` tworzy wiersz z `title=NULL, content=NULL`. Supabase nie zwraca bledu, wiec licznik `processedKeys` rosnie. Toast pokazuje "Przetlumaczono 20 kluczy" mimo ze zadne tlumaczenie nie zostalo zapisane.
 
 ## Rozwiazanie
 
-Zmienic logike sprawdzania istniejacych tlumaczen w `background-translate/index.ts` we wszystkich czterech typach jobow (training, knowledge, healthy_knowledge, CMS). Zamiast sprawdzac samo istnienie wiersza, nalezy sprawdzic czy **glowne pole** (np. `title`) jest wypelnione.
+Dodac walidacje przed upsertem - sprawdzic czy przetlumaczony obiekt zawiera przynajmniej jedno wypelnione pole. Jesli nie, policzyc jako blad i nie zapisywac pustego wiersza.
 
 ## Zmiany techniczne
 
 ### `supabase/functions/background-translate/index.ts`
 
-**1. processTrainingJob (linie 864-871)**
+**1. Helper do walidacji (nowa funkcja)**
+
+```typescript
+function hasTranslatedContent(obj: any, fields: string[]): boolean {
+  return fields.some(f => obj[f] && typeof obj[f] === 'string' && obj[f].trim() !== '');
+}
+```
+
+**2. processTrainingJob - moduly (linie 890-894)**
 
 Zmiana z:
 ```typescript
-const { data: existModT } = await supabase
-  .from('training_module_translations')
-  .select('module_id')
-  .eq('language_code', target_language);
-const { data: existLessT } = await supabase
-  .from('training_lesson_translations')
-  .select('lesson_id')
-  .eq('language_code', target_language);
+const { error } = await supabase.from('training_module_translations').upsert({
+  module_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+}, { onConflict: 'module_id,language_code' });
+if (error) errors++; else processedKeys++;
 ```
 
 Na:
 ```typescript
-const { data: existModT } = await supabase
-  .from('training_module_translations')
-  .select('module_id')
-  .eq('language_code', target_language)
-  .not('title', 'is', null);
-const { data: existLessT } = await supabase
-  .from('training_lesson_translations')
-  .select('lesson_id')
-  .eq('language_code', target_language)
-  .not('title', 'is', null);
+if (!hasTranslatedContent(translated[idx], ['title', 'description'])) {
+  errors++;
+  console.warn(`Empty translation for module ${batch[idx].id}`);
+} else {
+  const { error } = await supabase.from('training_module_translations').upsert({
+    module_id: batch[idx].id, language_code: target_language, ...translated[idx], updated_at: new Date().toISOString()
+  }, { onConflict: 'module_id,language_code' });
+  if (error) errors++; else processedKeys++;
+}
 ```
 
-**2. processKnowledgeJob (linia 924)**
+**3. processTrainingJob - lekcje (linie 907-909)**
 
-Dodac `.not('title', 'is', null)` do zapytania o istniejace tlumaczenia.
+Analogiczna zmiana z walidacja pol `['title', 'content']`.
 
-**3. processHealthyKnowledgeJob (linia 961)**
+**4. processKnowledgeJob (linie 943-946)**
 
-Dodac `.not('title', 'is', null)` do zapytania o istniejace tlumaczenia.
+Walidacja pol `['title', 'description']`.
 
-**4. processCMSJob (linie 321-323 i 355-359)**
+**5. processHealthyKnowledgeJob (linie 980-983)**
 
-Dodac `.not('title', 'is', null)` do zapytan o istniejace tlumaczenia (zarowno items jak i sections).
+Walidacja pol `['title', 'description']`.
+
+**6. processCMSJob - items (linie 430-460) i sections (linie 505-540)**
+
+Walidacja analogiczna (dla items: `['title']`, dla sections: `['title']`).
+
+## Dodatkowe: wyczyscic istniejace puste rekordy
+
+Po wdrozeniu poprawki, jednorazowo usunac puste wiersze z tabel, zeby "Tlumacz AI" mogl je ponownie przetworzyc:
+
+```sql
+DELETE FROM training_lesson_translations WHERE title IS NULL AND content IS NULL;
+DELETE FROM training_module_translations WHERE title IS NULL AND description IS NULL;
+DELETE FROM knowledge_resource_translations WHERE title IS NULL;
+DELETE FROM healthy_knowledge_translations WHERE title IS NULL;
+```
 
 ## Efekt
 
-Po tej zmianie, klikniecie "Tlumacz AI" w trybie "missing" wykryje 20 lekcji (i ewentualne inne puste rekordy) jako brakujace i przetlumaczy je poprawnie.
+- Toast bedzie poprawnie raportowac ilosc **rzeczywiscie przetlumaczonych** kluczy
+- Puste wiersze nie beda juz tworzone w bazie
+- Po usunieciu pustych rekordow, ponowne klikniecie "Tlumacz AI" przetworzy brakujace lekcje
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/background-translate/index.ts` | Dodac `.not('title', 'is', null)` w 5 zapytaniach o istniejace tlumaczenia (training modules, training lessons, knowledge, healthy knowledge, CMS items, CMS sections) |
+| `supabase/functions/background-translate/index.ts` | Dodac helper `hasTranslatedContent()` + walidacja w 6 miejscach przed upsertem |
+
+## Migracja danych
+
+| Typ | SQL |
+|-----|-----|
+| Czyszczenie pustych rekordow | DELETE z 4 tabel `*_translations` WHERE title IS NULL |
