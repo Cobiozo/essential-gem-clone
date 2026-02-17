@@ -1,83 +1,208 @@
 
 
-# Naprawa wyswietlania kluczy tlumaczen zamiast tekstu
+# Globalna naprawa hardcoded polskich tekstow w calej aplikacji
 
 ## Problem
 
-Funkcja `t()` zwraca sam klucz (np. `"dashboard.menu.healthyKnowledge"`) gdy tlumaczenie nie istnieje w bazie. Poniewaz jest to truthy string, wzorzec `t('key') || 'fallback'` **nigdy nie uzywa fallbacka** - zamiast tego wyswietla surowy klucz.
+Mimo ustawienia jezyka na angielski (flaga EN), wiele stron nadal wyswietla polskie teksty. Dotyczy to kilkunastu plikow i setek stringow. Dodatkowo w CalendarWidget i MyMeetingsWidget uzyto wzorca `t('key') || 'fallback'` ktory nie dziala (ten sam bug co wczesniej - trzeba zamienic na `tf()`).
 
-Klucze takie jak `dashboard.menu.healthyKnowledge`, `tooltip.*`, `common.*`, `cache.*` **nie istnieja** w tabeli `i18n_translations`.
+## Zakres zmian - po plikach
 
-## Rozwiazanie
+### GRUPA 1: Kalkulator Specjalisty (specialist-calculator) - 6 plikow
 
-Dwuetapowe podejscie:
+**`src/components/specialist-calculator/ClientSlider.tsx`**
+- "Liczba klientow (6-miesieczna kuracja)" -> `tf('calc.spec.clientCount', '...')`
+- "osob" -> `tf('calc.spec.people', 'osob')`
 
-### 1. Naprawic `t()` w LanguageContext - dodac polskie fallbacki jako mape
+**`src/components/specialist-calculator/ResultCards.tsx`**
+- "Prowizja (1. miesiac)" -> `tf('calc.spec.commission', '...')`
+- "Dochod Pasywny" -> `tf('calc.spec.passiveIncome', '...')`
+- "Premia za Przedluzenie" -> `tf('calc.spec.retentionBonus', '...')`
+- "Premie Motywacyjne" -> `tf('calc.spec.motivationalBonuses', '...')`
+- "za kazdego klienta (start)" -> `tf(...)`
+- "Suma za miesiace 2-6" -> `tf(...)`
+- "Dodatkowe ... w 4. i 6. miesiaco" -> `tf(...)`
+- "Sumowane bonusy za progi klientow" -> `tf(...)`
 
-Zamiast zwracac klucz gdy brak tlumaczenia, system powinien zwracac polski tekst z wbudowanej mapy fallbackow. To rozwiaze problem globalnie.
+**`src/components/specialist-calculator/BottomSection.tsx`**
+- "Laczny przychod (6 miesiecy)" -> `tf(...)`
+- "To estymacja przy zalozeniu..." -> `tf(...)`
+- "Srednio miesiecznie:" -> `tf(...)`
+- "Struktura przychodu" -> `tf(...)`
+- "Start (Miesiac 1)" -> `tf(...)`
+- "Pasywny (Mies. 2-6)" -> `tf(...)`
+- "Bonusy (Wolumen + Retention)" -> `tf(...)`
+- "Wskazowka: Przy ... klientow przekraczasz..." -> `tf(...)` z interpolacja
 
-Ale to duza zmiana. Prostsze rozwiazanie:
+**`src/components/specialist-calculator/IncomeChart.tsx`**
+- "Prowizja", "Pasywny", "Przedluzenie", "Premie" (nazwy na wykresie)
+- "Struktura przychodu" (tytul)
+- "Kwota" (tooltip)
 
-### 2. Zamienic wzorzec `||` na helper ktory sprawdza czy t() zwrocil klucz
+**`src/components/specialist-calculator/ThresholdProgress.tsx`**
+- "Premie motywacyjne" -> `tf(...)`
+- "Maksymalny poziom!" -> `tf(...)`
+- "klientow" -> `tf(...)`
+- "Poziom X" / "Poziom startowy" -> `tf(...)`
+- "zdobyte" -> `tf(...)`
+- "Aktualny poziom" -> `tf(...)`
+- "Brakuje:" -> `tf(...)`
 
-Dodac globalna funkcje pomocnicza `tf()` (translate with fallback) ktora:
-- Wywoluje `t(key)`
-- Sprawdza czy wynik === key (czyli brak tlumaczenia)
-- Jesli tak, zwraca podany fallback
+**`src/components/specialist-calculator/FranchiseUpsell.tsx`**
+- "Myslisz o wiekszej skali?" -> `tf(...)`
+- Caly paragraf o franczyzie -> `tf(...)`
+- "Zapytaj o Franczyze" -> `tf(...)`
 
-```typescript
-// W LanguageContext.tsx - dodac do kontekstu
-const tf = useCallback((key: string, fallback: string): string => {
-  const translated = t(key);
-  return translated !== key ? translated : fallback;
-}, [t]);
-```
+**`src/components/specialist-calculator/SpecialistCalculator.tsx`**
+- "Blad" -> `tf(...)`
+- "Nie udalo sie zaladowac ustawien kalkulatora..." -> `tf(...)`
 
-### 3. Zastosowac we wszystkich zmienionych plikach
+### GRUPA 2: Kalkulator Influencera (calculator) - 6 plikow
 
-**DashboardSidebar.tsx** - menu labelKeys:
-Problem: `t('dashboard.menu.healthyKnowledge')` zwraca klucz.
-Rozwiazanie: Wrocic do hardcoded PL w `labelKey` i dodac mapowanie klucz->polski w osobnym obiekcie, lub uzyc `tf()`.
+**`src/components/calculator/ParametersPanel.tsx`**
+- "Parametry" -> `tf('calc.inf.parameters', '...')`
+- "Liczba Obserwujacych / Baza kontaktow" -> `tf(...)`
+- "Szacowana Konwersja (%)" -> `tf(...)`
+- "Pozyskanych Klientow" -> `tf(...)`
+- Formatowanie "tys." / "mln" -> `tf(...)`
 
-Najlepsze rozwiazanie dla sidebar: **Wrocic do polskich stringow w labelKey**, ale dodac mapowanie na klucze i18n w renderowaniu:
+**`src/components/calculator/TotalResultCard.tsx`**
+- "Szacowany przychod calkowity (6 miesiecy)" -> `tf(...)`
+- "klientow z ... mozliwych" -> `tf(...)`
+- "*Zalozenie minimalnej stawki..." -> `tf(...)`
 
-```typescript
-// Mapa polskich fallbackow dla kluczy menu
-const menuFallbacks: Record<string, string> = {
-  'dashboard.menu.healthyKnowledge': 'Zdrowa Wiedza',
-  'dashboard.menu.paidEvents': 'Eventy',
-  'dashboard.menu.individualMeeting': 'Spotkanie indywidualne',
-  'dashboard.menu.setupTripartiteMeeting': 'Ustaw spotkanie trójstronne',
-  'dashboard.menu.setupPartnerConsultation': 'Ustaw konsultacje dla partnerów',
-  'dashboard.menu.calculator': 'Kalkulator',
-  'dashboard.menu.forInfluencers': 'Dla Influenserów',
-  'dashboard.menu.forSpecialists': 'Dla Specjalistów',
-  // ... inne klucze
-};
+**`src/components/calculator/IncomeBreakdown.tsx`**
+- "Struktura przychodu" -> `tf(...)`
+- "Prowizja Startowa", "Dochod Pasywny", "Premie za przedluzenia", "Premie Motywacyjne" -> `tf(...)`
 
-// Renderowanie:
-<span>{tf(item.labelKey, menuFallbacks[item.labelKey] || item.labelKey)}</span>
-```
+**`src/components/calculator/VolumeBonusProgress.tsx`**
+- "Bonusy Wolumenowe" -> `tf(...)`
+- "Suma bonusow" -> `tf(...)`
+- "klientow" -> `tf(...)`
+- "tys." -> `tf(...)`
+- "Maksymalny prog osiagniety!" -> `tf(...)`
 
-**Tooltipy** - analogicznie, juz maja fallbacki ale wzorzec `||` nie dziala. Zamienic na `tf()`.
+**`src/components/calculator/ResultsPanel.tsx`**
+- "Szacowane zarobki" -> `tf(...)`
+- "Prowizja bezposrednia", "Bonus wolumenowy", "Dochod pasywny", "Bonusy przedluzen" -> `tf(...)`
+- "Suma" -> `tf(...)`
+- "Projekcja roczna" -> `tf(...)`
 
-**CacheManagementDialog.tsx i CacheManagementWidget.tsx** - analogicznie zamienic `t('cache.xxx') || 'fallback'` na `tf('cache.xxx', 'fallback')`.
+**`src/components/calculator/FranchiseInfoCard.tsx`**
+- "Model Franczyzowy" -> `tf(...)`
+- Caly paragraf opisu -> `tf(...)`
 
-**Disclaimer.tsx** - zamienic `t('calculator.disclaimer') || '...'` na `tf('calculator.disclaimer', '...')`.
+### GRUPA 3: Strona Eventow
 
-## Pliki do zmiany
+**`src/pages/PaidEventsListPage.tsx`**
+- "Eventy" -> `tf('events.title', 'Eventy')`
+- "Platne szkolenia i wydarzenia" -> `tf(...)`
+- "Nadchodzace wydarzenia" -> `tf(...)`
+- "Zakonczone wydarzenia" -> `tf(...)`
+- "Brak zaplanowanych wydarzen" -> `tf(...)`
+- "Sprawdz ponownie pozniej" -> `tf(...)`
 
-| Plik | Zmiana |
-|------|--------|
-| `src/contexts/LanguageContext.tsx` | Dodac funkcje `tf()` do kontekstu |
-| `src/components/dashboard/DashboardSidebar.tsx` | Uzyc `tf()` dla labelKeys i tooltipow |
-| `src/components/dashboard/CacheManagementDialog.tsx` | Zamienic `t() \|\|` na `tf()` |
-| `src/components/dashboard/widgets/CacheManagementWidget.tsx` | Zamienic `t() \|\|` na `tf()` |
-| `src/components/specialist-calculator/Disclaimer.tsx` | Zamienic `t() \|\|` na `tf()` |
-| `src/components/dashboard/widgets/DashboardFooterSection.tsx` | Helper `ft()` juz poprawnie sprawdza `!== key`, OK |
+**`src/components/paid-events/PaidEventCard.tsx`**
+- "od" (cena) -> `tf(...)`
+- "Online" -> `tf(...)`
+- "Lokalizacja" -> `tf(...)`
+- "Zostalo X miejsc" -> `tf(...)`
+- "Wyprzedane" -> `tf(...)`
+- "Zobacz" -> `tf(...)`
 
-## Wazne
+### GRUPA 4: Zdrowa Wiedza
 
-Komponent `DashboardFooterSection.tsx` juz ma poprawna logike (helper `ft()` sprawdza `translated !== translationKey`), wiec nie wymaga zmian.
+**`src/pages/HealthyKnowledge.tsx`**
+- "Zdrowa Wiedza" (tytul x2) -> `tf(...)`
+- "Materialy edukacyjne o zdrowiu i wellness" -> `tf(...)`
+- "Szukaj materialow..." -> `tf(...)`
+- "Wszystkie" -> `tf(...)`
+- "Podglad" -> `tf(...)`
+- "Udostepnij" -> `tf(...)`
+- "Wyroznione" -> `tf(...)`
+- "Nie znaleziono materialow..." -> `tf(...)`
+- "Brak dostepnych materialow" -> `tf(...)`
+- "Udostepnij material" (dialog) -> `tf(...)`
+- "Wygeneruj kod dostepu..." -> `tf(...)`
+- "Kod wazny przez X godzin" -> `tf(...)`
+- "Podglad wiadomosci" -> `tf(...)`
+- "Link i kod zostana automatycznie uzupelnione..." -> `tf(...)`
+- "Anuluj" -> `tf('common.cancel', 'Anuluj')`
+- "Generowanie..." -> `tf(...)`
+- "Generuj kod i kopiuj" -> `tf(...)`
+- "Otworz dokument" -> `tf(...)`
+- "wyswietlen" -> `tf(...)`
 
-Glowny problem to wzorzec `t('key') || 'fallback'` - klucz jest truthy stringiem, wiec `||` nigdy nie odpala fallbacka. Funkcja `tf()` to naprawi globalnie.
+**`src/types/healthyKnowledge.ts`**
+- `CONTENT_TYPE_LABELS` - "Wideo", "Audio", "Dokument", "Obraz", "Tekst" -> nie mozna uzyc tf() w const; przeniesienie do hooka lub komponentu
+
+### GRUPA 5: Widgety Dashboard (bug t() || fallback)
+
+**`src/components/dashboard/widgets/CalendarWidget.tsx`**
+- Zamienic `t('events.type.webinar') || 'Webinar'` -> `tf('events.type.webinar', 'Webinar')` (4 miejsca w legendItems)
+- Zamienic `t('events.recurring') || 'Cykliczne'` -> `tf('events.recurring', 'Cykliczne')`
+
+**`src/components/dashboard/widgets/MyMeetingsWidget.tsx`**
+- Zamienic wszystkie `t('key') || 'fallback'` na `tf('key', 'fallback')` w getEventTypeName (~7 miejsc)
+- To samo w confirmach i przyciskach (~5+ miejsc)
+
+### GRUPA 6: Topbar i inne
+
+**`src/components/dashboard/DashboardTopbar.tsx`**
+- "Synchronizacja API" -> `tf('nav.apiSync', 'Synchronizacja API')`
+- "Panel narzedziowy" -> `tf('nav.toolPanel', 'Panel narzedziowy')`
+- "Samouczek" (title attr) -> `tf('nav.tutorial', 'Samouczek')`
+
+**`src/utils/timezoneHelpers.ts`**
+- `COMMON_TIMEZONES` labels w polskim ("Polska (CET)", "Wielka Brytania (GMT)", etc.) - to statyczny obiekt. Trzeba zamienic na funkcje ktora przyjmuje `tf` lub zostawic po angielsku (nazwy krajow po polsku nie maja sensu w EN).
+
+### GRUPA 7: Typy/stale
+
+**`src/types/healthyKnowledge.ts`**
+- `CONTENT_TYPE_LABELS` - zamiana na funkcje `getContentTypeLabel(type, tf)` lub hook
+- `DEFAULT_SHARE_MESSAGE_TEMPLATE` - polskie teksty "Czesc!", "Mam dla Ciebie...", "Pozdrawiam" - zamiana na tf()
+
+## Podejscie techniczne
+
+1. Kazdy komponent importuje `useLanguage` i destrukturyzuje `tf`
+2. Wszystkie hardcoded polskie stringi zamieniamy na `tf('klucz', 'polski fallback')`
+3. Wzorzec `t('key') || 'fallback'` zamieniamy na `tf('key', 'fallback')`
+4. Statyczne obiekty poza komponentami (COMMON_TIMEZONES, CONTENT_TYPE_LABELS) zamieniamy na funkcje przyjmujace `tf` jako parametr, lub przenosimy do wnetrza komponentow
+5. Fallbacki zawsze zawieraja oryginalny polski tekst - zachowanie nie pogorszy sie
+
+## Lista plikow do zmiany (22 pliki)
+
+| Plik | Ilosc stringow |
+|------|----------------|
+| `src/components/specialist-calculator/ClientSlider.tsx` | ~2 |
+| `src/components/specialist-calculator/ResultCards.tsx` | ~8 |
+| `src/components/specialist-calculator/BottomSection.tsx` | ~10 |
+| `src/components/specialist-calculator/IncomeChart.tsx` | ~5 |
+| `src/components/specialist-calculator/ThresholdProgress.tsx` | ~8 |
+| `src/components/specialist-calculator/FranchiseUpsell.tsx` | ~3 |
+| `src/components/specialist-calculator/SpecialistCalculator.tsx` | ~2 |
+| `src/components/calculator/ParametersPanel.tsx` | ~5 |
+| `src/components/calculator/TotalResultCard.tsx` | ~3 |
+| `src/components/calculator/IncomeBreakdown.tsx` | ~5 |
+| `src/components/calculator/VolumeBonusProgress.tsx` | ~4 |
+| `src/components/calculator/ResultsPanel.tsx` | ~7 |
+| `src/components/calculator/FranchiseInfoCard.tsx` | ~2 |
+| `src/pages/PaidEventsListPage.tsx` | ~6 |
+| `src/components/paid-events/PaidEventCard.tsx` | ~5 |
+| `src/pages/HealthyKnowledge.tsx` | ~20 |
+| `src/types/healthyKnowledge.ts` | ~7 (CONTENT_TYPE_LABELS + template) |
+| `src/components/dashboard/widgets/CalendarWidget.tsx` | ~5 |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | ~12 |
+| `src/components/dashboard/DashboardTopbar.tsx` | ~3 |
+| `src/utils/timezoneHelpers.ts` | ~30 (nazwy krajow) |
+| `src/pages/HealthyKnowledgePlayer.tsx` | ~3 |
+
+**Lacznie: ~155 hardcoded polskich stringow do zamiany na tf()**
+
+## Uwagi
+
+- Nie ruszamy plikow admin (panel administracyjny moze pozostac po polsku)
+- Klucze tlumaczen nie istnieja jeszcze w bazie i18n_translations - ale tf() zapewnia fallback na polski tekst
+- Po wdrozeniu tych zmian, tlumaczenia mozna dodawac stopniowo do bazy danych
+- Strefy czasowe (timezoneHelpers) - zamienimy na funkcje `getTimezoneOptions(tf)` ktora zwraca przetlumaczone nazwy krajow
+
