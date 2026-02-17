@@ -286,7 +286,7 @@ const CertificatePreview: React.FC<CertificatePreviewProps> = ({
   }, [elements, isCollapsed, canvasWidth, canvasHeight]);
 
   // Calculate scale to fit preview in container
-  const scale = Math.min(400 / canvasWidth, 1);
+  const scale = Math.min(500 / canvasWidth, 1);
   const scaledWidth = canvasWidth * scale;
   const scaledHeight = canvasHeight * scale;
 

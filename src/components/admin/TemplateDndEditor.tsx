@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Canvas as FabricCanvas, IText, Rect, Circle, FabricImage } from 'fabric';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -132,7 +132,9 @@ const FONT_FAMILIES = [
 
 const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [containerScale, setContainerScale] = useState(1);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [selectedObject, setSelectedObject] = useState<any>(null);
   const [textColor, setTextColor] = useState('#000000');
@@ -180,6 +182,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       if (template.layout.elements) {
         for (const element of template.layout.elements) {
           if (element.type === 'text') {
+            const elemWidth = element.width || 400;
             const text = new IText(element.content || '', {
               left: element.x,
               top: element.y,
@@ -192,9 +195,10 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
               charSpacing: (element.letterSpacing || 0) * 10,
               opacity: (element.opacity ?? 100) / 100,
               textAlign: element.align || 'left',
-              width: element.width || 400,
+              width: elemWidth,
             });
             (text as any).noWrap = element.noWrap || false;
+            (text as any).originalWidth = elemWidth;
             canvas.add(text);
           } else if (element.type === 'image' && element.imageUrl) {
             try {
@@ -293,6 +297,25 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
     };
   }, [template]);
 
+  // ResizeObserver for responsive canvas scaling
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+    if (!container) return;
+
+    const updateScale = () => {
+      const padding = 32; // p-4 = 16px * 2
+      const availableWidth = container.clientWidth - padding;
+      const newScale = Math.min(availableWidth / CANVAS_WIDTH, 1);
+      setContainerScale(newScale);
+    };
+
+    updateScale();
+    const observer = new ResizeObserver(updateScale);
+    observer.observe(container);
+
+    return () => observer.disconnect();
+  }, [CANVAS_WIDTH]);
+
   // Funkcja do zbierania elementów z canvasu dla podglądu
   const collectElementsForPreview = () => {
     if (!fabricCanvas) return;
@@ -307,7 +330,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           content: textObj.text || '',
           x: textObj.left || 0,
           y: textObj.top || 0,
-          width: (textObj.width || 200) * (textObj.scaleX || 1),
+          width: (textObj as any).originalWidth || (textObj.width || 200) * (textObj.scaleX || 1),
           height: (textObj.height || 50) * (textObj.scaleY || 1),
           fontSize: textObj.fontSize || 16,
           fontWeight: String(textObj.fontWeight || 'normal'),
@@ -369,8 +392,8 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
     fabricCanvas.on('object:removed', updatePreview);
     fabricCanvas.on('text:changed', updatePreview);
 
-    // Initial collection
-    const timeoutId = setTimeout(updatePreview, 500);
+    // Initial collection - longer delay to allow images to load
+    const timeoutId = setTimeout(updatePreview, 1500);
 
     return () => {
       fabricCanvas.off('object:modified', updatePreview);
@@ -1470,9 +1493,14 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
       {/* Canvas and Preview side by side */}
       <div className="flex gap-4">
         {/* Canvas - expands when preview collapsed */}
-        <div className="flex-1 border rounded-lg overflow-auto bg-gray-50 p-2 sm:p-4 min-w-0">
-          <div className="inline-block">
-            <canvas ref={canvasRef} className="shadow-lg max-w-full h-auto" />
+        <div ref={canvasContainerRef} className="flex-1 border rounded-lg overflow-hidden bg-gray-50 p-2 sm:p-4 min-w-0">
+          <div style={{ 
+            transform: `scale(${containerScale})`, 
+            transformOrigin: 'top left',
+            width: CANVAS_WIDTH,
+            height: CANVAS_HEIGHT * containerScale,
+          }}>
+            <canvas ref={canvasRef} className="shadow-lg" />
           </div>
         </div>
 
