@@ -1,55 +1,65 @@
 
-# Automatyczna pauza wideo przy opuszczeniu karty/aplikacji
 
-## Problem
+# Pelne pokrycie pauzy wideo na Apple platforms (macOS, iPhone, iPad)
 
-Kod juz zawiera handler `visibilitychange` ktory pauzuje wideo (linia 1170), ale sa miejsca w kodzie ktore automatycznie wznawiaja odtwarzanie (`video.play()`) po buforowaniu — nawet gdy karta jest ukryta. Scenariusz:
+## Obecny stan
 
-1. Uzytkownik oglada wideo (wasPlayingBeforeBufferRef = true)
-2. Przelacza karte — wideo pauzuje poprawnie
-3. Przegladarka emituje `canplay` lub `progress` event w tle
-4. Handler widzi `wasPlayingBeforeBufferRef.current = true` i wola `video.play()`
-5. Wideo wznawia odtwarzanie mimo ukrytej karty
+Aktualnie mamy dwa eventy:
+- `visibilitychange` — dziala na desktop i wiekszosc mobilnych
+- `window blur` — fallback dla przelaczania aplikacji
 
-Dodatkowo: na niektorych urzadzeniach mobilnych przelaczenie aplikacji moze nie wyzwalac `visibilitychange` — potrzebny jest tez `blur` event jako fallback.
+## Problem na iOS/iPadOS
+
+Na urzadzeniach Apple sa dodatkowe scenariusze ktore moga nie wyzwalac powyzszych eventow:
+
+1. **iOS Safari — app switcher (swipe up)**: moze emitowac `pagehide` zamiast `visibilitychange`
+2. **iOS PWA (standalone mode)**: przejscie do innej aplikacji czesto wyzwala tylko `pagehide`/`pageshow`
+3. **iPad Split View / Slide Over**: zmiana rozmiaru okna bez pelnego ukrycia
 
 ## Rozwiazanie
 
-### 1. Dodac guard `document.hidden` przed kazdym automatycznym `video.play()`
+Dodac nasluchiwanie na `pagehide` i `pageshow` jako trzeci fallback, specyficzny dla Safari/iOS:
 
-W trzech miejscach w glownym useEffect (linie 737, 775, 825) dodac warunek:
+### Zmiany w `src/components/SecureMedia.tsx`
 
-```text
-PRZED:
-  video.play().catch(console.error);
-
-PO:
-  if (!document.hidden) {
-    video.play().catch(console.error);
-  }
-```
-
-### 2. Dodac `blur` event jako dodatkowy fallback
-
-W useEffect z visibilitychange (linia 1164) dodac nasluchiwanie na `blur` event okna, co obsluguje przelaczanie aplikacji na mobilnych:
+W useEffect z visibilitychange (linia 1166) dodac:
 
 ```text
-const handleWindowBlur = () => {
+const handlePageHide = () => {
   if (videoRef.current && !videoRef.current.paused) {
     videoRef.current.pause();
     setIsTabHidden(true);
   }
 };
-window.addEventListener('blur', handleWindowBlur);
+
+const handlePageShow = (e: PageTransitionEvent) => {
+  if (e.persisted) {
+    // Strona wraca z bfcache — stan "tab hidden" do zdjecia przez uzytkownika (klik Play)
+    setIsTabHidden(true);
+  }
+};
+
+window.addEventListener('pagehide', handlePageHide);
+window.addEventListener('pageshow', handlePageShow);
 ```
 
 I cleanup:
 ```text
-window.removeEventListener('blur', handleWindowBlur);
+window.removeEventListener('pagehide', handlePageHide);
+window.removeEventListener('pageshow', handlePageShow);
 ```
+
+## Podsumowanie eventow po zmianach
+
+| Event | Pokrycie |
+|-------|----------|
+| `visibilitychange` | Desktop (Chrome, Firefox, Safari), Android, iOS Safari (przelaczanie kart) |
+| `window blur` | Desktop (przelaczanie okien), czesc mobilnych |
+| `pagehide` / `pageshow` | iOS Safari (app switcher), iOS PWA standalone, iPad multitasking |
 
 ## Plik do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Guard `document.hidden` przed 3x `video.play()`, dodanie `blur` event listenera |
+| `src/components/SecureMedia.tsx` | Dodanie `pagehide`/`pageshow` listenerow w useEffect obok istniejacych |
+
