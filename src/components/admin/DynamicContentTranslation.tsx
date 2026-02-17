@@ -1,19 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useTranslationJobs } from '@/hooks/useTranslationJobs';
-import { Bot, Loader2, Save, BookOpen, Database, Heart, Search, CheckCircle2, Circle, X } from 'lucide-react';
+import { Bot, Loader2, Save, Search, CheckCircle2, Circle, X } from 'lucide-react';
 import { useDebounce } from '@/hooks/use-debounce';
+import { cn } from '@/lib/utils';
 
 interface Language {
   code: string;
@@ -273,7 +272,7 @@ export const DynamicContentTranslation: React.FC = () => {
                 <AccordionTrigger className="py-2 hover:no-underline">
                   <div className="flex items-center gap-2 text-left flex-1 min-w-0">
                     {isTranslated ? (
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                     ) : (
                       <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
                     )}
@@ -341,93 +340,91 @@ export const DynamicContentTranslation: React.FC = () => {
   const isJobActive = activeJob && (activeJob.status === 'pending' || activeJob.status === 'processing');
 
   return (
-    <div className="space-y-4">
-      {/* Active job progress */}
+    <div className="space-y-3">
+      {/* Compact progress bar */}
       {isJobActive && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                Tłumaczenie AI w toku...
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {activeJob.processed_keys}/{activeJob.total_keys} kluczy
-              </span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+          <Progress value={progress} className="h-1.5 flex-1" />
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
+            {activeJob.processed_keys}/{activeJob.total_keys}
+          </span>
+        </div>
       )}
 
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex gap-2 items-center">
-          <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-            <SelectTrigger className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {languages.map(l => (
-                <SelectItem key={l.code} value={l.code}>
-                  {l.flag_emoji} {l.name} ({l.code.toUpperCase()})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Controls - single row */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+          <SelectTrigger className="w-[140px] h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {languages.map(l => (
+              <SelectItem key={l.code} value={l.code}>
+                {l.flag_emoji} {l.name} ({l.code.toUpperCase()})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          <Button variant="outline" size="sm" onClick={handleAiTranslate} disabled={!!isJobActive}>
-            <Bot className="w-4 h-4 mr-2" />
-            Tłumacz AI
-          </Button>
-        </div>
+        <Button variant="outline" size="sm" className="h-9" onClick={handleAiTranslate} disabled={!!isJobActive}>
+          <Bot className="w-4 h-4" />
+          <span className="hidden sm:inline ml-1">Tłumacz AI</span>
+        </Button>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <div className="relative flex-1 min-w-[140px]">
+          <Search className="absolute left-2.5 top-2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Szukaj po tytule..."
+            placeholder="Szukaj..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="pl-9 text-sm"
+            className="pl-8 h-9 text-sm"
           />
           {searchQuery && (
             <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-2.5">
-              <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              <X className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeSection} onValueChange={setActiveSection}>
-        <TabsList>
-          <TabsTrigger value="training">
-            <BookOpen className="w-4 h-4 mr-1" />
-            Szkolenia
-          </TabsTrigger>
-          <TabsTrigger value="knowledge">
-            <Database className="w-4 h-4 mr-1" />
-            Baza wiedzy
-          </TabsTrigger>
-          <TabsTrigger value="healthy">
-            <Heart className="w-4 h-4 mr-1" />
-            Zdrowa Wiedza
-          </TabsTrigger>
-        </TabsList>
+      {/* Section switcher - segmented control */}
+      <div className="flex gap-1 p-1 bg-muted rounded-lg">
+        {[
+          { key: 'training', label: 'Szkolenia' },
+          { key: 'knowledge', label: 'Baza wiedzy' },
+          { key: 'healthy', label: 'Zdrowa Wiedza' },
+        ].map(s => (
+          <button
+            key={s.key}
+            onClick={() => setActiveSection(s.key)}
+            className={cn(
+              "flex-1 px-3 py-1.5 rounded text-sm font-medium transition-colors touch-action-manipulation min-h-[44px]",
+              activeSection === s.key
+                ? "bg-background shadow-sm text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="training" className="space-y-6">
-          {renderItemList(modules, moduleTranslations, setModuleTranslations, 'training_module_translations', 'module_id', moduleFields, visibleModules, setVisibleModules, 'Moduły szkoleniowe')}
-          {renderItemList(lessons, lessonTranslations, setLessonTranslations, 'training_lesson_translations', 'lesson_id', lessonFields, visibleLessons, setVisibleLessons, 'Lekcje')}
-        </TabsContent>
-
-        <TabsContent value="knowledge">
-          {renderItemList(resources, resourceTranslations, setResourceTranslations, 'knowledge_resource_translations', 'resource_id', resourceFields, visibleResources, setVisibleResources, 'Zasoby')}
-        </TabsContent>
-
-        <TabsContent value="healthy">
-          {renderItemList(hkItems, hkTranslations, setHkTranslations, 'healthy_knowledge_translations', 'item_id', hkFields, visibleHk, setVisibleHk, 'Materiały')}
-        </TabsContent>
-      </Tabs>
+      {/* Content */}
+      <div className="space-y-6">
+        {activeSection === 'training' && (
+          <>
+            {renderItemList(modules, moduleTranslations, setModuleTranslations, 'training_module_translations', 'module_id', moduleFields, visibleModules, setVisibleModules, 'Moduły szkoleniowe')}
+            {renderItemList(lessons, lessonTranslations, setLessonTranslations, 'training_lesson_translations', 'lesson_id', lessonFields, visibleLessons, setVisibleLessons, 'Lekcje')}
+          </>
+        )}
+        {activeSection === 'knowledge' && (
+          renderItemList(resources, resourceTranslations, setResourceTranslations, 'knowledge_resource_translations', 'resource_id', resourceFields, visibleResources, setVisibleResources, 'Zasoby')
+        )}
+        {activeSection === 'healthy' && (
+          renderItemList(hkItems, hkTranslations, setHkTranslations, 'healthy_knowledge_translations', 'item_id', hkFields, visibleHk, setVisibleHk, 'Materiały')
+        )}
+      </div>
     </div>
   );
 };
