@@ -1,41 +1,64 @@
 
+# Naprawa pustych tlumaczen dynamicznych tresci
 
-# Naprawa brakujacego tf() w MyMeetingsWidget + lokalizacja stref czasowych
+## Problem
 
-## 1. MyMeetingsWidget.tsx - linia 300
+W tabeli `training_lesson_translations` istnieje 20 rekordow dla jezyka angielskiego (EN) z pustymi polami (`title = NULL`, `content = NULL`, `media_alt_text = NULL`). Edge function `background-translate` sprawdza jedynie **istnienie wiersza** w trybie "missing", a nie czy pola sa wypelnione. Dlatego przy kliknieciu "Tlumacz AI" system raportuje "Przetlumaczono 0 kluczy" - bo rekordy juz istnieja (choc sa puste).
 
-Jedna linia nadal uzywa starego wzorca `t('events.details') || 'Szczegoly'`. Zamienic na `tf('events.details', 'Szczegoly')`.
+## Rozwiazanie
 
-## 2. timezoneHelpers.ts - COMMON_TIMEZONES
+Zmienic logike sprawdzania istniejacych tlumaczen w `background-translate/index.ts` we wszystkich czterech typach jobow (training, knowledge, healthy_knowledge, CMS). Zamiast sprawdzac samo istnienie wiersza, nalezy sprawdzic czy **glowne pole** (np. `title`) jest wypelnione.
 
-Statyczna tablica `COMMON_TIMEZONES` zawiera polskie nazwy krajow (np. "Polska (CET)", "Wielka Brytania (GMT)", "Nowy Jork (EST)"). Nie mozna uzyc `tf()` w stalej poza komponentem.
+## Zmiany techniczne
 
-**Rozwiazanie**: Dodac nowa funkcje `getCommonTimezones(tf)` ktora zwraca przetlumaczona tablice. Stara stala `COMMON_TIMEZONES` pozostaje jako fallback.
+### `supabase/functions/background-translate/index.ts`
 
+**1. processTrainingJob (linie 864-871)**
+
+Zmiana z:
 ```typescript
-type TfFunc = (key: string, fallback: string) => string;
-
-export const getCommonTimezones = (tf: TfFunc) => [
-  { value: 'Europe/Warsaw', label: tf('tz.poland', 'Polska') + ' (CET)' },
-  { value: 'Europe/London', label: tf('tz.uk', 'Wielka Brytania') + ' (GMT)' },
-  // ... wszystkie 30 pozycji
-];
+const { data: existModT } = await supabase
+  .from('training_module_translations')
+  .select('module_id')
+  .eq('language_code', target_language);
+const { data: existLessT } = await supabase
+  .from('training_lesson_translations')
+  .select('lesson_id')
+  .eq('language_code', target_language);
 ```
 
-## 3. WelcomeWidget.tsx - jedyny konsument COMMON_TIMEZONES
-
-Zamienic import `COMMON_TIMEZONES` na `getCommonTimezones` i wywolac wewnatrz komponentu z `tf` z `useLanguage()`.
-
+Na:
 ```typescript
-const { tf } = useLanguage();
-const localizedTimezones = useMemo(() => getCommonTimezones(tf), [tf]);
+const { data: existModT } = await supabase
+  .from('training_module_translations')
+  .select('module_id')
+  .eq('language_code', target_language)
+  .not('title', 'is', null);
+const { data: existLessT } = await supabase
+  .from('training_lesson_translations')
+  .select('lesson_id')
+  .eq('language_code', target_language)
+  .not('title', 'is', null);
 ```
+
+**2. processKnowledgeJob (linia 924)**
+
+Dodac `.not('title', 'is', null)` do zapytania o istniejace tlumaczenia.
+
+**3. processHealthyKnowledgeJob (linia 961)**
+
+Dodac `.not('title', 'is', null)` do zapytania o istniejace tlumaczenia.
+
+**4. processCMSJob (linie 321-323 i 355-359)**
+
+Dodac `.not('title', 'is', null)` do zapytan o istniejace tlumaczenia (zarowno items jak i sections).
+
+## Efekt
+
+Po tej zmianie, klikniecie "Tlumacz AI" w trybie "missing" wykryje 20 lekcji (i ewentualne inne puste rekordy) jako brakujace i przetlumaczy je poprawnie.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Linia 300: `t() \|\|` -> `tf()` |
-| `src/utils/timezoneHelpers.ts` | Dodac `getCommonTimezones(tf)` z kluczami i18n |
-| `src/components/dashboard/widgets/WelcomeWidget.tsx` | Uzyc `getCommonTimezones(tf)` zamiast `COMMON_TIMEZONES` |
-
+| `supabase/functions/background-translate/index.ts` | Dodac `.not('title', 'is', null)` w 5 zapytaniach o istniejace tlumaczenia (training modules, training lessons, knowledge, healthy knowledge, CMS items, CMS sections) |
