@@ -356,12 +356,18 @@ export const getTranslation = (
   if (!translationsCache) return null;
   
   const searchInLang = (langCache: { [ns: string]: { [key: string]: string } }): string | null => {
-    // Strategy 1: Parse fullKey as "namespace.key" (e.g., 'auth.signIn' -> namespace='auth', key='signIn')
-    const [maybeNamespace, ...keyParts] = fullKey.split('.');
-    if (keyParts.length > 0) {
-      const key = keyParts.join('.');
-      const value = langCache[maybeNamespace]?.[key];
-      if (value) return value;
+    // Strategy 1: Try all possible namespace.key splits (longest namespace first)
+    // e.g. 'admin.sidebar.users' tries:
+    //   namespace='admin.sidebar', key='users'  (found!)
+    //   namespace='admin', key='sidebar.users'
+    const parts = fullKey.split('.');
+    if (parts.length > 1) {
+      for (let i = parts.length - 1; i >= 1; i--) {
+        const ns = parts.slice(0, i).join('.');
+        const key = parts.slice(i).join('.');
+        const value = langCache[ns]?.[key];
+        if (value) return value;
+      }
     }
     
     // Strategy 2: Search fullKey directly across all namespaces (for keys stored as full strings)
@@ -369,15 +375,6 @@ export const getTranslation = (
     for (const namespace of namespaces) {
       const value = langCache[namespace]?.[fullKey];
       if (value) return value;
-    }
-    
-    // Strategy 3: Search just the last part of the key as fallback
-    if (keyParts.length > 0) {
-      const lastKeyPart = keyParts[keyParts.length - 1];
-      for (const namespace of namespaces) {
-        const value = langCache[namespace]?.[lastKeyPart];
-        if (value) return value;
-      }
     }
     
     return null;
