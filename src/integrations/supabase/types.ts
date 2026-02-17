@@ -3287,6 +3287,39 @@ export type Database = {
         }
         Relationships: []
       }
+      media_access_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          max_uses: number
+          real_url: string
+          token: string
+          use_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_uses?: number
+          real_url: string
+          token: string
+          use_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_uses?: number
+          real_url?: string
+          token?: string
+          use_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       medical_chat_history: {
         Row: {
           created_at: string
@@ -6632,6 +6665,7 @@ export type Database = {
         Returns: boolean
       }
       check_is_admin_for_events: { Args: never; Returns: boolean }
+      cleanup_expired_media_tokens: { Args: never; Returns: number }
       debug_user_access: {
         Args: never
         Returns: {

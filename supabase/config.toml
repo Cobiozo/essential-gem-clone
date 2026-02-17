@@ -185,3 +185,9 @@ verify_jwt = false
 
 [functions.send-push-notification]
 verify_jwt = false
+
+[functions.generate-media-token]
+verify_jwt = false
+
+[functions.stream-media]
+verify_jwt = false

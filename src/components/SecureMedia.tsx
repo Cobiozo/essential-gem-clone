@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { generateMediaToken, getStreamMediaUrl, shouldProtectUrl } from '@/lib/mediaTokenService';
 import { useAuth } from '@/contexts/AuthContext';
 import { VideoControls } from '@/components/training/VideoControls';
 import { SecureVideoControls } from '@/components/training/SecureVideoControls';
@@ -135,6 +136,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [urlExpiryTime, setUrlExpiryTime] = useState<number | null>(null);
   const urlRefreshTimerRef = useRef<NodeJS.Timeout>();
   const isSupabaseUrlRef = useRef<boolean>(false);
+  const mediaTokenRef = useRef<string | null>(null); // Current active media token
+  const tokenRefreshTimerRef = useRef<NodeJS.Timeout>(); // Timer for refreshing token before expiry
   
   // State to track when video element is mounted (for callback ref pattern)
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
@@ -278,12 +281,52 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setIsYouTube(false);
     setYoutubeId(null);
 
-    if (mediaUrl.includes('purelife.info.pl')) {
-      if (mounted) {
-        setSignedUrl(mediaUrl);
-        setLoading(false);
-      }
-      return;
+    // Protected URL — use token proxy (purelife.info.pl videos)
+    if (shouldProtectUrl(mediaUrl)) {
+      const fetchTokenUrl = async () => {
+        try {
+          console.log('[SecureMedia] Generating token for protected URL');
+          const token = await generateMediaToken(mediaUrl);
+          if (!mounted) return;
+          mediaTokenRef.current = token;
+          const proxyUrl = getStreamMediaUrl(token);
+          setSignedUrl(proxyUrl);
+          setLoading(false);
+          
+          // Schedule token refresh 3.5 minutes from now (token TTL is 5 min)
+          if (tokenRefreshTimerRef.current) clearTimeout(tokenRefreshTimerRef.current);
+          tokenRefreshTimerRef.current = setTimeout(async () => {
+            if (!mounted) return;
+            try {
+              console.log('[SecureMedia] Refreshing media token before expiry');
+              const currentVideoTime = videoRef.current?.currentTime || 0;
+              const newToken = await generateMediaToken(mediaUrl);
+              if (!mounted) return;
+              mediaTokenRef.current = newToken;
+              const newProxyUrl = getStreamMediaUrl(newToken);
+              
+              // Save position, swap URL, restore position
+              lastValidTimeRef.current = currentVideoTime;
+              initialPositionSetRef.current = false;
+              setSignedUrl(newProxyUrl);
+            } catch (err) {
+              console.error('[SecureMedia] Token refresh failed:', err);
+            }
+          }, 3.5 * 60 * 1000);
+        } catch (err) {
+          console.error('[SecureMedia] Failed to generate media token:', err);
+          // Fallback to direct URL if token generation fails
+          if (mounted) {
+            setSignedUrl(mediaUrl);
+            setLoading(false);
+          }
+        }
+      };
+      fetchTokenUrl();
+      return () => {
+        mounted = false;
+        if (tokenRefreshTimerRef.current) clearTimeout(tokenRefreshTimerRef.current);
+      };
     }
 
     if ((mediaUrl.startsWith('http://') || mediaUrl.startsWith('https://')) && 
