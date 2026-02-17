@@ -21,11 +21,10 @@ import { Database, RefreshCw, Clock, Trash2, Settings } from 'lucide-react';
 export const CacheManagementWidget: React.FC = () => {
   const queryClient = useQueryClient();
   const { signOut } = useAuth();
-  const { t } = useLanguage();
+  const { tf } = useLanguage();
   const [isClearing, setIsClearing] = useState(false);
 
   const clearApplicationCache = () => {
-    // Clear specific CMS-related queries
     queryClient.removeQueries({ queryKey: ['cms_items'] });
     queryClient.removeQueries({ queryKey: ['cms_sections'] });
     queryClient.removeQueries({ queryKey: ['pages'] });
@@ -34,41 +33,32 @@ export const CacheManagementWidget: React.FC = () => {
     queryClient.removeQueries({ queryKey: ['knowledge_resources'] });
     queryClient.removeQueries({ queryKey: ['reflinks'] });
     queryClient.removeQueries({ queryKey: ['notifications'] });
-    toast.success(t('cache.appCacheCleared') || 'Cache aplikacji wyczyszczony');
+    toast.success(tf('cache.appCacheCleared', 'Cache aplikacji wyczyszczony'));
   };
 
   const refreshAllData = () => {
     queryClient.invalidateQueries();
-    toast.success(t('cache.allDataRefreshed') || 'Wszystkie dane odświeżone');
+    toast.success(tf('cache.allDataRefreshed', 'Wszystkie dane odświeżone'));
   };
 
   const clearSessionData = () => {
     sessionStorage.clear();
-    toast.success(t('cache.sessionCleared') || 'Dane sesji wyczyszczone');
+    toast.success(tf('cache.sessionCleared', 'Dane sesji wyczyszczone'));
   };
 
   const fullCleanup = async () => {
     setIsClearing(true);
     try {
-      // Clear all query cache
       queryClient.clear();
-      
-      // Clear session storage
       sessionStorage.clear();
-      
-      // Clear specific localStorage items (preserve theme preference)
       localStorage.removeItem('dashboard_view_preference');
       localStorage.removeItem('cookie_consent');
       localStorage.removeItem('cookie_preferences');
-      
-      // Sign out user
       await signOut();
-      
-      // Hard reload to home
       window.location.href = '/';
     } catch (error) {
       console.error('Error during cleanup:', error);
-      toast.error(t('cache.cleanupError') || 'Wystąpił błąd podczas czyszczenia');
+      toast.error(tf('cache.cleanupError', 'Wystąpił błąd podczas czyszczenia'));
       setIsClearing(false);
     }
   };
@@ -78,15 +68,14 @@ export const CacheManagementWidget: React.FC = () => {
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-primary" />
-          <CardTitle className="text-lg">{t('cache.toolPanel') || 'Panel narzędziowy'}</CardTitle>
+          <CardTitle className="text-lg">{tf('cache.toolPanel', 'Panel narzędziowy')}</CardTitle>
         </div>
         <CardDescription>
-          {t('cache.toolPanelDescription') || 'Zarządzaj pamięcią podręczną i danymi sesji aplikacji'}
+          {tf('cache.toolPanelDescription', 'Zarządzaj pamięcią podręczną i danymi sesji aplikacji')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Cache aplikacji */}
           <Card className="border-border/50 bg-card/50">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -94,24 +83,18 @@ export const CacheManagementWidget: React.FC = () => {
                   <Database className="h-5 w-5 text-blue-500" />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <h4 className="font-medium text-sm">{t('cache.appCache') || 'Cache aplikacji'}</h4>
+                  <h4 className="font-medium text-sm">{tf('cache.appCache', 'Cache aplikacji')}</h4>
                   <p className="text-xs text-muted-foreground">
-                    {t('cache.appCacheShort') || 'Wyczyść pamięć podręczną treści CMS, stron i zasobów'}
+                    {tf('cache.appCacheShort', 'Wyczyść pamięć podręczną treści CMS, stron i zasobów')}
                   </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={clearApplicationCache}
-                    className="w-full mt-2"
-                  >
-                    {t('cache.clearCache') || 'Wyczyść cache'}
+                  <Button variant="outline" size="sm" onClick={clearApplicationCache} className="w-full mt-2">
+                    {tf('cache.clearCache', 'Wyczyść cache')}
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Odśwież dane */}
           <Card className="border-border/50 bg-card/50">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -119,24 +102,18 @@ export const CacheManagementWidget: React.FC = () => {
                   <RefreshCw className="h-5 w-5 text-green-500" />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <h4 className="font-medium text-sm">{t('cache.refreshData') || 'Odśwież dane'}</h4>
+                  <h4 className="font-medium text-sm">{tf('cache.refreshData', 'Odśwież dane')}</h4>
                   <p className="text-xs text-muted-foreground">
-                    {t('cache.refreshDataShort') || 'Pobierz najnowsze dane ze wszystkich źródeł'}
+                    {tf('cache.refreshDataShort', 'Pobierz najnowsze dane ze wszystkich źródeł')}
                   </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={refreshAllData}
-                    className="w-full mt-2"
-                  >
-                    {t('cache.refreshAll') || 'Odśwież wszystko'}
+                  <Button variant="outline" size="sm" onClick={refreshAllData} className="w-full mt-2">
+                    {tf('cache.refreshAll', 'Odśwież wszystko')}
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Dane sesji */}
           <Card className="border-border/50 bg-card/50">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -144,24 +121,18 @@ export const CacheManagementWidget: React.FC = () => {
                   <Clock className="h-5 w-5 text-orange-500" />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <h4 className="font-medium text-sm">{t('cache.sessionData') || 'Dane sesji'}</h4>
+                  <h4 className="font-medium text-sm">{tf('cache.sessionData', 'Dane sesji')}</h4>
                   <p className="text-xs text-muted-foreground">
-                    {t('cache.sessionDataShort') || 'Wyczyść tymczasowe dane bieżącej sesji'}
+                    {tf('cache.sessionDataShort', 'Wyczyść tymczasowe dane bieżącej sesji')}
                   </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={clearSessionData}
-                    className="w-full mt-2"
-                  >
-                    {t('cache.clearSession') || 'Wyczyść sesję'}
+                  <Button variant="outline" size="sm" onClick={clearSessionData} className="w-full mt-2">
+                    {tf('cache.clearSession', 'Wyczyść sesję')}
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Pełne czyszczenie */}
           <Card className="border-destructive/50 bg-destructive/5">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
@@ -169,35 +140,30 @@ export const CacheManagementWidget: React.FC = () => {
                   <Trash2 className="h-5 w-5 text-destructive" />
                 </div>
                 <div className="flex-1 space-y-2">
-                  <h4 className="font-medium text-sm text-destructive">{t('cache.fullCleanup') || 'Pełne czyszczenie'}</h4>
+                  <h4 className="font-medium text-sm text-destructive">{tf('cache.fullCleanup', 'Pełne czyszczenie')}</h4>
                   <p className="text-xs text-muted-foreground">
-                    {t('cache.fullCleanupShort') || 'Wyczyść wszystko, wyloguj i przeładuj aplikację'}
+                    {tf('cache.fullCleanupShort', 'Wyczyść wszystko, wyloguj i przeładuj aplikację')}
                   </p>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button 
-                        variant="destructive" 
-                        size="sm" 
-                        className="w-full mt-2"
-                        disabled={isClearing}
-                      >
-                        {isClearing ? (t('cache.clearing') || 'Czyszczenie...') : (t('cache.clearAll') || 'Wyczyść wszystko')}
+                      <Button variant="destructive" size="sm" className="w-full mt-2" disabled={isClearing}>
+                        {isClearing ? tf('cache.clearing', 'Czyszczenie...') : tf('cache.clearAll', 'Wyczyść wszystko')}
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>{t('cache.fullCleanupTitle') || 'Czy na pewno chcesz wyczyścić wszystko?'}</AlertDialogTitle>
+                        <AlertDialogTitle>{tf('cache.fullCleanupTitle', 'Czy na pewno chcesz wyczyścić wszystko?')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                          {t('cache.fullCleanupConfirmDescription') || 'Ta operacja wyczyści wszystkie dane lokalne, wyloguje Cię z aplikacji i przeładuje stronę. Będziesz musiał zalogować się ponownie.'}
+                          {tf('cache.fullCleanupConfirmDescription', 'Ta operacja wyczyści wszystkie dane lokalne, wyloguje Cię z aplikacji i przeładuje stronę. Będziesz musiał zalogować się ponownie.')}
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel>{t('common.cancel') || 'Anuluj'}</AlertDialogCancel>
+                        <AlertDialogCancel>{tf('common.cancel', 'Anuluj')}</AlertDialogCancel>
                         <AlertDialogAction 
                           onClick={fullCleanup}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
-                          {t('cache.clearAndReload') || 'Wyczyść i przeładuj'}
+                          {tf('cache.clearAndReload', 'Wyczyść i przeładuj')}
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

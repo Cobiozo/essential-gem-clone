@@ -7,6 +7,7 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  tf: (key: string, fallback: string) => string;
   refreshTranslations: () => Promise<void>;
 }
 
@@ -17,6 +18,7 @@ const defaultContextValue: LanguageContextType = {
   language: 'pl' as Language,
   setLanguage: () => {},
   t: (key: string) => key,
+  tf: (key: string, fallback: string) => fallback,
   refreshTranslations: async () => {}
 };
 
@@ -92,10 +94,16 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return key;
   }, [language, defaultLang, dbTranslations, translationVersion]);
 
+  const tf = useCallback((key: string, fallback: string): string => {
+    const translated = t(key);
+    return translated !== key ? translated : fallback;
+  }, [t]);
+
   const contextValue: LanguageContextType = {
     language,
     setLanguage,
     t,
+    tf,
     refreshTranslations
   };
 

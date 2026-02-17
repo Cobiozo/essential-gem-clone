@@ -117,27 +117,27 @@ export const DashboardSidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, isPartner, isSpecjalista, isClient, userRole, isAdmin } = useAuth();
-  const { t, language } = useLanguage();
+  const { t, tf, language } = useLanguage();
 
-  // Tooltip descriptions using t() with Polish fallbacks
+  // Tooltip descriptions using tf() with Polish fallbacks
   const menuTooltipDescriptions: Record<string, string> = {
-    dashboard: t('tooltip.dashboard') || 'Twoja strona główna z podglądem wszystkich najważniejszych informacji',
-    academy: t('tooltip.academy') || 'Szkolenia i materiały edukacyjne - zdobywaj wiedzę i certyfikaty',
-    'healthy-knowledge': t('tooltip.healthyKnowledge') || 'Materiały o zdrowym stylu życia i produktach',
-    resources: t('tooltip.resources') || 'Biblioteka dokumentów, grafik i materiałów do pobrania',
-    pureContacts: t('tooltip.pureContacts') || 'Zarządzaj kontaktami prywatnymi i zespołowymi',
-    news: t('tooltip.news') || 'Aktualności i ważne ogłoszenia od zespołu',
-    events: t('tooltip.events') || 'Webinary, spotkania zespołowe i indywidualne konsultacje',
-    'paid-events': t('tooltip.paidEvents') || 'Płatne szkolenia i wydarzenia z biletami',
-    chat: t('tooltip.chat') || 'Komunikacja z upline i zespołem',
-    support: t('tooltip.support') || 'Potrzebujesz pomocy? Wyślij zgłoszenie do zespołu wsparcia',
-    reflinks: t('tooltip.reflinks') || 'Twoje unikalne linki polecające - śledź kliknięcia',
-    infolinks: t('tooltip.infolinks') || 'Przydatne linki i materiały informacyjne',
-    community: t('tooltip.community') || 'Dołącz do społeczności na różnych platformach',
-    settings: t('tooltip.settings') || 'Ustawienia profilu, powiadomień i preferencji',
-    calculator: t('tooltip.calculator') || 'Kalkulator prowizji i symulacje zarobków',
-    admin: t('tooltip.admin') || 'Panel administracyjny - zarządzanie systemem',
-    'individual-meetings-setup': t('tooltip.individualMeetingsSetup') || 'Zarządzaj spotkaniami indywidualnymi',
+    dashboard: tf('tooltip.dashboard', 'Twoja strona główna z podglądem wszystkich najważniejszych informacji'),
+    academy: tf('tooltip.academy', 'Szkolenia i materiały edukacyjne - zdobywaj wiedzę i certyfikaty'),
+    'healthy-knowledge': tf('tooltip.healthyKnowledge', 'Materiały o zdrowym stylu życia i produktach'),
+    resources: tf('tooltip.resources', 'Biblioteka dokumentów, grafik i materiałów do pobrania'),
+    pureContacts: tf('tooltip.pureContacts', 'Zarządzaj kontaktami prywatnymi i zespołowymi'),
+    news: tf('tooltip.news', 'Aktualności i ważne ogłoszenia od zespołu'),
+    events: tf('tooltip.events', 'Webinary, spotkania zespołowe i indywidualne konsultacje'),
+    'paid-events': tf('tooltip.paidEvents', 'Płatne szkolenia i wydarzenia z biletami'),
+    chat: tf('tooltip.chat', 'Komunikacja z upline i zespołem'),
+    support: tf('tooltip.support', 'Potrzebujesz pomocy? Wyślij zgłoszenie do zespołu wsparcia'),
+    reflinks: tf('tooltip.reflinks', 'Twoje unikalne linki polecające - śledź kliknięcia'),
+    infolinks: tf('tooltip.infolinks', 'Przydatne linki i materiały informacyjne'),
+    community: tf('tooltip.community', 'Dołącz do społeczności na różnych platformach'),
+    settings: tf('tooltip.settings', 'Ustawienia profilu, powiadomień i preferencji'),
+    calculator: tf('tooltip.calculator', 'Kalkulator prowizji i symulacje zarobków'),
+    admin: tf('tooltip.admin', 'Panel administracyjny - zarządzanie systemem'),
+    'individual-meetings-setup': tf('tooltip.individualMeetingsSetup', 'Zarządzaj spotkaniami indywidualnymi'),
   };
   const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
@@ -667,13 +667,13 @@ export const DashboardSidebar: React.FC = () => {
                   }}
                 >
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      tooltip={t(item.labelKey)}
-                      isActive={isSubmenuParentActive(item)}
-                      className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span className="flex-1">{t(item.labelKey)}</span>
+                     <SidebarMenuButton
+                       tooltip={tf(item.labelKey, item.labelKey)}
+                       isActive={isSubmenuParentActive(item)}
+                       className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
+                     >
+                       <item.icon className="h-4 w-4" />
+                       <span className="flex-1">{tf(item.labelKey, item.labelKey)}</span>
                       <ChevronDown 
                         className={`h-4 w-4 transition-transform ${isSubmenuOpen(item) ? 'rotate-180' : ''}`} 
                       />
@@ -687,7 +687,7 @@ export const DashboardSidebar: React.FC = () => {
                             onClick={() => handleSubmenuClick(subItem)}
                             isActive={isSubmenuActive(subItem)}
                             className="cursor-pointer h-auto min-h-8 py-1.5"
-                            title={subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
+                           title={subItem.isDynamic ? subItem.labelKey : tf(subItem.labelKey, subItem.labelKey)}
                           >
                             {subItem.icon && (
                               <subItem.icon 
@@ -701,7 +701,7 @@ export const DashboardSidebar: React.FC = () => {
                               />
                             )}
                             <span className="whitespace-normal break-words leading-tight text-left">
-                              {subItem.isDynamic ? subItem.labelKey : t(subItem.labelKey)}
+                              {subItem.isDynamic ? subItem.labelKey : tf(subItem.labelKey, subItem.labelKey)}
                             </span>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
@@ -717,7 +717,7 @@ export const DashboardSidebar: React.FC = () => {
                   className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary touch-action-manipulation"
                 >
                   <item.icon className="h-4 w-4" />
-                  <span>{t(item.labelKey)}</span>
+                  <span>{tf(item.labelKey, item.labelKey)}</span>
                 </SidebarMenuButton>
               ) : (
                 // On desktop - use Tooltip with delay
@@ -729,7 +729,7 @@ export const DashboardSidebar: React.FC = () => {
                       className="transition-colors hover:bg-primary/10 data-[active=true]:bg-primary/15 data-[active=true]:text-primary"
                     >
                       <item.icon className="h-4 w-4" />
-                      <span>{t(item.labelKey)}</span>
+                      <span>{tf(item.labelKey, item.labelKey)}</span>
                     </SidebarMenuButton>
                   </TooltipTrigger>
                   {menuTooltipDescriptions[item.id] && (
