@@ -27,7 +27,7 @@ interface Resource {
 export const ResourcesWidget: React.FC = () => {
   const navigate = useNavigate();
   const { userRole } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,26 @@ export const ResourcesWidget: React.FC = () => {
         }
 
         const { data } = await query;
-        setResources((data as any) || []);
+        let resources = (data as any) || [];
+
+        // Apply translations for non-default language
+        const currentLang = language;
+        if (currentLang !== 'pl' && resources.length > 0) {
+          const { data: translations } = await supabase
+            .from('knowledge_resource_translations')
+            .select('resource_id, title')
+            .eq('language_code', currentLang)
+            .in('resource_id', resources.map((r: any) => r.id));
+          if (translations?.length) {
+            const transMap = new Map(translations.filter(t => t.title).map(t => [t.resource_id, t.title!]));
+            resources = resources.map((r: any) => ({
+              ...r,
+              title: transMap.get(r.id) || r.title,
+            }));
+          }
+        }
+
+        setResources(resources);
       } catch (error) {
         console.error('Error fetching resources:', error);
       } finally {
@@ -61,7 +80,7 @@ export const ResourcesWidget: React.FC = () => {
     };
 
     fetchResources();
-  }, [userRole]);
+  }, [userRole, language]);
 
   const getResourceIcon = (type: string) => {
     switch (type) {

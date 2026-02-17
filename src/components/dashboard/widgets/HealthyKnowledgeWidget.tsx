@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type,
 export const HealthyKnowledgeWidget: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const [materials, setMaterials] = useState<HealthyKnowledge[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,7 +34,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
     if (user) {
       fetchFeaturedMaterials();
     }
-  }, [user]);
+  }, [user, language]);
 
   const fetchFeaturedMaterials = async () => {
     try {
@@ -45,7 +47,30 @@ export const HealthyKnowledgeWidget: React.FC = () => {
         .limit(3);
 
       if (error) throw error;
-      setMaterials((data as HealthyKnowledge[]) || []);
+      let items = (data as HealthyKnowledge[]) || [];
+
+      // Apply translations for non-default language
+      if (language !== 'pl' && items.length > 0) {
+        const { data: translations } = await supabase
+          .from('healthy_knowledge_translations')
+          .select('item_id, title, description')
+          .eq('language_code', language)
+          .in('item_id', items.map(i => i.id));
+        if (translations?.length) {
+          const transMap = new Map(translations.map(t => [t.item_id, t]));
+          items = items.map(item => {
+            const tr = transMap.get(item.id);
+            if (!tr) return item;
+            return {
+              ...item,
+              title: tr.title || item.title,
+              description: tr.description !== null ? tr.description : item.description,
+            };
+          });
+        }
+      }
+
+      setMaterials(items);
     } catch (error) {
       console.error('Error fetching featured materials:', error);
     } finally {
@@ -59,7 +84,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">
             <Widget3DIcon icon={Heart} variant="pink" size="md" />
-            <CardTitle className="text-lg">Zdrowa Wiedza</CardTitle>
+            <CardTitle className="text-lg">{t('dashboard.healthyKnowledge') || 'Zdrowa Wiedza'}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
@@ -77,12 +102,12 @@ export const HealthyKnowledgeWidget: React.FC = () => {
 
   return (
     <Card data-tour="healthy-knowledge-widget" variant="premium" className="relative">
-      <WidgetInfoButton description="Wyróżnione materiały edukacyjne o zdrowym stylu życia" />
+      <WidgetInfoButton description={t('dashboard.healthyKnowledgeDescription') || 'Wyróżnione materiały edukacyjne o zdrowym stylu życia'} />
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Widget3DIcon icon={Heart} variant="pink" size="md" />
-            <CardTitle className="text-lg">Zdrowa Wiedza</CardTitle>
+            <CardTitle className="text-lg">{t('dashboard.healthyKnowledge') || 'Zdrowa Wiedza'}</CardTitle>
           </div>
           <Button 
             variant="ghost" 
@@ -90,11 +115,11 @@ export const HealthyKnowledgeWidget: React.FC = () => {
             onClick={() => navigate('/zdrowa-wiedza')}
             className="text-xs"
           >
-            Zobacz wszystkie
+            {t('dashboard.viewAll') || 'Zobacz wszystkie'}
             <ArrowRight className="w-3 h-3 ml-1" />
           </Button>
         </div>
-        <CardDescription>Wyróżnione materiały edukacyjne</CardDescription>
+        <CardDescription>{t('dashboard.featuredMaterials') || 'Wyróżnione materiały edukacyjne'}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {materials.map((material) => (
@@ -120,7 +145,7 @@ export const HealthyKnowledgeWidget: React.FC = () => {
               )}
             </div>
             <Badge variant="secondary" className="shrink-0 text-xs">
-              Nowe
+              {t('dashboard.new') || 'Nowe'}
             </Badge>
           </div>
         ))}

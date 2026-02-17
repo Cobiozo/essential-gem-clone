@@ -19,7 +19,7 @@ interface ModuleProgress {
 export const TrainingProgressWidget: React.FC = () => {
   const navigate = useNavigate();
   const { user, userRole } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [modules, setModules] = useState<ModuleProgress[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,6 +50,19 @@ export const TrainingProgressWidget: React.FC = () => {
           setModules([]);
           setLoading(false);
           return;
+        }
+
+        // Fetch translations for non-default language
+        let titleTransMap = new Map<string, string>();
+        if (language !== 'pl' && modulesData.length > 0) {
+          const { data: translations } = await supabase
+            .from('training_module_translations')
+            .select('module_id, title')
+            .eq('language_code', language)
+            .in('module_id', modulesData.map((m: any) => m.id));
+          if (translations) {
+            titleTransMap = new Map(translations.filter(t => t.title).map(t => [t.module_id, t.title!]));
+          }
         }
 
         // Fetch user's certificates to check for issuance dates
@@ -114,7 +127,7 @@ export const TrainingProgressWidget: React.FC = () => {
 
             return {
               id: mod.id,
-              title: mod.title,
+              title: titleTransMap.get(mod.id) || mod.title,
               progress: progressPercent,
               isCompleted: progressPercent === 100,
             };
@@ -130,7 +143,7 @@ export const TrainingProgressWidget: React.FC = () => {
     };
 
     fetchModules();
-  }, [user, userRole]);
+  }, [user, userRole, language]);
 
   return (
     <Card variant="premium" className="shadow-xl relative" data-tour="training-widget">
