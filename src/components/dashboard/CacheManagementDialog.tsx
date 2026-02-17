@@ -39,7 +39,7 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
     queryClient.removeQueries({ queryKey: ['knowledge'] });
     
     setIsClearing(prev => ({ ...prev, appCache: false }));
-    toast.success('Cache aplikacji wyczyszczony');
+    toast.success(t('cache.appCacheCleared') || 'Cache aplikacji wyczyszczony');
   };
 
   const handleRefreshAllData = async () => {
@@ -50,7 +50,7 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
     await queryClient.invalidateQueries();
     
     setIsClearing(prev => ({ ...prev, allData: false }));
-    toast.success('Wszystkie dane odświeżone');
+    toast.success(t('cache.allDataRefreshed') || 'Wszystkie dane odświeżone');
   };
 
   const handleClearSessionData = async () => {
@@ -61,7 +61,7 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
     sessionStorage.clear();
     
     setIsClearing(prev => ({ ...prev, session: false }));
-    toast.success('Dane sesji wyczyszczone');
+    toast.success(t('cache.sessionCleared') || 'Dane sesji wyczyszczone');
   };
 
   const handleFullCleanup = async () => {
@@ -82,7 +82,7 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
     } catch (error) {
       console.error('Full cleanup error:', error);
       setIsClearing(prev => ({ ...prev, full: false }));
-      toast.error('Wystąpił błąd podczas czyszczenia');
+      toast.error(t('cache.cleanupError') || 'Wystąpił błąd podczas czyszczenia');
     }
   };
 
@@ -95,10 +95,10 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Database className="h-5 w-5" />
-            Panel narzędziowy
+            {t('cache.toolPanel') || 'Panel narzędziowy'}
           </DialogTitle>
           <DialogDescription>
-            Narzędzia do zarządzania cache i danymi aplikacji
+            {t('cache.toolPanelDescription') || 'Narzędzia do zarządzania cache i danymi aplikacji'}
           </DialogDescription>
         </DialogHeader>
 
@@ -108,12 +108,10 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Database className="h-4 w-4 text-primary" />
-                Cache aplikacji
+                {t('cache.appCache') || 'Cache aplikacji'}
               </CardTitle>
               <CardDescription className="text-sm">
-                Czyści zapisane dane CMS, stron i zasobów. 
-                Wymusza pobranie świeżych danych z serwera przy następnym użyciu.
-                Nie wpływa na Twoje dane osobiste ani ustawienia.
+                {t('cache.appCacheDescription') || 'Czyści zapisane dane CMS, stron i zasobów. Wymusza pobranie świeżych danych z serwera przy następnym użyciu. Nie wpływa na Twoje dane osobiste ani ustawienia.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -123,28 +121,27 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
                     {isClearing.appCache ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Czyszczenie...
+                        {t('cache.clearing') || 'Czyszczenie...'}
                       </>
                     ) : (
                       <>
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Wyczyść cache
+                        {t('cache.clearCache') || 'Wyczyść cache'}
                       </>
                     )}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Wyczyścić cache aplikacji?</AlertDialogTitle>
+                    <AlertDialogTitle>{t('cache.clearAppCacheTitle') || 'Wyczyścić cache aplikacji?'}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Ta operacja usunie zapisane dane CMS i wymusi ich ponowne pobranie z serwera.
-                      Nie usunie Twoich danych osobistych ani ustawień.
+                      {t('cache.clearAppCacheDescription') || 'Ta operacja usunie zapisane dane CMS i wymusi ich ponowne pobranie z serwera. Nie usunie Twoich danych osobistych ani ustawień.'}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                    <AlertDialogCancel>{t('common.cancel') || 'Anuluj'}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleClearAppCache}>
-                      Potwierdź
+                      {t('common.confirm') || 'Potwierdź'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -157,11 +154,10 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <RefreshCw className="h-4 w-4 text-blue-500" />
-                Odśwież dane
+                {t('cache.refreshData') || 'Odśwież dane'}
               </CardTitle>
               <CardDescription className="text-sm">
-                Wymusza ponowne pobranie wszystkich danych z serwera.
-                Przydatne gdy widzisz nieaktualne informacje lub po zmianach w panelu administracyjnym.
+                {t('cache.refreshDataDescription') || 'Wymusza ponowne pobranie wszystkich danych z serwera. Przydatne gdy widzisz nieaktualne informacje lub po zmianach w panelu administracyjnym.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -171,28 +167,27 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
                     {isClearing.allData ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Odświeżanie...
+                        {t('cache.refreshing') || 'Odświeżanie...'}
                       </>
                     ) : (
                       <>
                         <RefreshCw className="mr-2 h-4 w-4" />
-                        Odśwież wszystko
+                        {t('cache.refreshAll') || 'Odśwież wszystko'}
                       </>
                     )}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Odświeżyć wszystkie dane?</AlertDialogTitle>
+                    <AlertDialogTitle>{t('cache.refreshAllTitle') || 'Odświeżyć wszystkie dane?'}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Ta operacja pobierze ponownie wszystkie dane z serwera.
-                      Może chwilę potrwać w zależności od ilości danych.
+                      {t('cache.refreshAllDescription') || 'Ta operacja pobierze ponownie wszystkie dane z serwera. Może chwilę potrwać w zależności od ilości danych.'}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                    <AlertDialogCancel>{t('common.cancel') || 'Anuluj'}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleRefreshAllData}>
-                      Potwierdź
+                      {t('common.confirm') || 'Potwierdź'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -205,11 +200,10 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Clock className="h-4 w-4 text-orange-500" />
-                Dane sesji
+                {t('cache.sessionData') || 'Dane sesji'}
               </CardTitle>
               <CardDescription className="text-sm">
-                Czyści tymczasowe dane sesji przeglądarki (np. rozwinięte sekcje, formularze w trakcie wypełniania).
-                Nie wpływa na Twoje logowanie ani ustawienia konta.
+                {t('cache.sessionDataDescription') || 'Czyści tymczasowe dane sesji przeglądarki (np. rozwinięte sekcje, formularze w trakcie wypełniania). Nie wpływa na Twoje logowanie ani ustawienia konta.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -219,28 +213,27 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
                     {isClearing.session ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Czyszczenie...
+                        {t('cache.clearing') || 'Czyszczenie...'}
                       </>
                     ) : (
                       <>
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Wyczyść sesję
+                        {t('cache.clearSession') || 'Wyczyść sesję'}
                       </>
                     )}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Wyczyścić dane sesji?</AlertDialogTitle>
+                    <AlertDialogTitle>{t('cache.clearSessionTitle') || 'Wyczyścić dane sesji?'}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Ta operacja usunie tymczasowe dane sesji przeglądarki.
-                      Niezapisane formularze mogą zostać utracone. Twoje logowanie pozostanie aktywne.
+                      {t('cache.clearSessionDescription') || 'Ta operacja usunie tymczasowe dane sesji przeglądarki. Niezapisane formularze mogą zostać utracone. Twoje logowanie pozostanie aktywne.'}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                    <AlertDialogCancel>{t('common.cancel') || 'Anuluj'}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleClearSessionData}>
-                      Potwierdź
+                      {t('common.confirm') || 'Potwierdź'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -253,11 +246,10 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base text-destructive">
                 <Trash2 className="h-4 w-4" />
-                Pełne czyszczenie
+                {t('cache.fullCleanup') || 'Pełne czyszczenie'}
               </CardTitle>
               <CardDescription className="text-sm">
-                ⚠️ Usuwa wszystkie lokalne dane, wylogowuje i przeładowuje aplikację.
-                Użyj tylko gdy masz poważne problemy z działaniem aplikacji, których nie rozwiązują powyższe opcje.
+                {t('cache.fullCleanupDescription') || '⚠️ Usuwa wszystkie lokalne dane, wylogowuje i przeładowuje aplikację. Użyj tylko gdy masz poważne problemy z działaniem aplikacji, których nie rozwiązują powyższe opcje.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -267,35 +259,35 @@ export const CacheManagementDialog: React.FC<CacheManagementDialogProps> = ({ ch
                     {isClearing.full ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Czyszczenie...
+                        {t('cache.clearing') || 'Czyszczenie...'}
                       </>
                     ) : (
                       <>
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Pełne czyszczenie
+                        {t('cache.fullCleanup') || 'Pełne czyszczenie'}
                       </>
                     )}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle className="text-destructive">Wykonać pełne czyszczenie?</AlertDialogTitle>
+                    <AlertDialogTitle className="text-destructive">{t('cache.fullCleanupTitle') || 'Wykonać pełne czyszczenie?'}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Ta operacja:
+                      {t('cache.fullCleanupWarning') || 'Ta operacja:'}
                       <ul className="list-disc list-inside mt-2 space-y-1">
-                        <li>Usunie wszystkie dane z cache</li>
-                        <li>Wyczyści dane sesji</li>
-                        <li>Usunie lokalne ustawienia (poza motywem)</li>
-                        <li>Wyloguje Cię z aplikacji</li>
-                        <li>Przeładuje stronę</li>
+                        <li>{t('cache.fullCleanupItem1') || 'Usunie wszystkie dane z cache'}</li>
+                        <li>{t('cache.fullCleanupItem2') || 'Wyczyści dane sesji'}</li>
+                        <li>{t('cache.fullCleanupItem3') || 'Usunie lokalne ustawienia (poza motywem)'}</li>
+                        <li>{t('cache.fullCleanupItem4') || 'Wyloguje Cię z aplikacji'}</li>
+                        <li>{t('cache.fullCleanupItem5') || 'Przeładuje stronę'}</li>
                       </ul>
-                      <p className="mt-2 font-medium">Będziesz musiał zalogować się ponownie.</p>
+                      <p className="mt-2 font-medium">{t('cache.fullCleanupRelogin') || 'Będziesz musiał zalogować się ponownie.'}</p>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                    <AlertDialogCancel>{t('common.cancel') || 'Anuluj'}</AlertDialogCancel>
                     <AlertDialogAction onClick={handleFullCleanup} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                      Tak, wyczyść wszystko
+                      {t('cache.clearAll') || 'Tak, wyczyść wszystko'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
