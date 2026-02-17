@@ -38,34 +38,26 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [defaultLang, setDefaultLang] = useState<string>('pl');
   const [translationVersion, setTranslationVersion] = useState(0);
 
-  // Load database translations on mount
+  // Single useEffect for loading translations - eliminates race condition
   useEffect(() => {
-    loadTranslationsCache().then(({ translations: t, languages }) => {
+    const loadLangTranslations = async () => {
+      // Single entry point - loads PL + current language
+      const { translations: t, languages } = await loadTranslationsCache(language);
       setDbTranslations(t);
       const def = languages.find(l => l.is_default);
       if (def) setDefaultLang(def.code);
-    }).catch(err => {
-      console.warn('Failed to load translations from database:', err);
-    });
-  }, []);
 
-  // Lazy load translations when language changes
-  useEffect(() => {
-    const loadLangTranslations = async () => {
-      // Lazy load translations for new language if not already loaded
-      // loadLanguageTranslations updates translationsCache internally
-      await loadLanguageTranslations(language);
-      
-      // Get translations from memory cache (no additional fetch)
-      // loadTranslationsCache returns cached data if already loaded
-      const { translations: t } = await loadTranslationsCache(language);
-      setDbTranslations(t);
-      
-      // KLUCZOWE: Wymuszenie re-rendera t() nawet gdy dbTranslations się nie zmienia
+      // If language != pl, lazy load it
+      if (language !== 'pl') {
+        await loadLanguageTranslations(language);
+        const { translations: t2 } = await loadTranslationsCache(language);
+        setDbTranslations(t2);
+      }
+
       setTranslationVersion(v => v + 1);
     };
     loadLangTranslations();
-    
+
     try {
       localStorage.setItem('pure-life-language', language);
       document.documentElement.lang = language;
