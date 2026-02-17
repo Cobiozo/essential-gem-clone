@@ -1,51 +1,73 @@
 
-
-# Naprawa dlugiego buforowania przy wznawianiu od 8:24
+# Naprawa nieskonczonego buforowania — przerwanie cyklu listener re-registration
 
 ## Diagnoza
 
-Gdy wideo wznawia od pozycji 504s (8:24):
-1. `isInitialBuffering = true` — blokuje przycisk Play i pokazuje "Buforowanie..."
-2. Przegladarka wysyla `canplaythrough` / `canplay` event — znaczy ze mozna odtwarzac
-3. ALE handler `handleCanPlay` sprawdza `bufferedAheadValue >= targetBuffer * 0.7` — jesli bufor przy 504s jest jeszcze maly, flaga zostaje `true`
-4. Uzytkownik widzi "Buforowanie 81%" mimo ze przegladarka jest gotowa do odtwarzania
+Linia 995 w `SecureMedia.tsx`:
+```text
+}, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]);
+```
 
-**Glowny problem:** `handleCanPlay` powinien **bezwarunkowo** zdjac `isInitialBuffering` — jesli przegladarka mowi "can play", to znaczy ze moze odtwarzac. Sprawdzanie bufora jest redundantne i blokujace.
+`isInitialBuffering` i `isSmartBuffering` sa w tablicy zaleznosci useEffect, ktory rejestruje event listenery na elemencie `<video>`. Kazda zmiana tych stanow powoduje:
+
+1. Usuniecie WSZYSTKICH listenerow z `<video>`
+2. Ponowne dodanie listenerow
+3. Podczas re-rejestracji przegladarka emituje `waiting`/`stalled` (readyState = 0)
+4. `handleStalled` natychmiast ustawia `isBuffering = true`
+5. Po 3.5s timeout `isSmartBuffering = true` — co znowu restartuje useEffect
+6. Petla trwa w nieskonczonosc
+
+Klikniecie "Napraw" przerywa cykl bo wywoluje `video.load()` i resetuje stany.
 
 ## Rozwiazanie
 
-W `handleCanPlay` (linia ~713): jesli `isInitialBuffering` jest true, **zawsze** ustawic na false — bez sprawdzania progow bufora. Przegladarka sama wie kiedy ma wystarczajaco danych.
+Uzyc `useRef` zamiast bezposredniego odczytu stanow `isInitialBuffering` i `isSmartBuffering` wewnatrz handlerow, a nastepnie **usunac je z tablicy zaleznosci**. Dzieki temu listenery sa rejestrowane raz i nie sa przerywane przez zmiane stanow buforowania.
 
 ## Zmiany techniczne
 
 ### `src/components/SecureMedia.tsx`
 
-**handleCanPlay (~linia 765):** Zmiana warunkowego odblokowania na bezwarunkowe:
+1. Dodac dwa nowe refy obok istniejacych (okolice linii 130):
+
+```text
+const isInitialBufferingRef = useRef(true);
+const isSmartBufferingRef = useRef(false);
+```
+
+2. Synchronizowac refy przy kazdej zmianie stanu (nowy useEffect):
+
+```text
+useEffect(() => { isInitialBufferingRef.current = isInitialBuffering; }, [isInitialBuffering]);
+useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
+```
+
+3. Wewnatrz useEffect z listenerami (linia 632-995): zamienic odczyty `isInitialBuffering` na `isInitialBufferingRef.current` i `isSmartBuffering` na `isSmartBufferingRef.current` w:
+   - `handleCanPlay` (linia 765): `if (isInitialBufferingRef.current)`
+   - `handleProgress` (linia 810): `if (isInitialBufferingRef.current && ...)`
+   - `handleProgress` (linia 816): `if (isSmartBufferingRef.current && ...)`
+   - `handleWaiting` (brak bezposredniego odczytu — OK)
+   - `handleCanPlay` (linia 729): `if (isSmartBufferingRef.current && ...)`  (juz uzywa `isSmartBuffering` — zamienic na ref)
+
+4. Usunac `isSmartBuffering` i `isInitialBuffering` z tablicy zaleznosci (linia 995):
 
 ```text
 PRZED:
-  if (isInitialBuffering && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70)) {
-    console.log('[SecureMedia] Initial buffer complete via canPlay');
-    setIsInitialBuffering(false);
-  }
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]);
 
 PO:
-  if (isInitialBuffering) {
-    console.log('[SecureMedia] Initial buffer complete via canPlay (browser ready)');
-    setIsInitialBuffering(false);
-  }
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]);
 ```
-
-Logika w `handleProgress` (~linia 810) zostaje bez zmian — to jest dodatkowy fallback gdyby `canPlay` nie wystrzelil.
 
 ## Wplyw
 
-- Wideo zacznie sie odtwarzac natychmiast po `canPlay` event, bez czekania na procent bufora
-- Na wolnych sieciach smart buffering (`handleWaiting`) nadal zadziala jesli wideo sie zacina po starcie
-- Zero ryzyka regresji — `canPlay` jest standardowy event przegladarki oznaczajacy gotowosc
+- Listenery rejestrowane RAZ (przy mount lub zmianie signedUrl/retryCount) — bez cyklu
+- Handlery nadal poprawnie odczytuja aktualny stan przez refy
+- handleRetry ("Napraw") nadal dziala jako fallback
+- Auto-recovery (stuck detection) nadal dziala
+- Zero ryzyka regresji — to ten sam wzorzec co juz zastosowany dla `onTimeUpdateRef`, `onPlayStateChangeRef` itp.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Bezwarunkowe zdejmowanie `isInitialBuffering` w `handleCanPlay` |
+| `src/components/SecureMedia.tsx` | Dodanie refow, zamiana odczytow stanow na refy, usuniecie z deps |
