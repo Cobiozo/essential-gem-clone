@@ -22,6 +22,8 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
+import { useTrainingTranslations } from "@/hooks/useTrainingTranslations";
+import { TrainingModule as TrainingModuleType } from "@/types/training";
 
 interface TrainingModule {
   id: string;
@@ -48,8 +50,32 @@ const Training = () => {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { generateCertificate } = useCertificateGeneration();
+
+  // Translation hook — maps by id to translate title/description
+  const modulesForTranslation = modules.map(m => ({
+    id: m.id,
+    title: m.title,
+    description: m.description,
+    icon_name: m.icon_name || '',
+    position: m.position || 0,
+    is_active: true,
+    visible_to_everyone: true,
+    visible_to_clients: true,
+    visible_to_partners: true,
+    visible_to_specjalista: true,
+    visible_to_anonymous: false,
+    created_at: '',
+  } as TrainingModuleType));
+  
+  const { translatedModules } = useTrainingTranslations(modulesForTranslation, [], language);
+  
+  // Apply translations back to modules with extra fields
+  const displayModules = modules.map(m => {
+    const translated = translatedModules.find(tm => tm.id === m.id);
+    return translated ? { ...m, title: translated.title, description: translated.description } : m;
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -671,7 +697,7 @@ const Training = () => {
           </Card>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {modules.map((module) => {
+            {displayModules.map((module) => {
               const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
               const status = getModuleStatus(module.completed_lessons, module.lessons_count);
               const hasCertificate = !!certificates[module.id];

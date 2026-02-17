@@ -10,11 +10,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { ArrowLeft, Clock, Eye, Loader2, Heart, RotateCcw } from 'lucide-react';
 import { HealthyKnowledge, CONTENT_TYPE_LABELS } from '@/types/healthyKnowledge';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 
 const HealthyKnowledgePlayerPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useLanguage();
   
   const [material, setMaterial] = useState<HealthyKnowledge | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,6 +29,13 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
   
   const currentTimeRef = useRef(0);
   const hasIncrementedViewRef = useRef(false);
+
+  // Translate material
+  const translatedItems = useHealthyKnowledgeTranslations(
+    material ? [material] : [],
+    language
+  );
+  const displayMaterial = translatedItems.length > 0 ? translatedItems[0] : material;
 
   // Load material and saved progress
   useEffect(() => {
@@ -214,9 +224,9 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
             <Heart className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl font-bold">{material.title}</h1>
-            {material.description && (
-              <p className="text-muted-foreground text-sm mt-1">{material.description}</p>
+            <h1 className="text-xl sm:text-2xl font-bold">{displayMaterial?.title}</h1>
+            {displayMaterial?.description && (
+              <p className="text-muted-foreground text-sm mt-1">{displayMaterial.description}</p>
             )}
           </div>
         </div>
