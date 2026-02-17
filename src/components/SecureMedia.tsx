@@ -141,6 +141,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   
   // State to track when video element is mounted (for callback ref pattern)
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const isInitialBufferingRef = useRef(true);
+  const isSmartBufferingRef = useRef(false);
   
   // Callback ref to ensure event listeners are attached when element mounts
   const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
@@ -726,7 +728,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setShowBufferingSpinner(false);
       
       // NEW: Immediately resume if smart buffering was active (faster recovery)
-      if (isSmartBuffering && wasPlayingBeforeBufferRef.current) {
+      if (isSmartBufferingRef.current && wasPlayingBeforeBufferRef.current) {
         console.log('[SecureMedia] Smart buffering recovery - resuming immediately');
         setIsSmartBuffering(false);
         setIsBuffering(false);
@@ -762,7 +764,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             setBufferedRanges(getBufferedRanges(video));
             
             // Disable initial buffering when buffer is ready
-            if (isInitialBuffering) {
+            if (isInitialBufferingRef.current) {
               console.log('[SecureMedia] Initial buffer complete via canPlay (browser ready)');
               setIsInitialBuffering(false);
             }
@@ -807,13 +809,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setBufferedRanges(getBufferedRanges(video));
         
         // NEW: Check initial buffering - unlock Play button when buffer is ready
-        if (isInitialBuffering && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70)) {
+        if (isInitialBufferingRef.current && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70)) {
           console.log('[SecureMedia] Initial buffer ready (' + bufferedAheadValue.toFixed(1) + 's), Play button enabled');
           setIsInitialBuffering(false);
         }
         
         // SMART RESUME: When buffer is sufficient, resume playback
-        if (isSmartBuffering && bufferedAheadValue >= minBuffer) {
+        if (isSmartBufferingRef.current && bufferedAheadValue >= minBuffer) {
           console.log('[SecureMedia] Buffer sufficient (' + bufferedAheadValue.toFixed(1) + 's), resuming playback');
           setIsSmartBuffering(false);
           isBufferingRef.current = false;
@@ -992,7 +994,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         spinnerTimeoutRef.current = undefined;
       }
     };
-  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]); // Added isSmartBuffering, isInitialBuffering
+  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]);
+
+  // Sync refs with state for stable listener access
+  useEffect(() => { isInitialBufferingRef.current = isInitialBuffering; }, [isInitialBuffering]);
+  useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
 
   // Time tracking for unrestricted mode and secure mode - WITH BUFFERING SUPPORT
   useEffect(() => {
