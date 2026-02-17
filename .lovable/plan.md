@@ -1,73 +1,55 @@
 
-# Naprawa nieskonczonego buforowania — przerwanie cyklu listener re-registration
+# Automatyczna pauza wideo przy opuszczeniu karty/aplikacji
 
-## Diagnoza
+## Problem
 
-Linia 995 w `SecureMedia.tsx`:
-```text
-}, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]);
-```
+Kod juz zawiera handler `visibilitychange` ktory pauzuje wideo (linia 1170), ale sa miejsca w kodzie ktore automatycznie wznawiaja odtwarzanie (`video.play()`) po buforowaniu — nawet gdy karta jest ukryta. Scenariusz:
 
-`isInitialBuffering` i `isSmartBuffering` sa w tablicy zaleznosci useEffect, ktory rejestruje event listenery na elemencie `<video>`. Kazda zmiana tych stanow powoduje:
+1. Uzytkownik oglada wideo (wasPlayingBeforeBufferRef = true)
+2. Przelacza karte — wideo pauzuje poprawnie
+3. Przegladarka emituje `canplay` lub `progress` event w tle
+4. Handler widzi `wasPlayingBeforeBufferRef.current = true` i wola `video.play()`
+5. Wideo wznawia odtwarzanie mimo ukrytej karty
 
-1. Usuniecie WSZYSTKICH listenerow z `<video>`
-2. Ponowne dodanie listenerow
-3. Podczas re-rejestracji przegladarka emituje `waiting`/`stalled` (readyState = 0)
-4. `handleStalled` natychmiast ustawia `isBuffering = true`
-5. Po 3.5s timeout `isSmartBuffering = true` — co znowu restartuje useEffect
-6. Petla trwa w nieskonczonosc
-
-Klikniecie "Napraw" przerywa cykl bo wywoluje `video.load()` i resetuje stany.
+Dodatkowo: na niektorych urzadzeniach mobilnych przelaczenie aplikacji moze nie wyzwalac `visibilitychange` — potrzebny jest tez `blur` event jako fallback.
 
 ## Rozwiazanie
 
-Uzyc `useRef` zamiast bezposredniego odczytu stanow `isInitialBuffering` i `isSmartBuffering` wewnatrz handlerow, a nastepnie **usunac je z tablicy zaleznosci**. Dzieki temu listenery sa rejestrowane raz i nie sa przerywane przez zmiane stanow buforowania.
+### 1. Dodac guard `document.hidden` przed kazdym automatycznym `video.play()`
 
-## Zmiany techniczne
-
-### `src/components/SecureMedia.tsx`
-
-1. Dodac dwa nowe refy obok istniejacych (okolice linii 130):
-
-```text
-const isInitialBufferingRef = useRef(true);
-const isSmartBufferingRef = useRef(false);
-```
-
-2. Synchronizowac refy przy kazdej zmianie stanu (nowy useEffect):
-
-```text
-useEffect(() => { isInitialBufferingRef.current = isInitialBuffering; }, [isInitialBuffering]);
-useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
-```
-
-3. Wewnatrz useEffect z listenerami (linia 632-995): zamienic odczyty `isInitialBuffering` na `isInitialBufferingRef.current` i `isSmartBuffering` na `isSmartBufferingRef.current` w:
-   - `handleCanPlay` (linia 765): `if (isInitialBufferingRef.current)`
-   - `handleProgress` (linia 810): `if (isInitialBufferingRef.current && ...)`
-   - `handleProgress` (linia 816): `if (isSmartBufferingRef.current && ...)`
-   - `handleWaiting` (brak bezposredniego odczytu — OK)
-   - `handleCanPlay` (linia 729): `if (isSmartBufferingRef.current && ...)`  (juz uzywa `isSmartBuffering` — zamienic na ref)
-
-4. Usunac `isSmartBuffering` i `isInitialBuffering` z tablicy zaleznosci (linia 995):
+W trzech miejscach w glownym useEffect (linie 737, 775, 825) dodac warunek:
 
 ```text
 PRZED:
-  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, isSmartBuffering, isInitialBuffering]);
+  video.play().catch(console.error);
 
 PO:
-  }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]);
+  if (!document.hidden) {
+    video.play().catch(console.error);
+  }
 ```
 
-## Wplyw
+### 2. Dodac `blur` event jako dodatkowy fallback
 
-- Listenery rejestrowane RAZ (przy mount lub zmianie signedUrl/retryCount) — bez cyklu
-- Handlery nadal poprawnie odczytuja aktualny stan przez refy
-- handleRetry ("Napraw") nadal dziala jako fallback
-- Auto-recovery (stuck detection) nadal dziala
-- Zero ryzyka regresji — to ten sam wzorzec co juz zastosowany dla `onTimeUpdateRef`, `onPlayStateChangeRef` itp.
+W useEffect z visibilitychange (linia 1164) dodac nasluchiwanie na `blur` event okna, co obsluguje przelaczanie aplikacji na mobilnych:
 
-## Pliki do zmiany
+```text
+const handleWindowBlur = () => {
+  if (videoRef.current && !videoRef.current.paused) {
+    videoRef.current.pause();
+    setIsTabHidden(true);
+  }
+};
+window.addEventListener('blur', handleWindowBlur);
+```
+
+I cleanup:
+```text
+window.removeEventListener('blur', handleWindowBlur);
+```
+
+## Plik do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Dodanie refow, zamiana odczytow stanow na refy, usuniecie z deps |
+| `src/components/SecureMedia.tsx` | Guard `document.hidden` przed 3x `video.play()`, dodanie `blur` event listenera |
