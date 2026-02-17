@@ -336,17 +336,17 @@ export const loadTranslationsCache = async (currentLanguage: string = 'pl'): Pro
     }
     languagesToLoad.forEach(lang => loadedLanguages.add(lang));
 
-    notifyListeners();
-    cacheListeners.clear();
-
     return { translations: translationsCache, languages: languagesCache };
   } catch (error) {
     console.error('Error loading translations cache:', error);
-    translationsCache = {};
-    languagesCache = [];
-    return { translations: {}, languages: [] };
+    if (!translationsCache) translationsCache = {};
+    if (!languagesCache) languagesCache = [];
+    return { translations: translationsCache, languages: languagesCache };
   } finally {
     cacheLoading = false;
+    // ALWAYS notify waiting listeners - even after error
+    notifyListeners();
+    cacheListeners.clear();
   }
 };
 
