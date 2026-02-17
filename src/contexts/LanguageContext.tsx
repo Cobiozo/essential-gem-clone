@@ -41,20 +41,23 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Single useEffect for loading translations - eliminates race condition
   useEffect(() => {
     const loadLangTranslations = async () => {
-      // Single entry point - loads PL + current language
-      const { translations: t, languages } = await loadTranslationsCache(language);
-      setDbTranslations(t);
-      const def = languages.find(l => l.is_default);
-      if (def) setDefaultLang(def.code);
+      try {
+        const { translations: t, languages } = await loadTranslationsCache(language);
+        setDbTranslations(t);
+        const def = languages.find(l => l.is_default);
+        if (def) setDefaultLang(def.code);
 
-      // If language != pl, lazy load it
-      if (language !== 'pl') {
-        await loadLanguageTranslations(language);
-        const { translations: t2 } = await loadTranslationsCache(language);
-        setDbTranslations(t2);
+        if (language !== 'pl') {
+          await loadLanguageTranslations(language);
+          const { translations: t2 } = await loadTranslationsCache(language);
+          setDbTranslations(t2);
+        }
+
+        setTranslationVersion(v => v + 1);
+      } catch (err) {
+        console.error('[LanguageProvider] Failed to load translations:', err);
+        setTranslationVersion(v => v + 1);
       }
-
-      setTranslationVersion(v => v + 1);
     };
     loadLangTranslations();
 
