@@ -77,7 +77,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
       isPlaying,
       isBuffering,
       smartBufferingActive,
-      videoSrc: videoSrc?.slice(-80) || 'n/a'
     };
     navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2))
       .then(() => toast.success('Skopiowano dane diagnostyczne'))
@@ -256,11 +255,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
                         <p>Próby: {retryCount}/5</p>
                         <p>Smart buf: {smartBufferingActive ? '🔴 Aktywny' : '🟢 Nie'}</p>
                       </div>
-                      {videoSrc && (
-                        <p className="truncate max-w-full pt-1">
-                          Źródło: <code className="text-[10px]">...{videoSrc.slice(-50)}</code>
-                        </p>
-                      )}
                       <Button
                         variant="outline"
                         size="sm"
