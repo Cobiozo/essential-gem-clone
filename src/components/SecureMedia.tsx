@@ -762,8 +762,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             setBufferedRanges(getBufferedRanges(video));
             
             // Disable initial buffering when buffer is ready
-            if (isInitialBuffering && (bufferedAheadValue >= targetBuffer * 0.7 || progress >= 70)) {
-              console.log('[SecureMedia] Initial buffer complete via canPlay, Play button enabled');
+            if (isInitialBuffering) {
+              console.log('[SecureMedia] Initial buffer complete via canPlay (browser ready)');
               setIsInitialBuffering(false);
             }
             
