@@ -1,100 +1,104 @@
 
 
-# Naprawa ladowania tlumaczen - Race Condition
+# Naprawa ladowania tlumaczen - deadlock w cacheLoading
 
-## Problem
+## Problem glowny
 
-Tlumaczenia nie laduja sie na zadnej stronie gdy uzytkownik ma wybrany jezyk inny niz polski (np. angielski). Interfejs pokazuje polski tekst pomimo wybranej flagi UK.
+W `loadTranslationsCache` (src/hooks/useTranslations.ts) jest deadlock:
 
-## Przyczyna
+```text
+Scenariusz:
+1. Pierwsze wywolanie: cacheLoading = true, fetch zaczyna sie
+2. Jesli wystapi blad sieci/DB -> catch block (linia 343)
+3. catch ustawia translationsCache = {}, languagesCache = []
+4. ALE NIE wywoluje notifyListeners() !
+5. finally: cacheLoading = false
+6. Kolejne wywolanie: translationsCache = {} (truthy), ale loadedLanguages NIE ma 'pl'
+7. cacheLoading = false, wiec wchodzi do glownego bloku (linia 298)
+8. Ale jesli w miedzyczasie INNE wywolanie weszlo gdy cacheLoading=true...
+   -> listener dodany do cacheListeners, NIGDY nie zostanie rozwiazany
+```
 
-Race condition miedzy dwoma useEffect w LanguageContext.tsx:
+Nawet bez bledu sieci - sam fakt ze `notifyListeners` nie jest w `finally` jest bugiem. Jesli cos rzuci wyjatek miedzy linia 298 a 339, wszystkie czekajace promisy wisza w nieskonczonosc.
 
-1. **useEffect #1** (mount, linia 42): wywoluje `loadTranslationsCache()` z domyslnym `'pl'` - ustawia `cacheLoading = true`, zaczyna pobierac PL
-2. **useEffect #2** (language='en', linia 53): wywoluje `loadLanguageTranslations('en')` - tworzy `translationsCache = {}`, laduje EN do cache, oznacza 'en' jako zaladowany
-3. **useEffect #1 konczy sie**: robi `translationsCache = map` (tylko PL!) - **nadpisuje** dane EN, ktore wlasnie zostaly zaladowane
-4. `loadedLanguages` nadal ma 'en' ale dane zniknely - przyszle wywolania pomijaja pobieranie bo mysla ze EN jest zaladowany
+## Drugie problem: pustry catch zwraca pusty cache
+
+Linia 345: `translationsCache = {}` - to jest truthy. Nastepne wywolanie `loadTranslationsCache` widzi `translationsCache` jako niepusty obiekt ale `loadedLanguages` nie ma 'pl', wiec probuje zaladowac ponownie - to jest OK. Ale problem jest ze `translationsCache = {}` powoduje ze `getTranslation` szuka w pustym obiekcie i zwraca null.
 
 ## Rozwiazanie
 
-### Plik 1: `src/contexts/LanguageContext.tsx`
+### Plik: `src/hooks/useTranslations.ts`
 
-Usunac pierwszy useEffect (mount-only) i polaczyc jego logike z drugim useEffectem. Zamiast dwoch rownoleglych useEffectow ktore sie scigaja, bedzie jeden ktory laduje tlumaczenia dla aktualnego jezyka (wlacznie z polskim jako fallback):
+1. Przeniesc `notifyListeners()` i `cacheListeners.clear()` do bloku `finally` - gwarantuje ze ZAWSZE czekajace promisy zostana rozwiazane
+2. W catch: ustawic `translationsCache = null` zamiast `{}` - to pozwoli nastepnym wywolaniom faktycznie pobrac dane
+3. W catch: takze wywolac `notifyListeners` aby odblokować czekajace promisy
 
+Zmiana w `loadTranslationsCache` (linie 326-350):
+
+```typescript
+// try block - po ustawieniu cache:
+    // Merge instead of overwrite...
+    if (!translationsCache) {
+      translationsCache = map;
+    } else {
+      for (const lang of Object.keys(map)) {
+        if (!translationsCache[lang]) translationsCache[lang] = {};
+        for (const ns of Object.keys(map[lang])) {
+          translationsCache[lang][ns] = { ...translationsCache[lang][ns], ...map[lang][ns] };
+        }
+      }
+    }
+    languagesToLoad.forEach(lang => loadedLanguages.add(lang));
+
+    return { translations: translationsCache, languages: languagesCache };
+  } catch (error) {
+    console.error('Error loading translations cache:', error);
+    // Ustawic null zamiast {} - pozwoli na ponowne pobranie
+    if (!translationsCache) translationsCache = {};
+    if (!languagesCache) languagesCache = [];
+    return { translations: translationsCache, languages: languagesCache };
+  } finally {
+    cacheLoading = false;
+    // ZAWSZE powiadom czekajacych - nawet po bledzie
+    notifyListeners();
+    cacheListeners.clear();
+  }
 ```
-// USUNAC useEffect z linii 42-50
 
-// ZMODYFIKOWAC useEffect z linii 53-75:
+### Plik: `src/contexts/LanguageContext.tsx`
+
+Dodac obsluge bledu w useEffect aby nie zawieszal sie cicho:
+
+```typescript
 useEffect(() => {
   const loadLangTranslations = async () => {
-    // Jeden punkt wejscia - laduje PL + aktualny jezyk
-    const { translations: t, languages } = await loadTranslationsCache(language);
-    setDbTranslations(t);
-    const def = languages.find(l => l.is_default);
-    if (def) setDefaultLang(def.code);
+    try {
+      const { translations: t, languages } = await loadTranslationsCache(language);
+      setDbTranslations(t);
+      const def = languages.find(l => l.is_default);
+      if (def) setDefaultLang(def.code);
 
-    // Jesli jezyk != pl, doladuj lazy
-    if (language !== 'pl') {
-      await loadLanguageTranslations(language);
-      const { translations: t2 } = await loadTranslationsCache(language);
-      setDbTranslations(t2);
+      if (language !== 'pl') {
+        await loadLanguageTranslations(language);
+        const { translations: t2 } = await loadTranslationsCache(language);
+        setDbTranslations(t2);
+      }
+
+      setTranslationVersion(v => v + 1);
+    } catch (err) {
+      console.error('[LanguageProvider] Failed to load translations:', err);
+      setTranslationVersion(v => v + 1); // Force re-render even on error
     }
-
-    setTranslationVersion(v => v + 1);
   };
   loadLangTranslations();
-
-  try {
-    localStorage.setItem('pure-life-language', language);
-    document.documentElement.lang = language;
-  } catch (error) {
-    console.warn('Failed to save language to localStorage');
-  }
+  // ... rest unchanged
 }, [language]);
 ```
-
-### Plik 2: `src/hooks/useTranslations.ts`
-
-Zmienic `loadTranslationsCache` aby MERGOWALO dane zamiast nadpisywac (linia 321):
-
-```
-// ZAMIAST: translationsCache = map;
-// ZROBIC: merge z istniejacym cache
-if (!translationsCache) {
-  translationsCache = map;
-} else {
-  for (const lang of Object.keys(map)) {
-    if (!translationsCache[lang]) translationsCache[lang] = {};
-    for (const ns of Object.keys(map[lang])) {
-      translationsCache[lang][ns] = { ...translationsCache[lang][ns], ...map[lang][ns] };
-    }
-  }
-}
-```
-
-Dodatkowo w `loadLanguageTranslations` (linia 256-275) - dodac weryfikacje czy dane faktycznie sa w cache przed oznaczeniem jako zaladowane:
-
-```
-// Po linii 268, przed loadedLanguages.add(langCode):
-// Weryfikuj czy dane faktycznie sa w cache
-if (translationsCache[langCode] && Object.keys(translationsCache[langCode]).length > 0) {
-  loadedLanguages.add(langCode);
-} else {
-  console.warn(`[i18n] Language ${langCode} loaded but no data in cache`);
-}
-```
-
-### Plik 3: `src/components/dashboard/widgets/TrainingProgressWidget.tsx`
-
-Hardcoded polski tekst na liniach 187:
-- `'✓ Ukończono'` -> `t('dashboard.completed')`
-- `` `${module.progress}% ukończono` `` -> `` `${module.progress}% ${t('dashboard.completed').toLowerCase()}` ``
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/contexts/LanguageContext.tsx` | Polaczenie dwoch useEffectow w jeden, eliminacja race condition |
-| `src/hooks/useTranslations.ts` | Merge zamiast overwrite w loadTranslationsCache + weryfikacja w loadLanguageTranslations |
-| `src/components/dashboard/widgets/TrainingProgressWidget.tsx` | Zamiana hardcoded polskiego tekstu na t() |
+| `src/hooks/useTranslations.ts` | Przeniesc notifyListeners do finally, naprawic catch block |
+| `src/contexts/LanguageContext.tsx` | Dodac try-catch w useEffect |
 
