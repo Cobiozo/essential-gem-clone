@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { User, MicOff, VideoOff } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { User, MicOff } from 'lucide-react';
 
 interface VideoParticipant {
   peerId: string;
@@ -15,13 +15,15 @@ interface VideoGridProps {
   localDisplayName: string;
   isMuted: boolean;
   isCameraOff: boolean;
+  onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
 }
 
 const VideoTile: React.FC<{
   participant: VideoParticipant;
   className?: string;
   showOverlay?: boolean;
-}> = ({ participant, className = '', showOverlay = true }) => {
+  videoRefCallback?: (el: HTMLVideoElement | null) => void;
+}> = ({ participant, className = '', showOverlay = true, videoRefCallback }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -29,6 +31,12 @@ const VideoTile: React.FC<{
       videoRef.current.srcObject = participant.stream;
     }
   }, [participant.stream]);
+
+  useEffect(() => {
+    if (videoRefCallback) {
+      videoRefCallback(videoRef.current);
+    }
+  }, [videoRefCallback]);
 
   const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled);
 
@@ -120,6 +128,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   localDisplayName,
   isMuted,
   isCameraOff,
+  onActiveVideoRef,
 }) => {
   const [activeSpeakerIndex, setActiveSpeakerIndex] = useState(0);
 
@@ -137,18 +146,24 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   const activeSpeaker = allParticipants[activeSpeakerIndex] || allParticipants[0];
   const showThumbnails = allParticipants.length > 1;
 
+  const handleVideoRef = useCallback(
+    (el: HTMLVideoElement | null) => {
+      onActiveVideoRef?.(el);
+    },
+    [onActiveVideoRef]
+  );
+
   return (
     <div className="flex-1 flex flex-col bg-black relative">
-      {/* Main speaker - full area */}
       <div className="flex-1 relative">
         <VideoTile
           participant={activeSpeaker}
           className="absolute inset-0 rounded-none"
           showOverlay={true}
+          videoRefCallback={handleVideoRef}
         />
       </div>
 
-      {/* Thumbnail strip */}
       {showThumbnails && (
         <div className="flex items-center gap-2 px-3 py-2 bg-black/80 overflow-x-auto">
           {allParticipants.map((p, index) => (
