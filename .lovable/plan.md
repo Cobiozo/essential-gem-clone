@@ -1,85 +1,62 @@
 
-# Rozszerzenie VideoGrid: wskaznik glosnosci mikrofonu, poprawne przelaczanie mowcy, tryby wyswietlania
 
-## Zakres zmian
+# Naprawa zielonego mikrofonu i dodanie awatarow w panelu uczestnikow
 
-### 1. Zielony wskaznik mikrofonu z poziomem glosnosci
+## Problem 1: Zielony mikrofon mowcy nie wyswietla sie
 
-Aktualnie hook `useActiveSpeakerDetection` zwraca tylko indeks mowcy. Trzeba go rozszerzyc, aby zwracal rowniez **mape poziomow audio** dla kazdego uczestnika (wartosc 0-1). Ta informacja bedzie uzywana do:
+Komponent `AudioIndicator` istnieje i jest renderowany, ale mikrofon pozostaje szary. Przyczyny:
 
-- Wyswietlania zielonej ikony mikrofonu na VideoTile i ThumbnailTile gdy uczestnik mowi (poziom > prog)
-- Animowania ikony mikrofonu (np. zmiana rozmiaru/jasnosci w zaleznosci od glosnosci)
-- Zielonej ramki wokol miniaturki mowiacego uczestnika (juz czesciowo istnieje)
+1. **AudioContext w stanie "suspended"** - przegladarki blokuja AudioContext do momentu interakcji uzytkownika. Kod tworzy `new AudioContext()` ale nigdy nie wywoluje `ctx.resume()`, wiec analizator zwraca same zera.
+2. **Brak widocznosci** - ikona mikrofonu jest mala (h-3 w-3) i umieszczona w prawym dolnym rogu overlay, co utrudnia zauwa zenie.
 
-**Zmiany w `useActiveSpeakerDetection`:**
-- Zwracac obiekt `{ speakingIndex, audioLevels: Map<string, number> }` zamiast samego indeksu
-- Analizowac rowniez lokalnego uczestnika (usunac warunek `if (p.isLocal) return`) zeby pokazywac zielony mikrofon tez dla uzytkownika lokalnego
-- Normalizowac poziom audio do zakresu 0-1
+### Naprawa w `VideoGrid.tsx`:
+- Dodac `await ctx.resume()` po utworzeniu AudioContext (linia 183)
+- Powiekszyc ikone mikrofonu w glownym VideoTile do h-4 w-4
+- Dodac wyrazniejszy efekt swiecenia (glow) gdy mikrofon jest aktywny
 
-**Zmiany w VideoTile i ThumbnailTile:**
-- Dodac prop `audioLevel: number` (0-1)
-- Gdy `audioLevel > 0.1` i uczestnik NIE jest wyciszony: pokazac zielona ikone mikrofonu z animacja (pulsujaca lub ze zmiennymi "fala" paskami)
-- Na glownym VideoTile: zielony mikrofon obok nazwy uczestnika w overlay
-- Na ThumbnailTile: zielona ramka (istnieje) + maly zielony mikrofon
+## Problem 2: Brak awatarow w panelu uczestnikow
 
-### 2. Poprawne automatyczne przelaczanie na mowce
+Na screenshocie referencyjnym widac prawdziwe zdjecie profilowe uczestnika. Obecnie `ParticipantsPanel` uzywa generycznej ikony `User`. Trzeba:
 
-Aktualny hook pomija lokalnego uczestnika przy detekcji. To jest poprawne - nie chcemy przelaczac glownego widoku na siebie gdy mowimy. Ale trzeba sprawdzic:
+### Naprawa w `ParticipantsPanel.tsx`:
+- Dodac prop `avatarUrl?: string` do interfejsu `Participant`
+- Pobierac `avatar_url` z tabeli `profiles` dla uczestnikow spotkania
+- Wyswietlac prawdziwy awatar (komponent Avatar z radix-ui) z fallbackiem na inicjaly
 
-- Usunac debounce 1.5s ktory jest za dlugi - zmienic na 800ms dla plynniejszego przelaczania
-- Dodac `manualActiveIndex` reset po 5 sekundach ciszy (zeby po recznym wyborze uczestnika system wroci do auto-przelaczania gdy ktos inny zacznie mowic)
-- Poprawic prog detekcji z 15 na 10 (bardziej czuly)
+### Naprawa w `VideoRoom.tsx`:
+- Przy rejestracji uczestnika pobrac rowniez `avatar_url` z profilu
+- Przekazac `avatarUrl` do `ParticipantsPanel`
+- Dodac `avatarUrl` do interfejsu `RemoteParticipant`
 
-### 3. Tryby wyswietlania uczestnikow
-
-Dodac przelacznik trybow widoku widoczny na screenshocie:
-
-- **Mowca** (obecny tryb) - duzy obraz aktywnego mowcy + miniaturki na dole
-- **Galeria** - siatka rownych kafelkow (jak Zoom gallery view), kazdy uczestnik ma taki sam rozmiar
-- **Wielu mowcow** - 2-3 ostatnio mowiacych uczestnikow pokazanych w duzych kafelkach obok siebie
-- **Immersja** - pelny ekran aktywnego mowcy bez miniaturek i paska kontrolnego
-
-**Nowe komponenty/zmiany:**
-
-W `VideoGrid.tsx`:
-- Dodac prop `viewMode: 'speaker' | 'gallery' | 'multi-speaker' | 'immersive'`
-- Renderowac odpowiedni layout w zaleznosci od trybu
-- Galeria: `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4` z rownymi kafelkami
-- Wielu mowcow: flex z 2-3 duzymi kafelkami (ostatni mowcy)
-- Immersja: tylko VideoTile na pelny ekran, bez overlay
-
-W `MeetingControls.tsx`:
-- Dodac przycisk "Widok" z dropdown menu (4 opcje jak na screenshocie)
-- Ikony: LayoutGrid, Grid3x3, Users, Maximize (z lucide-react)
-
-W `VideoRoom.tsx`:
-- Dodac state `viewMode` i przekazac do VideoGrid i MeetingControls
-
-## Zmieniane pliki
-
-1. **`src/components/meeting/VideoGrid.tsx`** - rozszerzenie hooka audio, nowe tryby layoutu, wskaznik mikrofonu
-2. **`src/components/meeting/MeetingControls.tsx`** - przycisk przelaczania trybu widoku z dropdown
-3. **`src/components/meeting/VideoRoom.tsx`** - state viewMode, przekazanie do komponentow
-4. **`src/components/meeting/ParticipantsPanel.tsx`** - dodanie wskaznika glosnosci mikrofonu (zielony kolor gdy mowi)
+### Naprawa w `VideoGrid.tsx`:
+- Dodac `avatarUrl` do `VideoParticipant` - wyswietlac awatar zamiast ikony User gdy kamera jest wylaczona
 
 ## Szczegoly techniczne
 
-### Hook useActiveSpeakerDetection - nowy zwracany typ
+### AudioContext resume
 ```typescript
-interface SpeakerDetection {
-  speakingIndex: number;
-  audioLevels: Map<string, number>; // peerId -> level 0-1
+if (!audioContextRef.current) {
+  try {
+    audioContextRef.current = new AudioContext();
+    if (audioContextRef.current.state === 'suspended') {
+      await audioContextRef.current.resume();
+    }
+  } catch { return; }
 }
 ```
 
-### Wskaznik mikrofonu - komponent
-Zielona ikona Mic z lucide-react, z opacity proporcjonalna do poziomu audio. Gdy poziom > 0.1 - zielony, gdy wyciszony - czerwony MicOff (jak teraz).
+Poniewaz `useEffect` nie moze byc async, trzeba uzyc IIFE lub `.then()` wewnatrz efektu.
 
-### Layout trybow
-- Speaker: obecny layout (bez zmian)
-- Gallery: CSS Grid z `auto-fill` i `minmax(200px, 1fr)`
-- Multi-speaker: flex z max 3 duzymi kafelkami, reszta w miniaturkach
-- Immersive: fullscreen aktywnego mowcy, hover pokazuje kontrolki
+### Awatary uczestnikow
+- Rozszerzyc interfejs `Participant` w ParticipantsPanel o `avatarUrl?: string`
+- Rozszerzyc `RemoteParticipant` w VideoRoom o `avatarUrl?: string`
+- Rozszerzyc `VideoParticipant` w VideoGrid o `avatarUrl?: string`
+- W VideoRoom: po zalogowaniu pobrac `avatar_url` lokalnego uzytkownika z `profiles`
+- W VideoRoom: przy `handleCall` / `callPeer` pobrac avatar zdalnego uczestnika
+- Uzyc komponentu `Avatar` / `AvatarImage` / `AvatarFallback` z `@/components/ui/avatar`
 
-### Dropdown widoku
-Uzyc komponentu Popover lub DropdownMenu z radix-ui (juz zainstalowane). Menu z 4 opcjami, kazda z ikona i nazwa jak na screenshocie.
+### Zmieniane pliki
+1. `src/components/meeting/VideoGrid.tsx` - resume AudioContext, awatar w VideoTile, wieksza ikona mikrofonu
+2. `src/components/meeting/ParticipantsPanel.tsx` - awatary uczestnikow z fallbackiem na inicjaly
+3. `src/components/meeting/VideoRoom.tsx` - pobieranie avatar_url z profiles, przekazywanie do komponentow
+
