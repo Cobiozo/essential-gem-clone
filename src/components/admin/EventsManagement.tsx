@@ -540,38 +540,68 @@ export const EventsManagement: React.FC = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="sm:mx-0 sm:px-0">
-          <TabsList className="flex w-full justify-between sm:grid sm:grid-cols-7 gap-1">
-            <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Webinary">
-              <Video className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.webinars')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="team-training" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Spotkania zespołowe">
-              <BookOpen className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.teamMeeting')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="individual-meetings" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Spotkania indywidualne">
-              <UserRound className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.individualMeeting')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="sms-logs" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="SMS">
-              <MessageSquare className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.smsLogs')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="topics" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Tematy">
-              <Calendar className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.topics')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="leaders" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Liderzy">
-              <Users className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.leaders')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Ustawienia">
-              <Settings className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">{t('admin.events.settings')}</span>
-            </TabsTrigger>
-          </TabsList>
+        {/* Mobile: dropdown select */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="webinars">
+                <span className="flex items-center gap-2"><Video className="h-4 w-4" /> Webinary</span>
+              </SelectItem>
+              <SelectItem value="team-training">
+                <span className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> {t('admin.events.teamMeeting')}</span>
+              </SelectItem>
+              <SelectItem value="individual-meetings">
+                <span className="flex items-center gap-2"><UserRound className="h-4 w-4" /> {t('admin.events.individualMeeting')}</span>
+              </SelectItem>
+              <SelectItem value="sms-logs">
+                <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> {t('admin.events.smsLogs')}</span>
+              </SelectItem>
+              <SelectItem value="topics">
+                <span className="flex items-center gap-2"><Calendar className="h-4 w-4" /> {t('admin.events.topics')}</span>
+              </SelectItem>
+              <SelectItem value="leaders">
+                <span className="flex items-center gap-2"><Users className="h-4 w-4" /> {t('admin.events.leaders')}</span>
+              </SelectItem>
+              <SelectItem value="settings">
+                <span className="flex items-center gap-2"><Settings className="h-4 w-4" /> {t('admin.events.settings')}</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
+        {/* Desktop: tabs */}
+        <TabsList className="hidden sm:grid sm:grid-cols-7 gap-1">
+          <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-3 text-sm">
+            <Video className="h-4 w-4 shrink-0" />
+            {t('admin.events.webinars')}
+          </TabsTrigger>
+          <TabsTrigger value="team-training" className="flex items-center gap-1.5 px-3 text-sm">
+            <BookOpen className="h-4 w-4 shrink-0" />
+            {t('admin.events.teamMeeting')}
+          </TabsTrigger>
+          <TabsTrigger value="individual-meetings" className="flex items-center gap-1.5 px-3 text-sm">
+            <UserRound className="h-4 w-4 shrink-0" />
+            {t('admin.events.individualMeeting')}
+          </TabsTrigger>
+          <TabsTrigger value="sms-logs" className="flex items-center gap-1.5 px-3 text-sm">
+            <MessageSquare className="h-4 w-4 shrink-0" />
+            {t('admin.events.smsLogs')}
+          </TabsTrigger>
+          <TabsTrigger value="topics" className="flex items-center gap-1.5 px-3 text-sm">
+            <Calendar className="h-4 w-4 shrink-0" />
+            {t('admin.events.topics')}
+          </TabsTrigger>
+          <TabsTrigger value="leaders" className="flex items-center gap-1.5 px-3 text-sm">
+            <Users className="h-4 w-4 shrink-0" />
+            {t('admin.events.leaders')}
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-1.5 px-3 text-sm">
+            <Settings className="h-4 w-4 shrink-0" />
+            {t('admin.events.settings')}
+          </TabsTrigger>
+        </TabsList>
 
         {/* Webinars Tab */}
         <TabsContent value="webinars" className="space-y-4 mt-6">
