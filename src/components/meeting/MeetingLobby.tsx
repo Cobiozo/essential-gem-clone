@@ -66,7 +66,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-center">Dołącz do spotkania</CardTitle>

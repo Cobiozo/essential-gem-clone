@@ -15,6 +15,7 @@ const MeetingRoomPage: React.FC = () => {
 
   const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  const [meetingTitle, setMeetingTitle] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -51,6 +52,8 @@ const MeetingRoomPage: React.FC = () => {
           setErrorMessage('Pokój spotkania nie istnieje lub nie jest aktywny');
           return;
         }
+
+        setMeetingTitle(event.title || 'Spotkanie');
 
         // Allow access: admin, event creator, or registered user
         const isCreator = event.created_by === user.id;
@@ -153,6 +156,7 @@ const MeetingRoomPage: React.FC = () => {
     <VideoRoom
       roomId={roomId!}
       displayName={displayName}
+      meetingTitle={meetingTitle}
       audioEnabled={audioEnabled}
       videoEnabled={videoEnabled}
       onLeave={handleLeave}
