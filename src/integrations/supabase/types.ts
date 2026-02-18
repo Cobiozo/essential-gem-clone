@@ -3449,6 +3449,33 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          display_name: string | null
+          id: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       meeting_reminders_sent: {
         Row: {
           event_id: string

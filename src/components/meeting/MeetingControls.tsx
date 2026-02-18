@@ -1,14 +1,22 @@
 import React from 'react';
-import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2 } from 'lucide-react';
 
 interface MeetingControlsProps {
   isMuted: boolean;
   isCameraOff: boolean;
   isScreenSharing: boolean;
   participantCount: number;
+  isChatOpen: boolean;
+  isParticipantsOpen: boolean;
+  isPiPActive: boolean;
+  isPiPSupported: boolean;
+  unreadChatCount: number;
   onToggleMute: () => void;
   onToggleCamera: () => void;
   onToggleScreenShare: () => void;
+  onToggleChat: () => void;
+  onToggleParticipants: () => void;
+  onTogglePiP: () => void;
   onLeave: () => void;
 }
 
@@ -19,23 +27,28 @@ const ControlButton: React.FC<{
   active?: boolean;
   danger?: boolean;
   badge?: string | number;
-}> = ({ icon, label, onClick, active, danger, badge }) => (
+  highlighted?: boolean;
+}> = ({ icon, label, onClick, active, danger, badge, highlighted }) => (
   <button
     onClick={onClick}
-    className="flex flex-col items-center gap-1 min-w-[56px]"
+    className="flex flex-col items-center gap-1 min-w-[48px]"
   >
-    <div
-      className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-        danger
-          ? 'bg-red-600 hover:bg-red-700'
-          : active
-          ? 'bg-red-600 hover:bg-red-700'
-          : 'bg-zinc-700 hover:bg-zinc-600'
-      }`}
-    >
-      {icon}
-      {badge !== undefined && (
-        <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+    <div className="relative">
+      <div
+        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+          danger
+            ? 'bg-red-600 hover:bg-red-700'
+            : active
+            ? 'bg-red-600 hover:bg-red-700'
+            : highlighted
+            ? 'bg-blue-600 hover:bg-blue-700'
+            : 'bg-zinc-700 hover:bg-zinc-600'
+        }`}
+      >
+        {icon}
+      </div>
+      {badge !== undefined && Number(badge) > 0 && (
+        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center font-bold px-1">
           {badge}
         </span>
       )}
@@ -49,14 +62,21 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   isCameraOff,
   isScreenSharing,
   participantCount,
+  isChatOpen,
+  isParticipantsOpen,
+  isPiPActive,
+  isPiPSupported,
+  unreadChatCount,
   onToggleMute,
   onToggleCamera,
   onToggleScreenShare,
+  onToggleChat,
+  onToggleParticipants,
+  onTogglePiP,
   onLeave,
 }) => {
   return (
-    <div className="flex items-center justify-center gap-4 px-4 py-3 bg-zinc-900 border-t border-zinc-800">
-      {/* Mic */}
+    <div className="flex items-center justify-center gap-3 px-4 py-3 bg-zinc-900 border-t border-zinc-800">
       <ControlButton
         icon={isMuted ? <MicOff className="h-5 w-5 text-white" /> : <Mic className="h-5 w-5 text-white" />}
         label="Mikrofon"
@@ -64,7 +84,6 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         active={isMuted}
       />
 
-      {/* Camera */}
       <ControlButton
         icon={isCameraOff ? <VideoOff className="h-5 w-5 text-white" /> : <Video className="h-5 w-5 text-white" />}
         label="Kamera"
@@ -72,7 +91,6 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         active={isCameraOff}
       />
 
-      {/* Screen share */}
       <ControlButton
         icon={<Monitor className="h-5 w-5 text-white" />}
         label="Ekran"
@@ -80,22 +98,30 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         active={isScreenSharing}
       />
 
-      {/* Chat placeholder */}
       <ControlButton
         icon={<MessageCircle className="h-5 w-5 text-white" />}
         label="Czat"
-        onClick={() => {}}
+        onClick={onToggleChat}
+        highlighted={isChatOpen}
+        badge={unreadChatCount}
       />
 
-      {/* Participants */}
-      <div className="flex flex-col items-center gap-1 min-w-[56px]">
-        <div className="relative w-11 h-11 rounded-full flex items-center justify-center bg-zinc-700">
-          <Users className="h-5 w-5 text-white" />
-        </div>
-        <span className="text-[10px] text-zinc-400 font-medium">{participantCount}</span>
-      </div>
+      <ControlButton
+        icon={<Users className="h-5 w-5 text-white" />}
+        label={String(participantCount)}
+        onClick={onToggleParticipants}
+        highlighted={isParticipantsOpen}
+      />
 
-      {/* Leave */}
+      {isPiPSupported && (
+        <ControlButton
+          icon={<PictureInPicture2 className="h-5 w-5 text-white" />}
+          label="PiP"
+          onClick={onTogglePiP}
+          highlighted={isPiPActive}
+        />
+      )}
+
       <ControlButton
         icon={<PhoneOff className="h-5 w-5 text-white" />}
         label="Opuść"
