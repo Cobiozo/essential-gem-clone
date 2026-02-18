@@ -537,8 +537,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           localDisplayName={displayName}
           localAvatarUrl={localAvatarUrl}
           isMuted={isMuted}
-          isCameraOff={isCameraOff}
+         isCameraOff={isCameraOff}
           viewMode={viewMode}
+          isScreenSharing={isScreenSharing}
           onActiveVideoRef={(el) => { activeVideoRef.current = el; }}
         />
 
