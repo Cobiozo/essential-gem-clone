@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,13 +17,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw, AlertTriangle, Globe } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useTrainingTranslations } from "@/hooks/useTrainingTranslations";
 import { TrainingModule as TrainingModuleType } from "@/types/training";
+import { LANGUAGE_OPTIONS } from "@/types/knowledge";
 
 interface TrainingModule {
   id: string;
@@ -31,6 +33,7 @@ interface TrainingModule {
   description: string;
   icon_name: string;
   position: number;
+  language_code?: string | null;
   lessons_count: number;
   completed_lessons: number;
   total_time_minutes: number;
@@ -47,6 +50,7 @@ const Training = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [hasRefreshReminder, setHasRefreshReminder] = useState(false);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string}}>({});
+  const [trainingLanguage, setTrainingLanguage] = useState<string>('all');
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -72,10 +76,18 @@ const Training = () => {
   const { translatedModules } = useTrainingTranslations(modulesForTranslation, [], language);
   
   // Apply translations back to modules with extra fields
-  const displayModules = modules.map(m => {
+  const translatedDisplayModules = modules.map(m => {
     const translated = translatedModules.find(tm => tm.id === m.id);
     return translated ? { ...m, title: translated.title, description: translated.description } : m;
   });
+
+  // Filter by language
+  const displayModules = useMemo(() => {
+    if (trainingLanguage === 'all') return translatedDisplayModules;
+    return translatedDisplayModules.filter(m => 
+      !m.language_code || m.language_code === trainingLanguage
+    );
+  }, [translatedDisplayModules, trainingLanguage]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -676,11 +688,24 @@ const Training = () => {
           </div>
         )}
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('training.title')}</h1>
-          <p className="text-muted-foreground">
-            {t('training.description')}
-          </p>
+        <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight mb-2">{t('training.title')}</h1>
+            <p className="text-muted-foreground">
+              {t('training.description')}
+            </p>
+          </div>
+          <Select value={trainingLanguage} onValueChange={setTrainingLanguage}>
+            <SelectTrigger className="w-48">
+              <Globe className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGE_OPTIONS.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {modules.length === 0 ? (
