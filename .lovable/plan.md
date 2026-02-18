@@ -1,62 +1,35 @@
 
 
-# Naprawa zielonego mikrofonu i dodanie awatarow w panelu uczestnikow
+# Naprawa PiP - powrot do lobby po zmianie karty
 
-## Problem 1: Zielony mikrofon mowcy nie wyswietla sie
+## Problem
 
-Komponent `AudioIndicator` istnieje i jest renderowany, ale mikrofon pozostaje szary. Przyczyny:
+W `MeetingRoom.tsx` (linia 95) efekt `verifyAccess` zalezy od `[roomId, user]`. Gdy uzytkownik przelacza karty przegladarki, AuthContext moze zaktualizowac referencje obiektu `user` (np. przy `TOKEN_REFRESHED`). To powoduje ponowne uruchomienie efektu, ktory:
 
-1. **AudioContext w stanie "suspended"** - przegladarki blokuja AudioContext do momentu interakcji uzytkownika. Kod tworzy `new AudioContext()` ale nigdy nie wywoluje `ctx.resume()`, wiec analizator zwraca same zera.
-2. **Brak widocznosci** - ikona mikrofonu jest mala (h-3 w-3) i umieszczona w prawym dolnym rogu overlay, co utrudnia zauwa zenie.
+1. Resetuje `status` do `'loading'` (bo efekt startuje od nowa)
+2. Ponownie weryfikuje dostep i ustawia `status` na `'lobby'`
+3. Uzytkownik widzi ekran "Dolacz do spotkania" zamiast byc w pokoju
 
-### Naprawa w `VideoGrid.tsx`:
-- Dodac `await ctx.resume()` po utworzeniu AudioContext (linia 183)
-- Powiekszyc ikone mikrofonu w glownym VideoTile do h-4 w-4
-- Dodac wyrazniejszy efekt swiecenia (glow) gdy mikrofon jest aktywny
+## Rozwiazanie
 
-## Problem 2: Brak awatarow w panelu uczestnikow
+### Plik: `src/pages/MeetingRoom.tsx`
 
-Na screenshocie referencyjnym widac prawdziwe zdjecie profilowe uczestnika. Obecnie `ParticipantsPanel` uzywa generycznej ikony `User`. Trzeba:
+1. **Zmienic zaleznosc efektu** z `[roomId, user]` na `[roomId, user?.id]` - efekt uruchomi sie tylko gdy zmieni sie ID uzytkownika, nie referencja obiektu
+2. **Dodac guard** - jesli `status` jest juz `'joined'` lub `'lobby'`, nie resetowac go ponownie przy ponownym uruchomieniu efektu
+3. **Uzyc ref** do sledzenia czy weryfikacja juz sie odbywa, aby uniknac podwojnego wywolania
 
-### Naprawa w `ParticipantsPanel.tsx`:
-- Dodac prop `avatarUrl?: string` do interfejsu `Participant`
-- Pobierac `avatar_url` z tabeli `profiles` dla uczestnikow spotkania
-- Wyswietlac prawdziwy awatar (komponent Avatar z radix-ui) z fallbackiem na inicjaly
+### Szczegoly techniczne
 
-### Naprawa w `VideoRoom.tsx`:
-- Przy rejestracji uczestnika pobrac rowniez `avatar_url` z profilu
-- Przekazac `avatarUrl` do `ParticipantsPanel`
-- Dodac `avatarUrl` do interfejsu `RemoteParticipant`
+```text
+Zmiana 1: Dependency array
+- Bylo:  }, [roomId, user]);
+- Bedzie: }, [roomId, user?.id]);
 
-### Naprawa w `VideoGrid.tsx`:
-- Dodac `avatarUrl` do `VideoParticipant` - wyswietlac awatar zamiast ikony User gdy kamera jest wylaczona
-
-## Szczegoly techniczne
-
-### AudioContext resume
-```typescript
-if (!audioContextRef.current) {
-  try {
-    audioContextRef.current = new AudioContext();
-    if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
-    }
-  } catch { return; }
-}
+Zmiana 2: Guard na poczatku efektu
+- Jesli status !== 'loading', nie uruchamiac ponownie weryfikacji
+- Uzyc statusRef (useRef) zeby efekt mogl czytac aktualny status
+  bez dodawania go do dependency array
 ```
 
-Poniewaz `useEffect` nie moze byc async, trzeba uzyc IIFE lub `.then()` wewnatrz efektu.
-
-### Awatary uczestnikow
-- Rozszerzyc interfejs `Participant` w ParticipantsPanel o `avatarUrl?: string`
-- Rozszerzyc `RemoteParticipant` w VideoRoom o `avatarUrl?: string`
-- Rozszerzyc `VideoParticipant` w VideoGrid o `avatarUrl?: string`
-- W VideoRoom: po zalogowaniu pobrac `avatar_url` lokalnego uzytkownika z `profiles`
-- W VideoRoom: przy `handleCall` / `callPeer` pobrac avatar zdalnego uczestnika
-- Uzyc komponentu `Avatar` / `AvatarImage` / `AvatarFallback` z `@/components/ui/avatar`
-
-### Zmieniane pliki
-1. `src/components/meeting/VideoGrid.tsx` - resume AudioContext, awatar w VideoTile, wieksza ikona mikrofonu
-2. `src/components/meeting/ParticipantsPanel.tsx` - awatary uczestnikow z fallbackiem na inicjaly
-3. `src/components/meeting/VideoRoom.tsx` - pobieranie avatar_url z profiles, przekazywanie do komponentow
+Dzieki temu przelaczanie kart nie spowoduje ponownej weryfikacji i powrotu do lobby. Efekt uruchomi sie tylko raz (przy pierwszym renderze) lub gdy zmieni sie `roomId` albo zaloguje sie inny uzytkownik.
 
