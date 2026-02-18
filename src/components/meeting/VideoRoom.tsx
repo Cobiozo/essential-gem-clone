@@ -16,6 +16,7 @@ interface RemoteParticipant {
 interface VideoRoomProps {
   roomId: string;
   displayName: string;
+  meetingTitle?: string;
   audioEnabled: boolean;
   videoEnabled: boolean;
   onLeave: () => void;
@@ -24,6 +25,7 @@ interface VideoRoomProps {
 export const VideoRoom: React.FC<VideoRoomProps> = ({
   roomId,
   displayName,
+  meetingTitle,
   audioEnabled: initialAudio,
   videoEnabled: initialVideo,
   onLeave,
@@ -333,13 +335,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-screen bg-black">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b bg-card">
-        <h2 className="text-sm font-medium truncate">Pokój spotkania</h2>
-        {!isConnected && (
-          <span className="text-xs text-muted-foreground animate-pulse">Łączenie...</span>
-        )}
+      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900/90 backdrop-blur-sm">
+        <h2 className="text-sm font-medium text-white truncate">
+          {meetingTitle || 'Spotkanie'}
+        </h2>
+        <div className="flex items-center gap-2">
+          {!isConnected && (
+            <span className="text-xs text-zinc-400 animate-pulse">Łączenie...</span>
+          )}
+          <span className="text-xs text-zinc-400">{participants.length + 1} uczestników</span>
+        </div>
       </div>
 
       {/* Video Grid */}
