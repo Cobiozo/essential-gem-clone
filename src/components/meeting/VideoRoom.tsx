@@ -78,6 +78,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Meeting settings & co-host state
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>(initialSettings || DEFAULT_SETTINGS);
   const [coHostUserIds, setCoHostUserIds] = useState<string[]>([]);
+
+  // Emit video-activity every 60s to prevent inactivity logout during meeting
+  useEffect(() => {
+    const interval = setInterval(() => {
+      window.dispatchEvent(new Event('video-activity'));
+    }, 60000);
+    // Emit immediately on mount
+    window.dispatchEvent(new Event('video-activity'));
+    return () => clearInterval(interval);
+  }, []);
   const isCoHost = user ? coHostUserIds.includes(user.id) : false;
   const canManage = isHost || isCoHost;
 

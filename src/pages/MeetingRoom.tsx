@@ -13,6 +13,10 @@ const MeetingRoomPage: React.FC = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
 
+  // Cache last valid user to prevent flicker on token refresh
+  const userRef = useRef(user);
+  if (user) userRef.current = user;
+
   const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
@@ -40,8 +44,11 @@ const MeetingRoomPage: React.FC = () => {
       return;
     }
 
-    if (!user) {
-      setStatus('unauthorized');
+    if (!userRef.current) {
+      // Only show unauthorized if we never had a user (not just a token refresh flicker)
+      if (!user) {
+        setStatus('unauthorized');
+      }
       return;
     }
 
@@ -66,14 +73,14 @@ const MeetingRoomPage: React.FC = () => {
         // Determine host: host_user_id if exists, otherwise created_by
         const eventHostId = event.host_user_id || event.created_by;
         setHostUserId(eventHostId);
-        const userIsHost = eventHostId === user.id;
+        const userIsHost = eventHostId === userRef.current!.id;
         setIsHost(userIsHost);
 
-        const isCreator = event.created_by === user.id;
+        const isCreator = event.created_by === userRef.current!.id;
         const { data: roles } = await supabase
           .from('user_roles')
           .select('role')
-          .eq('user_id', user.id)
+          .eq('user_id', userRef.current!.id)
           .eq('role', 'admin');
         const isAdmin = roles && roles.length > 0;
 
@@ -86,7 +93,7 @@ const MeetingRoomPage: React.FC = () => {
           .from('event_registrations')
           .select('id')
           .eq('event_id', event.id)
-          .eq('user_id', user.id)
+          .eq('user_id', userRef.current!.id)
           .eq('status', 'registered')
           .maybeSingle();
 
