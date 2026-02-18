@@ -177,11 +177,29 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           console.log('[VideoRoom] Peer opened:', peerId);
           setIsConnected(true);
 
-          // Register as participant
-          await supabase.from('meeting_room_participants').insert({
-            room_id: roomId, user_id: user.id, peer_id: peerId,
-            display_name: displayName, is_active: true,
-          });
+          // Register as participant (upsert to handle rejoin)
+          const { error: participantError } = await supabase
+            .from('meeting_room_participants')
+            .upsert(
+              {
+                room_id: roomId,
+                user_id: user.id,
+                peer_id: peerId,
+                display_name: displayName,
+                is_active: true,
+                left_at: null,
+                joined_at: new Date().toISOString(),
+              },
+              { onConflict: 'room_id,user_id' }
+            );
+          if (participantError) {
+            console.error('[VideoRoom] Failed to register participant:', participantError);
+            // Retry once
+            await supabase.from('meeting_room_participants').upsert(
+              { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
+              { onConflict: 'room_id,user_id' }
+            );
+          }
 
           // Set up realtime channel
           const channel = supabase.channel(`meeting:${roomId}`);
@@ -314,8 +332,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   const handleToggleCamera = () => {
     if (localStreamRef.current) {
-      localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = isCameraOff));
+      const newEnabled = isCameraOff; // currently off, so we enable
+      localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
       setIsCameraOff(!isCameraOff);
+      // Force new stream reference to trigger React re-render in VideoGrid
+      setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
     }
   };
 

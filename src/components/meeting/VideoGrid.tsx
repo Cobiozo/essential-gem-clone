@@ -20,10 +20,11 @@ interface VideoGridProps {
 
 const VideoTile: React.FC<{
   participant: VideoParticipant;
+  isCameraOff?: boolean;
   className?: string;
   showOverlay?: boolean;
   videoRefCallback?: (el: HTMLVideoElement | null) => void;
-}> = ({ participant, className = '', showOverlay = true, videoRefCallback }) => {
+}> = ({ participant, isCameraOff, className = '', showOverlay = true, videoRefCallback }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -38,11 +39,14 @@ const VideoTile: React.FC<{
     }
   }, [videoRefCallback]);
 
-  const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+  // For local participant, use isCameraOff prop; for remote, check track state
+  const showVideo = participant.isLocal
+    ? participant.stream && !isCameraOff
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
 
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
-      {participant.stream && hasVideo ? (
+      {showVideo ? (
         <video
           ref={videoRef}
           autoPlay
@@ -57,6 +61,17 @@ const VideoTile: React.FC<{
           </div>
           <span className="text-zinc-400 text-sm">{participant.displayName}</span>
         </div>
+      )}
+
+      {/* Hidden video element to keep stream active for PiP even when camera is off */}
+      {!showVideo && participant.stream && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={participant.isLocal}
+          className="hidden"
+        />
       )}
 
       {showOverlay && (
@@ -81,8 +96,10 @@ const VideoTile: React.FC<{
 const ThumbnailTile: React.FC<{
   participant: VideoParticipant;
   isActive: boolean;
+  isSpeaking: boolean;
+  isCameraOff?: boolean;
   onClick: () => void;
-}> = ({ participant, isActive, onClick }) => {
+}> = ({ participant, isActive, isSpeaking, isCameraOff, onClick }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -91,16 +108,22 @@ const ThumbnailTile: React.FC<{
     }
   }, [participant.stream]);
 
-  const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+  const showVideo = participant.isLocal
+    ? participant.stream && !isCameraOff
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
 
   return (
     <button
       onClick={onClick}
       className={`relative flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden border-2 transition-all ${
-        isActive ? 'border-blue-500' : 'border-transparent hover:border-zinc-500'
+        isActive
+          ? 'border-blue-500'
+          : isSpeaking
+          ? 'border-green-500'
+          : 'border-transparent hover:border-zinc-500'
       }`}
     >
-      {participant.stream && hasVideo ? (
+      {showVideo ? (
         <video
           ref={videoRef}
           autoPlay
@@ -122,6 +145,100 @@ const ThumbnailTile: React.FC<{
   );
 };
 
+// Hook for active speaker detection using Web Audio API
+function useActiveSpeakerDetection(participants: VideoParticipant[]) {
+  const [speakingIndex, setSpeakingIndex] = useState(-1);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analysersRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
+  const lastSpeakerChangeRef = useRef(0);
+
+  useEffect(() => {
+    // Lazy-init AudioContext
+    if (!audioContextRef.current) {
+      try {
+        audioContextRef.current = new AudioContext();
+      } catch {
+        return;
+      }
+    }
+    const ctx = audioContextRef.current;
+
+    // Clean up old analysers for participants that left
+    const currentIds = new Set(participants.map(p => p.peerId));
+    analysersRef.current.forEach((val, key) => {
+      if (!currentIds.has(key)) {
+        try { val.source.disconnect(); } catch {}
+        analysersRef.current.delete(key);
+      }
+    });
+
+    // Create analysers for new participants with audio streams
+    participants.forEach((p) => {
+      if (p.isLocal || !p.stream || analysersRef.current.has(p.peerId)) return;
+      const audioTracks = p.stream.getAudioTracks();
+      if (audioTracks.length === 0) return;
+      try {
+        const source = ctx.createMediaStreamSource(p.stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        analysersRef.current.set(p.peerId, { analyser, source });
+      } catch (e) {
+        console.warn('[VideoGrid] Failed to create analyser for', p.peerId, e);
+      }
+    });
+
+    // Poll audio levels
+    const interval = setInterval(() => {
+      let maxLevel = 15; // threshold to avoid silence switching
+      let maxIndex = -1;
+
+      participants.forEach((p, index) => {
+        if (p.isLocal) return;
+        const entry = analysersRef.current.get(p.peerId);
+        if (!entry) return;
+
+        const data = new Uint8Array(entry.analyser.frequencyBinCount);
+        entry.analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        if (avg > maxLevel) {
+          maxLevel = avg;
+          maxIndex = index;
+        }
+      });
+
+      const now = Date.now();
+      // Debounce: only switch speaker if 1.5s since last change
+      if (maxIndex !== -1 && now - lastSpeakerChangeRef.current > 1500) {
+        setSpeakingIndex((prev) => {
+          if (prev !== maxIndex) {
+            lastSpeakerChangeRef.current = now;
+            return maxIndex;
+          }
+          return prev;
+        });
+      }
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, [participants]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      analysersRef.current.forEach((val) => {
+        try { val.source.disconnect(); } catch {}
+      });
+      analysersRef.current.clear();
+      if (audioContextRef.current?.state !== 'closed') {
+        try { audioContextRef.current?.close(); } catch {}
+      }
+    };
+  }, []);
+
+  return speakingIndex;
+}
+
 export const VideoGrid: React.FC<VideoGridProps> = ({
   participants,
   localStream,
@@ -130,7 +247,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   isCameraOff,
   onActiveVideoRef,
 }) => {
-  const [activeSpeakerIndex, setActiveSpeakerIndex] = useState(0);
+  const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
 
   const allParticipants: VideoParticipant[] = [
     {
@@ -143,9 +260,21 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
     ...participants,
   ];
 
-  // Reset active speaker if out of bounds
-  const safeIndex = activeSpeakerIndex < allParticipants.length ? activeSpeakerIndex : 0;
-  const activeSpeaker = allParticipants[safeIndex];
+  const speakingIndex = useActiveSpeakerDetection(allParticipants);
+
+  // Determine active speaker: manual override > detected speaker > first remote > local
+  let activeIndex: number;
+  if (manualActiveIndex !== null && manualActiveIndex < allParticipants.length) {
+    activeIndex = manualActiveIndex;
+  } else if (speakingIndex !== -1 && speakingIndex < allParticipants.length) {
+    activeIndex = speakingIndex;
+  } else if (allParticipants.length > 1) {
+    activeIndex = 1; // first remote participant
+  } else {
+    activeIndex = 0; // only local
+  }
+
+  const activeSpeaker = allParticipants[activeIndex];
   const showThumbnails = allParticipants.length > 1;
 
   const handleVideoRef = useCallback(
@@ -160,6 +289,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
       <div className="flex-1 relative">
         <VideoTile
           participant={activeSpeaker}
+          isCameraOff={activeSpeaker.isLocal ? isCameraOff : undefined}
           className="absolute inset-0 rounded-none"
           showOverlay={true}
           videoRefCallback={handleVideoRef}
@@ -172,8 +302,10 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             <ThumbnailTile
               key={p.peerId}
               participant={p}
-              isActive={index === safeIndex}
-              onClick={() => setActiveSpeakerIndex(index)}
+              isActive={index === activeIndex}
+              isSpeaking={index === speakingIndex}
+              isCameraOff={p.isLocal ? isCameraOff : undefined}
+              onClick={() => setManualActiveIndex(index)}
             />
           ))}
         </div>
