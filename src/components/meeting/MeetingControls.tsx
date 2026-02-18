@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square, LayoutGrid, Maximize, UserCheck, Presentation } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square, LayoutGrid, UserCheck, Presentation } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import type { ViewMode } from './VideoGrid';
 
@@ -66,7 +66,7 @@ const VIEW_MODES: { mode: ViewMode; label: string; icon: React.ReactNode }[] = [
   { mode: 'speaker', label: 'Mówca', icon: <Presentation className="h-4 w-4" /> },
   { mode: 'gallery', label: 'Galeria', icon: <LayoutGrid className="h-4 w-4" /> },
   { mode: 'multi-speaker', label: 'Wielu mówców', icon: <UserCheck className="h-4 w-4" /> },
-  { mode: 'immersive', label: 'Immersja', icon: <Maximize className="h-4 w-4" /> },
+  
 ];
 
 export const MeetingControls: React.FC<MeetingControlsProps> = ({

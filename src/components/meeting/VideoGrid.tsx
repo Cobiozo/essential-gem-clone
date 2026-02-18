@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { User, MicOff, Mic } from 'lucide-react';
 
-export type ViewMode = 'speaker' | 'gallery' | 'multi-speaker' | 'immersive';
+export type ViewMode = 'speaker' | 'gallery' | 'multi-speaker';
 
 interface VideoParticipant {
   peerId: string;
@@ -444,28 +444,6 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
     return <MultiSpeakerLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} speakingIndex={speakingIndex} onActiveVideoRef={handleVideoRef} />;
   }
 
-  // ─── Immersive mode ───
-  if (viewMode === 'immersive') {
-    return (
-      <div className="flex-1 flex bg-black relative group">
-        <VideoTile
-          participant={activeSpeaker}
-          isCameraOff={activeSpeaker.isLocal ? isCameraOff : undefined}
-          isScreenSharing={activeSpeaker.isLocal ? isScreenSharing : undefined}
-          audioLevel={audioLevels.get(activeSpeaker.peerId) || 0}
-          className="absolute inset-0 rounded-none"
-          showOverlay={false}
-          videoRefCallback={handleVideoRef}
-        />
-        {/* Show overlay on hover */}
-        <div className="absolute bottom-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-sm text-white bg-black/60 px-3 py-1.5 rounded-md font-medium">
-            {activeSpeaker.displayName}
-          </span>
-        </div>
-      </div>
-    );
-  }
 
   // ─── Speaker mode (default) ───
   return (
