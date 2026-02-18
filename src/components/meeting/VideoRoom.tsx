@@ -107,7 +107,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       .then(({ data }) => { if (data?.avatar_url) setLocalAvatarUrl(data.avatar_url); });
   }, [user]);
 
-  const isPiPSupported = typeof document !== 'undefined' && 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
+  const isPiPSupported = typeof document !== 'undefined'
+    && 'pictureInPictureEnabled' in document
+    && document.pictureInPictureEnabled
+    && !/iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  const isScreenShareSupported = typeof navigator.mediaDevices?.getDisplayMedia === 'function';
 
   // Save/load meeting settings from DB
   useEffect(() => {
@@ -264,7 +269,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     const init = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          } catch {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          }
+        }
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
 
         stream.getAudioTracks().forEach(t => (t.enabled = initialAudio));
@@ -775,7 +789,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         canChat={canChat}
         canMicrophone={canMicrophone}
         canCamera={canCamera}
-        canScreenShare={canScreenShare}
+        canScreenShare={canScreenShare && isScreenShareSupported}
       />
     </div>
   );

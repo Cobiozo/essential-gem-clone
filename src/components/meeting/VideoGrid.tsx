@@ -68,6 +68,7 @@ const VideoTile: React.FC<{
   useEffect(() => {
     if (videoRef.current && participant.stream) {
       videoRef.current.srcObject = participant.stream;
+      videoRef.current.play().catch(() => {});
     }
   }, [participant.stream]);
 
@@ -82,10 +83,13 @@ const VideoTile: React.FC<{
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
       {/* Always keep video in DOM to preserve srcObject */}
+      {/* @ts-ignore webkit-playsinline for Safari */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
+        // @ts-ignore
+        webkit-playsinline=""
         muted={participant.isLocal}
         className={showVideo
           ? `max-w-full max-h-full object-contain ${participant.isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''}`
@@ -137,6 +141,7 @@ const ThumbnailTile: React.FC<{
   useEffect(() => {
     if (videoRef.current && participant.stream) {
       videoRef.current.srcObject = participant.stream;
+      videoRef.current.play().catch(() => {});
     }
   }, [participant.stream]);
 
@@ -369,7 +374,10 @@ const MultiSpeakerLayout: React.FC<{
 const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean }> = ({ participant, isCameraOff }) => {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (ref.current && participant.stream) ref.current.srcObject = participant.stream;
+    if (ref.current && participant.stream) {
+      ref.current.srcObject = participant.stream;
+      ref.current.play().catch(() => {});
+    }
   }, [participant.stream]);
 
   const showVideo = participant.isLocal

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Send, X, MessageCircleOff, Lock } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import {
   Select,
   SelectContent,
@@ -184,7 +184,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-3 py-2">
+      <div className="flex-1 overflow-y-auto px-3 py-2" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="space-y-3 min-h-full flex flex-col justify-end">
           {visibleMessages.length === 0 && (
             <p className="text-zinc-500 text-xs text-center py-8">
@@ -231,7 +231,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
           })}
           <div ref={bottomRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input or disabled notice */}
       {chatDisabled ? (

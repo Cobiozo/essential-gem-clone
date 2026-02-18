@@ -127,7 +127,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   const disabledTip = 'Prowadzący wyłączył tę funkcję';
 
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-3 bg-zinc-900 border-t border-zinc-800 overflow-x-auto">
+    <div className="flex items-center justify-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 sm:py-3 bg-zinc-900 border-t border-zinc-800 flex-wrap" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
       <ControlButton
         icon={isMuted ? <MicOff className="h-5 w-5 text-white" /> : <Mic className="h-5 w-5 text-white" />}
         label="Mikrofon"
