@@ -79,15 +79,19 @@ const VideoTile: React.FC<{
 
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={participant.isLocal}
-          className={`max-w-full max-h-full object-contain ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
-        />
-      ) : (
+      {/* Always keep video in DOM to preserve srcObject */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={participant.isLocal}
+        className={showVideo
+          ? `max-w-full max-h-full object-contain ${participant.isLocal ? 'scale-x-[-1]' : ''}`
+          : 'hidden'
+        }
+      />
+
+      {!showVideo && (
         <div className="flex flex-col items-center gap-2">
           <div className="w-20 h-20 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
             {participant.avatarUrl ? (
@@ -100,10 +104,6 @@ const VideoTile: React.FC<{
           </div>
           <span className="text-zinc-400 text-sm">{participant.displayName}</span>
         </div>
-      )}
-
-      {!showVideo && participant.stream && (
-        <video ref={videoRef} autoPlay playsInline muted={participant.isLocal} className="hidden" />
       )}
 
       {showOverlay && (
