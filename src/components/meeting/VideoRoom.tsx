@@ -79,14 +79,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>(initialSettings || DEFAULT_SETTINGS);
   const [coHostUserIds, setCoHostUserIds] = useState<string[]>([]);
 
-  // Emit video-activity every 60s to prevent inactivity logout during meeting
+  // Emit video-activity every 60s and meeting-active/meeting-ended to prevent inactivity logout
   useEffect(() => {
+    window.dispatchEvent(new Event('meeting-active'));
+    window.dispatchEvent(new Event('video-activity'));
     const interval = setInterval(() => {
       window.dispatchEvent(new Event('video-activity'));
     }, 60000);
-    // Emit immediately on mount
-    window.dispatchEvent(new Event('video-activity'));
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.dispatchEvent(new Event('meeting-ended'));
+    };
   }, []);
   const isCoHost = user ? coHostUserIds.includes(user.id) : false;
   const canManage = isHost || isCoHost;
@@ -270,7 +273,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         setLocalStream(stream);
 
         const iceServers = await getTurnCredentials();
-        const peer = new Peer({ config: { iceServers }, debug: 0 });
+        const peer = new Peer({ config: { iceServers, iceTransportPolicy: 'all' as RTCIceTransportPolicy }, debug: 1 });
         peerRef.current = peer;
 
         peer.on('open', async (peerId) => {
@@ -478,6 +481,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     call.on('close', () => { clearTimeout(timeout); removePeer(call.peer); });
     call.on('error', (err) => { clearTimeout(timeout); console.error('[VideoRoom] Call error:', call.peer, err); removePeer(call.peer); });
+
+    // Monitor ICE connection state for NAT traversal diagnostics
+    try {
+      const pc = (call as any).peerConnection as RTCPeerConnection | undefined;
+      if (pc) {
+        pc.oniceconnectionstatechange = () => {
+          console.log(`[VideoRoom] ICE state for ${call.peer}: ${pc.iceConnectionState}`);
+          if (pc.iceConnectionState === 'failed') {
+            console.warn('[VideoRoom] ICE failed, attempting restart for peer:', call.peer);
+            try { pc.restartIce(); } catch (e) { console.error('[VideoRoom] ICE restart failed:', e); }
+          }
+        };
+      }
+    } catch (e) { /* ignore */ }
   };
 
   const removePeer = (peerId: string) => {

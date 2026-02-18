@@ -20,6 +20,7 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
   const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const warningShownRef = useRef(false);
   const lastActivityRef = useRef<number>(Date.now());
+  const isMeetingActiveRef = useRef(false);
   
   // Stable refs for callbacks to avoid re-creating timers
   const onLogoutRef = useRef(onLogout);
@@ -35,6 +36,11 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
     if (!enabled) return;
 
     const handleLogout = async () => {
+      if (isMeetingActiveRef.current) {
+        console.log('[useInactivityTimeout] Meeting active, skipping logout');
+        resetTimer();
+        return;
+      }
       console.log('[useInactivityTimeout] Logging out due to inactivity');
       
       try {
@@ -119,6 +125,11 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
     // Handle visibility change - reset timer when tab becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
+        // Never logout during an active meeting
+        if (isMeetingActiveRef.current) {
+          resetTimer();
+          return;
+        }
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         
         // Add 1-minute buffer to prevent immediate logout on tab return
@@ -141,6 +152,20 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
     };
     window.addEventListener('video-activity', handleVideoActivity);
 
+    // Handle meeting active/ended events
+    const handleMeetingActive = () => {
+      console.log('[useInactivityTimeout] Meeting active, disabling logout');
+      isMeetingActiveRef.current = true;
+      resetTimer();
+    };
+    const handleMeetingEnded = () => {
+      console.log('[useInactivityTimeout] Meeting ended, re-enabling logout');
+      isMeetingActiveRef.current = false;
+      resetTimer();
+    };
+    window.addEventListener('meeting-active', handleMeetingActive);
+    window.addEventListener('meeting-ended', handleMeetingEnded);
+
     // Cleanup
     return () => {
       if (timeoutRef.current) {
@@ -158,6 +183,8 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       });
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('video-activity', handleVideoActivity);
+      window.removeEventListener('meeting-active', handleMeetingActive);
+      window.removeEventListener('meeting-ended', handleMeetingEnded);
     };
   }, [enabled]);
 

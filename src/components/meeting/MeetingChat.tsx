@@ -185,7 +185,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-3 py-2">
-        <div className="space-y-3">
+        <div className="space-y-3 min-h-full flex flex-col justify-end">
           {visibleMessages.length === 0 && (
             <p className="text-zinc-500 text-xs text-center py-8">
               Brak wiadomości. Napisz coś!
