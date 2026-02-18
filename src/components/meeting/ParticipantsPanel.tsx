@@ -1,7 +1,9 @@
-import React from 'react';
-import { User, Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mic, MicOff, Video, VideoOff, X, VolumeX } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Participant {
   peerId: string;
@@ -19,6 +21,8 @@ interface ParticipantsPanelProps {
   localIsCameraOff: boolean;
   localAvatarUrl?: string;
   onClose: () => void;
+  onMuteAll?: () => void;
+  onMuteParticipant?: (peerId: string) => void;
 }
 
 export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
@@ -28,7 +32,11 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
   localIsCameraOff,
   localAvatarUrl,
   onClose,
+  onMuteAll,
+  onMuteParticipant,
 }) => {
+  const [hoveredPeerId, setHoveredPeerId] = useState<string | null>(null);
+
   const allParticipants: Participant[] = [
     {
       peerId: 'local',
@@ -51,9 +59,26 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
         <h3 className="text-sm font-semibold text-white">
           Uczestnicy ({allParticipants.length})
         </h3>
-        <button onClick={onClose} className="text-zinc-400 hover:text-white">
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {onMuteAll && participants.length > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                  onClick={onMuteAll}
+                >
+                  <VolumeX className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Wycisz wszystkich</TooltipContent>
+            </Tooltip>
+          )}
+          <button onClick={onClose} className="text-zinc-400 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* List */}
@@ -62,7 +87,9 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
           {allParticipants.map((p) => (
             <div
               key={p.peerId}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-800/60 transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-800/60 transition-colors group"
+              onMouseEnter={() => setHoveredPeerId(p.peerId)}
+              onMouseLeave={() => setHoveredPeerId(null)}
             >
               <Avatar className="w-8 h-8 flex-shrink-0">
                 {p.avatarUrl && <AvatarImage src={p.avatarUrl} alt={p.displayName} />}
@@ -77,10 +104,33 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
                 )}
               </span>
               <div className="flex items-center gap-1.5">
-                {p.isMuted ? (
-                  <MicOff className="h-3.5 w-3.5 text-red-500" />
+                {/* Show mute/unmute button on hover for non-local participants */}
+                {!p.isLocal && hoveredPeerId === p.peerId && onMuteParticipant ? (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => onMuteParticipant(p.peerId)}
+                        className="p-0.5 rounded hover:bg-zinc-700 transition-colors"
+                      >
+                        {p.isMuted ? (
+                          <Mic className="h-3.5 w-3.5 text-green-500" />
+                        ) : (
+                          <MicOff className="h-3.5 w-3.5 text-orange-400" />
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="left">
+                      {p.isMuted ? 'Poproś o odciszenie' : 'Wycisz'}
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
-                  <Mic className="h-3.5 w-3.5 text-zinc-500" />
+                  <>
+                    {p.isMuted ? (
+                      <MicOff className="h-3.5 w-3.5 text-red-500" />
+                    ) : (
+                      <Mic className="h-3.5 w-3.5 text-zinc-500" />
+                    )}
+                  </>
                 )}
                 {p.isCameraOff ? (
                   <VideoOff className="h-3.5 w-3.5 text-red-500" />
