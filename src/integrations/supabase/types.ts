@@ -7009,6 +7009,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_user_meeting_rooms: { Args: { p_user_id: string }; Returns: string[] }
       get_user_profiles_with_confirmation: {
         Args: never
         Returns: {

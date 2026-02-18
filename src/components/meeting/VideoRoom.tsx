@@ -410,8 +410,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   }, [isChatOpen]);
 
   const handleLeave = async () => {
-    try { await cleanup(); } catch (e) { console.warn('[VideoRoom] Cleanup error on leave:', e); }
-    onLeave();
+    try {
+      await Promise.race([
+        cleanup(),
+        new Promise((resolve) => setTimeout(resolve, 3000)),
+      ]);
+    } catch (e) {
+      console.warn('[VideoRoom] Cleanup error on leave:', e);
+    } finally {
+      onLeave();
+    }
   };
 
   const handleEndMeeting = async () => {
