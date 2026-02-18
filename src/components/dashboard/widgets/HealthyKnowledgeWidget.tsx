@@ -31,9 +31,12 @@ export const HealthyKnowledgeWidget: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (!user) return;
+    // Defer non-critical widget load by 1500ms
+    const timer = setTimeout(() => {
       fetchFeaturedMaterials();
-    }
+    }, 1500);
+    return () => clearTimeout(timer);
   }, [user, language]);
 
   const fetchFeaturedMaterials = async () => {

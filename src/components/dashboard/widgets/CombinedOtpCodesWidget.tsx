@@ -239,9 +239,12 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   }, [fetchInfoLinkCodes, fetchHkCodes]);
 
   useEffect(() => {
-    fetchAllCodes();
+    // Defer non-critical widget load by 1500ms to prioritize above-the-fold content
+    const startTimer = setTimeout(() => {
+      fetchAllCodes();
+    }, 1500);
     
-    // Polling every 60 seconds
+    // Polling every 60 seconds (starts after initial deferred fetch)
     const interval = setInterval(fetchAllCodes, 60000);
     
     // Event listeners for new codes
@@ -252,6 +255,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
     window.addEventListener('hkOtpCodeGenerated', handleHkCode);
     
     return () => {
+      clearTimeout(startTimer);
       clearInterval(interval);
       window.removeEventListener('otpCodeGenerated', handleInfoLinkCode);
       window.removeEventListener('hkOtpCodeGenerated', handleHkCode);

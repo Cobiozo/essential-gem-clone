@@ -52,87 +52,91 @@ export const TrainingProgressWidget: React.FC = () => {
           return;
         }
 
+        const allModuleIds = modulesData.map((m: any) => m.id);
+
         // Fetch translations for non-default language
         let titleTransMap = new Map<string, string>();
-        if (language !== 'pl' && modulesData.length > 0) {
+        if (language !== 'pl') {
           const { data: translations } = await supabase
             .from('training_module_translations')
             .select('module_id, title')
             .eq('language_code', language)
-            .in('module_id', modulesData.map((m: any) => m.id));
+            .in('module_id', allModuleIds);
           if (translations) {
             titleTransMap = new Map(translations.filter(t => t.title).map(t => [t.module_id, t.title!]));
           }
         }
 
-        // Fetch user's certificates to check for issuance dates
-        const { data: certificatesData } = await supabase
-          .from('certificates')
-          .select('module_id, issued_at')
-          .eq('user_id', user.id)
-          .order('issued_at', { ascending: false });
+        // Batch: fetch ALL lessons for all modules at once (fixes N+1)
+        const [certificatesRes, lessonsRes, progressRes] = await Promise.all([
+          supabase
+            .from('certificates')
+            .select('module_id, issued_at')
+            .eq('user_id', user.id)
+            .order('issued_at', { ascending: false }),
+          supabase
+            .from('training_lessons')
+            .select('id, module_id, created_at')
+            .in('module_id', allModuleIds)
+            .eq('is_active', true),
+          supabase
+            .from('training_progress')
+            .select('lesson_id, is_completed, training_lessons!inner(module_id, created_at)')
+            .eq('user_id', user.id)
+            .eq('is_completed', true),
+        ]);
 
-        // Build a map of module_id -> newest certificate issued_at
-        const certMap: {[key: string]: string} = {};
-        certificatesData?.forEach(cert => {
+        // Build certificate map: module_id -> newest issued_at
+        const certMap: Record<string, string> = {};
+        certificatesRes.data?.forEach(cert => {
           if (!certMap[cert.module_id]) {
             certMap[cert.module_id] = cert.issued_at;
           }
         });
 
-        // Calculate progress for each module based on completed lessons
-        const modulesWithProgress: ModuleProgress[] = await Promise.all(
-          modulesData.map(async (mod: any) => {
-            const certIssuedAt = certMap[mod.id];
-            
-            // Get all active lessons with their creation dates
-            const { data: lessonsData } = await supabase
-              .from('training_lessons')
-              .select('id, created_at')
-              .eq('module_id', mod.id)
-              .eq('is_active', true);
+        // Group lessons by module_id
+        const lessonsByModule = new Map<string, any[]>();
+        lessonsRes.data?.forEach(l => {
+          const arr = lessonsByModule.get(l.module_id) || [];
+          arr.push(l);
+          lessonsByModule.set(l.module_id, arr);
+        });
 
-            // Calculate total lessons - exclude lessons created after certificate issuance
-            let totalLessons = lessonsData?.length || 0;
-            if (certIssuedAt && lessonsData) {
-              const certDate = new Date(certIssuedAt);
-              totalLessons = lessonsData.filter(l => 
-                new Date(l.created_at) <= certDate
-              ).length;
-            }
+        // Calculate progress for each module
+        const modulesWithProgress: ModuleProgress[] = modulesData.map((mod: any) => {
+          const certIssuedAt = certMap[mod.id];
+          const lessons = lessonsByModule.get(mod.id) || [];
 
-            // Get completed lessons by user in this module
-            const { data: completedData } = await supabase
-              .from('training_progress')
-              .select('lesson_id, is_completed, training_lessons!inner(module_id, created_at)')
-              .eq('user_id', user.id)
-              .eq('is_completed', true);
+          // Filter lessons if certificate exists
+          let totalLessons = lessons.length;
+          if (certIssuedAt) {
+            const certDate = new Date(certIssuedAt);
+            totalLessons = lessons.filter(l => new Date(l.created_at) <= certDate).length;
+          }
 
-            // Filter completed lessons - exclude lessons created after certificate if user has one
-            let completedInModule = 0;
-            if (certIssuedAt && completedData) {
-              const certDate = new Date(certIssuedAt);
-              completedInModule = completedData.filter(
-                (p: any) => p.training_lessons?.module_id === mod.id && 
-                           new Date(p.training_lessons?.created_at) <= certDate
-              ).length;
-            } else {
-              completedInModule = completedData?.filter(
-                (p: any) => p.training_lessons?.module_id === mod.id
-              ).length || 0;
-            }
+          // Count completed lessons for this module
+          let completedInModule = 0;
+          if (certIssuedAt) {
+            const certDate = new Date(certIssuedAt);
+            completedInModule = (progressRes.data || []).filter(
+              (p: any) => p.training_lessons?.module_id === mod.id &&
+                         new Date(p.training_lessons?.created_at) <= certDate
+            ).length;
+          } else {
+            completedInModule = (progressRes.data || []).filter(
+              (p: any) => p.training_lessons?.module_id === mod.id
+            ).length;
+          }
 
-            const total = totalLessons || 0;
-            const progressPercent = total > 0 ? Math.round((completedInModule / total) * 100) : 0;
+          const progressPercent = totalLessons > 0 ? Math.round((completedInModule / totalLessons) * 100) : 0;
 
-            return {
-              id: mod.id,
-              title: titleTransMap.get(mod.id) || mod.title,
-              progress: progressPercent,
-              isCompleted: progressPercent === 100,
-            };
-          })
-        );
+          return {
+            id: mod.id,
+            title: titleTransMap.get(mod.id) || mod.title,
+            progress: progressPercent,
+            isCompleted: progressPercent === 100,
+          };
+        });
 
         setModules(modulesWithProgress);
       } catch (error) {

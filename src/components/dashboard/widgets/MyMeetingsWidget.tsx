@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X } from 'lucide-react';
@@ -6,7 +6,6 @@ import { Widget3DIcon } from './Widget3DIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useEvents } from '@/hooks/useEvents';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,83 +17,34 @@ import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
-export const MyMeetingsWidget: React.FC = () => {
+interface MyMeetingsWidgetProps {
+  events?: EventWithRegistration[];
+  eventsLoading?: boolean;
+}
+
+export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
+  events: sharedEvents,
+  eventsLoading = false,
+}) => {
   const { t, tf, language } = useLanguage();
   const { user } = useAuth();
-  const { getUserEvents } = useEvents();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [userEvents, setUserEvents] = useState<EventWithRegistration[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
 
   const locale = language === 'pl' ? pl : enUS;
-  
-  // Stable reference for getUserEvents to prevent re-subscriptions
-  const getUserEventsRef = useRef(getUserEvents);
-  getUserEventsRef.current = getUserEvents;
+
+  // Filter user's registered events from shared data
+  const userEvents = useMemo(() => {
+    if (!sharedEvents) return [];
+    return sharedEvents.filter(e => e.is_registered);
+  }, [sharedEvents]);
 
   const toggleExpand = (type: string) => {
     setExpandedTypes(prev => ({ ...prev, [type]: !prev[type] }));
   };
-
-  // Stable callback that doesn't change reference
-  const fetchUserEventsData = useCallback(async () => {
-    setLoading(true);
-    console.log('[MyMeetingsWidget] Fetching events at:', new Date().toISOString());
-    const events = await getUserEventsRef.current();
-    console.log('[MyMeetingsWidget] Got events:', events.length, events.map(e => ({ id: e.id, title: e.title })));
-    setUserEvents(events);
-    setLoading(false);
-  }, []); // Empty deps - uses ref internally
-
-  // Initial fetch + real-time subscription for user's registrations and events
-  useEffect(() => {
-    fetchUserEventsData();
-
-    if (!user?.id) return;
-
-    // Use stable channel names with user ID to prevent duplicates
-    const registrationsChannelName = `my-meetings-registrations-${user.id}`;
-    const eventsChannelName = `my-meetings-events-${user.id}`;
-
-    // Subscribe to changes for current user's registrations
-    const registrationsChannel = supabase
-      .channel(registrationsChannelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'event_registrations',
-          filter: `user_id=eq.${user.id}`
-        },
-        () => {
-          // Refetch when user's registrations change
-          fetchUserEventsData();
-        }
-      )
-      .subscribe();
-
-    // REMOVED: Global events subscription was causing unnecessary refreshes
-    // The registrations subscription is sufficient for tracking user's meetings
-    // Events table changes (like new webinars) are not relevant for "My Meetings"
-    // because user needs to register first, which triggers the registrations subscription
-
-    // Listen for custom events from CalendarWidget registration actions
-    const handleRegistrationChange = () => {
-      fetchUserEventsData();
-    };
-    window.addEventListener('eventRegistrationChange', handleRegistrationChange);
-
-    return () => {
-      supabase.removeChannel(registrationsChannel);
-      // eventsChannel removed - no longer subscribed
-      window.removeEventListener('eventRegistrationChange', handleRegistrationChange);
-    };
-  }, [user?.id, fetchUserEventsData]); // Only user.id as dependency
 
   const getEventIcon = (type: string) => {
     switch (type) {
@@ -182,10 +132,7 @@ export const MyMeetingsWidget: React.FC = () => {
         description: `${tf('events.emailNotificationsSent', 'Powiadomienia email wysłane')} (${data.emails_sent}/${data.total_participants}).`,
       });
 
-      // Refresh the list
-      fetchUserEventsData();
-      
-      // Dispatch event for other widgets to refresh
+      // Dispatch event for other widgets to refresh (useEvents in Dashboard will refetch)
       window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
     } catch (error: any) {
       console.error('[MyMeetingsWidget] Error cancelling meeting:', error);
@@ -352,7 +299,7 @@ export const MyMeetingsWidget: React.FC = () => {
     return null;
   };
 
-  if (loading) {
+  if (eventsLoading) {
     return (
       <Card variant="premium" className="relative" data-tour="my-meetings-widget">
         <WidgetInfoButton description="Twoje nadchodzące spotkania - zapisane webinary i zaplanowane konsultacje" />
