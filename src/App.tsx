@@ -314,7 +314,9 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <InactivityHandler />
+        <ErrorBoundary fallback={null}>
+          <InactivityHandler />
+        </ErrorBoundary>
         <ProfileCompletionGuard>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
