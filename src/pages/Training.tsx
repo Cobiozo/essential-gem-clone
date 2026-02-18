@@ -49,11 +49,11 @@ const Training = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [hasRefreshReminder, setHasRefreshReminder] = useState(false);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string}}>({});
-  const [trainingLanguage, setTrainingLanguage] = useState<string>('all');
+  const { t, language } = useLanguage();
+  const [trainingLanguage, setTrainingLanguage] = useState<string>(language);
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { t, language } = useLanguage();
   const { generateCertificate } = useCertificateGeneration();
 
   // Translation hook — maps by id to translate title/description

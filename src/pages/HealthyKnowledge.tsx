@@ -40,7 +40,7 @@ const HealthyKnowledgePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [contentLanguage, setContentLanguage] = useState<string>('all');
+  const [contentLanguage, setContentLanguage] = useState<string>(language);
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<HealthyKnowledge | null>(null);
