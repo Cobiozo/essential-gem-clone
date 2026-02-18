@@ -13,6 +13,7 @@ interface RemoteParticipant {
   displayName: string;
   stream: MediaStream | null;
   isMuted?: boolean;
+  avatarUrl?: string;
 }
 
 interface VideoRoomProps {
@@ -53,6 +54,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [viewMode, setViewMode] = useState<import('./VideoGrid').ViewMode>('speaker');
+  const [localAvatarUrl, setLocalAvatarUrl] = useState<string | undefined>();
+
+  // Fetch local user's avatar
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('profiles').select('avatar_url').eq('user_id', user.id).single()
+      .then(({ data }) => { if (data?.avatar_url) setLocalAvatarUrl(data.avatar_url); });
+  }, [user]);
 
   const isPiPSupported = typeof document !== 'undefined' && 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
 
@@ -230,12 +239,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           // Connect to existing participants
           const { data: existing } = await supabase
             .from('meeting_room_participants')
-            .select('peer_id, display_name')
+            .select('peer_id, display_name, user_id')
             .eq('room_id', roomId).eq('is_active', true).neq('user_id', user.id);
 
           if (existing && !cancelled) {
             for (const p of existing) {
-              if (p.peer_id) callPeer(p.peer_id, p.display_name || 'Uczestnik', stream);
+              if (p.peer_id) {
+                // Fetch avatar for this participant
+                let avatarUrl: string | undefined;
+                if (p.user_id) {
+                  const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('user_id', p.user_id).single();
+                  avatarUrl = profile?.avatar_url || undefined;
+                }
+                callPeer(p.peer_id, p.display_name || 'Uczestnik', stream, avatarUrl);
+              }
             }
           }
         });
@@ -280,14 +297,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => { cancelled = true; cleanup(); };
   }, [user, roomId]);
 
-  const callPeer = (remotePeerId: string, name: string, stream: MediaStream) => {
+  const callPeer = (remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
     console.log('[VideoRoom] Calling peer:', remotePeerId);
     const call = peerRef.current.call(remotePeerId, stream);
-    if (call) handleCall(call, name);
+    if (call) handleCall(call, name, avatarUrl);
   };
 
-  const handleCall = (call: MediaConnection, name: string) => {
+  const handleCall = (call: MediaConnection, name: string, avatarUrl?: string) => {
     connectionsRef.current.set(call.peer, call);
 
     // Timeout: if no stream within 15s, remove connection
@@ -302,7 +319,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       setParticipants((prev) => {
         const exists = prev.find((p) => p.peerId === call.peer);
         if (exists) return prev.map((p) => p.peerId === call.peer ? { ...p, stream: remoteStream } : p);
-        return [...prev, { peerId: call.peer, displayName: name, stream: remoteStream }];
+        return [...prev, { peerId: call.peer, displayName: name, stream: remoteStream, avatarUrl }];
       });
     });
 
@@ -484,6 +501,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           participants={participants}
           localStream={localStream}
           localDisplayName={displayName}
+          localAvatarUrl={localAvatarUrl}
           isMuted={isMuted}
           isCameraOff={isCameraOff}
           viewMode={viewMode}
@@ -507,6 +525,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                 localDisplayName={displayName}
                 localIsMuted={isMuted}
                 localIsCameraOff={isCameraOff}
+                localAvatarUrl={localAvatarUrl}
                 onClose={() => setIsParticipantsOpen(false)}
               />
             )}

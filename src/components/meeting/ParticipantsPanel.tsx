@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Mic, MicOff, Video, VideoOff, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface Participant {
   peerId: string;
@@ -8,6 +9,7 @@ interface Participant {
   isMuted?: boolean;
   isCameraOff?: boolean;
   isLocal?: boolean;
+  avatarUrl?: string;
 }
 
 interface ParticipantsPanelProps {
@@ -15,6 +17,7 @@ interface ParticipantsPanelProps {
   localDisplayName: string;
   localIsMuted: boolean;
   localIsCameraOff: boolean;
+  localAvatarUrl?: string;
   onClose: () => void;
 }
 
@@ -23,6 +26,7 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
   localDisplayName,
   localIsMuted,
   localIsCameraOff,
+  localAvatarUrl,
   onClose,
 }) => {
   const allParticipants: Participant[] = [
@@ -32,9 +36,13 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
       isMuted: localIsMuted,
       isCameraOff: localIsCameraOff,
       isLocal: true,
+      avatarUrl: localAvatarUrl,
     },
     ...participants,
   ];
+
+  const getInitials = (name: string) =>
+    name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 
   return (
     <div className="flex flex-col h-full bg-zinc-900 border-l border-zinc-800">
@@ -56,9 +64,12 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
               key={p.peerId}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-zinc-800/60 transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                <User className="h-4 w-4 text-zinc-400" />
-              </div>
+              <Avatar className="w-8 h-8 flex-shrink-0">
+                {p.avatarUrl && <AvatarImage src={p.avatarUrl} alt={p.displayName} />}
+                <AvatarFallback className="bg-zinc-700 text-zinc-300 text-xs font-medium">
+                  {getInitials(p.displayName)}
+                </AvatarFallback>
+              </Avatar>
               <span className="text-sm text-white flex-1 truncate">
                 {p.displayName}
                 {p.isLocal && (
