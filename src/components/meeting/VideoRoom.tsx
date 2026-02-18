@@ -391,8 +391,34 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           }
         });
 
-        peer.on('call', (call) => {
-          if (!cancelled) { call.answer(stream); handleCall(call, 'Uczestnik'); }
+        peer.on('call', async (call) => {
+          if (cancelled) return;
+          const meta = call.metadata || {};
+          let name = meta.displayName || 'Uczestnik';
+          let callerUserId: string | undefined = meta.userId;
+          let callerAvatar: string | undefined = meta.avatarUrl;
+
+          // Fallback: lookup from DB if metadata missing
+          if (!callerUserId) {
+            const { data } = await supabase
+              .from('meeting_room_participants')
+              .select('display_name, user_id')
+              .eq('room_id', roomId)
+              .eq('peer_id', call.peer)
+              .maybeSingle();
+            if (data) {
+              name = data.display_name || name;
+              callerUserId = data.user_id || undefined;
+            }
+          }
+          if (callerUserId && !callerAvatar) {
+            const { data: prof } = await supabase.from('profiles')
+              .select('avatar_url').eq('user_id', callerUserId).single();
+            callerAvatar = prof?.avatar_url || undefined;
+          }
+
+          call.answer(stream);
+          handleCall(call, name, callerAvatar, callerUserId);
         });
 
         peer.on('error', (err) => {
@@ -427,7 +453,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   const callPeer = (remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
-    const call = peerRef.current.call(remotePeerId, stream);
+    const call = peerRef.current.call(remotePeerId, stream, {
+      metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrl },
+    });
     if (call) handleCall(call, name, avatarUrl, userId);
   };
 
@@ -677,6 +705,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                 onClose={() => setIsChatOpen(false)}
                 onNewMessage={handleNewChatMessage}
                 chatDisabled={!canChat}
+                participants={participants}
               />
             )}
             {isParticipantsOpen && (

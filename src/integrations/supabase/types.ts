@@ -3456,6 +3456,7 @@ export type Database = {
           display_name: string | null
           id: string
           room_id: string
+          target_user_id: string | null
           user_id: string
         }
         Insert: {
@@ -3464,6 +3465,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           room_id: string
+          target_user_id?: string | null
           user_id: string
         }
         Update: {
@@ -3472,6 +3474,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           room_id?: string
+          target_user_id?: string | null
           user_id?: string
         }
         Relationships: []

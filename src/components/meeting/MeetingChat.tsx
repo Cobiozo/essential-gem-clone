@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, X, MessageCircleOff } from 'lucide-react';
+import { Send, X, MessageCircleOff, Lock } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface ChatMessage {
   id: string;
@@ -10,6 +17,13 @@ interface ChatMessage {
   display_name: string | null;
   content: string;
   created_at: string;
+  target_user_id?: string | null;
+}
+
+interface Participant {
+  peerId: string;
+  displayName: string;
+  userId?: string;
 }
 
 interface MeetingChatProps {
@@ -19,6 +33,7 @@ interface MeetingChatProps {
   onClose: () => void;
   onNewMessage: () => void;
   chatDisabled?: boolean;
+  participants?: Participant[];
 }
 
 export const MeetingChat: React.FC<MeetingChatProps> = ({
@@ -28,11 +43,13 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
   onClose,
   onNewMessage,
   chatDisabled = false,
+  participants = [],
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(false);
+  const [targetUserId, setTargetUserId] = useState<string>('all');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Load existing messages
@@ -96,12 +113,24 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
     const messageText = text;
     setInput('');
 
-    const { error } = await supabase.from('meeting_chat_messages').insert({
+    const insertData: {
+      room_id: string;
+      user_id: string;
+      display_name: string;
+      content: string;
+      target_user_id?: string;
+    } = {
       room_id: roomId,
       user_id: userId,
       display_name: displayName,
       content: messageText,
-    });
+    };
+
+    if (targetUserId !== 'all') {
+      insertData.target_user_id = targetUserId;
+    }
+
+    const { error } = await supabase.from('meeting_chat_messages').insert(insertData as any);
 
     if (error) {
       console.error('[MeetingChat] Send error:', error);
@@ -128,6 +157,22 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
     return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Filter messages: show public + private messages where user is sender or receiver
+  const visibleMessages = messages.filter((msg) => {
+    if (!msg.target_user_id) return true; // public
+    return msg.user_id === userId || msg.target_user_id === userId;
+  });
+
+  // Get unique participants with userId for the selector
+  const selectableParticipants = participants.filter(
+    (p) => p.userId && p.userId !== userId
+  );
+
+  const getTargetName = (targetId: string) => {
+    const p = participants.find((p) => p.userId === targetId);
+    return p?.displayName || 'Uczestnik';
+  };
+
   return (
     <div className="flex flex-col h-full bg-zinc-900 border-l border-zinc-800">
       {/* Header */}
@@ -141,13 +186,14 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
       {/* Messages */}
       <ScrollArea className="flex-1 px-3 py-2">
         <div className="space-y-3">
-          {messages.length === 0 && (
+          {visibleMessages.length === 0 && (
             <p className="text-zinc-500 text-xs text-center py-8">
               Brak wiadomości. Napisz coś!
             </p>
           )}
-          {messages.map((msg) => {
+          {visibleMessages.map((msg) => {
             const isOwn = msg.user_id === userId;
+            const isPrivate = !!msg.target_user_id;
             return (
               <div
                 key={msg.id}
@@ -157,13 +203,25 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
                   <span className="text-[10px] text-zinc-500 font-medium">
                     {isOwn ? 'Ty' : msg.display_name || 'Uczestnik'}
                   </span>
+                  {isPrivate && (
+                    <span className="text-[10px] text-purple-400 flex items-center gap-0.5">
+                      <Lock className="h-2.5 w-2.5" />
+                      {isOwn
+                        ? `do ${getTargetName(msg.target_user_id!)}`
+                        : 'prywatna'}
+                    </span>
+                  )}
                   <span className="text-[10px] text-zinc-600">{formatTime(msg.created_at)}</span>
                 </div>
                 <div
                   className={`max-w-[85%] px-3 py-1.5 rounded-xl text-sm ${
-                    isOwn
-                      ? 'bg-blue-600 text-white rounded-br-sm'
-                      : 'bg-zinc-800 text-zinc-200 rounded-bl-sm'
+                    isPrivate
+                      ? isOwn
+                        ? 'bg-purple-600 text-white rounded-br-sm'
+                        : 'bg-purple-900/50 text-purple-100 rounded-bl-sm'
+                      : isOwn
+                        ? 'bg-blue-600 text-white rounded-br-sm'
+                        : 'bg-zinc-800 text-zinc-200 rounded-bl-sm'
                   }`}
                 >
                   {msg.content}
@@ -183,6 +241,31 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
         </div>
       ) : (
         <div className="flex flex-col gap-1 px-3 py-2 border-t border-zinc-800">
+          {/* Recipient selector */}
+          {selectableParticipants.length > 0 && (
+            <Select value={targetUserId} onValueChange={setTargetUserId}>
+              <SelectTrigger className="h-7 text-xs bg-zinc-800 border-zinc-700 text-zinc-300">
+                <SelectValue placeholder="Wszyscy" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-800 border-zinc-700">
+                <SelectItem value="all" className="text-xs text-zinc-300">
+                  Wszyscy
+                </SelectItem>
+                {selectableParticipants.map((p) => (
+                  <SelectItem
+                    key={p.userId}
+                    value={p.userId!}
+                    className="text-xs text-zinc-300"
+                  >
+                    <span className="flex items-center gap-1">
+                      <Lock className="h-3 w-3 text-purple-400" />
+                      {p.displayName}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {sendError && (
             <p className="text-red-400 text-xs">Nie udało się wysłać wiadomości. Spróbuj ponownie.</p>
           )}
@@ -191,7 +274,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
               value={input}
               onChange={(e) => { setInput(e.target.value); setSendError(false); }}
               onKeyDown={handleKeyDown}
-              placeholder="Napisz wiadomość..."
+              placeholder={targetUserId !== 'all' ? `Prywatna do ${getTargetName(targetUserId)}...` : 'Napisz wiadomość...'}
               className="flex-1 bg-zinc-800 text-white text-sm rounded-full px-4 py-2 outline-none placeholder:text-zinc-500 focus:ring-1 focus:ring-blue-500"
             />
             <button
