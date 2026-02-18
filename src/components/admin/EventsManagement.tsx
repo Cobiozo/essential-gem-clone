@@ -540,41 +540,34 @@ export const EventsManagement: React.FC = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <TabsList className="inline-flex w-auto min-w-full sm:grid sm:w-full sm:grid-cols-7 gap-1">
-            <TabsTrigger value="webinars" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+        <div className="sm:mx-0 sm:px-0">
+          <TabsList className="flex w-full justify-between sm:grid sm:grid-cols-7 gap-1">
+            <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Webinary">
               <Video className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Webinary</span>
               <span className="hidden sm:inline">{t('admin.events.webinars')}</span>
             </TabsTrigger>
-            <TabsTrigger value="team-training" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+            <TabsTrigger value="team-training" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Spotkania zespołowe">
               <BookOpen className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Spotkania</span>
               <span className="hidden sm:inline">{t('admin.events.teamMeeting')}</span>
             </TabsTrigger>
-            <TabsTrigger value="individual-meetings" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+            <TabsTrigger value="individual-meetings" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Spotkania indywidualne">
               <UserRound className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Indywid.</span>
               <span className="hidden sm:inline">{t('admin.events.individualMeeting')}</span>
             </TabsTrigger>
-            <TabsTrigger value="sms-logs" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+            <TabsTrigger value="sms-logs" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="SMS">
               <MessageSquare className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">SMS</span>
               <span className="hidden sm:inline">{t('admin.events.smsLogs')}</span>
             </TabsTrigger>
-            <TabsTrigger value="topics" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+            <TabsTrigger value="topics" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Tematy">
               <Calendar className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Tematy</span>
               <span className="hidden sm:inline">{t('admin.events.topics')}</span>
             </TabsTrigger>
-            <TabsTrigger value="leaders" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+            <TabsTrigger value="leaders" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Liderzy">
               <Users className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Liderzy</span>
               <span className="hidden sm:inline">{t('admin.events.leaders')}</span>
             </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm px-2.5 sm:px-3">
+            <TabsTrigger value="settings" className="flex items-center gap-1.5 px-1.5 sm:px-3 text-xs sm:text-sm" title="Ustawienia">
               <Settings className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Ustaw.</span>
               <span className="hidden sm:inline">{t('admin.events.settings')}</span>
             </TabsTrigger>
           </TabsList>
