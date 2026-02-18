@@ -148,9 +148,10 @@ const ChatWidgetsWrapper = () => {
   const { user } = useAuth();
   const location = useLocation();
   const isInfoLinkPage = location.pathname.startsWith('/infolink/');
+  const isMeetingPage = location.pathname.startsWith('/meeting-room/');
 
-  // Hide chat widgets on InfoLink pages
-  if (!user || isInfoLinkPage) return null;
+  // Hide chat widgets on InfoLink and Meeting pages
+  if (!user || isInfoLinkPage || isMeetingPage) return null;
 
   return (
     <>

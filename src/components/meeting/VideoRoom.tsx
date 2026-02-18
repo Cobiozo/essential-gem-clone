@@ -230,6 +230,26 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               handleLeave();
             }
           });
+          channel.on('broadcast', { event: 'mute-all' }, ({ payload }) => {
+            if (!cancelled && payload?.senderPeerId !== peerId) {
+              // Mute local mic
+              localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
+              setIsMuted(true);
+              toast({ title: 'Zostałeś wyciszony', description: 'Prowadzący wyciszył wszystkich uczestników.' });
+            }
+          });
+          channel.on('broadcast', { event: 'mute-peer' }, ({ payload }) => {
+            if (!cancelled && payload?.targetPeerId === peerId) {
+              localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
+              setIsMuted(true);
+              toast({ title: 'Zostałeś wyciszony', description: 'Prowadzący wyciszył Twój mikrofon.' });
+            }
+          });
+          channel.on('broadcast', { event: 'unmute-request' }, ({ payload }) => {
+            if (!cancelled && payload?.targetPeerId === peerId) {
+              toast({ title: 'Prośba o odciszenie', description: 'Prowadzący prosi o włączenie mikrofonu.' });
+            }
+          });
 
           channel.subscribe(async (status) => {
             if (status === 'SUBSCRIBED' && !cancelled) {
@@ -504,7 +524,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   };
 
   const handleEndMeeting = async () => {
-    // Broadcast meeting-ended to all participants
     if (channelRef.current) {
       try {
         await channelRef.current.send({ type: 'broadcast', event: 'meeting-ended', payload: {} });
@@ -512,9 +531,40 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         console.warn('[VideoRoom] Failed to broadcast meeting-ended:', e);
       }
     }
-    // Then leave
     await handleLeave();
   };
+
+  const handleMuteAll = useCallback(() => {
+    if (channelRef.current && peerRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'mute-all',
+        payload: { senderPeerId: peerRef.current.id },
+      });
+      toast({ title: 'Wyciszono wszystkich', description: 'Wysłano żądanie wyciszenia do wszystkich uczestników.' });
+    }
+  }, [toast]);
+
+  const handleMuteParticipant = useCallback((peerId: string) => {
+    if (!channelRef.current) return;
+    const participant = participants.find(p => p.peerId === peerId);
+    if (participant?.isMuted) {
+      // Send unmute request
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'unmute-request',
+        payload: { targetPeerId: peerId },
+      });
+      toast({ title: 'Wysłano prośbę', description: 'Poproszono uczestnika o włączenie mikrofonu.' });
+    } else {
+      // Send mute command
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'mute-peer',
+        payload: { targetPeerId: peerId },
+      });
+    }
+  }, [participants, toast]);
 
   const sidebarOpen = isChatOpen || isParticipantsOpen;
 
@@ -562,6 +612,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                 localIsCameraOff={isCameraOff}
                 localAvatarUrl={localAvatarUrl}
                 onClose={() => setIsParticipantsOpen(false)}
+                onMuteAll={handleMuteAll}
+                onMuteParticipant={handleMuteParticipant}
               />
             )}
           </div>
