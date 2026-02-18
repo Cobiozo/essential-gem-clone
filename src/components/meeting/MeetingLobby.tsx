@@ -40,14 +40,20 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
 
     const initPreview = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        setPreviewStream(stream);
-      } catch (err) {
-        console.warn('[Lobby] Camera/mic access denied:', err);
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          } catch (err) {
+            console.warn('[Lobby] Camera/mic access denied:', err);
+            return;
+          }
+        }
       }
+      setPreviewStream(stream);
     };
 
     initPreview();
