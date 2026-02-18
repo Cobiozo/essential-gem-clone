@@ -360,9 +360,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   };
 
   const handleToggleScreenShare = async () => {
+    // Exit PiP first to avoid conflicts with media picker
+    if (document.pictureInPictureElement) {
+      try { await document.exitPictureInPicture(); } catch {}
+      setIsPiPActive(false);
+    }
+    screenSharePendingRef.current = true;
+
     if (isScreenSharing) {
       try {
-        screenSharePendingRef.current = true;
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getAudioTracks().forEach(t => (t.enabled = !isMuted));
         localStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -378,7 +384,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       finally { screenSharePendingRef.current = false; }
     } else {
       try {
-        screenSharePendingRef.current = true;
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const audioTrack = localStreamRef.current?.getAudioTracks()[0];
         if (audioTrack) screenStream.addTrack(audioTrack);
@@ -420,13 +425,36 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     const autoPiPRef = { current: false };
 
     const handleVisibility = async () => {
-      if (screenSharePendingRef.current) return; // Don't trigger PiP during screen share picker
+      if (screenSharePendingRef.current) return;
       try {
         if (document.hidden) {
-          if (!document.pictureInPictureElement && activeVideoRef.current && activeVideoRef.current.srcObject) {
-            await activeVideoRef.current.requestPictureInPicture();
-            autoPiPRef.current = true;
-            setIsPiPActive(true);
+          if (document.pictureInPictureElement) return;
+          // Find best video element for PiP (fallback if active video is hidden/no dimensions)
+          let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
+          if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
+            const allVideos = document.querySelectorAll('video');
+            pipVideo = Array.from(allVideos).find(v =>
+              v.srcObject && v.videoWidth > 0 && !v.paused
+            ) || null;
+          }
+          if (pipVideo) {
+            try {
+              await pipVideo.requestPictureInPicture();
+              autoPiPRef.current = true;
+              setIsPiPActive(true);
+            } catch {
+              // Retry once after short delay (browser may need time after visibility change)
+              await new Promise(r => setTimeout(r, 150));
+              try {
+                if (!document.pictureInPictureElement && document.hidden) {
+                  await pipVideo.requestPictureInPicture();
+                  autoPiPRef.current = true;
+                  setIsPiPActive(true);
+                }
+              } catch (retryErr) {
+                console.warn('[VideoRoom] Auto PiP retry failed:', retryErr);
+              }
+            }
           }
         } else {
           if (document.pictureInPictureElement && autoPiPRef.current) {
