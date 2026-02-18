@@ -1,41 +1,15 @@
 
-
-# Naprawa zakladek mobilnych w EventsManagement
+# Naprawa widocznosci dropdown na szerszych telefonach
 
 ## Problem
-
-Zakladki na mobile nakladaja sie na siebie -- tekst "Webinary", "Spotkania", "Indywid." itd. jest scisniety i nieczytelny. Obecne rozwiazanie uzywa `min-w-full` co wymusza zmieszczenie wszystkich 7 zakladek w szerokosci ekranu.
+Dropdown (Select) jest ukryty za pomoca klasy `sm:hidden`, a TabsList ma `hidden sm:grid`. Breakpoint `sm` w Tailwind to 640px. Urzadzenie uzytkownika ma ekran szerszy niz 640px (np. telefon w orientacji pionowej z wysoka rozdzielczoscia), wiec przegladarka pokazuje wersje desktopowa z nakladajacymi sie zakladkami zamiast dropdown.
 
 ## Rozwiazanie
+Zmienic breakpoint z `sm` na `md` (768px), aby dropdown byl widoczny na wszystkich urzadzeniach mobilnych i mniejszych tabletach.
 
-Na mobile: pokazywac **tylko ikony** (bez tekstu) w kompaktowych zakladkach, ktore mieszcza sie w jednym wierszu bez przewijania. Na desktop (`sm+`): pelne etykiety tekstowe w siatce 7-kolumnowej.
+## Zmiany w pliku `src/components/admin/EventsManagement.tsx`
 
-## Zmiany
+1. **Linia 544**: Zmienic `sm:hidden` na `md:hidden` - dropdown bedzie widoczny na ekranach do 768px
+2. **Linia 575**: Zmienic `hidden sm:grid sm:grid-cols-7` na `hidden md:grid md:grid-cols-7` - zakladki beda widoczne dopiero od 768px
 
-### `src/components/admin/EventsManagement.tsx`
-
-1. **TabsList**: Usunac `min-w-full` i zamienic na `w-full` z `justify-between` na mobile, aby 7 ikon miescilo sie rownomiernie w jednym wierszu
-2. **TabsTrigger**: Na mobile ukryc tekst calkowicie (zamiast krotkich etykiet), pokazywac tylko ikony. Dodac `Tooltip` lub `title` atrybut dla dostepnosci
-3. **Wrapper div**: Usunac `overflow-x-auto` bo nie bedzie potrzebny -- 7 ikon bez tekstu zmiesci sie w kazdym ekranie
-
-### Szczegoly techniczne
-
-Kazdy TabsTrigger zmieni sie z:
-```
-<TabsTrigger className="... px-2.5 sm:px-3">
-  <Icon />
-  <span className="sm:hidden">Skrot</span>
-  <span className="hidden sm:inline">Pelna nazwa</span>
-</TabsTrigger>
-```
-
-Na:
-```
-<TabsTrigger className="... px-1.5 sm:px-3" title="Pelna nazwa">
-  <Icon />
-  <span className="hidden sm:inline">Pelna nazwa</span>
-</TabsTrigger>
-```
-
-Efekt: 7 ikon w jednym wierszu na mobile (po ok. 44px kazda = 308px, miesci sie na 320px+ ekranie), pelne etykiety na desktop.
-
+To sa dokladnie 2 zmiany klas CSS, bez modyfikacji logiki ani struktury komponentu.
