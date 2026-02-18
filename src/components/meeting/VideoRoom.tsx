@@ -835,6 +835,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                 coHostUserIds={coHostUserIds}
                 currentUserId={user?.id}
                 onToggleCoHost={isHost ? handleToggleCoHost : undefined}
+                guestMode={guestMode}
               />
             )}
           </div>
@@ -870,6 +871,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         canMicrophone={canMicrophone}
         canCamera={canCamera}
         canScreenShare={canScreenShare && isScreenShareSupported}
+        guestMode={guestMode}
       />
     </div>
   );

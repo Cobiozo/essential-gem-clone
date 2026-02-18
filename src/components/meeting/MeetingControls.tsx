@@ -34,6 +34,8 @@ interface MeetingControlsProps {
   canMicrophone?: boolean;
   canCamera?: boolean;
   canScreenShare?: boolean;
+  // Guest mode
+  guestMode?: boolean;
 }
 
 const ControlButton: React.FC<{
@@ -122,6 +124,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   canMicrophone = true,
   canCamera = true,
   canScreenShare = true,
+  guestMode = false,
 }) => {
   const canManage = isHost || isCoHost;
   const disabledTip = 'Prowadzący wyłączył tę funkcję';
@@ -146,14 +149,17 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         disabledTooltip={disabledTip}
       />
 
-      <ControlButton
-        icon={<Monitor className="h-5 w-5 text-white" />}
-        label="Ekran"
-        onClick={onToggleScreenShare}
-        active={isScreenSharing}
-        disabled={!canScreenShare && !canManage}
-        disabledTooltip={disabledTip}
-      />
+      {/* Screen share - hidden for guests */}
+      {!guestMode && (
+        <ControlButton
+          icon={<Monitor className="h-5 w-5 text-white" />}
+          label="Ekran"
+          onClick={onToggleScreenShare}
+          active={isScreenSharing}
+          disabled={!canScreenShare && !canManage}
+          disabledTooltip={disabledTip}
+        />
+      )}
 
       <ControlButton
         icon={<MessageCircle className="h-5 w-5 text-white" />}
@@ -172,41 +178,44 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         highlighted={isParticipantsOpen}
       />
 
-      {/* View mode dropdown */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="flex flex-col items-center gap-1 min-w-[48px]">
-            <div className="w-11 h-11 rounded-full flex items-center justify-center transition-colors bg-zinc-700 hover:bg-zinc-600">
-              <LayoutGrid className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-[10px] text-zinc-400 font-medium">Widok</span>
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="center" className="bg-zinc-800 border-zinc-700 min-w-[160px]">
-          {VIEW_MODES.map(({ mode, label, icon }) => (
-            <DropdownMenuItem
-              key={mode}
-              onClick={() => onViewModeChange(mode)}
-              className={`flex items-center gap-2 text-sm cursor-pointer ${
-                viewMode === mode ? 'text-blue-400 bg-zinc-700/50' : 'text-zinc-200 hover:text-white'
-              }`}
-            >
-              {icon}
-              {label}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* View mode dropdown - hidden for guests */}
+      {!guestMode && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex flex-col items-center gap-1 min-w-[48px]">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center transition-colors bg-zinc-700 hover:bg-zinc-600">
+                <LayoutGrid className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-[10px] text-zinc-400 font-medium">Widok</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="center" className="bg-zinc-800 border-zinc-700 min-w-[160px]">
+            {VIEW_MODES.map(({ mode, label, icon }) => (
+              <DropdownMenuItem
+                key={mode}
+                onClick={() => onViewModeChange(mode)}
+                className={`flex items-center gap-2 text-sm cursor-pointer ${
+                  viewMode === mode ? 'text-blue-400 bg-zinc-700/50' : 'text-zinc-200 hover:text-white'
+                }`}
+              >
+                {icon}
+                {label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
-      {/* Settings - only for host/co-host */}
-      {canManage && meetingSettings && onMeetingSettingsChange && (
+      {/* Settings - only for host/co-host, hidden for guests */}
+      {!guestMode && canManage && meetingSettings && onMeetingSettingsChange && (
         <MeetingSettingsDialog
           settings={meetingSettings}
           onSettingsChange={onMeetingSettingsChange}
         />
       )}
 
-      {isPiPSupported && (
+      {/* PiP - hidden for guests */}
+      {!guestMode && isPiPSupported && (
         <ControlButton
           icon={<PictureInPicture2 className="h-5 w-5 text-white" />}
           label="PiP"
@@ -222,7 +231,8 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         danger
       />
 
-      {(onEndMeeting && canManage) && (
+      {/* End meeting - only for host/co-host, never for guests */}
+      {!guestMode && onEndMeeting && canManage && (
         <ControlButton
           icon={<Square className="h-5 w-5 text-white" />}
           label="Zakończ"

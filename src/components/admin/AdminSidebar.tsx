@@ -164,6 +164,7 @@ const navCategories: NavCategory[] = [
       { value: 'events', labelKey: 'events', icon: CalendarDays },
       { value: 'event-registrations', labelKey: 'eventRegistrations', icon: UserPlus },
       { value: 'paid-events', labelKey: 'paidEvents', icon: Ticket },
+      { value: 'meeting-guests', labelKey: 'meetingGuests', icon: UserPlus },
       { value: 'daily-signal', labelKey: 'dailySignal', icon: Sparkles },
       { value: 'important-info', labelKey: 'importantInfo', icon: AlertTriangle },
       { value: 'news-ticker', labelKey: 'newsTicker', icon: Newspaper },
@@ -244,6 +245,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     partnerPages: 'Strony partnerskie',
     pushNotifications: 'Powiadomienia Push',
     notifications: 'Powiadomienia systemowe',
+    meetingGuests: 'Goście spotkań',
   };
 
   const getLabel = (key: string): string => {
