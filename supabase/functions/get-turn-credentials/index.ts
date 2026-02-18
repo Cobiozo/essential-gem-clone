@@ -27,15 +27,15 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     // Generate ephemeral TURN credentials using HMAC-SHA1
     const secret = Deno.env.get('EXPRESSTURN_SECRET');
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
       { urls: 'stun:stun1.l.google.com:19302' },
       {
         urls: [
-          'turn:a.]relay.metered.ca:80',
+          'turn:a.relay.metered.ca:80',
           'turn:a.relay.metered.ca:80?transport=tcp',
           'turn:a.relay.metered.ca:443',
           'turns:a.relay.metered.ca:443?transport=tcp',

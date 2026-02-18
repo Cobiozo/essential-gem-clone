@@ -466,8 +466,8 @@ Zapisz się tutaj: ${inviteUrl}
     }
 
     // Internal meeting button
-    const useInternalMeeting = (event as any).use_internal_meeting === true;
-    const meetingRoomId = (event as any).meeting_room_id;
+    const useInternalMeeting = event.use_internal_meeting === true;
+    const meetingRoomId = event.meeting_room_id;
 
     if (useInternalMeeting && meetingRoomId && (isLive || canJoinSoon)) {
       buttons.push(

@@ -77,8 +77,8 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
   
   // Internal meeting detection
-  const useInternalMeeting = (event as any).use_internal_meeting === true;
-  const meetingRoomId = (event as any).meeting_room_id;
+  const useInternalMeeting = event.use_internal_meeting === true;
+  const meetingRoomId = event.meeting_room_id;
   
   // External platform detection
   const isExternalPlatform = (event as any).is_external_platform === true;

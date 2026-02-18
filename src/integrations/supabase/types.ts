@@ -6924,6 +6924,8 @@ export type Database = {
       }
       check_is_admin_for_events: { Args: never; Returns: boolean }
       cleanup_expired_media_tokens: { Args: never; Returns: number }
+      cleanup_old_meeting_chat: { Args: never; Returns: number }
+      cleanup_stale_meeting_participants: { Args: never; Returns: number }
       debug_user_access: {
         Args: never
         Returns: {
