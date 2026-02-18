@@ -106,7 +106,7 @@ const MeetingRoomPage: React.FC = () => {
   };
 
   const handleLeave = () => {
-    navigate(-1);
+    navigate('/events');
   };
 
   if (status === 'loading') {
