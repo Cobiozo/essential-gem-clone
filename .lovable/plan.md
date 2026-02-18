@@ -1,29 +1,60 @@
 
-# Naprawa lustrzanego odbicia udostepnianego ekranu
+# Ukrycie asystentow i funkcje wyciszania uczestnikow
 
-## Problem
+## 1. Ukrycie ikon asystentow podczas spotkania
 
-Udostepniany ekran jest wyswietlany w lustrzanym odbiciu (odwrocony horyzontalnie). Dzieje sie tak, poniewaz `VideoGrid.tsx` stosuje `scale-x-[-1]` do WSZYSTKICH lokalnych wideo (kamery i screen share jednakowo). Kamera powinna byc lustrzana (naturalne zachowanie), ale udostepniany ekran - nie.
-
-## Rozwiazanie
-
-### Plik 1: `src/components/meeting/VideoRoom.tsx`
-
-Przekazac prop `isScreenSharing` do komponentu `VideoGrid`:
+W `src/App.tsx` - komponent `ChatWidgetsWrapper` juz ukrywa widgety na stronach InfoLink. Dodanie analogicznego warunku dla sciezki `/meeting-room/`:
 
 ```text
-<VideoGrid
-  ...
-  isScreenSharing={isScreenSharing}
-/>
+const isMeetingPage = location.pathname.startsWith('/meeting-room/');
+if (!user || isInfoLinkPage || isMeetingPage) return null;
 ```
 
-### Plik 2: `src/components/meeting/VideoGrid.tsx`
+## 2. Przycisk "Wycisz wszystkich"
 
-1. Dodac prop `isScreenSharing` do interfejsu `VideoGrid` i przekazac go do `VideoTile` dla lokalnego uczestnika
-2. W `VideoTile` - zmienic warunek lustrzanego odbicia z:
-   - `participant.isLocal ? 'scale-x-[-1]' : ''`
-   - na: `participant.isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''`
-3. Dotyczy to 3 miejsc w pliku gdzie stosowane jest `scale-x-[-1]` (linie 89, 162, 379)
+W `src/components/meeting/ParticipantsPanel.tsx` - dodanie przycisku "Wycisz wszystkich" w naglowku panelu uczestnikow. Klikniecie wysle broadcast przez Supabase Realtime do wszystkich uczestnikow z zadaniem wyciszenia mikrofonu.
 
-Dzieki temu kamera bedzie nadal lustrzana (naturalne zachowanie), ale udostepniany ekran bedzie wyswietlany prawidlowo.
+W `src/components/meeting/VideoRoom.tsx` - dodanie:
+- Callbacka `onMuteAll` ktory wysyla broadcast `mute-all` przez kanal Realtime
+- Callbacka `onMuteParticipant(peerId)` ktory wysyla broadcast `mute-peer` z peerId
+- Listenera na te eventy - gdy lokalny uzytkownik otrzyma `mute-all` lub `mute-peer` skierowany do niego, automatycznie wycisza swoj mikrofon
+
+## 3. Wyciszanie po najechaniu na uczestnika
+
+W `src/components/meeting/ParticipantsPanel.tsx` - po najechaniu kursorem na wiersz uczestnika (nie-lokalnego) pojawi sie przycisk:
+- Jesli uczestnik nie jest wyciszony: ikona "Wycisz" (MicOff)
+- Jesli uczestnik jest wyciszony: ikona "Odcisz" (Mic) - wyslanie prosby o odciszenie
+
+Klikniecie wysyla odpowiedni broadcast do konkretnego uczestnika.
+
+## Szczegoly techniczne
+
+### Pliki do zmiany:
+
+1. **`src/App.tsx`** (linia 150-153) - dodanie warunku `isMeetingPage`
+
+2. **`src/components/meeting/ParticipantsPanel.tsx`**:
+   - Nowe propsy: `onMuteAll`, `onMuteParticipant(peerId)`
+   - Przycisk "Wycisz wszystkich" w naglowku (obok "X")
+   - Hover state na wierszach uczestnikow z przyciskiem wyciszenia
+
+3. **`src/components/meeting/VideoRoom.tsx`**:
+   - Nowe handlery: `handleMuteAll`, `handleMuteParticipant`
+   - Broadcast eventow `mute-all` i `mute-peer` przez kanal Realtime
+   - Listener na te eventy - automatyczne wyciszanie lokalnego mikrofonu po otrzymaniu
+   - Przekazanie callbackow do `ParticipantsPanel`
+
+### Przeplyw wyciszania:
+
+```text
+Host klika "Wycisz wszystkich"
+  -> VideoRoom wysyla broadcast { event: 'mute-all' }
+  -> Kazdy uczestnik otrzymuje event
+  -> Automatycznie wycisza swoj mikrofon
+  -> Wyswietla toast "Zostales wyciszony przez prowadzacego"
+
+Host najedza na uczestnika i klika "Wycisz"
+  -> VideoRoom wysyla broadcast { event: 'mute-peer', payload: { targetPeerId } }
+  -> Konkretny uczestnik otrzymuje event
+  -> Automatycznie wycisza swoj mikrofon
+```
