@@ -154,13 +154,13 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         is_published: editingWebinar.is_published ?? true,
         guest_link: editingWebinar.guest_link || '',
         registration_form_config: parsedFormConfig || defaultRegistrationFormConfig,
-        allow_invites: (editingWebinar as any).allow_invites ?? false,
-        publish_at: (editingWebinar as any).publish_at || null,
-        is_external_platform: (editingWebinar as any).is_external_platform ?? false,
-        external_platform_message: (editingWebinar as any).external_platform_message || '',
-        use_internal_meeting: (editingWebinar as any).use_internal_meeting ?? false,
-        meeting_room_id: (editingWebinar as any).meeting_room_id || null,
-      } as any);
+        allow_invites: editingWebinar.allow_invites ?? false,
+        publish_at: editingWebinar.publish_at || null,
+        is_external_platform: editingWebinar.is_external_platform ?? false,
+        external_platform_message: editingWebinar.external_platform_message || '',
+        use_internal_meeting: editingWebinar.use_internal_meeting ?? false,
+        meeting_room_id: editingWebinar.meeting_room_id || null,
+      });
       setImageUrlInput(editingWebinar.image_url || '');
       
       // Load existing Zoom API data (from dynamic properties)
@@ -230,7 +230,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         start_time: form.start_time,
         end_time: form.end_time,
         location: form.location || null,
-        zoom_link: (form as any).use_internal_meeting ? null : (form.zoom_link || null),
+        zoom_link: form.use_internal_meeting ? null : (form.zoom_link || null),
         max_participants: form.max_participants,
         requires_registration: form.requires_registration,
         visible_to_partners: form.visible_to_partners,
@@ -247,12 +247,12 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         is_published: form.is_published,
         guest_link: form.guest_link || null,
         registration_form_config: JSON.parse(JSON.stringify(form.registration_form_config)) as Json,
-        allow_invites: (form as any).allow_invites || false,
-        publish_at: (form as any).publish_at || null,
+        allow_invites: form.allow_invites || false,
+        publish_at: form.publish_at || null,
         is_external_platform: form.is_external_platform || false,
         external_platform_message: form.external_platform_message || null,
-        use_internal_meeting: (form as any).use_internal_meeting || false,
-        meeting_room_id: (form as any).use_internal_meeting ? ((form as any).meeting_room_id || crypto.randomUUID()) : null,
+        use_internal_meeting: form.use_internal_meeting || false,
+        meeting_room_id: form.use_internal_meeting ? (form.meeting_room_id || crypto.randomUUID()) : null,
       };
 
       let error;
@@ -413,9 +413,9 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         {/* Internal Meeting Toggle (admin only) */}
         <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
           <Switch
-            checked={(form as any).use_internal_meeting || false}
+            checked={form.use_internal_meeting || false}
             onCheckedChange={(checked) => {
-              const newForm = { ...form, use_internal_meeting: checked } as any;
+              const newForm = { ...form, use_internal_meeting: checked };
               if (checked && !newForm.meeting_room_id) {
                 newForm.meeting_room_id = crypto.randomUUID();
               }
@@ -435,7 +435,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         </div>
 
         {/* Zoom Link - only show when internal meeting is OFF */}
-        {!(form as any).use_internal_meeting && (
+        {!form.use_internal_meeting && (
           <div className="space-y-2">
             <Label className="text-muted-foreground font-medium">{t('admin.webinar.zoomLink')}</Label>
             <div className="flex gap-2">

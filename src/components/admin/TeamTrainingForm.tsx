@@ -124,11 +124,11 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         sms_reminder_enabled: editingTraining.sms_reminder_enabled ?? false,
         email_reminder_enabled: editingTraining.email_reminder_enabled ?? true,
         is_published: editingTraining.is_published ?? true,
-        allow_invites: (editingTraining as any).allow_invites ?? false,
-        publish_at: (editingTraining as any).publish_at || null,
-        use_internal_meeting: (editingTraining as any).use_internal_meeting ?? false,
-        meeting_room_id: (editingTraining as any).meeting_room_id || null,
-      } as any);
+        allow_invites: editingTraining.allow_invites ?? false,
+        publish_at: editingTraining.publish_at || null,
+        use_internal_meeting: editingTraining.use_internal_meeting ?? false,
+        meeting_room_id: editingTraining.meeting_room_id || null,
+      });
       setImageUrlInput(editingTraining.image_url || '');
       
       // Load multi-occurrence data
@@ -229,7 +229,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         start_time: startTime,
         end_time: endTime,
         location: form.location || null,
-        zoom_link: (form as any).use_internal_meeting ? null : (form.zoom_link || null),
+        zoom_link: form.use_internal_meeting ? null : (form.zoom_link || null),
         max_participants: form.max_participants,
         requires_registration: form.requires_registration,
         visible_to_partners: form.visible_to_partners,
@@ -245,10 +245,10 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         email_reminder_enabled: form.email_reminder_enabled,
         is_published: form.is_published,
         occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
-        allow_invites: (form as any).allow_invites || false,
-        publish_at: (form as any).publish_at || null,
-        use_internal_meeting: (form as any).use_internal_meeting || false,
-        meeting_room_id: (form as any).use_internal_meeting ? ((form as any).meeting_room_id || crypto.randomUUID()) : null,
+        allow_invites: form.allow_invites || false,
+        publish_at: form.publish_at || null,
+        use_internal_meeting: form.use_internal_meeting || false,
+        meeting_room_id: form.use_internal_meeting ? (form.meeting_room_id || crypto.randomUUID()) : null,
       };
 
       let error;
@@ -461,9 +461,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         {/* Internal Meeting Toggle (admin only) */}
         <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
           <Switch
-            checked={(form as any).use_internal_meeting || false}
+            checked={form.use_internal_meeting || false}
             onCheckedChange={(checked) => {
-              const newForm = { ...form, use_internal_meeting: checked } as any;
+              const newForm = { ...form, use_internal_meeting: checked };
               if (checked && !newForm.meeting_room_id) {
                 newForm.meeting_room_id = crypto.randomUUID();
               }
@@ -483,7 +483,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         </div>
 
         {/* Meeting Link - only show when internal meeting is OFF */}
-        {!(form as any).use_internal_meeting && (
+        {!form.use_internal_meeting && (
           <div className="space-y-2">
             <Label className="text-muted-foreground font-medium">Link do spotkania (Zoom/Teams/Meet)</Label>
             <div className="flex gap-2">

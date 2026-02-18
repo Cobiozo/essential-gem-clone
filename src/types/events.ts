@@ -130,6 +130,15 @@ export type WebinarFormData = {
   email_reminder_enabled: boolean;
   is_published: boolean;
   guest_link: string | null;
+  // Internal meeting fields
+  use_internal_meeting?: boolean;
+  meeting_room_id?: string | null;
+  // Extended fields
+  allow_invites?: boolean;
+  publish_at?: string | null;
+  is_external_platform?: boolean;
+  external_platform_message?: string | null;
+  registration_form_config?: any;
 };
 
 // Generic event form data (for team meetings, private meetings)
@@ -157,6 +166,12 @@ export type EventFormData = {
   email_reminder_enabled?: boolean;
   is_published?: boolean;
   guest_link?: string | null;
+  // Internal meeting fields
+  use_internal_meeting?: boolean;
+  meeting_room_id?: string | null;
+  // Extended fields
+  allow_invites?: boolean;
+  publish_at?: string | null;
 };
 
 // Webinar type options
@@ -208,4 +223,10 @@ export type TeamTrainingFormData = {
   sms_reminder_enabled: boolean;
   email_reminder_enabled: boolean;
   is_published: boolean;
+  // Internal meeting fields
+  use_internal_meeting?: boolean;
+  meeting_room_id?: string | null;
+  // Extended fields
+  allow_invites?: boolean;
+  publish_at?: string | null;
 };
