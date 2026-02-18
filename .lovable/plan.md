@@ -1,82 +1,62 @@
 
-# Naprawa 4 problemow - Meeting Room
+# Naprawa PiP i przycinania obrazu w Meeting Room
 
-## Znaleziona glowna przyczyna
+## Problem 1: Obraz glowny jest za duzy i obcina mowiacego
 
-Logi bazy danych pokazuja **"infinite recursion detected in policy for relation meeting_room_participants"**. Polityka SELECT na tabeli `meeting_room_participants` odwoluje sie do SAMEJ SIEBIE:
+**Przyczyna:** Mimo ustawienia `object-contain` na elemencie video, klasy `w-full h-full` wymuszaja rozciagniecie video do pelnego rozmiaru kontenera. W polaczeniu z `overflow-hidden` na rodzicu, video moze byc przycinane gdy proporcje kamery nie pasuja do ekranu.
 
-```
-SELECT policy: room_id IN (SELECT mrp.room_id FROM meeting_room_participants mrp WHERE mrp.user_id = auth.uid())
-```
+**Naprawa w `VideoGrid.tsx`:**
+- Zmienic klasy video z `w-full h-full object-contain` na `max-w-full max-h-full object-contain`
+- Kontener juz ma `flex items-center justify-center`, wiec video bedzie wycentrowane z czarnymi pasami po bokach/gorze
+- Dotyczy glownego VideoTile (linia 55)
 
-To powoduje nieskonczona petle - zeby przeczytac tabele, RLS musi przeczytac te sama tabele, co znow odpala RLS, itd. To blokuje WSZYSTKIE operacje: upsert uczestnika, odczyt listy uczestnikow, wysylanie wiadomosci na czacie (bo chat RLS tez sprawdza te tabele).
+## Problem 2: PiP nie uruchamia sie automatycznie przy zmianie karty
 
-## Plan napraw
+**Przyczyna:** PiP dziala tylko po recznym kliknieciu przycisku. Brak nasluchiwania na `visibilitychange` ktore automatycznie wlaczaloby PiP gdy uzytkownik przechodzi na inna karte.
 
-### Krok 1: Naprawic RLS na meeting_room_participants (SQL migration)
-
-Usunac rekurencyjna polityke SELECT i zastapic ja prosta:
-- Kazdy zalogowany uzytkownik moze widziec uczestnikow w pokoju (bez samoreferencji)
-- Alternatywnie: uzytkownik widzi swoje wlasne rekordy PLUS rekordy w pokojach, w ktorych uczestniczy (przez funkcje SQL z SECURITY DEFINER zeby ominac RLS)
-
-Najprostsze rozwiazanie - uzytkownik widzi uczestnikow w pokojach gdzie sam jest uczestnikiem, uzywajac funkcji helper:
-
-```sql
--- Funkcja SECURITY DEFINER omija RLS
-CREATE OR REPLACE FUNCTION get_user_meeting_rooms(p_user_id uuid)
-RETURNS SETOF uuid
-LANGUAGE sql SECURITY DEFINER STABLE
-AS $$ SELECT room_id FROM meeting_room_participants WHERE user_id = p_user_id AND is_active = true; $$;
-
--- Nowa polityka SELECT bez rekurencji
-DROP POLICY "Users can view participants in their room" ON meeting_room_participants;
-CREATE POLICY "Users can view participants in their room" ON meeting_room_participants
-  FOR SELECT TO authenticated
-  USING (room_id IN (SELECT get_user_meeting_rooms(auth.uid())) OR has_role(auth.uid(), 'admin'));
-```
-
-### Krok 2: Naprawic lobby - brak podgladu kamery/mikrofonu
-
-Na screenshocie widac ze kamera jest wlaczona ale podglad jest czarny. Problem w `MeetingLobby.tsx`:
-- `getUserMedia` jest wywolywane z `video: videoEnabled` w useEffect z pustym dependency array `[]`, ale `videoEnabled` jest `true` domyslnie wiec to powinno dzialac
-- Prawdopodobny problem: `videoRef.current` nie jest jeszcze zamontowany gdy stream jest gotowy
-
-Naprawa: dodac dodatkowy useEffect ktory ustawia `srcObject` gdy `previewStream` sie zmieni.
-
-### Krok 3: Naprawic object-cover na glownym video
-
-Screenshot pokazuje ze obraz jest przyciety (widac tylko czubek glowy). Problem: `object-cover` na glownym video rozciaga i przycina obraz.
-
-Naprawa w `VideoGrid.tsx`: zmienic `object-cover` na `object-contain` dla glownego video (VideoTile w trybie pelnoekranowym). Miniaturki moga zostac z `object-cover`.
-
-### Krok 4: Naprawic nawigacje po wyjsciu
-
-W `VideoRoom.tsx` `handleLeave` wywoluje `onLeave()` ktory w `MeetingRoomPage` robi `navigate('/events')`. To powinno dzialac, ale jesli `cleanup()` rzuci blad lub sie zawiesi, `onLeave()` nigdy nie zostanie wywolany.
-
-Naprawa: dodac timeout safety i uzyc `finally` block.
+**Naprawa w `VideoRoom.tsx`:**
+- Dodac `useEffect` z listenerem `visibilitychange`
+- Gdy `document.hidden === true` i jest aktywny element video z streamem -> automatycznie wejsc w PiP
+- Gdy uzytkownik wraca na karte (`document.hidden === false`) -> automatycznie wyjsc z PiP
+- Uwzglednic warunek `isPiPSupported`
+- Dodac ref do sledzenia czy PiP zostal wlaczony automatycznie (zeby nie wychodz z PiP wlaczonego recznie przez uzytkownika przy powrocie na karte)
 
 ## Zmieniane pliki
 
-1. **SQL migration** - naprawic RLS na `meeting_room_participants` (usunac rekurencje)
-2. **`src/components/meeting/VideoGrid.tsx`** - zmienic `object-cover` na `object-contain` dla glownego video
-3. **`src/components/meeting/MeetingLobby.tsx`** - dodac useEffect na ustawianie srcObject po zmianie streamu
-4. **`src/components/meeting/VideoRoom.tsx`** - dodac timeout safety w handleLeave
+### 1. `src/components/meeting/VideoGrid.tsx`
+- Linia 55: zmienic `w-full h-full object-contain` na `max-w-full max-h-full object-contain`
 
-## Szczegoly techniczne
+### 2. `src/components/meeting/VideoRoom.tsx`
+- Dodac nowy `useEffect` (okolo linii 393) z listenerem `visibilitychange`:
 
-### Zmiana RLS (Krok 1)
-- Utworzyc funkcje `get_user_meeting_rooms` z SECURITY DEFINER (omija RLS, nie powoduje rekurencji)
-- Usunac stara polityke SELECT
-- Utworzyc nowa polityke SELECT uzywajaca tej funkcji
-- To naprawi rownoczesnie: liste uczestnikow, rejestracje uczestnika (upsert), i czat (bo chat RLS tez odpytuje meeting_room_participants)
+```typescript
+useEffect(() => {
+  if (!isPiPSupported) return;
+  const autoPiPRef = { current: false };
 
-### Zmiana VideoGrid (Krok 3)
-- Glowny VideoTile: `object-contain` (cala osoba widoczna, czarne pasy po bokach)
-- Miniaturki: `object-cover` (przyciete ale ladniejsze w malym rozmiarze)
+  const handleVisibility = async () => {
+    try {
+      if (document.hidden) {
+        // Tab hidden -> enter PiP
+        if (!document.pictureInPictureElement && activeVideoRef.current && activeVideoRef.current.srcObject) {
+          await activeVideoRef.current.requestPictureInPicture();
+          autoPiPRef.current = true;
+          setIsPiPActive(true);
+        }
+      } else {
+        // Tab visible -> exit PiP only if auto-entered
+        if (document.pictureInPictureElement && autoPiPRef.current) {
+          await document.exitPictureInPicture();
+          autoPiPRef.current = false;
+          setIsPiPActive(false);
+        }
+      }
+    } catch (err) {
+      console.warn('[VideoRoom] Auto PiP error:', err);
+    }
+  };
 
-### Zmiana MeetingLobby (Krok 2)
-- Dodac useEffect reagujacy na zmiane `previewStream` ktory ustawia `videoRef.current.srcObject`
-
-### Zmiana handleLeave (Krok 4)
-- Opakowac cleanup w Promise.race z 3s timeout
-- Zapewnic ze onLeave() zawsze sie wykona
+  document.addEventListener('visibilitychange', handleVisibility);
+  return () => document.removeEventListener('visibilitychange', handleVisibility);
+}, [isPiPSupported]);
+```
