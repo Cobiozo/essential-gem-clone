@@ -11,7 +11,63 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify JWT
+    // Check for guest token first
+    const guestTokenId = req.headers.get('X-Guest-Token');
+    
+    if (guestTokenId) {
+      // Guest mode: verify guest token
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+      const { data: guestToken, error: guestError } = await supabase
+        .from('meeting_guest_tokens')
+        .select('id, expires_at')
+        .eq('id', guestTokenId)
+        .maybeSingle();
+      
+      if (guestError || !guestToken || new Date(guestToken.expires_at) < new Date()) {
+        return new Response(JSON.stringify({ error: 'Invalid guest token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Guest is valid, generate TURN credentials below using guestTokenId as userId
+      const userId = guestTokenId;
+      
+      const secret = Deno.env.get('EXPRESSTURN_SECRET');
+      if (!secret) {
+        const iceServers = [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+        ];
+        return new Response(JSON.stringify({ iceServers }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const ttl = 86400;
+      const unixTimestamp = Math.floor(Date.now() / 1000) + ttl;
+      const username = `${unixTimestamp}:${userId}`;
+      const encoder = new TextEncoder();
+      const key = await crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+      const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(username));
+      const credential = btoa(String.fromCharCode(...new Uint8Array(signature)));
+      
+      const iceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        {
+          urls: ['turn:relay1.expressturn.com:3478', 'turn:relay1.expressturn.com:3478?transport=tcp', 'turn:relay1.expressturn.com:3480', 'turns:relay1.expressturn.com:443?transport=tcp'],
+          username, credential,
+        },
+      ];
+      return new Response(JSON.stringify({ iceServers }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Verify JWT for authenticated users
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {

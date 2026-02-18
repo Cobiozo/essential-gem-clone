@@ -1,23 +1,35 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { MeetingLobby } from '@/components/meeting/MeetingLobby';
+import { GuestAccessForm } from '@/components/meeting/GuestAccessForm';
 import { VideoRoom } from '@/components/meeting/VideoRoom';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 
+interface GuestData {
+  token: string;
+  guestTokenId: string;
+  displayName: string;
+  email: string;
+}
+
 const MeetingRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
+  const [searchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+
+  const isGuestMode = searchParams.get('guest') === 'true';
+  const inviterId = searchParams.get('inviter') || '';
 
   // Cache last valid user to prevent flicker on token refresh
   const userRef = useRef(user);
   if (user) userRef.current = user;
 
-  const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized'>('loading');
+  const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized' | 'guest-form'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -27,15 +39,50 @@ const MeetingRoomPage: React.FC = () => {
   const [hostUserId, setHostUserId] = useState('');
   const [endTime, setEndTime] = useState<string | null>(null);
   const [initialSettings, setInitialSettings] = useState<import('@/components/meeting/MeetingSettingsDialog').MeetingSettings | undefined>();
+  const [guestData, setGuestData] = useState<GuestData | null>(null);
   const statusRef = useRef(status);
   statusRef.current = status;
 
-  const displayName = profile
-    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Uczestnik'
-    : 'Uczestnik';
+  const displayName = guestData
+    ? guestData.displayName
+    : profile
+      ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Uczestnik'
+      : 'Uczestnik';
 
-  // Verify access - only on initial load or user change
+  // Try to restore guest session from sessionStorage
   useEffect(() => {
+    if (!roomId || !isGuestMode) return;
+    const saved = sessionStorage.getItem(`guest_token_${roomId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as GuestData;
+        // Verify token is still valid
+        supabase.functions.invoke('verify-meeting-guest-token', {
+          body: { token: parsed.token, room_id: roomId },
+        }).then(({ data }) => {
+          if (data?.valid) {
+            setGuestData(parsed);
+            setStatus('lobby');
+          } else {
+            sessionStorage.removeItem(`guest_token_${roomId}`);
+            setStatus('guest-form');
+          }
+        }).catch(() => {
+          sessionStorage.removeItem(`guest_token_${roomId}`);
+          setStatus('guest-form');
+        });
+      } catch {
+        sessionStorage.removeItem(`guest_token_${roomId}`);
+        setStatus('guest-form');
+      }
+    } else {
+      setStatus('guest-form');
+    }
+  }, [roomId, isGuestMode]);
+
+  // Verify access for authenticated users
+  useEffect(() => {
+    if (isGuestMode) return; // Guest mode handled separately
     if (statusRef.current !== 'loading') return;
 
     if (!roomId) {
@@ -45,7 +92,6 @@ const MeetingRoomPage: React.FC = () => {
     }
 
     if (!userRef.current) {
-      // Only show unauthorized if we never had a user (not just a token refresh flicker)
       if (!user) {
         setStatus('unauthorized');
       }
@@ -70,7 +116,6 @@ const MeetingRoomPage: React.FC = () => {
         setMeetingTitle(event.title || 'Spotkanie');
         setEndTime(event.end_time || null);
 
-        // Determine host: host_user_id if exists, otherwise created_by
         const eventHostId = event.host_user_id || event.created_by;
         setHostUserId(eventHostId);
         const userIsHost = eventHostId === userRef.current!.id;
@@ -111,7 +156,18 @@ const MeetingRoomPage: React.FC = () => {
     };
 
     verifyAccess();
-  }, [roomId, user?.id]);
+  }, [roomId, user?.id, isGuestMode]);
+
+  const handleGuestSuccess = (data: { token: string; guestTokenId: string; displayName: string; eventTitle: string }) => {
+    setGuestData({
+      token: data.token,
+      guestTokenId: data.guestTokenId,
+      displayName: data.displayName,
+      email: '',
+    });
+    setMeetingTitle(data.eventTitle);
+    setStatus('lobby');
+  };
 
   const handleJoin = (audio: boolean, video: boolean, settings?: import('@/components/meeting/MeetingSettingsDialog').MeetingSettings) => {
     setAudioEnabled(audio);
@@ -125,11 +181,24 @@ const MeetingRoomPage: React.FC = () => {
   };
 
   const handleLeave = () => {
-    navigate('/dashboard');
+    if (guestData && roomId) {
+      sessionStorage.removeItem(`guest_token_${roomId}`);
+    }
+    navigate(guestData ? '/' : '/dashboard');
   };
 
   if (status === 'loading') {
     return <LoadingSpinner />;
+  }
+
+  if (status === 'guest-form') {
+    return (
+      <GuestAccessForm
+        roomId={roomId!}
+        inviterId={inviterId}
+        onSuccess={handleGuestSuccess}
+      />
+    );
   }
 
   if (status === 'unauthorized') {
@@ -168,6 +237,7 @@ const MeetingRoomPage: React.FC = () => {
         isConnecting={isConnecting}
         isHost={isHost}
         roomId={roomId!}
+        guestMode={!!guestData}
       />
     );
   }
@@ -185,6 +255,8 @@ const MeetingRoomPage: React.FC = () => {
       hostUserId={hostUserId}
       endTime={endTime}
       initialSettings={initialSettings}
+      guestMode={!!guestData}
+      guestTokenId={guestData?.guestTokenId}
     />
   );
 };

@@ -34,6 +34,7 @@ interface MeetingChatProps {
   onNewMessage: () => void;
   chatDisabled?: boolean;
   participants?: Participant[];
+  guestTokenId?: string;
 }
 
 export const MeetingChat: React.FC<MeetingChatProps> = ({
@@ -44,6 +45,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
   onNewMessage,
   chatDisabled = false,
   participants = [],
+  guestTokenId,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -113,18 +115,17 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
     const messageText = text;
     setInput('');
 
-    const insertData: {
-      room_id: string;
-      user_id: string;
-      display_name: string;
-      content: string;
-      target_user_id?: string;
-    } = {
+    const insertData: Record<string, string> = {
       room_id: roomId,
-      user_id: userId,
       display_name: displayName,
       content: messageText,
     };
+
+    if (guestTokenId) {
+      insertData.guest_token_id = guestTokenId;
+    } else {
+      insertData.user_id = userId;
+    }
 
     if (targetUserId !== 'all') {
       insertData.target_user_id = targetUserId;

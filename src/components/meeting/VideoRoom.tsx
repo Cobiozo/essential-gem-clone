@@ -30,6 +30,8 @@ interface VideoRoomProps {
   hostUserId?: string;
   endTime?: string | null;
   initialSettings?: MeetingSettings;
+  guestMode?: boolean;
+  guestTokenId?: string;
 }
 
 const DEFAULT_SETTINGS: MeetingSettings = {
@@ -50,6 +52,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   hostUserId = '',
   endTime = null,
   initialSettings,
+  guestMode = false,
+  guestTokenId,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -94,18 +98,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const isCoHost = user ? coHostUserIds.includes(user.id) : false;
   const canManage = isHost || isCoHost;
 
-  // Permission checks for current user
-  const canChat = canManage || meetingSettings.allowChat;
-  const canMicrophone = canManage || meetingSettings.allowMicrophone;
-  const canCamera = canManage || meetingSettings.allowCamera;
-  const canScreenShare = canManage || meetingSettings.allowScreenShare === 'all';
+  // Permission checks for current user - guests have limited permissions
+  const canChat = guestMode ? meetingSettings.allowChat : (canManage || meetingSettings.allowChat);
+  const canMicrophone = guestMode ? meetingSettings.allowMicrophone : (canManage || meetingSettings.allowMicrophone);
+  const canCamera = guestMode ? meetingSettings.allowCamera : (canManage || meetingSettings.allowCamera);
+  const canScreenShare = guestMode ? false : (canManage || meetingSettings.allowScreenShare === 'all');
 
-  // Fetch local user's avatar
+  // Fetch local user's avatar (skip for guests)
   useEffect(() => {
-    if (!user) return;
+    if (!user || guestMode) return;
     supabase.from('profiles').select('avatar_url').eq('user_id', user.id).single()
       .then(({ data }) => { if (data?.avatar_url) setLocalAvatarUrl(data.avatar_url); });
-  }, [user]);
+  }, [user, guestMode]);
 
   const isPiPSupported = typeof document !== 'undefined'
     && 'pictureInPictureEnabled' in document
@@ -116,7 +120,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // Save/load meeting settings from DB
   useEffect(() => {
-    if (!isHost || !user || !roomId) return;
+    if (!isHost || !user || !roomId || guestMode) return;
     // Upsert initial settings when host joins
     const saveSettings = async () => {
       await supabase.from('meeting_room_settings').upsert({
@@ -130,7 +134,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }, { onConflict: 'room_id' });
     };
     saveSettings();
-  }, [isHost, user, roomId]); // Only on mount for host
+  }, [isHost, user, roomId, guestMode]); // Only on mount for host
 
   // Non-host: load settings from DB on join
   useEffect(() => {
@@ -202,6 +206,23 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Fetch TURN credentials
   const getTurnCredentials = useCallback(async () => {
     try {
+      if (guestMode && guestTokenId) {
+        // Guest mode: call with guest token header
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL || 'https://xzlhssqqbajqhnsmbucf.supabase.co'}/functions/v1/get-turn-credentials`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA',
+              'X-Guest-Token': guestTokenId,
+            },
+            body: JSON.stringify({}),
+          }
+        );
+        const data = await response.json();
+        return data?.iceServers || [];
+      }
       const { data, error } = await supabase.functions.invoke('get-turn-credentials');
       if (error) throw error;
       return data?.iceServers || [];
@@ -212,7 +233,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         { urls: 'stun:stun1.l.google.com:19302' },
       ];
     }
-  }, []);
+  }, [guestMode, guestTokenId]);
 
   // Cleanup function with guard
   const cleanup = useCallback(async () => {
@@ -228,20 +249,50 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       try { supabase.removeChannel(channelRef.current); } catch {}
       channelRef.current = null;
     }
-    if (user) {
+
+    // Update participant record
+    if (guestMode && guestTokenId) {
+      try {
+        await supabase.from('meeting_room_participants')
+          .update({ is_active: false, left_at: new Date().toISOString() })
+          .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
+        // Update analytics
+        await supabase.from('meeting_guest_analytics')
+          .update({ left_at: new Date().toISOString() })
+          .eq('guest_token_id', guestTokenId)
+          .is('left_at', null);
+        // Calculate duration and send thank you email
+        const { data: analyticsData } = await supabase
+          .from('meeting_guest_analytics')
+          .select('id, joined_at, left_at')
+          .eq('guest_token_id', guestTokenId)
+          .maybeSingle();
+        if (analyticsData?.joined_at && analyticsData?.left_at) {
+          const duration = Math.round((new Date(analyticsData.left_at).getTime() - new Date(analyticsData.joined_at).getTime()) / 1000);
+          await supabase.from('meeting_guest_analytics').update({ duration_seconds: duration }).eq('id', analyticsData.id);
+          // Trigger thank you email
+          if (duration >= 30) {
+            supabase.functions.invoke('send-guest-thank-you-email', {
+              body: { guest_token_id: guestTokenId },
+            }).catch(e => console.warn('[VideoRoom] Thank you email error:', e));
+          }
+        }
+      } catch (e) { console.warn('[VideoRoom] Failed to update guest status:', e); }
+    } else if (user) {
       try {
         await supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('user_id', user.id);
       } catch (e) { console.warn('[VideoRoom] Failed to update participant status:', e); }
     }
+
     connectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
     connectionsRef.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch {} });
     localStreamRef.current = null;
     if (peerRef.current) { try { peerRef.current.destroy(); } catch {} peerRef.current = null; }
     console.log('[VideoRoom] Cleanup complete');
-  }, [roomId, user]);
+  }, [roomId, user, guestMode, guestTokenId]);
 
   // beforeunload handler
   useEffect(() => {
@@ -263,7 +314,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // Initialize peer and media
   useEffect(() => {
-    if (!user) return;
+    if (!user && !guestMode) return;
     let cancelled = false;
     cleanupDoneRef.current = false;
 
@@ -295,18 +346,40 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           console.log('[VideoRoom] Peer opened:', peerId);
           setIsConnected(true);
 
-          const { error: participantError } = await supabase
-            .from('meeting_room_participants')
-            .upsert(
-              { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
-              { onConflict: 'room_id,user_id' }
-            );
-          if (participantError) {
-            console.error('[VideoRoom] Failed to register participant:', participantError);
-            await supabase.from('meeting_room_participants').upsert(
-              { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
-              { onConflict: 'room_id,user_id' }
-            );
+          // Register participant
+          if (guestMode && guestTokenId) {
+            const joinedAt = new Date().toISOString();
+            await supabase.from('meeting_room_participants').insert({
+              room_id: roomId,
+              guest_token_id: guestTokenId,
+              peer_id: peerId,
+              display_name: displayName,
+              is_active: true,
+              joined_at: joinedAt,
+            });
+            // Update analytics with join info
+            await supabase.from('meeting_guest_analytics')
+              .update({
+                joined_at: joinedAt,
+                join_source: document.referrer || 'direct',
+                device_info: navigator.userAgent,
+              })
+              .eq('guest_token_id', guestTokenId)
+              .is('joined_at', null);
+          } else if (user) {
+            const { error: participantError } = await supabase
+              .from('meeting_room_participants')
+              .upsert(
+                { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
+                { onConflict: 'room_id,user_id' }
+              );
+            if (participantError) {
+              console.error('[VideoRoom] Failed to register participant:', participantError);
+              await supabase.from('meeting_room_participants').upsert(
+                { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
+                { onConflict: 'room_id,user_id' }
+              );
+            }
           }
 
           const channel = supabase.channel(`meeting:${roomId}`);
@@ -350,8 +423,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             if (!cancelled && payload?.settings) {
               const newSettings = payload.settings as MeetingSettings;
               setMeetingSettings(newSettings);
-              // Force disable mic/camera for non-host/co-host when permissions revoked
-              const isManager = isHost || coHostUserIds.includes(user.id);
+              // Force disable mic/camera when permissions revoked (guests always affected)
+              const isManager = !guestMode && (isHost || (user && coHostUserIds.includes(user.id)));
               if (!isManager) {
                 if (!newSettings.allowMicrophone) {
                   localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
@@ -365,37 +438,43 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               toast({ title: 'Ustawienia spotkania zmienione', description: 'Prowadzący zmienił ustawienia.' });
             }
           });
-          // Co-host broadcasts
-          channel.on('broadcast', { event: 'co-host-assigned' }, ({ payload }) => {
-            if (!cancelled && payload?.userId) {
-              setCoHostUserIds(prev => prev.includes(payload.userId) ? prev : [...prev, payload.userId]);
-              if (payload.userId === user.id) {
-                toast({ title: 'Nadano Ci rolę współprowadzącego!' });
+          // Co-host broadcasts (only for authenticated users)
+          if (!guestMode && user) {
+            channel.on('broadcast', { event: 'co-host-assigned' }, ({ payload }) => {
+              if (!cancelled && payload?.userId) {
+                setCoHostUserIds(prev => prev.includes(payload.userId) ? prev : [...prev, payload.userId]);
+                if (payload.userId === user.id) {
+                  toast({ title: 'Nadano Ci rolę współprowadzącego!' });
+                }
               }
-            }
-          });
-          channel.on('broadcast', { event: 'co-host-removed' }, ({ payload }) => {
-            if (!cancelled && payload?.userId) {
-              setCoHostUserIds(prev => prev.filter(id => id !== payload.userId));
-              if (payload.userId === user.id) {
-                toast({ title: 'Odebrano Ci rolę współprowadzącego' });
+            });
+            channel.on('broadcast', { event: 'co-host-removed' }, ({ payload }) => {
+              if (!cancelled && payload?.userId) {
+                setCoHostUserIds(prev => prev.filter(id => id !== payload.userId));
+                if (payload.userId === user.id) {
+                  toast({ title: 'Odebrano Ci rolę współprowadzącego' });
+                }
               }
-            }
-          });
+            });
+          }
 
           channel.subscribe(async (status) => {
             if (status === 'SUBSCRIBED' && !cancelled) {
-              await channel.send({ type: 'broadcast', event: 'peer-joined', payload: { peerId, displayName, userId: user.id } });
+              await channel.send({ type: 'broadcast', event: 'peer-joined', payload: { peerId, displayName, userId: user?.id, isGuest: guestMode } });
             }
           });
 
+          // Fetch existing participants
           const { data: existing } = await supabase
             .from('meeting_room_participants')
-            .select('peer_id, display_name, user_id')
-            .eq('room_id', roomId).eq('is_active', true).neq('user_id', user.id);
+            .select('peer_id, display_name, user_id, guest_token_id')
+            .eq('room_id', roomId).eq('is_active', true);
 
           if (existing && !cancelled) {
             for (const p of existing) {
+              // Skip self
+              if (user && p.user_id === user.id) continue;
+              if (guestTokenId && p.guest_token_id === guestTokenId) continue;
               if (p.peer_id) {
                 let avatarUrl: string | undefined;
                 if (p.user_id) {
@@ -466,7 +545,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     init();
     return () => { cancelled = true; cleanup(); };
-  }, [user, roomId]);
+  }, [user, roomId, guestMode, guestTokenId]);
 
   const callPeer = (remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
@@ -728,15 +807,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
         {sidebarOpen && (
           <div className="w-80 max-md:absolute max-md:inset-0 max-md:w-full max-md:z-50">
-            {isChatOpen && user && (
+            {isChatOpen && (user || guestMode) && (
               <MeetingChat
                 roomId={roomId}
-                userId={user.id}
+                userId={user?.id || guestTokenId || ''}
                 displayName={displayName}
                 onClose={() => setIsChatOpen(false)}
                 onNewMessage={handleNewChatMessage}
                 chatDisabled={!canChat}
                 participants={participants}
+                guestTokenId={guestMode ? guestTokenId : undefined}
               />
             )}
             {isParticipantsOpen && (
