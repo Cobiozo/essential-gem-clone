@@ -14,6 +14,7 @@ interface Participant {
   isLocal?: boolean;
   avatarUrl?: string;
   userId?: string;
+  isGuest?: boolean;
 }
 
 interface ParticipantsPanelProps {
@@ -32,6 +33,8 @@ interface ParticipantsPanelProps {
   coHostUserIds?: string[];
   currentUserId?: string;
   onToggleCoHost?: (userId: string) => void;
+  // Guest mode
+  guestMode?: boolean;
 }
 
 export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
@@ -49,6 +52,7 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
   coHostUserIds = [],
   currentUserId,
   onToggleCoHost,
+  guestMode = false,
 }) => {
   const [hoveredPeerId, setHoveredPeerId] = useState<string | null>(null);
   const canManage = isHost || isCoHost;
@@ -62,6 +66,7 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
       isLocal: true,
       avatarUrl: localAvatarUrl,
       userId: currentUserId,
+      isGuest: guestMode,
     },
     ...participants,
   ];
@@ -75,6 +80,9 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
     }
     if (p.userId && coHostUserIds.includes(p.userId)) {
       return <Badge variant="secondary" className="text-[9px] py-0 px-1 bg-green-600/20 text-green-400 border-0">Współprowadzący</Badge>;
+    }
+    if (p.isGuest) {
+      return <Badge variant="secondary" className="text-[9px] py-0 px-1 bg-orange-600/20 text-orange-400 border-0">Gość</Badge>;
     }
     return null;
   };
@@ -135,7 +143,7 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
               </div>
               <div className="flex items-center gap-1.5">
                 {/* Co-host toggle - only host can do this, not for self or current host */}
-                {isHost && hoveredPeerId === p.peerId && !p.isLocal && p.userId && p.userId !== hostUserId && onToggleCoHost && (
+                {isHost && !p.isGuest && hoveredPeerId === p.peerId && !p.isLocal && p.userId && p.userId !== hostUserId && onToggleCoHost && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button

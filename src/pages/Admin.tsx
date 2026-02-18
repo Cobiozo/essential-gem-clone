@@ -60,6 +60,7 @@ import { EventsManagement } from '@/components/admin/EventsManagement';
 import EventRegistrationsManagement from '@/components/admin/EventRegistrationsManagement';
 import { CalculatorManagement } from '@/components/admin/CalculatorManagement';
 import { PaidEventsManagement } from '@/components/admin/paid-events/PaidEventsManagement';
+import { AdminGuestDashboard } from '@/components/admin/AdminGuestDashboard';
 import { PartnerPagesManagement } from '@/components/admin/PartnerPagesManagement';
 import { SpecialistCalculatorManagement } from '@/components/admin/SpecialistCalculatorManagement';
 import { SidebarFooterIconsManagement } from '@/components/admin/SidebarFooterIconsManagement';
@@ -4498,6 +4499,10 @@ const Admin = () => {
 
           <TabsContent value="paid-events">
             <PaidEventsManagement />
+          </TabsContent>
+
+          <TabsContent value="meeting-guests">
+            <AdminGuestDashboard />
           </TabsContent>
 
           <TabsContent value="calculator">
