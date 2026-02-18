@@ -52,7 +52,7 @@ const VideoTile: React.FC<{
           autoPlay
           playsInline
           muted={participant.isLocal}
-          className={`w-full h-full object-contain ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
+          className={`max-w-full max-h-full object-contain ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
         />
       ) : (
         <div className="flex flex-col items-center gap-2">
