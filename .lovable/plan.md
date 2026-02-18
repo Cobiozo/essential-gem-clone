@@ -1,61 +1,82 @@
 
+# Naprawa 4 problemow - Meeting Room
 
-# Naprawa 4 problemow w Meeting Room
+## Znaleziona glowna przyczyna
 
-## Problem 1: Brak detekcji aktywnego mowcy (czarny glowny ekran)
+Logi bazy danych pokazuja **"infinite recursion detected in policy for relation meeting_room_participants"**. Polityka SELECT na tabeli `meeting_room_participants` odwoluje sie do SAMEJ SIEBIE:
 
-**Przyczyna:** VideoGrid przelacza aktywnego mowce tylko przez reczne klikniecie na miniaturke. Brak automatycznej detekcji dzwieku (Web Audio API).
+```
+SELECT policy: room_id IN (SELECT mrp.room_id FROM meeting_room_participants mrp WHERE mrp.user_id = auth.uid())
+```
 
-**Naprawa w `VideoGrid.tsx`:**
-- Dodac `AudioContext` + `AnalyserNode` do analizy poziomu dzwieku kazdego uczestnika
-- Co ~300ms sprawdzac ktory uczestnik ma najwyzszy poziom audio
-- Automatycznie przelaczac `activeSpeakerIndex` na mowce (z debounce 2s zeby nie skakalo)
-- Domyslnie pokazywac pierwszego zdalnego uczestnika (index 1) zamiast lokalnego (index 0) jesli sa inni uczestnicy
+To powoduje nieskonczona petle - zeby przeczytac tabele, RLS musi przeczytac te sama tabele, co znow odpala RLS, itd. To blokuje WSZYSTKIE operacje: upsert uczestnika, odczyt listy uczestnikow, wysylanie wiadomosci na czacie (bo chat RLS tez sprawdza te tabele).
 
-## Problem 2: Czat nie wysyla wiadomosci
+## Plan napraw
 
-**Przyczyna:** RLS policy na `meeting_chat_messages` INSERT wymaga aktywnego rekordu w `meeting_room_participants`. Insert uczestnika w VideoRoom.tsx nie sprawdza bledu - jesli sie nie powiedzie (np. duplikat), czat nie zadziala.
+### Krok 1: Naprawic RLS na meeting_room_participants (SQL migration)
 
-**Naprawa w `VideoRoom.tsx`:**
-- Dodac `upsert` zamiast `insert` dla `meeting_room_participants` (obsluga ponownego dolaczenia)
-- Dodac logowanie bledu insertowania uczestnika
-- Dodac retry jesli insert sie nie powiedzie
+Usunac rekurencyjna polityke SELECT i zastapic ja prosta:
+- Kazdy zalogowany uzytkownik moze widziec uczestnikow w pokoju (bez samoreferencji)
+- Alternatywnie: uzytkownik widzi swoje wlasne rekordy PLUS rekordy w pokojach, w ktorych uczestniczy (przez funkcje SQL z SECURITY DEFINER zeby ominac RLS)
 
-**Naprawa w `MeetingChat.tsx`:**
-- Dodac lepszy error handling z konkretnym komunikatem RLS
-- Pokazac przycisk "Sprobuj ponownie" zamiast automatycznego retry
+Najprostsze rozwiazanie - uzytkownik widzi uczestnikow w pokojach gdzie sam jest uczestnikiem, uzywajac funkcji helper:
 
-## Problem 3: Kamera nie wlacza sie po wylaczeniu
+```sql
+-- Funkcja SECURITY DEFINER omija RLS
+CREATE OR REPLACE FUNCTION get_user_meeting_rooms(p_user_id uuid)
+RETURNS SETOF uuid
+LANGUAGE sql SECURITY DEFINER STABLE
+AS $$ SELECT room_id FROM meeting_room_participants WHERE user_id = p_user_id AND is_active = true; $$;
 
-**Przyczyna:** `handleToggleCamera` zmienia `track.enabled`, ale `VideoGrid` sprawdza `hasVideo` na obiekcie stream ktory nie zmienil referencji. React nie wie ze trzeba przerenderowac `VideoTile`, bo `participant.stream` to ten sam obiekt.
+-- Nowa polityka SELECT bez rekurencji
+DROP POLICY "Users can view participants in their room" ON meeting_room_participants;
+CREATE POLICY "Users can view participants in their room" ON meeting_room_participants
+  FOR SELECT TO authenticated
+  USING (room_id IN (SELECT get_user_meeting_rooms(auth.uid())) OR has_role(auth.uid(), 'admin'));
+```
 
-**Naprawa w `VideoRoom.tsx`:**
-- Po toggle kamery wymusic aktualizacje `localStream` state nowa referencja: `setLocalStream(prev => prev ? new MediaStream(prev.getTracks()) : null)`
-- To spowoduje re-render VideoTile z nowa referencja streamu
+### Krok 2: Naprawic lobby - brak podgladu kamery/mikrofonu
 
-**Naprawa w `VideoGrid.tsx`:**
-- Dodac dodatkowy `isCameraOff` prop do VideoTile zeby reagowal na zmiany stanu kamery niezaleznie od referencji streamu
+Na screenshocie widac ze kamera jest wlaczona ale podglad jest czarny. Problem w `MeetingLobby.tsx`:
+- `getUserMedia` jest wywolywane z `video: videoEnabled` w useEffect z pustym dependency array `[]`, ale `videoEnabled` jest `true` domyslnie wiec to powinno dzialac
+- Prawdopodobny problem: `videoRef.current` nie jest jeszcze zamontowany gdy stream jest gotowy
 
-## Problem 4: Lista uczestnikow i PiP
+Naprawa: dodac dodatkowy useEffect ktory ustawia `srcObject` gdy `previewStream` sie zmieni.
 
-**Przyczyna PiP:** PiP wymaga aktywnego elementu `<video>` z dzialajacym streamem. Jesli glowny ekran jest czarny (problem 1), PiP tez nie zadziala.
+### Krok 3: Naprawic object-cover na glownym video
 
-**Naprawa:** Naprawienie problemu 1 (aktywny mowca) automatycznie naprawi PiP, bo bedzie dzialajacy stream w glownym video.
+Screenshot pokazuje ze obraz jest przyciety (widac tylko czubek glowy). Problem: `object-cover` na glownym video rozciaga i przycina obraz.
+
+Naprawa w `VideoGrid.tsx`: zmienic `object-cover` na `object-contain` dla glownego video (VideoTile w trybie pelnoekranowym). Miniaturki moga zostac z `object-cover`.
+
+### Krok 4: Naprawic nawigacje po wyjsciu
+
+W `VideoRoom.tsx` `handleLeave` wywoluje `onLeave()` ktory w `MeetingRoomPage` robi `navigate('/events')`. To powinno dzialac, ale jesli `cleanup()` rzuci blad lub sie zawiesi, `onLeave()` nigdy nie zostanie wywolany.
+
+Naprawa: dodac timeout safety i uzyc `finally` block.
 
 ## Zmieniane pliki
 
-### 1. `src/components/meeting/VideoGrid.tsx`
-- Dodac active speaker detection z Web Audio API
-- Dodac prop `isCameraOff` do VideoTile
-- Domyslny active speaker = pierwszy zdalny uczestnik
-- Wizualny wskaznik mowcy na miniaturce (zielona ramka)
+1. **SQL migration** - naprawic RLS na `meeting_room_participants` (usunac rekurencje)
+2. **`src/components/meeting/VideoGrid.tsx`** - zmienic `object-cover` na `object-contain` dla glownego video
+3. **`src/components/meeting/MeetingLobby.tsx`** - dodac useEffect na ustawianie srcObject po zmianie streamu
+4. **`src/components/meeting/VideoRoom.tsx`** - dodac timeout safety w handleLeave
 
-### 2. `src/components/meeting/VideoRoom.tsx`
-- `handleToggleCamera`: wymusic nowa referencje streamu po toggle
-- Insert uczestnika: `upsert` zamiast `insert`, z error handling
-- Przekazac `isCameraOff` do VideoGrid
+## Szczegoly techniczne
 
-### 3. `src/components/meeting/MeetingChat.tsx`
-- Poprawic error handling - wyswietlic blad z RLS
-- Nie kasowac inputa przed potwierdzeniem wysylki
+### Zmiana RLS (Krok 1)
+- Utworzyc funkcje `get_user_meeting_rooms` z SECURITY DEFINER (omija RLS, nie powoduje rekurencji)
+- Usunac stara polityke SELECT
+- Utworzyc nowa polityke SELECT uzywajaca tej funkcji
+- To naprawi rownoczesnie: liste uczestnikow, rejestracje uczestnika (upsert), i czat (bo chat RLS tez odpytuje meeting_room_participants)
 
+### Zmiana VideoGrid (Krok 3)
+- Glowny VideoTile: `object-contain` (cala osoba widoczna, czarne pasy po bokach)
+- Miniaturki: `object-cover` (przyciete ale ladniejsze w malym rozmiarze)
+
+### Zmiana MeetingLobby (Krok 2)
+- Dodac useEffect reagujacy na zmiane `previewStream` ktory ustawia `videoRef.current.srcObject`
+
+### Zmiana handleLeave (Krok 4)
+- Opakowac cleanup w Promise.race z 3s timeout
+- Zapewnic ze onLeave() zawsze sie wykona
