@@ -1,143 +1,84 @@
 
-# Naprawa krytycznych bledow spotkania + nowe funkcje czatu
 
-## Problem 1: Uczestnik zamiast imienia i nazwiska (KRYTYCZNY)
+# Naprawa trzech problemow: czat od dolu, NAT, wylogowanie
 
-**Przyczyna**: W pliku `VideoRoom.tsx` linia 394-395, gdy uczestnik odbiera polaczenie PeerJS (`peer.on('call')`), nazwa jest zakodowana na sztywno jako `'Uczestnik'` bez `userId` i `avatarUrl`:
+## 1. Czat - wiadomosci od dolu
+
+**Plik**: `src/components/meeting/MeetingChat.tsx` (linia 188)
+
+Zmiana kontenera wiadomosci z:
 ```
-peer.on('call', (call) => {
-  call.answer(stream); handleCall(call, 'Uczestnik');
+<div className="space-y-3">
+```
+na:
+```
+<div className="space-y-3 min-h-full flex flex-col justify-end">
+```
+
+To spowoduje, ze wiadomosci beda "przyklejone" do dolu - nowe pojawiaja sie na dole, stare przesuwaja sie ku gorze.
+
+---
+
+## 2. Polaczenia poza NAT (TURN relay)
+
+**Problem**: Polaczenia dzialaja w sieci lokalnej (LAN) dzieki STUN, ale nie dzialaja miedzy roznymi sieciami (rozne NAT-y). Przyczyna: w fallbacku (linia 202-205) uzywane sa TYLKO serwery STUN, a glowna konfiguracja PeerJS nie wymusza uzycia relay.
+
+**Plik**: `src/components/meeting/VideoRoom.tsx`
+
+Zmiany:
+- **Linia 273**: Dodanie konfiguracji PeerJS wymuszajacej uzycie relay gdy bezposrednie polaczenie nie jest mozliwe. Zmiana `debug: 0` na `debug: 1` tymczasowo dla diagnostyki, oraz dodanie w konfiguracji `iceTransportPolicy: 'all'` aby peer probowal wszystkich metod polaczenia (w tym TURN relay)
+- Dodanie logowania stanu ICE na polaczeniach, aby wykrywac i raportowac problemy z NAT
+
+```text
+Przed:
+const peer = new Peer({ config: { iceServers }, debug: 0 });
+
+Po:
+const peer = new Peer({
+  config: {
+    iceServers,
+    iceTransportPolicy: 'all',
+  },
+  debug: 1,
 });
 ```
 
-Natomiast gdy to MY dzwonimy do kogos (linia 300, `callPeer`), poprawnie przekazujemy `displayName` i `userId`. Problem wystepuje wiec tylko u strony odbierajacej.
-
-**Rozwiazanie**: PeerJS wspiera `metadata` w polaczeniach. Wyslemy `displayName`, `userId` i `avatarUrl` jako metadata przy kazdym polaczeniu, a przy odbieraniu odczytamy je z `call.metadata`.
-
-### Zmiany w `VideoRoom.tsx`:
-
-**a) callPeer** - dodanie metadata do `peer.call()`:
-```typescript
-const call = peerRef.current.call(remotePeerId, stream, {
-  metadata: { displayName, userId, avatarUrl: localAvatarUrl }
-});
-```
-
-**b) peer.on('call')** - odczytanie metadata z polaczenia:
-```typescript
-peer.on('call', async (call) => {
-  const meta = call.metadata || {};
-  let name = meta.displayName || 'Uczestnik';
-  let callerUserId = meta.userId;
-  let callerAvatar = meta.avatarUrl;
-
-  // Fallback: lookup from DB if metadata missing
-  if (!callerUserId) {
-    const { data } = await supabase
-      .from('meeting_room_participants')
-      .select('display_name, user_id')
-      .eq('room_id', roomId)
-      .eq('peer_id', call.peer)
-      .maybeSingle();
-    if (data) {
-      name = data.display_name || name;
-      callerUserId = data.user_id;
-    }
-  }
-  if (callerUserId && !callerAvatar) {
-    const { data: prof } = await supabase.from('profiles')
-      .select('avatar_url').eq('user_id', callerUserId).single();
-    callerAvatar = prof?.avatar_url || undefined;
-  }
-
-  call.answer(stream);
-  handleCall(call, name, callerAvatar, callerUserId);
-});
-```
-
-To naprawi rownoczesnie:
-- Wyswietlanie imienia i nazwiska zamiast "Uczestnik"
-- Avatar uczestnika
-- Mozliwosc nadania wspolprowadzacego (wymaga `userId`)
-- Dostep do czatu (wymaga poprawnego `userId` w uprawnieniach)
+- W funkcji `handleCall` (linia 462): dodanie monitorowania stanu ICE na polaczeniu (`call.peerConnection`) - logowanie zmian `iceConnectionState` dla diagnostyki. Gdy stan ICE zmieni sie na `'failed'`, automatyczna proba restartu ICE.
 
 ---
 
-## Problem 2: Brak mozliwosci nadania wspolprowadzacego
+## 3. Wylogowanie podczas spotkania
 
-**Przyczyna**: `ParticipantsPanel` wyswietla przycisk wspolprowadzacego tylko gdy `p.userId` jest ustawione (warunek w linii 135). Poniewaz `userId` nie bylo przekazywane przy odbieraniu polaczen (Problem 1), przycisk nigdy sie nie pojawial.
+**Problem**: `useInactivityTimeout` wylogowuje uzytkownika gdy przelacza karte na dluzej niz 31 minut. `setInterval` (linia 84-86 w VideoRoom) jest throttlowany przez przegladarke w ukrytych kartach, wiec `video-activity` nie jest emitowane wystarczajaco czesto.
 
-**Rozwiazanie**: Naprawienie Problemu 1 automatycznie rozwiazuje ten problem - `userId` bedzie poprawnie ustawione dla kazdego uczestnika.
+**Rozwiazanie**: Nowe zdarzenia `meeting-active` i `meeting-ended`.
 
----
+**Plik**: `src/components/meeting/VideoRoom.tsx` (linia 82-90)
 
-## Problem 3: Uczestnik nie mogl pisac na czacie
+Dodanie emisji `meeting-active` na mount i `meeting-ended` na unmount:
 
-**Przyczyna**: Prawdopodobnie powiazane z Problemem 1 - brak poprawnego `userId` moglzaklocac logike uprawnien. Dodatkowo sprawdze, czy logika `canChat` w `VideoRoom.tsx` jest poprawna. Aktualnie `canChat = canManage || meetingSettings.allowChat` - jesli czat jest wlaczony (allowChat=true), kazdy powinien moc pisac. Jesli settings nie zaladowaly sie poprawnie dla uczestnika, `allowChat` moze byc `false`.
-
-**Rozwiazanie**: Upewnie sie, ze domyslne ustawienia (`DEFAULT_SETTINGS`) maja `allowChat: true` (juz tak jest) i ze uczestnik laduje ustawienia z bazy prawidlowo.
-
----
-
-## Problem 4: Powiadomienie o nowych wiadomosciach na czacie
-
-**Stan obecny**: Badge z liczba nieprzeczytanych wiadomosci (`unreadChatCount`) juz istnieje na przycisku "Czat" w `MeetingControls`. Dzialanie: gdy czat jest zamkniety i przyjdzie nowa wiadomosc, licznik sie zwieksza. Gdy uzytkownik otworzy czat, licznik jest resetowany.
-
-**Weryfikacja**: Logika w `handleNewChatMessage` (linia 600-602) i `handleToggleChat` (linia 590-593) wyglada poprawnie. Badge renderuje sie w `MeetingControls` (linia 69-73, linia 163). Ten element juz dziala.
-
----
-
-## Problem 5: Widok mowcy - przelaczanie na aktywnego mowce
-
-**Stan obecny**: Detekcja mowcy (`useActiveSpeakerDetection`) juz istnieje i dziala. Automatycznie wykrywa kto mowi na podstawie Web Audio API z 800ms debounce i progiem 10. Aktywny mowca wyswietla sie na glownym widoku w trybie "Mowca".
-
-**Potencjalny problem**: Linia 244 wyklucza `isLocal` z detekcji mowcy - to poprawne (uzytkownik nie powinien widziec siebie jako glownego mowce). Jesli detekcja nie dziala dobrze, moge obnizyc prog lub poprawic responsywnosc. Ale mechanizm jest juz zaimplementowany poprawnie.
-
-**Wniosek**: Ten element juz dziala. Ewentualne problemy z wyswietlaniem mowcy wynikaly z tego, ze uczestnik byl wyswietlany jako "Uczestnik" (Problem 1), co moglo byc mylace.
-
----
-
-## Problem 6: Wiadomosci prywatne w czacie (NOWA FUNKCJA)
-
-Dodanie mozliwosci wysylania wiadomosci do konkretnego uczestnika spotkania.
-
-### Zmiany w bazie danych:
-Dodanie kolumny `target_user_id` (opcjonalnej) do tabeli `meeting_chat_messages`:
-```sql
-ALTER TABLE meeting_chat_messages
-ADD COLUMN target_user_id uuid REFERENCES auth.users(id) DEFAULT NULL;
-```
-- `NULL` = wiadomosc publiczna (do wszystkich)
-- Ustawione = wiadomosc prywatna do konkretnego uzytkownika
-
-### Zmiany w `MeetingChat.tsx`:
-
-**a) Props** - dodanie listy uczestnikow:
-```typescript
-interface MeetingChatProps {
-  // ...existing
-  participants?: { peerId: string; displayName: string; userId?: string }[];
-}
+```text
+useEffect(() => {
+  window.dispatchEvent(new Event('meeting-active'));
+  const interval = setInterval(() => {
+    window.dispatchEvent(new Event('video-activity'));
+  }, 60000);
+  window.dispatchEvent(new Event('video-activity'));
+  return () => {
+    clearInterval(interval);
+    window.dispatchEvent(new Event('meeting-ended'));
+  };
+}, []);
 ```
 
-**b) Stan** - dodanie wybranego odbiorcy:
-```typescript
-const [targetUser, setTargetUser] = useState<{userId: string; name: string} | null>(null);
-```
+**Plik**: `src/hooks/useInactivityTimeout.ts`
 
-**c) Selektor odbiorcy** - dropdown nad polem wiadomosci:
-- Domyslnie: "Wszyscy"
-- Lista uczestnikow z opcja wyslania prywatnej wiadomosci
-
-**d) Filtrowanie wyswietlanych wiadomosci**:
-- Wiadomosci publiczne (`target_user_id = null`) - widoczne dla wszystkich
-- Wiadomosci prywatne - widoczne tylko dla nadawcy i odbiorcy
-- Oznaczenie "(prywatna)" przy prywatnych wiadomosciach
-
-**e) Wysylanie** - dodanie `target_user_id` do insertu
-
-### Zmiany w `VideoRoom.tsx`:
-- Przekazanie listy uczestnikow do `MeetingChat`
+Dodanie:
+- Ref `isMeetingActiveRef` (boolean)
+- Nasluchiwanie na `meeting-active` -> `isMeetingActiveRef.current = true`
+- Nasluchiwanie na `meeting-ended` -> `isMeetingActiveRef.current = false`
+- W `handleVisibilityChange` (linia 120-133): jesli `isMeetingActiveRef.current === true`, wykonaj `resetTimer()` zamiast sprawdzania czasu nieaktywnosci
+- W `handleLogout` (linia 37): dodanie guardu `if (isMeetingActiveRef.current) return;`
 
 ---
 
@@ -145,12 +86,7 @@ const [targetUser, setTargetUser] = useState<{userId: string; name: string} | nu
 
 | Plik | Zmiana |
 |---|---|
-| `VideoRoom.tsx` | Metadata w callPeer, odczyt metadata w peer.on('call'), przekazanie uczestnikow do MeetingChat |
-| `MeetingChat.tsx` | Selektor odbiorcy (wszyscy/prywatnie), filtrowanie wiadomosci prywatnych, oznaczenie "(prywatna)" |
-| Migracja SQL | Dodanie kolumny `target_user_id` do `meeting_chat_messages` |
+| `MeetingChat.tsx` | `min-h-full flex flex-col justify-end` na kontenerze wiadomosci |
+| `VideoRoom.tsx` | `iceTransportPolicy: 'all'`, `debug: 1`, monitoring ICE, emisja `meeting-active`/`meeting-ended` |
+| `useInactivityTimeout.ts` | Flaga `isMeetingActiveRef` blokujaca wylogowanie + guard w `handleLogout` i `handleVisibilityChange` |
 
-## Kolejnosc implementacji
-
-1. Migracja SQL - kolumna `target_user_id`
-2. `VideoRoom.tsx` - naprawa metadata w polaczeniach PeerJS (KRYTYCZNE)
-3. `MeetingChat.tsx` - wiadomosci prywatne i selektor odbiorcy
