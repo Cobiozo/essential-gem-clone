@@ -1,38 +1,39 @@
 
 
-# Zmiana selektorow jezyka na flagi (jak na screenie)
+# Domyslny jezyk z pulpitu w Akademii i Zdrowej Wiedzy
 
-## Opis
+## Problem
 
-Zamiana obecnych selektorow jezyka (z emoji flagami i tekstem) na styl identyczny ze screena - rozwijane menu z prawdziwymi obrazkami flag (z flagcdn.com) i nazwami jezykow w ich ojczystym jezyku.
+Obecnie oba moduły startują z wartością `'all'` (wszystkie języki). Powinny startować z językiem wybranym przez użytkownika na pulpicie (z `useLanguage()`).
 
 ## Zmiany
 
-### 1. Nowy komponent `ContentLanguageSelector`
+### 1. `src/pages/Training.tsx` (linia 52)
 
-**Nowy plik**: `src/components/ContentLanguageSelector.tsx`
+```
+// Przed:
+const [trainingLanguage, setTrainingLanguage] = useState<string>('all');
 
-Komponent wielokrotnego uzytku (dla Training i HealthyKnowledge), oparty na wzorcu z `LanguageSelector.tsx`:
-- Select z flagami pobieranymi z `https://flagcdn.com/w40/{countryCode}.png`
-- Trigger pokazuje tylko flage (lub flage + "Wszystkie" dla opcji "all")
-- Opcje w rozwijanym menu: flaga + nazwa jezyka (Polski, English, Deutsch, Wloski, Hiszpanski, Francuski, Portugalski)
-- Mapowanie kodow jezykow na kody krajow (pl->pl, en->gb, de->de, it->it, es->es, fr->fr, pt->pt)
-- Props: `value: string`, `onValueChange: (value: string) => void`
-- Opcja "all" z ikona globu zamiast flagi
+// Po:
+const { language } = useLanguage();
+const [trainingLanguage, setTrainingLanguage] = useState<string>(language);
+```
 
-### 2. Training.tsx (linia 698-708)
+Hook `useLanguage` jest prawdopodobnie już zaimportowany w pliku (używany do tłumaczeń). Jeśli nie - dodanie importu.
 
-Zamiana obecnego Select na `<ContentLanguageSelector value={trainingLanguage} onValueChange={setTrainingLanguage} />`. Usuniecie importu `Globe` (jesli nieuzywany gdzie indziej) i `LANGUAGE_OPTIONS`.
+### 2. `src/pages/HealthyKnowledge.tsx` (linia 43)
 
-### 3. HealthyKnowledge.tsx (linia 204-212)
+```
+// Przed:
+const [contentLanguage, setContentLanguage] = useState<string>('all');
 
-Zamiana obecnego Select na `<ContentLanguageSelector value={contentLanguage} onValueChange={setContentLanguage} />`.
+// Po:
+const { language } = useLanguage();
+const [contentLanguage, setContentLanguage] = useState<string>(language);
+```
 
-## Wyglad komponentu
+Analogicznie - użycie języka z kontekstu jako wartości domyślnej.
 
-Trigger: mala flaga wybranego jezyka (jak w topbarze).
-Menu rozwijane (ciemne tlo, jak na screenie):
-- Checkmark przy wybranej opcji
-- Flaga (obraz 24x16px) + nazwa jezyka
-- Opcja "Wszystkie" z ikona globu na gorze listy
+## Efekt
 
+Po wejściu do Akademii lub Zdrowej Wiedzy, domyślnie wyświetlane będą materiały w języku który użytkownik wybrał na pulpicie (np. DE, EN, PL). Użytkownik nadal może zmienić język ręcznie lub wybrać "Wszystkie".
