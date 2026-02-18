@@ -3544,6 +3544,48 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_room_settings: {
+        Row: {
+          allow_camera: boolean
+          allow_chat: boolean
+          allow_microphone: boolean
+          allow_screen_share: string
+          allowed_screen_share_users: string[] | null
+          co_host_user_ids: string[] | null
+          created_at: string
+          host_user_id: string
+          id: string
+          room_id: string
+          updated_at: string
+        }
+        Insert: {
+          allow_camera?: boolean
+          allow_chat?: boolean
+          allow_microphone?: boolean
+          allow_screen_share?: string
+          allowed_screen_share_users?: string[] | null
+          co_host_user_ids?: string[] | null
+          created_at?: string
+          host_user_id: string
+          id?: string
+          room_id: string
+          updated_at?: string
+        }
+        Update: {
+          allow_camera?: boolean
+          allow_chat?: boolean
+          allow_microphone?: boolean
+          allow_screen_share?: string
+          allowed_screen_share_users?: string[] | null
+          co_host_user_ids?: string[] | null
+          created_at?: string
+          host_user_id?: string
+          id?: string
+          room_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       news_ticker_items: {
         Row: {
           content: string

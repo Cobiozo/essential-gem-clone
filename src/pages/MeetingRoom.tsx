@@ -19,6 +19,10 @@ const MeetingRoomPage: React.FC = () => {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [hostUserId, setHostUserId] = useState('');
+  const [endTime, setEndTime] = useState<string | null>(null);
+  const [initialSettings, setInitialSettings] = useState<import('@/components/meeting/MeetingSettingsDialog').MeetingSettings | undefined>();
   const statusRef = useRef(status);
   statusRef.current = status;
 
@@ -28,7 +32,6 @@ const MeetingRoomPage: React.FC = () => {
 
   // Verify access - only on initial load or user change
   useEffect(() => {
-    // Guard: don't re-verify if already past loading
     if (statusRef.current !== 'loading') return;
 
     if (!roomId) {
@@ -46,7 +49,7 @@ const MeetingRoomPage: React.FC = () => {
       try {
         const { data: event, error } = await supabase
           .from('events')
-          .select('id, title, use_internal_meeting, created_by')
+          .select('id, title, use_internal_meeting, created_by, end_time, host_user_id')
           .eq('meeting_room_id', roomId)
           .eq('use_internal_meeting', true)
           .maybeSingle();
@@ -58,6 +61,13 @@ const MeetingRoomPage: React.FC = () => {
         }
 
         setMeetingTitle(event.title || 'Spotkanie');
+        setEndTime(event.end_time || null);
+
+        // Determine host: host_user_id if exists, otherwise created_by
+        const eventHostId = event.host_user_id || event.created_by;
+        setHostUserId(eventHostId);
+        const userIsHost = eventHostId === user.id;
+        setIsHost(userIsHost);
 
         const isCreator = event.created_by === user.id;
         const { data: roles } = await supabase
@@ -96,11 +106,11 @@ const MeetingRoomPage: React.FC = () => {
     verifyAccess();
   }, [roomId, user?.id]);
 
-  const handleJoin = (audio: boolean, video: boolean) => {
+  const handleJoin = (audio: boolean, video: boolean, settings?: import('@/components/meeting/MeetingSettingsDialog').MeetingSettings) => {
     setAudioEnabled(audio);
     setVideoEnabled(video);
+    if (settings) setInitialSettings(settings);
     setIsConnecting(true);
-    // Small delay to show connecting state
     setTimeout(() => {
       setStatus('joined');
       setIsConnecting(false);
@@ -149,6 +159,8 @@ const MeetingRoomPage: React.FC = () => {
         displayName={displayName}
         onJoin={handleJoin}
         isConnecting={isConnecting}
+        isHost={isHost}
+        roomId={roomId!}
       />
     );
   }
@@ -162,6 +174,10 @@ const MeetingRoomPage: React.FC = () => {
       audioEnabled={audioEnabled}
       videoEnabled={videoEnabled}
       onLeave={handleLeave}
+      isHost={isHost}
+      hostUserId={hostUserId}
+      endTime={endTime}
+      initialSettings={initialSettings}
     />
   );
 };
