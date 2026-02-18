@@ -20,6 +20,7 @@ interface VideoGridProps {
   isMuted: boolean;
   isCameraOff: boolean;
   viewMode: ViewMode;
+  isScreenSharing?: boolean;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
 }
 
@@ -56,11 +57,12 @@ const AudioIndicator: React.FC<{ audioLevel: number; isMuted?: boolean; size?: '
 const VideoTile: React.FC<{
   participant: VideoParticipant;
   isCameraOff?: boolean;
+  isScreenSharing?: boolean;
   audioLevel?: number;
   className?: string;
   showOverlay?: boolean;
   videoRefCallback?: (el: HTMLVideoElement | null) => void;
-}> = ({ participant, isCameraOff, audioLevel = 0, className = '', showOverlay = true, videoRefCallback }) => {
+}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, videoRefCallback }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -86,7 +88,7 @@ const VideoTile: React.FC<{
         playsInline
         muted={participant.isLocal}
         className={showVideo
-          ? `max-w-full max-h-full object-contain ${participant.isLocal ? 'scale-x-[-1]' : ''}`
+          ? `max-w-full max-h-full object-contain ${participant.isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''}`
           : 'hidden'
         }
       />
@@ -159,7 +161,7 @@ const ThumbnailTile: React.FC<{
           autoPlay
           playsInline
           muted={participant.isLocal}
-          className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
+          className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`}
         />
       ) : (
         <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
@@ -281,9 +283,10 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
 const GalleryLayout: React.FC<{
   participants: VideoParticipant[];
   isCameraOff: boolean;
+  isScreenSharing?: boolean;
   audioLevels: Map<string, number>;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
-}> = ({ participants, isCameraOff, audioLevels, onActiveVideoRef }) => {
+}> = ({ participants, isCameraOff, isScreenSharing, audioLevels, onActiveVideoRef }) => {
   const cols = participants.length <= 2 ? 'grid-cols-1 md:grid-cols-2'
     : participants.length <= 4 ? 'grid-cols-2'
     : participants.length <= 9 ? 'grid-cols-2 md:grid-cols-3'
@@ -296,6 +299,7 @@ const GalleryLayout: React.FC<{
           key={p.peerId}
           participant={p}
           isCameraOff={p.isLocal ? isCameraOff : undefined}
+          isScreenSharing={p.isLocal ? isScreenSharing : undefined}
           audioLevel={audioLevels.get(p.peerId) || 0}
           className="rounded-lg min-h-0"
           videoRefCallback={i === 0 ? onActiveVideoRef : undefined}
@@ -309,14 +313,14 @@ const GalleryLayout: React.FC<{
 const MultiSpeakerLayout: React.FC<{
   participants: VideoParticipant[];
   isCameraOff: boolean;
+  isScreenSharing?: boolean;
   audioLevels: Map<string, number>;
   speakingIndex: number;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
-}> = ({ participants, isCameraOff, audioLevels, speakingIndex, onActiveVideoRef }) => {
+}> = ({ participants, isCameraOff, isScreenSharing, audioLevels, speakingIndex, onActiveVideoRef }) => {
   // Show top 2-3 speakers in large tiles
   const speakerIndices = new Set<number>();
   if (speakingIndex >= 0) speakerIndices.add(speakingIndex);
-  // Add participants with highest audio levels
   const sorted = [...participants]
     .map((p, i) => ({ index: i, level: audioLevels.get(p.peerId) || 0 }))
     .sort((a, b) => b.level - a.level);
@@ -324,7 +328,6 @@ const MultiSpeakerLayout: React.FC<{
     if (speakerIndices.size >= 3) break;
     if (!participants[s.index].isLocal) speakerIndices.add(s.index);
   }
-  // Always show at least first remote
   if (speakerIndices.size === 0 && participants.length > 1) speakerIndices.add(1);
 
   const mainSpeakers = [...speakerIndices];
@@ -338,6 +341,7 @@ const MultiSpeakerLayout: React.FC<{
             key={participants[idx].peerId}
             participant={participants[idx]}
             isCameraOff={participants[idx].isLocal ? isCameraOff : undefined}
+            isScreenSharing={participants[idx].isLocal ? isScreenSharing : undefined}
             audioLevel={audioLevels.get(participants[idx].peerId) || 0}
             className="flex-1 rounded-lg min-h-0"
             videoRefCallback={i === 0 ? onActiveVideoRef : undefined}
@@ -376,7 +380,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
 
   return (
     <video ref={ref} autoPlay playsInline muted={participant.isLocal}
-      className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`} />
+      className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`} />
   );
 };
 
@@ -389,6 +393,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   isMuted,
   isCameraOff,
   viewMode,
+  isScreenSharing,
   onActiveVideoRef,
 }) => {
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
@@ -431,12 +436,12 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   // ─── Gallery mode ───
   if (viewMode === 'gallery') {
-    return <GalleryLayout participants={allParticipants} isCameraOff={isCameraOff} audioLevels={audioLevels} onActiveVideoRef={handleVideoRef} />;
+    return <GalleryLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} onActiveVideoRef={handleVideoRef} />;
   }
 
   // ─── Multi-speaker mode ───
   if (viewMode === 'multi-speaker') {
-    return <MultiSpeakerLayout participants={allParticipants} isCameraOff={isCameraOff} audioLevels={audioLevels} speakingIndex={speakingIndex} onActiveVideoRef={handleVideoRef} />;
+    return <MultiSpeakerLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} speakingIndex={speakingIndex} onActiveVideoRef={handleVideoRef} />;
   }
 
   // ─── Immersive mode ───
@@ -446,6 +451,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
         <VideoTile
           participant={activeSpeaker}
           isCameraOff={activeSpeaker.isLocal ? isCameraOff : undefined}
+          isScreenSharing={activeSpeaker.isLocal ? isScreenSharing : undefined}
           audioLevel={audioLevels.get(activeSpeaker.peerId) || 0}
           className="absolute inset-0 rounded-none"
           showOverlay={false}
@@ -468,6 +474,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
         <VideoTile
           participant={activeSpeaker}
           isCameraOff={activeSpeaker.isLocal ? isCameraOff : undefined}
+          isScreenSharing={activeSpeaker.isLocal ? isScreenSharing : undefined}
           audioLevel={audioLevels.get(activeSpeaker.peerId) || 0}
           className="absolute inset-0 rounded-none"
           showOverlay={true}
