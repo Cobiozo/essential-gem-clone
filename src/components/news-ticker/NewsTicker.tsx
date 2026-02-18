@@ -23,14 +23,19 @@ const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ item
   }, [items, speed]);
 
   return (
-    <div className="relative w-full h-6 overflow-hidden">
+    <div className="w-full overflow-hidden">
       <div
         ref={contentRef}
-        className="absolute left-0 top-0 flex animate-marquee whitespace-nowrap will-change-transform"
+        className="flex whitespace-nowrap will-change-transform animate-marquee"
         style={{ animationDuration: `${animationDuration}s` }}
       >
         {[...items, ...items].map((item, i) => (
-          <TickerItemComponent key={`${item.id}-${i}`} item={item} />
+          <React.Fragment key={`${item.id}-${i}`}>
+            <TickerItemComponent item={item} />
+            {i < items.length * 2 - 1 && (
+              <span className="mx-2 text-muted-foreground/50 select-none">•</span>
+            )}
+          </React.Fragment>
         ))}
       </div>
     </div>
