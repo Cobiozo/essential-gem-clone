@@ -1,67 +1,63 @@
 
 
-# Naprawa podgladu certyfikatow
+# Naprawa instalacji PWA na Chrome / Android
 
-## Zidentyfikowane problemy
+## Zidentyfikowany problem
 
-1. **Klasa CSS `max-w-full h-auto` na canvasie Fabric.js** - Fabric.js tworzy wlasny wrapper wokol elementu canvas. Klasy CSS na oryginalnym elemencie `<canvas>` moga powodowac znieksztalcenia wizualne, bo CSS skaluje obraz ale Fabric.js wewnetrznie operuje na oryginalnych wymiarach pikseli. Edytor moze wygladac "scisniety" lub przeskalowany w niewlasciwy sposob.
-
-2. **Szerokosc tekstu w podgladzie** - Funkcja `collectElementsForPreview` pobiera dynamiczna szerokosc IText z Fabric.js (`textObj.width * textObj.scaleX`). Ta szerokosc zmienia sie w zaleznosci od dlugosci wpisanego tekstu. CertificatePreview uzywa tej szerokosci do obliczania pozycji dla tekstu wycentrowanego (`textX = x + width / 2`). Dla krotkich placeholderow jak `{userName}` szerokosc jest mala, a po zastapieniu dlugim imieniem tekst moze sie przesunac lub zle zawinac.
-
-3. **Podglad za maly** - Skala podgladu to ~47.5% (400/842), co daje obraz 400x283px - trudny do porownania z editorem i za maly zeby ocenic poprawnosc renderowania.
-
-4. **Brak synchronizacji po ladowaniu obrazow** - Poczatkowe zbieranie elementow (`setTimeout 500ms`) moze sie odpalic zanim obrazy w Fabric.js sie zaladuja. Wprawdzie event `object:added` tez triggeruje update, ale moze dojsc do bledow timingu.
+Plik `manifest.json` zawiera pusta tablice `screenshots: []`. Od Chrome 118+ na Androidzie, pusta tablica screenshots moze blokowac prompt instalacji PWA ("beforeinstallprompt" event nie jest emitowany). Chrome traktuje to jako niekompletna konfiguracje.
 
 ## Rozwiazanie
 
-### 1. Naprawic wyswietlanie canvasu Fabric.js w edytorze
+### 1. Dodac screenshoty do manifest.json
 
-Usunac `max-w-full h-auto` z canvas element. Zamiast tego, uzyc wrappera z `transform: scale()` ktory skaluje canvas responsywnie bez zaburzania wewnetrznych wymiarow Fabric.js.
+Dodac co najmniej 1 screenshot w formacie 1080x1920 (portrait) dla mobilnych i opcjonalnie 1920x1080 (landscape) dla desktopowych. Screenshoty powinny byc zapisane w folderze `public/`.
 
 ```text
 Przed:
-<canvas ref={canvasRef} className="shadow-lg max-w-full h-auto" />
+"screenshots": []
 
 Po:
-<div style={{ transform: `scale(${containerScale})`, transformOrigin: 'top left' }}>
-  <canvas ref={canvasRef} className="shadow-lg" />
-</div>
+"screenshots": [
+  {
+    "src": "/screenshot-mobile.png",
+    "sizes": "1080x1920",
+    "type": "image/png",
+    "form_factor": "narrow",
+    "label": "Pure Life Center - Dashboard"
+  },
+  {
+    "src": "/screenshot-desktop.png",
+    "sizes": "1920x1080",
+    "type": "image/png",
+    "form_factor": "wide",
+    "label": "Pure Life Center - Strona glowna"
+  }
+]
 ```
 
-Dodac obliczanie `containerScale` na podstawie dostepnej szerokosci kontenera z uzyciem `ResizeObserver`.
+### 2. Alternatywa minimalna - usunac puste pole
 
-### 2. Poprawic zbieranie szerokosci tekstu dla podgladu
+Jesli screenshoty nie sa gotowe, wystarczy calkowicie usunac pole `screenshots` z manifestu zamiast trzymac pusta tablice:
 
-W `collectElementsForPreview` - dla tekstu z `noWrap: true`, uzywac zapisanej oryginalnej szerokosci elementu (z template data) zamiast dynamicznej szerokosci IText. Dodac przechowywanie oryginalnych wymiarow w metadanych obiektu Fabric.js.
-
-```typescript
-// Przy tworzeniu/ladowaniu elementu:
-(text as any).originalWidth = element.width || 400;
-
-// W collectElementsForPreview:
-width: (textObj as any).originalWidth || 
-       (textObj.width || 200) * (textObj.scaleX || 1),
+```text
+Usunac linie: "screenshots": [],
 ```
 
-### 3. Zwiekszyc rozmiar podgladu
+To odblokuje standardowy (mniej ozdobny) prompt instalacji na Chrome/Android.
 
-Zmienic skale podgladu z `Math.min(400 / canvasWidth, 1)` na wieksza wartosc, np. `Math.min(500 / canvasWidth, 1)` lub dynamicznie dopasowac do dostepnej przestrzeni.
+## Rekomendacja
 
-### 4. Poprawic synchronizacje po zaladowaniu obrazow
-
-Zwiekszyc poczatkowy timeout z 500ms do 1500ms i dodac dodatkowy trigger po zaladowaniu wszystkich elementow.
+Najszybsze rozwiazanie to **usunac puste pole `screenshots`** (opcja 2). Pozniej mozna dodac prawdziwe screenshoty dla ladniejszego promptu instalacji.
 
 ## Zmiany techniczne
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/TemplateDndEditor.tsx` | Usunac `max-w-full h-auto` z canvas, dodac wrapper z `transform: scale()`, dodac `ResizeObserver`, zapisywac `originalWidth` na obiektach IText |
-| `src/components/admin/CertificatePreview.tsx` | Zwiekszyc skale podgladu, uzyc `originalWidth` dla tekstu noWrap |
+| `public/manifest.json` | Usunac `"screenshots": []` lub zastapic prawdziwymi screenshotami |
 
-## Efekt
+## Wazne
 
-- Canvas edytora bedzie sie poprawnie skalowac bez znieksztalcen
-- Podglad bedzie wiernie odzwierciedlal pozycje tekstu (szczegolnie wycentrowanego)
-- Podglad bedzie wiekszy i czytelniejszy
-- Elementy beda zsynchronizowane po pelnym zaladowaniu obrazow
-
+Po wdrozeniu zmiany trzeba:
+1. Opublikowac nowa wersje (Publish)
+2. Wdrozyc na produkcje (Cyberfolks - nowy dist/)
+3. Wyczyscic cache przegladarki lub otworzyc w trybie incognito, zeby przetestowac prompt instalacji
