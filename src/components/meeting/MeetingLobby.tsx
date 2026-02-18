@@ -27,13 +27,10 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     const initPreview = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: videoEnabled,
-          audio: audioEnabled,
+          video: true,
+          audio: true,
         });
         setPreviewStream(stream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
       } catch (err) {
         console.warn('[Lobby] Camera/mic access denied:', err);
       }
@@ -45,6 +42,13 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
       stream?.getTracks().forEach((t) => t.stop());
     };
   }, []);
+
+  // Bind stream to video element whenever previewStream changes
+  useEffect(() => {
+    if (videoRef.current && previewStream) {
+      videoRef.current.srcObject = previewStream;
+    }
+  }, [previewStream]);
 
   // Toggle tracks without recreating stream
   useEffect(() => {
