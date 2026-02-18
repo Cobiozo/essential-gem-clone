@@ -391,6 +391,35 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   };
 
+  // Auto PiP on tab switch
+  useEffect(() => {
+    if (!isPiPSupported) return;
+    const autoPiPRef = { current: false };
+
+    const handleVisibility = async () => {
+      try {
+        if (document.hidden) {
+          if (!document.pictureInPictureElement && activeVideoRef.current && activeVideoRef.current.srcObject) {
+            await activeVideoRef.current.requestPictureInPicture();
+            autoPiPRef.current = true;
+            setIsPiPActive(true);
+          }
+        } else {
+          if (document.pictureInPictureElement && autoPiPRef.current) {
+            await document.exitPictureInPicture();
+            autoPiPRef.current = false;
+            setIsPiPActive(false);
+          }
+        }
+      } catch (err) {
+        console.warn('[VideoRoom] Auto PiP error:', err);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isPiPSupported]);
+
   // Chat / Participants toggles
   const handleToggleChat = () => {
     setIsChatOpen(prev => !prev);
