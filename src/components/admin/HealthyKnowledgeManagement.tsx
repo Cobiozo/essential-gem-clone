@@ -31,6 +31,7 @@ import {
   DEFAULT_SHARE_MESSAGE_TEMPLATE,
   ContentType
 } from '@/types/healthyKnowledge';
+import { LANGUAGE_OPTIONS, getLanguageLabel } from '@/types/knowledge';
 
 const ContentTypeIcon: React.FC<{ type: string; className?: string }> = ({ type, className }) => {
   const icons: Record<string, React.ReactNode> = {
@@ -50,6 +51,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [materials, setMaterials] = useState<HealthyKnowledge[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
   
   // Form state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -110,12 +112,14 @@ const HealthyKnowledgeManagement: React.FC = () => {
   };
 
   const filteredMaterials = useMemo(() => {
-    return materials.filter(m => 
-      m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [materials, searchTerm]);
+    return materials.filter(m => {
+      const matchesSearch = m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.category?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesLanguage = filterLanguage === 'all' || m.language_code === filterLanguage || (!m.language_code && filterLanguage === 'pl');
+      return matchesSearch && matchesLanguage;
+    });
+  }, [materials, searchTerm, filterLanguage]);
 
   const generateSlug = (title: string): string => {
     return title
@@ -148,6 +152,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
       tags: [],
       is_active: true,
       is_featured: false,
+      language_code: 'pl',
     });
     setEditDialogOpen(true);
   };
@@ -340,15 +345,27 @@ const HealthyKnowledgeManagement: React.FC = () => {
         </TabsList>
 
         <TabsContent value="materials" className="space-y-4">
-          {/* Search */}
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Szukaj materiałów..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+          {/* Search + Language filter */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj materiałów..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={filterLanguage} onValueChange={setFilterLanguage}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LANGUAGE_OPTIONS.map((lang) => (
+                  <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Materials Table */}
@@ -432,9 +449,14 @@ const HealthyKnowledgeManagement: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {CONTENT_TYPE_LABELS[material.content_type as ContentType]}
-                            </Badge>
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline">
+                                {CONTENT_TYPE_LABELS[material.content_type as ContentType]}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {getLanguageLabel(material.language_code || 'pl')}
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell>
                             {material.category || '-'}
@@ -719,7 +741,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <Label>Typ zawartości</Label>
                     <Select
@@ -755,6 +777,26 @@ const HealthyKnowledgeManagement: React.FC = () => {
                       <SelectContent>
                         {HEALTHY_KNOWLEDGE_CATEGORIES.map((cat) => (
                           <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Język materiału</Label>
+                    <Select
+                      value={editingMaterial.language_code || 'pl'}
+                      onValueChange={(v) => setEditingMaterial({
+                        ...editingMaterial,
+                        language_code: v === 'all' ? null : v,
+                      })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LANGUAGE_OPTIONS.filter(l => l.code !== 'all').map((lang) => (
+                          <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

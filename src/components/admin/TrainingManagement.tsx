@@ -77,6 +77,7 @@ import { RichTextEditor } from "@/components/RichTextEditor";
 import { ActionButtonsEditor } from "./ActionButtonsEditor";
 import { ModuleResourcesSelector } from "./ModuleResourcesSelector";
 import { LessonActionButton } from "@/types/training";
+import { LANGUAGE_OPTIONS, getLanguageLabel } from "@/types/knowledge";
 // jsPDF imported dynamically when generating certificates
 
 interface TrainingModule {
@@ -92,6 +93,7 @@ interface TrainingModule {
   visible_to_specjalista: boolean;
   visible_to_anonymous: boolean;
   resource_ids?: string[];
+  language_code?: string | null;
   created_at: string;
 }
 
@@ -108,6 +110,7 @@ interface TrainingLesson {
   video_duration_seconds?: number;
   is_required: boolean;
   is_active: boolean;
+  language_code?: string | null;
   action_buttons?: LessonActionButton[];
 }
 
@@ -1300,7 +1303,12 @@ const TrainingManagement = () => {
                     
                     return (
                       <TableRow key={module.id} className={cn(!module.is_active && "opacity-60")}>
-                        <TableCell className="font-medium">{module.title}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {module.title}
+                            <Badge variant="outline" className="text-xs">{getLanguageLabel(module.language_code || 'pl')}</Badge>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-center">{lessonCount}</TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
@@ -1927,6 +1935,7 @@ const ModuleForm = ({
     visible_to_specjalista: module?.visible_to_specjalista ?? false,
     visible_to_anonymous: module?.visible_to_anonymous ?? false,
     resource_ids: module?.resource_ids || [],
+    language_code: module?.language_code || 'pl',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1963,6 +1972,23 @@ const ModuleForm = ({
           onChange={(e) => setFormData(prev => ({ ...prev, icon_name: e.target.value }))}
           placeholder="np. BookOpen"
         />
+      </div>
+
+      <div>
+        <Label>Język materiału</Label>
+        <Select
+          value={formData.language_code || 'pl'}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, language_code: v === 'all' ? null : v }))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LANGUAGE_OPTIONS.map((lang) => (
+              <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-3">
@@ -2068,6 +2094,7 @@ const LessonForm = ({
     video_duration_seconds: lesson?.video_duration_seconds || 0,
     is_required: lesson?.is_required ?? true,
     is_active: lesson?.is_active ?? true,
+    language_code: lesson?.language_code || 'pl',
     action_buttons: lesson?.action_buttons || [],
     position: lesson?.position ?? 0,
   });
@@ -2129,6 +2156,23 @@ const LessonForm = ({
         <p className="text-xs text-muted-foreground mt-1">
           Mniejsza liczba = wyżej na liście. Lekcje są sortowane rosnąco.
         </p>
+      </div>
+
+      <div>
+        <Label>Język materiału</Label>
+        <Select
+          value={formData.language_code || 'pl'}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, language_code: v === 'all' ? null : v }))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {LANGUAGE_OPTIONS.map((lang) => (
+              <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div>

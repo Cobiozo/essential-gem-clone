@@ -23,6 +23,7 @@ export interface TrainingModule {
   visible_to_specjalista: boolean;
   visible_to_anonymous: boolean;
   resource_ids?: string[];
+  language_code?: string | null;
   created_at: string;
 }
 
@@ -38,6 +39,7 @@ export interface TrainingLesson {
   min_time_seconds: number;
   is_required: boolean;
   is_active: boolean;
+  language_code?: string | null;
   action_buttons?: LessonActionButton[];
 }
 

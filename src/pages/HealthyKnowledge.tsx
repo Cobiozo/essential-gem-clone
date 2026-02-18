@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { LANGUAGE_OPTIONS } from '@/types/knowledge';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -11,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Globe } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
@@ -39,6 +41,7 @@ const HealthyKnowledgePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [contentLanguage, setContentLanguage] = useState<string>('all');
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState<HealthyKnowledge | null>(null);
@@ -88,9 +91,12 @@ const HealthyKnowledgePage: React.FC = () => {
         m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.description?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = !selectedCategory || m.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesLanguage = contentLanguage === 'all' || 
+        !(m as any).language_code || 
+        (m as any).language_code === contentLanguage;
+      return matchesSearch && matchesCategory && matchesLanguage;
     });
-  }, [translatedMaterials, searchTerm, selectedCategory]);
+  }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage]);
 
   const canShare = isPartner || isAdmin;
 
@@ -195,6 +201,17 @@ const HealthyKnowledgePage: React.FC = () => {
               className="pl-9"
             />
           </div>
+          <Select value={contentLanguage} onValueChange={setContentLanguage}>
+            <SelectTrigger className="w-48">
+              <Globe className="w-4 h-4 mr-2" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {LANGUAGE_OPTIONS.map((lang) => (
+                <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <Button

@@ -2451,6 +2451,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           is_featured: boolean | null
+          language_code: string | null
           media_url: string | null
           otp_max_sessions: number | null
           otp_validity_hours: number | null
@@ -2482,6 +2483,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          language_code?: string | null
           media_url?: string | null
           otp_max_sessions?: number | null
           otp_validity_hours?: number | null
@@ -2513,6 +2515,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
+          language_code?: string | null
           media_url?: string | null
           otp_max_sessions?: number | null
           otp_validity_hours?: number | null
@@ -6192,6 +6195,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_required: boolean
+          language_code: string | null
           media_alt_text: string | null
           media_type: string | null
           media_url: string | null
@@ -6209,6 +6213,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_required?: boolean
+          language_code?: string | null
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -6226,6 +6231,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_required?: boolean
+          language_code?: string | null
           media_alt_text?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -6298,6 +6304,7 @@ export type Database = {
           icon_name: string | null
           id: string
           is_active: boolean
+          language_code: string | null
           position: number
           resource_ids: string[] | null
           title: string
@@ -6314,6 +6321,7 @@ export type Database = {
           icon_name?: string | null
           id?: string
           is_active?: boolean
+          language_code?: string | null
           position?: number
           resource_ids?: string[] | null
           title: string
@@ -6330,6 +6338,7 @@ export type Database = {
           icon_name?: string | null
           id?: string
           is_active?: boolean
+          language_code?: string | null
           position?: number
           resource_ids?: string[] | null
           title?: string
