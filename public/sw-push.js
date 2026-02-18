@@ -4,7 +4,7 @@
  */
 
 // Cache Configuration
-const CACHE_STATIC = 'purelife-static-v2';
+const CACHE_STATIC = 'purelife-static-v3';
 const CACHE_ASSETS = 'purelife-assets-v1';
 const CACHE_API = 'purelife-api-v1';
 const CACHE_FONTS = 'purelife-fonts-v1';
@@ -46,7 +46,7 @@ self.addEventListener('install', (event) => {
 
 // ─── Activate ──────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Service Worker activated');
+  console.log('[SW] Service Worker activated — cache version: static-v3');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
