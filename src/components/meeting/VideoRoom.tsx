@@ -331,7 +331,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           // Settings changed broadcast
           channel.on('broadcast', { event: 'settings-changed' }, ({ payload }) => {
             if (!cancelled && payload?.settings) {
-              setMeetingSettings(payload.settings);
+              const newSettings = payload.settings as MeetingSettings;
+              setMeetingSettings(newSettings);
+              // Force disable mic/camera for non-host/co-host when permissions revoked
+              const isManager = isHost || coHostUserIds.includes(user.id);
+              if (!isManager) {
+                if (!newSettings.allowMicrophone) {
+                  localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
+                  setIsMuted(true);
+                }
+                if (!newSettings.allowCamera) {
+                  localStreamRef.current?.getVideoTracks().forEach(t => (t.enabled = false));
+                  setIsCameraOff(true);
+                }
+              }
               toast({ title: 'Ustawienia spotkania zmienione', description: 'Prowadzący zmienił ustawienia.' });
             }
           });
@@ -447,6 +460,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Controls
   const handleToggleMute = () => {
     if (localStreamRef.current) {
+      // Guard: block unmuting if host disabled microphone for participants
+      if (isMuted && !canMicrophone) {
+        toast({ title: 'Mikrofon wyłączony', description: 'Prowadzący wyłączył możliwość używania mikrofonu.' });
+        return;
+      }
       localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = isMuted));
       setIsMuted(!isMuted);
     }
@@ -454,6 +472,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   const handleToggleCamera = () => {
     if (localStreamRef.current) {
+      // Guard: block enabling camera if host disabled it for participants
+      if (isCameraOff && !canCamera) {
+        toast({ title: 'Kamera wyłączona', description: 'Prowadzący wyłączył możliwość używania kamery.' });
+        return;
+      }
       const newEnabled = isCameraOff;
       localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
       setIsCameraOff(!isCameraOff);
