@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,13 +19,18 @@ const MeetingRoomPage: React.FC = () => {
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   const displayName = profile
     ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Uczestnik'
     : 'Uczestnik';
 
-  // Verify access
+  // Verify access - only on initial load or user change
   useEffect(() => {
+    // Guard: don't re-verify if already past loading
+    if (statusRef.current !== 'loading') return;
+
     if (!roomId) {
       setStatus('error');
       setErrorMessage('Brak identyfikatora pokoju');
@@ -39,7 +44,6 @@ const MeetingRoomPage: React.FC = () => {
 
     const verifyAccess = async () => {
       try {
-        // Check if event with this room exists
         const { data: event, error } = await supabase
           .from('events')
           .select('id, title, use_internal_meeting, created_by')
@@ -55,7 +59,6 @@ const MeetingRoomPage: React.FC = () => {
 
         setMeetingTitle(event.title || 'Spotkanie');
 
-        // Allow access: admin, event creator, or registered user
         const isCreator = event.created_by === user.id;
         const { data: roles } = await supabase
           .from('user_roles')
@@ -69,7 +72,6 @@ const MeetingRoomPage: React.FC = () => {
           return;
         }
 
-        // Check registration
         const { data: reg } = await supabase
           .from('event_registrations')
           .select('id')
@@ -92,7 +94,7 @@ const MeetingRoomPage: React.FC = () => {
     };
 
     verifyAccess();
-  }, [roomId, user]);
+  }, [roomId, user?.id]);
 
   const handleJoin = (audio: boolean, video: boolean) => {
     setAudioEnabled(audio);
