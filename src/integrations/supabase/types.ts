@@ -2100,6 +2100,7 @@ export type Database = {
           is_published: boolean | null
           location: string | null
           max_participants: number | null
+          meeting_room_id: string | null
           meeting_topic_id: string | null
           occurrences: Json | null
           publish_at: string | null
@@ -2110,6 +2111,7 @@ export type Database = {
           timezone: string | null
           title: string
           updated_at: string | null
+          use_internal_meeting: boolean
           visible_to_clients: boolean | null
           visible_to_everyone: boolean | null
           visible_to_partners: boolean | null
@@ -2143,6 +2145,7 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
+          meeting_room_id?: string | null
           meeting_topic_id?: string | null
           occurrences?: Json | null
           publish_at?: string | null
@@ -2153,6 +2156,7 @@ export type Database = {
           timezone?: string | null
           title: string
           updated_at?: string | null
+          use_internal_meeting?: boolean
           visible_to_clients?: boolean | null
           visible_to_everyone?: boolean | null
           visible_to_partners?: boolean | null
@@ -2186,6 +2190,7 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
+          meeting_room_id?: string | null
           meeting_topic_id?: string | null
           occurrences?: Json | null
           publish_at?: string | null
@@ -2196,6 +2201,7 @@ export type Database = {
           timezone?: string | null
           title?: string
           updated_at?: string | null
+          use_internal_meeting?: boolean
           visible_to_clients?: boolean | null
           visible_to_everyone?: boolean | null
           visible_to_partners?: boolean | null
@@ -3474,6 +3480,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meeting_room_participants: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          is_active: boolean
+          joined_at: string
+          left_at: string | null
+          peer_id: string | null
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          left_at?: string | null
+          peer_id?: string | null
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_active?: boolean
+          joined_at?: string
+          left_at?: string | null
+          peer_id?: string | null
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       news_ticker_items: {
         Row: {
