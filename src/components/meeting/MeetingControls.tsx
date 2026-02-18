@@ -1,6 +1,8 @@
 import React from 'react';
-import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square, LayoutGrid, UserCheck, Presentation } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square, LayoutGrid, UserCheck, Presentation, Settings } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { MeetingSettingsDialog, type MeetingSettings } from './MeetingSettingsDialog';
 import type { ViewMode } from './VideoGrid';
 
 interface MeetingControlsProps {
@@ -23,6 +25,15 @@ interface MeetingControlsProps {
   onLeave: () => void;
   onEndMeeting?: () => void;
   onViewModeChange: (mode: ViewMode) => void;
+  // Permission props
+  isHost?: boolean;
+  isCoHost?: boolean;
+  meetingSettings?: MeetingSettings;
+  onMeetingSettingsChange?: (settings: MeetingSettings) => void;
+  canChat?: boolean;
+  canMicrophone?: boolean;
+  canCamera?: boolean;
+  canScreenShare?: boolean;
 }
 
 const ControlButton: React.FC<{
@@ -33,40 +44,54 @@ const ControlButton: React.FC<{
   danger?: boolean;
   badge?: string | number;
   highlighted?: boolean;
-}> = ({ icon, label, onClick, active, danger, badge, highlighted }) => (
-  <button
-    onClick={onClick}
-    className="flex flex-col items-center gap-1 min-w-[48px]"
-  >
-    <div className="relative">
-      <div
-        className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
-          danger
-            ? 'bg-red-600 hover:bg-red-700'
-            : active
-            ? 'bg-red-600 hover:bg-red-700'
-            : highlighted
-            ? 'bg-blue-600 hover:bg-blue-700'
-            : 'bg-zinc-700 hover:bg-zinc-600'
-        }`}
-      >
-        {icon}
+  disabled?: boolean;
+  disabledTooltip?: string;
+}> = ({ icon, label, onClick, active, danger, badge, highlighted, disabled, disabledTooltip }) => {
+  const button = (
+    <button
+      onClick={disabled ? undefined : onClick}
+      className={`flex flex-col items-center gap-1 min-w-[48px] ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
+    >
+      <div className="relative">
+        <div
+          className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+            danger
+              ? 'bg-red-600 hover:bg-red-700'
+              : active
+              ? 'bg-red-600 hover:bg-red-700'
+              : highlighted
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-zinc-700 hover:bg-zinc-600'
+          }`}
+        >
+          {icon}
+        </div>
+        {badge !== undefined && Number(badge) > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center font-bold px-1">
+            {badge}
+          </span>
+        )}
       </div>
-      {badge !== undefined && Number(badge) > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full min-w-[16px] h-4 flex items-center justify-center font-bold px-1">
-          {badge}
-        </span>
-      )}
-    </div>
-    <span className="text-[10px] text-zinc-400 font-medium">{label}</span>
-  </button>
-);
+      <span className="text-[10px] text-zinc-400 font-medium">{label}</span>
+    </button>
+  );
+
+  if (disabled && disabledTooltip) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipContent side="top">{disabledTooltip}</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return button;
+};
 
 const VIEW_MODES: { mode: ViewMode; label: string; icon: React.ReactNode }[] = [
   { mode: 'speaker', label: 'Mówca', icon: <Presentation className="h-4 w-4" /> },
   { mode: 'gallery', label: 'Galeria', icon: <LayoutGrid className="h-4 w-4" /> },
   { mode: 'multi-speaker', label: 'Wielu mówców', icon: <UserCheck className="h-4 w-4" /> },
-  
 ];
 
 export const MeetingControls: React.FC<MeetingControlsProps> = ({
@@ -89,7 +114,18 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   onLeave,
   onEndMeeting,
   onViewModeChange,
+  isHost = false,
+  isCoHost = false,
+  meetingSettings,
+  onMeetingSettingsChange,
+  canChat = true,
+  canMicrophone = true,
+  canCamera = true,
+  canScreenShare = true,
 }) => {
+  const canManage = isHost || isCoHost;
+  const disabledTip = 'Prowadzący wyłączył tę funkcję';
+
   return (
     <div className="flex items-center justify-center gap-3 px-4 py-3 bg-zinc-900 border-t border-zinc-800 overflow-x-auto">
       <ControlButton
@@ -97,6 +133,8 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         label="Mikrofon"
         onClick={onToggleMute}
         active={isMuted}
+        disabled={!canMicrophone && !canManage}
+        disabledTooltip={disabledTip}
       />
 
       <ControlButton
@@ -104,6 +142,8 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         label="Kamera"
         onClick={onToggleCamera}
         active={isCameraOff}
+        disabled={!canCamera && !canManage}
+        disabledTooltip={disabledTip}
       />
 
       <ControlButton
@@ -111,6 +151,8 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         label="Ekran"
         onClick={onToggleScreenShare}
         active={isScreenSharing}
+        disabled={!canScreenShare && !canManage}
+        disabledTooltip={disabledTip}
       />
 
       <ControlButton
@@ -119,6 +161,8 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         onClick={onToggleChat}
         highlighted={isChatOpen}
         badge={unreadChatCount}
+        disabled={!canChat && !canManage}
+        disabledTooltip={disabledTip}
       />
 
       <ControlButton
@@ -154,6 +198,14 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Settings - only for host/co-host */}
+      {canManage && meetingSettings && onMeetingSettingsChange && (
+        <MeetingSettingsDialog
+          settings={meetingSettings}
+          onSettingsChange={onMeetingSettingsChange}
+        />
+      )}
+
       {isPiPSupported && (
         <ControlButton
           icon={<PictureInPicture2 className="h-5 w-5 text-white" />}
@@ -170,7 +222,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         danger
       />
 
-      {onEndMeeting && (
+      {(onEndMeeting && canManage) && (
         <ControlButton
           icon={<Square className="h-5 w-5 text-white" />}
           label="Zakończ"

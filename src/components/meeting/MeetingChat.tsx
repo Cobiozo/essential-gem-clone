@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, X } from 'lucide-react';
+import { Send, X, MessageCircleOff } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ChatMessage {
@@ -18,6 +18,7 @@ interface MeetingChatProps {
   displayName: string;
   onClose: () => void;
   onNewMessage: () => void;
+  chatDisabled?: boolean;
 }
 
 export const MeetingChat: React.FC<MeetingChatProps> = ({
@@ -26,6 +27,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
   displayName,
   onClose,
   onNewMessage,
+  chatDisabled = false,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -65,7 +67,6 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
         (payload) => {
           const msg = payload.new as ChatMessage;
           setMessages((prev) => {
-            // Deduplicate
             if (prev.some(m => m.id === msg.id)) return prev;
             return [...prev, msg];
           });
@@ -88,7 +89,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
 
   const handleSend = async (retryCount = 0) => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || chatDisabled) return;
     setSending(true);
     setSendError(false);
 
@@ -105,12 +106,11 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
     if (error) {
       console.error('[MeetingChat] Send error:', error);
       if (retryCount < 2) {
-        // Retry after short delay
         setTimeout(() => handleSend(retryCount + 1), 1000);
         return;
       }
       setSendError(true);
-      setInput(messageText); // Restore message
+      setInput(messageText);
     }
 
     setSending(false);
@@ -175,28 +175,35 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
         </div>
       </ScrollArea>
 
-      {/* Input */}
-      <div className="flex flex-col gap-1 px-3 py-2 border-t border-zinc-800">
-        {sendError && (
-          <p className="text-red-400 text-xs">Nie udało się wysłać wiadomości. Spróbuj ponownie.</p>
-        )}
-        <div className="flex items-center gap-2">
-          <input
-            value={input}
-            onChange={(e) => { setInput(e.target.value); setSendError(false); }}
-            onKeyDown={handleKeyDown}
-            placeholder="Napisz wiadomość..."
-            className="flex-1 bg-zinc-800 text-white text-sm rounded-full px-4 py-2 outline-none placeholder:text-zinc-500 focus:ring-1 focus:ring-blue-500"
-          />
-          <button
-            onClick={() => handleSend()}
-            disabled={!input.trim() || sending}
-            className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 disabled:opacity-40 transition-colors"
-          >
-            <Send className="h-4 w-4 text-white" />
-          </button>
+      {/* Input or disabled notice */}
+      {chatDisabled ? (
+        <div className="flex items-center justify-center gap-2 px-3 py-4 border-t border-zinc-800 text-zinc-500 text-xs">
+          <MessageCircleOff className="h-4 w-4" />
+          <span>Czat został wyłączony przez prowadzącego</span>
         </div>
-      </div>
+      ) : (
+        <div className="flex flex-col gap-1 px-3 py-2 border-t border-zinc-800">
+          {sendError && (
+            <p className="text-red-400 text-xs">Nie udało się wysłać wiadomości. Spróbuj ponownie.</p>
+          )}
+          <div className="flex items-center gap-2">
+            <input
+              value={input}
+              onChange={(e) => { setInput(e.target.value); setSendError(false); }}
+              onKeyDown={handleKeyDown}
+              placeholder="Napisz wiadomość..."
+              className="flex-1 bg-zinc-800 text-white text-sm rounded-full px-4 py-2 outline-none placeholder:text-zinc-500 focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              onClick={() => handleSend()}
+              disabled={!input.trim() || sending}
+              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-700 disabled:opacity-40 transition-colors"
+            >
+              <Send className="h-4 w-4 text-white" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

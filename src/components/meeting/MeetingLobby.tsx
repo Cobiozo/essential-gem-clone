@@ -3,23 +3,37 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Video, VideoOff, Mic, MicOff, LogIn } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, LogIn, Settings, MessageCircle, Monitor } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
+import type { MeetingSettings } from './MeetingSettingsDialog';
 
 interface MeetingLobbyProps {
   displayName: string;
-  onJoin: (audioEnabled: boolean, videoEnabled: boolean) => void;
+  onJoin: (audioEnabled: boolean, videoEnabled: boolean, settings?: MeetingSettings) => void;
   isConnecting: boolean;
+  isHost?: boolean;
+  roomId?: string;
 }
 
 export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   displayName,
   onJoin,
   isConnecting,
+  isHost = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
+
+  // Host settings
+  const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>({
+    allowChat: true,
+    allowMicrophone: true,
+    allowCamera: true,
+    allowScreenShare: 'host_only',
+  });
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -43,14 +57,12 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     };
   }, []);
 
-  // Bind stream to video element whenever previewStream changes
   useEffect(() => {
     if (videoRef.current && previewStream) {
       videoRef.current.srcObject = previewStream;
     }
   }, [previewStream]);
 
-  // Toggle tracks without recreating stream
   useEffect(() => {
     if (previewStream) {
       previewStream.getVideoTracks().forEach((t) => (t.enabled = videoEnabled));
@@ -64,9 +76,8 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   }, [audioEnabled, previewStream]);
 
   const handleJoin = () => {
-    // Stop preview stream before joining (VideoRoom will create its own)
     previewStream?.getTracks().forEach((t) => t.stop());
-    onJoin(audioEnabled, videoEnabled);
+    onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined);
   };
 
   return (
@@ -115,6 +126,75 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
               <Switch checked={videoEnabled} onCheckedChange={setVideoEnabled} />
             </div>
           </div>
+
+          {/* Host settings */}
+          {isHost && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <Settings className="h-4 w-4" />
+                  <span>Ustawienia spotkania</span>
+                </div>
+
+                <div className="space-y-3 pl-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Label className="text-sm">Czat</Label>
+                    </div>
+                    <Switch
+                      checked={meetingSettings.allowChat}
+                      onCheckedChange={(v) => setMeetingSettings(s => ({ ...s, allowChat: v }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mic className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Label className="text-sm">Mikrofon uczestników</Label>
+                    </div>
+                    <Switch
+                      checked={meetingSettings.allowMicrophone}
+                      onCheckedChange={(v) => setMeetingSettings(s => ({ ...s, allowMicrophone: v }))}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Video className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Label className="text-sm">Kamera uczestników</Label>
+                    </div>
+                    <Switch
+                      checked={meetingSettings.allowCamera}
+                      onCheckedChange={(v) => setMeetingSettings(s => ({ ...s, allowCamera: v }))}
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
+                      <Label className="text-sm">Udostępnianie ekranu</Label>
+                    </div>
+                    <RadioGroup
+                      value={meetingSettings.allowScreenShare}
+                      onValueChange={(v) => setMeetingSettings(s => ({ ...s, allowScreenShare: v as 'host_only' | 'all' }))}
+                      className="pl-5 space-y-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="host_only" id="lobby-ss-host" />
+                        <Label htmlFor="lobby-ss-host" className="text-sm text-muted-foreground">Tylko prowadzący</Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem value="all" id="lobby-ss-all" />
+                        <Label htmlFor="lobby-ss-all" className="text-sm text-muted-foreground">Wszyscy</Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Join button */}
           <Button
