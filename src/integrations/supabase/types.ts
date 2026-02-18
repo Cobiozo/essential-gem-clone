@@ -2080,6 +2080,7 @@ export type Database = {
       }
       events: {
         Row: {
+          allow_guest_access: boolean
           allow_invites: boolean | null
           buttons: Json | null
           created_at: string | null
@@ -2125,6 +2126,7 @@ export type Database = {
           zoom_start_url: string | null
         }
         Insert: {
+          allow_guest_access?: boolean
           allow_invites?: boolean | null
           buttons?: Json | null
           created_at?: string | null
@@ -2170,6 +2172,7 @@ export type Database = {
           zoom_start_url?: string | null
         }
         Update: {
+          allow_guest_access?: boolean
           allow_invites?: boolean | null
           buttons?: Json | null
           created_at?: string | null
@@ -3457,30 +3460,154 @@ export type Database = {
           content: string
           created_at: string
           display_name: string | null
+          guest_token_id: string | null
           id: string
           room_id: string
           target_user_id: string | null
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           content: string
           created_at?: string
           display_name?: string | null
+          guest_token_id?: string | null
           id?: string
           room_id: string
           target_user_id?: string | null
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           content?: string
           created_at?: string
           display_name?: string | null
+          guest_token_id?: string | null
           id?: string
           room_id?: string
           target_user_id?: string | null
-          user_id?: string
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meeting_chat_messages_guest_token_id_fkey"
+            columns: ["guest_token_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_guest_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_guest_analytics: {
+        Row: {
+          created_at: string
+          device_info: string | null
+          duration_seconds: number | null
+          event_id: string | null
+          guest_token_id: string
+          id: string
+          inviter_user_id: string
+          join_source: string | null
+          joined_at: string | null
+          left_at: string | null
+          room_id: string
+          thank_you_email_sent: boolean
+          thank_you_email_sent_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_info?: string | null
+          duration_seconds?: number | null
+          event_id?: string | null
+          guest_token_id: string
+          id?: string
+          inviter_user_id: string
+          join_source?: string | null
+          joined_at?: string | null
+          left_at?: string | null
+          room_id: string
+          thank_you_email_sent?: boolean
+          thank_you_email_sent_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_info?: string | null
+          duration_seconds?: number | null
+          event_id?: string | null
+          guest_token_id?: string
+          id?: string
+          inviter_user_id?: string
+          join_source?: string | null
+          joined_at?: string | null
+          left_at?: string | null
+          room_id?: string
+          thank_you_email_sent?: boolean
+          thank_you_email_sent_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_guest_analytics_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_guest_analytics_guest_token_id_fkey"
+            columns: ["guest_token_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_guest_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_guest_tokens: {
+        Row: {
+          created_at: string
+          email: string
+          event_id: string | null
+          expires_at: string
+          first_name: string
+          id: string
+          inviter_user_id: string
+          last_name: string
+          room_id: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          event_id?: string | null
+          expires_at: string
+          first_name: string
+          id?: string
+          inviter_user_id: string
+          last_name: string
+          room_id: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          event_id?: string | null
+          expires_at?: string
+          first_name?: string
+          id?: string
+          inviter_user_id?: string
+          last_name?: string
+          room_id?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_guest_tokens_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_reminders_sent: {
         Row: {
@@ -3518,37 +3645,48 @@ export type Database = {
         Row: {
           created_at: string
           display_name: string | null
+          guest_token_id: string | null
           id: string
           is_active: boolean
           joined_at: string
           left_at: string | null
           peer_id: string | null
           room_id: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           display_name?: string | null
+          guest_token_id?: string | null
           id?: string
           is_active?: boolean
           joined_at?: string
           left_at?: string | null
           peer_id?: string | null
           room_id: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           display_name?: string | null
+          guest_token_id?: string | null
           id?: string
           is_active?: boolean
           joined_at?: string
           left_at?: string | null
           peer_id?: string | null
           room_id?: string
-          user_id?: string
+          user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meeting_room_participants_guest_token_id_fkey"
+            columns: ["guest_token_id"]
+            isOneToOne: false
+            referencedRelation: "meeting_guest_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meeting_room_settings: {
         Row: {

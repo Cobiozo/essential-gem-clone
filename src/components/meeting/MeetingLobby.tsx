@@ -14,6 +14,7 @@ interface MeetingLobbyProps {
   isConnecting: boolean;
   isHost?: boolean;
   roomId?: string;
+  guestMode?: boolean;
 }
 
 export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
@@ -21,6 +22,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   onJoin,
   isConnecting,
   isHost = false,
+  guestMode = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoEnabled, setVideoEnabled] = useState(true);
@@ -92,6 +94,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
         <CardHeader>
           <CardTitle className="text-center">Dołącz do spotkania</CardTitle>
           <p className="text-sm text-muted-foreground text-center">
+            {guestMode && <span className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full mr-1">Gość</span>}
             Witaj, <strong>{displayName}</strong>
           </p>
         </CardHeader>
@@ -134,7 +137,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
           </div>
 
           {/* Host settings */}
-          {isHost && (
+          {isHost && !guestMode && (
             <>
               <Separator />
               <div className="space-y-3">

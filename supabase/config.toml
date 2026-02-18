@@ -197,3 +197,12 @@ verify_jwt = false
 
 [functions.get-turn-credentials]
 verify_jwt = false
+
+[functions.generate-meeting-guest-token]
+verify_jwt = false
+
+[functions.verify-meeting-guest-token]
+verify_jwt = false
+
+[functions.send-guest-thank-you-email]
+verify_jwt = false
