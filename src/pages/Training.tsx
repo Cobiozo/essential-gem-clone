@@ -17,15 +17,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw, AlertTriangle, Globe } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useTrainingTranslations } from "@/hooks/useTrainingTranslations";
 import { TrainingModule as TrainingModuleType } from "@/types/training";
-import { LANGUAGE_OPTIONS } from "@/types/knowledge";
+import { ContentLanguageSelector } from "@/components/ContentLanguageSelector";
 
 interface TrainingModule {
   id: string;
@@ -695,17 +694,7 @@ const Training = () => {
               {t('training.description')}
             </p>
           </div>
-          <Select value={trainingLanguage} onValueChange={setTrainingLanguage}>
-            <SelectTrigger className="w-48">
-              <Globe className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LANGUAGE_OPTIONS.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ContentLanguageSelector value={trainingLanguage} onValueChange={setTrainingLanguage} />
         </div>
 
         {modules.length === 0 ? (

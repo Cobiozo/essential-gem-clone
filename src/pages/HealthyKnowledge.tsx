@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LANGUAGE_OPTIONS } from '@/types/knowledge';
+import { ContentLanguageSelector } from '@/components/ContentLanguageSelector';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -12,8 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Globe } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
@@ -201,17 +200,7 @@ const HealthyKnowledgePage: React.FC = () => {
               className="pl-9"
             />
           </div>
-          <Select value={contentLanguage} onValueChange={setContentLanguage}>
-            <SelectTrigger className="w-48">
-              <Globe className="w-4 h-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {LANGUAGE_OPTIONS.map((lang) => (
-                <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ContentLanguageSelector value={contentLanguage} onValueChange={setContentLanguage} />
           {categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <Button

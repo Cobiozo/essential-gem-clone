@@ -1,0 +1,95 @@
+import React, { useEffect, useState } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Globe } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+interface LanguageOption {
+  code: string;
+  name: string;
+  native_name: string | null;
+}
+
+const languageToCountry: Record<string, string> = {
+  'pl': 'pl',
+  'en': 'gb',
+  'de': 'de',
+  'it': 'it',
+  'es': 'es',
+  'fr': 'fr',
+  'pt': 'pt'
+};
+
+const getFlagUrl = (langCode: string): string => {
+  const countryCode = languageToCountry[langCode] || langCode;
+  return `https://flagcdn.com/w40/${countryCode}.png`;
+};
+
+interface ContentLanguageSelectorProps {
+  value: string;
+  onValueChange: (value: string) => void;
+}
+
+export const ContentLanguageSelector: React.FC<ContentLanguageSelectorProps> = ({ value, onValueChange }) => {
+  const [languages, setLanguages] = useState<LanguageOption[]>([
+    { code: 'pl', name: 'Polish', native_name: 'Polski' },
+    { code: 'de', name: 'German', native_name: 'Deutsch' },
+    { code: 'en', name: 'English', native_name: 'English' }
+  ]);
+
+  useEffect(() => {
+    const fetchLanguages = async () => {
+      const { data, error } = await supabase
+        .from('i18n_languages')
+        .select('code, name, native_name')
+        .eq('is_active', true)
+        .order('position');
+      
+      if (!error && data && data.length > 0) {
+        setLanguages(data);
+      }
+    };
+    fetchLanguages();
+  }, []);
+
+  const selectedLanguage = languages.find(l => l.code === value);
+
+  return (
+    <Select value={value} onValueChange={onValueChange}>
+      <SelectTrigger className="w-auto h-8 border-0 bg-transparent px-2 hover:bg-accent/50">
+        <SelectValue>
+          {value === 'all' ? (
+            <Globe className="w-5 h-5 text-muted-foreground" />
+          ) : selectedLanguage ? (
+            <img 
+              src={getFlagUrl(selectedLanguage.code)} 
+              alt={selectedLanguage.name}
+              className="w-8 h-5 object-cover rounded shadow-sm"
+            />
+          ) : (
+            <Globe className="w-5 h-5 text-muted-foreground" />
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent align="end">
+        <SelectItem value="all">
+          <span className="flex items-center gap-3">
+            <Globe className="w-6 h-4" />
+            <span>Wszystkie</span>
+          </span>
+        </SelectItem>
+        {languages.map((lang) => (
+          <SelectItem key={lang.code} value={lang.code}>
+            <span className="flex items-center gap-3">
+              <img 
+                src={getFlagUrl(lang.code)} 
+                alt={lang.name}
+                className="w-6 h-4 object-cover rounded-sm shadow-sm"
+              />
+              <span>{lang.native_name || lang.name}</span>
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+};
