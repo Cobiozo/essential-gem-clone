@@ -76,6 +76,10 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   // Use dynamic zoom link as fallback
   const effectiveZoomLink = event.zoom_link || dynamicZoomLink;
   
+  // Internal meeting detection
+  const useInternalMeeting = (event as any).use_internal_meeting === true;
+  const meetingRoomId = (event as any).meeting_room_id;
+  
   // External platform detection
   const isExternalPlatform = (event as any).is_external_platform === true;
   const externalPlatformMessage = (event as any).external_platform_message || 
@@ -83,8 +87,8 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 
   const isEnded = isAfter(now, eventEnd);
   const isLive = isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd);
-  const canJoin = event.is_registered && isLive && effectiveZoomLink;
-  const showMeetingLink = event.is_registered && effectiveZoomLink && !isEnded;
+  const canJoin = event.is_registered && isLive && (effectiveZoomLink || useInternalMeeting);
+  const showMeetingLink = event.is_registered && (effectiveZoomLink || useInternalMeeting) && !isEnded;
   
   // Cancel allowed if more than 2 hours before meeting for individual meetings
   const minutesUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60);
@@ -235,25 +239,43 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               {showMeetingLink && !canJoin && (
                 <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                   <Video className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <a 
-                    href={effectiveZoomLink!} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
-                    className="text-sm text-primary hover:underline truncate flex-1"
-                  >
-                    Link do spotkania
-                  </a>
+                  {useInternalMeeting && meetingRoomId ? (
+                    <a 
+                      href={`/meeting-room/${meetingRoomId}`}
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-primary hover:underline truncate flex-1"
+                    >
+                      Link do wewnętrznego pokoju spotkania
+                    </a>
+                  ) : (
+                    <a 
+                      href={effectiveZoomLink!} 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-primary hover:underline truncate flex-1"
+                    >
+                      Link do spotkania
+                    </a>
+                  )}
                 </div>
               )}
 
-              {canJoin && (
+              {canJoin && useInternalMeeting && meetingRoomId ? (
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" asChild>
+                  <a href={`/meeting-room/${meetingRoomId}`} target="_blank" rel="noopener noreferrer">
+                    <Video className="h-4 w-4 mr-2" />
+                    Dołącz do spotkania
+                  </a>
+                </Button>
+              ) : canJoin ? (
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700" asChild>
                   <a href={effectiveZoomLink!} target="_blank" rel="noopener noreferrer">
                     <Video className="h-4 w-4 mr-2" />
                     Dołącz do spotkania
                   </a>
                 </Button>
-              )}
+              ) : null}
 
               {isEnded ? (
                 <Button variant="secondary" className="w-full" disabled>

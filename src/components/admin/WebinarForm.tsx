@@ -33,7 +33,8 @@ import {
   EyeOff,
   Clock,
   Upload,
-  FileText
+  FileText,
+  Video
 } from 'lucide-react';
 import type { DbEvent, WebinarFormData, WEBINAR_TYPES, DURATION_OPTIONS } from '@/types/events';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -157,6 +158,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         publish_at: (editingWebinar as any).publish_at || null,
         is_external_platform: (editingWebinar as any).is_external_platform ?? false,
         external_platform_message: (editingWebinar as any).external_platform_message || '',
+        use_internal_meeting: (editingWebinar as any).use_internal_meeting ?? false,
+        meeting_room_id: (editingWebinar as any).meeting_room_id || null,
       } as any);
       setImageUrlInput(editingWebinar.image_url || '');
       
@@ -227,7 +230,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         start_time: form.start_time,
         end_time: form.end_time,
         location: form.location || null,
-        zoom_link: form.zoom_link || null,
+        zoom_link: (form as any).use_internal_meeting ? null : (form.zoom_link || null),
         max_participants: form.max_participants,
         requires_registration: form.requires_registration,
         visible_to_partners: form.visible_to_partners,
@@ -248,6 +251,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         publish_at: (form as any).publish_at || null,
         is_external_platform: form.is_external_platform || false,
         external_platform_message: form.external_platform_message || null,
+        use_internal_meeting: (form as any).use_internal_meeting || false,
+        meeting_room_id: (form as any).use_internal_meeting ? ((form as any).meeting_room_id || crypto.randomUUID()) : null,
       };
 
       let error;
@@ -405,34 +410,60 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
           </div>
         </div>
 
-        {/* Zoom Link */}
-        <div className="space-y-2">
-          <Label className="text-muted-foreground font-medium">{t('admin.webinar.zoomLink')}</Label>
-          <div className="flex gap-2">
-            <Input
-              value={form.zoom_link}
-              onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
-              placeholder="https://zoom.us/j/..."
-              className="h-10 flex-1"
-            />
-            <ZoomMeetingGenerator
-              eventId={editingWebinar?.id}
-              eventTitle={form.title}
-              startTime={form.start_time}
-              duration={form.duration_minutes}
-              currentZoomLink={form.zoom_link}
-              existingMeetingId={zoomMeetingId}
-              existingPassword={zoomPassword}
-              existingStartUrl={zoomStartUrl}
-              onGenerated={(data) => {
-                setForm({ ...form, zoom_link: data.join_url });
-                setZoomMeetingId(data.meeting_id);
-                setZoomStartUrl(data.start_url);
-                setZoomPassword(data.password || null);
-              }}
-            />
+        {/* Internal Meeting Toggle (admin only) */}
+        <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+          <Switch
+            checked={(form as any).use_internal_meeting || false}
+            onCheckedChange={(checked) => {
+              const newForm = { ...form, use_internal_meeting: checked } as any;
+              if (checked && !newForm.meeting_room_id) {
+                newForm.meeting_room_id = crypto.randomUUID();
+              }
+              if (checked) {
+                newForm.zoom_link = '';
+              }
+              setForm(newForm);
+            }}
+          />
+          <Video className="h-4 w-4 text-primary" />
+          <div>
+            <Label className="text-primary font-medium">Wewnętrzny pokój spotkania</Label>
+            <p className="text-xs text-muted-foreground">
+              Użyj wbudowanego systemu wideokonferencji zamiast Zoom
+            </p>
           </div>
         </div>
+
+        {/* Zoom Link - only show when internal meeting is OFF */}
+        {!(form as any).use_internal_meeting && (
+          <div className="space-y-2">
+            <Label className="text-muted-foreground font-medium">{t('admin.webinar.zoomLink')}</Label>
+            <div className="flex gap-2">
+              <Input
+                value={form.zoom_link}
+                onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
+                placeholder="https://zoom.us/j/..."
+                className="h-10 flex-1"
+              />
+              <ZoomMeetingGenerator
+                eventId={editingWebinar?.id}
+                eventTitle={form.title}
+                startTime={form.start_time}
+                duration={form.duration_minutes}
+                currentZoomLink={form.zoom_link}
+                existingMeetingId={zoomMeetingId}
+                existingPassword={zoomPassword}
+                existingStartUrl={zoomStartUrl}
+                onGenerated={(data) => {
+                  setForm({ ...form, zoom_link: data.join_url });
+                  setZoomMeetingId(data.meeting_id);
+                  setZoomStartUrl(data.start_url);
+                  setZoomPassword(data.password || null);
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Image Upload Section */}
         <div className="space-y-2">
