@@ -1,54 +1,67 @@
 
 
-# Naprawa kamery i udostepniania ekranu
+# Naprawa niezawodnego PiP i plynnego udostepniania ekranu
 
-## Problem 1: Kamera nie wraca po wlaczeniu
+## Problem 1: PiP nie zawsze dziala
 
-Gdy kamera jest wylaczona, element `<video>` jest usuwany z DOM i zastepowany awatarem. Gdy uzytkownik wlacza kamere ponownie, React tworzy NOWY element `<video>`, ale `useEffect` ktory ustawia `srcObject` zalezy od `participant.stream` - jesli React batch'uje aktualizacje stanu (`isCameraOff` + `localStream`), efekt moze nie uruchomic sie po zamontowaniu nowego elementu video.
+`activeVideoRef` wskazuje na element `<video>` glownego mowcy. Gdy kamera jest wylaczona, ten element ma klase `hidden` i moze nie miec wymiarow (width/height = 0). Przegladarka odmawia `requestPictureInPicture()` dla takiego elementu - wymaga widocznego, odtwarzajacego wideo z wymiarami > 0.
 
 ### Rozwiazanie
 
-W `VideoGrid.tsx` - VideoTile:
-- Zmienic z warunkowego renderowania `<video>` na stale renderowanie elementu video z `hidden` class gdy kamera wylaczona
-- Dzieki temu element `<video>` nigdy nie jest usuwany z DOM, `srcObject` pozostaje ustawiony
-- Gdy kamera wraca - wystarczy usunac `hidden`, obraz jest natychmiast widoczny
+W `VideoRoom.tsx` - handler `visibilitychange`:
+1. Sprawdzic czy `activeVideoRef.current` jest uzywalne (ma srcObject, videoWidth > 0)
+2. Jesli nie - przeszukac DOM (`document.querySelectorAll('video')`) i znalezc PIERWSZY element video ktory ma stream i wymiary
+3. Uzyc tego elementu jako fallback do PiP
+4. Dodac retry z krotkim opoznieniem (100ms) jesli pierwsze wywolanie sie nie powiedzie - czasem przeglada rka potrzebuje chwili po zmianie widocznosci
 
 ```text
-Zamiast:
-  {showVideo ? <video .../> : <avatar/>}
-  {!showVideo && stream && <video hidden/>}
-
-Bedzie:
-  <video ref={videoRef} ... className={showVideo ? '...' : 'hidden'} />
-  {!showVideo && <avatar/>}
+const handleVisibility = async () => {
+  if (screenSharePendingRef.current) return;
+  if (document.hidden) {
+    // Find best video for PiP
+    let pipVideo = activeVideoRef.current;
+    if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
+      // Fallback: find any playing video
+      const allVideos = document.querySelectorAll('video');
+      pipVideo = Array.from(allVideos).find(v => 
+        v.srcObject && v.videoWidth > 0 && !v.paused
+      ) || null;
+    }
+    if (pipVideo && !document.pictureInPictureElement) {
+      await pipVideo.requestPictureInPicture();
+      ...
+    }
+  }
+};
 ```
 
 ## Problem 2: Udostepnianie ekranu wyrzuca ze spotkania
 
-Gdy `getDisplayMedia()` otwiera picker przegladarki, `document.hidden` moze stac sie `true`. To uruchamia handler auto-PiP (linia 417), ktory probuje wywolac `requestPictureInPicture()` na elemencie video. Jesli to sie nie powiedzie lub koliduje z trwajacym `getDisplayMedia`, moze spowodowac kaskade bledow.
+Mimo flagi `screenSharePendingRef`, picker `getDisplayMedia` moze wywolac `visibilitychange` w momencie PRZED ustawieniem flagi (micro-task timing) lub sam `requestPictureInPicture` moze rzucic blad ktory nie jest prawidlowo obsluzony.
 
 ### Rozwiazanie
 
-W `VideoRoom.tsx`:
-- Dodac flage `isScreenSharePending` (useRef) ustawiana na `true` PRZED wywolaniem `getDisplayMedia` i na `false` po zakonczeniu
-- W handlerze `visibilitychange` (auto-PiP) sprawdzac te flage - jesli `true`, nie uruchamiac PiP
-- Dodatkowo: owinac `getDisplayMedia` w lepszy try/catch ktory nie powoduje efektow ubocznych w razie anulowania przez uzytkownika
+1. Ustawic `screenSharePendingRef.current = true` WCZESNIEJ - przed calym blokiem try/catch (juz jest, ale upewnic sie)
+2. W handlerze `visibilitychange` dodac dodatkowy guard: jesli `isScreenSharing` state jest true lub pending, nie uruchamiac PiP
+3. Dodac osobny `catch` w handlerze PiP ktory nie propaguje bledu
+4. W `handleToggleScreenShare` - jesli PiP jest aktywne, najpierw je zamknac przed otwarciem pickera
 
 ```text
-W handleToggleScreenShare:
+const handleToggleScreenShare = async () => {
+  // Exit PiP first to avoid conflicts
+  if (document.pictureInPictureElement) {
+    try { await document.exitPictureInPicture(); } catch {}
+    setIsPiPActive(false);
+  }
   screenSharePendingRef.current = true;
-  try {
-    const screenStream = await getDisplayMedia(...);
-    ...
-  } catch { ... }
-  finally { screenSharePendingRef.current = false; }
-
-W handleVisibility (auto-PiP):
-  if (screenSharePendingRef.current) return; // nie uruchamiaj PiP
+  // ... rest of screen share logic
+};
 ```
 
 ## Zmieniane pliki
 
-1. **`src/components/meeting/VideoGrid.tsx`** - VideoTile: stale renderowanie elementu video (nie usuwac z DOM przy wylaczonej kamerze)
-2. **`src/components/meeting/VideoRoom.tsx`** - flaga screenSharePending blokujaca auto-PiP podczas pickera, lepszy error handling w screen share
+1. **`src/components/meeting/VideoRoom.tsx`**:
+   - Handler `visibilitychange` (auto-PiP): fallback na dowolny element video z prawidlowym streamem
+   - Handler `handleToggleScreenShare`: zamkniecie PiP przed otwarciem pickera
+   - Dodatkowe guardy w handlerze widocznosci (sprawdzenie `isScreenSharing` przez ref)
 
