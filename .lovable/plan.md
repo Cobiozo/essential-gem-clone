@@ -1,92 +1,28 @@
 
+# Naprawa bledu "Rendered more hooks than during the previous render"
 
-# Naprawa trzech problemow: czat od dolu, NAT, wylogowanie
+## Diagnoza
 
-## 1. Czat - wiadomosci od dolu
+Blad wystepuje w komponencie `InactivityHandler` w `App.tsx`. Przyczyna to HMR (Hot Module Replacement) - po edycji pliku `useInactivityTimeout.ts`, React wykrywa zmiane liczby hookow miedzy renderami, co jest naruszeniem zasad hookow React. Znacznik `?t=1771436192798` w stack trace potwierdza, ze blad pochodzi z HMR.
 
-**Plik**: `src/components/meeting/MeetingChat.tsx` (linia 188)
+Blad jest "samoleczacy" - pelne odswiezenie strony (F5) go naprawia. Ale aby zapobiec wyswietlaniu ekranu bledu uzytkownikowi:
 
-Zmiana kontenera wiadomosci z:
-```
-<div className="space-y-3">
-```
-na:
-```
-<div className="space-y-3 min-h-full flex flex-col justify-end">
-```
+## Rozwiazanie
 
-To spowoduje, ze wiadomosci beda "przyklejone" do dolu - nowe pojawiaja sie na dole, stare przesuwaja sie ku gorze.
+**Plik: `src/App.tsx`**
 
----
-
-## 2. Polaczenia poza NAT (TURN relay)
-
-**Problem**: Polaczenia dzialaja w sieci lokalnej (LAN) dzieki STUN, ale nie dzialaja miedzy roznymi sieciami (rozne NAT-y). Przyczyna: w fallbacku (linia 202-205) uzywane sa TYLKO serwery STUN, a glowna konfiguracja PeerJS nie wymusza uzycia relay.
-
-**Plik**: `src/components/meeting/VideoRoom.tsx`
-
-Zmiany:
-- **Linia 273**: Dodanie konfiguracji PeerJS wymuszajacej uzycie relay gdy bezposrednie polaczenie nie jest mozliwe. Zmiana `debug: 0` na `debug: 1` tymczasowo dla diagnostyki, oraz dodanie w konfiguracji `iceTransportPolicy: 'all'` aby peer probowal wszystkich metod polaczenia (w tym TURN relay)
-- Dodanie logowania stanu ICE na polaczeniach, aby wykrywac i raportowac problemy z NAT
+Owinac `InactivityHandler` w dedykowany `ErrorBoundary` aby bledy hookow w tym komponencie nie crashowaly calej aplikacji:
 
 ```text
-Przed:
-const peer = new Peer({ config: { iceServers }, debug: 0 });
+Przed (linia 317):
+<InactivityHandler />
 
 Po:
-const peer = new Peer({
-  config: {
-    iceServers,
-    iceTransportPolicy: 'all',
-  },
-  debug: 1,
-});
+<ErrorBoundary fallback={null}>
+  <InactivityHandler />
+</ErrorBoundary>
 ```
 
-- W funkcji `handleCall` (linia 462): dodanie monitorowania stanu ICE na polaczeniu (`call.peerConnection`) - logowanie zmian `iceConnectionState` dla diagnostyki. Gdy stan ICE zmieni sie na `'failed'`, automatyczna proba restartu ICE.
+`InactivityHandler` renderuje `null` (nie ma UI), wiec `fallback={null}` jest idealny - jesli komponent sie "zepsuje" podczas HMR, uzytkownik nic nie zauwazy, a po kolejnym renderze (lub pelnym reload) odzyska dzialanie.
 
----
-
-## 3. Wylogowanie podczas spotkania
-
-**Problem**: `useInactivityTimeout` wylogowuje uzytkownika gdy przelacza karte na dluzej niz 31 minut. `setInterval` (linia 84-86 w VideoRoom) jest throttlowany przez przegladarke w ukrytych kartach, wiec `video-activity` nie jest emitowane wystarczajaco czesto.
-
-**Rozwiazanie**: Nowe zdarzenia `meeting-active` i `meeting-ended`.
-
-**Plik**: `src/components/meeting/VideoRoom.tsx` (linia 82-90)
-
-Dodanie emisji `meeting-active` na mount i `meeting-ended` na unmount:
-
-```text
-useEffect(() => {
-  window.dispatchEvent(new Event('meeting-active'));
-  const interval = setInterval(() => {
-    window.dispatchEvent(new Event('video-activity'));
-  }, 60000);
-  window.dispatchEvent(new Event('video-activity'));
-  return () => {
-    clearInterval(interval);
-    window.dispatchEvent(new Event('meeting-ended'));
-  };
-}, []);
-```
-
-**Plik**: `src/hooks/useInactivityTimeout.ts`
-
-Dodanie:
-- Ref `isMeetingActiveRef` (boolean)
-- Nasluchiwanie na `meeting-active` -> `isMeetingActiveRef.current = true`
-- Nasluchiwanie na `meeting-ended` -> `isMeetingActiveRef.current = false`
-- W `handleVisibilityChange` (linia 120-133): jesli `isMeetingActiveRef.current === true`, wykonaj `resetTimer()` zamiast sprawdzania czasu nieaktywnosci
-- W `handleLogout` (linia 37): dodanie guardu `if (isMeetingActiveRef.current) return;`
-
----
-
-## Podsumowanie zmian
-
-| Plik | Zmiana |
-|---|---|
-| `MeetingChat.tsx` | `min-h-full flex flex-col justify-end` na kontenerze wiadomosci |
-| `VideoRoom.tsx` | `iceTransportPolicy: 'all'`, `debug: 1`, monitoring ICE, emisja `meeting-active`/`meeting-ended` |
-| `useInactivityTimeout.ts` | Flaga `isMeetingActiveRef` blokujaca wylogowanie + guard w `handleLogout` i `handleVisibilityChange` |
-
+To jedyna zmiana - jedna linia w `App.tsx`.
