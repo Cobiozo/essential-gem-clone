@@ -135,112 +135,97 @@ export const useNewsTickerData = (): NewsTickerData => {
         }
       }
 
-      // Fetch SELECTED webinars from news_ticker_selected_events (instead of all)
-      if (settings.sourceWebinars) {
-        const { data: selectedWebinars } = await supabase
+      // Fetch ALL selected events once (deduplicated query)
+      let allSelectedEvents: any[] = [];
+      if (settings.sourceWebinars || settings.sourceTeamMeetings) {
+        const { data: selected } = await supabase
           .from('news_ticker_selected_events')
-          .select(`
-            id,
-            is_enabled,
-            custom_label,
-            event_id
-          `)
+          .select('id, is_enabled, custom_label, event_id')
           .eq('is_enabled', true);
+        allSelectedEvents = selected || [];
+      }
 
-        if (selectedWebinars && selectedWebinars.length > 0) {
-          // Fetch the actual events
-          const eventIds = selectedWebinars.map(s => s.event_id);
-          const { data: events } = await supabase
-            .from('events')
-            .select('*')
-            .in('id', eventIds)
-            .eq('is_active', true)
-            .eq('event_type', 'webinar')
-            .gte('start_time', now.toISOString())
-            .order('start_time', { ascending: true });
+      // Fetch SELECTED webinars
+      if (settings.sourceWebinars && allSelectedEvents.length > 0) {
+        const eventIds = allSelectedEvents.map(s => s.event_id);
+        const { data: events } = await supabase
+          .from('events')
+          .select('*')
+          .in('id', eventIds)
+          .eq('is_active', true)
+          .eq('event_type', 'webinar')
+          .gte('start_time', now.toISOString())
+          .order('start_time', { ascending: true });
 
-          if (events) {
-            const filteredEvents = events.filter(event => {
-              if (isAdmin) return true;
-              if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
-              if (userRole === 'partner') return event.visible_to_partners;
-              if (userRole === 'specjalista') return event.visible_to_specjalista;
-              return false;
+        if (events) {
+          const filteredEvents = events.filter(event => {
+            if (isAdmin) return true;
+            if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
+            if (userRole === 'partner') return event.visible_to_partners;
+            if (userRole === 'specjalista') return event.visible_to_specjalista;
+            return false;
+          });
+
+          filteredEvents.forEach(event => {
+            const selectedItem = allSelectedEvents.find(s => s.event_id === event.id);
+            const eventDate = new Date(event.start_time);
+            const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
+            const label = selectedItem?.custom_label || event.title;
+            
+            allItems.push({
+              id: `webinar-${event.id}`,
+              type: 'webinar',
+              icon: 'Video',
+              content: `WEBINAR: ${label} - ${formattedDate}`,
+              isImportant: false,
+              linkUrl: event.zoom_link || undefined,
+              thumbnailUrl: event.image_url || undefined,
+              sourceId: event.id,
+              priority: 50,
             });
-
-            filteredEvents.forEach(event => {
-              const selectedItem = selectedWebinars.find(s => s.event_id === event.id);
-              const eventDate = new Date(event.start_time);
-              const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
-              const label = selectedItem?.custom_label || event.title;
-              
-              allItems.push({
-                id: `webinar-${event.id}`,
-                type: 'webinar',
-                icon: 'Video',
-                content: `WEBINAR: ${label} - ${formattedDate}`,
-                isImportant: false,
-                linkUrl: event.zoom_link || undefined,
-                thumbnailUrl: event.image_url || undefined,
-                sourceId: event.id,
-                priority: 50,
-              });
-            });
-          }
+          });
         }
       }
 
-      // Fetch SELECTED team meetings from news_ticker_selected_events
-      if (settings.sourceTeamMeetings) {
-        const { data: selectedMeetings } = await supabase
-          .from('news_ticker_selected_events')
-          .select(`
-            id,
-            is_enabled,
-            custom_label,
-            event_id
-          `)
-          .eq('is_enabled', true);
+      // Fetch SELECTED team meetings
+      if (settings.sourceTeamMeetings && allSelectedEvents.length > 0) {
+        const eventIds = allSelectedEvents.map(s => s.event_id);
+        const { data: events } = await supabase
+          .from('events')
+          .select('*')
+          .in('id', eventIds)
+          .eq('is_active', true)
+          .eq('event_type', 'team_training')
+          .gte('start_time', now.toISOString())
+          .order('start_time', { ascending: true });
 
-        if (selectedMeetings && selectedMeetings.length > 0) {
-          const eventIds = selectedMeetings.map(s => s.event_id);
-          const { data: events } = await supabase
-            .from('events')
-            .select('*')
-            .in('id', eventIds)
-            .eq('is_active', true)
-            .eq('event_type', 'team_training')
-            .gte('start_time', now.toISOString())
-            .order('start_time', { ascending: true });
+        if (events) {
+          const filteredEvents = events.filter(event => {
+            if (isAdmin) return true;
+            if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
+            if (userRole === 'partner') return event.visible_to_partners;
+            if (userRole === 'specjalista') return event.visible_to_specjalista;
+            return false;
+          });
 
-          if (events) {
-            const filteredEvents = events.filter(event => {
-              if (isAdmin) return true;
-              if (userRole === 'client' || userRole === 'user') return event.visible_to_clients;
-              if (userRole === 'partner') return event.visible_to_partners;
-              if (userRole === 'specjalista') return event.visible_to_specjalista;
-              return false;
+          filteredEvents.forEach(event => {
+            const selectedItem = allSelectedEvents.find(s => s.event_id === event.id);
+            const eventDate = new Date(event.start_time);
+            const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
+            const label = selectedItem?.custom_label || event.title;
+            
+            allItems.push({
+              id: `meeting-${event.id}`,
+              type: 'meeting',
+              icon: 'Users',
+              content: `SPOTKANIE: ${label} - ${formattedDate}`,
+              isImportant: false,
+              linkUrl: event.zoom_link || undefined,
+              thumbnailUrl: event.image_url || undefined,
+              sourceId: event.id,
+              priority: 40,
             });
-
-            filteredEvents.forEach(event => {
-              const selectedItem = selectedMeetings.find(s => s.event_id === event.id);
-              const eventDate = new Date(event.start_time);
-              const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
-              const label = selectedItem?.custom_label || event.title;
-              
-              allItems.push({
-                id: `meeting-${event.id}`,
-                type: 'meeting',
-                icon: 'Users',
-                content: `SPOTKANIE: ${label} - ${formattedDate}`,
-                isImportant: false,
-                linkUrl: event.zoom_link || undefined,
-                thumbnailUrl: event.image_url || undefined,
-                sourceId: event.id,
-                priority: 40,
-              });
-            });
-          }
+          });
         }
       }
 

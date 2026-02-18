@@ -680,19 +680,20 @@ export const useEvents = () => {
   useEffect(() => {
     fetchEvents();
 
-    // Subscribe to real-time changes on event_registrations
+    if (!user?.id) return;
+
+    // Subscribe to real-time changes on event_registrations filtered by user_id
     const channel = supabase
-      .channel('event-registrations-changes')
+      .channel(`event-registrations-${user.id}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
-          table: 'event_registrations'
+          table: 'event_registrations',
+          filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
-          console.log('Event registration change:', payload);
-          // Refetch events when any registration changes
+        () => {
           fetchEvents();
         }
       )
@@ -701,7 +702,7 @@ export const useEvents = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchEvents]);
+  }, [fetchEvents, user?.id]);
 
   return {
     events,

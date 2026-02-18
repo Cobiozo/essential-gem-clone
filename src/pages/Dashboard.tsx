@@ -3,6 +3,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEvents } from '@/hooks/useEvents';
 
 // Lazy load all widgets for better mobile performance
 const WelcomeWidget = lazy(() => import('@/components/dashboard/widgets/WelcomeWidget'));
@@ -55,6 +56,7 @@ const Dashboard: React.FC = () => {
   const { user, loading, rolesReady } = useAuth();
   const location = useLocation();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { events, loading: eventsLoading, registerForEvent, cancelRegistration } = useEvents();
 
   const handleDropdownToggle = useCallback((open: boolean) => {
     setIsUserMenuOpen(open);
@@ -92,12 +94,20 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Column 1: Calendar */}
           <Suspense fallback={<WidgetSkeleton />}>
-            <CalendarWidget />
+            <CalendarWidget 
+              events={events}
+              loading={eventsLoading}
+              registerForEvent={registerForEvent}
+              cancelRegistration={cancelRegistration}
+            />
           </Suspense>
 
           {/* Column 2: My Meetings - obok kalendarza */}
           <Suspense fallback={<WidgetSkeleton />}>
-            <MyMeetingsWidget />
+            <MyMeetingsWidget 
+              events={events}
+              eventsLoading={eventsLoading}
+            />
           </Suspense>
 
           {/* Column 3: Training Progress */}

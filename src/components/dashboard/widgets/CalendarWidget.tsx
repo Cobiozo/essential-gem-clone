@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEvents } from '@/hooks/useEvents';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
@@ -19,10 +18,21 @@ import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 
-export const CalendarWidget: React.FC = () => {
+interface CalendarWidgetProps {
+  events?: EventWithRegistration[];
+  loading?: boolean;
+  registerForEvent?: (eventId: string, occurrenceIndex?: number) => Promise<boolean>;
+  cancelRegistration?: (eventId: string, occurrenceIndex?: number) => Promise<boolean>;
+}
+
+export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
+  events = [],
+  loading = false,
+  registerForEvent = async () => false,
+  cancelRegistration = async () => false,
+}) => {
   const { t, tf, language } = useLanguage();
   const { user } = useAuth();
-  const { events, loading, registerForEvent, cancelRegistration } = useEvents();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
