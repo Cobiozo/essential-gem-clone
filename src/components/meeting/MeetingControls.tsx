@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2 } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square } from 'lucide-react';
 
 interface MeetingControlsProps {
   isMuted: boolean;
@@ -18,6 +18,7 @@ interface MeetingControlsProps {
   onToggleParticipants: () => void;
   onTogglePiP: () => void;
   onLeave: () => void;
+  onEndMeeting?: () => void;
 }
 
 const ControlButton: React.FC<{
@@ -74,9 +75,10 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   onToggleParticipants,
   onTogglePiP,
   onLeave,
+  onEndMeeting,
 }) => {
   return (
-    <div className="flex items-center justify-center gap-3 px-4 py-3 bg-zinc-900 border-t border-zinc-800">
+    <div className="flex items-center justify-center gap-3 px-4 py-3 bg-zinc-900 border-t border-zinc-800 overflow-x-auto">
       <ControlButton
         icon={isMuted ? <MicOff className="h-5 w-5 text-white" /> : <Mic className="h-5 w-5 text-white" />}
         label="Mikrofon"
@@ -128,6 +130,15 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         onClick={onLeave}
         danger
       />
+
+      {onEndMeeting && (
+        <ControlButton
+          icon={<Square className="h-5 w-5 text-white" />}
+          label="Zakończ"
+          onClick={onEndMeeting}
+          danger
+        />
+      )}
     </div>
   );
 };

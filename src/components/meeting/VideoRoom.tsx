@@ -38,6 +38,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const localStreamRef = useRef<MediaStream | null>(null);
   const connectionsRef = useRef<Map<string, MediaConnection>>(new Map());
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
+  const cleanupDoneRef = useRef(false);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<RemoteParticipant[]>([]);
@@ -46,7 +48,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
 
-  // New states
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
@@ -62,14 +63,97 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       return data?.iceServers || [];
     } catch (err) {
       console.error('[VideoRoom] Failed to get TURN credentials:', err);
-      return [{ urls: 'stun:stun.l.google.com:19302' }];
+      return [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ];
     }
   }, []);
+
+  // Cleanup function with guard
+  const cleanup = useCallback(async () => {
+    if (cleanupDoneRef.current) return;
+    cleanupDoneRef.current = true;
+
+    console.log('[VideoRoom] Cleanup starting...');
+
+    const peerId = peerRef.current?.id;
+    
+    // Broadcast peer-left
+    if (peerId && channelRef.current) {
+      try {
+        await channelRef.current.send({ type: 'broadcast', event: 'peer-left', payload: { peerId } });
+      } catch (e) {
+        console.warn('[VideoRoom] Failed to broadcast peer-left:', e);
+      }
+    }
+
+    // Remove channel
+    if (channelRef.current) {
+      try { supabase.removeChannel(channelRef.current); } catch {}
+      channelRef.current = null;
+    }
+
+    // Update DB
+    if (user) {
+      try {
+        await supabase.from('meeting_room_participants')
+          .update({ is_active: false, left_at: new Date().toISOString() })
+          .eq('room_id', roomId).eq('user_id', user.id);
+      } catch (e) {
+        console.warn('[VideoRoom] Failed to update participant status:', e);
+      }
+    }
+
+    // Close all connections
+    connectionsRef.current.forEach((conn) => {
+      try { conn.close(); } catch {}
+    });
+    connectionsRef.current.clear();
+
+    // Stop local tracks
+    localStreamRef.current?.getTracks().forEach((t) => {
+      try { t.stop(); } catch {}
+    });
+    localStreamRef.current = null;
+
+    // Destroy peer
+    if (peerRef.current) {
+      try { peerRef.current.destroy(); } catch {}
+      peerRef.current = null;
+    }
+
+    console.log('[VideoRoom] Cleanup complete');
+  }, [roomId, user]);
+
+  // beforeunload handler
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Synchronous cleanup for page unload
+      if (cleanupDoneRef.current) return;
+      cleanupDoneRef.current = true;
+
+      localStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      connectionsRef.current.forEach(conn => { try { conn.close(); } catch {} });
+      if (peerRef.current) { try { peerRef.current.destroy(); } catch {} }
+
+      // Use sendBeacon for DB update
+      if (user) {
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
+        const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
+        navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }));
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [roomId, user]);
 
   // Initialize peer and media
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
+    cleanupDoneRef.current = false;
 
     const init = async () => {
       try {
@@ -82,47 +166,91 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         setLocalStream(stream);
 
         const iceServers = await getTurnCredentials();
-        const peer = new Peer({ config: { iceServers } });
+        const peer = new Peer({
+          config: { iceServers },
+          debug: 0,
+        });
         peerRef.current = peer;
 
         peer.on('open', async (peerId) => {
+          if (cancelled) return;
           console.log('[VideoRoom] Peer opened:', peerId);
           setIsConnected(true);
 
+          // Register as participant
           await supabase.from('meeting_room_participants').insert({
             room_id: roomId, user_id: user.id, peer_id: peerId,
             display_name: displayName, is_active: true,
           });
 
+          // Set up realtime channel
           const channel = supabase.channel(`meeting:${roomId}`);
+          channelRef.current = channel;
+
+          channel.on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
+            if (payload.peerId !== peerId && !cancelled) {
+              callPeer(payload.peerId, payload.displayName, stream);
+            }
+          });
+          channel.on('broadcast', { event: 'peer-left' }, ({ payload }) => {
+            if (!cancelled) removePeer(payload.peerId);
+          });
+          channel.on('broadcast', { event: 'meeting-ended' }, () => {
+            if (!cancelled) {
+              toast({ title: 'Spotkanie zakończone', description: 'Prowadzący zakończył spotkanie.' });
+              handleLeave();
+            }
+          });
+
           channel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
+            if (status === 'SUBSCRIBED' && !cancelled) {
               await channel.send({ type: 'broadcast', event: 'peer-joined', payload: { peerId, displayName, userId: user.id } });
             }
           });
 
-          channel.on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
-            if (payload.peerId !== peerId) callPeer(payload.peerId, payload.displayName, stream);
-          });
-          channel.on('broadcast', { event: 'peer-left' }, ({ payload }) => removePeer(payload.peerId));
-
+          // Connect to existing participants
           const { data: existing } = await supabase
             .from('meeting_room_participants')
             .select('peer_id, display_name')
             .eq('room_id', roomId).eq('is_active', true).neq('user_id', user.id);
 
-          if (existing) {
+          if (existing && !cancelled) {
             for (const p of existing) {
               if (p.peer_id) callPeer(p.peer_id, p.display_name || 'Uczestnik', stream);
             }
           }
         });
 
-        peer.on('call', (call) => { call.answer(stream); handleCall(call, 'Uczestnik'); });
+        peer.on('call', (call) => {
+          if (!cancelled) { call.answer(stream); handleCall(call, 'Uczestnik'); }
+        });
+
         peer.on('error', (err) => {
           console.error('[VideoRoom] Peer error:', err);
-          toast({ title: 'Błąd połączenia', description: 'Wystąpił problem z połączeniem video.', variant: 'destructive' });
+          if (err.type === 'peer-unavailable') {
+            // Peer we tried to call doesn't exist anymore - remove them
+            const failedPeerId = (err as any).message?.match(/peer\s+(\S+)/)?.[1];
+            if (failedPeerId) removePeer(failedPeerId);
+          } else if (err.type === 'disconnected') {
+            // Try to reconnect
+            console.log('[VideoRoom] Peer disconnected, attempting reconnect...');
+            try { peer.reconnect(); } catch {}
+          } else {
+            toast({ title: 'Błąd połączenia', description: 'Wystąpił problem z połączeniem video.', variant: 'destructive' });
+          }
         });
+
+        peer.on('disconnected', () => {
+          if (!cancelled && !cleanupDoneRef.current) {
+            console.log('[VideoRoom] Peer disconnected, reconnecting...');
+            setTimeout(() => {
+              if (!cancelled && !cleanupDoneRef.current) {
+                try { peer.reconnect(); } catch {}
+              }
+            }, 2000);
+          }
+        });
+
       } catch (err) {
         console.error('[VideoRoom] Init error:', err);
         toast({ title: 'Brak dostępu do kamery/mikrofonu', description: 'Upewnij się, że przeglądarka ma uprawnienia.', variant: 'destructive' });
@@ -135,45 +263,45 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   const callPeer = (remotePeerId: string, name: string, stream: MediaStream) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
+    console.log('[VideoRoom] Calling peer:', remotePeerId);
     const call = peerRef.current.call(remotePeerId, stream);
     if (call) handleCall(call, name);
   };
 
   const handleCall = (call: MediaConnection, name: string) => {
     connectionsRef.current.set(call.peer, call);
+
+    // Timeout: if no stream within 15s, remove connection
+    const timeout = setTimeout(() => {
+      if (!connectionsRef.current.has(call.peer)) return;
+      console.warn('[VideoRoom] Connection timeout for peer:', call.peer);
+      connectionsRef.current.delete(call.peer);
+    }, 15000);
+
     call.on('stream', (remoteStream) => {
+      clearTimeout(timeout);
       setParticipants((prev) => {
         const exists = prev.find((p) => p.peerId === call.peer);
         if (exists) return prev.map((p) => p.peerId === call.peer ? { ...p, stream: remoteStream } : p);
         return [...prev, { peerId: call.peer, displayName: name, stream: remoteStream }];
       });
     });
-    call.on('close', () => removePeer(call.peer));
+
+    call.on('close', () => {
+      clearTimeout(timeout);
+      removePeer(call.peer);
+    });
+
+    call.on('error', (err) => {
+      clearTimeout(timeout);
+      console.error('[VideoRoom] Call error with peer:', call.peer, err);
+      removePeer(call.peer);
+    });
   };
 
   const removePeer = (peerId: string) => {
     connectionsRef.current.delete(peerId);
     setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
-  };
-
-  const cleanup = async () => {
-    const peerId = peerRef.current?.id;
-    if (peerId) {
-      const channel = supabase.channel(`meeting:${roomId}`);
-      try { await channel.send({ type: 'broadcast', event: 'peer-left', payload: { peerId } }); } catch { }
-      supabase.removeChannel(channel);
-    }
-    if (user) {
-      await supabase.from('meeting_room_participants')
-        .update({ is_active: false, left_at: new Date().toISOString() })
-        .eq('room_id', roomId).eq('user_id', user.id);
-    }
-    connectionsRef.current.forEach((conn) => conn.close());
-    connectionsRef.current.clear();
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    localStreamRef.current = null;
-    peerRef.current?.destroy();
-    peerRef.current = null;
   };
 
   // Controls
@@ -260,7 +388,23 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     if (!isChatOpen) setUnreadChatCount(prev => prev + 1);
   }, [isChatOpen]);
 
-  const handleLeave = async () => { await cleanup(); onLeave(); };
+  const handleLeave = async () => {
+    try { await cleanup(); } catch (e) { console.warn('[VideoRoom] Cleanup error on leave:', e); }
+    onLeave();
+  };
+
+  const handleEndMeeting = async () => {
+    // Broadcast meeting-ended to all participants
+    if (channelRef.current) {
+      try {
+        await channelRef.current.send({ type: 'broadcast', event: 'meeting-ended', payload: {} });
+      } catch (e) {
+        console.warn('[VideoRoom] Failed to broadcast meeting-ended:', e);
+      }
+    }
+    // Then leave
+    await handleLeave();
+  };
 
   const sidebarOpen = isChatOpen || isParticipantsOpen;
 
@@ -277,7 +421,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Video Grid */}
         <VideoGrid
           participants={participants}
           localStream={localStream}
@@ -287,7 +430,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           onActiveVideoRef={(el) => { activeVideoRef.current = el; }}
         />
 
-        {/* Sidebar */}
         {sidebarOpen && (
           <div className="w-80 max-md:absolute max-md:inset-0 max-md:w-full max-md:z-50">
             {isChatOpen && user && (
@@ -330,6 +472,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         onToggleParticipants={handleToggleParticipants}
         onTogglePiP={handleTogglePiP}
         onLeave={handleLeave}
+        onEndMeeting={handleEndMeeting}
       />
     </div>
   );

@@ -38,7 +38,7 @@ const VideoTile: React.FC<{
     }
   }, [videoRefCallback]);
 
-  const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled);
+  const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
 
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
@@ -48,7 +48,7 @@ const VideoTile: React.FC<{
           autoPlay
           playsInline
           muted={participant.isLocal}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
         />
       ) : (
         <div className="flex flex-col items-center gap-2">
@@ -91,7 +91,7 @@ const ThumbnailTile: React.FC<{
     }
   }, [participant.stream]);
 
-  const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled);
+  const hasVideo = participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
 
   return (
     <button
@@ -106,7 +106,7 @@ const ThumbnailTile: React.FC<{
           autoPlay
           playsInline
           muted={participant.isLocal}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
         />
       ) : (
         <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
@@ -143,7 +143,9 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
     ...participants,
   ];
 
-  const activeSpeaker = allParticipants[activeSpeakerIndex] || allParticipants[0];
+  // Reset active speaker if out of bounds
+  const safeIndex = activeSpeakerIndex < allParticipants.length ? activeSpeakerIndex : 0;
+  const activeSpeaker = allParticipants[safeIndex];
   const showThumbnails = allParticipants.length > 1;
 
   const handleVideoRef = useCallback(
@@ -170,7 +172,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
             <ThumbnailTile
               key={p.peerId}
               participant={p}
-              isActive={index === activeSpeakerIndex}
+              isActive={index === safeIndex}
               onClick={() => setActiveSpeakerIndex(index)}
             />
           ))}

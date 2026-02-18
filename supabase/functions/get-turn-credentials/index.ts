@@ -40,8 +40,15 @@ Deno.serve(async (req) => {
     // Generate ephemeral TURN credentials using HMAC-SHA1
     const secret = Deno.env.get('EXPRESSTURN_SECRET');
     if (!secret) {
-      return new Response(JSON.stringify({ error: 'TURN server not configured' }), {
-        status: 500,
+      console.warn('[get-turn-credentials] EXPRESSTURN_SECRET not configured, returning STUN only');
+      const iceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+      ];
+      return new Response(JSON.stringify({ iceServers }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -63,20 +70,24 @@ Deno.serve(async (req) => {
     const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(username));
     const credential = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
+    // Use ExpressTURN servers (matching the EXPRESSTURN_SECRET)
     const iceServers = [
       { urls: 'stun:stun.l.google.com:19302' },
       { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' },
       {
         urls: [
-          'turn:a.relay.metered.ca:80',
-          'turn:a.relay.metered.ca:80?transport=tcp',
-          'turn:a.relay.metered.ca:443',
-          'turns:a.relay.metered.ca:443?transport=tcp',
+          'turn:relay1.expressturn.com:3478',
+          'turn:relay1.expressturn.com:3478?transport=tcp',
+          'turn:relay1.expressturn.com:3480',
+          'turns:relay1.expressturn.com:443?transport=tcp',
         ],
         username,
         credential,
       },
     ];
+
+    console.log('[get-turn-credentials] Generated credentials for user:', userId);
 
     return new Response(JSON.stringify({ iceServers }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
