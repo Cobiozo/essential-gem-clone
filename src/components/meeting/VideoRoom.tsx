@@ -52,6 +52,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [viewMode, setViewMode] = useState<import('./VideoGrid').ViewMode>('speaker');
 
   const isPiPSupported = typeof document !== 'undefined' && 'pictureInPictureEnabled' in document && document.pictureInPictureEnabled;
 
@@ -485,6 +486,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           localDisplayName={displayName}
           isMuted={isMuted}
           isCameraOff={isCameraOff}
+          viewMode={viewMode}
           onActiveVideoRef={(el) => { activeVideoRef.current = el; }}
         />
 
@@ -523,6 +525,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         isPiPActive={isPiPActive}
         isPiPSupported={!!isPiPSupported}
         unreadChatCount={unreadChatCount}
+        viewMode={viewMode}
         onToggleMute={handleToggleMute}
         onToggleCamera={handleToggleCamera}
         onToggleScreenShare={handleToggleScreenShare}
@@ -531,6 +534,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         onTogglePiP={handleTogglePiP}
         onLeave={handleLeave}
         onEndMeeting={handleEndMeeting}
+        onViewModeChange={setViewMode}
       />
     </div>
   );
