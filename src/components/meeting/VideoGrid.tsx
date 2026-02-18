@@ -9,12 +9,14 @@ interface VideoParticipant {
   stream: MediaStream | null;
   isMuted?: boolean;
   isLocal?: boolean;
+  avatarUrl?: string;
 }
 
 interface VideoGridProps {
   participants: VideoParticipant[];
   localStream: MediaStream | null;
   localDisplayName: string;
+  localAvatarUrl?: string;
   isMuted: boolean;
   isCameraOff: boolean;
   viewMode: ViewMode;
@@ -87,8 +89,14 @@ const VideoTile: React.FC<{
         />
       ) : (
         <div className="flex flex-col items-center gap-2">
-          <div className="w-20 h-20 rounded-full bg-zinc-700 flex items-center justify-center">
-            <User className="h-10 w-10 text-zinc-400" />
+          <div className="w-20 h-20 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+            {participant.avatarUrl ? (
+              <img src={participant.avatarUrl} alt={participant.displayName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-2xl font-semibold text-zinc-300">
+                {participant.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </span>
+            )}
           </div>
           <span className="text-zinc-400 text-sm">{participant.displayName}</span>
         </div>
@@ -183,6 +191,10 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
       try { audioContextRef.current = new AudioContext(); } catch { return; }
     }
     const ctx = audioContextRef.current;
+    // Resume AudioContext if suspended (browsers block until user interaction)
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     const currentIds = new Set(participants.map(p => p.peerId));
     analysersRef.current.forEach((val, key) => {
@@ -373,6 +385,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   participants,
   localStream,
   localDisplayName,
+  localAvatarUrl,
   isMuted,
   isCameraOff,
   viewMode,
@@ -382,7 +395,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   const manualTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allParticipants: VideoParticipant[] = [
-    { peerId: 'local', displayName: localDisplayName, stream: localStream, isMuted, isLocal: true },
+    { peerId: 'local', displayName: localDisplayName, stream: localStream, isMuted, isLocal: true, avatarUrl: localAvatarUrl },
     ...participants,
   ];
 
