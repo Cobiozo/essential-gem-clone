@@ -1,69 +1,90 @@
 
 
-# Redesign pokoju spotkania w stylu Zoom (mobile-first)
+# Czat w spotkaniu + PiP (Picture-in-Picture) + pelna funkcjonalnosc
 
-Na podstawie screenshotow z Zoom, interfejs pokoju spotkania zostanie calkowicie przebudowany.
+## Opis
 
-## Co sie zmieni
+Dodanie czatu tekstowego w pokoju spotkania (wysuwany panel z boku, jak w Zoom) oraz trybu Picture-in-Picture (PiP) umozliwiajacego minimalizacje video do malego okna. Dodatkowo -- pelna funkcjonalnosc przyciskow "Uczestnicy" (lista uczestnikow w panelu bocznym).
 
-### 1. VideoGrid.tsx - Layout jak w Zoom
+## Nowe funkcje
 
-Aktualnie: prosty grid z kwadratowymi kafelkami.
+### 1. Czat w spotkaniu (MeetingChat)
 
-Nowy layout:
-- **Glowny mowca** zajmuje caly ekran (full-screen video)
-- **Miniaturki** innych uczestnikow w malym pasku na dole (horizontal scroll)
-- Klikniecie na miniaturke przelacza glownego mowce
-- Nazwa uczestnika w lewym dolnym rogu glownego video
-- Ikony mikrofonu/kamery w prawym dolnym rogu glownego video
-- Ciemne tlo (bg-black) zamiast bg-muted
+Panel czatu wysuwany z prawej strony po kliknieciu "Czat" w kontrolkach:
+- Wiadomosci zapisywane w Supabase (nowa tabela `meeting_chat_messages`)
+- Real-time przez Supabase Realtime (subscribe na INSERT)
+- Nazwa nadawcy + czas wyslania
+- Auto-scroll do najnowszej wiadomosci
+- Badge z liczba nieprzeczytanych wiadomosci na ikonie Czat
+- Ciemny motyw (dopasowany do pokoju)
 
-### 2. MeetingControls.tsx - Pasek kontrolek jak w Zoom
+### 2. Panel Uczestnikow (ParticipantsPanel)
 
-Aktualnie: okragle przyciski bez etykiet.
+Panel wysuwany z prawej strony po kliknieciu "Uczestnicy":
+- Lista aktywnych uczestnikow z ich statusem (mic on/off, camera on/off)
+- Ikona awatara + nazwa
+- Ciemny motyw
 
-Nowy design:
-- Ikony z etykietami pod spodem (Mikrofon, Kamera, Czat, Uczestnicy, Opusc, Koniec)
-- Ciemne tlo paska (bg-gray-900 / bg-zinc-900)
-- Mikrofon/kamera: szare kolka, czerwone gdy wyciszone
-- "Opusc" i "Koniec": czerwone przyciski
-- Liczba uczestnikow pod ikona "Uczestnicy"
-- Dodanie przycisku "Czat" (placeholder na przyszlosc)
+### 3. Picture-in-Picture (PiP)
 
-### 3. VideoRoom.tsx - Fullscreen + ciemny motyw
+Przycisk PiP w kontrolkach:
+- Wykorzystuje natywne Web API `requestPictureInPicture()` na elemencie `<video>`
+- Glowny mowca przechodzi do malego okna PiP
+- Przycisk zmienia stan (aktywny/nieaktywny)
+- Fallback: jesli przegladarka nie wspiera PiP, przycisk jest ukryty
 
-- Caly pokoj na czarnym tle (bg-black)
-- Gorny pasek: nazwa spotkania (lewa) + liczba uczestnikow (prawa) na ciemnym tle
-- Brak bialych ramek/borderow
+## Zmiany w plikach
 
-### 4. MeetingLobby.tsx - Drobne poprawki
+### Baza danych (migracja SQL)
 
-- Ciemniejsze tlo podgladu kamery
-- Bez zmian w logice
+Nowa tabela `meeting_chat_messages`:
+- `id` (uuid PK)
+- `room_id` (text, NOT NULL)
+- `user_id` (uuid, NOT NULL)
+- `display_name` (text)
+- `content` (text, NOT NULL)
+- `created_at` (timestamptz)
 
-## Szczegoly techniczne
+RLS: Uczestnicy moga czytac wiadomosci z pokoju w ktorym sa; kazdy moze wstawiac swoje.
 
-| Plik | Zakres zmian |
-|------|-------------|
-| `src/components/meeting/VideoGrid.tsx` | Pelna przebudowa: speaker view + thumbnail strip, klikanie na miniaturki, ciemny motyw |
-| `src/components/meeting/MeetingControls.tsx` | Nowy layout: ikony z labelkami, Zoom-style kolorystyka, dodanie Czat placeholder |
-| `src/components/meeting/VideoRoom.tsx` | Zmiana tla na czarne, aktualizacja headera (nazwa pokoju + uczestnicy), przekazanie nowych propsow |
-| `src/pages/MeetingRoom.tsx` | Przekazanie nazwy wydarzenia do VideoRoom (pobranie tytulu z bazy) |
+### Nowe komponenty
 
-## Wizualna roznica
+| Plik | Opis |
+|------|------|
+| `src/components/meeting/MeetingChat.tsx` | Panel czatu: lista wiadomosci + input, Supabase realtime subscribe |
+| `src/components/meeting/ParticipantsPanel.tsx` | Lista uczestnikow z ikonami statusu (mic/cam) |
+
+### Zmiany w istniejacych plikach
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/meeting/MeetingControls.tsx` | Dodanie callbackow `onToggleChat`, `onToggleParticipants`, `onTogglePiP`; badge nieprzeczytanych na Czat; nowy przycisk PiP; props `isChatOpen`, `isParticipantsOpen`, `isPiPActive`, `unreadChatCount` |
+| `src/components/meeting/VideoRoom.tsx` | Nowe stany: `isChatOpen`, `isParticipantsOpen`, `isPiPActive`, `unreadChatCount`; rendering paneli MeetingChat i ParticipantsPanel; logika PiP (requestPictureInPicture na video ref); przekazanie nowych propsow do MeetingControls |
+| `src/components/meeting/VideoGrid.tsx` | Eksport ref do aktywnego video elementu (forwardRef lub callback) aby VideoRoom mogl wywolac PiP |
+
+### Szczegoly techniczne PiP
 
 ```text
-PRZED (obecny):                    PO (Zoom-style):
-+------------------+               +------------------+
-| Pokoj spotkania  |               | Nazwa spk.   [2] |
-+------------------+               +------------------+
-| [Video] [Video]  |               |                  |
-|                  |               |   GLOWNY VIDEO   |
-| [Video] [Video]  |               |   (fullscreen)   |
-|                  |               |                  |
-+------------------+               | Imie        [mic]|
-| (o)(o)(o)   [X]  |               +--[mini][mini]----+
-+------------------+               | Mikr Kam Czat 2 X|
-                                   +------------------+
+1. VideoGrid przekazuje ref do aktywnego <video> przez callback prop
+2. VideoRoom przechowuje ten ref i wywoluje:
+   videoElement.requestPictureInPicture()
+3. Nasluchuje na 'enterpictureinpicture' i 'leavepictureinpicture'
+4. document.pictureInPictureEnabled sprawdza wsparcie przegladarki
 ```
+
+### Layout paneli bocznych
+
+```text
++---------------------------+----------+
+|                           |          |
+|    VIDEO GRID             |  CZAT /  |
+|    (zmniejsza sie)        |  LISTA   |
+|                           |  (320px) |
+|                           |          |
++---------------------------+----------+
+|     KONTROLKI                        |
++--------------------------------------+
+```
+
+Panel boczny: szerokosc 320px na desktop, pelny ekran na mobile (overlay).
 
