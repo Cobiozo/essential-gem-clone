@@ -41,6 +41,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const cleanupDoneRef = useRef(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const screenSharePendingRef = useRef(false);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<RemoteParticipant[]>([]);
@@ -361,6 +362,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
       try {
+        screenSharePendingRef.current = true;
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         stream.getAudioTracks().forEach(t => (t.enabled = !isMuted));
         localStreamRef.current?.getTracks().forEach(t => t.stop());
@@ -373,8 +375,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           if (sender && videoTrack) sender.replaceTrack(videoTrack);
         });
       } catch (err) { console.error('[VideoRoom] Failed to restore camera:', err); }
+      finally { screenSharePendingRef.current = false; }
     } else {
       try {
+        screenSharePendingRef.current = true;
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const audioTrack = localStreamRef.current?.getAudioTracks()[0];
         if (audioTrack) screenStream.addTrack(audioTrack);
@@ -389,6 +393,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         });
         videoTrack.onended = () => { handleToggleScreenShare(); };
       } catch (err) { console.log('[VideoRoom] Screen sharing cancelled:', err); }
+      finally { screenSharePendingRef.current = false; }
     }
   };
 
@@ -415,6 +420,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     const autoPiPRef = { current: false };
 
     const handleVisibility = async () => {
+      if (screenSharePendingRef.current) return; // Don't trigger PiP during screen share picker
       try {
         if (document.hidden) {
           if (!document.pictureInPictureElement && activeVideoRef.current && activeVideoRef.current.srcObject) {
