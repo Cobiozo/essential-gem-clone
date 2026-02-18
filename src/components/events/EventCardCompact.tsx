@@ -465,7 +465,26 @@ Zapisz się tutaj: ${inviteUrl}
       });
     }
 
-    if (event.zoom_link && (isLive || canJoinSoon)) {
+    // Internal meeting button
+    const useInternalMeeting = (event as any).use_internal_meeting === true;
+    const meetingRoomId = (event as any).meeting_room_id;
+
+    if (useInternalMeeting && meetingRoomId && (isLive || canJoinSoon)) {
+      buttons.push(
+        <Button
+          key="internal-meeting"
+          variant="default"
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700"
+          onClick={() => window.open(`/meeting-room/${meetingRoomId}`, '_blank')}
+        >
+          <Video className="h-4 w-4 mr-2" />
+          Dołącz do spotkania
+        </Button>
+      );
+    }
+
+    if (!useInternalMeeting && event.zoom_link && (isLive || canJoinSoon)) {
       buttons.push(
         <Button
           key="zoom"

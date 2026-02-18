@@ -194,3 +194,6 @@ verify_jwt = false
 
 [functions.auto-translate-content]
 verify_jwt = false
+
+[functions.get-turn-credentials]
+verify_jwt = false

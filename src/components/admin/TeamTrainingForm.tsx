@@ -22,7 +22,8 @@ import {
   MessageSquare,
   Users,
   CalendarDays,
-  Clock
+  Clock,
+  Video
 } from 'lucide-react';
 import type { DbEvent, TeamTrainingFormData, TEAM_TRAINING_TYPES } from '@/types/events';
 import type { EventOccurrence } from '@/types/occurrences';
@@ -125,6 +126,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         is_published: editingTraining.is_published ?? true,
         allow_invites: (editingTraining as any).allow_invites ?? false,
         publish_at: (editingTraining as any).publish_at || null,
+        use_internal_meeting: (editingTraining as any).use_internal_meeting ?? false,
+        meeting_room_id: (editingTraining as any).meeting_room_id || null,
       } as any);
       setImageUrlInput(editingTraining.image_url || '');
       
@@ -226,7 +229,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         start_time: startTime,
         end_time: endTime,
         location: form.location || null,
-        zoom_link: form.zoom_link || null,
+        zoom_link: (form as any).use_internal_meeting ? null : (form.zoom_link || null),
         max_participants: form.max_participants,
         requires_registration: form.requires_registration,
         visible_to_partners: form.visible_to_partners,
@@ -244,6 +247,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
         allow_invites: (form as any).allow_invites || false,
         publish_at: (form as any).publish_at || null,
+        use_internal_meeting: (form as any).use_internal_meeting || false,
+        meeting_room_id: (form as any).use_internal_meeting ? ((form as any).meeting_room_id || crypto.randomUUID()) : null,
       };
 
       let error;
@@ -453,34 +458,60 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           </div>
         </div>
 
-        {/* Meeting Link */}
-        <div className="space-y-2">
-          <Label className="text-muted-foreground font-medium">Link do spotkania (Zoom/Teams/Meet)</Label>
-          <div className="flex gap-2">
-            <Input
-              value={form.zoom_link}
-              onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
-              placeholder="https://zoom.us/j/..."
-              className="h-10 flex-1"
-            />
-            <ZoomMeetingGenerator
-              eventId={editingTraining?.id}
-              eventTitle={form.title}
-              startTime={form.start_time}
-              duration={form.duration_minutes}
-              currentZoomLink={form.zoom_link}
-              existingMeetingId={zoomMeetingId}
-              existingPassword={zoomPassword}
-              existingStartUrl={zoomStartUrl}
-              onGenerated={(data) => {
-                setForm({ ...form, zoom_link: data.join_url });
-                setZoomMeetingId(data.meeting_id);
-                setZoomStartUrl(data.start_url);
-                setZoomPassword(data.password || null);
-              }}
-            />
+        {/* Internal Meeting Toggle (admin only) */}
+        <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+          <Switch
+            checked={(form as any).use_internal_meeting || false}
+            onCheckedChange={(checked) => {
+              const newForm = { ...form, use_internal_meeting: checked } as any;
+              if (checked && !newForm.meeting_room_id) {
+                newForm.meeting_room_id = crypto.randomUUID();
+              }
+              if (checked) {
+                newForm.zoom_link = '';
+              }
+              setForm(newForm);
+            }}
+          />
+          <Video className="h-4 w-4 text-primary" />
+          <div>
+            <Label className="text-primary font-medium">Wewnętrzny pokój spotkania</Label>
+            <p className="text-xs text-muted-foreground">
+              Użyj wbudowanego systemu wideokonferencji zamiast Zoom
+            </p>
           </div>
         </div>
+
+        {/* Meeting Link - only show when internal meeting is OFF */}
+        {!(form as any).use_internal_meeting && (
+          <div className="space-y-2">
+            <Label className="text-muted-foreground font-medium">Link do spotkania (Zoom/Teams/Meet)</Label>
+            <div className="flex gap-2">
+              <Input
+                value={form.zoom_link}
+                onChange={(e) => setForm({ ...form, zoom_link: e.target.value })}
+                placeholder="https://zoom.us/j/..."
+                className="h-10 flex-1"
+              />
+              <ZoomMeetingGenerator
+                eventId={editingTraining?.id}
+                eventTitle={form.title}
+                startTime={form.start_time}
+                duration={form.duration_minutes}
+                currentZoomLink={form.zoom_link}
+                existingMeetingId={zoomMeetingId}
+                existingPassword={zoomPassword}
+                existingStartUrl={zoomStartUrl}
+                onGenerated={(data) => {
+                  setForm({ ...form, zoom_link: data.join_url });
+                  setZoomMeetingId(data.meeting_id);
+                  setZoomStartUrl(data.start_url);
+                  setZoomPassword(data.password || null);
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Location */}
         <div className="space-y-2">

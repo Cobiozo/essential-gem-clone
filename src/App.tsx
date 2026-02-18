@@ -123,6 +123,7 @@ const MessagesPage = lazyWithRetry(() => import("./pages/MessagesPage"));
 const PaidEventPage = lazyWithRetry(() => import("./pages/PaidEventPage"));
 const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPage"));
 const PartnerPage = lazyWithRetry(() => import("./pages/PartnerPage"));
+const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -347,6 +348,7 @@ const AppContent = () => {
               <Route path="/paid-events" element={<PaidEventsListPage />} />
               <Route path="/events/:slug" element={<PaidEventPage />} />
               <Route path="/install" element={<InstallPage />} />
+              <Route path="/meeting-room/:roomId" element={<MeetingRoom />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
