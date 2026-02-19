@@ -150,14 +150,19 @@ async function sendSmtpEmail(
 
     // Build email message
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
     
     const emailContent = [
       `From: "${settings.sender_name}" <${settings.sender_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Return-Path: <${settings.sender_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
+      `Reply-To: <${settings.sender_email}>`,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      `Date: ${new Date().toUTCString()}`,
       ``,
       `--${boundary}`,
       `Content-Type: text/plain; charset=UTF-8`,
