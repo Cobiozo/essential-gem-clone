@@ -1,90 +1,106 @@
 
-# Problem: Użytkownicy nie potwierdzają emaila — analiza i plan naprawy
+# Problem z kluczami VAPID i automatycznym odnowieniem subskrypcji
 
-## Stan faktyczny (po przeanalizowaniu kodu i bazy)
+## Diagnoza rzeczywistego problemu
 
-### Co wysyłamy i co dociera
+Klucze VAPID (wygenerowane 6 lutego) **same w sobie NIE wygasają** — są to trwałe klucze kryptograficzne. "14 dni" które widzisz w panelu to data wygenerowania, nie termin ważności.
 
-Wszystkie 4 osoby (Dominika, Kamila, Elżbieta, Jerzy) **otrzymały email aktywacyjny** — SMTP potwierdził dostawę, brak błędów w `email_logs`. Domeny: gmail.com, hotmail.com, badzbardziej.pl — maile prawdopodobnie dotarły.
+**Prawdziwy problem to brakujące obsługa `pushsubscriptionchange` po stronie klienta.**
 
-Problem leży gdzie indziej: **użytkownicy nie kliknęli w link aktywacyjny**, więc `profiles.email_activated` pozostaje `false`. Mogli:
-- Zignorować email
-- Nie zobaczyć (SPAM)
-- Zamknąć zakładkę po rejestracji bez czytania emaila
+### Co się dzieje w praktyce
 
-### Dlaczego Supabase Auto Confirm jest włączone?
+Przeglądarki (szczególnie Safari/iOS) **automatycznie odnawiają** subskrypcje push bez wiedzy użytkownika — zmienia się endpoint URL. Gdy to nastąpi:
 
+1. Service Worker w `sw-push.js` odbiera zdarzenie `pushsubscriptionchange` ✅
+2. Wysyła wiadomość `PUSH_SUBSCRIPTION_CHANGED` do React apki
+3. React **NIE nasłuchuje** tej wiadomości — nowy endpoint NIE jest zapisywany do bazy ❌
+4. Przy następnym wysłaniu powiadomienia — stary endpoint zwraca błąd 410/404
+5. System usuwa subskrypcję jako "expired" i użytkownik traci powiadomienia
+
+### Kiedy subskrypcje wygasają (poza zmianą kluczy VAPID)
+
+- Safari/iOS — Apple Push odnawia tokeny po reinstalacji PWA, aktualizacji iOS
+- FCM (Chrome, Brave, Edge, Opera) — wygasają po 270 dniach nieaktywności lub czyszczeniu danych przeglądarki
+- Firefox — podobne zachowanie jak FCM
+- **Zmiana kluczy VAPID = natychmiastowe unieważnienie WSZYSTKICH subskrypcji** (dlatego NIE należy ich regenerować bez potrzeby)
+
+### Co widać w bazie danych
+
+Aktualnie: 43 subskrypcje (26 Chrome, 11 Safari, 3 Edge, 1 Brave, 1 Opera, 1 Firefox).
+Subskrypcje Safari z datą tworzenia sięgają 6 lutego — te mogą już mieć odnawiany endpoint przez Apple Push.
+
+---
+
+## Rozwiązanie — automatyczna obsługa odnowień
+
+### Część 1: Service Worker — automatyczne ponowne subskrybowanie
+
+Rozbudować `pushsubscriptionchange` w `public/sw-push.js` tak, żeby po odnowieniu subskrypcji przez przeglądarkę **Service Worker sam zapisał nową subskrypcję do bazy** (bez potrzeby działania użytkownika).
+
+```javascript
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(
+    // 1. Pobierz nową subskrypcję z nowym endpointem
+    self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: event.oldSubscription?.options?.applicationServerKey,
+    })
+    .then(async (newSubscription) => {
+      // 2. Wyślij nową subskrypcję do edge function
+      const subJSON = newSubscription.toJSON();
+      await fetch('https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/renew-push-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          oldEndpoint: event.oldSubscription?.endpoint,
+          newEndpoint: newSubscription.endpoint,
+          p256dh: subJSON.keys?.p256dh,
+          auth: subJSON.keys?.auth,
+        }),
+      });
+    })
+    .catch(err => console.error('[SW] pushsubscriptionchange failed:', err))
+  );
+});
 ```
-email_confirmed_at - created_at = 0.136s  (wszystkie konta)
-confirmation_sent_at = NULL                (Supabase nie wysyła własnego maila)
-```
 
-To jest **celowe ustawienie** — projekt używa własnego SMTP zamiast Supabase email. Supabase Auto Confirm jest włączone żeby Supabase nie blokowało rejestracji własnym emailem weryfikacyjnym. Zamiast tego aplikacja wysyła własny email przez `send-activation-email` i śledzi kliknięcie przez `email_activated` w `profiles`.
+### Część 2: Nowa Edge Function `renew-push-subscription`
 
-**To jest poprawna architektura.** Problem nie w Auto Confirm, tylko w tym że użytkownicy nie klikają linku.
+Przyjmuje stary endpoint i nową subskrypcję, aktualizuje rekord w bazie `user_push_subscriptions` — **bez wymagania tokenu użytkownika** (Service Worker nie ma dostępu do JWT):
 
-### Obecna blokada (co już działa)
+- Wyszukuje rekord po `oldEndpoint`
+- Aktualizuje `endpoint`, `p256dh`, `auth`, `last_used_at`
+- Resetuje `failure_count` do 0
+- Loguje zdarzenie odnowienia
 
-- Opiekun w `TeamContactsTab` → przycisk "Zatwierdź" jest **disabled** gdy `email_activated = false` ✅
-- Funkcja `guardian_approve_user()` w bazie **rzuca wyjątek** gdy email niepotwierdzony ✅
-- `ApprovalStatusBanner` pokazuje banner oczekiwania na opiekuna/admina ✅
+### Część 3: Nasłuch w React — backup dla gdy użytkownik ma otwartą aplikację
 
-### Co brakuje — przepływ oczekiwania na email
+W `usePushNotifications.ts` dodać listener na wiadomość `PUSH_SUBSCRIPTION_CHANGED` z Service Workera i wywołać `checkSubscription()` + ponowne zapisanie endpointu do bazy.
 
-`ApprovalStatusBanner` sprawdza tylko `guardian_approved` i `admin_approved`, ale **pomija `email_activated`**. Użytkownik który się zaloguje przed kliknięciem linku widzi "Oczekuj na opiekuna" — bez jasnej informacji że musi NAJPIERW potwierdzić email.
+### Część 4: Proaktywne odświeżanie w `usePushNotifications.ts`
 
-Poza tym brak przycisku "Wyślij ponownie email aktywacyjny" w bannerze dla niezalogowanego.
+Przy każdym zalogowaniu użytkownika — sprawdzić, czy endpoint w przeglądarce (`pushManager.getSubscription()`) zgadza się z tym w bazie danych. Jeśli nie — zaktualizować bazę. To obsługuje przypadek gdy SW nie zdążył zareagować (np. przeglądarka była zamknięta w momencie odnowienia).
 
-## Co należy naprawić
-
-### 1. ApprovalStatusBanner — dodać krok "Potwierdź email"
-
-Dodać nowy przypadek jako **Przypadek 0** (przed oczekiwaniem na opiekuna):
-
-```
-Jeśli !profile.email_activated → pokaż baner "Potwierdź adres email"
-```
-
-Banner powinien zawierać:
-- Komunikat "Sprawdź skrzynkę odbiorczą i kliknij w link aktywacyjny"
-- Adres email na który wysłano link
-- Przycisk "Wyślij ponownie email aktywacyjny" (wywołujący `send-activation-email` z `resend: true`)
-- Link do SPAM folder (jako podpowiedź)
-
-### 2. Ręczna naprawa 4 użytkowników w panelu admin
-
-W `CompactUserCard` w panelu admin istnieje już przycisk potwierdzenia emaila `admin_confirm_user_email`. Należy go uwidocznić dla użytkowników gdzie `email_activated = false`.
-
-Sprawdzamy — w `src/pages/Admin.tsx` linia 494:
-```typescript
-email_activated: row.email_activated ?? !!row.email_confirmed_at,
-```
-To **fallback** który powoduje że użytkownik z `email_confirmed_at` (Auto Confirm) pokazuje się jako `email_activated: true` nawet gdy `profiles.email_activated = false`! To błąd — zakrywa problem.
-
-Należy usunąć ten fallback: `email_activated: row.email_activated` (bez `??`).
-
-### 3. SQL — naprawa 4 istniejących użytkowników
-
-Admin może naprawić ręcznie przez `admin_confirm_user_email` w panelu. Ale żeby te osoby pokazały się jako "niepotwierdzony email" (nie ukryte przez fallback), trzeba naprawić punkt 2 powyżej.
-
-Alternatywnie: dodać przycisk "Potwierdź email ręcznie" bezpośrednio przy każdym użytkowniku z `email_activated = false` w `CompactUserCard`.
+---
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/profile/ApprovalStatusBanner.tsx` | Dodanie Case 0: baner "Potwierdź email" z przyciskiem ponownego wysyłania |
-| `src/pages/Admin.tsx` | Usunięcie błędnego fallback `?? !!row.email_confirmed_at` dla `email_activated` |
+| `public/sw-push.js` | Rozbudowa obsługi `pushsubscriptionchange` — automatyczne pobieranie nowej subskrypcji i wywołanie edge function |
+| `supabase/functions/renew-push-subscription/index.ts` | Nowa edge function aktualizująca endpoint w bazie na podstawie starego endpointu (bez auth JWT) |
+| `src/hooks/usePushNotifications.ts` | Listener na `PUSH_SUBSCRIPTION_CHANGED`, proaktywna weryfikacja endpointu przy logowaniu |
 
-## Brak zmian w
+## Co NIE wymaga zmian
 
-- Logice wysyłki emaili (działa poprawnie)
-- Supabase Auth (Auto Confirm ma pozostać włączone — to celowe)
-- Bazie danych (nie potrzeba migracji)
-- Edge Functions
+- Klucze VAPID **nie wymagają rotacji** — istniejące klucze z 6 lutego są ważne bezterminowo
+- Nie trzeba prosić użytkowników o ponowną zgodę — cały proces jest transparentny
+- Brak zmian w bazie danych — tabela `user_push_subscriptions` ma już wszystkie potrzebne kolumny
 
-## Efekt po zmianie
+## Efekt końcowy
 
-1. Użytkownicy którzy zarejestrowali się ale nie kliknęli linku zobaczą baner "Potwierdź email" z przyciskiem ponownego wysyłania — zamiast mylącego "Oczekuj na opiekuna"
-2. Admin w panelu widzi rzeczywisty status `email_activated` (bez błędnego fallback) i może ręcznie potwierdzić email dla 4 problemowych osób
-3. Przepływ jest jasny: Email → Opiekun → Admin → Dostęp
+Gdy przeglądarka automatycznie odnowi subskrypcję (zmieni endpoint):
+1. Service Worker natychmiast wywoła `renew-push-subscription` z nowym endpointem
+2. Baza danych zostanie zaktualizowana bez wiedzy użytkownika
+3. Użytkownik nadal otrzymuje powiadomienia bez przerwy
+4. Przy kolejnym otwarciu aplikacji — dodatkowa weryfikacja spójności endpointu
