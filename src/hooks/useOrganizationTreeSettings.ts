@@ -75,9 +75,15 @@ export const useOrganizationTreeSettings = () => {
         .limit(1)
         .single();
 
-      if (fetchError) {
-        console.error('Error fetching organization tree settings:', fetchError);
-        setError(fetchError.message);
+      if (fetchError || !data) {
+        console.warn('Organization tree settings not found, using defaults:', fetchError?.message);
+        // Use default settings as fallback so the tree view doesn't get stuck loading
+        setSettings({
+          id: 'default',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          ...DEFAULT_SETTINGS,
+        } as OrganizationTreeSettings);
         return;
       }
 

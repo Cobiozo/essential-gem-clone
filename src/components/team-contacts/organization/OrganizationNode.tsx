@@ -123,6 +123,8 @@ export const OrganizationNode: React.FC<OrganizationNodeProps> = ({
       onClick={onClick}
       className={cn(
         'flex flex-col rounded-lg border-2 transition-all duration-300',
+        'touch-manipulation select-none',
+        'active:opacity-70',
         sizes.container,
         roleConfig.bgColor,
         roleConfig.borderColor,
