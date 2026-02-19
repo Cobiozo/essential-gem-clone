@@ -3347,6 +3347,7 @@ export type Database = {
           activated_by: string | null
           can_broadcast: boolean | null
           can_host_private_meetings: boolean | null
+          can_view_team_progress: boolean | null
           consultation_slot_duration: number | null
           created_at: string | null
           external_calendly_url: string | null
@@ -3366,6 +3367,7 @@ export type Database = {
           activated_by?: string | null
           can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
+          can_view_team_progress?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
           external_calendly_url?: string | null
@@ -3385,6 +3387,7 @@ export type Database = {
           activated_by?: string | null
           can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
+          can_view_team_progress?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
           external_calendly_url?: string | null
@@ -7171,6 +7174,24 @@ export type Database = {
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
+      get_leader_team_training_progress: {
+        Args: { p_leader_user_id: string }
+        Returns: {
+          assigned_at: string
+          completed_lessons: number
+          eq_id: string
+          first_name: string
+          is_completed: boolean
+          last_name: string
+          level: number
+          module_id: string
+          module_title: string
+          progress_percentage: number
+          role: string
+          total_lessons: number
+          user_id: string
+        }[]
+      }
       get_organization_tree: {
         Args: { p_max_depth?: number; p_root_eq_id: string }
         Returns: {

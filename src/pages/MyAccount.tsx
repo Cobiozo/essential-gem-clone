@@ -128,7 +128,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'individual-meetings', 'communication', 'partner-page'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'communication', 'partner-page'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -226,10 +226,9 @@ const MyAccount = () => {
     aiCompass: aiCompassVisible,
     hkCodes: isPartner || isUserAdmin, // NEW: Healthy Knowledge codes history
     reflinks: canGenerateReflinks,
-    individualMeetings: leaderPermission?.individual_meetings_enabled || false,
     partnerPage: hasPartnerPageAccess,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, leaderPermission, isUserAdmin, hasPartnerPageAccess]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin, hasPartnerPageAccess]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -596,12 +595,6 @@ const MyAccount = () => {
                 <TabsTrigger value="reflinks" disabled={mustCompleteProfile}>
                   <Link2 className="w-4 h-4 mr-2" />
                   PureLinki
-                </TabsTrigger>
-              )}
-              {visibleTabs.individualMeetings && (
-                <TabsTrigger value="individual-meetings" disabled={mustCompleteProfile}>
-                  <CalendarDays className="w-4 h-4 mr-2" />
-                  Spotkania indywidualne
                 </TabsTrigger>
               )}
               {visibleTabs.partnerPage && (
@@ -1055,12 +1048,6 @@ const MyAccount = () => {
             {visibleTabs.reflinks && (
               <TabsContent value="reflinks" className="mt-6">
                 <UserReflinksPanel />
-              </TabsContent>
-            )}
-
-            {visibleTabs.individualMeetings && (
-              <TabsContent value="individual-meetings" className="mt-6">
-                <UnifiedMeetingSettingsForm />
               </TabsContent>
             )}
 
