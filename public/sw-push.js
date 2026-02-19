@@ -274,12 +274,72 @@ self.addEventListener('message', (event) => {
 
 // ─── Push Subscription Change ──────────────────────────────────────────
 
+const SUPABASE_URL = 'https://xzlhssqqbajqhnsmbucf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA';
+
+/**
+ * Automatic subscription renewal when browser rotates the push endpoint.
+ * Happens especially on Safari/iOS after updates or re-installs.
+ * Calls renew-push-subscription edge function to update the DB without user action.
+ */
 self.addEventListener('pushsubscriptionchange', (event) => {
+  console.log('[SW] pushsubscriptionchange — renewing subscription automatically');
+
   event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-      clients.forEach((client) => {
-        client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED' });
-      });
-    })
+    (async () => {
+      try {
+        const oldSubscription = event.oldSubscription;
+        const applicationServerKey = oldSubscription?.options?.applicationServerKey;
+
+        if (!applicationServerKey) {
+          console.warn('[SW] pushsubscriptionchange — no applicationServerKey, cannot renew');
+          // Notify app to handle re-subscription via UI
+          const clients = await self.clients.matchAll({ type: 'window' });
+          clients.forEach(client => client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED', canAutoRenew: false }));
+          return;
+        }
+
+        // Re-subscribe with the same VAPID key
+        const newSubscription = await self.registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+
+        const subJSON = newSubscription.toJSON();
+        console.log('[SW] pushsubscriptionchange — new subscription obtained, updating database');
+
+        // Update DB via edge function (no JWT needed — uses service role on server)
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/renew-push-subscription`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            oldEndpoint: oldSubscription?.endpoint || '',
+            newEndpoint: newSubscription.endpoint,
+            p256dh: subJSON.keys?.p256dh || '',
+            auth: subJSON.keys?.auth || '',
+          }),
+        });
+
+        const result = await response.json();
+        console.log('[SW] pushsubscriptionchange — DB updated:', result);
+
+        // Notify open app windows about the renewal
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(client => client.postMessage({
+          type: 'PUSH_SUBSCRIPTION_CHANGED',
+          canAutoRenew: true,
+          renewed: result.success,
+        }));
+
+      } catch (err) {
+        console.error('[SW] pushsubscriptionchange — auto-renewal failed:', err);
+        // Fallback: notify app to prompt user to re-subscribe
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(client => client.postMessage({ type: 'PUSH_SUBSCRIPTION_CHANGED', canAutoRenew: false, error: err.message }));
+      }
+    })()
   );
 });

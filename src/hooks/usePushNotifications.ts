@@ -189,6 +189,89 @@ export const usePushNotifications = () => {
     }
   }, [detectBrowser, detectOS, checkIsPWA]);
 
+  // Sync browser subscription endpoint with database (proactive check)
+  const syncSubscriptionEndpoint = useCallback(async () => {
+    if (!user || !('serviceWorker' in navigator)) return;
+
+    try {
+      const registration = await navigator.serviceWorker.getRegistration('/sw-push.js');
+      if (!registration) return;
+
+      const browserSub = await (registration as any).pushManager?.getSubscription();
+      if (!browserSub) return;
+
+      // Check if the browser endpoint matches what's in DB
+      const { data: dbSub } = await supabase
+        .from('user_push_subscriptions')
+        .select('id, endpoint')
+        .eq('user_id', user.id)
+        .eq('endpoint', browserSub.endpoint)
+        .single();
+
+      if (dbSub) {
+        // Endpoint matches — update last_used_at
+        await supabase
+          .from('user_push_subscriptions')
+          .update({ last_used_at: new Date().toISOString() })
+          .eq('id', dbSub.id);
+        return;
+      }
+
+      // Endpoint not found in DB for this user — find any subscription for this user and update it
+      const { data: anySub } = await supabase
+        .from('user_push_subscriptions')
+        .select('id, endpoint')
+        .eq('user_id', user.id)
+        .order('last_used_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (anySub) {
+        // Update the existing subscription with the new browser endpoint
+        const subJSON = browserSub.toJSON();
+        await supabase
+          .from('user_push_subscriptions')
+          .update({
+            endpoint: browserSub.endpoint,
+            p256dh: subJSON.keys?.p256dh || '',
+            auth: subJSON.keys?.auth || '',
+            last_used_at: new Date().toISOString(),
+            failure_count: 0,
+          })
+          .eq('id', anySub.id);
+
+        console.log('[usePushNotifications] Synced updated browser endpoint to DB (proactive check)');
+      } else {
+        // No subscription in DB at all but browser has one — re-save it
+        const browserInfo = detectBrowser();
+        const osInfo = detectOS();
+        const deviceType = getDeviceType();
+        const isPWA = checkIsPWA();
+        const subJSON = browserSub.toJSON();
+
+        await supabase
+          .from('user_push_subscriptions')
+          .upsert({
+            user_id: user.id,
+            endpoint: browserSub.endpoint,
+            p256dh: subJSON.keys?.p256dh || '',
+            auth: subJSON.keys?.auth || '',
+            browser: browserInfo.name,
+            browser_version: browserInfo.version,
+            os: osInfo.name,
+            os_version: osInfo.version,
+            device_type: deviceType,
+            is_pwa: isPWA,
+            last_used_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,endpoint' });
+
+        console.log('[usePushNotifications] Re-saved browser subscription to DB (was missing)');
+      }
+    } catch (err) {
+      console.warn('[usePushNotifications] Endpoint sync error (non-critical):', err);
+    }
+  }, [user, detectBrowser, detectOS, getDeviceType, checkIsPWA]);
+
   // Subscribe to push notifications
   const subscribe = useCallback(async (): Promise<boolean> => {
     if (!user) {
@@ -373,12 +456,43 @@ export const usePushNotifications = () => {
     fetchPushConfig().then(setPushConfig);
   }, [checkSubscription, fetchPushConfig]);
 
-  // Re-check when user changes
+  // Re-check when user changes + proactively sync endpoint
   useEffect(() => {
     if (user) {
       checkSubscription();
+      // Proactive endpoint sync — detects when browser rotated the push endpoint
+      // without the SW pushsubscriptionchange event (e.g. browser was closed during rotation)
+      syncSubscriptionEndpoint();
     }
-  }, [user, checkSubscription]);
+  }, [user, checkSubscription, syncSubscriptionEndpoint]);
+
+  // Listen for Service Worker pushsubscriptionchange messages
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'PUSH_SUBSCRIPTION_CHANGED') return;
+
+      console.log('[usePushNotifications] Received PUSH_SUBSCRIPTION_CHANGED from SW:', event.data);
+
+      if (event.data.canAutoRenew && event.data.renewed) {
+        // SW already updated DB — just refresh state
+        console.log('[usePushNotifications] Auto-renewal succeeded in SW, refreshing state');
+        checkSubscription();
+      } else if (!event.data.canAutoRenew) {
+        // SW couldn't auto-renew (no applicationServerKey) — need to re-subscribe
+        console.warn('[usePushNotifications] SW could not auto-renew — marking as unsubscribed');
+        setState(prev => ({
+          ...prev,
+          isSubscribed: false,
+          error: 'Subskrypcja push wygasła. Włącz powiadomienia ponownie.',
+        }));
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+  }, [checkSubscription]);
 
   return {
     ...state,
@@ -387,5 +501,6 @@ export const usePushNotifications = () => {
     unsubscribe,
     clearNotifications,
     checkSubscription,
+    syncSubscriptionEndpoint,
   };
 };
