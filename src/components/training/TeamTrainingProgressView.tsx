@@ -67,6 +67,7 @@ export const TeamTrainingProgressView: React.FC = () => {
   const { toast } = useToast();
   const [rows, setRows] = useState<TeamProgressRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [moduleFilter, setModuleFilter] = useState<string>('all');
 
@@ -78,11 +79,25 @@ export const TeamTrainingProgressView: React.FC = () => {
   const loadProgress = async () => {
     if (!user) return;
     setLoading(true);
+    setAccessDenied(false);
     try {
       const { data, error } = await supabase.rpc('get_leader_team_training_progress', {
         p_leader_user_id: user.id,
       });
-      if (error) throw error;
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('Access denied') || msg.includes('permission required')) {
+          setAccessDenied(true);
+        } else {
+          console.error('Error loading team progress:', error);
+          toast({
+            title: 'Błąd techniczny',
+            description: 'Nie udało się pobrać postępu szkoleń zespołu.',
+            variant: 'destructive',
+          });
+        }
+        return;
+      }
       setRows((data as TeamProgressRow[]) || []);
     } catch (error: any) {
       console.error('Error loading team progress:', error);
@@ -179,6 +194,21 @@ export const TeamTrainingProgressView: React.FC = () => {
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <GraduationCap className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Brak uprawnień</h3>
+          <p className="text-muted-foreground text-sm">
+            Nie masz uprawnień do przeglądania postępu szkoleń zespołu.<br />
+            Skontaktuj się z administratorem, aby włączyć tę funkcję dla Twojego konta.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
