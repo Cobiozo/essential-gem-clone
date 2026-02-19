@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -167,6 +168,9 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSendingActivation, setIsSendingActivation] = useState(false);
+  const { permissions, loading: permissionsLoading } = useUserPermissions(
+    isExpanded ? userProfile.user_id : null
+  );
   const status = getUserStatus(userProfile);
   const isCurrentUser = userProfile.user_id === currentUserId;
   const needsEmailConfirm = !userProfile.email_activated;
@@ -291,24 +295,22 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
 
           {/* Action buttons row - full width on mobile */}
           <div className="flex items-center gap-1.5 sm:gap-2 justify-end sm:justify-start flex-shrink-0 pl-7 sm:pl-0">
-            {/* Expand button - only if there's content to show */}
-            {hasExpandableContent && (
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground">
-                  {isExpanded ? (
-                    <>
-                      <ChevronUp className="w-3.5 h-3.5 mr-1" />
-                      <span className="hidden sm:inline">Mniej</span>
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="w-3.5 h-3.5 mr-1" />
-                      <span className="hidden sm:inline">Więcej</span>
-                    </>
-                  )}
-                </Button>
-              </CollapsibleTrigger>
-            )}
+            {/* Expand button - always visible (permissions section always available) */}
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground">
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5 mr-1" />
+                    <span className="hidden sm:inline">Mniej</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5 mr-1" />
+                    <span className="hidden sm:inline">Więcej</span>
+                  </>
+                )}
+              </Button>
+            </CollapsibleTrigger>
 
             {/* Quick action buttons */}
             {/* Approve button */}
@@ -588,6 +590,44 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                     <div className="text-xs">
                       <span>{fullAddress}</span>
                     </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Additional permissions section */}
+            <div className="mt-3 pt-3 border-t border-border/50">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+                <Key className="w-3.5 h-3.5" />
+                Dodatkowe opcje
+                {permissionsLoading && (
+                  <Loader2 className="w-3 h-3 animate-spin ml-1" />
+                )}
+              </div>
+              {permissionsLoading ? (
+                <p className="text-xs text-muted-foreground">Ładowanie uprawnień...</p>
+              ) : permissions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Brak przydzielonych dodatkowych opcji</p>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {permissions.map((perm) =>
+                    perm.enabled ? (
+                      <span
+                        key={perm.key}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-200 dark:border-green-800"
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        {perm.label}
+                      </span>
+                    ) : (
+                      <span
+                        key={perm.key}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border"
+                      >
+                        <span className="line-through opacity-60">{perm.label}</span>
+                        <span className="opacity-60 ml-0.5">— wyłączone</span>
+                      </span>
+                    )
                   )}
                 </div>
               )}
