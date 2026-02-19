@@ -28,7 +28,9 @@ import {
   ChevronUp,
   MapPin,
   User,
-  Clock
+  Clock,
+  Send,
+  Loader2
 } from 'lucide-react';
 
 interface UserProfile {
@@ -68,6 +70,7 @@ interface CompactUserCardProps {
   userProfile: UserProfile;
   currentUserId?: string;
   onConfirmEmail: (userId: string) => void;
+  onResendActivationEmail: (userId: string, email: string, firstName?: string, lastName?: string, role?: string) => void;
   onEditUser: (userProfile: UserProfile) => void;
   onResetPassword: (email: string) => void;
   onToggleStatus: (userId: string, currentStatus: boolean) => void;
@@ -149,6 +152,7 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
   userProfile,
   currentUserId,
   onConfirmEmail,
+  onResendActivationEmail,
   onEditUser,
   onResetPassword,
   onToggleStatus,
@@ -162,6 +166,7 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
   showCheckbox = false,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isSendingActivation, setIsSendingActivation] = useState(false);
   const status = getUserStatus(userProfile);
   const isCurrentUser = userProfile.user_id === currentUserId;
   const needsEmailConfirm = !userProfile.email_activated;
@@ -340,25 +345,65 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
               )
             )}
 
-            {/* Confirm email button */}
+            {/* Confirm email buttons - shown when email not confirmed */}
             {needsEmailConfirm && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onConfirmEmail(userProfile.user_id)}
-                      className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-50"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Potwierdź email</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <>
+                {/* Resend activation email button */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isSendingActivation}
+                        onClick={async () => {
+                          setIsSendingActivation(true);
+                          try {
+                            await onResendActivationEmail(
+                              userProfile.user_id,
+                              userProfile.email,
+                              userProfile.first_name,
+                              userProfile.last_name,
+                              userProfile.role,
+                            );
+                          } finally {
+                            setIsSendingActivation(false);
+                          }
+                        }}
+                        className="h-8 text-xs border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                      >
+                        {isSendingActivation ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Wyślij email aktywacyjny ponownie</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                {/* Manual email confirm button */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onConfirmEmail(userProfile.user_id)}
+                        className="h-8 text-xs border-green-200 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Potwierdź email (ręcznie, bez wysyłki)</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </>
             )}
 
             {/* Edit button */}

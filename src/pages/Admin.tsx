@@ -584,10 +584,38 @@ const Admin = () => {
     }
   };
 
+  const resendActivationEmail = async (userId: string, email: string, firstName?: string, lastName?: string, role?: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      const { data, error } = await supabase.functions.invoke('send-activation-email', {
+        body: { userId, email, firstName, lastName, role, resend: true },
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      });
+
+      if (error) throw error;
+      if (data && !data.success) throw new Error(data.error || 'Nieznany błąd');
+
+      toast({
+        title: "Email wysłany",
+        description: `Email aktywacyjny został wysłany ponownie do ${email}.`,
+      });
+    } catch (error: any) {
+      console.error('Error resending activation email:', error);
+      toast({
+        title: "Błąd wysyłania",
+        description: error.message || 'Nie udało się wysłać emaila aktywacyjnego.',
+        variant: "destructive",
+      });
+    }
+  };
+
   const deleteUser = async (userId: string, userEmail: string) => {
     if (!confirm(`${t('admin.confirmDeleteUser')} ${userEmail}?`)) {
       return;
     }
+
 
     try {
       setDeleteLoading(true);
@@ -4330,6 +4358,7 @@ const Admin = () => {
                               userProfile={userProfile}
                               currentUserId={user?.id}
                               onConfirmEmail={confirmUserEmail}
+                              onResendActivationEmail={resendActivationEmail}
                               onEditUser={setEditingUserProfile}
                               onResetPassword={resetUserPassword}
                               onToggleStatus={toggleUserStatus}
