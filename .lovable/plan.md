@@ -1,106 +1,168 @@
 
-# Problem z kluczami VAPID i automatycznym odnowieniem subskrypcji
+# Panel Lidera — dedykowana strona dla funkcji liderskich
 
-## Diagnoza rzeczywistego problemu
+## Analiza stanu obecnego
 
-Klucze VAPID (wygenerowane 6 lutego) **same w sobie NIE wygasają** — są to trwałe klucze kryptograficzne. "14 dni" które widzisz w panelu to data wygenerowania, nie termin ważności.
+### Gdzie teraz żyją funkcje lidera?
 
-**Prawdziwy problem to brakujące obsługa `pushsubscriptionchange` po stronie klienta.**
+Aktualnie wszystko jest "wrzucone" do `MyAccount.tsx` jako kolejne zakładki:
 
-### Co się dzieje w praktyce
+| Funkcja | Lokalizacja w MyAccount | Warunek widoczności |
+|---------|------------------------|---------------------|
+| Spotkania indywidualne (ustawienia) | zakładka `individual-meetings` | `leaderPermission?.individual_meetings_enabled` |
+| Spotkania trójstronne | sidebar → podmenu | `tripartite_meeting_enabled` |
+| Konsultacje | sidebar → podmenu | `partner_consultation_enabled` |
+| Postęp szkoleń zespołu (planowany) | zakładka `team-training` | `can_view_team_progress` (nowa flaga) |
 
-Przeglądarki (szczególnie Safari/iOS) **automatycznie odnawiają** subskrypcje push bez wiedzy użytkownika — zmienia się endpoint URL. Gdy to nastąpi:
+Efekt: zakładki w MyAccount są **przepełnione** i nie ma jasnej granicy między "moimi ustawieniami" a "narzędziami lidera".
 
-1. Service Worker w `sw-push.js` odbiera zdarzenie `pushsubscriptionchange` ✅
-2. Wysyła wiadomość `PUSH_SUBSCRIPTION_CHANGED` do React apki
-3. React **NIE nasłuchuje** tej wiadomości — nowy endpoint NIE jest zapisywany do bazy ❌
-4. Przy następnym wysłaniu powiadomienia — stary endpoint zwraca błąd 410/404
-5. System usuwa subskrypcję jako "expired" i użytkownik traci powiadomienia
+### Wzorzec istniejący w aplikacji
 
-### Kiedy subskrypcje wygasają (poza zmianą kluczy VAPID)
+Projekt stosuje już wzorzec osobnych stron dla dedykowanych ról:
+- `/admin` → `Admin.tsx` dla adminów
+- `/my-account` → `MyAccount.tsx` dla wszystkich
+- `/events/individual-meetings` → `IndividualMeetingsPage.tsx` dla użytkowników rezerwujących
 
-- Safari/iOS — Apple Push odnawia tokeny po reinstalacji PWA, aktualizacji iOS
-- FCM (Chrome, Brave, Edge, Opera) — wygasają po 270 dniach nieaktywności lub czyszczeniu danych przeglądarki
-- Firefox — podobne zachowanie jak FCM
-- **Zmiana kluczy VAPID = natychmiastowe unieważnienie WSZYSTKICH subskrypcji** (dlatego NIE należy ich regenerować bez potrzeby)
+Logiczne dopełnienie: `/leader` → `LeaderPanel.tsx` dla liderów.
 
-### Co widać w bazie danych
+### Co trafia do panelu lidera?
 
-Aktualnie: 43 subskrypcje (26 Chrome, 11 Safari, 3 Edge, 1 Brave, 1 Opera, 1 Firefox).
-Subskrypcje Safari z datą tworzenia sięgają 6 lutego — te mogą już mieć odnawiany endpoint przez Apple Push.
+**Teraz (do przeniesienia):**
+- Zarządzanie spotkaniami indywidualnymi (`UnifiedMeetingSettingsForm`) — przeniesione z zakładki `individual-meetings` w MyAccount
+- Historia spotkań indywidualnych
 
----
+**Nowe (z zaplanowanego zadania):**
+- Postęp szkoleń struktury (`TeamTrainingProgressView`) — widok postępu całego zespołu w dół
 
-## Rozwiązanie — automatyczna obsługa odnowień
+**Struktura panelu — zakładki wewnątrz `/leader`:**
 
-### Część 1: Service Worker — automatyczne ponowne subskrybowanie
-
-Rozbudować `pushsubscriptionchange` w `public/sw-push.js` tak, żeby po odnowieniu subskrypcji przez przeglądarkę **Service Worker sam zapisał nową subskrypcję do bazy** (bez potrzeby działania użytkownika).
-
-```javascript
-self.addEventListener('pushsubscriptionchange', (event) => {
-  event.waitUntil(
-    // 1. Pobierz nową subskrypcję z nowym endpointem
-    self.registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: event.oldSubscription?.options?.applicationServerKey,
-    })
-    .then(async (newSubscription) => {
-      // 2. Wyślij nową subskrypcję do edge function
-      const subJSON = newSubscription.toJSON();
-      await fetch('https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/renew-push-subscription', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          oldEndpoint: event.oldSubscription?.endpoint,
-          newEndpoint: newSubscription.endpoint,
-          p256dh: subJSON.keys?.p256dh,
-          auth: subJSON.keys?.auth,
-        }),
-      });
-    })
-    .catch(err => console.error('[SW] pushsubscriptionchange failed:', err))
-  );
-});
+```
+Panel Lidera (/leader)
+├── 📅 Spotkania indywidualne  ← (istniejący UnifiedMeetingSettingsForm)
+│   ├── Ustawienia spotkań
+│   └── Historia spotkań
+└── 🎓 Szkolenia zespołu       ← (nowy TeamTrainingProgressView)
+    ├── tylko gdy can_view_team_progress = true
+    └── postęp w dół struktury
 ```
 
-### Część 2: Nowa Edge Function `renew-push-subscription`
+---
 
-Przyjmuje stary endpoint i nową subskrypcję, aktualizuje rekord w bazie `user_push_subscriptions` — **bez wymagania tokenu użytkownika** (Service Worker nie ma dostępu do JWT):
+## Architektura techniczna
 
-- Wyszukuje rekord po `oldEndpoint`
-- Aktualizuje `endpoint`, `p256dh`, `auth`, `last_used_at`
-- Resetuje `failure_count` do 0
-- Loguje zdarzenie odnowienia
+### 1. Nowa strona `src/pages/LeaderPanel.tsx`
 
-### Część 3: Nasłuch w React — backup dla gdy użytkownik ma otwartą aplikację
+Pełna strona z `DashboardLayout` (tak jak `IndividualMeetingsPage.tsx`).
 
-W `usePushNotifications.ts` dodać listener na wiadomość `PUSH_SUBSCRIPTION_CHANGED` z Service Workera i wywołać `checkSubscription()` + ponowne zapisanie endpointu do bazy.
+Dostęp sprawdzany przez `useLeaderAvailability()`:
+- Jeśli `!isLeader` → przekierowanie do `/dashboard` z komunikatem toast
+- Jeśli `isLeader` → wyświetlenie panelu z zakładkami odpowiadającymi włączonym uprawnieniom
 
-### Część 4: Proaktywne odświeżanie w `usePushNotifications.ts`
+```
+Logika zakładek w LeaderPanel:
+- "Spotkania indywidualne" → widoczna gdy individual_meetings_enabled = true
+- "Szkolenia zespołu"     → widoczna gdy can_view_team_progress = true
+```
 
-Przy każdym zalogowaniu użytkownika — sprawdzić, czy endpoint w przeglądarce (`pushManager.getSubscription()`) zgadza się z tym w bazie danych. Jeśli nie — zaktualizować bazę. To obsługuje przypadek gdy SW nie zdążył zareagować (np. przeglądarka była zamknięta w momencie odnowienia).
+### 2. Nowa trasa w `App.tsx`
+
+```typescript
+const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
+// w Routes:
+<Route path="/leader" element={<LeaderPanel />} />
+```
+
+### 3. Wpis w `DashboardSidebar.tsx`
+
+Nowy element w menu sidebar dla liderów — pojawia się **tylko gdy** użytkownik ma aktywne uprawnienia lidera:
+
+```typescript
+// Nowy wpis w menuItems (warunkowy)
+...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
+  id: 'leader-panel',
+  icon: Crown,        // lub Shield lub Star
+  labelKey: 'Panel Lidera',
+  path: '/leader',
+}] : [])
+```
+
+Zastępuje dotychczasowy rozbudowany podmenu `individual-meetings-setup` w sidebarze — teraz wszystko prowadzi do jednego miejsca `/leader` zamiast głęboko zagnieżdżonych ścieżek jak `/my-account?tab=individual-meetings&type=tripartite`.
+
+### 4. Migracja SQL (z poprzedniego planu)
+
+Dodanie `can_view_team_progress` do `leader_permissions` i funkcji `get_leader_team_training_progress` — to samo co planowaliśmy, tylko wynik trafia teraz do zakładki w `LeaderPanel` zamiast `MyAccount`.
+
+### 5. Rozszerzenie `IndividualMeetingsManagement.tsx` (panel admin)
+
+Dodanie kolumny "Szkolenia zespołu" z przełącznikiem `can_view_team_progress` — admin decyduje kto ma dostęp do jakiej zakładki w panelu lidera.
+
+### 6. Nowy komponent `TeamTrainingProgressView.tsx`
+
+Widok postępu szkoleń całej struktury — przeniesiony z planu do `src/components/training/TeamTrainingProgressView.tsx`.
+
+### 7. Usunięcie zakładki z `MyAccount.tsx`
+
+Po dodaniu `/leader` — usunięcie zakładki `individual-meetings` z `MyAccount.tsx` i jej pozycji z `visibleTabs`. Link z sidebara już nie będzie kierował do `/my-account?tab=individual-meetings`, tylko do `/leader`.
 
 ---
 
-## Pliki do zmiany
+## Szczegół: jak wygląda panel lidera
 
-| Plik | Zmiana |
-|------|--------|
-| `public/sw-push.js` | Rozbudowa obsługi `pushsubscriptionchange` — automatyczne pobieranie nowej subskrypcji i wywołanie edge function |
-| `supabase/functions/renew-push-subscription/index.ts` | Nowa edge function aktualizująca endpoint w bazie na podstawie starego endpointu (bez auth JWT) |
-| `src/hooks/usePushNotifications.ts` | Listener na `PUSH_SUBSCRIPTION_CHANGED`, proaktywna weryfikacja endpointu przy logowaniu |
+```
+┌─────────────────────────────────────────────────────┐
+│  👑 Panel Lidera                                     │
+│  Narzędzia i statystyki Twojej struktury            │
+├─────────────────────────────────────────────────────┤
+│  [📅 Spotkania ind.]  [🎓 Szkolenia zespołu]        │
+│  (gdy individual_    (gdy can_view_team_            │
+│   meetings_enabled)   progress = true)              │
+├─────────────────────────────────────────────────────┤
+│                                                      │
+│  <UnifiedMeetingSettingsForm />                     │
+│  (obecna zakładka z MyAccount)                      │
+│                                                      │
+│  lub                                                 │
+│                                                      │
+│  <TeamTrainingProgressView />                       │
+│  (nowy widok postępu struktury)                     │
+│                                                      │
+└─────────────────────────────────────────────────────┘
+```
 
-## Co NIE wymaga zmian
+Jeśli lider ma włączone OBIE funkcje → dwie zakładki. Jeśli tylko jedną → jedna zakładka (bez widocznych zakładek = bezpośrednio komponent). Jeśli żadnej → przekierowanie do dashboardu.
 
-- Klucze VAPID **nie wymagają rotacji** — istniejące klucze z 6 lutego są ważne bezterminowo
-- Nie trzeba prosić użytkowników o ponowną zgodę — cały proces jest transparentny
-- Brak zmian w bazie danych — tabela `user_push_subscriptions` ma już wszystkie potrzebne kolumny
+---
 
-## Efekt końcowy
+## Pliki do zmiany/utworzenia
 
-Gdy przeglądarka automatycznie odnowi subskrypcję (zmieni endpoint):
-1. Service Worker natychmiast wywoła `renew-push-subscription` z nowym endpointem
-2. Baza danych zostanie zaktualizowana bez wiedzy użytkownika
-3. Użytkownik nadal otrzymuje powiadomienia bez przerwy
-4. Przy kolejnym otwarciu aplikacji — dodatkowa weryfikacja spójności endpointu
+| Plik | Operacja | Opis |
+|------|----------|------|
+| `supabase/migrations/..._leader_team_progress.sql` | Nowy | `ALTER TABLE leader_permissions ADD COLUMN can_view_team_progress`, funkcja SQL `get_leader_team_training_progress` |
+| `src/pages/LeaderPanel.tsx` | Nowy | Dedykowana strona panelu lidera z zakładkami |
+| `src/components/training/TeamTrainingProgressView.tsx` | Nowy | Widok postępu szkoleń struktury lidera |
+| `src/components/admin/IndividualMeetingsManagement.tsx` | Edycja | Dodanie kolumny "Szkolenia zespołu" z przełącznikiem |
+| `src/App.tsx` | Edycja | Dodanie trasy `/leader` |
+| `src/components/dashboard/DashboardSidebar.tsx` | Edycja | Zastąpienie podmenu `individual-meetings-setup` linkiem do `/leader` |
+| `src/pages/MyAccount.tsx` | Edycja | Usunięcie zakładki `individual-meetings` (przeniesionej do `/leader`) |
+
+---
+
+## Co admin kontroluje w `IndividualMeetingsManagement`
+
+Po zmianach tabela w panelu admina będzie wyglądać tak:
+
+| Partner | Email | Spotkania trójstronne | Konsultacje | Szkolenia zespołu |
+|---------|-------|----------------------|-------------|-------------------|
+| Jan K. | ... | ○ | ● | ○ |
+| Anna N. | ... | ● | ● | ● |
+
+Każdy przełącznik niezależnie — admin decyduje co dana osoba widzi w Panelu Lidera.
+
+---
+
+## Bezpieczeństwo
+
+- Strona `/leader` sprawdza `isLeader` (z `useLeaderAvailability`) → redirect jeśli brak uprawnień
+- Funkcja SQL `get_leader_team_training_progress` sprawdza `can_view_team_progress` w bazie przed zwróceniem danych
+- Lider widzi tylko swoją strukturę (rekurencyjnie od siebie w dół przez `upline_eq_id`)
+- Admin zachowuje pełną kontrolę przez `IndividualMeetingsManagement`
