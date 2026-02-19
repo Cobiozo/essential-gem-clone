@@ -1,111 +1,117 @@
 
-# Adnotacje dodatkowych uprawnień przy użytkownikach w panelu admina
+# Klikalne adnotacje uprawnień — przekierowanie do miejsca zarządzania
 
 ## Cel
 
-W rozwiniętym widoku karty użytkownika (po kliknięciu "Więcej") administrator ma widzieć sekcję "Dodatkowe opcje" zawierającą adnotacje o wszystkich specjalnych uprawnieniach danego użytkownika — zarówno aktywnych (zielony badge), jak i wyłączonych (szary badge z napisem "wyłączone").
+Każdy badge "Dodatkowych opcji" na karcie użytkownika ma stać się kliknięty link, który przenosi administratora bezpośrednio do odpowiedniego panelu zarządzania tym uprawnieniem.
 
-## Co to są "dodatkowe opcje" w systemie
+## Analiza tras (URL mapping)
 
-Na podstawie analizy bazy danych, dla partnera Sebastian Snopek (EQ: 121118999) dostępne są:
+Na podstawie analizy kodu:
 
-Tabela `leader_permissions` (uprawnienia liderskie):
-- `individual_meetings_enabled` — spotkania indywidualne
-- `tripartite_meeting_enabled` — spotkania trójstronne
-- `partner_consultation_enabled` — konsultacje partnerskie
-- `can_broadcast` — możliwość nadawania (broadcast)
+| Uprawnienie | Sekcja admin | URL docelowy |
+|-------------|-------------|--------------|
+| Spotkania indywidualne | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
+| Spotkania trójstronne | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
+| Konsultacje partnerskie | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
+| Nadawanie (Broadcast) | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
+| Strony partnerskie | `/admin → PartnerPages → zakładka "access"` | `/admin?tab=partner-pages` |
+| Kalkulator | `/admin → Calculator` | `/admin?tab=calculator` |
+| Kalkulator specjalisty | `/admin → SpecialistCalculator` | `/admin?tab=specialist-calculator` |
 
-Tabela `partner_page_user_access`:
-- `is_enabled` — dostęp do stron partnerskich
+Wszystkie 4 uprawnienia spotkań/broadcast są zarządzane w **jednym miejscu** — `IndividualMeetingsManagement` wewnątrz `EventsManagement`, zakładka `individual-meetings`.
 
-Tabela `calculator_user_access`:
-- `has_access` — dostęp do kalkulatora
+## Problem z głębokimi linkami dla EventsManagement
 
-Tabela `specialist_calculator_user_access`:
-- `has_access` — dostęp do kalkulatora specjalisty
+`EventsManagement` używa lokalnego stanu `useState('webinars')` zamiast URL params. Dlatego link `/admin?tab=events` zawsze otworzy zakładkę "Webinary", nie "Spotkania indywidualne".
 
-## Architektura rozwiązania
-
-Dane o uprawnieniach będą pobierane **w Admin.tsx** jako osobny fetch po stronie serwera i przekazywane do `CompactUserCard` jako prop. Nie modyfikujemy istniejącego RPC — robimy dodatkowe zapytanie po rozwinięciu karty lub przy loadzie listy użytkowników.
-
-**Podejście: leniwe ładowanie per użytkownik** — gdy admin kliknie "Więcej" na karcie użytkownika, komponent pobiera uprawnienia tego konkretnego użytkownika. Nie ma sensu ładować uprawnień dla wszystkich 100+ użytkowników jednocześnie.
+**Rozwiązanie:** Dodanie obsługi `subTab` z URL do `EventsManagement` — komponent będzie czytać `?subTab=` przy inicjalizacji (jeden `useEffect`).
 
 ## Zmiany w plikach
 
-### 1. Nowy hook `src/hooks/useUserPermissions.ts`
+### 1. `src/hooks/useUserPermissions.ts`
+
+Rozszerzenie interfejsu `PermissionItem` o pole `adminUrl: string` — adres URL do panelu zarządzania:
 
 ```typescript
-// Pobiera wszystkie dodatkowe uprawnienia dla konkretnego user_id
-const useUserPermissions = (userId: string | null) => {
-  // Parallel fetch:
-  // - leader_permissions (individual_meetings_enabled, tripartite_meeting_enabled, 
-  //   partner_consultation_enabled, can_broadcast)
-  // - partner_page_user_access (is_enabled)
-  // - calculator_user_access (has_access)
-  // - specialist_calculator_user_access (has_access)
-  
-  // Returns: { permissions, loading }
+export interface PermissionItem {
+  key: string;
+  label: string;
+  enabled: boolean;
+  adminUrl: string;  // NOWE: URL do panelu zarządzania
 }
 ```
 
-Zwraca gotowy zestaw etykiet z nazwami i statusami.
+Każde uprawnienie dostaje swój URL:
+- `individual_meetings_enabled`, `tripartite_meeting_enabled`, `partner_consultation_enabled`, `can_broadcast` → `/admin?tab=events&subTab=individual-meetings`
+- `partner_page_access` → `/admin?tab=partner-pages`
+- `calculator_access` → `/admin?tab=calculator`
+- `specialist_calculator_access` → `/admin?tab=specialist-calculator`
 
 ### 2. `src/components/admin/CompactUserCard.tsx`
 
-**Zmiana triggera rozwijania:** Karta będzie zawsze miała przycisk "Więcej/Mniej" (nie tylko gdy `hasExpandableContent`), ponieważ sekcja uprawnień zawsze może być pokazana.
+Zamiana statycznych `<span>` badgy na klikalne elementy `<a>` (lub `<button>` z `useNavigate`):
 
-**Nowa sekcja w `CollapsibleContent`** — "Dodatkowe opcje":
-
+**Aktywne uprawnienie (zielony badge):**
+```tsx
+<a href={perm.adminUrl} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full 
+  bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 
+  border border-green-200 dark:border-green-800
+  hover:bg-green-200 dark:hover:bg-green-900 
+  cursor-pointer transition-colors group"
+  title={`Zarządzaj: ${perm.label}`}
+>
+  <CheckCircle className="w-3 h-3" />
+  {perm.label}
+  <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity" />
+</a>
 ```
-┌─────────────────────────────────────────────┐
-│  🔑 Dodatkowe opcje                         │
-│                                             │
-│  [✓ Spotkania indywidualne]                 │
-│  [✓ Spotkania trójstronne]                  │
-│  [✓ Konsultacje partnerskie]                │
-│  [✗ Broadcast  wyłączone]                   │
-│  [✓ Strony partnerskie]                     │
-│  [✓ Kalkulator]                             │
-│  [✓ Kalkulator specjalisty]                 │
-└─────────────────────────────────────────────┘
+
+**Wyłączone uprawnienie (szary badge):**
+```tsx
+<a href={perm.adminUrl} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full 
+  bg-muted text-muted-foreground border border-border
+  hover:bg-muted/80 hover:text-foreground 
+  cursor-pointer transition-colors group"
+  title={`Włącz: ${perm.label}`}
+>
+  <span className="line-through opacity-60">{perm.label}</span>
+  <span className="opacity-60 ml-0.5">— wyłączone</span>
+  <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+</a>
 ```
 
-Każda pozycja to badge:
-- **Aktywna**: zielone tło, ikona `CheckCircle`, np. `"Spotkania indywidualne"`
-- **Wyłączona**: szare tło ze strikethrough lub etykieta "wyłączone", np. `"Broadcast — wyłączone"`
-- **Brak rekordu** w tabeli: traktujemy jako wyłączone (permission nie istnieje = brak dostępu)
+Używamy `<a href>` zamiast `useNavigate`, bo chcemy zachować możliwość otwarcia w nowej karcie (Ctrl+Click).
 
-Podczas ładowania: mini spinner `Loader2` obok tytułu sekcji.
+### 3. `src/components/admin/EventsManagement.tsx`
 
-**Import hook** w komponencie i wywołanie gdy `isExpanded = true`:
+Dodanie odczytu `?subTab=` z URL params przy inicjalizacji komponentu (2 linijki):
+
 ```typescript
-// Permissions loaded lazily when card is expanded
-const { permissions, loading: permissionsLoading } = useUserPermissions(
-  isExpanded ? userProfile.user_id : null
+const [searchParams] = useSearchParams();
+const [activeTab, setActiveTab] = useState(
+  searchParams.get('subTab') || 'webinars'
 );
 ```
 
-### 3. Widoczność sekcji
+Dzięki temu URL `/admin?tab=events&subTab=individual-meetings` automatycznie otworzy właściwą zakładkę.
 
-Sekcja "Dodatkowe opcje" jest widoczna dla **wszystkich ról** (admin, partner, specjalista, klient) — ale dane faktycznie mają sens tylko dla partnerów i specjalistów. Dla klientów sekcja może być pusta (wyświetlamy wtedy "Brak przydzielonych dodatkowych opcji").
+## Zachowanie przy kliknięciu
 
-## Etykiety uprawnień (PL)
+1. Admin widzi kartę użytkownika Sebastian Snopek rozwinięta
+2. Klika badge "Spotkania indywidualne" (zielony) lub "Nadawanie (Broadcast) — wyłączone" (szary)
+3. Przeglądarka przechodzi do `/admin?tab=events&subTab=individual-meetings`
+4. `EventsManagement` otwiera się bezpośrednio na zakładce "Spotkania indywidualne"
+5. Admin widzi tabelę partnerów i może włączyć/wyłączyć uprawnienia
 
-| Klucz | Etykieta polska |
-|-------|----------------|
-| `individual_meetings_enabled` | Spotkania indywidualne |
-| `tripartite_meeting_enabled` | Spotkania trójstronne |
-| `partner_consultation_enabled` | Konsultacje partnerskie |
-| `can_broadcast` | Nadawanie (Broadcast) |
-| `partner_page_access` | Strony partnerskie |
-| `calculator_access` | Kalkulator |
-| `specialist_calculator_access` | Kalkulator specjalisty |
+Hover na badgu pokazuje ikonę `ExternalLink` (dyskretna, pojawia się tylko przy najechaniu).
 
 ## Pliki do zmiany
 
-| Plik | Zakres |
+| Plik | Zmiana |
 |------|--------|
-| `src/hooks/useUserPermissions.ts` | Nowy hook — 4 zapytania równolegle do tabel uprawnień |
-| `src/components/admin/CompactUserCard.tsx` | Użycie hooka, nowa sekcja "Dodatkowe opcje" w CollapsibleContent, przycisk "Więcej" zawsze widoczny |
+| `src/hooks/useUserPermissions.ts` | Dodanie pola `adminUrl` do `PermissionItem` i każdego uprawnienia |
+| `src/components/admin/CompactUserCard.tsx` | Zamiana `<span>` na `<a href>` z hover efektem i ikoną `ExternalLink` |
+| `src/components/admin/EventsManagement.tsx` | Dodanie `useSearchParams` i inicjalizacja `activeTab` z URL |
 
-Nie są potrzebne zmiany w `Admin.tsx`, bazie danych ani nowe migracje.
+Nie są potrzebne zmiany w bazie danych ani nowe migracje.
