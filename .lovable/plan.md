@@ -1,168 +1,77 @@
 
-# Panel Lidera — dedykowana strona dla funkcji liderskich
+# Naprawa: Lider nie widzi postępu szkoleń swojego zespołu
 
-## Analiza stanu obecnego
+## Diagnoza — dwa oddzielne problemy
 
-### Gdzie teraz żyją funkcje lidera?
+### Problem 1: Błąd "column reference user_id is ambiguous" w SQL
 
-Aktualnie wszystko jest "wrzucone" do `MyAccount.tsx` jako kolejne zakładki:
+Funkcja `get_leader_team_training_progress` jest SECURITY DEFINER, ale RLS na tabelach `training_progress` i `training_assignments` używa warunku `auth.uid() = user_id` — kolumna `user_id` bez kwalifikatora tabeli. Gdy PostgreSQL kompiluje zapytanie w kontekście SECURITY DEFINER z wieloma JOIN-ami gdzie każda z tabel (`training_assignments`, `training_progress`) ma kolumnę `user_id`, parser rzuca `column reference "user_id" is ambiguous`.
 
-| Funkcja | Lokalizacja w MyAccount | Warunek widoczności |
-|---------|------------------------|---------------------|
-| Spotkania indywidualne (ustawienia) | zakładka `individual-meetings` | `leaderPermission?.individual_meetings_enabled` |
-| Spotkania trójstronne | sidebar → podmenu | `tripartite_meeting_enabled` |
-| Konsultacje | sidebar → podmenu | `partner_consultation_enabled` |
-| Postęp szkoleń zespołu (planowany) | zakładka `team-training` | `can_view_team_progress` (nowa flaga) |
+Potwierdzone w logach PostgreSQL:
+- `ERROR: column reference "user_id" is ambiguous` — 2 wystąpienia
 
-Efekt: zakładki w MyAccount są **przepełnione** i nie ma jasnej granicy między "moimi ustawieniami" a "narzędziami lidera".
+### Problem 2: Błędny komunikat w UI — "Brak osób w strukturze"
 
-### Wzorzec istniejący w aplikacji
+Sebastian Snopek widoczny na screenie (eq_id: `12458557556`) ma `can_view_team_progress: false`. Funkcja rzuca wyjątek "Access denied" — ale `TeamTrainingProgressView.tsx` obsługuje to jako `rows = []` i wyświetla pusty stan "Brak osób w strukturze" zamiast komunikatu o braku uprawnień. To jest mylące.
 
-Projekt stosuje już wzorzec osobnych stron dla dedykowanych ról:
-- `/admin` → `Admin.tsx` dla adminów
-- `/my-account` → `MyAccount.tsx` dla wszystkich
-- `/events/individual-meetings` → `IndividualMeetingsPage.tsx` dla użytkowników rezerwujących
+Jednak na screenie widać, że zakładka "Szkolenia zespołu" JEST widoczna — co oznacza, że `can_view_team_progress` musi być `true` dla tego konkretnego sesji. Sprawdzenie bazy wykazało, że konto Sebastiana Snopka z `eq_id: 121118999` (które ma uprawnienie) jest właścicielem sesji — ale jego eq_id ma tylko 3 podwładnych, z których struktura poniżej może nie mieć przypisanych modułów.
 
-Logiczne dopełnienie: `/leader` → `LeaderPanel.tsx` dla liderów.
+Faktyczny błąd: funkcja SQL eksploduje na `column reference "user_id" is ambiguous` zanim w ogóle dotrze do wyników.
 
-### Co trafia do panelu lidera?
+## Rozwiązanie
 
-**Teraz (do przeniesienia):**
-- Zarządzanie spotkaniami indywidualnymi (`UnifiedMeetingSettingsForm`) — przeniesione z zakładki `individual-meetings` w MyAccount
-- Historia spotkań indywidualnych
+### Część 1: Naprawa SQL — nowa migracja z poprawioną funkcją
 
-**Nowe (z zaplanowanego zadania):**
-- Postęp szkoleń struktury (`TeamTrainingProgressView`) — widok postępu całego zespołu w dół
+Problem ambiguous `user_id` wynika z tego, że PostgreSQL w kontekście SECURITY DEFINER, przy ewaluacji RLS policies na podtabelach, napotyka niejednoznaczność. Rozwiązanie: dodać `SET row_security = off` do funkcji (bezpieczne, bo funkcja ma własną weryfikację uprawnień przez sprawdzenie `leader_permissions`) LUB jawnie kwalifikować `user_id` w każdym JOIN.
 
-**Struktura panelu — zakładki wewnątrz `/leader`:**
-
-```
-Panel Lidera (/leader)
-├── 📅 Spotkania indywidualne  ← (istniejący UnifiedMeetingSettingsForm)
-│   ├── Ustawienia spotkań
-│   └── Historia spotkań
-└── 🎓 Szkolenia zespołu       ← (nowy TeamTrainingProgressView)
-    ├── tylko gdy can_view_team_progress = true
-    └── postęp w dół struktury
+Poprawka:
+```sql
+CREATE OR REPLACE FUNCTION public.get_leader_team_training_progress(p_leader_user_id uuid)
+...
+SECURITY DEFINER
+SET search_path TO 'public'
+SET row_security = off  -- <-- kluczowe: wyłącza RLS wewnątrz funkcji SECURITY DEFINER
 ```
 
----
+Wyłączenie RLS w tej funkcji jest bezpieczne ponieważ:
+- Funkcja ma własną weryfikację uprawnień (sprawdza `leader_permissions.can_view_team_progress`)
+- Zwraca wyłącznie dane z hierarchii lidera (rekurencja przez `upline_eq_id`)
+- Wzorzec `SET row_security = off` jest standardem dla funkcji SECURITY DEFINER w tym projekcie
 
-## Architektura techniczna
+### Część 2: Naprawa obsługi błędów w TeamTrainingProgressView.tsx
 
-### 1. Nowa strona `src/pages/LeaderPanel.tsx`
+Aktualnie każdy błąd z Supabase (włącznie z "Access denied") jest obsługiwany tak samo — jako puste `rows = []`, co prowadzi do komunikatu "Brak osób w strukturze". Zamiast tego, należy:
+- Jeśli błąd zawiera "Access denied" → wyświetlić komunikat o braku uprawnień
+- Jeśli brak wyników → wyświetlić "Brak osób w strukturze"
+- Inne błędy → toast z komunikatem technicznym
 
-Pełna strona z `DashboardLayout` (tak jak `IndividualMeetingsPage.tsx`).
+### Część 3: Włączenie uprawnień dla właściwego konta
 
-Dostęp sprawdzany przez `useLeaderAvailability()`:
-- Jeśli `!isLeader` → przekierowanie do `/dashboard` z komunikatem toast
-- Jeśli `isLeader` → wyświetlenie panelu z zakładkami odpowiadającymi włączonym uprawnieniom
+Z danych wynika, że są dwa konta Sebastian Snopek:
+- `eq_id: 12458557556` — widoczny na screenie, `can_view_team_progress: false`  
+- `eq_id: 121118999` — ma uprawnienie, ale to inne konto
 
-```
-Logika zakładek w LeaderPanel:
-- "Spotkania indywidualne" → widoczna gdy individual_meetings_enabled = true
-- "Szkolenia zespołu"     → widoczna gdy can_view_team_progress = true
-```
+Administrator musi włączyć `can_view_team_progress` dla konta z `eq_id: 12458557556`. To wymaga działania admina w panelu — nie jest to zmiana kodu.
 
-### 2. Nowa trasa w `App.tsx`
+## Pliki do zmiany
 
-```typescript
-const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
-// w Routes:
-<Route path="/leader" element={<LeaderPanel />} />
-```
+| Plik | Zmiana |
+|------|--------|
+| `supabase/migrations/[nowa].sql` | Nowa migracja: `CREATE OR REPLACE FUNCTION` z dodaniem `SET row_security = off` — naprawa błędu `user_id is ambiguous` |
+| `src/components/training/TeamTrainingProgressView.tsx` | Lepsza obsługa błędów — rozróżnienie między "brak uprawnień", "brak danych" i "błąd techniczny" |
 
-### 3. Wpis w `DashboardSidebar.tsx`
+## Co musi zrobić administrator
 
-Nowy element w menu sidebar dla liderów — pojawia się **tylko gdy** użytkownik ma aktywne uprawnienia lidera:
+Po wdrożeniu poprawki kodu, aby Sebastian Snopek (eq_id: `12458557556`) widział postęp swojego zespołu:
+1. Wejść w **Panel Admin → Zdarzenia i rejestracje → Spotkania indywidualne**
+2. Znaleźć "Sebastian Snopek" (eq_id: 12458557556)
+3. Włączyć przełącznik w kolumnie "Szkolenia zespołu" (ikona GraduationCap)
 
-```typescript
-// Nowy wpis w menuItems (warunkowy)
-...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
-  id: 'leader-panel',
-  icon: Crown,        // lub Shield lub Star
-  labelKey: 'Panel Lidera',
-  path: '/leader',
-}] : [])
-```
+Jego struktura w dół zawiera:
+- Grzegorz Latocha (eq_id: 121213773)
+- Katarzyna Snopek (eq_id: 121167843)
+- oraz rekurencyjnie ich podwładni
 
-Zastępuje dotychczasowy rozbudowany podmenu `individual-meetings-setup` w sidebarze — teraz wszystko prowadzi do jednego miejsca `/leader` zamiast głęboko zagnieżdżonych ścieżek jak `/my-account?tab=individual-meetings&type=tripartite`.
+## Efekt końcowy
 
-### 4. Migracja SQL (z poprzedniego planu)
-
-Dodanie `can_view_team_progress` do `leader_permissions` i funkcji `get_leader_team_training_progress` — to samo co planowaliśmy, tylko wynik trafia teraz do zakładki w `LeaderPanel` zamiast `MyAccount`.
-
-### 5. Rozszerzenie `IndividualMeetingsManagement.tsx` (panel admin)
-
-Dodanie kolumny "Szkolenia zespołu" z przełącznikiem `can_view_team_progress` — admin decyduje kto ma dostęp do jakiej zakładki w panelu lidera.
-
-### 6. Nowy komponent `TeamTrainingProgressView.tsx`
-
-Widok postępu szkoleń całej struktury — przeniesiony z planu do `src/components/training/TeamTrainingProgressView.tsx`.
-
-### 7. Usunięcie zakładki z `MyAccount.tsx`
-
-Po dodaniu `/leader` — usunięcie zakładki `individual-meetings` z `MyAccount.tsx` i jej pozycji z `visibleTabs`. Link z sidebara już nie będzie kierował do `/my-account?tab=individual-meetings`, tylko do `/leader`.
-
----
-
-## Szczegół: jak wygląda panel lidera
-
-```
-┌─────────────────────────────────────────────────────┐
-│  👑 Panel Lidera                                     │
-│  Narzędzia i statystyki Twojej struktury            │
-├─────────────────────────────────────────────────────┤
-│  [📅 Spotkania ind.]  [🎓 Szkolenia zespołu]        │
-│  (gdy individual_    (gdy can_view_team_            │
-│   meetings_enabled)   progress = true)              │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│  <UnifiedMeetingSettingsForm />                     │
-│  (obecna zakładka z MyAccount)                      │
-│                                                      │
-│  lub                                                 │
-│                                                      │
-│  <TeamTrainingProgressView />                       │
-│  (nowy widok postępu struktury)                     │
-│                                                      │
-└─────────────────────────────────────────────────────┘
-```
-
-Jeśli lider ma włączone OBIE funkcje → dwie zakładki. Jeśli tylko jedną → jedna zakładka (bez widocznych zakładek = bezpośrednio komponent). Jeśli żadnej → przekierowanie do dashboardu.
-
----
-
-## Pliki do zmiany/utworzenia
-
-| Plik | Operacja | Opis |
-|------|----------|------|
-| `supabase/migrations/..._leader_team_progress.sql` | Nowy | `ALTER TABLE leader_permissions ADD COLUMN can_view_team_progress`, funkcja SQL `get_leader_team_training_progress` |
-| `src/pages/LeaderPanel.tsx` | Nowy | Dedykowana strona panelu lidera z zakładkami |
-| `src/components/training/TeamTrainingProgressView.tsx` | Nowy | Widok postępu szkoleń struktury lidera |
-| `src/components/admin/IndividualMeetingsManagement.tsx` | Edycja | Dodanie kolumny "Szkolenia zespołu" z przełącznikiem |
-| `src/App.tsx` | Edycja | Dodanie trasy `/leader` |
-| `src/components/dashboard/DashboardSidebar.tsx` | Edycja | Zastąpienie podmenu `individual-meetings-setup` linkiem do `/leader` |
-| `src/pages/MyAccount.tsx` | Edycja | Usunięcie zakładki `individual-meetings` (przeniesionej do `/leader`) |
-
----
-
-## Co admin kontroluje w `IndividualMeetingsManagement`
-
-Po zmianach tabela w panelu admina będzie wyglądać tak:
-
-| Partner | Email | Spotkania trójstronne | Konsultacje | Szkolenia zespołu |
-|---------|-------|----------------------|-------------|-------------------|
-| Jan K. | ... | ○ | ● | ○ |
-| Anna N. | ... | ● | ● | ● |
-
-Każdy przełącznik niezależnie — admin decyduje co dana osoba widzi w Panelu Lidera.
-
----
-
-## Bezpieczeństwo
-
-- Strona `/leader` sprawdza `isLeader` (z `useLeaderAvailability`) → redirect jeśli brak uprawnień
-- Funkcja SQL `get_leader_team_training_progress` sprawdza `can_view_team_progress` w bazie przed zwróceniem danych
-- Lider widzi tylko swoją strukturę (rekurencyjnie od siebie w dół przez `upline_eq_id`)
-- Admin zachowuje pełną kontrolę przez `IndividualMeetingsManagement`
+Po naprawie funkcja SQL przestanie rzucać błąd `column reference "user_id" is ambiguous`, a lider zobaczy tabelę z postępem szkoleń każdej osoby w swojej strukturze organizacyjnej.
