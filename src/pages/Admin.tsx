@@ -491,7 +491,7 @@ const Admin = () => {
         email_confirmed_at: row.email_confirmed_at,
         guardian_approved: row.guardian_approved,
         admin_approved: row.is_approved, // RPC returns is_approved
-        email_activated: row.email_activated ?? !!row.email_confirmed_at,
+        email_activated: row.email_activated,
         email_activated_at: row.email_activated_at,
         last_sign_in_at: row.last_sign_in_at,
         guardian_approved_at: row.guardian_approved_at,

@@ -25,6 +25,9 @@ interface Profile {
   profile_description?: string | null;
   search_keywords?: string[] | null;
   is_searchable?: boolean;
+  // Email activation
+  email_activated?: boolean;
+  email_activated_at?: string | null;
   // Approval fields
   guardian_approved?: boolean;
   guardian_approved_at?: string | null;
