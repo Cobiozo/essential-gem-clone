@@ -31,7 +31,8 @@ import {
   User,
   Clock,
   Send,
-  Loader2
+  Loader2,
+  ExternalLink
 } from 'lucide-react';
 
 interface UserProfile {
@@ -612,21 +613,27 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                 <div className="flex flex-wrap gap-1.5">
                   {permissions.map((perm) =>
                     perm.enabled ? (
-                      <span
+                      <a
                         key={perm.key}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-200 dark:border-green-800"
+                        href={perm.adminUrl}
+                        title={`Zarządzaj: ${perm.label}`}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 border border-green-200 dark:border-green-800 hover:bg-green-200 dark:hover:bg-green-900 cursor-pointer transition-colors group"
                       >
                         <CheckCircle className="w-3 h-3" />
                         {perm.label}
-                      </span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity" />
+                      </a>
                     ) : (
-                      <span
+                      <a
                         key={perm.key}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border"
+                        href={perm.adminUrl}
+                        title={`Włącz: ${perm.label}`}
+                        className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border hover:bg-muted/80 hover:text-foreground cursor-pointer transition-colors group"
                       >
                         <span className="line-through opacity-60">{perm.label}</span>
                         <span className="opacity-60 ml-0.5">— wyłączone</span>
-                      </span>
+                        <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+                      </a>
                     )
                   )}
                 </div>
