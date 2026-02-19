@@ -1,77 +1,111 @@
 
-# Dodanie przycisku "Ponów wysłanie email aktywacyjnego" dla użytkowników oczekujących
+# Adnotacje dodatkowych uprawnień przy użytkownikach w panelu admina
 
 ## Cel
 
-Administratorzy mają widzieć przy każdym użytkowniku ze statusem "X Email" (niepotwierdzony email) dodatkowy przycisk umożliwiający ponowne wysłanie wiadomości aktywacyjnej. Kliknięcie go wywoła funkcję `send-activation-email` z parametrem `resend: true`, tak jak robi to już strona rejestracji.
+W rozwiniętym widoku karty użytkownika (po kliknięciu "Więcej") administrator ma widzieć sekcję "Dodatkowe opcje" zawierającą adnotacje o wszystkich specjalnych uprawnieniach danego użytkownika — zarówno aktywnych (zielony badge), jak i wyłączonych (szary badge z napisem "wyłączone").
 
-## Diagnoza obecnego stanu
+## Co to są "dodatkowe opcje" w systemie
 
-**Aktualny przycisk Mail** (linie 344-362 w `CompactUserCard.tsx`):
-- Istnieje przycisk z ikoną `<Mail />`, pokazywany gdy `needsEmailConfirm = true`
-- Wywołuje `onConfirmEmail(userProfile.user_id)` — co odpala RPC `admin_confirm_user_email` (ręczne potwierdzenie bez wysyłki emaila)
-- Brakuje opcji **ponownego wysłania emaila aktywacyjnego** do użytkownika
+Na podstawie analizy bazy danych, dla partnera Sebastian Snopek (EQ: 121118999) dostępne są:
 
-**Edge Function `send-activation-email`** (już istnieje i działa):
-- Obsługuje parametr `resend: true` — pomija ochronę przed duplikacją
-- Generuje nowy link aktywacyjny i wysyła email przez SMTP
-- Przyjmuje: `userId`, `email`, `firstName`, `lastName`, `role`, `resend`
+Tabela `leader_permissions` (uprawnienia liderskie):
+- `individual_meetings_enabled` — spotkania indywidualne
+- `tripartite_meeting_enabled` — spotkania trójstronne
+- `partner_consultation_enabled` — konsultacje partnerskie
+- `can_broadcast` — możliwość nadawania (broadcast)
 
-## Zmiany
+Tabela `partner_page_user_access`:
+- `is_enabled` — dostęp do stron partnerskich
 
-### 1. `src/components/admin/CompactUserCard.tsx`
+Tabela `calculator_user_access`:
+- `has_access` — dostęp do kalkulatora
 
-**Dodanie nowego propa i stanu:**
-- Nowy prop `onResendActivationEmail: (userId: string, email: string, firstName?: string, lastName?: string, role?: string) => void`
-- Lokalny stan `isSendingActivation: boolean` do pokazania loadera podczas wysyłki
+Tabela `specialist_calculator_user_access`:
+- `has_access` — dostęp do kalkulatora specjalisty
 
-**Zmiana wyglądu sekcji "Confirm email" (linie 343-362):**
-- Obecny przycisk Mail (zielona obwódka) — zmienić tooltip z "Potwierdź email" na "Potwierdź email (ręcznie)" — pozostaje bez zmian
-- Dodać nowy przycisk **"Wyślij email aktywacyjny"** z ikoną `<Send />` obok istniejącego przycisku Mail, widoczny tylko gdy `needsEmailConfirm = true`
-- Przycisk ma kolor pomarańczowy/amber (nawiązanie do statusu oczekiwania) i tooltip: "Wyślij email aktywacyjny ponownie"
-- Podczas wysyłki pokazuje spinner (`Loader2` animowany)
+## Architektura rozwiązania
 
-```
-[Więcej] [Zatwierdź] [✉ Wyślij aktywację] [✓ Email manualnie] [✏] [...]
-```
+Dane o uprawnieniach będą pobierane **w Admin.tsx** jako osobny fetch po stronie serwera i przekazywane do `CompactUserCard` jako prop. Nie modyfikujemy istniejącego RPC — robimy dodatkowe zapytanie po rozwinięciu karty lub przy loadzie listy użytkowników.
 
-### 2. `src/pages/Admin.tsx`
+**Podejście: leniwe ładowanie per użytkownik** — gdy admin kliknie "Więcej" na karcie użytkownika, komponent pobiera uprawnienia tego konkretnego użytkownika. Nie ma sensu ładować uprawnień dla wszystkich 100+ użytkowników jednocześnie.
 
-**Nowa funkcja `resendActivationEmail`:**
+## Zmiany w plikach
+
+### 1. Nowy hook `src/hooks/useUserPermissions.ts`
+
 ```typescript
-const resendActivationEmail = async (userId, email, firstName, lastName, role) => {
-  // Wywołuje supabase.functions.invoke('send-activation-email', {
-  //   body: { userId, email, firstName, lastName, role, resend: true }
-  // })
-  // Toast success/error
-  // Bez odświeżania listy (status email_activated nie zmienia się po wysyłce)
+// Pobiera wszystkie dodatkowe uprawnienia dla konkretnego user_id
+const useUserPermissions = (userId: string | null) => {
+  // Parallel fetch:
+  // - leader_permissions (individual_meetings_enabled, tripartite_meeting_enabled, 
+  //   partner_consultation_enabled, can_broadcast)
+  // - partner_page_user_access (is_enabled)
+  // - calculator_user_access (has_access)
+  // - specialist_calculator_user_access (has_access)
+  
+  // Returns: { permissions, loading }
 }
 ```
 
-**Przekazanie nowego propa do `CompactUserCard`:**
-```tsx
-<CompactUserCard
-  ...
-  onResendActivationEmail={resendActivationEmail}
-/>
-```
+Zwraca gotowy zestaw etykiet z nazwami i statusami.
 
-## Wizualne rozmieszczenie przycisków
+### 2. `src/components/admin/CompactUserCard.tsx`
 
-Przy użytkowniku z `X Email` (oba przyciski obok siebie):
+**Zmiana triggera rozwijania:** Karta będzie zawsze miała przycisk "Więcej/Mniej" (nie tylko gdy `hasExpandableContent`), ponieważ sekcja uprawnień zawsze może być pokazana.
+
+**Nowa sekcja w `CollapsibleContent`** — "Dodatkowe opcje":
 
 ```
-[Więcej] [Zatwierdź] | [📧 Wyślij aktywację] [✉ Potwierdź manualnie] | [✏] [⋯]
+┌─────────────────────────────────────────────┐
+│  🔑 Dodatkowe opcje                         │
+│                                             │
+│  [✓ Spotkania indywidualne]                 │
+│  [✓ Spotkania trójstronne]                  │
+│  [✓ Konsultacje partnerskie]                │
+│  [✗ Broadcast  wyłączone]                   │
+│  [✓ Strony partnerskie]                     │
+│  [✓ Kalkulator]                             │
+│  [✓ Kalkulator specjalisty]                 │
+└─────────────────────────────────────────────┘
 ```
 
-- `📧 Wyślij aktywację` — amber/pomarańczowy, wysyła email przez SMTP
-- `✉ Potwierdź manualnie` — zielony, RPC potwierdza bez emaila (dla sytuacji gdy email dotarł ale link nie działa)
+Każda pozycja to badge:
+- **Aktywna**: zielone tło, ikona `CheckCircle`, np. `"Spotkania indywidualne"`
+- **Wyłączona**: szare tło ze strikethrough lub etykieta "wyłączone", np. `"Broadcast — wyłączone"`
+- **Brak rekordu** w tabeli: traktujemy jako wyłączone (permission nie istnieje = brak dostępu)
 
-## Podsumowanie plików
+Podczas ładowania: mini spinner `Loader2` obok tytułu sekcji.
 
-| Plik | Zmiana |
+**Import hook** w komponencie i wywołanie gdy `isExpanded = true`:
+```typescript
+// Permissions loaded lazily when card is expanded
+const { permissions, loading: permissionsLoading } = useUserPermissions(
+  isExpanded ? userProfile.user_id : null
+);
+```
+
+### 3. Widoczność sekcji
+
+Sekcja "Dodatkowe opcje" jest widoczna dla **wszystkich ról** (admin, partner, specjalista, klient) — ale dane faktycznie mają sens tylko dla partnerów i specjalistów. Dla klientów sekcja może być pusta (wyświetlamy wtedy "Brak przydzielonych dodatkowych opcji").
+
+## Etykiety uprawnień (PL)
+
+| Klucz | Etykieta polska |
+|-------|----------------|
+| `individual_meetings_enabled` | Spotkania indywidualne |
+| `tripartite_meeting_enabled` | Spotkania trójstronne |
+| `partner_consultation_enabled` | Konsultacje partnerskie |
+| `can_broadcast` | Nadawanie (Broadcast) |
+| `partner_page_access` | Strony partnerskie |
+| `calculator_access` | Kalkulator |
+| `specialist_calculator_access` | Kalkulator specjalisty |
+
+## Pliki do zmiany
+
+| Plik | Zakres |
 |------|--------|
-| `src/components/admin/CompactUserCard.tsx` | Nowy prop `onResendActivationEmail`, nowy przycisk `<Send />` z loaderem, tooltip wyjaśniający różnicę |
-| `src/pages/Admin.tsx` | Nowa funkcja `resendActivationEmail` wywołująca edge function, przekazanie propa do `CompactUserCard` |
+| `src/hooks/useUserPermissions.ts` | Nowy hook — 4 zapytania równolegle do tabel uprawnień |
+| `src/components/admin/CompactUserCard.tsx` | Użycie hooka, nowa sekcja "Dodatkowe opcje" w CollapsibleContent, przycisk "Więcej" zawsze widoczny |
 
-Nie są potrzebne zmiany w Edge Function ani bazie danych — `send-activation-email` obsługuje już `resend: true`.
+Nie są potrzebne zmiany w `Admin.tsx`, bazie danych ani nowe migracje.
