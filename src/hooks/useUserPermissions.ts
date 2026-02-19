@@ -83,13 +83,13 @@ export const useUserPermissions = (userId: string | null): UseUserPermissionsRes
           },
           {
             key: 'calculator_access',
-            label: 'Kalkulator',
+            label: 'Kalkulator Influencerów',
             enabled: calcRes.data?.has_access ?? false,
             adminUrl: '/admin?tab=calculator',
           },
           {
             key: 'specialist_calculator_access',
-            label: 'Kalkulator specjalisty',
+            label: 'Druki Specjalisty',
             enabled: specCalcRes.data?.has_access ?? false,
             adminUrl: '/admin?tab=specialist-calculator',
           },

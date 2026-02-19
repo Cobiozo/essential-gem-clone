@@ -1793,6 +1793,45 @@ export type Database = {
         }
         Relationships: []
       }
+      data_cleanup_settings: {
+        Row: {
+          category_key: string
+          created_at: string | null
+          description: string | null
+          extra_condition: string | null
+          id: string
+          is_auto_enabled: boolean
+          label: string
+          retention_days: number
+          table_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category_key: string
+          created_at?: string | null
+          description?: string | null
+          extra_condition?: string | null
+          id?: string
+          is_auto_enabled?: boolean
+          label: string
+          retention_days?: number
+          table_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category_key?: string
+          created_at?: string | null
+          description?: string | null
+          extra_condition?: string | null
+          id?: string
+          is_auto_enabled?: boolean
+          label?: string
+          retention_days?: number
+          table_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       email_event_types: {
         Row: {
           created_at: string
