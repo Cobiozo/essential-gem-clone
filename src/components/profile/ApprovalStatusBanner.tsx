@@ -1,35 +1,146 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Clock, CheckCircle, UserCheck, ShieldCheck, LogOut } from 'lucide-react';
+import { Clock, CheckCircle, UserCheck, ShieldCheck, LogOut, Mail, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export const ApprovalStatusBanner: React.FC = () => {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, user } = useAuth();
   const navigate = useNavigate();
-  
+  const [resending, setResending] = useState(false);
+  const [resent, setResent] = useState(false);
+
   const handleLogoutAndReturn = async () => {
     await signOut();
     navigate('/');
   };
-  
+
+  const handleResendActivation = async () => {
+    if (!user) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.functions.invoke('send-activation-email', {
+        body: { user_id: user.id, resend: true },
+      });
+      if (error) throw error;
+      setResent(true);
+      toast.success('Email aktywacyjny został wysłany ponownie. Sprawdź skrzynkę odbiorczą.');
+    } catch (err) {
+      toast.error('Nie udało się wysłać emaila. Spróbuj ponownie za chwilę.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   if (!profile) return null;
-  
+
+  const emailActivated = profile.email_activated === true;
   const guardianApproved = profile.guardian_approved === true;
   const adminApproved = profile.admin_approved === true;
-  
+
   // If fully approved, don't show banner
-  if (guardianApproved && adminApproved) {
+  if (emailActivated && guardianApproved && adminApproved) {
     return null;
   }
-  
-  const guardianName = profile.upline_first_name && profile.upline_last_name 
+
+  const guardianName = profile.upline_first_name && profile.upline_last_name
     ? `${profile.upline_first_name} ${profile.upline_last_name}`
     : profile.guardian_name || 'Opiekun';
-  
+
   const uplineEqId = profile.upline_eq_id;
-  
+
+  // Case 0: Email not confirmed yet
+  if (!emailActivated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-lg w-full">
+          <Alert className="border-purple-500 bg-purple-50 dark:bg-purple-950/20">
+            <Mail className="h-5 w-5 text-purple-600" />
+            <AlertTitle className="text-purple-800 dark:text-purple-200 text-lg font-semibold">
+              Potwierdź swój adres email
+            </AlertTitle>
+            <AlertDescription className="text-purple-700 dark:text-purple-300 mt-3 space-y-3">
+              <div className="flex items-start gap-2 text-base">
+                <span>
+                  Wysłaliśmy link aktywacyjny na adres{' '}
+                  <span className="font-semibold">{user?.email}</span>.
+                  Kliknij w link w wiadomości, aby potwierdzić swój adres email i przejść dalej.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm mt-2 p-2 rounded-lg bg-purple-100 dark:bg-purple-900/30">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-purple-600" />
+                <span>Nie widzisz emaila? Sprawdź folder <strong>SPAM</strong> lub <strong>Oferty</strong>.</span>
+              </div>
+              <div className="mt-3 pt-3 border-t border-purple-300 dark:border-purple-700 flex flex-col gap-2">
+                {resent ? (
+                  <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                    <CheckCircle className="h-4 w-4" />
+                    Email aktywacyjny wysłany ponownie!
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleResendActivation}
+                    disabled={resending}
+                    className="gap-2 border-purple-400 text-purple-700 hover:bg-purple-100 dark:text-purple-300 dark:border-purple-600 dark:hover:bg-purple-900/30"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${resending ? 'animate-spin' : ''}`} />
+                    {resending ? 'Wysyłanie...' : 'Wyślij ponownie email aktywacyjny'}
+                  </Button>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center animate-pulse">
+                <Mail className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm text-muted-foreground">Email</span>
+            </div>
+            <div className="h-0.5 w-8 bg-muted" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <UserCheck className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm text-muted-foreground">Opiekun</span>
+            </div>
+            <div className="h-0.5 w-8 bg-muted" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm text-muted-foreground">Admin</span>
+            </div>
+            <div className="h-0.5 w-8 bg-muted" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm text-muted-foreground">Gotowe</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <Button
+              variant="outline"
+              onClick={handleLogoutAndReturn}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Powrót do strony głównej
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Case 1: Waiting for guardian approval
   if (!guardianApproved) {
     return (
@@ -57,8 +168,15 @@ export const ApprovalStatusBanner: React.FC = () => {
               </div>
             </AlertDescription>
           </Alert>
-          
+
           <div className="mt-6 flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm text-muted-foreground">Email</span>
+            </div>
+            <div className="h-0.5 w-8 bg-green-500" />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center">
                 <Clock className="h-4 w-4 text-white" />
@@ -80,10 +198,10 @@ export const ApprovalStatusBanner: React.FC = () => {
               <span className="text-sm text-muted-foreground">Gotowe</span>
             </div>
           </div>
-          
+
           <div className="mt-6 flex justify-center">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={handleLogoutAndReturn}
               className="gap-2"
             >
@@ -95,7 +213,7 @@ export const ApprovalStatusBanner: React.FC = () => {
       </div>
     );
   }
-  
+
   // Case 2: Guardian approved, waiting for admin
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -117,8 +235,15 @@ export const ApprovalStatusBanner: React.FC = () => {
             </div>
           </AlertDescription>
         </Alert>
-        
+
         <div className="mt-6 flex items-center justify-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+              <CheckCircle className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm text-muted-foreground">Email</span>
+          </div>
+          <div className="h-0.5 w-8 bg-green-500" />
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
               <CheckCircle className="h-4 w-4 text-white" />
@@ -140,10 +265,10 @@ export const ApprovalStatusBanner: React.FC = () => {
             <span className="text-sm text-muted-foreground">Gotowe</span>
           </div>
         </div>
-        
+
         <div className="mt-6 flex justify-center">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={handleLogoutAndReturn}
             className="gap-2"
           >
