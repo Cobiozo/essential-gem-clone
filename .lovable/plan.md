@@ -1,98 +1,77 @@
 
-# Naprawa 3 problemow: responsywnosc mobilna, blad struktury, dostarczalnosc emaili
+# Dodanie przycisku "Ponów wysłanie email aktywacyjnego" dla użytkowników oczekujących
 
-## Problem 1: Responsywnosc mobilna (Apple/iOS)
+## Cel
 
-**Zdiagnozowane problemy:**
+Administratorzy mają widzieć przy każdym użytkowniku ze statusem "X Email" (niepotwierdzony email) dodatkowy przycisk umożliwiający ponowne wysłanie wiadomości aktywacyjnej. Kliknięcie go wywoła funkcję `send-activation-email` z parametrem `resend: true`, tak jak robi to już strona rejestracji.
 
-- **Struktura organizacji (OrganizationChart.tsx)**: Brak obslugi dotyku - uzywa tylko `onMouseDown/Move/Up/Leave`, kompletnie nie dziala na urzadzeniach dotykowych (iPhone/iPad). Przeciaganie drzewa jest niemozliwe na mobile.
-- **OrganizationNode.tsx**: Brak `touch-action: manipulation`, node'y maja hover effects ale brak active/tap feedback dla mobile.
-- **Zoom w OrganizationChart**: Brak obslugi pinch-to-zoom (standardowy gest na iOS).
+## Diagnoza obecnego stanu
 
-**Zmiany:**
+**Aktualny przycisk Mail** (linie 344-362 w `CompactUserCard.tsx`):
+- Istnieje przycisk z ikoną `<Mail />`, pokazywany gdy `needsEmailConfirm = true`
+- Wywołuje `onConfirmEmail(userProfile.user_id)` — co odpala RPC `admin_confirm_user_email` (ręczne potwierdzenie bez wysyłki emaila)
+- Brakuje opcji **ponownego wysłania emaila aktywacyjnego** do użytkownika
 
-### `src/components/team-contacts/organization/OrganizationChart.tsx`
-- Dodanie `onTouchStart`, `onTouchMove`, `onTouchEnd` handlerow (rownolegla obsluga do mouseDown/Move/Up)
-- Dodanie pinch-to-zoom przez sledzenie 2 palcow (touch distance ratio)
-- Dodanie `touch-action: none` na kontenerze scroll aby zapobiec kolizji z natywnym scrollem iOS
-- Dodanie `-webkit-overflow-scrolling: touch`
-- Fix: przyciski zoom musza miec min 44px na mobile
+**Edge Function `send-activation-email`** (już istnieje i działa):
+- Obsługuje parametr `resend: true` — pomija ochronę przed duplikacją
+- Generuje nowy link aktywacyjny i wysyła email przez SMTP
+- Przyjmuje: `userId`, `email`, `firstName`, `lastName`, `role`, `resend`
 
-### `src/components/team-contacts/organization/OrganizationNode.tsx`
-- Dodanie `touch-action: manipulation` do glownego diva
-- Aktywny feedback dotykowy (opacity 0.7 na tap)
+## Zmiany
 
-### `src/components/team-contacts/organization/OrganizationList.tsx`
-- Sprawdzenie czy accordion/collapsible elementy maja wystarczajace touch targets (min 44px)
+### 1. `src/components/admin/CompactUserCard.tsx`
 
----
+**Dodanie nowego propa i stanu:**
+- Nowy prop `onResendActivationEmail: (userId: string, email: string, firstName?: string, lastName?: string, role?: string) => void`
+- Lokalny stan `isSendingActivation: boolean` do pokazania loadera podczas wysyłki
 
-## Problem 2: Blad przy wchodzeniu na Strukture organizacji
+**Zmiana wyglądu sekcji "Confirm email" (linie 343-362):**
+- Obecny przycisk Mail (zielona obwódka) — zmienić tooltip z "Potwierdź email" na "Potwierdź email (ręcznie)" — pozostaje bez zmian
+- Dodać nowy przycisk **"Wyślij email aktywacyjny"** z ikoną `<Send />` obok istniejącego przycisku Mail, widoczny tylko gdy `needsEmailConfirm = true`
+- Przycisk ma kolor pomarańczowy/amber (nawiązanie do statusu oczekiwania) i tooltip: "Wyślij email aktywacyjny ponownie"
+- Podczas wysyłki pokazuje spinner (`Loader2` animowany)
 
-**Diagnoza:**
-Na podstawie kodu i logow, prawdopodobny blad to:
-1. Uzytkownik nie ma `eq_id` w profilu -> `fetchTree` sie nie wywoluje, ale `loading` zostaje `true` na zawsze (linia 35: `if (!profile?.eq_id || settingsLoading) return;` - nie ustawia `setLoading(false)`)
-2. Blad RPC `get_organization_tree` - jesli uzytkownik nie ma uprawnien lub brakuje danych
-3. `settingsLoading` moze nigdy sie nie rozwiazac jesli nie ma rekordu w `organization_tree_settings`
+```
+[Więcej] [Zatwierdź] [✉ Wyślij aktywację] [✓ Email manualnie] [✏] [...]
+```
 
-**Zmiany:**
+### 2. `src/pages/Admin.tsx`
 
-### `src/hooks/useOrganizationTree.ts`
-- Linia 35: Dodanie `setLoading(false); return;` gdy `!profile?.eq_id` - zapobiegnie nieskonczonym loadingom
-- Dodanie try/catch wokol `rpc` call z jawnym error message
-- Dodanie fallback gdy `canAccessTree()` zwraca false -> ustawienie error message zamiast pustego stanu
+**Nowa funkcja `resendActivationEmail`:**
+```typescript
+const resendActivationEmail = async (userId, email, firstName, lastName, role) => {
+  // Wywołuje supabase.functions.invoke('send-activation-email', {
+  //   body: { userId, email, firstName, lastName, role, resend: true }
+  // })
+  // Toast success/error
+  // Bez odświeżania listy (status email_activated nie zmienia się po wysyłce)
+}
+```
 
-### `src/hooks/useOrganizationTreeSettings.ts`
-- Linia 78: Gdy `fetchError` i brak danych, uzyc `DEFAULT_SETTINGS` zamiast zostawiac `settings = null` -> zapobiegnie blokowaniu calego widoku gdy tabela jest pusta
+**Przekazanie nowego propa do `CompactUserCard`:**
+```tsx
+<CompactUserCard
+  ...
+  onResendActivationEmail={resendActivationEmail}
+/>
+```
 
----
+## Wizualne rozmieszczenie przycisków
 
-## Problem 3: Emaile nie docieraja do niektorych domen
+Przy użytkowniku z `X Email` (oba przyciski obok siebie):
 
-**Diagnoza z bazy danych:**
-- 180 emaili wyslanych sukcesywnie, 5 failed (stary blad "Invalid port" z grudnia 2025 - juz naprawiony)
-- Emaile docieraja do: gmail.com, wp.pl, interia.pl, onet.pl, o2.pl, protonmail.com, hotmail.com, icloud.com, op.pl, gmx.de itd.
-- **Brak uzytkownikow bez welcome email** w systemie (query zwrocilo 0 wynikow) - ale 2 nowi uzytkownicy maja `email_activated = false` wiec CRON ich pomija
-- **Glowny problem**: Funkcja `get_users_without_welcome_email` wymaga `email_activated = true`, ale nowi uzytkownicy moga nie potwierdzic emaila -> nigdy nie dostana welcome email
+```
+[Więcej] [Zatwierdź] | [📧 Wyślij aktywację] [✉ Potwierdź manualnie] | [✏] [⋯]
+```
 
-**Problemy z dostarczalnoscia:**
-Emaile sa wysylane, ale moga trafiać do spamu lub byc odrzucane przez serwery odbiorcze z powodu brakujacych naglowkow SMTP:
+- `📧 Wyślij aktywację` — amber/pomarańczowy, wysyła email przez SMTP
+- `✉ Potwierdź manualnie` — zielony, RPC potwierdza bez emaila (dla sytuacji gdy email dotarł ale link nie działa)
 
-1. **Brak `Message-ID`** - kluczowy naglowek, bez ktorego wiele serwerow klasyfikuje email jako spam
-2. **Brak `Return-Path`** - wymagany przez RFC 5321
-3. **Brak `X-Mailer`** - brak identyfikacji klienta
-4. **`base64Encode` z `btoa` + `String.fromCharCode(...data)`** - dla duzych HTML body moze wywolac "Maximum call stack size exceeded" (spread operator na duzej tablicy)
+## Podsumowanie plików
 
-**Zmiany:**
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/CompactUserCard.tsx` | Nowy prop `onResendActivationEmail`, nowy przycisk `<Send />` z loaderem, tooltip wyjaśniający różnicę |
+| `src/pages/Admin.tsx` | Nowa funkcja `resendActivationEmail` wywołująca edge function, przekazanie propa do `CompactUserCard` |
 
-### `supabase/functions/send-welcome-email/index.ts`
-- Dodanie naglowkow: `Message-ID`, `Return-Path`, `X-Mailer`, `List-Unsubscribe`
-- Fix `base64Encode`: zamiana `String.fromCharCode(...data)` na iteracyjna wersje (chunked) - zapobiegnie stack overflow dla duzych emaili
-- Dodanie `Reply-To` header
-
-### `supabase/functions/send-single-email/index.ts`
-- Te same poprawki naglowkow SMTP co wyzej
-- Dodanie `Message-ID`, `Return-Path`, `X-Mailer`
-
-### Zmiana logiki przypisywania welcome email
-Nowa Edge Function lub modyfikacja `process-pending-notifications`:
-- Zmiana query `get_users_without_welcome_email`: **usunac** wymog `email_activated = true` - welcome email powinien byc wyslany natychmiast po rejestracji, niezaleznie od potwierdzenia emaila
-- Alternatywnie: wyslac welcome email bezposrednio w `handle_new_user()` trigger lub w procesie rejestracji w frontend
-
-### Migracja SQL
-- Zmiana funkcji `get_users_without_welcome_email`: usunac warunek `p.email_activated = true` aby objac wszystkich nowych uzytkownikow
-
----
-
-## Podsumowanie plikow do zmiany
-
-| Plik | Zakres zmian |
-|------|-------------|
-| `src/components/team-contacts/organization/OrganizationChart.tsx` | Touch events, pinch-to-zoom, iOS scroll |
-| `src/components/team-contacts/organization/OrganizationNode.tsx` | Touch targets, tap feedback |
-| `src/hooks/useOrganizationTree.ts` | Fix infinite loading, error handling |
-| `src/hooks/useOrganizationTreeSettings.ts` | Fallback na default settings |
-| `supabase/functions/send-welcome-email/index.ts` | Message-ID, Return-Path, fix base64 |
-| `supabase/functions/send-single-email/index.ts` | Identyczne poprawki naglowkow |
-| Migracja SQL | Fix `get_users_without_welcome_email` |
-
+Nie są potrzebne zmiany w Edge Function ani bazie danych — `send-activation-email` obsługuje już `resend: true`.
