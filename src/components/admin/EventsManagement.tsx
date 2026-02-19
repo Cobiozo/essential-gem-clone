@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMultiFormProtection } from '@/hooks/useFormProtection';
 import { Button } from '@/components/ui/button';
@@ -45,12 +46,13 @@ export const EventsManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const dateLocale = language === 'pl' ? pl : enUS;
+  const [searchParams] = useSearchParams();
 
   // Protect form state when switching browser tabs
   
 
   // State
-  const [activeTab, setActiveTab] = useState('webinars');
+  const [activeTab, setActiveTab] = useState(searchParams.get('subTab') || 'webinars');
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [topics, setTopics] = useState<TopicWithLeader[]>([]);
   const [leaders, setLeaders] = useState<AdminLeaderWithProfile[]>([]);
