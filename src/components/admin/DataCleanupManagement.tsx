@@ -43,6 +43,7 @@ interface CleanupSetting {
 interface CategoryStats {
   count: number;
   loading: boolean;
+  error?: boolean;
 }
 
 const RETENTION_OPTIONS = [
@@ -119,7 +120,7 @@ export const DataCleanupManagement: React.FC = () => {
         } catch {
           setStats((prev) => ({
             ...prev,
-            [setting.category_key]: { count: 0, loading: false },
+            [setting.category_key]: { count: 0, loading: false, error: true },
           }));
         }
       })
@@ -226,7 +227,7 @@ export const DataCleanupManagement: React.FC = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <CheckCircle className="w-8 h-8 text-green-500" />
+              <CheckCircle className="w-8 h-8 text-primary" />
               <div>
                 <p className="text-2xl font-bold">{autoEnabledCount}</p>
                 <p className="text-sm text-muted-foreground">Kategorie z automatycznym czyszczeniem</p>
@@ -237,7 +238,7 @@ export const DataCleanupManagement: React.FC = () => {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-8 h-8 text-yellow-500" />
+              <AlertTriangle className="w-8 h-8 text-destructive" />
               <div>
                 <p className="text-2xl font-bold">{settings.length - autoEnabledCount}</p>
                 <p className="text-sm text-muted-foreground">Kategorie bez auto-czyszczenia</p>
@@ -292,8 +293,12 @@ export const DataCleanupManagement: React.FC = () => {
                         <Loader2 className="w-3 h-3 animate-spin mr-1" />
                         Sprawdzam...
                       </Badge>
+                    ) : stat?.error ? (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">
+                        — niedostępne
+                      </Badge>
                     ) : (
-                  <Badge
+                      <Badge
                         variant={stat?.count > 0 ? 'destructive' : 'outline'}
                         className="text-xs font-mono"
                       >
