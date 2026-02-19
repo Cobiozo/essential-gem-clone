@@ -1,117 +1,150 @@
 
-# Klikalne adnotacje uprawnień — przekierowanie do miejsca zarządzania
+# Plan zmian: etykiety kalkulatorów + panel automatycznego czyszczenia danych
 
-## Cel
+## Część 1 — Poprawka etykiet kalkulatorów w adnotacjach uprawnień
 
-Każdy badge "Dodatkowych opcji" na karcie użytkownika ma stać się kliknięty link, który przenosi administratora bezpośrednio do odpowiedniego panelu zarządzania tym uprawnieniem.
+### Problem
+W `src/hooks/useUserPermissions.ts` kalkulator jest opisany jako "Kalkulator", a kalkulator specjalisty jako "Kalkulator specjalisty". Użytkownik wyjaśnił:
+- `calculator_user_access` → dla **influencerów** (CalculatorManagement = "Kalkulator Influencerów")
+- `specialist_calculator_user_access` → dla **specjalistów** (druki/formularze)
 
-## Analiza tras (URL mapping)
-
-Na podstawie analizy kodu:
-
-| Uprawnienie | Sekcja admin | URL docelowy |
-|-------------|-------------|--------------|
-| Spotkania indywidualne | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
-| Spotkania trójstronne | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
-| Konsultacje partnerskie | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
-| Nadawanie (Broadcast) | `/admin → Events → zakładka "individual-meetings"` | `/admin?tab=events&subTab=individual-meetings` |
-| Strony partnerskie | `/admin → PartnerPages → zakładka "access"` | `/admin?tab=partner-pages` |
-| Kalkulator | `/admin → Calculator` | `/admin?tab=calculator` |
-| Kalkulator specjalisty | `/admin → SpecialistCalculator` | `/admin?tab=specialist-calculator` |
-
-Wszystkie 4 uprawnienia spotkań/broadcast są zarządzane w **jednym miejscu** — `IndividualMeetingsManagement` wewnątrz `EventsManagement`, zakładka `individual-meetings`.
-
-## Problem z głębokimi linkami dla EventsManagement
-
-`EventsManagement` używa lokalnego stanu `useState('webinars')` zamiast URL params. Dlatego link `/admin?tab=events` zawsze otworzy zakładkę "Webinary", nie "Spotkania indywidualne".
-
-**Rozwiązanie:** Dodanie obsługi `subTab` z URL do `EventsManagement` — komponent będzie czytać `?subTab=` przy inicjalizacji (jeden `useEffect`).
-
-## Zmiany w plikach
-
-### 1. `src/hooks/useUserPermissions.ts`
-
-Rozszerzenie interfejsu `PermissionItem` o pole `adminUrl: string` — adres URL do panelu zarządzania:
-
-```typescript
-export interface PermissionItem {
-  key: string;
-  label: string;
-  enabled: boolean;
-  adminUrl: string;  // NOWE: URL do panelu zarządzania
-}
+### Zmiana w `src/hooks/useUserPermissions.ts`
+```
+'calculator_access'           → label: 'Kalkulator Influencerów'
+'specialist_calculator_access' → label: 'Druki specjalisty'  (lub 'Kalkulator Specjalistów' — spójnie z SpecialistCalculatorManagement)
 ```
 
-Każde uprawnienie dostaje swój URL:
-- `individual_meetings_enabled`, `tripartite_meeting_enabled`, `partner_consultation_enabled`, `can_broadcast` → `/admin?tab=events&subTab=individual-meetings`
-- `partner_page_access` → `/admin?tab=partner-pages`
-- `calculator_access` → `/admin?tab=calculator`
-- `specialist_calculator_access` → `/admin?tab=specialist-calculator`
+---
 
-### 2. `src/components/admin/CompactUserCard.tsx`
+## Część 2 — Panel zarządzania automatycznym czyszczeniem danych
 
-Zamiana statycznych `<span>` badgy na klikalne elementy `<a>` (lub `<button>` z `useNavigate`):
+### Analiza danych w bazie (aktualny stan)
 
-**Aktywne uprawnienie (zielony badge):**
-```tsx
-<a href={perm.adminUrl} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full 
-  bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300 
-  border border-green-200 dark:border-green-800
-  hover:bg-green-200 dark:hover:bg-green-900 
-  cursor-pointer transition-colors group"
-  title={`Zarządzaj: ${perm.label}`}
->
-  <CheckCircle className="w-3 h-3" />
-  {perm.label}
-  <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-70 transition-opacity" />
-</a>
+Na podstawie analizy bazy danych następujące tabele gromadzą dane historyczne / logi:
+
+| Tabela | Rekordów | Najstarszy rekord | Typ danych |
+|--------|----------|-------------------|------------|
+| `email_logs` | 1 858 | 2025-12-23 | Logi wysłanych emaili |
+| `google_calendar_sync_logs` | 1 787 | 2026-01-18 | Logi synchronizacji kalendarza |
+| `cron_job_logs` | 462 | 2026-01-08 | Logi zadań cron |
+| `user_notifications` | 892 | 2025-12-23 | Powiadomienia (265 nieprzeczytanych) |
+| `medical_chat_history` | 133 | 2025-12-11 | Historia czatu AI medycznego |
+| `reflink_events` | 248 | 2026-01-08 | Zdarzenia kliknięć linków |
+| `banner_interactions` | 441 | 2025-12-17 | Interakcje z banerami |
+| `push_notification_logs` | 90 | 2026-02-06 | Logi push notyfikacji |
+| `events` (minione) | **128** z 147 | 2026-01-13 | Minione wydarzenia |
+| `event_registrations` (do minionych) | **531** | — | Rejestracje na minione wydarzenia |
+| `role_chat_messages` | 18 | 2026-01-27 | Wiadomości czatu roli |
+| `private_chat_messages` | 14 | 2025-12-24 | Prywatne wiadomości |
+| `ai_compass_contact_history` | 31 | 2025-12-16 | Historia kontaktów AI compass |
+| `i18n_translations` | 17 528 | — | **Największa tabela** — tłumaczenia (nie kasować — dane statyczne) |
+
+### Największy potencjał oszczędności:
+1. **`email_logs`** — 1858 rekordów, czysto historyczne logi
+2. **`google_calendar_sync_logs`** — 1787 rekordów, techniczne logi
+3. **`events` (minione)** — 128 minionych wydarzeń + 531 rejestracji
+4. **`user_notifications`** — 892 powiadomień, w tym 627 już przeczytanych
+
+### Architektura rozwiązania
+
+Nowy komponent **`DataCleanupManagement`** w panelu administracyjnym (w istniejącej zakładce "Zadania Cron" lub nowej zakładce "Zarządzanie danymi").
+
+Komponent zawiera listę kategorii danych do czyszczenia, każda z:
+- Nazwą i opisem
+- Aktualną liczbą rekordów kwalifikujących się do usunięcia
+- Przełącznikiem (Switch) włączającym automatyczne czyszczenie
+- Ustawieniem progu wiekowego (np. "usuń starsze niż 30/60/90/180 dni")
+- Przyciskiem "Wyczyść teraz" (jednorazowe uruchomienie ręczne)
+
+**Gdzie dodać tab:** Najlepiej jako nową pod-zakładkę w `CronJobsManagement` lub jako osobna zakładka w admin panelu.
+
+### Kategorie czyszczenia do decyzji admina
+
+```
+1. Logi emaili (email_logs)
+   Aktualnie: 1 858 rekordów (od 23.12.2025)
+   Zalecenie: kasować starsze niż 90 dni
+   
+2. Logi synchronizacji Google Calendar (google_calendar_sync_logs)
+   Aktualnie: 1 787 rekordów (od 18.01.2026)
+   Zalecenie: kasować starsze niż 30 dni
+   
+3. Logi zadań Cron (cron_job_logs)
+   Aktualnie: 462 rekordów (od 08.01.2026)
+   Zalecenie: kasować starsze niż 30 dni
+   
+4. Minione wydarzenia + rejestracje (events + event_registrations)
+   Aktualnie: 128 minionych wydarzeń, 531 rejestracji
+   Zalecenie: kasować wydarzenia starsze niż 90 dni (+ kaskadowo rejestracje)
+   
+5. Przeczytane powiadomienia użytkowników (user_notifications WHERE is_read=true)
+   Aktualnie: 627 przeczytanych z 892 wszystkich
+   Zalecenie: kasować przeczytane starsze niż 60 dni
+   
+6. Interakcje z banerami (banner_interactions)
+   Aktualnie: 441 rekordów
+   Zalecenie: kasować starsze niż 60 dni
+   
+7. Logi push notyfikacji (push_notification_logs)
+   Aktualnie: 90 rekordów
+   Zalecenie: kasować starsze niż 30 dni
+   
+8. Historia czatu AI medycznego (medical_chat_history)
+   Aktualnie: 133 rekordów (od 11.12.2025)
+   Zalecenie: kasować starsze niż 180 dni (dane sensytywne — dłuższy okres)
+   
+9. Historia kontaktów AI Compass (ai_compass_contact_history)
+   Aktualnie: 31 rekordów
+   Zalecenie: kasować starsze niż 90 dni
+   
+10. Zdarzenia linków referencyjnych (reflink_events)
+    Aktualnie: 248 rekordów
+    Zalecenie: kasować starsze niż 90 dni
 ```
 
-**Wyłączone uprawnienie (szary badge):**
-```tsx
-<a href={perm.adminUrl} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full 
-  bg-muted text-muted-foreground border border-border
-  hover:bg-muted/80 hover:text-foreground 
-  cursor-pointer transition-colors group"
-  title={`Włącz: ${perm.label}`}
->
-  <span className="line-through opacity-60">{perm.label}</span>
-  <span className="opacity-60 ml-0.5">— wyłączone</span>
-  <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
-</a>
-```
+### Zmiany w kodzie
 
-Używamy `<a href>` zamiast `useNavigate`, bo chcemy zachować możliwość otwarcia w nowej karcie (Ctrl+Click).
+**Nowe pliki:**
+- `src/components/admin/DataCleanupManagement.tsx` — główny komponent panelu
 
-### 3. `src/components/admin/EventsManagement.tsx`
+**Modyfikacje:**
+- `src/hooks/useUserPermissions.ts` — poprawka etykiet kalkulatorów
+- `src/pages/Admin.tsx` — dodanie nowej zakładki "Zarządzanie danymi" w admin sidebarze
+- `src/components/admin/AdminSidebar.tsx` — dodanie pozycji w menu
 
-Dodanie odczytu `?subTab=` z URL params przy inicjalizacji komponentu (2 linijki):
+**Jak działa czyszczenie:**
+- Konfiguracja (które tabele + ile dni) przechowywana w tabeli `data_cleanup_settings` (nowa, 1 wiersz na kategorię)
+- Komponent UI pokazuje konfigurację + statystyki live (ile rekordów zostanie usuniętych)
+- Przycisk "Wyczyść teraz" wywołuje nową Edge Function `cleanup-database-data`
+- Edge Function wykonuje DELETE z warunkiem `created_at < NOW() - interval '${days} days'`
+- Automatyczne czyszczenie — dodanie nowego wpisu do `cron_settings` obsługiwanego przez istniejący mechanizm cron
 
-```typescript
-const [searchParams] = useSearchParams();
-const [activeTab, setActiveTab] = useState(
-  searchParams.get('subTab') || 'webinars'
+**Nowa migracja SQL:**
+```sql
+CREATE TABLE data_cleanup_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  category_key text UNIQUE NOT NULL,
+  label text NOT NULL,
+  table_name text NOT NULL,
+  condition text, -- np. 'is_read = true' dla filtrowania
+  retention_days integer NOT NULL DEFAULT 90,
+  is_auto_enabled boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
 );
 ```
 
-Dzięki temu URL `/admin?tab=events&subTab=individual-meetings` automatycznie otworzy właściwą zakładkę.
+### Zmiany w UI (minione wydarzenia)
 
-## Zachowanie przy kliknięciu
+Minione wydarzenia **już znikają** z widoków użytkownika (filtrowane przez `end_time >= NOW()`), ale **pozostają w bazie**. Po włączeniu czyszczenia będą kasowane z bazy po upływie ustawionego okresu — co automatycznie usunie je z widoków admin (`EventRegistrationsManagement`).
 
-1. Admin widzi kartę użytkownika Sebastian Snopek rozwinięta
-2. Klika badge "Spotkania indywidualne" (zielony) lub "Nadawanie (Broadcast) — wyłączone" (szary)
-3. Przeglądarka przechodzi do `/admin?tab=events&subTab=individual-meetings`
-4. `EventsManagement` otwiera się bezpośrednio na zakładce "Spotkania indywidualne"
-5. Admin widzi tabelę partnerów i może włączyć/wyłączyć uprawnienia
-
-Hover na badgu pokazuje ikonę `ExternalLink` (dyskretna, pojawia się tylko przy najechaniu).
-
-## Pliki do zmiany
+### Podsumowanie plików
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useUserPermissions.ts` | Dodanie pola `adminUrl` do `PermissionItem` i każdego uprawnienia |
-| `src/components/admin/CompactUserCard.tsx` | Zamiana `<span>` na `<a href>` z hover efektem i ikoną `ExternalLink` |
-| `src/components/admin/EventsManagement.tsx` | Dodanie `useSearchParams` i inicjalizacja `activeTab` z URL |
-
-Nie są potrzebne zmiany w bazie danych ani nowe migracje.
+| `src/hooks/useUserPermissions.ts` | Poprawka etykiet: "Kalkulator Influencerów" i "Druki specjalisty" |
+| `src/components/admin/DataCleanupManagement.tsx` | Nowy komponent — panel konfiguracji czyszczenia |
+| `supabase/functions/cleanup-database-data/index.ts` | Nowa Edge Function wykonująca DELETE |
+| `src/pages/Admin.tsx` | Dodanie zakładki "Zarządzanie danymi" |
+| `src/components/admin/AdminSidebar.tsx` | Dodanie pozycji menu |
+| migracja SQL | Tabela `data_cleanup_settings` |
