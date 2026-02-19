@@ -74,6 +74,7 @@ import OrganizationTreeManagement from '@/components/admin/OrganizationTreeManag
 import { PushNotificationsManagement } from '@/components/admin/PushNotificationsManagement';
 import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
+import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4615,6 +4616,10 @@ const Admin = () => {
 
           <TabsContent value="organization-tree">
             <OrganizationTreeManagement />
+          </TabsContent>
+
+          <TabsContent value="data-cleanup">
+            <DataCleanupManagement />
           </TabsContent>
         </Tabs>
       </div>

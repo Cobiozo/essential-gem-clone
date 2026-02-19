@@ -56,6 +56,7 @@ import {
   TreePine,
   Newspaper,
   Ticket,
+  Trash2,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -199,6 +200,7 @@ const navCategories: NavCategory[] = [
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
       { value: 'ai-compass', labelKey: 'compass', icon: Compass },
+      { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
     ],
   },
 ];
@@ -246,6 +248,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     pushNotifications: 'Powiadomienia Push',
     notifications: 'Powiadomienia systemowe',
     meetingGuests: 'Goście spotkań',
+    dataCleanup: 'Czyszczenie danych',
   };
 
   const getLabel = (key: string): string => {
