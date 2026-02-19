@@ -48,6 +48,7 @@ import {
   Heart,
   Ticket,
   FileText,
+  Crown,
   icons as LucideIcons,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -171,6 +172,7 @@ export const DashboardSidebar: React.FC = () => {
     calculator: tf('tooltip.calculator', 'Kalkulator prowizji i symulacje zarobków'),
     admin: tf('tooltip.admin', 'Panel administracyjny - zarządzanie systemem'),
     'individual-meetings-setup': tf('tooltip.individualMeetingsSetup', 'Zarządzaj spotkaniami indywidualnymi'),
+    'leader-panel': tf('tooltip.leaderPanel', 'Panel Lidera — narzędzia i statystyki Twojej struktury'),
   };
   const { toast } = useToast();
   const { state, setOpenMobile } = useSidebar();
@@ -416,26 +418,12 @@ export const DashboardSidebar: React.FC = () => {
       ],
     },
     { id: 'paid-events', icon: Ticket, labelKey: 'dashboard.menu.paidEvents', path: '/paid-events' },
-    // Individual meetings for partners with permissions
+    // Leader Panel for partners with leader permissions
     ...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
-      id: 'individual-meetings-setup',
-      icon: UserRound,
-      labelKey: 'dashboard.menu.individualMeeting',
-      hasSubmenu: true,
-      submenuItems: [
-        ...(individualMeetingsEnabled.tripartite ? [{
-          id: 'tripartite-meeting',
-          labelKey: 'dashboard.menu.setupTripartiteMeeting',
-          path: '/my-account?tab=individual-meetings&type=tripartite',
-          icon: Users,
-        }] : []),
-        ...(individualMeetingsEnabled.consultation ? [{
-          id: 'partner-consultation',
-          labelKey: 'dashboard.menu.setupPartnerConsultation',
-          path: '/my-account?tab=individual-meetings&type=consultation',
-          icon: UserRound,
-        }] : []),
-      ] as SubMenuItem[],
+      id: 'leader-panel',
+      icon: Crown,
+      labelKey: 'Panel Lidera',
+      path: '/leader',
     }] : []) as MenuItem[],
     { 
       id: 'chat', 
