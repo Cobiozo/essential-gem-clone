@@ -206,3 +206,6 @@ verify_jwt = false
 
 [functions.send-guest-thank-you-email]
 verify_jwt = false
+
+[functions.renew-push-subscription]
+verify_jwt = false
