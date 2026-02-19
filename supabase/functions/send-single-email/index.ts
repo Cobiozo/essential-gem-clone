@@ -137,11 +137,19 @@ async function sendSmtpEmail(
     // DATA
     await sendCommand('DATA');
 
-    // Email content with proper headers
+    // Generate unique Message-ID to prevent spam filtering
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
+
+    // Email content with proper headers (improves deliverability)
     const emailContent = [
-      `From: ${settings.from_name} <${settings.from_email}>`,
+      `From: "${settings.from_name}" <${settings.from_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Return-Path: <${settings.from_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
+      `Reply-To: <${settings.from_email}>`,
       'MIME-Version: 1.0',
       'Content-Type: text/html; charset=UTF-8',
       'Content-Transfer-Encoding: base64',

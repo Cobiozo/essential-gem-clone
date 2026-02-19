@@ -24,11 +24,17 @@ interface SmtpSettings {
   sender_name: string;
 }
 
-// Base64 encoding utilities
+// Base64 encoding - iterative (chunked) to avoid stack overflow on large bodies
 function base64Encode(str: string): string {
   const encoder = new TextEncoder();
   const data = encoder.encode(str);
-  return btoa(String.fromCharCode(...data));
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < data.length; i += chunkSize) {
+    const chunk = data.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 function base64EncodeAscii(str: string): string {

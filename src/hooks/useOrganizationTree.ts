@@ -32,7 +32,13 @@ export const useOrganizationTree = () => {
   const hasFetchedRef = useRef(false);
 
   const fetchTree = useCallback(async () => {
-    if (!profile?.eq_id || settingsLoading) return;
+    if (settingsLoading) return;
+    
+    if (!profile?.eq_id) {
+      setLoading(false);
+      setError('Brak identyfikatora EQ w profilu');
+      return;
+    }
     
     if (!canAccessTree()) {
       setLoading(false);

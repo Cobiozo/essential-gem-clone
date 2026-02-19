@@ -217,6 +217,8 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const pinchStartDistanceRef = useRef<number | null>(null);
+  const pinchStartZoomRef = useRef<number>(100);
 
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 10, 150));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 10, 30));
@@ -282,6 +284,46 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
     setIsDragging(false);
   };
 
+  // Touch handlers for mobile (iOS/Android)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!scrollContainerRef.current) return;
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX + scrollContainerRef.current.scrollLeft,
+        y: e.touches[0].clientY + scrollContainerRef.current.scrollTop,
+      });
+    } else if (e.touches.length === 2) {
+      // Pinch-to-zoom: record initial distance
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
+      pinchStartZoomRef.current = zoom;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!scrollContainerRef.current) return;
+    if (e.touches.length === 1 && isDragging) {
+      e.preventDefault();
+      scrollContainerRef.current.scrollLeft = dragStart.x - e.touches[0].clientX;
+      scrollContainerRef.current.scrollTop = dragStart.y - e.touches[0].clientY;
+    } else if (e.touches.length === 2 && pinchStartDistanceRef.current !== null) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const currentDistance = Math.sqrt(dx * dx + dy * dy);
+      const ratio = currentDistance / pinchStartDistanceRef.current;
+      const newZoom = Math.min(150, Math.max(30, Math.round(pinchStartZoomRef.current * ratio)));
+      setZoom(newZoom);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    pinchStartDistanceRef.current = null;
+  };
+
   if (!tree) {
     return (
       <Card>
@@ -301,10 +343,10 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
             Struktura organizacji
           </CardTitle>
           <div className="flex items-center gap-1.5">
-            <Button
+          <Button
               variant="outline"
               size="icon"
-              className="h-7 w-7"
+              className="h-9 w-9 sm:h-7 sm:w-7 touch-manipulation"
               onClick={handleZoomOut}
               disabled={zoom <= 30}
             >
@@ -314,7 +356,7 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
             <Button
               variant="outline"
               size="icon"
-              className="h-7 w-7"
+              className="h-9 w-9 sm:h-7 sm:w-7 touch-manipulation"
               onClick={handleZoomIn}
               disabled={zoom >= 150}
             >
@@ -353,11 +395,18 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
             "w-full overflow-auto p-4",
             isDragging ? "cursor-grabbing" : "cursor-grab"
           )}
-          style={{ maxHeight: 'calc(100vh - 280px)' }}
+          style={{ 
+            maxHeight: 'calc(100vh - 280px)',
+            touchAction: 'none',
+            WebkitOverflowScrolling: 'touch' as any,
+          }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
         >
           <div 
             className="min-w-max origin-top-left transition-transform duration-200"
