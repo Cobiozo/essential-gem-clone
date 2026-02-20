@@ -1,158 +1,244 @@
 
-# Plan zmian — 5 zadań jednocześnie
+# Przebudowa Panel Lidera — Unified Hub + Admin CMS
 
-## Diagnoza wszystkich problemów
+## Wizja końcowa (wg opisu użytkownika)
 
-### 1. Sidebar — reorganizacja kolejności i widoczności
+Panel Lidera staje się jednym centralnym miejscem, gdzie lider widzi TYLKO te moduły, które admin mu przydzielił:
 
-Aktualny układ (linie 391–490 `DashboardSidebar.tsx`):
-```
-Pulpit → Akademia → Zdrowa Wiedza → Biblioteka → Pure-Kontakty
-→ Aktualności → Eventy → Eventy płatne
-→ [Panel Lidera - warunkowo, tylko gdy tripartite lub consultation]
-→ Czat → Wsparcie i pomoc → PureLinki → InfoLinki → Społeczność
-→ [HTML pages] → Ustawienia → Kalkulator → CMS Panel
-```
-
-Żądany układ:
-```
-Pulpit
-→ [Panel Lidera - TUTAJ, pod Pulpitem]
-Akademia → Zdrowa Wiedza → Biblioteka → Pure-Kontakty
-→ Aktualności → Eventy → Eventy płatne
-→ Czat → PureLinki → InfoLinki
-→ [HTML pages] → Ustawienia
-→ Wsparcie i pomoc [poniżej Ustawień]
-→ Kalkulator [bez zmian w treści, ale kalkulator w Panel Lidera też]
-→ CMS Panel
+```text
+/leader
+├── [Spotkania indywidualne] — gdy individual_meetings_enabled
+├── [Szkolenia zespołu]       — gdy can_view_team_progress  
+├── [Kalkulator Influencerów] — gdy calculator_user_access.has_access
+├── [Kalkulator Specjalistów] — gdy specialist_calculator_user_access.has_access
+└── [Moja struktura]          — gdy can_view_org_tree (nowa flaga)
 ```
 
-- **Społeczność** — ukryć całkowicie z menu (ikony w stopce pełnią tę samą rolę). Zmiana: usunąć element `community` z tablicy `menuItems` LUB zawsze zwracać `false` w filtrze widoczności dla `community`.
-- **Panel Lidera** — przenieść bezpośrednio za `dashboard` w tablicy `menuItems`.
-- **Wsparcie i pomoc** — przenieść po `settings` w tablicy `menuItems`.
-- **Kalkulator dla Specjalistów + Influenserów w Panel Lidera** — Panel Lidera ma teraz być osobną sekcją z submenu zawierającym kalkulatory PLUS dotychczasowe linki do `/leader` i ewentualnie spotkań.
+Admin w CMS ma dedykowaną sekcję "Panel Lidera" — wyszukuje użytkownika i włącza mu poszczególne opcje przełącznikami.
 
-**Uwaga dot. warunku widoczności Panel Lidera**: Aktualnie Panel Lidera pojawia się tylko gdy `individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation`. Należy poszerzyć ten warunek — jeżeli partner ma dostęp do kalkulatora (`calculatorAccess?.hasAccess`), Panel Lidera też powinien być widoczny.
+---
 
-**Nowa struktura Panel Lidera** jako item z submenu:
-```
-Panel Lidera (Crown icon)
-  ├── Panel Lidera [główny] → /leader
-  ├── Kalkulator Influenserów → /calculator/influencer  (gdy hasAccess)
-  └── Kalkulator Specjalistów → /calculator/specialist  (gdy hasAccess)
-```
+## Diagnoza stanu obecnego
 
-Kalkulator jako osobny element sidebara pozostaje (dla adminów), ale dla partnerów kalkulatory trafiają do Panel Lidera submenu.
+### Co istnieje i działa poprawnie:
+- `leader_permissions` tabela — zawiera już: `individual_meetings_enabled`, `tripartite_meeting_enabled`, `partner_consultation_enabled`, `can_broadcast`, `can_view_team_progress`
+- `UnifiedMeetingSettingsForm` — gotowy komponent spotkań dla lidera
+- `TeamTrainingProgressView` — gotowy komponent szkoleń
+- `CommissionCalculatorPage` (`/calculator/influencer`) — osobna strona z własną ochroną
+- `SpecialistCalculatorPage` (`/calculator/specialist`) — osobna strona z własną ochroną
+- Drzewo organizacyjne — `useOrganizationTree` + `OrganizationChart` — gotowe komponenty w `TeamContactsTab`
+- `IndividualMeetingsManagement` — admin może włączać spotkania i szkolenia dla partnerów
+- `CalculatorManagement` / `SpecialistCalculatorManagement` — admin może włączać kalkulatory
 
-### 2. Błąd "Nie udało się dodać kontaktu" — constraint mismatch
+### Problemy do rozwiązania:
 
-**Potwierdzone przez logi PostgreSQL**:
-```
-ERROR: new row for relation "team_contacts" violates check constraint 
-"team_contacts_relationship_status_check"
-```
+1. **`/leader` odrzuca użytkowników bez `can_host_private_meetings`** — hook `useLeaderAvailability` sprawdza `can_host_private_meetings` jako warunek `isLeader`. Lider z samymi kalkulatorami lub drzewem org zostanie wyrzucony z /leader.
 
-Constraint w bazie dopuszcza TYLKO: `active`, `suspended`, `closed_success`, `closed_not_now`
+2. **Brak zakładki "Moja struktura" w Panelu Lidera** — drzewo org jest w `TeamContactsTab` w `/my-account`, nie w Panel Lidera.
 
-Formularz `PrivateContactForm.tsx` wysyła m.in.: `observation`, `potential_partner`, `potential_specialist` — KTÓRYCH NIE MA W CONSTRAINT!
+3. **Brak flagi `can_view_org_tree` w `leader_permissions`** — potrzebna nowa kolumna lub osobne podejście.
 
-**Dwa możliwe rozwiązania**:
-- Opcja A: Zmienić constraint w bazie (migracja SQL) — dodać brakujące wartości
-- Opcja B: Zmienić formularz — mapować wartości do tych obsługiwanych przez bazę
+4. **Kalkulatory w sidebarze** — zmiana planu: sidebar ma jeden link "Panel Lidera" → `/leader` bez submenu kalkulatorów. Kalkulatory jako zakładki WEWNĄTRZ `/leader`.
 
-**Wybrane rozwiązanie: Opcja A (migracja)** — bo opcje w formularzu mają sens biznesowy i nie należy ich redukować. Nowa migracja SQL:
+5. **CMS: brak spójnego "Panel Lidera" miejsca** — uprawnienia spotkań są w jednym miejscu, kalkulatory w innym. Admin musi skakać po zakładkach.
+
+6. **Sidebar: `showLeaderPanel` nadal bazuje na spotkaniach + calculatorAccess (influencer only)** — nie uwzględnia specjalist calculator ani nowej flagi org tree.
+
+---
+
+## Plan techniczny
+
+### Krok 1: Migracja bazy danych
+
+Dodanie kolumny `can_view_org_tree` do tabeli `leader_permissions`:
+
 ```sql
-ALTER TABLE team_contacts 
-DROP CONSTRAINT team_contacts_relationship_status_check;
-
-ALTER TABLE team_contacts 
-ADD CONSTRAINT team_contacts_relationship_status_check 
-CHECK (relationship_status = ANY (ARRAY[
-  'active', 'suspended', 'closed_success', 'closed_not_now',
-  'observation', 'potential_partner', 'potential_specialist'
-]));
+ALTER TABLE leader_permissions 
+ADD COLUMN IF NOT EXISTS can_view_org_tree boolean DEFAULT false;
 ```
 
-### 3. "Moja strona" — alias = EQ ID użytkownika (automatyczny)
+To jedyna zmiana schematu. Kalkulator nie wymaga osobnej flagi w `leader_permissions` — ma własne tabele (`calculator_user_access`, `specialist_calculator_user_access`).
 
-Aktualnie w `PartnerPageEditor.tsx`:
-- `alias` to pole tekstowe, które użytkownik wpisuje ręcznie
-- `handleAliasChange` normalizuje i waliduje alias
+### Krok 2: Refaktor `useLeaderAvailability` → nowy hook `useLeaderPermissions`
 
-Nowe zachowanie:
-- Przy ładowaniu komponentu, jeśli brak aliasu → automatycznie pobierz `eq_id` z profilu użytkownika i ustaw jako alias
-- Jeśli alias już istnieje (partner wcześniej go ustawił) → zostawić bez zmian (migracja danych)
-- Pole `alias` zmienić na **tylko do odczytu** — wyświetlić informacyjnie (nie jako edytowalny input)
-- Ukryć przycisk ręcznej edycji aliasu; alias = zawsze EQ ID
-- Przy pierwszym zapisie `savePartnerPage` automatycznie przekazać alias = EQ ID z profilu
-- W `usePartnerPage.ts` lub `PartnerPageEditor.tsx` dodać logikę: podczas `fetchData` pobierz też `eq_id` z profilu i jeśli `partnerPage?.alias` jest puste, wywołaj `savePartnerPage({ alias: eqId })` automatycznie
+Obecny `useLeaderAvailability` ma `isLeader = can_host_private_meetings` — zbyt wąsko.
 
-**Implementacja w `PartnerPageEditor.tsx`**:
-1. Dodać `useAuth` żeby mieć `user`
-2. Dodać dodatkowy query: `supabase.from('profiles').select('eq_id').eq('user_id', user.id).single()`
-3. W `useEffect` po załadowaniu `partnerPage`: jeśli `!partnerPage?.alias` i `eqId` — automatycznie zapisać alias
-4. Usunąć edytowalny `Input` dla aliasu; zastąpić statycznym wyświetleniem
-5. Upewnić się, że alias nie jest wysyłany jako edytowalny przez użytkownika przy każdym `handleSave`
-
-## Pliki do zmiany
-
-| Plik | Co się zmienia |
-|------|----------------|
-| `src/components/dashboard/DashboardSidebar.tsx` | Reorganizacja kolejności menu, ukrycie Społeczności, Panel Lidera z submenu kalkulatorów, Wsparcie po Ustawieniach |
-| `src/components/team-contacts/PrivateContactForm.tsx` | Brak zmian w kodzie — fix przez migrację SQL |
-| `src/components/partner-page/PartnerPageEditor.tsx` | Alias automatycznie z EQ ID, pole tylko do odczytu |
-| `supabase/migrations/[nowa].sql` | Rozszerzenie constraint `relationship_status` o brakujące wartości |
-
-## Szczegóły — reorganizacja tablicy menuItems
-
-Nowa kolejność w tablicy `menuItems` (linia ~391):
-```
-1. dashboard (Pulpit)
-2. leader-panel — PRZENIESIONY TUTAJ (z submenu: /leader, /calculator/influencer, /calculator/specialist)
-3. academy
-4. healthy-knowledge
-5. resources
-6. pureContacts
-7. news
-8. events
-9. paid-events
-10. chat
-11. reflinks
-12. infolinks
-13. [community — USUNIĘTY z menu, zostaje tylko w stopce]
-14. [HTML pages]
-15. settings
-16. support — PRZENIESIONY PO settings
-17. calculator — zostaje dla adminów (ale dla partnerów kalkulatory są w Panel Lidera)
-18. admin
-```
-
-## Warunek widoczności Panel Lidera (nowy)
+Nowy hook (lub rozszerzenie istniejącego) będzie zwracał:
 
 ```typescript
-const showLeaderPanel = isPartner && (
-  individualMeetingsEnabled.tripartite || 
-  individualMeetingsEnabled.consultation ||
-  calculatorAccess?.hasAccess // NOWE — kalkulator też daje dostęp do panelu
-);
+{
+  // Flagi dostępu do modułów
+  hasMeetings: boolean,             // individual_meetings_enabled
+  hasTeamProgress: boolean,         // can_view_team_progress  
+  hasInfluencerCalc: boolean,       // z calculator_user_access
+  hasSpecialistCalc: boolean,       // z specialist_calculator_user_access
+  hasOrgTree: boolean,              // can_view_org_tree
+  
+  // Czy w ogóle ma cokolwiek (czy pokazać Panel Lidera w sidebarze)
+  isAnyLeaderFeatureEnabled: boolean,
+  
+  // Pozostałe dane dla komponentu spotkań
+  leaderPermission: LeaderPermission | null,
+  loading: boolean,
+}
 ```
 
-Submenu Panel Lidera:
+Hook pobiera dane równolegle z 3 źródeł:
+- `leader_permissions` (spotkania + org tree)
+- `calculator_user_access` (influencer)
+- `specialist_calculator_user_access` (specialist)
+
+### Krok 3: Refaktor `LeaderPanel.tsx`
+
+Całkowita przebudowa logiki dostępu i zakładek:
+
 ```typescript
-submenuItems: [
-  { id: 'leader-main', labelKey: 'Panel Lidera', path: '/leader', icon: Crown },
-  ...(calculatorAccess?.hasAccess ? [
-    { id: 'calc-influencer', labelKey: 'Kalkulator Influenserów', path: '/calculator/influencer', icon: Users },
-    { id: 'calc-specialist', labelKey: 'Kalkulator Specjalistów', path: '/calculator/specialist', icon: UserRound },
-  ] : []),
+// Warunek "czy masz dostęp do Panel Lidera"
+if (!isAnyLeaderFeatureEnabled) → redirect do /dashboard
+
+// Zakładki budowane dynamicznie:
+const availableTabs = [
+  ...(hasMeetings        ? [{ id: 'meetings',    label: 'Spotkania indywidualne', icon: CalendarDays }] : []),
+  ...(hasTeamProgress    ? [{ id: 'training',    label: 'Szkolenia zespołu',      icon: GraduationCap }] : []),
+  ...(hasInfluencerCalc  ? [{ id: 'calc-inf',   label: 'Kalkulator Influencerów',icon: Calculator }] : []),
+  ...(hasSpecialistCalc  ? [{ id: 'calc-spec',  label: 'Kalkulator Specjalistów', icon: UserRound }] : []),
+  ...(hasOrgTree         ? [{ id: 'org-tree',   label: 'Moja struktura',          icon: TreePine }] : []),
 ]
 ```
 
-## Kwestia constraint SQL
+Zawartość zakładek:
+- `meetings` → `<UnifiedMeetingSettingsForm />` (istniejący)
+- `training` → `<TeamTrainingProgressView />` (istniejący)
+- `calc-inf` → importować i osadzić `<CommissionCalculator />` (z `@/components/calculator`)
+- `calc-spec` → importować i osadzić `<SpecialistCalculator />` (z `@/components/specialist-calculator`)
+- `org-tree` → nowy wrapper `<LeaderOrgTreeView />` (oparty na `useOrganizationTree` + `OrganizationChart`)
 
-Sprawdzone dane z logów:
-- 4 błędy `team_contacts_relationship_status_check` — wszystkie z niedozwolonymi wartościami
-- Constraint obecny: `active | suspended | closed_success | closed_not_now`
-- Brakuje: `observation | potential_partner | potential_specialist`
+### Krok 4: Nowy komponent `LeaderOrgTreeView`
 
-Migracja jest bezpieczna — tylko rozszerzamy listę dozwolonych wartości, nie usuwamy istniejących.
+Prosty wrapper renderujący drzewo organizacyjne lidera — taki sam jak w `TeamContactsTab`, ale bez zarządzania kontaktami (tylko podgląd):
+
+```typescript
+// src/components/leader/LeaderOrgTreeView.tsx
+const LeaderOrgTreeView = () => {
+  const { tree, upline, statistics, settings, loading, error } = useOrganizationTree();
+  // Renderuje: statystyki + OrganizationChart
+  // Brak przycisków dodawania/edycji kontaktów
+}
+```
+
+### Krok 5: Refaktor `DashboardSidebar.tsx`
+
+**Uproszczenie** — Panel Lidera to **jeden link** bez submenu:
+
+```typescript
+// Pobieramy nowe flagi z nowego hooka
+const { isAnyLeaderFeatureEnabled } = useLeaderPermissions();
+
+// Sidebar item:
+...(isAnyLeaderFeatureEnabled ? [{
+  id: 'leader-panel',
+  icon: Crown,
+  labelKey: 'Panel Lidera',
+  path: '/leader',  // Bezpośredni link, bez submenu
+}] : [])
+```
+
+Usunięcie poprzedniego submenu z kalkulatorami. Kalkulatory są teraz WEWNĄTRZ `/leader`.
+
+Aktualizacja warunku widoczności — hook pobierany na poziomie sidebara zastępuje dotychczasowe 3 oddzielne zapytania.
+
+### Krok 6: Nowy komponent `LeaderPanelManagement` w CMS
+
+Nowy komponent admina — "Panel Lidera" w CMS z:
+- Wyszukiwarką użytkowników (wszyscy partnerzy)
+- Kolumną statusu dla każdego uprawnienia
+- Przełącznikami: Spotkania trójstronne, Konsultacje partnerskie, Szkolenia zespołu, Kalkulator Influenserów, Kalkulator Specjalistów, Moja struktura
+
+Uprawnienia kalkulatorów (włączanie) wymagają jednoczesnego zapisu do:
+- `leader_permissions` (na potrzeby spójności i flagi can_view_org_tree)
+- `calculator_user_access` lub `specialist_calculator_user_access` (faktyczna kontrola dostępu)
+
+W osobnej sekcji tabelarycznej — widok per użytkownik, jeden wiersz = jeden partner, z ikoną Crown przy tych którzy mają cokolwiek włączone.
+
+### Krok 7: Integracja nowego CMS do panelu Admin
+
+Dodanie nowej zakładki/pozycji "Panel Lidera" w `AdminSidebar.tsx` w kategorii "Użytkownicy" lub jako osobna sekcja w grupie "Funkcje", zastępując dotychczasowe fragmentaryczne zarządzanie.
+
+---
+
+## Schemat zmian
+
+```text
+NOWE / ZMIENIONE PLIKI:
+
+supabase/migrations/xxx.sql
+  └── ALTER TABLE leader_permissions ADD COLUMN can_view_org_tree
+
+src/hooks/useLeaderPermissions.ts   [NOWY]
+  └── Hook agregujący wszystkie flagi dostępu lidera
+
+src/components/leader/LeaderOrgTreeView.tsx   [NOWY]
+  └── Podgląd drzewa organizacyjnego w Panelu Lidera
+
+src/components/admin/LeaderPanelManagement.tsx   [NOWY]
+  └── CMS do zarządzania uprawnieniami Panelu Lidera
+
+src/pages/LeaderPanel.tsx   [ZMODYFIKOWANY]
+  └── Zakładki: meetings, training, calc-inf, calc-spec, org-tree
+
+src/components/dashboard/DashboardSidebar.tsx   [ZMODYFIKOWANY]
+  └── Panel Lidera = jeden link do /leader (bez submenu)
+  └── Używa useLeaderPermissions zamiast 3 osobnych zapytań
+
+src/pages/Admin.tsx   [ZMODYFIKOWANY]
+  └── Nowa zakładka "leader-panel" renderująca LeaderPanelManagement
+
+src/components/admin/AdminSidebar.tsx   [ZMODYFIKOWANY]
+  └── Dodanie pozycji "Panel Lidera" w menu CMS
+```
+
+---
+
+## Logika włączania kalkulatorów przez admina
+
+Gdy admin włącza "Kalkulator Influenserów" dla partnera X w `LeaderPanelManagement`:
+
+1. Sprawdza czy rekord w `calculator_user_access` dla user_id X istnieje
+2. Jeśli nie — `INSERT { user_id: X, has_access: true }`
+3. Jeśli tak — `UPDATE SET has_access = true`
+
+Gdy wyłącza — `UPDATE SET has_access = false`
+
+Analogicznie dla specjalist calculator → `specialist_calculator_user_access`.
+
+Dla `can_view_org_tree` — zapis do `leader_permissions`.
+
+---
+
+## Warunek dostępu do /leader (nowa logika)
+
+```typescript
+isAnyLeaderFeatureEnabled = 
+  hasMeetings ||
+  hasTeamProgress ||
+  hasInfluencerCalc ||
+  hasSpecialistCalc ||
+  hasOrgTree
+```
+
+Jeśli `false` → redirect do `/dashboard` z komunikatem.
+
+---
+
+## Podsumowanie zmian widocznych dla użytkownika
+
+**Lider (Partner z uprawnieniami)**:
+- Sidebar: jeden przycisk "Panel Lidera" → `/leader`
+- Na `/leader`: widzi tylko zakładki które ma włączone
+- Kalkulatory dostępne wewnątrz `/leader` jako zakładki (nie jako osobne linki w sidebarze)
+- Zakładka "Moja struktura" — nowy widok drzewa org od siebie w dół
+
+**Administrator w CMS**:
+- Nowa sekcja "Panel Lidera" z tabelą wszystkich partnerów
+- Per partner: przełączniki dla każdej funkcji
+- Jedno miejsce do zarządzania wszystkimi uprawnieniami lidera
