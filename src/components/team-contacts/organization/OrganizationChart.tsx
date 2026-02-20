@@ -44,11 +44,9 @@ const createCurvePath = (
   const direction = Math.sign(endX - startX) || 0;
   
   if (direction === 0) {
-    // Straight vertical line
     return `M ${startX} ${startY} L ${endX} ${endY}`;
   }
   
-  // Curved path with rounded corners
   return `
     M ${startX} ${startY}
     V ${midY - curveRadius}
@@ -70,6 +68,7 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
   animationKey,
 }) => {
   const [isExpanded, setIsExpanded] = useState(level < 2);
+  const [expandedFirstLineChild, setExpandedFirstLineChild] = useState<string | null>(null);
   const hasChildren = node.children.length > 0;
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -86,21 +85,129 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
     setIsExpanded(!isExpanded);
   };
 
-  // Calculate SVG paths for children connectors
+  const handleFirstLineChildClick = (childId: string) => {
+    setExpandedFirstLineChild(prev => prev === childId ? null : childId);
+    onNodeClick(childId);
+  };
+
+  // Calculate SVG paths for children connectors (used for level 1+)
   const childCount = node.children.length;
   const nodeWidth = settings.graph_node_size === 'small' ? 160 : settings.graph_node_size === 'medium' ? 180 : 200;
   const gap = 16;
   const totalWidth = childCount * nodeWidth + (childCount - 1) * gap;
   const centerX = totalWidth / 2;
 
+  const expandedChildNode = isRoot && expandedFirstLineChild
+    ? node.children.find(c => c.id === expandedFirstLineChild)
+    : null;
+
+  // ROOT level: flex-wrap grid for first line children
+  if (isRoot) {
+    return (
+      <div className="flex flex-col items-center" ref={containerRef}>
+        {/* Root node */}
+        <div className="relative">
+          <OrganizationNode
+            node={node}
+            settings={settings}
+            isRoot
+            size={settings.graph_node_size}
+            onClick={handleNodeClick}
+            isOnPath={isOnPath}
+            isSelected={isSelected}
+            hasFocus={hasFocus}
+          />
+        </div>
+
+        {/* First line children: flex-wrap grid */}
+        {hasChildren && (
+          <div className="relative mt-8">
+            {/* Vertical connector from root */}
+            {settings.graph_show_lines && (
+              <div className="absolute left-1/2 -translate-x-1/2 -top-8 w-0.5 h-5 bg-border rounded-full" />
+            )}
+            <div className="flex flex-wrap gap-3 justify-center" style={{ maxWidth: '100%' }}>
+              {node.children.map((child) => {
+                const isChildExpanded = expandedFirstLineChild === child.id;
+                const childIsOnPath = highlightedPath.includes(child.id);
+                const childHasChildren = child.children.length > 0;
+                return (
+                  <div
+                    key={child.id}
+                    className="relative flex flex-col items-center"
+                  >
+                    <div className={cn(
+                      "relative rounded-lg transition-all duration-200",
+                      isChildExpanded && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                    )}>
+                      <OrganizationNode
+                        node={child}
+                        settings={settings}
+                        size={settings.graph_node_size}
+                        onClick={() => handleFirstLineChildClick(child.id)}
+                        isOnPath={childIsOnPath}
+                        isSelected={selectedNodeId === child.id}
+                        hasFocus={hasFocus}
+                      />
+                      {/* Child count badge */}
+                      {childHasChildren && (
+                        <div className={cn(
+                          "absolute -bottom-1.5 left-1/2 -translate-x-1/2 text-[9px] px-1.5 py-0 rounded-full border bg-background shadow-sm font-medium",
+                          isChildExpanded ? "border-primary text-primary" : "border-border text-muted-foreground"
+                        )}>
+                          {child.children.length}
+                        </div>
+                      )}
+                    </div>
+                    {/* Arrow indicator for expanded child */}
+                    {isChildExpanded && (
+                      <div className="mt-1">
+                        <ChevronDown className="w-3 h-3 text-primary animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Expanded subtree below the grid */}
+            {expandedChildNode && (
+              <div className="mt-6 pt-4 border-t border-border/50">
+                <div className="flex items-center justify-center gap-2 mb-4 text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">
+                    Struktura: {expandedChildNode.first_name} {expandedChildNode.last_name}
+                  </span>
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">
+                    {expandedChildNode.children.length} os.
+                  </Badge>
+                </div>
+                <div className="flex justify-center">
+                  <TreeBranch
+                    node={expandedChildNode}
+                    settings={settings}
+                    level={1}
+                    isRoot={false}
+                    highlightedPath={highlightedPath}
+                    selectedNodeId={selectedNodeId}
+                    onNodeClick={onNodeClick}
+                    animationKey={animationKey}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // NON-ROOT levels: standard horizontal layout with SVG connectors
   return (
     <div className="flex flex-col items-center" ref={containerRef}>
-      {/* Node */}
       <div className="relative">
         <OrganizationNode
           node={node}
           settings={settings}
-          isRoot={isRoot}
           size={settings.graph_node_size}
           onClick={handleNodeClick}
           isOnPath={isOnPath}
@@ -108,7 +215,6 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
           hasFocus={hasFocus}
         />
         
-        {/* Expand/collapse button */}
         {hasChildren && settings.graph_expandable && (
           <Button
             variant="ghost"
@@ -128,10 +234,8 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
         )}
       </div>
 
-      {/* Children with SVG connectors */}
       {hasChildren && isExpanded && (
         <div className="relative mt-8">
-          {/* SVG Connectors overlay */}
           {settings.graph_show_lines && (
           <svg 
             className="absolute pointer-events-none overflow-visible"
@@ -146,7 +250,6 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
               {node.children.map((child, index) => {
                 const childIsOnPath = highlightedPath.includes(child.id);
                 const childX = index * (nodeWidth + gap) + nodeWidth / 2;
-                // Linia jest podświetlona TYLKO gdy OBA węzły (rodzic i dziecko) są na ścieżce
                 const isHighlighted = isOnPath && childIsOnPath && hasFocus;
                 
                 return (
@@ -171,7 +274,6 @@ const TreeBranch: React.FC<TreeBranchProps> = ({
             </svg>
           )}
           
-          {/* Children nodes */}
           <div className="flex gap-4 justify-center">
             {node.children.map((child) => (
               <div key={child.id} className="flex flex-col items-center">
@@ -233,29 +335,23 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
       setSelectedNodeId(nodeId);
       const path = findPathToNode(tree, nodeId);
       setHighlightedPath(path || []);
-      setAnimationKey(prev => prev + 1); // Wymusza ponowną animację rysowania
+      setAnimationKey(prev => prev + 1);
     }
   }, [tree, selectedNodeId]);
 
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    // Reset only if clicked on background, not on a node
     if (!target.closest('[data-org-node]')) {
       setSelectedNodeId(null);
       setHighlightedPath([]);
     }
   }, []);
 
-  // Auto-fit zoom based on first level children
+  // Auto-fit zoom — grid wraps, so we can start higher
   useEffect(() => {
     if (tree && tree.children.length > 0) {
-      const childCount = tree.children.length;
-      const nodeWidth = 180; // approximate node width
-      const gap = 12; // gap between nodes
-      const estimatedWidth = childCount * nodeWidth + (childCount - 1) * gap;
-      const viewportWidth = window.innerWidth - 100;
-      const autoZoom = Math.min(100, Math.floor((viewportWidth / estimatedWidth) * 100));
-      setZoom(Math.max(30, autoZoom));
+      // With flex-wrap grid, no need to scale for 100+ tiles in one row
+      setZoom(Math.min(100, Math.max(60, 90)));
     }
   }, [tree]);
 
@@ -284,7 +380,6 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
     setIsDragging(false);
   };
 
-  // Touch handlers for mobile (iOS/Android)
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!scrollContainerRef.current) return;
     if (e.touches.length === 1) {
@@ -294,7 +389,6 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
         y: e.touches[0].clientY + scrollContainerRef.current.scrollTop,
       });
     } else if (e.touches.length === 2) {
-      // Pinch-to-zoom: record initial distance
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDistanceRef.current = Math.sqrt(dx * dx + dy * dy);
@@ -369,7 +463,6 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
           </div>
         </div>
         
-        {/* Statistics */}
         {settings.show_statistics && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-[10px] px-1.5 py-0">
@@ -431,7 +524,6 @@ export const OrganizationChart: React.FC<OrganizationChartProps> = ({
                     isUpline
                     size={settings.graph_node_size}
                   />
-                  {/* Connector line */}
                   {settings.graph_show_lines && (
                     <div className="w-0.5 h-6 bg-border mt-2 rounded-full" />
                   )}
