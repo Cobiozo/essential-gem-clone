@@ -63,8 +63,9 @@ interface PendingApproval {
 }
 
 // Lazy-loaded structure tab — mounts useOrganizationTree only when tab is active
+// Receives treeSettings from parent to avoid a second useOrganizationTreeSettings fetch
 const StructureTab: React.FC<{ defaultView: 'list' | 'graph'; treeSettings: OrganizationTreeSettings }> = ({ defaultView, treeSettings }) => {
-  const { tree, upline, statistics, loading, error } = useOrganizationTree();
+  const { tree, upline, statistics, loading, error } = useOrganizationTree(treeSettings);
   const [viewMode, setViewMode] = useState<'list' | 'graph'>(defaultView);
 
   if (loading) {

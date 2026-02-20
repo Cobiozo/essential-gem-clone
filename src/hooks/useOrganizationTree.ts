@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOrganizationTreeSettings } from './useOrganizationTreeSettings';
+import { useOrganizationTreeSettings, OrganizationTreeSettings } from './useOrganizationTreeSettings';
 
 export interface OrganizationMember {
   id: string;
@@ -21,33 +21,66 @@ export interface OrganizationTreeNode extends OrganizationMember {
   childCount: number; // Total descendants count
 }
 
-export const useOrganizationTree = () => {
+export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings | null) => {
   const { profile } = useAuth();
-  const { settings, loading: settingsLoading, canAccessTree, getMaxDepthForRole } = useOrganizationTreeSettings();
+  const internalHook = useOrganizationTreeSettings();
+  
+  // Jeśli settings przekazane z zewnątrz — używamy ich (bez drugiego fetchu).
+  // Jeśli nie — używamy wewnętrznej instancji hooka.
+  const settings = externalSettings !== undefined ? externalSettings : internalHook.settings;
+  const settingsLoading = externalSettings !== undefined ? false : internalHook.loading;
+  const canAccessTree = internalHook.canAccessTree;
+  const getMaxDepthForRole = internalHook.getMaxDepthForRole;
   
   const [treeData, setTreeData] = useState<OrganizationMember[]>([]);
   const [upline, setUpline] = useState<OrganizationMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  // Przechowuje show_upline w ref — unika settings jako zależności useCallback
+  const showUplineRef = useRef(settings?.show_upline ?? true);
+  showUplineRef.current = settings?.show_upline ?? true;
+
+  // Cleanup on unmount — chroni przed setState po odmontowaniu
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Reset hasFetchedRef gdy zmieni się zalogowany użytkownik (zmiana konta)
+  const prevEqIdRef = useRef<string | null | undefined>(null);
+  useEffect(() => {
+    if (prevEqIdRef.current !== profile?.eq_id) {
+      prevEqIdRef.current = profile?.eq_id;
+      hasFetchedRef.current = false;
+    }
+  }, [profile?.eq_id]);
 
   const fetchTree = useCallback(async () => {
     if (settingsLoading) return;
     
     if (!profile?.eq_id) {
-      setLoading(false);
-      setError('Brak identyfikatora EQ w profilu');
+      if (isMountedRef.current) {
+        setLoading(false);
+        setError('Brak identyfikatora EQ w profilu');
+      }
       return;
     }
     
     if (!canAccessTree()) {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
-      setError(null);
+      if (isMountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
 
       const maxDepth = getMaxDepthForRole();
       
@@ -58,6 +91,8 @@ export const useOrganizationTree = () => {
           p_max_depth: maxDepth
         });
 
+      if (!isMountedRef.current) return;
+
       if (downlineError) {
         console.error('Error fetching organization tree:', downlineError);
         setError(downlineError.message);
@@ -67,13 +102,15 @@ export const useOrganizationTree = () => {
       setTreeData(downlineData || []);
 
       // Fetch upline (1 level up) if setting enabled
-      if (settings?.show_upline && profile.upline_eq_id) {
+      if (showUplineRef.current && profile.upline_eq_id) {
         const { data: uplineData, error: uplineError } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name, eq_id, upline_eq_id, role, avatar_url, email, phone_number')
           .eq('eq_id', profile.upline_eq_id)
           .eq('is_active', true)
           .single();
+
+        if (!isMountedRef.current) return;
 
         if (!uplineError && uplineData) {
           setUpline({
@@ -92,12 +129,15 @@ export const useOrganizationTree = () => {
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Nie udało się pobrać struktury organizacji');
+      if (isMountedRef.current) setError('Nie udało się pobrać struktury organizacji');
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings]);
+  }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading]);
+  // canAccessTree, getMaxDepthForRole — celowo pominięte: są teraz stabilne (deps: tylko userRoleStr)
+  // settings — celowo pominięte: showUplineRef synchronizuje wartość bez tworzenia nowej referencji fetchTree
+  // showUplineRef — ref, nie powoduje re-renderów
 
   // Build tree structure from flat data
   const buildTree = useCallback((members: OrganizationMember[]): OrganizationTreeNode | null => {
