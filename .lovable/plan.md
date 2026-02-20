@@ -1,305 +1,237 @@
 
-# Kompleksowa eliminacja pętli re-renderów — diagnoza i naprawa
+# Diagnoza: Dlaczego Dawid Kowalczyk nie widzi struktury (a Sebastian Snopek widzi)
 
-## Dlaczego sebastiansnopek.eqology nie ma problemu?
+## Dane z bazy — wszystko jest w porządku po stronie danych
 
-Sebastian Snopek jest kontem z rolą **`admin`** (potwierdzono w bazie: eq_id `1234567890`, role: `admin`).
+- Dawid Kowalczyk: `eq_id=121118185`, `role=partner`, `is_active=true`, `admin_approved=true`
+- `get_organization_tree('121118185', 10)` zwraca **511 osób** — baza działa poprawnie
+- `organization_tree_settings`: `visible_to_partners=true`, `partner_max_depth=10` — dostęp jest przyznany
 
-Istnieją trzy powody, dla których admin nie doświadcza crashu:
-
-### Powód 1: Admin korzysta z Panelu Lidera, nie z Pure-Kontakty
-Admin wchodzi do `/leader` gdzie `LeaderOrgTreeView` jest ładowany przez `React.lazy + Suspense`. Suspense całkowicie **izoluje** cykl życia komponentu — jeśli wystąpi błąd wewnątrz Suspense, React go łapie i wyświetla fallback, zamiast propagować go do góry drzewa.
-
-### Powód 2: `canAccessTree()` zwraca `true` natychmiast dla admina
-W `useOrganizationTreeSettings.ts`:
-```typescript
-if (userRoleStr === 'admin') return true;  // ← first branch, no settings check
-```
-Admin pomija całą logikę sprawdzania `settings.visible_to_*`. Dzięki temu `settings` może być nawet `null` i admin nadal przejdzie do fetchu. Mniej warunków = mniej przejść przez logikę, które mogą generować re-rendery.
-
-### Powód 3: Admin nie wchodzi do Pure-Kontakty
-`TeamContactsTab` — komponent który crashuje — renderuje się tylko gdy użytkownik wchodzi w "Pure-Kontakty". Admini zazwyczaj korzystają z Panelu Admina i Panelu Lidera. Partnerzy i specjaliści trafiają do Pure-Kontakty.
+Problem jest **wyłącznie w kodzie JavaScript** — konkretnie w `useOrganizationTree.ts`.
 
 ---
 
-## Kompletna mapa pętli — 4 aktywne problemy
+## Korzeń problemu: Race condition w `canAccessTree()`
 
-### Problem 1 (KRYTYCZNY): `settings` jako obiekt w `useCallback` dependencies
+### Jak działa `useOrganizationTree` z `externalSettings`:
 
-W `useOrganizationTree.ts`, linia 100:
+```
+TeamContactsTab montuje się
+    ↓
+useOrganizationTreeSettings() wywoływany → isFetchingRef=false → fetchSettings() startuje (async)
+    ↓
+hasTreeAccess = canAccessTree() → settingsRef.current = null → zwraca FALSE
+    ↓
+UWAGA: settingsLoading = true w tym momencie → zakładka "Struktura" może nie być widoczna!
+    ↓
+fetchSettings() kończy → setSettings(data) → settingsRef.current = {visible_to_partners: true, ...}
+    ↓
+hasTreeAccess = canAccessTree() → teraz zwraca TRUE → zakładka "Struktura" pojawia się
+    ↓
+Użytkownik klika "Struktura" → StructureTab montuje się
+    ↓
+useOrganizationTree(treeSettings) wywołuje się
+    ↓  
+internalHook = useOrganizationTreeSettings() → NOWA instancja hooka!
+    ↓
+isFetchingRef = false (nowa instancja) → fetchSettings() startuje PONOWNIE (async)
+    ↓
+settingsLoading = externalSettings !== undefined ? false : internalHook.loading
+    ↓
+externalSettings = treeSettings (nie undefined) → settingsLoading = FALSE natychmiast
+    ↓
+useEffect([settingsLoading=false, profile?.eq_id='121118185']) uruchamia się NATYCHMIAST
+    ↓
+hasFetchedRef.current = false → fetchTree() wywołuje się
+    ↓
+canAccessTree() = internalHook.canAccessTree() → internalHook.settingsRef.current = null (jeszcze ładuje!)
+    ↓
+canAccessTree() zwraca FALSE → setLoading(false) → return
+    ↓
+Dawid widzi pustą strukturę. Fetch nigdy nie dotarł do bazy.
+```
+
+### Dlaczego Sebastian (admin) nie ma problemu w LeaderPanel?
+
+`LeaderOrgTreeView` wywołuje `useOrganizationTree()` **bez** `externalSettings`:
 ```typescript
-}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings]);
-//                                                             ^^^^^^^^ ← OBIEKT
+const { tree, upline, statistics, settings, loading, error } = useOrganizationTree();
+// externalSettings = undefined → settingsLoading = internalHook.loading
 ```
 
-`settings` to obiekt React state. Każde wywołanie `setSettings(data)` tworzy **nową referencję obiektu**, nawet jeśli dane są identyczne. React porównuje obiekty przez referencję (`===`), więc `settings` zawsze zmienia się po każdym fetchu ustawień — co powoduje, że `fetchTree` dostaje nową referencję.
+Przy `externalSettings = undefined`:
+- `settingsLoading = internalHook.loading` = `true` na początku
+- `useEffect([settingsLoading, profile?.eq_id])` nie uruchamia się dopóki `settingsLoading = true`
+- Po zakończeniu `fetchSettings()`: `settingsLoading = false`, `settingsRef.current` ma dane
+- `canAccessTree()` zwraca `true` → fetch drzewa działa
 
-Ale `hasFetchedRef.current = true` powinno to blokować... **ale nie blokuje**, ponieważ przy Suspense + lazy loading komponent `StructureTab` odmontowuje się i montuje ponownie, co resetuje `hasFetchedRef` do `false`. Pełny cykl:
+**Dawid korzysta z `TeamContactsTab` (Pure-Kontakty)** → `StructureTab` dostaje `externalSettings` → `settingsLoading = false` natychmiast → `canAccessTree()` czyta z pustego `settingsRef` nowej instancji → zwraca `false`.
 
-```
-StructureTab montuje się
-    ↓
-useOrganizationTree() uruchamia się — hasFetchedRef.current = false
-    ↓
-useEffect([settingsLoading, profile?.eq_id]) — settingsLoading=true, poczekaj
-    ↓
-useOrganizationTreeSettings fetchSettings() kończy → setSettings(nowy obiekt)
-    ↓
-fetchTree useCallback dostaje nową referencję (settings zmienił się)
-    ↓
-useEffect widzi settingsLoading=false, profile?.eq_id istnieje
-    ↓
-hasFetchedRef.current = true, fetchTree() uruchamia się
-    ↓
-fetchTree → setLoading(true) → setTreeData([...]) → setLoading(false)
-    ↓
-setLoading powoduje re-render StructureTab
-    ↓
-useOrganizationTree re-renderuje się, settings = ten sam obiekt (stabilny już)
-    ↓
-OK — jeden fetch, jeden re-render. Brak pętli.
-```
+### Dodatkowy problem: `internalHook` jest zawsze wywoływany
 
-Dlaczego więc crash? Dlatego że **dwa niezależne wywołania** `useOrganizationTreeSettings()` istnieją jednocześnie:
-- Jedno w `TeamContactsTab` (górny poziom)
-- Drugie wewnątrz `StructureTab` → `useOrganizationTree()`
-
-Obie instancje mają **osobny stan** (`settings`) i każda wywołuje `fetchSettings()` niezależnie. To podwójne fetchowanie + dwa osobne obiekty `settings` powoduje dodatkowe re-rendery.
-
-### Problem 2 (KRYTYCZNY): `fetchSettings` nie jest stabilna — brak `useCallback`
-
-W `useOrganizationTreeSettings.ts`, linia 68:
+W `useOrganizationTree.ts` linia 26:
 ```typescript
-const fetchSettings = async () => {  // ← nowa funkcja przy każdym renderze
-  // ...
-};
+const internalHook = useOrganizationTreeSettings();  // zawsze wywoływany!
 ```
 
-`fetchSettings` jest zwykłą funkcją deklarowaną wewnątrz komponentu — nie jest opakowana w `useCallback`. Przy każdym renderze hooka (który jest wywoływany zarówno w `TeamContactsTab` jak i w `useOrganizationTree`) `fetchSettings` dostaje nową referencję. To nie powoduje pętli bezpośrednio (bo `useEffect([], [])` jest pusty), ale eksportowana `refetch: fetchSettings` jest niestabilną referencją — jeśli ktokolwiek doda ją do zależności `useEffect`, będzie miał pętlę.
-
-### Problem 3 (KRYTYCZNY): `specjalista` nie ma dostępu w bazie, ale `visible_to_specjalista = false`
-
-Z bazy: `visible_to_specjalista: false`.
-
-Czyli dla specjalisty `canAccessTree()` zwraca `false`. W `TeamContactsTab`:
-```typescript
-const hasTreeAccess = canAccessTree();  // ← false dla specjalisty
-```
-
-Zakładka "Struktura" nie jest wyświetlana. Ale `useOrganizationTreeSettings()` nadal jest wywołany na górze `TeamContactsTab`. Ten hook uruchamia `fetchSettings()` przy każdym wejściu do Pure-Kontakty — nawet gdy specjalista nie ma dostępu do drzewa. To jest nieefektywne, ale nie powinno crashować.
-
-**Jednak** — `StructureTab` nie jest montowany dla specjalistów (bo `hasTreeAccess = false`), więc dla specjalisty problem leży gdzie indziej.
-
-### Problem 4 (NOWY — RDZEŃ): `setLoading(false)` po `canAccessTree() === false` wyzwala re-render który destabilizuje cały hook
-
-W `useOrganizationTree.ts`, linia 43-46:
-```typescript
-if (!canAccessTree()) {
-  setLoading(false);  // ← setState wewnątrz fetchTree
-  return;
-}
-```
-
-Dla partnerów, którzy MAJ A dostęp (`visible_to_partners: true`), ta gałąź nie jest wyzwalana. Ale przez niestabilną referencję `settings` w `useCallback`, `fetchTree` może być recreowana wielokrotnie. Każde wywołanie `setLoading(false)` → re-render → useCallback widzi nowe `settings` → nowa `fetchTree` → useEffect (który jest `[settingsLoading, profile?.eq_id]`) **NIE uruchamia się ponownie** (bo te wartości się nie zmieniły), ALE `refetch: fetchTree` eksportuje niestabilną referencję.
+Nawet gdy przekazano `externalSettings`, tworzona jest **nowa instancja** `useOrganizationTreeSettings`. Ta nowa instancja ma własny `settingsRef.current = null` i własne `isFetchingRef`. Hook zaczyna asynchronicznie fetchować settings, ale `canAccessTree` z tej nowej instancji jest używana przez `fetchTree` — i w momencie wywołania `fetchTree` (który jest natychmiastowy bo `settingsLoading=false`) `settingsRef.current` tej nowej instancji jest `null`.
 
 ---
 
-## Prawdziwy korzeń dla partnerów
+## Plan naprawy — 2 pliki
 
-Dla partnerów (`visible_to_partners: true`):
+### Plik 1: `src/hooks/useOrganizationTree.ts`
 
-1. `TeamContactsTab` montuje się
-2. `useOrganizationTreeSettings()` → `fetchSettings()` → `setSettings(obiektA)`
-3. `hasTreeAccess = canAccessTree()` = `true` → zakładka "Struktura" widoczna w tabs
-4. Użytkownik klika "Struktura" → `StructureTab` montuje się
-5. `useOrganizationTree()` → druga instancja `useOrganizationTreeSettings()` → druga instancja fetchSettings → `setSettings(obiektB)`
-6. Dwie instancje `settings` → `canAccessTree()` w `fetchTree` korzysta z **domknięcia** z instancji nr 2
-7. Fetch drzewa uruchamia się — `setLoading(true)` → `setTreeData(...)` → `setLoading(false)`
-8. Re-render `StructureTab` — `useOrganizationTree` ponownie z tym samym `hasFetchedRef.current = true`
-9. `useEffect([settingsLoading, profile?.eq_id])` nie uruchamia się ponownie — OK
+**Problem:** Gdy `externalSettings` są podane, hook nadal tworzy nową instancję `useOrganizationTreeSettings()` i używa jej `canAccessTree`/`getMaxDepthForRole` — które w momencie pierwszego wywołania mają `settingsRef.current = null`.
 
-**Ale co jeśli TOKEN_REFRESHED?**
-- AuthContext wykrywa token refresh i wywołuje `setSession`
-- `setUser` (z stabilizacją `prev?.id === newUser?.id` → zwraca `prev`)
-- `profile` się nie zmienia (ten sam obiekt) → `profile?.eq_id` ta sama wartość
-- `userRole` **może** dostać nowy obiekt mimo tego samego ID
-- `userRoleStr = userRole?.role ?? null` — ta sama wartość string → stabilna
-- `settings` — **ten sam obiekt** (nie było `setSettings` po TOKEN_REFRESHED)
-- `settingsLoading` — `false` (nie zmienił się)
+**Rozwiązanie:** Gdy `externalSettings` są przekazane z zewnątrz, NIE używać `canAccessTree` i `getMaxDepthForRole` z nowej instancji `internalHook`. Zamiast tego sprawdzić uprawnienia bezpośrednio na podstawie `externalSettings` + rola użytkownika.
 
-Więc po TOKEN_REFRESHED nie powinno być pętli... chyba że **SIGNED_IN** (powrót z tła na Androidzie) lub rzeczywisty re-mount komponentu.
-
-**Rzeczywisty trigger crashu**: Mobilny Android/iOS po powrocie z tła wywołuje `SIGNED_IN` event, który resetuje profil i uruchamia `fetchProfile` ponownie. To powoduje:
-- `profile` zmienia referencję (nowy obiekt)
-- `profile?.eq_id` — ta sama wartość string → `useEffect` **NIE uruchamia się**
-- JEDNAK `useOrganizationTreeSettings` nie ma zabezpieczenia i może fetchować ponownie jeśli komponent się odmontuje i zamontuje
-- React Strict Mode (development) montuje każdy komponent dwa razy → podwójne wywołanie hooks → `hasFetchedRef.current = false` → dwa fetche → dwa `setLoading(true)` w szybkiej sekwencji
-
----
-
-## Plan naprawy — 3 pliki
-
-### Plik 1: `src/hooks/useOrganizationTreeSettings.ts`
-
-**Zmiany:**
-
-1. Opakować `fetchSettings` w `useCallback` z pustą tablicą zależności — stabilna referencja dla `refetch`
-2. Dodać `hasFetchedRef` żeby zapobiec wielokrotnemu fetchowaniu przy wielu instancjach hooka
-3. Zmienić `useEffect` żeby był odporny na re-mount
+Zmiana architektury:
+- Jeśli `externalSettings` jest przekazane → `settingsLoading = false`, a `canAccess` i `maxDepth` obliczane są synchronicznie z `externalSettings` + `profile.role` — bez żadnego async
+- Jeśli `externalSettings` nie jest przekazane → używamy całego `internalHook` jak dotychczas (LeaderPanel działa bez zmian)
 
 ```typescript
-// PRZED:
-const fetchSettings = async () => { ... };
-useEffect(() => { fetchSettings(); }, []);
-
-// PO:
-const hasFetchedRef = useRef(false);
-const fetchSettings = useCallback(async () => {
-  if (hasFetchedRef.current) return;  // Jeśli już trwa lub zakończyło się
-  // ... reszta bez zmian
-}, []);  // Puste deps — stabilna referencja
-useEffect(() => { fetchSettings(); }, [fetchSettings]);
+export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings | null) => {
+  const { profile, userRole } = useAuth();
+  const userRoleStr = userRole?.role ?? null;
+  
+  // Wywołujemy internalHook warunkowo — tylko gdy externalSettings = undefined
+  // ALE React nie pozwala na warunkowe wywołanie hooków!
+  // Rozwiązanie: zawsze wywołujemy internalHook, ale ignorujemy jego wyniki gdy externalSettings podane
+  const internalHook = useOrganizationTreeSettings();
+  
+  const settings = externalSettings !== undefined ? externalSettings : internalHook.settings;
+  const settingsLoading = externalSettings !== undefined ? false : internalHook.loading;
+  
+  // KLUCZOWA ZMIANA: canAccessTree i getMaxDepthForRole MUSZĄ używać externalSettings
+  // gdy są dostępne — nie nowej instancji internalHook która ma pustą settingsRef
+  const canAccessTree = useCallback((): boolean => {
+    const s = externalSettings !== undefined ? externalSettings : internalHook.settingsRef?.current;
+    if (!s || !s.is_enabled) return false;
+    if (!userRoleStr) return false;
+    if (userRoleStr === 'admin') return true;
+    if (userRoleStr === 'partner' && s.visible_to_partners) return true;
+    if (userRoleStr === 'specjalista' && s.visible_to_specjalista) return true;
+    if (userRoleStr === 'client' && s.visible_to_clients) return true;
+    return false;
+  }, [externalSettings, userRoleStr, internalHook.canAccessTree]);
+  
+  const getMaxDepthForRole = useCallback((): number => {
+    const s = externalSettings !== undefined ? externalSettings : internalHook.settingsRef?.current;
+    if (!s || !userRoleStr) return 0;
+    if (userRoleStr === 'admin') return s.max_depth;
+    if (userRoleStr === 'partner') return s.partner_max_depth;
+    if (userRoleStr === 'specjalista') return s.specjalista_max_depth;
+    if (userRoleStr === 'client') return s.client_max_depth;
+    return 0;
+  }, [externalSettings, userRoleStr]);
 ```
 
-**Uwaga:** `hasFetchedRef` blokuje tylko pierwsze pobieranie. `refetch` (ręczne wywołanie) powinno resetować flagę i pobierać ponownie.
+**Problem z eksportem `settingsRef` z `useOrganizationTreeSettings`:** Nie jest eksportowany. 
 
-Lepsza wersja:
+**Lepsze, prostsze rozwiązanie:** Wyeksportować z `useOrganizationTreeSettings` gotowe funkcje `canAccessTree` i `getMaxDepthForRole` które działają na `settingsRef` (już jest), a w `useOrganizationTree` zaimplementować własne lokalne wersje tych funkcji oparte bezpośrednio na `settings` (już załadowanym `externalSettings`):
 
 ```typescript
-const isFetchingRef = useRef(false);  // Blokuje równoległe wywołania (nie ponowne)
-const fetchSettings = useCallback(async () => {
-  if (isFetchingRef.current) return;
-  isFetchingRef.current = true;
-  try {
-    setLoading(true);
-    // ...fetch...
-  } finally {
-    isFetchingRef.current = false;
-    setLoading(false);
+export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings | null) => {
+  const { profile, userRole } = useAuth();
+  const userRoleStr = userRole?.role ?? null;
+  const internalHook = useOrganizationTreeSettings();
+
+  // Efektywne settings — externalSettings ma priorytet
+  const settings = externalSettings !== undefined ? externalSettings : internalHook.settings;
+  const settingsLoading = externalSettings !== undefined ? false : internalHook.loading;
+
+  // NAPRAWIONE: canAccessTree używa settings (już załadowanego externalSettings LUB internalHook.canAccessTree)
+  // Gdy externalSettings podane → sprawdzamy bezpośrednio na obiekcie (synchronicznie, bez ref)
+  // Gdy nie podane → używamy internalHook.canAccessTree (która czyta z settingsRef)
+  const canAccessTree = externalSettings !== undefined
+    ? useCallback((): boolean => {
+        const s = externalSettings;
+        if (!s || !s.is_enabled) return false;
+        if (!userRoleStr) return false;
+        if (userRoleStr === 'admin') return true;
+        if (userRoleStr === 'partner' && s.visible_to_partners) return true;
+        if (userRoleStr === 'specjalista' && s.visible_to_specjalista) return true;
+        if (userRoleStr === 'client' && s.visible_to_clients) return true;
+        return false;
+      }, [externalSettings, userRoleStr])
+    : internalHook.canAccessTree;
+```
+
+**Problem:** React nie pozwala na warunkowe wywołanie `useCallback`.
+
+**Ostateczne, poprawne rozwiązanie:** Zawsze definiować lokalne `canAccessTree` i `getMaxDepthForRole` jako stabilne funkcje, które sprawdzają `externalSettings` gdy dostępne, lub delegują do `internalHook` gdy nie:
+
+```typescript
+const resolvedCanAccessTree = useCallback((): boolean => {
+  if (externalSettings !== undefined) {
+    // externalSettings są gotowe synchronicznie — używamy ich wprost
+    const s = externalSettings;
+    if (!s || !s.is_enabled) return false;
+    if (!userRoleStr) return false;
+    if (userRoleStr === 'admin') return true;
+    if (userRoleStr === 'partner' && s.visible_to_partners) return true;
+    if (userRoleStr === 'specjalista' && s.visible_to_specjalista) return true;
+    if (userRoleStr === 'client' && s.visible_to_clients) return true;
+    return false;
   }
-}, []);
+  // Brak externalSettings — deleguj do internalHook (czyta z settingsRef)
+  return internalHook.canAccessTree();
+}, [externalSettings, userRoleStr, internalHook.canAccessTree]);
+
+const resolvedGetMaxDepthForRole = useCallback((): number => {
+  if (externalSettings !== undefined) {
+    const s = externalSettings;
+    if (!s || !userRoleStr) return 0;
+    if (userRoleStr === 'admin') return s.max_depth;
+    if (userRoleStr === 'partner') return s.partner_max_depth;
+    if (userRoleStr === 'specjalista') return s.specjalista_max_depth;
+    if (userRoleStr === 'client') return s.client_max_depth;
+    return 0;
+  }
+  return internalHook.getMaxDepthForRole();
+}, [externalSettings, userRoleStr, internalHook.getMaxDepthForRole]);
 ```
 
-4. Kluczowa zmiana: wyodrębnić `settingsId` jako stabilną wartość zamiast całego obiektu `settings` w `useCallback`:
+Ale `internalHook.canAccessTree` w deps może destabilizować. Ponieważ `internalHook.canAccessTree` jest już stabilna (zależy tylko od `userRoleStr`), to `resolvedCanAccessTree` też będzie stabilna.
+
+**Kluczowe deps `fetchTree` muszą pozostać stabilne:** `[profile?.eq_id, profile?.upline_eq_id, settingsLoading]` — bez `resolvedCanAccessTree` w deps, używając zamiast tego `resolvedCanAccessTreeRef`:
 
 ```typescript
-// Zamiast eksportować settings (niestabilny obiekt) jako zależność:
-const settingsRef = useRef<OrganizationTreeSettings | null>(null);
+const resolvedCanAccessTreeRef = useRef(resolvedCanAccessTree);
+resolvedCanAccessTreeRef.current = resolvedCanAccessTree;
 
-// I w fetchSettings:
-settingsRef.current = data;
-setSettings(data);  // dla renderów UI
-
-// canAccessTree i getMaxDepthForRole używają settingsRef.current zamiast settings z state:
-const canAccessTree = useCallback((): boolean => {
-  const s = settingsRef.current;
-  if (!s || !s.is_enabled) return false;
-  // ...
-}, [userRoleStr]);  // Tylko userRoleStr — settings jest w ref, stabilny
-```
-
-To eliminuje główną przyczynę niestabilności `fetchTree` — `settings` znika z jego zależności.
-
-### Plik 2: `src/hooks/useOrganizationTree.ts`
-
-**Zmiany:**
-
-1. Usunąć `settings` z zależności `fetchTree` — używać `settingsRef` (przekazanego z `useOrganizationTreeSettings`) lub po prostu wywołać funkcje wewnątrz bez ich jawnego deklarowania w deps:
-
-```typescript
-// Eksportować settingsRef z useOrganizationTreeSettings:
-// Albo — prostsze rozwiązanie — usunąć settings z deps i wyizolować show_upline:
-
-const showUpline = settings?.show_upline ?? true;  // stabilna prymitywna wartość
-const showUplineRef = useRef(showUpline);
-showUplineRef.current = showUpline;
+const resolvedGetMaxDepthRef = useRef(resolvedGetMaxDepthForRole);
+resolvedGetMaxDepthRef.current = resolvedGetMaxDepthForRole;
 
 const fetchTree = useCallback(async () => {
   if (settingsLoading) return;
-  if (!profile?.eq_id) { setLoading(false); setError('...'); return; }
-  if (!canAccessTree()) { setLoading(false); return; }
+  if (!profile?.eq_id) { ... }
+  if (!resolvedCanAccessTreeRef.current()) { setLoading(false); return; }
   
-  try {
-    setLoading(true);
-    setError(null);
-    const maxDepth = getMaxDepthForRole();
-    // ...RPC...
-    if (showUplineRef.current && profile.upline_eq_id) {
-      // ...fetch upline...
-    }
-  } finally {
-    setLoading(false);
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const maxDepth = resolvedGetMaxDepthRef.current();
+  // ...
 }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading]);
-// settings, canAccessTree, getMaxDepthForRole — celowo pominięte
-// canAccessTree i getMaxDepthForRole są teraz stabilne (deps: tylko userRoleStr)
-// settings.show_upline jest w showUplineRef
 ```
 
-2. Zabezpieczyć przed race condition z `isMountedRef`:
+### Plik 2: `src/components/team-contacts/TeamContactsTab.tsx`
 
-```typescript
-const isMountedRef = useRef(true);
-useEffect(() => {
-  isMountedRef.current = true;
-  return () => { isMountedRef.current = false; };
-}, []);
-```
-
-I w `fetchTree` sprawdzać `if (!isMountedRef.current) return;` przed każdym `setState`.
-
-3. Zresetować `hasFetchedRef` gdy `profile?.eq_id` się zmieni (zmiana konta):
-
-```typescript
-useEffect(() => {
-  hasFetchedRef.current = false;
-}, [profile?.eq_id]);
-```
-
-### Plik 3: `src/components/team-contacts/TeamContactsTab.tsx`
-
-**Zmiana:** `useOrganizationTreeSettings` jest wywoływany dwa razy — raz w `TeamContactsTab`, raz wewnątrz `StructureTab → useOrganizationTree`. To podwójne fetchowanie jest nieefektywne.
-
-Najprostsze rozwiązanie: przekazać `canAccessTree` i `treeSettings` do `StructureTab` jako props, żeby `StructureTab` nie potrzebował własnej instancji `useOrganizationTreeSettings`. W `useOrganizationTree` zmienić sygnaturę — zamiast wewnętrznie wywoływać `useOrganizationTreeSettings`, przyjąć je jako parametr opcjonalny:
-
-Albo — jeszcze prostsze — przekazać `settings` z `TeamContactsTab` do `StructureTab` i wewnątrz `StructureTab` wywołać `useOrganizationTree()` który dostanie już załadowane settings z zewnątrz.
-
-Ale to wymaga większej refaktoryzacji. Minimalnie bezpieczna zmiana:
-
-Wywołanie `canAccessTree()` w linii 271 zamiast obliczać je ponownie przy każdym renderze — już jest zapisane w `hasTreeAccess` const. To jest OK. Ale:
-
-```typescript
-// PROBLEM: useOrganizationTreeSettings jest wywoływane DWIE RAZY:
-// 1. w TeamContactsTab (linia 140)
-// 2. wewnątrz useOrganizationTree (który jest wywołany przez StructureTab)
-// Obie instancje fetchują settings niezależnie
-```
-
-Rozwiązanie: `useOrganizationTree` powinien przyjmować `settings` z zewnątrz zamiast wywoływać `useOrganizationTreeSettings` wewnętrznie. LUB — `useOrganizationTreeSettings` powinien cachować wynik przez React Query (`useQuery`) zamiast lokalnego stanu, co automatycznie deduplikuje requesty.
-
-**Wybieramy React Query** dla `useOrganizationTreeSettings` — to eliminuje problem podwójnego fetchu całkowicie.
+Plik nie wymaga zmian — po naprawieniu hooka `StructureTab` otrzymujący `treeSettings` będzie działał poprawnie. `treeSettings` przekazane jako `externalSettings` będzie używane synchronicznie do sprawdzenia uprawnień.
 
 ---
 
-## Podsumowanie wszystkich zmian
+## Dlaczego ta naprawa działa dla wszystkich ról
 
-| Plik | Zmiana | Eliminuje |
-|---|---|---|
-| `src/hooks/useOrganizationTreeSettings.ts` | `fetchSettings` → `useCallback([])` + `isFetchingRef` + `settingsRef` dla stabilnych deps | Problem 2 (niestabilna fetchSettings) + Problem 1 (settings jako obiekt w deps) |
-| `src/hooks/useOrganizationTreeSettings.ts` | `canAccessTree` deps: tylko `[userRoleStr]` (settingsRef zamiast settings state) | Problem 1 (pętla przez settings) |
-| `src/hooks/useOrganizationTree.ts` | `showUplineRef` zamiast `settings` w useCallback deps + `isMountedRef` + reset `hasFetchedRef` przy zmianie eq_id | Problem 3 (setLoading race condition) |
-| `src/hooks/useOrganizationTree.ts` | Usunąć `settings` z useCallback deps — puste lub tylko `[settingsLoading, profile?.eq_id, profile?.upline_eq_id]` | Problem 1 (główna pętla) |
-| `src/components/team-contacts/TeamContactsTab.tsx` | Przekazać `settings` z `TeamContactsTab` do `StructureTab` → `useOrganizationTree` nie woła `useOrganizationTreeSettings` | Problem 4 (podwójny fetch settings) |
+| Użytkownik | Rola | Wcześniej | Po naprawie |
+|---|---|---|---|
+| Sebastian Snopek | admin | OK (LeaderPanel, externalSettings=undefined) | OK — bez zmian |
+| Dawid Kowalczyk | partner | Pusta struktura (race condition na settingsRef) | Poprawne — externalSettings czytane synchronicznie |
+| Inni partnerzy | partner | Pusta struktura | Poprawne |
+| Specjaliści | specjalista | Brak dostępu (visible_to_specjalista=false w bazie) | Brak dostępu (poprawnie) |
 
-## Dlaczego te zmiany są wystarczające
+## Podsumowanie
 
-Po naprawie:
-- `settings` nigdy nie jest w tablicy zależności `useCallback` — zamiast tego jest w `settingsRef` (mutable ref)
-- `canAccessTree` i `getMaxDepthForRole` zależą tylko od `userRoleStr` — stabilnego prymitywu
-- `fetchTree` zależy tylko od `[settingsLoading, profile?.eq_id, profile?.upline_eq_id]` — stabilnych prymitywów
-- `hasFetchedRef` resetuje się tylko gdy `profile?.eq_id` się zmienia (zmiana konta)
-- `isMountedRef` chroni przed setState na odmontowanym komponencie
-- `isFetchingRef` zapobiega równoległym fetchom settings
-
-Dla Sebastiana Snopka (admin) — nadal nie będzie żadnych problemów, bo kod jest kompatybilny wstecz.
+- **1 plik do zmiany:** `src/hooks/useOrganizationTree.ts`
+- **Mechanizm naprawy:** Zastąpienie `internalHook.canAccessTree` i `internalHook.getMaxDepthForRole` lokalnymi funkcjami `resolvedCanAccessTree` / `resolvedGetMaxDepthForRole`, które czytają `externalSettings` synchronicznie gdy dostępne
+- **Stabilność:** Obie funkcje przechowywane w ref — nie wchodzą do deps `fetchTree`
+- **Brak regresji dla LeaderPanel:** Gdy `externalSettings = undefined`, logika deleguje do `internalHook` (tak jak dotychczas)
