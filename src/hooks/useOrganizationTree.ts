@@ -22,22 +22,64 @@ export interface OrganizationTreeNode extends OrganizationMember {
 }
 
 export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings | null) => {
-  const { profile } = useAuth();
+  const { profile, userRole } = useAuth();
+  const userRoleStr = userRole?.role ?? null;
   const internalHook = useOrganizationTreeSettings();
-  
+
   // Jeśli settings przekazane z zewnątrz — używamy ich (bez drugiego fetchu).
   // Jeśli nie — używamy wewnętrznej instancji hooka.
   const settings = externalSettings !== undefined ? externalSettings : internalHook.settings;
   const settingsLoading = externalSettings !== undefined ? false : internalHook.loading;
   const canAccessTree = internalHook.canAccessTree;
-  const getMaxDepthForRole = internalHook.getMaxDepthForRole;
-  
+
   const [treeData, setTreeData] = useState<OrganizationMember[]>([]);
   const [upline, setUpline] = useState<OrganizationMember | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
   const isMountedRef = useRef(true);
+
+  // NAPRAWA RACE CONDITION: Gdy externalSettings są podane, canAccessTree
+  // z internalHook ma settingsRef.current = null (nowa instancja hooka).
+  // Rozwiązanie: lokalne funkcje resolved* które czytają externalSettings
+  // synchronicznie gdy dostępne, lub delegują do internalHook gdy nie.
+  const resolvedCanAccessTree = useCallback((): boolean => {
+    if (externalSettings !== undefined) {
+      // externalSettings są załadowane synchronicznie z rodzica — używamy wprost
+      const s = externalSettings;
+      if (!s || !s.is_enabled) return false;
+      if (!userRoleStr) return false;
+      if (userRoleStr === 'admin') return true;
+      if (userRoleStr === 'partner' && s.visible_to_partners) return true;
+      if (userRoleStr === 'specjalista' && s.visible_to_specjalista) return true;
+      if (userRoleStr === 'client' && s.visible_to_clients) return true;
+      return false;
+    }
+    // Brak externalSettings — deleguj do internalHook (czyta z settingsRef)
+    return internalHook.canAccessTree();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalSettings, userRoleStr, internalHook.canAccessTree]);
+
+  const resolvedGetMaxDepthForRole = useCallback((): number => {
+    if (externalSettings !== undefined) {
+      const s = externalSettings;
+      if (!s || !userRoleStr) return 0;
+      if (userRoleStr === 'admin') return s.max_depth;
+      if (userRoleStr === 'partner') return s.partner_max_depth;
+      if (userRoleStr === 'specjalista') return s.specjalista_max_depth;
+      if (userRoleStr === 'client') return s.client_max_depth;
+      return 0;
+    }
+    return internalHook.getMaxDepthForRole();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [externalSettings, userRoleStr, internalHook.getMaxDepthForRole]);
+
+  // Przechowuje resolved functions w ref — stabilne referencje dla fetchTree
+  const resolvedCanAccessTreeRef = useRef(resolvedCanAccessTree);
+  resolvedCanAccessTreeRef.current = resolvedCanAccessTree;
+
+  const resolvedGetMaxDepthRef = useRef(resolvedGetMaxDepthForRole);
+  resolvedGetMaxDepthRef.current = resolvedGetMaxDepthForRole;
 
   // Przechowuje show_upline w ref — unika settings jako zależności useCallback
   const showUplineRef = useRef(settings?.show_upline ?? true);
@@ -62,7 +104,7 @@ export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings 
 
   const fetchTree = useCallback(async () => {
     if (settingsLoading) return;
-    
+
     if (!profile?.eq_id) {
       if (isMountedRef.current) {
         setLoading(false);
@@ -70,8 +112,9 @@ export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings 
       }
       return;
     }
-    
-    if (!canAccessTree()) {
+
+    // Używamy ref — stabilna referencja, bez wchodzenia do deps tablicy
+    if (!resolvedCanAccessTreeRef.current()) {
       if (isMountedRef.current) setLoading(false);
       return;
     }
@@ -82,8 +125,8 @@ export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings 
         setError(null);
       }
 
-      const maxDepth = getMaxDepthForRole();
-      
+      const maxDepth = resolvedGetMaxDepthRef.current();
+
       // Fetch downline tree using the recursive function
       const { data: downlineData, error: downlineError } = await supabase
         .rpc('get_organization_tree', {
@@ -135,9 +178,9 @@ export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading]);
-  // canAccessTree, getMaxDepthForRole — celowo pominięte: są teraz stabilne (deps: tylko userRoleStr)
-  // settings — celowo pominięte: showUplineRef synchronizuje wartość bez tworzenia nowej referencji fetchTree
+  // resolvedCanAccessTreeRef, resolvedGetMaxDepthRef — refs, nie powodują re-renderów
   // showUplineRef — ref, nie powoduje re-renderów
+  // canAccessTree, getMaxDepthForRole — celowo pominięte: są stabilne (deps: tylko userRoleStr)
 
   // Build tree structure from flat data
   const buildTree = useCallback((members: OrganizationMember[]): OrganizationTreeNode | null => {
@@ -145,7 +188,7 @@ export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings 
 
     // Create a map for quick lookup
     const nodeMap = new Map<string, OrganizationTreeNode>();
-    
+
     // First pass: create nodes
     members.forEach(member => {
       if (member.eq_id) {
@@ -159,7 +202,7 @@ export const useOrganizationTree = (externalSettings?: OrganizationTreeSettings 
 
     // Second pass: build parent-child relationships
     let root: OrganizationTreeNode | null = null;
-    
+
     members.forEach(member => {
       if (member.eq_id) {
         const node = nodeMap.get(member.eq_id);
