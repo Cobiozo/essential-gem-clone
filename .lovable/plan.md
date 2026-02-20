@@ -1,98 +1,78 @@
 
-# Pełna weryfikacja po ostatnich zmianach
+# Naprawa wysyłki emaila po zatwierdzeniu przez Lidera/Admina
 
-## Podsumowanie wyników kontroli
+## Diagnoza przyczyny braku emaila do sebastiansnopek210587
 
-### ✅ Co działa poprawnie
+### Potwierdzone fakty z logów i bazy:
 
-**1. Naprawa pętli nieskończonej (Maximum call stack size exceeded)**
-- `useLeaderApprovals` ma teraz `enabled: !!user && hasApprovalPermission === true` — hook NIE wywołuje RPC dla użytkowników bez uprawnień
-- `retry: false` — brak ponownych prób przy błędzie SQL "Brak uprawnień"
-- `LeaderPanel.tsx` przekazuje `hasApprovalPermission` do hooka
-- Efekt w `Admin.tsx` ma `if (!isAdmin) return` guard i usuniętego `toast` z zależności
+1. **Szablon `leader_approval` NIE ISTNIEJE** w tabeli `email_templates`
+   - Istnieją: `admin_approval`, `guardian_approval`, `welcome_registration`
+   - Brak: `leader_approval` — edge function `send-approval-email` rzuca błąd 500
 
-**2. Migracja SQL — poprawnie wykonana**
-- Funkcja `get_user_profiles_with_confirmation()` zwraca teraz `leader_approved`, `leader_approved_at`, `leader_approver_id`
-- Baza potwierdza: kolumny istnieją w tabeli `profiles` (nullable boolean)
+2. **Sebastian (sebastiansnopek210587) został zatwierdzony przez Lidera** o 14:53:12
+   - `leader_approved = true`, `admin_approved = true`, `leader_approved_at = 2026-02-20 14:53:12`
+   - W email_logs: wysłano TYLKO email `guardian_approval` (14:35) i `welcome` (14:33)
+   - Brak emaila o pełnej aktywacji konta
 
-**3. Frontend — status "Czeka na Lidera"**
-- `CompactUserCard.tsx`: nowy status `awaiting_leader` z fioletową kropką, badge `Crown + "Czeka na Lidera"`
-- `UserStatusLegend.tsx`: nowy wpis fioletowy + ścieżka zatwierdzania
+3. **W `useLeaderApprovals.ts` błąd jest łykany po cichu:**
+   ```typescript
+   } catch (emailErr) {
+     console.warn('[LeaderApprovals] Email send failed (non-critical):', emailErr);
+   }
+   ```
+   Hook uznaje brak emaila za "non-critical" — użytkownik nigdy nie dostaje powiadomienia
 
-**4. Mapping w `fetchUsers()`**
-- `leader_approved`, `leader_approved_at`, `leader_approver_id` mapowane ze zwróconego RPC
-
----
-
-### ⚠️ Znalezione problemy
-
-**Problem 1: Podwójny `useEffect` dla zakładki `content` w Admin.tsx** (istniejący, nie nowy)
-
-Linie 2032-2050 i 2053-2058: **dwa osobne efekty** wywołują `fetchHeaderText()` i `fetchAuthorText()` dla zakładki `content`:
-```
-useEffect({ ...content → fetchHeaderText... }, [activeTab, isAdmin])  // linia 2032
-useEffect({ ...content → fetchHeaderText... }, [isAdmin])             // linia 2053
-```
-Gdy admin po raz pierwszy wchodzi na zakładkę `content`, oba efekty odpytują API jednocześnie — to nadmiarowe żądanie, ale **nie powoduje crash'u ani wycieku**.
-
-**Problem 2: Stan Jerzego Szafarza — blokada na poziomie email**
-
-Jerzy Szafarz (upline = Mateusz Sumera, lider):
-- `email_activated = false` → email NIE jest potwierdzony
-- `guardian_approved = false` → Mateusz nie może go jeszcze zatwierdzić jako guardian, bo `guardian_approve_user` blokuje zatwierdzenie gdy `email_activated = false`
-- `leader_approved = NULL` (nie `false`) → Jerzy **nie pojawia się** w module Zatwierdzeń Lidera (warunek: `leader_approved = false`)
-
-**Mateusz Sumera widzi Jerzego TYLKO w zakładce `team_contacts` ze statusem "oczekuje na zatwierdzenie"**, ale nie może go zatwierdzić dopóki Jerzy nie kliknie link aktywacyjny w emailu.
-
-**Stan w Admin.tsx (panel adminów):**
-- Jerzy pokaże się jako `email_pending` (szara kropka) — poprawnie
-- Przycisk "Wyślij email aktywacyjny ponownie" będzie widoczny ✅
-
-**Problem 3: Rzeczywiście BRAK użytkowników aktualnie oczekujących na Lidera**
-
-Zapytanie do bazy: `guardian_approved = true AND admin_approved = false` → **puste** — nikt aktualnie nie czeka na zatwierdzenie w tym etapie. Nowe pole `leader_approved = false` (fioletowy badge) aktywuje się dopiero gdy Jerzy potwierdzi email → Mateusz go zatwierdzi jako guardian → dopiero wtedy `guardian_approve_user` ustawi `leader_approved = false` i `leader_approver_id = Mateusz`.
+4. **Rozwiązanie:** Zamiast tworzyć nowy szablon `leader_approval`, użyć istniejącego szablonu `admin_approval` który już zawiera treść o pełnej aktywacji. Lider ma takie samo uprawnienie co admin — efekt identyczny. Template `admin_approval` ma gotowy subject: "Witamy w Pure Life! Twoje konto jest w pełni aktywne 🌿"
 
 ---
 
-### 📊 Stan bazy danych — aktualny obraz użytkowników
+## Plan naprawy
 
-| Użytkownik | Email activated | Guardian approved | Admin approved | Leader approved | Status |
-|---|---|---|---|---|---|
-| Jerzy Szafarz | ❌ false | ❌ false | ❌ false | NULL | Szara kropka (email niepotwierdzony) |
-| Katarzyna Grochowicka | ✅ true | ❌ false | ❌ false | NULL | Czerwona kropka (czeka na opiekuna) |
-| Dominika Matczak | ✅ true | ❌ false | ❌ false | NULL | Czerwona kropka (czeka na opiekuna) |
+### Zmiana 1: `supabase/functions/send-approval-email/index.ts`
+Zmiana mapowania szablonu: gdy `approvalType === 'leader'`, użyj szablonu `admin_approval` zamiast nieistniejącego `leader_approval`.
 
-Aktywni, w pełni zatwierdzeni: wszyscy pod Mateuszem Sumerą (Mateusz Piękny, Paweł Marczak, itp.) mają `leader_approved = NULL` — to **normalne**, bo zostali zatwierdzeni przed wdrożeniem systemu lidera (NULL = lider nie był w ścieżce w tamtym czasie).
+**Linia 212:**
+```typescript
+// PRZED:
+const templateName = approvalType === 'guardian' ? 'guardian_approval' : approvalType === 'leader' ? 'leader_approval' : 'admin_approval';
 
----
-
-### Przepływ dla Jerzego Szafarza — co zadzieje się gdy potwierdzi email
-
-```text
-1. Jerzy klika link aktywacyjny → email_activated = true
-2. Mateusz Sumera widzi go w Pure-kontakty z przyciskiem "Zatwierdź"
-3. guardian_approve_user() → guardian_approved = true
-4. find_nearest_leader_approver(Jerzy) → szuka w upline_eq_id = 121112817 (Mateusz)
-5. Mateusz MA can_approve_registrations = true → zwraca jego user_id
-6. UPDATE profiles SET leader_approved = false, leader_approver_id = Mateusz
-7. Mateusz dostaje powiadomienie → widzi Jerzego w /leader?tab=approvals
-8. W Admin.tsx: Jerzy dostanie FIOLETOWĄ kropkę + badge "Czeka na Lidera" ✅
+// PO:
+// leader używa tego samego szablonu co admin (pełna aktywacja konta)
+const templateName = approvalType === 'guardian' ? 'guardian_approval' : 'admin_approval';
 ```
 
----
+Dzięki temu zarówno `approvalType: 'leader'` jak i `approvalType: 'admin'` użyją szablonu `admin_approval`, który jest w pełni aktywny i zawiera poprawną treść.
 
-### Co należy naprawić teraz
+### Zmiana 2: `src/hooks/useLeaderApprovals.ts` — naprawienie silent catch
+Zmienić `catch` żeby **nie łykał** błędu emaila bez logowania, a dodatkowo pokazał `toast.warning` gdy email się nie powiedzie:
 
-**Naprawa: Podwójny useEffect dla zakładki content**
+```typescript
+// Send approval email
+try {
+  const { error: emailErr } = await supabase.functions.invoke('send-approval-email', {
+    body: { userId: targetUserId, approvalType: 'leader', approverId: user?.id },
+  });
+  if (emailErr) {
+    console.error('[LeaderApprovals] Email send failed:', emailErr);
+    // Email failure is logged but doesn't block approval
+  }
+} catch (emailErr) {
+  console.error('[LeaderApprovals] Email send exception:', emailErr);
+}
+```
 
-Usunąć duplikat `useEffect` (linie 2053-2058) — jest redundantny względem głównego efektu (2032-2050) który już obsługuje `activeTab === 'content'`. Drugi efekt z `[isAdmin]` powoduje dodatkowe zapytanie przy załadowaniu.
+### Zmiana 3: Ręczne wysłanie emaila do Sebastiana (przez admin panel)
+Sebastian już jest zatwierdzony ale nie dostał emaila. Użyjemy narzędzia `send-approval-email` bezpośrednio z prawidłowym `userId`.
+
+Skorzystamy z funkcji Edge bezpośrednio żeby dostarczyć mu zaległy email po naprawie edge function.
 
 ---
 
 ## Pliki do zmiany
 
-| Plik | Zmiana | Priorytet |
-|---|---|---|
-| `src/pages/Admin.tsx` | Usunięcie duplikatu useEffect (linie 2053-2058) | Niski — nie powoduje crash, ale eliminuje nadmiarowe zapytanie |
+| Plik | Zmiana |
+|---|---|
+| `supabase/functions/send-approval-email/index.ts` | Zmiana mapowania szablonu: `leader` → `admin_approval` |
+| `src/hooks/useLeaderApprovals.ts` | Naprawienie cichego catch emaila |
 
-Wszystkie pozostałe zmiany są poprawne i działają. System `leader_approved` zadziała automatycznie przy pierwszym użytkowniku który przejdzie przez pełen przepływ zatwierdzania.
+Po wdrożeniu: automatycznie wyślemy zaległy email do Sebastiana przez wywołanie edge function.
