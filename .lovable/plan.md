@@ -1,189 +1,158 @@
 
-# Nowa interaktywna wizualizacja struktury organizacji
+# Naprawa: brak pierwszej linii sponsorowania w InteractiveOrgChart
 
-## Cel
+## Przyczyna błędu
 
-Zastąpienie obecnego widoku `OrganizationChart` (graf SVG z możliwością przewijania) nowym komponentem `InteractiveOrgChart` — pionowym drzewem kafelkowym z następującą mechaniką:
+W `buildRows` i logice stanu jest fundamentalna niespójność indeksowania:
 
-- **Domyślnie widoczny tylko poziom 1** (bezpośrednio poleceni)
-- **Kliknięcie kafelka** → rozwija jego dzieci w poziomie poniżej, inne kafelki na tej samej linii stają się wyszarzone, kliknięty — powiększony i rozjaśniony
-- **Ponowne kliknięcie** → zwija dzieci i przywraca normalny wygląd
-- Łączniki SVG między kafelkami (krzywe Beziera)
-- Smooth animacje CSS (`transition`)
+**Obecny stan (błędny):**
+```
+selectedPath = [tree.id]   ← selectedPath[0] = ID roota
 
----
-
-## Mechanika interakcji (diagram)
-
-```text
-Poziom 0 (TY)
-      │
-      ├──────────────────────────────────────┐
-      │                                      │
-   [Ania ✓ WYBRANY]              [Jan - wyszarzony]  [Kasia - wyszarzony]
-      │
-      ├──────────────────┐
-   [Piotr]            [Marek]
-      │
-  (domyślnie zwinięte)
+W pętli buildRows, level=0:
+  currentNode = root
+  selectedId = selectedPath[0] = root.id
+  szuka root.id wśród root.children → NIE ZNAJDUJE → break
+  → Row 1 (bezpośrednio poleceni) NIGDY nie zostaje wyrenderowana
 ```
 
-Po kliknięciu innego kafelka (np. Jana):
-```text
-[Ania - wyszarzony]   [Jan ✓ WYBRANY]   [Kasia - wyszarzony]
-                           │
-                    (dzieci Jana się rozwijają)
-```
+**Oczekiwane zachowanie:**
+- Wiersz 0: zawsze root
+- Wiersz 1: zawsze dzieci roota (pierwsza linia sponsorowania) — bez klikania
+- Wiersz 2+: dzieci wybranego węzła z wiersza 1 — po kliknięciu
 
----
+## Plan naprawy — tylko 1 plik
 
-## Architektura techniczna
+### `src/components/team-contacts/organization/InteractiveOrgChart.tsx`
 
-### Nowy komponent: `InteractiveOrgChart`
+**Zmiana 1 — przebudowa `buildRows`:**
 
-Plik: `src/components/team-contacts/organization/InteractiveOrgChart.tsx`
-
-Logika stanu:
-- `expandedNodeId: string | null` — który węzeł jest aktualnie rozwinięty **na danym poziomie**
-- Każdy poziom ma własny stan wybranego węzła, niezależnie od innych poziomów
-- Dane prezentowane **level by level** — renderujemy wiersz po wierszu od góry do dołu
-
-**Kluczowa zmiana podejścia**: zamiast rekurencyjnego drzewa, używamy podejścia **level-by-level rendering**:
-
-```text
-Stan: selectedPath = ['root_id', 'child_id', null]
-
-Render:
-  Wiersz 0: [root]                          ← zawsze
-  Wiersz 1: [dziecko A, dziecko B, dziecko C] ← bo root jest w selectedPath[0]
-  Wiersz 2: [wnuczek X, wnuczek Y]          ← bo dziecko B jest w selectedPath[1]
-```
-
-Gdy użytkownik kliknie "dziecko A":
-- `selectedPath[1] = 'dziecko A id'`
-- Wiersz 1: dziecko A = ACTIVE (powiększone), B i C = DIMMED
-- Wiersz 2: dzieci dziecka A
-
-### Styl kafelka w 3 stanach
-
-| Stan | Wygląd |
-|---|---|
-| `normal` | Standardowy border + kolor roli |
-| `active` | `scale-110`, jasniejsze tło, `ring-2 ring-primary`, cień |
-| `dimmed` | `opacity-40 scale-95`, desaturowane (grayscale filtrem CSS) |
-
-### Łączniki SVG
-
-Każdy wiersz ma nad sobą warstwę SVG z krzywymi Beziera od wybranego węzła powyżej do każdego kafelka w bieżącym rzędzie. Implementacja analogiczna do obecnego `createCurvePath`.
-
----
-
-## Pliki do modyfikacji / tworzenia
-
-| Plik | Operacja | Opis |
-|---|---|---|
-| `src/components/team-contacts/organization/InteractiveOrgChart.tsx` | NOWY | Główny komponent nowej wizualizacji |
-| `src/components/team-contacts/organization/index.ts` | EDYCJA | Dodanie eksportu `InteractiveOrgChart` |
-| `src/components/team-contacts/TeamContactsTab.tsx` | EDYCJA | Podpięcie `InteractiveOrgChart` zamiast `OrganizationChart` w zakładce "Struktura" |
-| `src/components/leader/LeaderOrgTreeView.tsx` | EDYCJA | Podpięcie `InteractiveOrgChart` zamiast `OrganizationChart` |
-
-**Uwaga:** `OrganizationChart.tsx` pozostaje niezmieniony — nowy komponent go zastępuje, nie nadpisuje. To pozwoli na rollback jeśli zajdzie potrzeba.
-
----
-
-## Szczegóły implementacji `InteractiveOrgChart`
-
-### Stan komponentu
+Nowe podejście: `selectedPath[N]` = ID wybranego węzła na poziomie N+1 (indeks 0 = który z dzieci roota jest wybrany). Root zawsze pokazuje swoje dzieci.
 
 ```typescript
-// selectedPath: tablica ID wybranych węzłów, indeks = poziom
-// selectedPath[0] = ID wybranego na poziomie 0 (zawsze = root.id, bo root jest jeden)
-// selectedPath[1] = ID wybranego na poziomie 1 (który z bezpośrednich poleconych)
-// selectedPath[2] = ID wybranego na poziomie 2 itd.
-const [selectedPath, setSelectedPath] = useState<(string | null)[]>([tree.id]);
-```
-
-### Logika renderowania
-
-```typescript
-// Oblicz które węzły wyświetlić w każdym wierszu
-const rows = buildRows(tree, selectedPath);
-// rows[0] = [root]
-// rows[1] = root.children (jeśli selectedPath[0] = root.id)
-// rows[2] = selectedChild.children (jeśli selectedPath[1] != null)
-```
-
-### Obsługa kliknięcia
-
-```typescript
-const handleNodeClick = (node: OrgNode, level: number) => {
-  const newPath = selectedPath.slice(0, level + 1);
+// PRZED (błędne):
+function buildRows(root, selectedPath) {
+  rows.push({ nodes: [root], level: 0 });
   
-  if (newPath[level] === node.id) {
-    // Kliknięto ponownie ten sam → zwiń (usuń ten poziom i poniżej)
-    newPath[level] = null;
-  } else {
-    // Kliknięto inny → zmień wybrany, usuń niższe wybory
-    newPath[level] = node.id;
+  let currentNode = root;
+  let level = 0;
+  while (level < selectedPath.length) {
+    const selectedId = selectedPath[level];
+    const found = currentNode.children.find(c => c.id === selectedId);
+    // level=0: szuka root.id wśród root.children → FAIL
+    ...
+  }
+}
+
+// PO (prawidłowe):
+function buildRows(root, selectedPath) {
+  rows.push({ nodes: [root], level: 0 });
+  
+  // Wiersz 1 (dzieci roota) — zawsze widoczny:
+  if (root.children.length > 0) {
+    rows.push({ nodes: root.children, parentId: root.id, level: 1 });
   }
   
-  setSelectedPath(newPath);
+  // Wiersz 2+ — tylko gdy coś wybrano z poziomu 1:
+  let currentNode = root;
+  for (let i = 0; i < selectedPath.length; i++) {
+    const selectedId = selectedPath[i];
+    if (!selectedId) break;
+    
+    const found = currentNode.children.find(c => c.id === selectedId);
+    if (!found || found.children.length === 0) break;
+    
+    rows.push({ nodes: found.children, parentId: found.id, level: i + 2 });
+    currentNode = found;
+  }
+}
+```
+
+**Zmiana 2 — przebudowa stanu `selectedPath`:**
+
+```typescript
+// PRZED:
+const [selectedPath, setSelectedPath] = useState<(string | null)[]>(
+  () => tree ? [tree.id] : []
+);
+
+// PO: selectedPath[0] = który z dzieci roota jest wybrany (null = żaden)
+// selectedPath[1] = który z wnuków (dzieci wybranego dziecka) jest wybrany
+// itd.
+const [selectedPath, setSelectedPath] = useState<(string | null)[]>([]);
+
+// Reset przy zmianie tree:
+useEffect(() => {
+  setSelectedPath([]);  // ← null, nie tree.id
+}, [tree?.id]);
+```
+
+**Zmiana 3 — przebudowa `handleNodeClick`:**
+
+```typescript
+// PRZED (level był indeksem wiersza, row 0 = root, row 1 = dzieci)
+const handleNodeClick = (node, level) => {
+  setSelectedPath(prev => {
+    const newPath = prev.slice(0, level + 1);
+    newPath[level] = newPath[level] === node.id ? null : node.id;
+    return newPath;
+  });
+};
+
+// PO: level = indeks wiersza w rows[]
+// Wiersz 1 = dzieci roota → selectedPath[0]
+// Wiersz 2 = wnuki → selectedPath[1]
+// Kliknięcie węzła w wierszu `rowIndex` → selectedPath[rowIndex - 1]
+const handleNodeClick = (node, rowIndex) => {
+  const pathIndex = rowIndex - 1;  // row 1 → selectedPath[0]
+  setSelectedPath(prev => {
+    const newPath = prev.slice(0, pathIndex + 1);
+    newPath[pathIndex] = newPath[pathIndex] === node.id ? null : node.id;
+    return newPath;
+  });
 };
 ```
 
-### Animacje CSS
+**Zmiana 4 — przebudowa logiki stanów węzłów w JSX:**
 
-- Przejście między stanami: `transition-all duration-300 ease-in-out`
-- Rozwijanie nowego wiersza: `animate-in slide-in-from-top-2 fade-in duration-300`
-- Kafelki używają `transform: scale()` z płynnym przejściem
+```typescript
+// Wiersz 0 (root): zawsze isRoot, nieinteraktywny
+// Wiersz 1 (dzieci roota): 
+//   - selectedPath[0] = null → wszystkie 'normal'
+//   - selectedPath[0] = jakiś ID → ten 'active', reszta 'dimmed'
+// Wiersz 2+: analogicznie, selectedPath[rowIndex - 1]
 
-### Responsywność i scroll
+const pathIndex = rowIndex - 1;
+const selectedInRow = pathIndex >= 0 && pathIndex < selectedPath.length
+  ? selectedPath[pathIndex]
+  : null;
 
-- Kontener: `overflow-x-auto` z `scroll-behavior: smooth`
-- Na mobilach kafelki nieco mniejsze (`sm:` breakpoint)
-- Wiersz wyśrodkowany względem wybranego węzła powyżej (flexbox + `justify-center`)
-
----
-
-## Wizualny efekt końcowy
-
-```text
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-│            ⭐ TY (zawsze widoczny)                  │
-│                       │                             │
-│  ┌─────────────────────────────────────────────┐   │
-│  │  [Jan]    [✓ ANN]    [Piotr]   [Kasia]      │   │
-│  │ opacity-40  scale-110  opacity-40  opacity-40│   │
-│  └─────────────────────────────────────────────┘   │
-│                  ↑ aktywna linia łącząca           │
-│  ┌───────────────────────────────┐                 │
-│  │  [Marek]    [Zofia]   [Adam]  │  ← dzieci Ann   │
-│  └───────────────────────────────┘                 │
-│              (domyślnie zwinięte)                  │
-└─────────────────────────────────────────────────────┘
+let state: NodeState = 'normal';
+if (!isRootRow) {
+  if (selectedInRow === null) {
+    state = 'normal';  // nic nie wybrano → wszystkie normal
+  } else {
+    state = node.id === selectedInRow ? 'active' : 'dimmed';
+  }
+}
 ```
 
----
+**Zmiana 5 — naprawa łączników SVG:**
 
-## Zmiany w istniejących plikach
+Dla wiersza 1 (dzieci roota) parent to zawsze root:
+```typescript
+// rowIndex=1 → parentNodeId = root.id, parentLevel = 0
+// rowIndex=2 → parentNodeId = selectedPath[0], parentLevel = 1
+// Ogólnie: parentNodeId = rowIndex === 1 ? root.id : selectedPath[rowIndex - 2]
+```
 
-### `TeamContactsTab.tsx` — zakładka Struktura
+## Podsumowanie zmian
 
-Zmiana dotyczy tylko jednej linii: zamiana `<OrganizationChart>` → `<InteractiveOrgChart>` w sekcji `structureViewMode === 'graph'`. Przycisk "Graf" będzie teraz otwierał nową wizualizację.
+| Aspekt | Przed (błąd) | Po (naprawione) |
+|---|---|---|
+| `selectedPath` init | `[tree.id]` | `[]` |
+| Wiersz 1 widoczny? | Tylko gdy `selectedPath[0]` = child.id | Zawsze |
+| Kliknięcie w row 1 | Ustawia `selectedPath[1]` | Ustawia `selectedPath[0]` |
+| Łącznik do row 1 | Od `selectedPath[0]` (root.id) → błędnie | Od root.id → zawsze |
 
-### `LeaderOrgTreeView.tsx`
-
-Analogicznie — w trybie `'graph'` podmiana `OrganizationChart` → `InteractiveOrgChart`.
-
----
-
-## Co pozostaje bez zmian
-
-- `OrganizationChart.tsx` — stary widok grafu (niedotykany)
-- `OrganizationList.tsx` — widok listy (niedotykany)
-- `OrganizationNode.tsx` — komponent kafelka (użyjemy go ponownie w nowym komponencie)
-- `useOrganizationTree.ts` — hook danych (niedotykany)
-- `useOrganizationTreeSettings.ts` — ustawienia (niedotykany)
-
-Nowy komponent reużywa `OrganizationNode` z istniejącymi propsami `isSelected` i `hasFocus`, ale dodaje trzeci stan wizualny (`dimmed`) przez zewnętrzny wrapper.
+Tylko **1 plik**: `src/components/team-contacts/organization/InteractiveOrgChart.tsx`
