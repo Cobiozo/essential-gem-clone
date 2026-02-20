@@ -26,11 +26,8 @@ export interface LeaderPermissionsResult {
 export function useLeaderPermissions(): LeaderPermissionsResult {
   const { user, isPartner, isAdmin } = useAuth();
 
-  const isPartnerBool = Boolean(isPartner);
-  const isAdminBool = Boolean(isAdmin);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['leader-permissions-full', user?.id, isPartnerBool, isAdminBool],
+    queryKey: ['leader-permissions-full', user?.id],
     queryFn: async () => {
       if (!user) return null;
 
@@ -80,12 +77,12 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
 
       // Influencer calc: enabled globally for partners AND user has access
       const calcGloballyEnabled = calcSettings?.is_enabled && 
-        (isAdminBool ? calcSettings.enabled_for_admins : calcSettings.enabled_for_partners);
+        (isAdmin ? calcSettings.enabled_for_admins : calcSettings.enabled_for_partners);
       const hasInfluencerCalc = !!(calcGloballyEnabled && calcAccess?.has_access === true);
 
       // Specialist calc: enabled globally for partners AND user has access
       const specialistGloballyEnabled = specialistSettings?.is_enabled && 
-        (isAdminBool ? specialistSettings.enabled_for_admins : specialistSettings.enabled_for_partners);
+        (isAdmin ? specialistSettings.enabled_for_admins : specialistSettings.enabled_for_partners);
       const hasSpecialistCalc = !!(specialistGloballyEnabled && specialistAccess?.has_access === true);
 
       return {
@@ -98,7 +95,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
         hasApprovalPermission,
       };
     },
-    enabled: !!user?.id && (isPartnerBool || isAdminBool),
+    enabled: !!user && (isPartner || isAdmin),
     staleTime: 2 * 60 * 1000,
   });
 

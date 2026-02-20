@@ -36,7 +36,7 @@ import {
 
 export const LeaderApprovalView: React.FC = () => {
   const { pendingApprovals, isLoading, approveUser, rejectUser, isApproving, isRejecting } =
-    useLeaderApprovals(true);
+    useLeaderApprovals();
 
   const [rejectDialog, setRejectDialog] = useState<{
     open: boolean;

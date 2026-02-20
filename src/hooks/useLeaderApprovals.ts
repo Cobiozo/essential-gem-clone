@@ -31,11 +31,10 @@ export function useLeaderApprovals(hasApprovalPermission?: boolean) {
       }
       return (data || []) as PendingLeaderApproval[];
     },
-    enabled: !!user?.id && hasApprovalPermission === true,
+    enabled: !!user && hasApprovalPermission === true,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
     retry: false,
-    throwOnError: false,
   });
 
   const approveMutation = useMutation({
