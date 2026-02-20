@@ -21,7 +21,7 @@ import { TeamContactFilters } from './TeamContactFilters';
 import { TeamContactExport } from './TeamContactExport';
 import { TeamMap } from './TeamMap';
 import { SpecialistSearch } from './SpecialistSearch';
-import { OrganizationChart, OrganizationList } from './organization';
+import { InteractiveOrgChart, OrganizationList } from './organization';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
@@ -607,7 +607,7 @@ export const TeamContactsTab: React.FC = () => {
                   </CardContent>
                 </Card>
               ) : structureViewMode === 'graph' ? (
-                <OrganizationChart
+                <InteractiveOrgChart
                   tree={tree}
                   upline={upline}
                   settings={treeSettings}
