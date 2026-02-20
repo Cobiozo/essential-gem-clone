@@ -7,12 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine } from 'lucide-react';
+import { Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { useGuardianApproval } from '@/hooks/useGuardianApproval';
 import { useOrganizationTree } from '@/hooks/useOrganizationTree';
+import { useOrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
+import type { OrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
 import { TeamContactsTable } from './TeamContactsTable';
 import { TeamContactAccordion } from './TeamContactAccordion';
 import { TeamContactForm } from './TeamContactForm';
@@ -60,11 +62,82 @@ interface PendingApproval {
   email_activated?: boolean;
 }
 
+// Lazy-loaded structure tab — mounts useOrganizationTree only when tab is active
+const StructureTab: React.FC<{ defaultView: 'list' | 'graph'; treeSettings: OrganizationTreeSettings }> = ({ defaultView, treeSettings }) => {
+  const { tree, upline, statistics, loading, error } = useOrganizationTree();
+  const [viewMode, setViewMode] = useState<'list' | 'graph'>(defaultView);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center h-32">
+          <p className="text-destructive text-sm">{error}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* View Toggle */}
+      <div className="flex justify-end">
+        <div className="flex border rounded-md overflow-hidden">
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+            className="rounded-none"
+          >
+            <List className="w-4 h-4 mr-2" />
+            Lista
+          </Button>
+          <Button
+            variant={viewMode === 'graph' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('graph')}
+            className="rounded-none"
+          >
+            <TreePine className="w-4 h-4 mr-2" />
+            Graf
+          </Button>
+        </div>
+      </div>
+
+      {viewMode === 'graph' ? (
+        <OrganizationChart
+          tree={tree}
+          upline={upline}
+          settings={treeSettings}
+          statistics={statistics}
+        />
+      ) : (
+        <OrganizationList
+          tree={tree}
+          upline={upline}
+          settings={treeSettings}
+          statistics={statistics}
+        />
+      )}
+    </div>
+  );
+};
+
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
-  const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
+  // Only load lightweight settings here — full tree data loads lazily inside StructureTab
+  const { settings: treeSettings, canAccessTree } = useOrganizationTreeSettings();
   const location = useLocation();
   
   // Clients only see the specialist search tab, not private/team contacts
@@ -76,7 +149,6 @@ export const TeamContactsTab: React.FC = () => {
   const [editingContact, setEditingContact] = useState<TeamContact | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [viewMode, setViewMode] = useState<'accordion' | 'table' | 'map'>('accordion');
-  const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
@@ -99,13 +171,6 @@ export const TeamContactsTab: React.FC = () => {
       setActiveTab('structure');
     }
   }, [location.search]);
-
-  // Update structure view mode when settings load
-  useEffect(() => {
-    if (treeSettings?.default_view) {
-      setStructureViewMode(treeSettings.default_view);
-    }
-  }, [treeSettings?.default_view]);
 
   // Fetch pending approvals for guardian
   const fetchPendingApprovals = async () => {
@@ -202,8 +267,11 @@ export const TeamContactsTab: React.FC = () => {
   const isTeamMemberTab = activeTab === 'team';
   const isPrivateTab = activeTab === 'private';
 
+  // Determine access once — canAccessTree() is stable after settings load
+  const hasTreeAccess = canAccessTree();
+
   // Calculate visible tabs count for grid
-  const visibleTabsCount = (clientOnlyView ? 0 : 2) + (canSearchSpecialists ? 1 : 0) + (canAccessTree() ? 1 : 0);
+  const visibleTabsCount = (clientOnlyView ? 0 : 2) + (canSearchSpecialists ? 1 : 0) + (hasTreeAccess ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -235,7 +303,7 @@ export const TeamContactsTab: React.FC = () => {
               <span className="sm:hidden">Szukaj</span>
             </TabsTrigger>
           )}
-          {canAccessTree() && (
+          {hasTreeAccess && (
             <TabsTrigger value="structure" className="flex items-center gap-2">
               <TreePine className="w-4 h-4" />
               <span className="hidden sm:inline">Struktura</span>
@@ -572,56 +640,13 @@ export const TeamContactsTab: React.FC = () => {
           </TabsContent>
         )}
 
-        {/* Structure Tab */}
-        {canAccessTree() && treeSettings && (
+        {/* Structure Tab — lazy loaded, useOrganizationTree mounts only here */}
+        {hasTreeAccess && treeSettings && (
           <TabsContent value="structure">
-            <div className="space-y-4">
-              {/* View Toggle */}
-              <div className="flex justify-end">
-                <div className="flex border rounded-md overflow-hidden">
-                  <Button
-                    variant={structureViewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setStructureViewMode('list')}
-                    className="rounded-none"
-                  >
-                    <List className="w-4 h-4 mr-2" />
-                    Lista
-                  </Button>
-                  <Button
-                    variant={structureViewMode === 'graph' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setStructureViewMode('graph')}
-                    className="rounded-none"
-                  >
-                    <TreePine className="w-4 h-4 mr-2" />
-                    Graf
-                  </Button>
-                </div>
-              </div>
-
-              {treeLoading ? (
-                <Card>
-                  <CardContent className="flex items-center justify-center h-64">
-                    <p className="text-muted-foreground">Ładowanie struktury...</p>
-                  </CardContent>
-                </Card>
-              ) : structureViewMode === 'graph' ? (
-                <OrganizationChart
-                  tree={tree}
-                  upline={upline}
-                  settings={treeSettings}
-                  statistics={statistics}
-                />
-              ) : (
-                <OrganizationList
-                  tree={tree}
-                  upline={upline}
-                  settings={treeSettings}
-                  statistics={statistics}
-                />
-              )}
-            </div>
+            <StructureTab
+              defaultView={treeSettings.default_view || 'list'}
+              treeSettings={treeSettings}
+            />
           </TabsContent>
         )}
       </Tabs>

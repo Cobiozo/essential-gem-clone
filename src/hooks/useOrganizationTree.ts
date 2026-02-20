@@ -96,7 +96,8 @@ export const useOrganizationTree = () => {
     } finally {
       setLoading(false);
     }
-  }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, canAccessTree, getMaxDepthForRole, settings?.show_upline]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings]);
 
   // Build tree structure from flat data
   const buildTree = useCallback((members: OrganizationMember[]): OrganizationTreeNode | null => {
