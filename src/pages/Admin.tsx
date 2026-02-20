@@ -2049,13 +2049,6 @@ const Admin = () => {
     }
   }, [activeTab, isAdmin]);
 
-  // Also fetch header text on component mount if we're on content tab
-  useEffect(() => {
-    if (isAdmin && activeTab === 'content') {
-      fetchHeaderText();
-      fetchAuthorText();
-    }
-  }, [isAdmin]);
 
   useEffect(() => {
     // Wait for auth to complete before checking user state
