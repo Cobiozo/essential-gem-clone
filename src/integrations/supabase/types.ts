@@ -3347,6 +3347,7 @@ export type Database = {
           activated_by: string | null
           can_broadcast: boolean | null
           can_host_private_meetings: boolean | null
+          can_view_org_tree: boolean | null
           can_view_team_progress: boolean | null
           consultation_slot_duration: number | null
           created_at: string | null
@@ -3367,6 +3368,7 @@ export type Database = {
           activated_by?: string | null
           can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
+          can_view_org_tree?: boolean | null
           can_view_team_progress?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
@@ -3387,6 +3389,7 @@ export type Database = {
           activated_by?: string | null
           can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
+          can_view_org_tree?: boolean | null
           can_view_team_progress?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
