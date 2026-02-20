@@ -7,8 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Search, GraduationCap, Users, TrendingUp, CheckCircle } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Loader2, Search, GraduationCap, Users, TrendingUp, CheckCircle, ChevronDown } from 'lucide-react';
 
 interface TeamProgressRow {
   user_id: string;
@@ -62,6 +63,12 @@ const levelLabels: Record<number, string> = {
 
 const getLevelLabel = (level: number) => levelLabels[Math.min(level, 5)] || `Poziom ${level}`;
 
+const getInitials = (firstName: string | null, lastName: string | null) => {
+  const f = firstName?.charAt(0) || '';
+  const l = lastName?.charAt(0) || '';
+  return (f + l).toUpperCase() || '?';
+};
+
 export const TeamTrainingProgressView: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -70,6 +77,7 @@ export const TeamTrainingProgressView: React.FC = () => {
   const [accessDenied, setAccessDenied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [moduleFilter, setModuleFilter] = useState<string>('all');
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user) return;
@@ -109,6 +117,18 @@ export const TeamTrainingProgressView: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleUserExpanded = (userId: string) => {
+    setExpandedUsers(prev => {
+      const next = new Set(prev);
+      if (next.has(userId)) {
+        next.delete(userId);
+      } else {
+        next.add(userId);
+      }
+      return next;
+    });
   };
 
   // Get unique modules for filter
@@ -268,7 +288,7 @@ export const TeamTrainingProgressView: React.FC = () => {
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Header + Filters */}
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
@@ -280,7 +300,7 @@ export const TeamTrainingProgressView: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -303,137 +323,121 @@ export const TeamTrainingProgressView: React.FC = () => {
             </Select>
           </div>
 
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Osoba</TableHead>
-                  <TableHead>Rola / Poziom</TableHead>
-                  {moduleFilter === 'all' ? (
-                    <>
-                      <TableHead>Moduły</TableHead>
-                      <TableHead className="text-right">Ogólny postęp</TableHead>
-                    </>
-                  ) : (
-                    <>
-                      <TableHead>Postęp modułu</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
-                    </>
-                  )}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredPeople.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                      {searchQuery || moduleFilter !== 'all' ? 'Brak wyników dla podanych filtrów' : 'Brak danych'}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredPeople.map(person => {
-                    const displayModules = moduleFilter === 'all'
-                      ? person.modules
-                      : person.modules.filter(m => m.module_id === moduleFilter);
+          {filteredPeople.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">
+              {searchQuery || moduleFilter !== 'all' ? 'Brak wyników dla podanych filtrów' : 'Brak danych'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredPeople.map(person => {
+                const isExpanded = expandedUsers.has(person.user_id);
+                const displayModules = moduleFilter === 'all'
+                  ? person.modules
+                  : person.modules.filter(m => m.module_id === moduleFilter);
+                const allCompleted = person.modules.length > 0 && person.modules.every(m => m.is_completed);
 
-                    return (
-                      <TableRow key={person.user_id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">
-                              {person.first_name} {person.last_name}
-                            </p>
-                            {person.eq_id && (
-                              <p className="text-xs text-muted-foreground">EQ: {person.eq_id}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            <Badge variant="outline" className="text-xs">
-                              {roleLabels[person.role || ''] || person.role}
-                            </Badge>
-                            <p className="text-xs text-muted-foreground">
-                              {getLevelLabel(person.level)}
-                            </p>
-                          </div>
-                        </TableCell>
-                        {moduleFilter === 'all' ? (
-                          <>
-                            <TableCell>
-                              <div className="space-y-1.5">
-                                {displayModules.length === 0 ? (
-                                  <span className="text-xs text-muted-foreground">Brak przypisanych modułów</span>
-                                ) : (
-                                  displayModules.map(m => (
-                                    <div key={m.module_id} className="flex items-center gap-2">
-                                      <div className="flex-1 min-w-0">
-                                        <p className="text-xs truncate" title={m.module_title}>{m.module_title}</p>
-                                        <Progress value={m.progress_percentage} className="h-1.5 mt-0.5" />
-                                      </div>
-                                      <span className="text-xs text-muted-foreground shrink-0">
-                                        {m.progress_percentage}%
-                                      </span>
-                                      {m.is_completed && (
-                                        <CheckCircle className="h-3.5 w-3.5 text-primary shrink-0" />
-                                      )}
-                                    </div>
-                                  ))
+                return (
+                  <Collapsible
+                    key={person.user_id}
+                    open={isExpanded}
+                    onOpenChange={() => toggleUserExpanded(person.user_id)}
+                  >
+                    <Card className="overflow-hidden">
+                      <CollapsibleTrigger asChild>
+                        <CardContent className="pt-4 pb-4 cursor-pointer hover:bg-muted/30 transition-colors">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10 shrink-0">
+                              <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
+                                {getInitials(person.first_name, person.last_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium truncate">
+                                {person.first_name} {person.last_name}
+                              </p>
+                              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                                {person.eq_id && (
+                                  <span className="text-xs text-muted-foreground">EQ: {person.eq_id}</span>
                                 )}
+                                <Badge variant="outline" className="text-xs py-0 h-4">
+                                  {roleLabels[person.role || ''] || person.role}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {getLevelLabel(person.level)}
+                                </span>
                               </div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex flex-col items-end gap-1">
-                                <span className="text-sm font-semibold">{person.overallProgress}%</span>
-                                <Progress value={person.overallProgress} className="h-2 w-20" />
-                              </div>
-                            </TableCell>
-                          </>
-                        ) : (
-                          <>
-                            <TableCell>
-                              {displayModules.length === 0 ? (
-                                <span className="text-xs text-muted-foreground">Nieprzypisany</span>
-                              ) : (
-                                displayModules.map(m => (
-                                  <div key={m.module_id} className="space-y-1">
-                                    <div className="flex items-center gap-2">
-                                      <Progress value={m.progress_percentage} className="h-2 flex-1" />
-                                      <span className="text-sm font-medium shrink-0">{m.progress_percentage}%</span>
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                      {m.completed_lessons} / {m.total_lessons} lekcji
-                                    </p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Badge
+                                className={
+                                  allCompleted
+                                    ? 'bg-primary/10 text-primary border-primary/20'
+                                    : person.overallProgress > 0
+                                    ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                                    : 'bg-secondary text-secondary-foreground border-transparent'
+                                }
+                                variant="outline"
+                              >
+                                {person.overallProgress}%
+                              </Badge>
+                              <ChevronDown
+                                className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                              />
+                            </div>
+                          </div>
+                          {/* Mini progress bar */}
+                          <div className="mt-3">
+                            <Progress value={person.overallProgress} className="h-1.5" />
+                          </div>
+                        </CardContent>
+                      </CollapsibleTrigger>
+
+                      <CollapsibleContent>
+                        <div className="border-t px-4 pb-4 pt-3 space-y-4 bg-muted/20">
+                          {displayModules.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-2">
+                              {moduleFilter !== 'all' ? 'Nieprzypisany do tego modułu' : 'Brak przypisanych modułów'}
+                            </p>
+                          ) : (
+                            displayModules.map(m => (
+                              <div key={m.module_id} className="space-y-1.5">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs font-medium truncate" title={m.module_title}>
+                                    {m.module_title}
+                                  </p>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {m.is_completed && (
+                                      <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                                    )}
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-xs py-0 h-4 ${
+                                        m.is_completed
+                                          ? 'bg-primary/10 text-primary border-primary/20'
+                                          : m.progress_percentage > 0
+                                          ? 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20'
+                                          : ''
+                                      }`}
+                                    >
+                                      {m.progress_percentage}%
+                                    </Badge>
                                   </div>
-                                ))
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {displayModules.length === 0 ? null : displayModules.map(m => (
-                                m.is_completed ? (
-                                  <Badge key={m.module_id} className="bg-primary/10 text-primary border-primary/20">
-                                    <CheckCircle className="h-3 w-3 mr-1" />
-                                    Ukończony
-                                  </Badge>
-                                ) : m.progress_percentage > 0 ? (
-                                  <Badge key={m.module_id} variant="outline" className="text-primary border-primary/30">
-                                    W trakcie
-                                  </Badge>
-                                ) : (
-                                  <Badge key={m.module_id} variant="secondary">
-                                    Nie rozpoczęty
-                                  </Badge>
-                                )
-                              ))}
-                            </TableCell>
-                          </>
-                        )}
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                                </div>
+                                <Progress value={m.progress_percentage} className="h-2" />
+                                <p className="text-xs text-muted-foreground">
+                                  {m.completed_lessons} / {m.total_lessons} lekcji
+                                </p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Card>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
