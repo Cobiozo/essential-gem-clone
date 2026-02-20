@@ -1,77 +1,158 @@
 
-# Przebudowa TeamTrainingProgressView na widok rozwijany (wzorzec z panelu admina)
+# Plan zmian — 5 zadań jednocześnie
 
-## Co się zmieni
+## Diagnoza wszystkich problemów
 
-Obecny widok to zwykła tabela, gdzie WSZYSTKIE moduły każdej osoby są widoczne jednocześnie w wierszu — przez co tabela jest bardzo wysoka i trudna do czytania.
+### 1. Sidebar — reorganizacja kolejności i widoczności
 
-Nowy widok będzie identyczny jak w panelu admina (zakładka "Postęp użytkowników"):
-- Każda osoba = karta z avatarem, imieniem, EQ ID i ogólnym % postępu
-- Kliknięcie karty → rozwija listę modułów danej osoby (Collapsible)
-- Każdy moduł = osobna sekcja z paskiem postępu i liczbą lekcji (bez przycisku reset/zatwierdź — lider tylko ogląda)
-- Siatka 2 kolumn na desktop, 1 kolumna na mobile (identycznie jak w adminie)
-
-## Wzorzec z panelu admina (linii 1671-1883 TrainingManagement.tsx)
-
-```text
-┌────────────────────────────────────────────────────────┐
-│  [Avatar] Jan Kowalski                        23% ▼   │
-│           EQ: 12345678                                 │
-└────────────────────────────────────────────────────────┘
-  ▼ (po kliknięciu rozwinięte):
-  ┌──────────────────────────────────────────────────────┐
-  │  SPRZEDAŻOWE                              82%        │
-  │  ████████████████░░░░░░░░  3/4 lekcji               │
-  │                                                      │
-  │  TECHNICZNE                                0%        │
-  │  ░░░░░░░░░░░░░░░░░░░░░░░░  0/6 lekcji               │
-  └──────────────────────────────────────────────────────┘
+Aktualny układ (linie 391–490 `DashboardSidebar.tsx`):
+```
+Pulpit → Akademia → Zdrowa Wiedza → Biblioteka → Pure-Kontakty
+→ Aktualności → Eventy → Eventy płatne
+→ [Panel Lidera - warunkowo, tylko gdy tripartite lub consultation]
+→ Czat → Wsparcie i pomoc → PureLinki → InfoLinki → Społeczność
+→ [HTML pages] → Ustawienia → Kalkulator → CMS Panel
 ```
 
-## Szczegóły implementacji
+Żądany układ:
+```
+Pulpit
+→ [Panel Lidera - TUTAJ, pod Pulpitem]
+Akademia → Zdrowa Wiedza → Biblioteka → Pure-Kontakty
+→ Aktualności → Eventy → Eventy płatne
+→ Czat → PureLinki → InfoLinki
+→ [HTML pages] → Ustawienia
+→ Wsparcie i pomoc [poniżej Ustawień]
+→ Kalkulator [bez zmian w treści, ale kalkulator w Panel Lidera też]
+→ CMS Panel
+```
 
-### Struktura komponentu (jeden plik: TeamTrainingProgressView.tsx)
+- **Społeczność** — ukryć całkowicie z menu (ikony w stopce pełnią tę samą rolę). Zmiana: usunąć element `community` z tablicy `menuItems` LUB zawsze zwracać `false` w filtrze widoczności dla `community`.
+- **Panel Lidera** — przenieść bezpośrednio za `dashboard` w tablicy `menuItems`.
+- **Wsparcie i pomoc** — przenieść po `settings` w tablicy `menuItems`.
+- **Kalkulator dla Specjalistów + Influenserów w Panel Lidera** — Panel Lidera ma teraz być osobną sekcją z submenu zawierającym kalkulatory PLUS dotychczasowe linki do `/leader` i ewentualnie spotkań.
 
-1. **Stan expandedUsers** — `Set<string>` z user_id aktualnie rozwiniętych kart (identycznie jak `expandedUsers` w TrainingManagement)
+**Uwaga dot. warunku widoczności Panel Lidera**: Aktualnie Panel Lidera pojawia się tylko gdy `individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation`. Należy poszerzyć ten warunek — jeżeli partner ma dostęp do kalkulatora (`calculatorAccess?.hasAccess`), Panel Lidera też powinien być widoczny.
 
-2. **Funkcja toggleUserExpanded** — przełącza danego użytkownika w/out zestawu
+**Nowa struktura Panel Lidera** jako item z submenu:
+```
+Panel Lidera (Crown icon)
+  ├── Panel Lidera [główny] → /leader
+  ├── Kalkulator Influenserów → /calculator/influencer  (gdy hasAccess)
+  └── Kalkulator Specjalistów → /calculator/specialist  (gdy hasAccess)
+```
 
-3. **Layout** — `grid grid-cols-1 md:grid-cols-2 gap-4` zamiast tabeli
+Kalkulator jako osobny element sidebara pozostaje (dla adminów), ale dla partnerów kalkulatory trafiają do Panel Lidera submenu.
 
-4. **Collapsible trigger** — karta osoby z:
-   - Avatar z inicjałami (tak jak w adminie — `Avatar` + `AvatarFallback`)
-   - Imię i nazwisko + EQ ID
-   - Badge z ogólnym % (kolor: żółty gdy w trakcie, zielony gdy 100%)
-   - Ikona `ChevronDown` z rotacją przy otwarciu
-   - Rola i poziom jako małe badge'e pod nazwiskiem
+### 2. Błąd "Nie udało się dodać kontaktu" — constraint mismatch
 
-5. **CollapsibleContent** — lista modułów z:
-   - Nazwa modułu + % jako Badge
-   - `x/y lekcji` informacja
-   - Pasek postępu (Progress component)
-   - Brak przycisków admin (reset/zatwierdź) — lider tylko przegląda
+**Potwierdzone przez logi PostgreSQL**:
+```
+ERROR: new row for relation "team_contacts" violates check constraint 
+"team_contacts_relationship_status_check"
+```
 
-6. **Filtr modułów** — Select pozostaje, ale filtruje karty (gdy filtr aktywny → ukryj moduły nienależące do filtru w rozwiniętych kartach)
+Constraint w bazie dopuszcza TYLKO: `active`, `suspended`, `closed_success`, `closed_not_now`
 
-7. **Wyszukiwarka** — zostaje bez zmian
+Formularz `PrivateContactForm.tsx` wysyła m.in.: `observation`, `potential_partner`, `potential_specialist` — KTÓRYCH NIE MA W CONSTRAINT!
 
-8. **Karty statystyk (stats)** — zostają na górze bez zmian
+**Dwa możliwe rozwiązania**:
+- Opcja A: Zmienić constraint w bazie (migracja SQL) — dodać brakujące wartości
+- Opcja B: Zmienić formularz — mapować wartości do tych obsługiwanych przez bazę
 
-### Import wymagany do dodania
-- `Avatar, AvatarFallback` z `@/components/ui/avatar`  
-- `Collapsible, CollapsibleContent, CollapsibleTrigger` z `@/components/ui/collapsible`
-- `ChevronDown` z `lucide-react`
+**Wybrane rozwiązanie: Opcja A (migracja)** — bo opcje w formularzu mają sens biznesowy i nie należy ich redukować. Nowa migracja SQL:
+```sql
+ALTER TABLE team_contacts 
+DROP CONSTRAINT team_contacts_relationship_status_check;
 
-### Usunięcie
-- Całość `Table, TableBody, TableCell, TableHead, TableHeader, TableRow` — nie potrzebne
-- Warunkowe renderowanie `moduleFilter === 'all'` w tabeli — logika uproszczona
+ALTER TABLE team_contacts 
+ADD CONSTRAINT team_contacts_relationship_status_check 
+CHECK (relationship_status = ANY (ARRAY[
+  'active', 'suspended', 'closed_success', 'closed_not_now',
+  'observation', 'potential_partner', 'potential_specialist'
+]));
+```
+
+### 3. "Moja strona" — alias = EQ ID użytkownika (automatyczny)
+
+Aktualnie w `PartnerPageEditor.tsx`:
+- `alias` to pole tekstowe, które użytkownik wpisuje ręcznie
+- `handleAliasChange` normalizuje i waliduje alias
+
+Nowe zachowanie:
+- Przy ładowaniu komponentu, jeśli brak aliasu → automatycznie pobierz `eq_id` z profilu użytkownika i ustaw jako alias
+- Jeśli alias już istnieje (partner wcześniej go ustawił) → zostawić bez zmian (migracja danych)
+- Pole `alias` zmienić na **tylko do odczytu** — wyświetlić informacyjnie (nie jako edytowalny input)
+- Ukryć przycisk ręcznej edycji aliasu; alias = zawsze EQ ID
+- Przy pierwszym zapisie `savePartnerPage` automatycznie przekazać alias = EQ ID z profilu
+- W `usePartnerPage.ts` lub `PartnerPageEditor.tsx` dodać logikę: podczas `fetchData` pobierz też `eq_id` z profilu i jeśli `partnerPage?.alias` jest puste, wywołaj `savePartnerPage({ alias: eqId })` automatycznie
+
+**Implementacja w `PartnerPageEditor.tsx`**:
+1. Dodać `useAuth` żeby mieć `user`
+2. Dodać dodatkowy query: `supabase.from('profiles').select('eq_id').eq('user_id', user.id).single()`
+3. W `useEffect` po załadowaniu `partnerPage`: jeśli `!partnerPage?.alias` i `eqId` — automatycznie zapisać alias
+4. Usunąć edytowalny `Input` dla aliasu; zastąpić statycznym wyświetleniem
+5. Upewnić się, że alias nie jest wysyłany jako edytowalny przez użytkownika przy każdym `handleSave`
 
 ## Pliki do zmiany
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/training/TeamTrainingProgressView.tsx` | Podmiana tabeli na siatka Collapsible kart — identyczny wzorzec jak w TrainingManagement.tsx linie 1671-1883 |
+| Plik | Co się zmienia |
+|------|----------------|
+| `src/components/dashboard/DashboardSidebar.tsx` | Reorganizacja kolejności menu, ukrycie Społeczności, Panel Lidera z submenu kalkulatorów, Wsparcie po Ustawieniach |
+| `src/components/team-contacts/PrivateContactForm.tsx` | Brak zmian w kodzie — fix przez migrację SQL |
+| `src/components/partner-page/PartnerPageEditor.tsx` | Alias automatycznie z EQ ID, pole tylko do odczytu |
+| `supabase/migrations/[nowa].sql` | Rozszerzenie constraint `relationship_status` o brakujące wartości |
 
-## Efekt końcowy
+## Szczegóły — reorganizacja tablicy menuItems
 
-Widok będzie identyczny jak w panelu admina — karty z avatarami, rozwijane po kliknięciu, z listą modułów i paskami postępu wewnątrz.
+Nowa kolejność w tablicy `menuItems` (linia ~391):
+```
+1. dashboard (Pulpit)
+2. leader-panel — PRZENIESIONY TUTAJ (z submenu: /leader, /calculator/influencer, /calculator/specialist)
+3. academy
+4. healthy-knowledge
+5. resources
+6. pureContacts
+7. news
+8. events
+9. paid-events
+10. chat
+11. reflinks
+12. infolinks
+13. [community — USUNIĘTY z menu, zostaje tylko w stopce]
+14. [HTML pages]
+15. settings
+16. support — PRZENIESIONY PO settings
+17. calculator — zostaje dla adminów (ale dla partnerów kalkulatory są w Panel Lidera)
+18. admin
+```
+
+## Warunek widoczności Panel Lidera (nowy)
+
+```typescript
+const showLeaderPanel = isPartner && (
+  individualMeetingsEnabled.tripartite || 
+  individualMeetingsEnabled.consultation ||
+  calculatorAccess?.hasAccess // NOWE — kalkulator też daje dostęp do panelu
+);
+```
+
+Submenu Panel Lidera:
+```typescript
+submenuItems: [
+  { id: 'leader-main', labelKey: 'Panel Lidera', path: '/leader', icon: Crown },
+  ...(calculatorAccess?.hasAccess ? [
+    { id: 'calc-influencer', labelKey: 'Kalkulator Influenserów', path: '/calculator/influencer', icon: Users },
+    { id: 'calc-specialist', labelKey: 'Kalkulator Specjalistów', path: '/calculator/specialist', icon: UserRound },
+  ] : []),
+]
+```
+
+## Kwestia constraint SQL
+
+Sprawdzone dane z logów:
+- 4 błędy `team_contacts_relationship_status_check` — wszystkie z niedozwolonymi wartościami
+- Constraint obecny: `active | suspended | closed_success | closed_not_now`
+- Brakuje: `observation | potential_partner | potential_specialist`
+
+Migracja jest bezpieczna — tylko rozszerzamy listę dozwolonych wartości, nie usuwamy istniejących.
