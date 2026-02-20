@@ -55,6 +55,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { UserProfileCard } from './UserProfileCard';
 import { supabase } from '@/integrations/supabase/client';
+import { useLeaderPermissions } from '@/hooks/useLeaderPermissions';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
@@ -179,8 +180,11 @@ export const DashboardSidebar: React.FC = () => {
   const isCollapsed = state === 'collapsed';
   const isMobile = useIsMobile();
 
-  // Calculator access
+  // Calculator access (kept for admin calc block below)
   const { data: calculatorAccess } = useCalculatorAccess();
+
+  // Leader permissions (replaces old showLeaderPanel logic)
+  const { isAnyLeaderFeatureEnabled } = useLeaderPermissions();
 
   // Chat sidebar visibility
   const { data: chatVisibility } = useChatSidebarVisibility();
@@ -388,28 +392,14 @@ export const DashboardSidebar: React.FC = () => {
       };
     });
 
-  // Show leader panel if partner has meetings enabled OR calculator access
-  const showLeaderPanel = isPartner && (
-    individualMeetingsEnabled.tripartite || 
-    individualMeetingsEnabled.consultation ||
-    calculatorAccess?.hasAccess
-  );
-
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
-    // Leader Panel - directly under Dashboard for partners with access
-    ...(showLeaderPanel ? [{
+    // Leader Panel - single link, visible when partner has any leader feature enabled
+    ...(isPartner && isAnyLeaderFeatureEnabled ? [{
       id: 'leader-panel',
       icon: Crown,
       labelKey: 'Panel Lidera',
-      hasSubmenu: true,
-      submenuItems: [
-        { id: 'leader-main', labelKey: 'Panel Lidera', path: '/leader', icon: Crown },
-        ...(calculatorAccess?.hasAccess ? [
-          { id: 'calculator-influencer', labelKey: 'dashboard.menu.forInfluencers', path: '/calculator/influencer', icon: Users },
-          { id: 'calculator-specialist', labelKey: 'dashboard.menu.forSpecialists', path: '/calculator/specialist', icon: UserRound },
-        ] : []),
-      ],
+      path: '/leader',
     }] : []) as MenuItem[],
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
     { id: 'healthy-knowledge', icon: Heart, labelKey: 'dashboard.menu.healthyKnowledge', path: '/zdrowa-wiedza' },
