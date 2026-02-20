@@ -185,7 +185,8 @@ export const useOrganizationTree = () => {
       hasFetchedRef.current = true;
       fetchTree();
     }
-  }, [settingsLoading, profile?.eq_id, fetchTree]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsLoading, profile?.eq_id]); // fetchTree celowo pominięte — reagujemy tylko na stabilne prymitywy
 
   return {
     tree,

@@ -63,6 +63,7 @@ export const useOrganizationTreeSettings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { userRole } = useAuth();
+  const userRoleStr = userRole?.role ?? null; // prymityw string — stabilna referencja
 
   const fetchSettings = async () => {
     try {
@@ -121,32 +122,28 @@ export const useOrganizationTreeSettings = () => {
   // Check if user can access the organization tree
   const canAccessTree = useCallback((): boolean => {
     if (!settings || !settings.is_enabled) return false;
+    if (!userRoleStr) return false;
     
-    const role = userRole?.role;
-    if (!role) return false;
-    
-    if (role === 'admin') return true;
-    if (role === 'partner' && settings.visible_to_partners) return true;
-    if (role === 'specjalista' && settings.visible_to_specjalista) return true;
-    if (role === 'client' && settings.visible_to_clients) return true;
+    if (userRoleStr === 'admin') return true;
+    if (userRoleStr === 'partner' && settings.visible_to_partners) return true;
+    if (userRoleStr === 'specjalista' && settings.visible_to_specjalista) return true;
+    if (userRoleStr === 'client' && settings.visible_to_clients) return true;
     
     return false;
-  }, [settings, userRole?.role]);
+  }, [settings, userRoleStr]); // userRoleStr — stabilna prymitywna wartość
 
   // Get max depth for current user's role
   const getMaxDepthForRole = useCallback((): number => {
     if (!settings) return 0;
+    if (!userRoleStr) return 0;
     
-    const role = userRole?.role;
-    if (!role) return 0;
-    
-    if (role === 'admin') return settings.max_depth;
-    if (role === 'partner') return settings.partner_max_depth;
-    if (role === 'specjalista') return settings.specjalista_max_depth;
-    if (role === 'client') return settings.client_max_depth;
+    if (userRoleStr === 'admin') return settings.max_depth;
+    if (userRoleStr === 'partner') return settings.partner_max_depth;
+    if (userRoleStr === 'specjalista') return settings.specjalista_max_depth;
+    if (userRoleStr === 'client') return settings.client_max_depth;
     
     return 0;
-  }, [settings, userRole?.role]);
+  }, [settings, userRoleStr]); // userRoleStr — stabilna prymitywna wartość
 
   useEffect(() => {
     fetchSettings();
