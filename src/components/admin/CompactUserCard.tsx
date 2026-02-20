@@ -32,7 +32,8 @@ import {
   Clock,
   Send,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Crown
 } from 'lucide-react';
 
 interface UserProfile {
@@ -51,6 +52,9 @@ interface UserProfile {
   guardian_approved_at?: string | null;
   admin_approved?: boolean;
   admin_approved_at?: string | null;
+  leader_approved?: boolean | null;
+  leader_approved_at?: string | null;
+  leader_approver_id?: string | null;
   upline_eq_id?: string | null;
   guardian_name?: string | null;
   email_activated?: boolean;
@@ -115,12 +119,13 @@ const getRoleBadgeClasses = (role: string): string => {
   }
 };
 
-type UserStatus = 'fully_approved' | 'awaiting_admin' | 'awaiting_guardian' | 'email_pending' | 'inactive';
+type UserStatus = 'fully_approved' | 'awaiting_admin' | 'awaiting_leader' | 'awaiting_guardian' | 'email_pending' | 'inactive';
 
 const getUserStatus = (userProfile: UserProfile): UserStatus => {
   if (!userProfile.is_active) return 'inactive';
   if (!userProfile.email_activated) return 'email_pending';
   if (!userProfile.guardian_approved) return 'awaiting_guardian';
+  if (userProfile.leader_approved === false) return 'awaiting_leader';
   if (!userProfile.admin_approved) return 'awaiting_admin';
   return 'fully_approved';
 };
@@ -129,6 +134,7 @@ const StatusDot: React.FC<{ status: UserStatus }> = ({ status }) => {
   const config: Record<UserStatus, { color: string; tooltip: string }> = {
     fully_approved: { color: 'bg-green-500', tooltip: 'W pełni zatwierdzony' },
     awaiting_admin: { color: 'bg-amber-500', tooltip: 'Oczekuje na admina' },
+    awaiting_leader: { color: 'bg-violet-500', tooltip: 'Oczekuje na Lidera' },
     awaiting_guardian: { color: 'bg-red-500', tooltip: 'Oczekuje na opiekuna' },
     email_pending: { color: 'bg-gray-400', tooltip: 'Email niepotwierdzony' },
     inactive: { color: 'bg-gray-300', tooltip: 'Zablokowany' },
@@ -242,6 +248,12 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                 ) : (
                   <Badge variant="outline" className="text-xs h-5 border-amber-300 text-amber-700 bg-amber-50 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800">
                     ✗ Email
+                  </Badge>
+                )}
+                {userProfile.leader_approved === false && (
+                  <Badge variant="outline" className="text-xs h-5 border-violet-300 text-violet-700 bg-violet-50 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-800">
+                    <Crown className="w-3 h-3 mr-0.5" />
+                    Czeka na Lidera
                   </Badge>
                 )}
                 {!userProfile.is_active && (
