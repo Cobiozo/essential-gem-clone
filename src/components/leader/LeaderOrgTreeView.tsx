@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, TreePine, List, Users, UserRound, User } from 'lucide-react';
 import { useOrganizationTree } from '@/hooks/useOrganizationTree';
-import { InteractiveOrgChart, OrganizationList } from '@/components/team-contacts/organization';
+import { OrganizationChart, OrganizationList } from '@/components/team-contacts/organization';
 
 const LeaderOrgTreeView: React.FC = () => {
   const { tree, upline, statistics, settings, loading, error } = useOrganizationTree();
@@ -112,7 +112,7 @@ const LeaderOrgTreeView: React.FC = () => {
         </CardHeader>
         <CardContent className="p-0">
           {viewMode === 'graph' ? (
-            <InteractiveOrgChart
+            <OrganizationChart
               tree={tree}
               upline={upline}
               settings={treeSettings as any}

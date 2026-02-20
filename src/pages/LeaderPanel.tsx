@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,12 +9,10 @@ import { useLeaderApprovals } from '@/hooks/useLeaderApprovals';
 import { useToast } from '@/hooks/use-toast';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
 import { TeamTrainingProgressView } from '@/components/training/TeamTrainingProgressView';
-import { CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound, TreePine, UserCheck } from 'lucide-react';
+import { CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound, UserCheck } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
 import { LeaderApprovalView } from '@/components/leader/LeaderApprovalView';
-
-const LeaderOrgTreeView = lazy(() => import('@/components/leader/LeaderOrgTreeView'));
 
 const LeaderPanel: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -23,7 +21,6 @@ const LeaderPanel: React.FC = () => {
     hasTeamProgress,
     hasInfluencerCalc,
     hasSpecialistCalc,
-    hasOrgTree,
     hasApprovalPermission,
     isAnyLeaderFeatureEnabled,
     loading: permLoading,
@@ -73,7 +70,6 @@ const LeaderPanel: React.FC = () => {
 
   // Build available tabs dynamically — ordered as requested
   const availableTabs = [
-    ...(hasOrgTree ? [{ id: 'org-tree', label: 'Moja struktura', icon: TreePine, badge: 0 }] : []),
     ...(hasTeamProgress ? [{ id: 'training', label: 'Szkolenia zespołu', icon: GraduationCap, badge: 0 }] : []),
     ...(hasMeetings ? [{ id: 'meetings', label: 'Spotkania indywidualne', icon: CalendarDays, badge: 0 }] : []),
     ...(hasApprovalPermission ? [{ id: 'approvals', label: 'Zatwierdzenia', icon: UserCheck, badge: pendingCount }] : []),
@@ -102,11 +98,6 @@ const LeaderPanel: React.FC = () => {
             {hasTeamProgress && <TeamTrainingProgressView />}
             {hasInfluencerCalc && <CommissionCalculator />}
             {hasSpecialistCalc && <SpecialistCalculator />}
-            {hasOrgTree && (
-              <Suspense fallback={<div className="flex justify-center h-40"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                <LeaderOrgTreeView />
-              </Suspense>
-            )}
           </>
         ) : (
           <Tabs defaultValue={resolvedDefaultTab}>
@@ -123,14 +114,6 @@ const LeaderPanel: React.FC = () => {
                 </TabsTrigger>
               ))}
             </TabsList>
-
-            {hasOrgTree && (
-              <TabsContent value="org-tree">
-                <Suspense fallback={<div className="flex justify-center h-40"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                  <LeaderOrgTreeView />
-                </Suspense>
-              </TabsContent>
-            )}
 
             {hasTeamProgress && (
               <TabsContent value="training">
