@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSpecialistCalculatorSettings } from "@/hooks/useSpecialistCalculatorSettings";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { ClientSlider } from "./ClientSlider";
 import { ResultCards } from "./ResultCards";
 import { BottomSection } from "./BottomSection";
@@ -54,38 +55,40 @@ export function SpecialistCalculator() {
   const { settings, thresholds } = data;
 
   return (
-    <div className="space-y-6">
-      <ClientSlider
-        clients={clients}
-        onClientsChange={setClients}
-        minClients={settings.min_clients || 1}
-        maxClients={settings.max_clients || 15000}
-      />
+    <CurrencyProvider eurToPlnRate={settings.eur_to_pln_rate || 4.3}>
+      <div className="space-y-6">
+        <ClientSlider
+          clients={clients}
+          onClientsChange={setClients}
+          minClients={settings.min_clients || 1}
+          maxClients={settings.max_clients || 15000}
+        />
 
-      <ResultCards
-        clients={clients}
-        baseCommissionEur={settings.base_commission_eur || 20}
-        passivePerMonthEur={settings.passive_per_month_eur || 5}
-        passiveMonths={settings.passive_months || 5}
-        retentionBonusEur={settings.retention_bonus_eur || 10}
-        retentionMonthsCount={settings.retention_months_count || 2}
-        thresholds={thresholds}
-      />
+        <ResultCards
+          clients={clients}
+          baseCommissionEur={settings.base_commission_eur || 20}
+          passivePerMonthEur={settings.passive_per_month_eur || 5}
+          passiveMonths={settings.passive_months || 5}
+          retentionBonusEur={settings.retention_bonus_eur || 10}
+          retentionMonthsCount={settings.retention_months_count || 2}
+          thresholds={thresholds}
+        />
 
-      <BottomSection
-        clients={clients}
-        baseCommissionEur={settings.base_commission_eur || 20}
-        passivePerMonthEur={settings.passive_per_month_eur || 5}
-        passiveMonths={settings.passive_months || 5}
-        retentionBonusEur={settings.retention_bonus_eur || 10}
-        retentionMonthsCount={settings.retention_months_count || 2}
-        thresholds={thresholds}
-        eurToPlnRate={settings.eur_to_pln_rate || 4.3}
-      />
+        <BottomSection
+          clients={clients}
+          baseCommissionEur={settings.base_commission_eur || 20}
+          passivePerMonthEur={settings.passive_per_month_eur || 5}
+          passiveMonths={settings.passive_months || 5}
+          retentionBonusEur={settings.retention_bonus_eur || 10}
+          retentionMonthsCount={settings.retention_months_count || 2}
+          thresholds={thresholds}
+          eurToPlnRate={settings.eur_to_pln_rate || 4.3}
+        />
 
-      <FranchiseUpsell />
+        <FranchiseUpsell />
 
-      <Disclaimer />
-    </div>
+        <Disclaimer />
+      </div>
+    </CurrencyProvider>
   );
 }
