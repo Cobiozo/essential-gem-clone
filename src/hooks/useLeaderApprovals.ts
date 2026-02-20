@@ -46,11 +46,14 @@ export function useLeaderApprovals(hasApprovalPermission?: boolean) {
 
       // Send approval email
       try {
-        await supabase.functions.invoke('send-approval-email', {
+        const { error: emailErr } = await supabase.functions.invoke('send-approval-email', {
           body: { userId: targetUserId, approvalType: 'leader', approverId: user?.id },
         });
+        if (emailErr) {
+          console.error('[LeaderApprovals] Email send failed:', emailErr);
+        }
       } catch (emailErr) {
-        console.warn('[LeaderApprovals] Email send failed (non-critical):', emailErr);
+        console.error('[LeaderApprovals] Email send exception:', emailErr);
       }
     },
     onSuccess: () => {
