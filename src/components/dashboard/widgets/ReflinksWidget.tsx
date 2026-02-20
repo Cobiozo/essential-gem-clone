@@ -7,6 +7,7 @@ import { Widget3DIcon } from './Widget3DIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { copyToClipboard } from '@/lib/clipboardUtils';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { QRCodeSVG } from 'qrcode.react';
@@ -73,21 +74,25 @@ export const ReflinksWidget: React.FC = () => {
   }, [user, userRole]);
 
   const getReflinkUrl = (code: string) => {
-    return `${window.location.origin}/ref/${code}`;
+    return `${window.location.origin}/auth?ref=${code}`;
   };
 
   const handleCopy = async (reflink: UserReflink) => {
     const url = getReflinkUrl(reflink.reflink_code);
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       setCopiedId(reflink.id);
       toast({
         title: t('dashboard.copied'),
         description: url,
       });
       setTimeout(() => setCopiedId(null), 2000);
-    } catch (error) {
-      console.error('Failed to copy:', error);
+    } else {
+      toast({
+        title: 'Błąd',
+        description: 'Nie można skopiować na tym urządzeniu',
+        variant: 'destructive',
+      });
     }
   };
 

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { copyToClipboard } from '@/lib/clipboardUtils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ReflinkStatusBadge } from './ReflinkStatusBadge';
@@ -181,13 +182,14 @@ export const UserReflinksPanel: React.FC = () => {
 
   const handleCopy = async (reflink: UserReflink) => {
     const fullUrl = `${window.location.origin}/auth?ref=${reflink.reflink_code}`;
-    await navigator.clipboard.writeText(fullUrl);
-    setCopiedId(reflink.id);
-    toast({
-      title: 'Skopiowano!',
-      description: fullUrl,
-    });
-    setTimeout(() => setCopiedId(null), 2000);
+    const success = await copyToClipboard(fullUrl);
+    if (success) {
+      setCopiedId(reflink.id);
+      toast({ title: 'Skopiowano!', description: fullUrl });
+      setTimeout(() => setCopiedId(null), 2000);
+    } else {
+      toast({ title: 'Błąd kopiowania', description: 'Nie udało się skopiować linku', variant: 'destructive' });
+    }
   };
 
   if (!settings?.can_generate) {
