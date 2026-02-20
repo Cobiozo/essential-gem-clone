@@ -388,8 +388,29 @@ export const DashboardSidebar: React.FC = () => {
       };
     });
 
+  // Show leader panel if partner has meetings enabled OR calculator access
+  const showLeaderPanel = isPartner && (
+    individualMeetingsEnabled.tripartite || 
+    individualMeetingsEnabled.consultation ||
+    calculatorAccess?.hasAccess
+  );
+
   const menuItems: MenuItem[] = [
     { id: 'dashboard', icon: LayoutDashboard, labelKey: 'dashboard.menu.dashboard', path: '/dashboard' },
+    // Leader Panel - directly under Dashboard for partners with access
+    ...(showLeaderPanel ? [{
+      id: 'leader-panel',
+      icon: Crown,
+      labelKey: 'Panel Lidera',
+      hasSubmenu: true,
+      submenuItems: [
+        { id: 'leader-main', labelKey: 'Panel Lidera', path: '/leader', icon: Crown },
+        ...(calculatorAccess?.hasAccess ? [
+          { id: 'calculator-influencer', labelKey: 'dashboard.menu.forInfluencers', path: '/calculator/influencer', icon: Users },
+          { id: 'calculator-specialist', labelKey: 'dashboard.menu.forSpecialists', path: '/calculator/specialist', icon: UserRound },
+        ] : []),
+      ],
+    }] : []) as MenuItem[],
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
     { id: 'healthy-knowledge', icon: Heart, labelKey: 'dashboard.menu.healthyKnowledge', path: '/zdrowa-wiedza' },
     { id: 'resources', icon: FolderOpen, labelKey: 'dashboard.menu.resources', path: '/knowledge' },
@@ -418,23 +439,12 @@ export const DashboardSidebar: React.FC = () => {
       ],
     },
     { id: 'paid-events', icon: Ticket, labelKey: 'dashboard.menu.paidEvents', path: '/paid-events' },
-    // Leader Panel for partners with leader permissions
-    ...(isPartner && (individualMeetingsEnabled.tripartite || individualMeetingsEnabled.consultation) ? [{
-      id: 'leader-panel',
-      icon: Crown,
-      labelKey: 'Panel Lidera',
-      path: '/leader',
-    }] : []) as MenuItem[],
     { 
       id: 'chat', 
       icon: MessageSquare, 
       labelKey: 'dashboard.menu.chat', 
       path: '/messages',
     },
-    { id: 'support', icon: HelpCircle, labelKey: 'dashboard.menu.support', action: () => {
-      // Open support form dialog - dispatch custom event
-      window.dispatchEvent(new CustomEvent('openSupportForm'));
-    }},
     { 
       id: 'reflinks', 
       icon: Link2, 
@@ -449,18 +459,15 @@ export const DashboardSidebar: React.FC = () => {
       hasSubmenu: infoLinksSubmenuItems.length > 0,
       submenuItems: infoLinksSubmenuItems,
     },
-    { 
-      id: 'community', 
-      icon: Users2, 
-      labelKey: 'dashboard.menu.community',
-      hasSubmenu: communitySubmenuItems.length > 0,
-      submenuItems: communitySubmenuItems,
-    },
     // Dynamic HTML pages from database
     ...dynamicHtmlPageItems,
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
-    // Calculator - conditional based on access with submenu
-    ...(calculatorAccess?.hasAccess ? [{
+    // Support - after settings
+    { id: 'support', icon: HelpCircle, labelKey: 'dashboard.menu.support', action: () => {
+      window.dispatchEvent(new CustomEvent('openSupportForm'));
+    }},
+    // Calculator - only for admins (partners have it in Leader Panel submenu)
+    ...(calculatorAccess?.hasAccess && !isPartner ? [{
       id: 'calculator',
       icon: Calculator,
       labelKey: 'dashboard.menu.calculator',
@@ -623,12 +630,15 @@ export const DashboardSidebar: React.FC = () => {
     if (subItem.id === 'partner-consultation') {
       return location.pathname === '/my-account' && currentTab === 'individual-meetings' && searchParams.get('type') === 'consultation';
     }
-    // Calculator submenu items
+    // Calculator / Leader panel submenu items
     if (subItem.id === 'calculator-influencer') {
       return location.pathname === '/calculator/influencer';
     }
     if (subItem.id === 'calculator-specialist') {
       return location.pathname === '/calculator/specialist';
+    }
+    if (subItem.id === 'leader-main') {
+      return location.pathname === '/leader';
     }
     return false;
   };

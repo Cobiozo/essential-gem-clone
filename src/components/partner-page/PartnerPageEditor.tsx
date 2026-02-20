@@ -6,11 +6,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Globe, Save, Copy, ExternalLink, Check, Image, Package, Upload, Loader2 } from 'lucide-react';
+import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2 } from 'lucide-react';
 import { usePartnerPage } from '@/hooks/usePartnerPage';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import type { TemplateElement } from '@/types/partnerPage';
 
 export const PartnerPageEditor: React.FC = () => {
@@ -24,27 +24,54 @@ export const PartnerPageEditor: React.FC = () => {
     savePartnerPage,
     saveProductLink,
     removeProductLink,
-    validateAlias,
   } = usePartnerPage();
   const { toast } = useToast();
+  const { user } = useAuth();
 
-  const [alias, setAlias] = useState('');
   const [isActive, setIsActive] = useState(false);
   const [customData, setCustomData] = useState<Record<string, any>>({});
   const [selectedProducts, setSelectedProducts] = useState<Record<string, string>>({});
-  const [aliasError, setAliasError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [uploadingField, setUploadingField] = useState<string | null>(null);
+  const [eqId, setEqId] = useState<string | null>(null);
+  const [alias, setAlias] = useState<string>('');
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // Fetch eq_id from profile
+  useEffect(() => {
+    const fetchEqId = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('eq_id')
+        .eq('user_id', user.id)
+        .single();
+      if (data?.eq_id) {
+        setEqId(data.eq_id);
+      }
+    };
+    fetchEqId();
+  }, [user]);
 
   // Initialize state from fetched data
   useEffect(() => {
     if (partnerPage) {
-      setAlias(partnerPage.alias || '');
       setIsActive(partnerPage.is_active);
       setCustomData(partnerPage.custom_data || {});
+      // Use existing alias or fall back to eqId
+      setAlias(partnerPage.alias || eqId || '');
+    } else if (eqId && !loading) {
+      // No partner page yet - pre-fill alias with eqId
+      setAlias(eqId);
     }
-  }, [partnerPage]);
+  }, [partnerPage, eqId, loading]);
+
+  // Auto-save alias = eqId if partnerPage exists but has no alias
+  useEffect(() => {
+    if (partnerPage && !partnerPage.alias && eqId) {
+      savePartnerPage({ alias: eqId, is_active: partnerPage.is_active, custom_data: partnerPage.custom_data || {} });
+    }
+  }, [partnerPage, eqId]);
 
   useEffect(() => {
     const links: Record<string, string> = {};
@@ -58,24 +85,18 @@ export const PartnerPageEditor: React.FC = () => {
     (el: TemplateElement) => el.type !== 'static' && el.type !== 'product_slot'
   );
 
-  const handleAliasChange = (value: string) => {
-    const normalized = value.toLowerCase().replace(/[^a-z0-9-]/g, '');
-    setAlias(normalized);
-    setAliasError(validateAlias(normalized));
-  };
+  const currentAlias = alias || eqId || '';
 
   const handleSave = async () => {
     const success = await savePartnerPage({
-      alias: alias || undefined,
+      alias: currentAlias || undefined,
       is_active: isActive,
       custom_data: customData,
     });
     if (success) {
-      // Save product links
       for (const [productId, url] of Object.entries(selectedProducts)) {
         if (url) await saveProductLink(productId, url);
       }
-      // Remove unselected products
       for (const link of productLinks) {
         if (!selectedProducts[link.product_id]) {
           await removeProductLink(link.product_id);
@@ -85,7 +106,7 @@ export const PartnerPageEditor: React.FC = () => {
   };
 
   const handleCopyLink = () => {
-    const url = `${window.location.origin}/${alias}`;
+    const url = `${window.location.origin}/${currentAlias}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
     toast({ title: 'Skopiowano', description: 'Link został skopiowany do schowka' });
@@ -116,7 +137,6 @@ export const PartnerPageEditor: React.FC = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Nie jesteś zalogowany');
-      const ext = file.name.split('.').pop();
       const path = `partner-photos/${user.id}/${Date.now()}_${file.name}`;
       const { error: uploadError } = await supabase.storage.from('cms-images').upload(path, file);
       if (uploadError) throw uploadError;
@@ -152,22 +172,20 @@ export const PartnerPageEditor: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Alias */}
+          {/* Alias - read only, derived from EQ ID */}
           <div className="space-y-2">
-            <Label>Adres strony (alias)</Label>
-            <div className="flex gap-2">
-              <div className="flex items-center bg-muted px-3 rounded-l-md border border-r-0 text-sm text-muted-foreground">
-                {window.location.origin}/
-              </div>
-              <Input
-                value={alias}
-                onChange={(e) => handleAliasChange(e.target.value)}
-                placeholder="twoj-alias"
-                className="rounded-l-none"
-              />
+            <Label>Adres strony</Label>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-md border">
+              <span className="text-sm text-muted-foreground">{window.location.origin}/</span>
+              <span className="text-sm font-medium">{currentAlias || '—'}</span>
+              {currentAlias && (
+                <Badge variant="secondary" className="ml-auto text-xs">EQ ID</Badge>
+              )}
             </div>
-            {aliasError && <p className="text-sm text-destructive">{aliasError}</p>}
-            {alias && !aliasError && (
+            <p className="text-xs text-muted-foreground">
+              Adres Twojej strony jest automatycznie ustawiony na podstawie Twojego numeru EQ ID i nie może być zmieniony.
+            </p>
+            {currentAlias && (
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleCopyLink}>
                   {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
@@ -175,7 +193,7 @@ export const PartnerPageEditor: React.FC = () => {
                 </Button>
                 {isActive && (
                   <Button variant="outline" size="sm" asChild>
-                    <a href={`/${alias}`} target="_blank" rel="noopener noreferrer">
+                    <a href={`/${currentAlias}`} target="_blank" rel="noopener noreferrer">
                       <ExternalLink className="w-4 h-4 mr-1" />
                       Podgląd
                     </a>
@@ -332,7 +350,7 @@ export const PartnerPageEditor: React.FC = () => {
 
       {/* Save button */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={saving || !!aliasError} size="lg">
+        <Button onClick={handleSave} disabled={saving} size="lg">
           <Save className="w-4 h-4 mr-2" />
           {saving ? 'Zapisywanie...' : 'Zapisz stronę'}
         </Button>
