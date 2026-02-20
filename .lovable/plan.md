@@ -1,77 +1,77 @@
 
-# Naprawa: Lider nie widzi postępu szkoleń swojego zespołu
+# Przebudowa TeamTrainingProgressView na widok rozwijany (wzorzec z panelu admina)
 
-## Diagnoza — dwa oddzielne problemy
+## Co się zmieni
 
-### Problem 1: Błąd "column reference user_id is ambiguous" w SQL
+Obecny widok to zwykła tabela, gdzie WSZYSTKIE moduły każdej osoby są widoczne jednocześnie w wierszu — przez co tabela jest bardzo wysoka i trudna do czytania.
 
-Funkcja `get_leader_team_training_progress` jest SECURITY DEFINER, ale RLS na tabelach `training_progress` i `training_assignments` używa warunku `auth.uid() = user_id` — kolumna `user_id` bez kwalifikatora tabeli. Gdy PostgreSQL kompiluje zapytanie w kontekście SECURITY DEFINER z wieloma JOIN-ami gdzie każda z tabel (`training_assignments`, `training_progress`) ma kolumnę `user_id`, parser rzuca `column reference "user_id" is ambiguous`.
+Nowy widok będzie identyczny jak w panelu admina (zakładka "Postęp użytkowników"):
+- Każda osoba = karta z avatarem, imieniem, EQ ID i ogólnym % postępu
+- Kliknięcie karty → rozwija listę modułów danej osoby (Collapsible)
+- Każdy moduł = osobna sekcja z paskiem postępu i liczbą lekcji (bez przycisku reset/zatwierdź — lider tylko ogląda)
+- Siatka 2 kolumn na desktop, 1 kolumna na mobile (identycznie jak w adminie)
 
-Potwierdzone w logach PostgreSQL:
-- `ERROR: column reference "user_id" is ambiguous` — 2 wystąpienia
+## Wzorzec z panelu admina (linii 1671-1883 TrainingManagement.tsx)
 
-### Problem 2: Błędny komunikat w UI — "Brak osób w strukturze"
-
-Sebastian Snopek widoczny na screenie (eq_id: `12458557556`) ma `can_view_team_progress: false`. Funkcja rzuca wyjątek "Access denied" — ale `TeamTrainingProgressView.tsx` obsługuje to jako `rows = []` i wyświetla pusty stan "Brak osób w strukturze" zamiast komunikatu o braku uprawnień. To jest mylące.
-
-Jednak na screenie widać, że zakładka "Szkolenia zespołu" JEST widoczna — co oznacza, że `can_view_team_progress` musi być `true` dla tego konkretnego sesji. Sprawdzenie bazy wykazało, że konto Sebastiana Snopka z `eq_id: 121118999` (które ma uprawnienie) jest właścicielem sesji — ale jego eq_id ma tylko 3 podwładnych, z których struktura poniżej może nie mieć przypisanych modułów.
-
-Faktyczny błąd: funkcja SQL eksploduje na `column reference "user_id" is ambiguous` zanim w ogóle dotrze do wyników.
-
-## Rozwiązanie
-
-### Część 1: Naprawa SQL — nowa migracja z poprawioną funkcją
-
-Problem ambiguous `user_id` wynika z tego, że PostgreSQL w kontekście SECURITY DEFINER, przy ewaluacji RLS policies na podtabelach, napotyka niejednoznaczność. Rozwiązanie: dodać `SET row_security = off` do funkcji (bezpieczne, bo funkcja ma własną weryfikację uprawnień przez sprawdzenie `leader_permissions`) LUB jawnie kwalifikować `user_id` w każdym JOIN.
-
-Poprawka:
-```sql
-CREATE OR REPLACE FUNCTION public.get_leader_team_training_progress(p_leader_user_id uuid)
-...
-SECURITY DEFINER
-SET search_path TO 'public'
-SET row_security = off  -- <-- kluczowe: wyłącza RLS wewnątrz funkcji SECURITY DEFINER
+```text
+┌────────────────────────────────────────────────────────┐
+│  [Avatar] Jan Kowalski                        23% ▼   │
+│           EQ: 12345678                                 │
+└────────────────────────────────────────────────────────┘
+  ▼ (po kliknięciu rozwinięte):
+  ┌──────────────────────────────────────────────────────┐
+  │  SPRZEDAŻOWE                              82%        │
+  │  ████████████████░░░░░░░░  3/4 lekcji               │
+  │                                                      │
+  │  TECHNICZNE                                0%        │
+  │  ░░░░░░░░░░░░░░░░░░░░░░░░  0/6 lekcji               │
+  └──────────────────────────────────────────────────────┘
 ```
 
-Wyłączenie RLS w tej funkcji jest bezpieczne ponieważ:
-- Funkcja ma własną weryfikację uprawnień (sprawdza `leader_permissions.can_view_team_progress`)
-- Zwraca wyłącznie dane z hierarchii lidera (rekurencja przez `upline_eq_id`)
-- Wzorzec `SET row_security = off` jest standardem dla funkcji SECURITY DEFINER w tym projekcie
+## Szczegóły implementacji
 
-### Część 2: Naprawa obsługi błędów w TeamTrainingProgressView.tsx
+### Struktura komponentu (jeden plik: TeamTrainingProgressView.tsx)
 
-Aktualnie każdy błąd z Supabase (włącznie z "Access denied") jest obsługiwany tak samo — jako puste `rows = []`, co prowadzi do komunikatu "Brak osób w strukturze". Zamiast tego, należy:
-- Jeśli błąd zawiera "Access denied" → wyświetlić komunikat o braku uprawnień
-- Jeśli brak wyników → wyświetlić "Brak osób w strukturze"
-- Inne błędy → toast z komunikatem technicznym
+1. **Stan expandedUsers** — `Set<string>` z user_id aktualnie rozwiniętych kart (identycznie jak `expandedUsers` w TrainingManagement)
 
-### Część 3: Włączenie uprawnień dla właściwego konta
+2. **Funkcja toggleUserExpanded** — przełącza danego użytkownika w/out zestawu
 
-Z danych wynika, że są dwa konta Sebastian Snopek:
-- `eq_id: 12458557556` — widoczny na screenie, `can_view_team_progress: false`  
-- `eq_id: 121118999` — ma uprawnienie, ale to inne konto
+3. **Layout** — `grid grid-cols-1 md:grid-cols-2 gap-4` zamiast tabeli
 
-Administrator musi włączyć `can_view_team_progress` dla konta z `eq_id: 12458557556`. To wymaga działania admina w panelu — nie jest to zmiana kodu.
+4. **Collapsible trigger** — karta osoby z:
+   - Avatar z inicjałami (tak jak w adminie — `Avatar` + `AvatarFallback`)
+   - Imię i nazwisko + EQ ID
+   - Badge z ogólnym % (kolor: żółty gdy w trakcie, zielony gdy 100%)
+   - Ikona `ChevronDown` z rotacją przy otwarciu
+   - Rola i poziom jako małe badge'e pod nazwiskiem
+
+5. **CollapsibleContent** — lista modułów z:
+   - Nazwa modułu + % jako Badge
+   - `x/y lekcji` informacja
+   - Pasek postępu (Progress component)
+   - Brak przycisków admin (reset/zatwierdź) — lider tylko przegląda
+
+6. **Filtr modułów** — Select pozostaje, ale filtruje karty (gdy filtr aktywny → ukryj moduły nienależące do filtru w rozwiniętych kartach)
+
+7. **Wyszukiwarka** — zostaje bez zmian
+
+8. **Karty statystyk (stats)** — zostają na górze bez zmian
+
+### Import wymagany do dodania
+- `Avatar, AvatarFallback` z `@/components/ui/avatar`  
+- `Collapsible, CollapsibleContent, CollapsibleTrigger` z `@/components/ui/collapsible`
+- `ChevronDown` z `lucide-react`
+
+### Usunięcie
+- Całość `Table, TableBody, TableCell, TableHead, TableHeader, TableRow` — nie potrzebne
+- Warunkowe renderowanie `moduleFilter === 'all'` w tabeli — logika uproszczona
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/migrations/[nowa].sql` | Nowa migracja: `CREATE OR REPLACE FUNCTION` z dodaniem `SET row_security = off` — naprawa błędu `user_id is ambiguous` |
-| `src/components/training/TeamTrainingProgressView.tsx` | Lepsza obsługa błędów — rozróżnienie między "brak uprawnień", "brak danych" i "błąd techniczny" |
-
-## Co musi zrobić administrator
-
-Po wdrożeniu poprawki kodu, aby Sebastian Snopek (eq_id: `12458557556`) widział postęp swojego zespołu:
-1. Wejść w **Panel Admin → Zdarzenia i rejestracje → Spotkania indywidualne**
-2. Znaleźć "Sebastian Snopek" (eq_id: 12458557556)
-3. Włączyć przełącznik w kolumnie "Szkolenia zespołu" (ikona GraduationCap)
-
-Jego struktura w dół zawiera:
-- Grzegorz Latocha (eq_id: 121213773)
-- Katarzyna Snopek (eq_id: 121167843)
-- oraz rekurencyjnie ich podwładni
+| `src/components/training/TeamTrainingProgressView.tsx` | Podmiana tabeli na siatka Collapsible kart — identyczny wzorzec jak w TrainingManagement.tsx linie 1671-1883 |
 
 ## Efekt końcowy
 
-Po naprawie funkcja SQL przestanie rzucać błąd `column reference "user_id" is ambiguous`, a lider zobaczy tabelę z postępem szkoleń każdej osoby w swojej strukturze organizacyjnej.
+Widok będzie identyczny jak w panelu admina — karty z avatarami, rozwijane po kliknięciu, z listą modułów i paskami postępu wewnątrz.
