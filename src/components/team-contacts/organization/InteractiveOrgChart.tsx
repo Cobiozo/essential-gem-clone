@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Star, Users, ChevronDown } from 'lucide-react';
 import { OrganizationTreeNode } from '@/hooks/useOrganizationTree';
 import { OrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
@@ -19,7 +18,7 @@ type NodeState = 'normal' | 'active' | 'dimmed';
 
 interface Row {
   nodes: OrganizationTreeNode[];
-  parentId: string | null; // ID of the selected node that opened this row
+  parentId: string | null;
   level: number;
 }
 
@@ -32,23 +31,22 @@ function buildRows(
   // Row 0: always the root
   rows.push({ nodes: [root], parentId: null, level: 0 });
 
-  // Row 1+: only render if parent is selected and has children
-  let currentNode: OrganizationTreeNode | null = root;
-  let level = 0;
+  // Row 1: always show root's children (first sponsoring line)
+  if (root.children.length > 0) {
+    rows.push({ nodes: root.children, parentId: root.id, level: 1 });
+  }
 
-  while (currentNode && level < selectedPath.length) {
-    const selectedId = selectedPath[level];
+  // Row 2+: only when a node from row 1 (or deeper) is selected
+  let currentNode: OrganizationTreeNode = root;
+  for (let i = 0; i < selectedPath.length; i++) {
+    const selectedId = selectedPath[i];
     if (!selectedId) break;
 
     const found = currentNode.children.find(c => c.id === selectedId) ?? null;
-    if (!found) break;
+    if (!found || found.children.length === 0) break;
 
-    if (found.children.length > 0) {
-      rows.push({ nodes: found.children, parentId: found.id, level: level + 1 });
-    }
-
+    rows.push({ nodes: found.children, parentId: found.id, level: i + 2 });
     currentNode = found;
-    level++;
   }
 
   return rows;
@@ -134,12 +132,10 @@ const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
       data-node-id={node.id}
       onClick={onClick}
       className={cn(
-        // base
         'relative flex flex-col gap-1.5 rounded-xl border-2 p-3 select-none touch-manipulation',
         'min-w-[140px] max-w-[190px]',
         'transition-all duration-300 ease-in-out',
         role.border,
-        // states
         state === 'normal' && [role.bg, onClick && 'cursor-pointer hover:shadow-md hover:scale-[1.03]'],
         state === 'active' && [
           role.activeBg,
@@ -240,7 +236,6 @@ const ConnectorLayer: React.FC<ConnectorLayerProps> = ({ parentRef, childRefs, c
   }, [parentRef, childRefs, containerRef]);
 
   useEffect(() => {
-    // Small delay so DOM finishes layout after animation
     const t = setTimeout(recalculate, 50);
     window.addEventListener('resize', recalculate);
     return () => {
@@ -277,20 +272,17 @@ export const InteractiveOrgChart: React.FC<InteractiveOrgChartProps> = ({
   tree,
   settings,
 }) => {
-  // selectedPath[0] = always root.id (pre-selected)
-  // selectedPath[N] = which child at level N is active (null = none)
-  const [selectedPath, setSelectedPath] = useState<(string | null)[]>(() =>
-    tree ? [tree.id] : []
-  );
+  // selectedPath[0] = which root-child is selected (null = none)
+  // selectedPath[1] = which grandchild is selected, etc.
+  const [selectedPath, setSelectedPath] = useState<(string | null)[]>([]);
 
   // Reset when tree changes
   useEffect(() => {
-    if (tree) setSelectedPath([tree.id]);
+    setSelectedPath([]);
   }, [tree?.id]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Refs for nodes so we can draw connectors
   // Map: `${level}-${nodeId}` → ref
   const nodeRefsMap = useRef<Map<string, React.RefObject<HTMLDivElement>>>(new Map());
 
@@ -302,17 +294,13 @@ export const InteractiveOrgChart: React.FC<InteractiveOrgChartProps> = ({
     return nodeRefsMap.current.get(key)!;
   };
 
-  const handleNodeClick = (node: OrganizationTreeNode, level: number) => {
-    if (node.children.length === 0 && level > 0) return; // leaf nodes — no expand
-
+  // rowIndex = index of the row in rows[]
+  // row 1 → selectedPath[0], row 2 → selectedPath[1], etc.
+  const handleNodeClick = (node: OrganizationTreeNode, rowIndex: number) => {
+    const pathIndex = rowIndex - 1; // row 1 → index 0
     setSelectedPath(prev => {
-      const newPath = prev.slice(0, level + 1);
-      if (newPath[level] === node.id) {
-        // toggle off — collapse
-        newPath[level] = null;
-      } else {
-        newPath[level] = node.id;
-      }
+      const newPath = prev.slice(0, pathIndex + 1);
+      newPath[pathIndex] = newPath[pathIndex] === node.id ? null : node.id;
       return newPath;
     });
   };
@@ -336,15 +324,27 @@ export const InteractiveOrgChart: React.FC<InteractiveOrgChartProps> = ({
       <div className="flex flex-col items-center gap-0 min-w-max mx-auto px-4">
         {rows.map((row, rowIndex) => {
           const isRootRow = rowIndex === 0;
-          const selectedInThisRow = rowIndex < selectedPath.length ? selectedPath[rowIndex] : null;
-          const hasSelection = selectedInThisRow !== null;
 
-          // For connectors: parent node ref (the selected node in previous row)
-          const parentNodeId = rowIndex > 0 ? selectedPath[rowIndex - 1] : null;
-          const parentLevel = rowIndex - 1;
-          const parentRef = parentNodeId
-            ? getNodeRef(parentLevel, parentNodeId)
-            : null;
+          // For row 1: selectedPath[0], for row 2: selectedPath[1], etc.
+          const pathIndex = rowIndex - 1;
+          const selectedInRow: string | null =
+            pathIndex >= 0 && pathIndex < selectedPath.length
+              ? selectedPath[pathIndex]
+              : null;
+
+          // Parent ref for SVG connectors:
+          // row 1 → parent is always root (level 0)
+          // row 2 → parent is selectedPath[0] (level 1)
+          // row N → parent is selectedPath[N-2] (level N-1)
+          let parentRef: React.RefObject<HTMLDivElement> | null = null;
+          if (rowIndex === 1) {
+            parentRef = getNodeRef(0, tree.id);
+          } else if (rowIndex > 1) {
+            const parentId = selectedPath[rowIndex - 2];
+            if (parentId) {
+              parentRef = getNodeRef(rowIndex - 1, parentId);
+            }
+          }
 
           const childRefs = row.nodes.map(n => getNodeRef(rowIndex, n.id));
 
@@ -373,13 +373,14 @@ export const InteractiveOrgChart: React.FC<InteractiveOrgChartProps> = ({
               >
                 {row.nodes.map(node => {
                   let state: NodeState = 'normal';
-                  if (!isRootRow && hasSelection) {
-                    state = node.id === selectedInThisRow ? 'active' : 'dimmed';
-                  } else if (!isRootRow && !hasSelection) {
-                    state = 'normal';
+                  if (!isRootRow) {
+                    if (selectedInRow === null) {
+                      state = 'normal'; // nothing selected → all normal
+                    } else {
+                      state = node.id === selectedInRow ? 'active' : 'dimmed';
+                    }
                   }
 
-                  // Root row special: if level 1 has a selection, root is always "normal" (active visually)
                   const nodeRef = getNodeRef(rowIndex, node.id);
 
                   return (
