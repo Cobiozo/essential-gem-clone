@@ -63,10 +63,17 @@ interface PendingApproval {
 }
 
 // Lazy-loaded structure tab — mounts useOrganizationTree only when tab is active
-// Receives treeSettings from parent to avoid a second useOrganizationTreeSettings fetch
-const StructureTab: React.FC<{ defaultView: 'list' | 'graph'; treeSettings: OrganizationTreeSettings }> = ({ defaultView, treeSettings }) => {
-  const { tree, upline, statistics, loading, error } = useOrganizationTree(treeSettings);
-  const [viewMode, setViewMode] = useState<'list' | 'graph'>(defaultView);
+// Uses its own internal settings fetch (same pattern as working LeaderOrgTreeView)
+const StructureTab: React.FC = () => {
+  const { tree, upline, statistics, loading, error, settings } = useOrganizationTree();
+  const [viewMode, setViewMode] = useState<'list' | 'graph'>('list');
+
+  // Update defaultView once settings are loaded
+  useEffect(() => {
+    if (settings?.default_view) {
+      setViewMode(settings.default_view);
+    }
+  }, [settings?.default_view]);
 
   if (loading) {
     return (
@@ -114,21 +121,21 @@ const StructureTab: React.FC<{ defaultView: 'list' | 'graph'; treeSettings: Orga
         </div>
       </div>
 
-      {viewMode === 'graph' ? (
+      {settings && (viewMode === 'graph' ? (
         <OrganizationChart
           tree={tree}
           upline={upline}
-          settings={treeSettings}
+          settings={settings}
           statistics={statistics}
         />
       ) : (
         <OrganizationList
           tree={tree}
           upline={upline}
-          settings={treeSettings}
+          settings={settings}
           statistics={statistics}
         />
-      )}
+      ))}
     </div>
   );
 };
@@ -642,12 +649,9 @@ export const TeamContactsTab: React.FC = () => {
         )}
 
         {/* Structure Tab — lazy loaded, useOrganizationTree mounts only here */}
-        {hasTreeAccess && treeSettings && (
+        {hasTreeAccess && (
           <TabsContent value="structure">
-            <StructureTab
-              defaultView={treeSettings.default_view || 'list'}
-              treeSettings={treeSettings}
-            />
+            <StructureTab />
           </TabsContent>
         )}
       </Tabs>
