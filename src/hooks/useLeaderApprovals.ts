@@ -16,7 +16,7 @@ export interface PendingLeaderApproval {
   guardian_approved_at: string | null;
 }
 
-export function useLeaderApprovals() {
+export function useLeaderApprovals(hasApprovalPermission?: boolean) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -31,9 +31,10 @@ export function useLeaderApprovals() {
       }
       return (data || []) as PendingLeaderApproval[];
     },
-    enabled: !!user,
+    enabled: !!user && hasApprovalPermission === true,
     staleTime: 30 * 1000,
     refetchInterval: 60 * 1000,
+    retry: false,
   });
 
   const approveMutation = useMutation({

@@ -28,7 +28,7 @@ const LeaderPanel: React.FC = () => {
     isAnyLeaderFeatureEnabled,
     loading: permLoading,
   } = useLeaderPermissions();
-  const { pendingCount } = useLeaderApprovals();
+  const { pendingCount } = useLeaderApprovals(hasApprovalPermission);
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
