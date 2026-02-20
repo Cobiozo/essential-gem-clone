@@ -1,103 +1,91 @@
 
-# Dodanie kolumny "Oczekuje na Lidera" + aktualizacja legendy statusów
+# Pełna weryfikacja po ostatnich zmianach
 
-## Diagnoza aktualnego stanu
+## Podsumowanie wyników kontroli
 
-### Co brakuje:
-1. **RPC `get_user_profiles_with_confirmation`** — nie zwraca `leader_approved` i `leader_approved_at` (brakuje tych kolumn w `SELECT`)
-2. **`UserProfile` interface** w `Admin.tsx` (linie 89–120) — brak pól `leader_approved`, `leader_approved_at`, `leader_approver_id`
-3. **`CompactUserCard.tsx`** — `UserProfile` interface (linie 38–69), `getUserStatus()` i `StatusDot` nie obsługują stanu "Oczekuje na Lidera"
-4. **`UserStatusLegend.tsx`** — brak wpisu dla fioletowego "Oczekuje na Lidera"
-5. **Mapping w `fetchUsers()`** — `leader_approved` nie jest mapowany ze zwróconego RPC (linie 481–511)
+### ✅ Co działa poprawnie
+
+**1. Naprawa pętli nieskończonej (Maximum call stack size exceeded)**
+- `useLeaderApprovals` ma teraz `enabled: !!user && hasApprovalPermission === true` — hook NIE wywołuje RPC dla użytkowników bez uprawnień
+- `retry: false` — brak ponownych prób przy błędzie SQL "Brak uprawnień"
+- `LeaderPanel.tsx` przekazuje `hasApprovalPermission` do hooka
+- Efekt w `Admin.tsx` ma `if (!isAdmin) return` guard i usuniętego `toast` z zależności
+
+**2. Migracja SQL — poprawnie wykonana**
+- Funkcja `get_user_profiles_with_confirmation()` zwraca teraz `leader_approved`, `leader_approved_at`, `leader_approver_id`
+- Baza potwierdza: kolumny istnieją w tabeli `profiles` (nullable boolean)
+
+**3. Frontend — status "Czeka na Lidera"**
+- `CompactUserCard.tsx`: nowy status `awaiting_leader` z fioletową kropką, badge `Crown + "Czeka na Lidera"`
+- `UserStatusLegend.tsx`: nowy wpis fioletowy + ścieżka zatwierdzania
+
+**4. Mapping w `fetchUsers()`**
+- `leader_approved`, `leader_approved_at`, `leader_approver_id` mapowane ze zwróconego RPC
 
 ---
 
-## Szczegółowy plan zmian
+### ⚠️ Znalezione problemy
 
-### Zmiana 1: Aktualizacja funkcji SQL `get_user_profiles_with_confirmation`
-Dodać `p.leader_approved` i `p.leader_approved_at` do listy kolumn SELECT i do RETURNS TABLE.
+**Problem 1: Podwójny `useEffect` dla zakładki `content` w Admin.tsx** (istniejący, nie nowy)
 
-Bez tego cała reszta nie będzie miała danych.
+Linie 2032-2050 i 2053-2058: **dwa osobne efekty** wywołują `fetchHeaderText()` i `fetchAuthorText()` dla zakładki `content`:
+```
+useEffect({ ...content → fetchHeaderText... }, [activeTab, isAdmin])  // linia 2032
+useEffect({ ...content → fetchHeaderText... }, [isAdmin])             // linia 2053
+```
+Gdy admin po raz pierwszy wchodzi na zakładkę `content`, oba efekty odpytują API jednocześnie — to nadmiarowe żądanie, ale **nie powoduje crash'u ani wycieku**.
 
-### Zmiana 2: `UserProfile` interface w `Admin.tsx` (linia ~105)
-Dodać po `admin_approved_at`:
-```typescript
-leader_approved?: boolean | null;
-leader_approved_at?: string | null;
-leader_approver_id?: string | null;
-last_sign_in_at?: string | null;
+**Problem 2: Stan Jerzego Szafarza — blokada na poziomie email**
+
+Jerzy Szafarz (upline = Mateusz Sumera, lider):
+- `email_activated = false` → email NIE jest potwierdzony
+- `guardian_approved = false` → Mateusz nie może go jeszcze zatwierdzić jako guardian, bo `guardian_approve_user` blokuje zatwierdzenie gdy `email_activated = false`
+- `leader_approved = NULL` (nie `false`) → Jerzy **nie pojawia się** w module Zatwierdzeń Lidera (warunek: `leader_approved = false`)
+
+**Mateusz Sumera widzi Jerzego TYLKO w zakładce `team_contacts` ze statusem "oczekuje na zatwierdzenie"**, ale nie może go zatwierdzić dopóki Jerzy nie kliknie link aktywacyjny w emailu.
+
+**Stan w Admin.tsx (panel adminów):**
+- Jerzy pokaże się jako `email_pending` (szara kropka) — poprawnie
+- Przycisk "Wyślij email aktywacyjny ponownie" będzie widoczny ✅
+
+**Problem 3: Rzeczywiście BRAK użytkowników aktualnie oczekujących na Lidera**
+
+Zapytanie do bazy: `guardian_approved = true AND admin_approved = false` → **puste** — nikt aktualnie nie czeka na zatwierdzenie w tym etapie. Nowe pole `leader_approved = false` (fioletowy badge) aktywuje się dopiero gdy Jerzy potwierdzi email → Mateusz go zatwierdzi jako guardian → dopiero wtedy `guardian_approve_user` ustawi `leader_approved = false` i `leader_approver_id = Mateusz`.
+
+---
+
+### 📊 Stan bazy danych — aktualny obraz użytkowników
+
+| Użytkownik | Email activated | Guardian approved | Admin approved | Leader approved | Status |
+|---|---|---|---|---|---|
+| Jerzy Szafarz | ❌ false | ❌ false | ❌ false | NULL | Szara kropka (email niepotwierdzony) |
+| Katarzyna Grochowicka | ✅ true | ❌ false | ❌ false | NULL | Czerwona kropka (czeka na opiekuna) |
+| Dominika Matczak | ✅ true | ❌ false | ❌ false | NULL | Czerwona kropka (czeka na opiekuna) |
+
+Aktywni, w pełni zatwierdzeni: wszyscy pod Mateuszem Sumerą (Mateusz Piękny, Paweł Marczak, itp.) mają `leader_approved = NULL` — to **normalne**, bo zostali zatwierdzeni przed wdrożeniem systemu lidera (NULL = lider nie był w ścieżce w tamtym czasie).
+
+---
+
+### Przepływ dla Jerzego Szafarza — co zadzieje się gdy potwierdzi email
+
+```text
+1. Jerzy klika link aktywacyjny → email_activated = true
+2. Mateusz Sumera widzi go w Pure-kontakty z przyciskiem "Zatwierdź"
+3. guardian_approve_user() → guardian_approved = true
+4. find_nearest_leader_approver(Jerzy) → szuka w upline_eq_id = 121112817 (Mateusz)
+5. Mateusz MA can_approve_registrations = true → zwraca jego user_id
+6. UPDATE profiles SET leader_approved = false, leader_approver_id = Mateusz
+7. Mateusz dostaje powiadomienie → widzi Jerzego w /leader?tab=approvals
+8. W Admin.tsx: Jerzy dostanie FIOLETOWĄ kropkę + badge "Czeka na Lidera" ✅
 ```
 
-### Zmiana 3: Mapping w `fetchUsers()` w `Admin.tsx` (linia ~499)
-Dodać po `admin_approved_at`:
-```typescript
-leader_approved: row.leader_approved,
-leader_approved_at: row.leader_approved_at,
-leader_approver_id: row.leader_approver_id,
-last_sign_in_at: row.last_sign_in_at,
-```
+---
 
-### Zmiana 4: `CompactUserCard.tsx` — rozszerzenie typów i logiki
+### Co należy naprawić teraz
 
-**4a. `UserProfile` interface** (linia ~53) — dodać po `admin_approved_at`:
-```typescript
-leader_approved?: boolean | null;
-leader_approved_at?: string | null;
-leader_approver_id?: string | null;
-```
+**Naprawa: Podwójny useEffect dla zakładki content**
 
-**4b. `UserStatus` typ** (linia 118) — dodać nowy stan:
-```typescript
-type UserStatus = 'fully_approved' | 'awaiting_admin' | 'awaiting_leader' | 'awaiting_guardian' | 'email_pending' | 'inactive';
-```
-
-**4c. `getUserStatus()` funkcja** (linie 120–126) — dodać warunek między `guardian` a `admin`:
-```typescript
-const getUserStatus = (userProfile: UserProfile): UserStatus => {
-  if (!userProfile.is_active) return 'inactive';
-  if (!userProfile.email_activated) return 'email_pending';
-  if (!userProfile.guardian_approved) return 'awaiting_guardian';
-  // leader_approved = false → lider jest w ścieżce i oczekuje
-  if (userProfile.leader_approved === false) return 'awaiting_leader';
-  if (!userProfile.admin_approved) return 'awaiting_admin';
-  return 'fully_approved';
-};
-```
-
-**4d. `StatusDot` komponent** (linie 128–151) — dodać konfigurację dla `awaiting_leader`:
-```typescript
-awaiting_leader: { color: 'bg-violet-500', tooltip: 'Oczekuje na Lidera' },
-```
-
-**4e. Import `Crown`** — dodać do listy importów z `lucide-react`.
-
-**4f. Wizualny wskaźnik na karcie** — obok ikon Email/Guardian/Admin dodać ikonę Lidera gdy `leader_approved === false`:
-W sekcji badge'y (po istniejących ✓ Email / ✗ Email, linia ~238):
-```tsx
-{/* Leader approval badge — pokazuj tylko gdy lider jest w ścieżce */}
-{userProfile.leader_approved === false && (
-  <Badge variant="outline" className="text-xs h-5 border-violet-300 text-violet-700 bg-violet-50 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-800">
-    <Crown className="w-3 h-3 mr-0.5" />
-    Czeka na Lidera
-  </Badge>
-)}
-```
-
-### Zmiana 5: `UserStatusLegend.tsx` — aktualizacja legendy
-Dodać nowy wpis z fioletową kropką między "Oczekuje na admina" a "Oczekuje na opiekuna":
-
-```typescript
-const statusColors = [
-  { color: 'bg-green-500', label: 'W pełni zatwierdzony', description: 'Email potwierdzony, opiekun i admin zatwierdził' },
-  { color: 'bg-amber-500', label: 'Oczekuje na admina', description: 'Opiekun zatwierdził, czeka na admina (brak lidera w ścieżce)' },
-  { color: 'bg-violet-500', label: 'Oczekuje na Lidera lub Admina', description: 'Opiekun zatwierdził, lider w ścieżce oczekuje lub admin może zatwierdzić' },
-  { color: 'bg-red-500', label: 'Oczekuje na opiekuna', description: 'Email potwierdzony, brak zatwierdzenia opiekuna' },
-  { color: 'bg-gray-400', label: 'Email niepotwierdzony', description: 'Użytkownik nie potwierdził emaila' },
-  { color: 'bg-gray-300', label: 'Zablokowany', description: 'Konto zablokowane przez admina' },
-];
-```
-
-Ponadto legenda zostanie rozbudowana o sekcję "Ścieżka zatwierdzania" — krótki opis przepływu (Email → Opiekun → Lider/Admin → Aktywny), aby admin rozumiał logikę całego procesu.
+Usunąć duplikat `useEffect` (linie 2053-2058) — jest redundantny względem głównego efektu (2032-2050) który już obsługuje `activeTab === 'content'`. Drugi efekt z `[isAdmin]` powoduje dodatkowe zapytanie przy załadowaniu.
 
 ---
 
@@ -105,18 +93,6 @@ Ponadto legenda zostanie rozbudowana o sekcję "Ścieżka zatwierdzania" — kr�
 
 | Plik | Zmiana | Priorytet |
 |---|---|---|
-| SQL: `get_user_profiles_with_confirmation` | Dodanie `leader_approved`, `leader_approved_at` do SELECT | Krytyczny |
-| `src/pages/Admin.tsx` | Interface + mapping `leader_approved` | Krytyczny |
-| `src/components/admin/CompactUserCard.tsx` | Nowy status `awaiting_leader`, fioletowa kropka, badge "Czeka na Lidera", import Crown | Główny |
-| `src/components/admin/UserStatusLegend.tsx` | Nowy wpis fioletowy + opis ścieżki zatwierdzania | Uzupełniający |
+| `src/pages/Admin.tsx` | Usunięcie duplikatu useEffect (linie 2053-2058) | Niski — nie powoduje crash, ale eliminuje nadmiarowe zapytanie |
 
----
-
-## Efekt wizualny po zmianach
-
-Użytkownik "Mateusz Sumera" który ma `guardian_approved = true` i `leader_approved = false`:
-- Fioletowa kropka statusu (zamiast bursztynowej)
-- Badge `👑 Czeka na Lidera` obok imienia
-- Przycisk "Zatwierdź" pozostaje widoczny — Admin zawsze może zatwierdzić
-
-Legenda w tabeli użytkowników będzie zawierać 6 kolorów zamiast 5, z wyjaśnieniem nowego przepływu.
+Wszystkie pozostałe zmiany są poprawne i działają. System `leader_approved` zadziała automatycznie przy pierwszym użytkowniku który przejdzie przez pełen przepływ zatwierdzania.
