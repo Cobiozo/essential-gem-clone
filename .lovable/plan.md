@@ -1,107 +1,122 @@
 
-# Naprawa: Maximum call stack size exceeded po wyczyszczeniu cookies
+# Dodanie kolumny "Oczekuje na Lidera" + aktualizacja legendy statusów
 
-## Diagnoza problemu
+## Diagnoza aktualnego stanu
 
-Błąd pojawia się po wyczyszczeniu cookies na stronie `/admin?tab=users`. Po analizie kodu, zidentyfikowałem **dwie powiązane przyczyny**:
-
-### Przyczyna 1 — Hook useLeaderApprovals wywołany bezwarunkowo w LeaderPanel.tsx
-
-Linia 31 w `LeaderPanel.tsx`:
-```typescript
-const { pendingCount } = useLeaderApprovals();  // ← wywołany dla KAŻDEGO użytkownika
-```
-
-Hook ma `enabled: !!user` — więc wysyła RPC `get_pending_leader_approvals` dla każdego zalogowanego użytkownika. Ta funkcja SQL rzuca `RAISE EXCEPTION 'Brak uprawnień'` dla użytkowników bez `can_approve_registrations = true`. To powoduje błąd, który trafia do React Query jako thrown error — co może wywołać re-render komponentu, który wywołuje hook ponownie, itd.
-
-**Naprawa:** Dodać `enabled: !!user && hasApprovalPermission` w `useLeaderApprovals` — lub przekazać flagę z zewnątrz.
-
-### Przyczyna 2 — Efekt w Admin.tsx z niestabilnymi zależnościami
-
-Linia 2063-2064 w `Admin.tsx`:
-```typescript
-}, [user, authLoading, rolesReady, isAdmin, navigate, toast]);
-```
-
-`toast` i `navigate` to obiekty tworzone na nowo przy każdym renderze (choć są stabilne w React Router v6 i Sonner, ale `toast` z `useToast()` może być niestabilna referencja). Jeśli po wyczyszczeniu cookies `isAdmin` zmienia się szybko (false → undefined → false), może to powodować wielokrotne wywołania `fetchData()` i `navigate('/auth')` jednocześnie.
-
-**Naprawa:** Usunąć `toast` z zależności efektu (użyć `useCallback` lub `useRef` dla stabilności), i dodać guard `isAdmin` przed `fetchData()`.
-
-### Przyczyna 3 — Brak guard w useLeaderApprovals na błędy "Brak uprawnień"
-
-Funkcja RPC rzuca wyjątek zamiast zwracać pusty wynik dla użytkowników bez uprawnień. Hook obsługuje ten przypadek (`if (error.message?.includes('Brak uprawnień')) return []`), ale błąd SQL jest najpierw logowany w konsoli, a następnie React Query może przy pewnych konfiguracjach retry wywołać ponowne zapytanie, co prowadzi do pętli.
-
-Obecna konfiguracja hooka ma `refetchInterval: 60 * 1000` — co oznacza, że co minutę ponawia próbę dla użytkowników bez uprawnień.
-
-**Naprawa:** Dodać `enabled: !!user && hasApprovalPermission` do query w `useLeaderApprovals`, a do `LeaderPanel.tsx` przekazać tę flagę.
+### Co brakuje:
+1. **RPC `get_user_profiles_with_confirmation`** — nie zwraca `leader_approved` i `leader_approved_at` (brakuje tych kolumn w `SELECT`)
+2. **`UserProfile` interface** w `Admin.tsx` (linie 89–120) — brak pól `leader_approved`, `leader_approved_at`, `leader_approver_id`
+3. **`CompactUserCard.tsx`** — `UserProfile` interface (linie 38–69), `getUserStatus()` i `StatusDot` nie obsługują stanu "Oczekuje na Lidera"
+4. **`UserStatusLegend.tsx`** — brak wpisu dla fioletowego "Oczekuje na Lidera"
+5. **Mapping w `fetchUsers()`** — `leader_approved` nie jest mapowany ze zwróconego RPC (linie 481–511)
 
 ---
 
-## Plan naprawy
+## Szczegółowy plan zmian
 
-### Zmiana 1: `src/hooks/useLeaderApprovals.ts`
+### Zmiana 1: Aktualizacja funkcji SQL `get_user_profiles_with_confirmation`
+Dodać `p.leader_approved` i `p.leader_approved_at` do listy kolumn SELECT i do RETURNS TABLE.
 
-Dodać parametr `enabled` (domyślnie `true`) do hooka lub przyjąć `hasApprovalPermission` jako argument:
+Bez tego cała reszta nie będzie miała danych.
 
+### Zmiana 2: `UserProfile` interface w `Admin.tsx` (linia ~105)
+Dodać po `admin_approved_at`:
 ```typescript
-export function useLeaderApprovals(hasApprovalPermission?: boolean) {
-  const { user } = useAuth();
-  
-  const { data: pendingApprovals = [], isLoading } = useQuery({
-    queryKey: ['leader-pending-approvals', user?.id],
-    queryFn: async () => { ... },
-    enabled: !!user && hasApprovalPermission === true,  // ← kluczowa zmiana
-    staleTime: 30 * 1000,
-    refetchInterval: 60 * 1000,
-    retry: false,  // ← nie ponawiaj prób gdy brak uprawnień
-  });
+leader_approved?: boolean | null;
+leader_approved_at?: string | null;
+leader_approver_id?: string | null;
+last_sign_in_at?: string | null;
 ```
 
-### Zmiana 2: `src/pages/LeaderPanel.tsx`
-
-Przekazać `hasApprovalPermission` do `useLeaderApprovals`:
-
+### Zmiana 3: Mapping w `fetchUsers()` w `Admin.tsx` (linia ~499)
+Dodać po `admin_approved_at`:
 ```typescript
-// Linia 31 — zmiana z:
-const { pendingCount } = useLeaderApprovals();
-
-// Na:
-const { pendingCount } = useLeaderApprovals(hasApprovalPermission);
+leader_approved: row.leader_approved,
+leader_approved_at: row.leader_approved_at,
+leader_approver_id: row.leader_approver_id,
+last_sign_in_at: row.last_sign_in_at,
 ```
 
-### Zmiana 3: `src/pages/Admin.tsx` — stabilizacja efektu
+### Zmiana 4: `CompactUserCard.tsx` — rozszerzenie typów i logiki
 
-Linia 2054-2064 — usunąć `toast` z listy zależności efektu (jest stabilna referencja, ale jej obecność w deps powoduje potencjalną pętlę przy reinicjalizacji kontekstu po wyczyszczeniu cookies):
-
+**4a. `UserProfile` interface** (linia ~53) — dodać po `admin_approved_at`:
 ```typescript
-useEffect(() => {
-    if (authLoading || !rolesReady) return;
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    if (!isAdmin) return;  // ← dodać guard — nie wywołuj fetchData dla nie-adminów
-    fetchData();
-}, [user, authLoading, rolesReady, isAdmin, navigate]);
-//  ↑ usunięto: toast
+leader_approved?: boolean | null;
+leader_approved_at?: string | null;
+leader_approver_id?: string | null;
 ```
 
-### Zmiana 4: `src/hooks/useLeaderApprovals.ts` — dodanie `retry: false`
+**4b. `UserStatus` typ** (linia 118) — dodać nowy stan:
+```typescript
+type UserStatus = 'fully_approved' | 'awaiting_admin' | 'awaiting_leader' | 'awaiting_guardian' | 'email_pending' | 'inactive';
+```
 
-Aby zapobiec ponownym próbom zapytania gdy RPC rzuca błąd uprawnień:
+**4c. `getUserStatus()` funkcja** (linie 120–126) — dodać warunek między `guardian` a `admin`:
+```typescript
+const getUserStatus = (userProfile: UserProfile): UserStatus => {
+  if (!userProfile.is_active) return 'inactive';
+  if (!userProfile.email_activated) return 'email_pending';
+  if (!userProfile.guardian_approved) return 'awaiting_guardian';
+  // leader_approved = false → lider jest w ścieżce i oczekuje
+  if (userProfile.leader_approved === false) return 'awaiting_leader';
+  if (!userProfile.admin_approved) return 'awaiting_admin';
+  return 'fully_approved';
+};
+```
+
+**4d. `StatusDot` komponent** (linie 128–151) — dodać konfigurację dla `awaiting_leader`:
+```typescript
+awaiting_leader: { color: 'bg-violet-500', tooltip: 'Oczekuje na Lidera' },
+```
+
+**4e. Import `Crown`** — dodać do listy importów z `lucide-react`.
+
+**4f. Wizualny wskaźnik na karcie** — obok ikon Email/Guardian/Admin dodać ikonę Lidera gdy `leader_approved === false`:
+W sekcji badge'y (po istniejących ✓ Email / ✗ Email, linia ~238):
+```tsx
+{/* Leader approval badge — pokazuj tylko gdy lider jest w ścieżce */}
+{userProfile.leader_approved === false && (
+  <Badge variant="outline" className="text-xs h-5 border-violet-300 text-violet-700 bg-violet-50 dark:bg-violet-950 dark:text-violet-400 dark:border-violet-800">
+    <Crown className="w-3 h-3 mr-0.5" />
+    Czeka na Lidera
+  </Badge>
+)}
+```
+
+### Zmiana 5: `UserStatusLegend.tsx` — aktualizacja legendy
+Dodać nowy wpis z fioletową kropką między "Oczekuje na admina" a "Oczekuje na opiekuna":
 
 ```typescript
-retry: false,
+const statusColors = [
+  { color: 'bg-green-500', label: 'W pełni zatwierdzony', description: 'Email potwierdzony, opiekun i admin zatwierdził' },
+  { color: 'bg-amber-500', label: 'Oczekuje na admina', description: 'Opiekun zatwierdził, czeka na admina (brak lidera w ścieżce)' },
+  { color: 'bg-violet-500', label: 'Oczekuje na Lidera lub Admina', description: 'Opiekun zatwierdził, lider w ścieżce oczekuje lub admin może zatwierdzić' },
+  { color: 'bg-red-500', label: 'Oczekuje na opiekuna', description: 'Email potwierdzony, brak zatwierdzenia opiekuna' },
+  { color: 'bg-gray-400', label: 'Email niepotwierdzony', description: 'Użytkownik nie potwierdził emaila' },
+  { color: 'bg-gray-300', label: 'Zablokowany', description: 'Konto zablokowane przez admina' },
+];
 ```
+
+Ponadto legenda zostanie rozbudowana o sekcję "Ścieżka zatwierdzania" — krótki opis przepływu (Email → Opiekun → Lider/Admin → Aktywny), aby admin rozumiał logikę całego procesu.
 
 ---
 
 ## Pliki do zmiany
 
 | Plik | Zmiana | Priorytet |
-|------|--------|-----------|
-| `src/hooks/useLeaderApprovals.ts` | Dodanie parametru `hasApprovalPermission`, `enabled: !!user && hasApprovalPermission === true`, `retry: false` | Krytyczny |
-| `src/pages/LeaderPanel.tsx` | Przekazanie `hasApprovalPermission` do `useLeaderApprovals(hasApprovalPermission)` | Krytyczny |
-| `src/pages/Admin.tsx` | Usunięcie `toast` z deps efektu + dodanie `if (!isAdmin) return` guard | Ważny |
+|---|---|---|
+| SQL: `get_user_profiles_with_confirmation` | Dodanie `leader_approved`, `leader_approved_at` do SELECT | Krytyczny |
+| `src/pages/Admin.tsx` | Interface + mapping `leader_approved` | Krytyczny |
+| `src/components/admin/CompactUserCard.tsx` | Nowy status `awaiting_leader`, fioletowa kropka, badge "Czeka na Lidera", import Crown | Główny |
+| `src/components/admin/UserStatusLegend.tsx` | Nowy wpis fioletowy + opis ścieżki zatwierdzania | Uzupełniający |
 
-Zmiany są minimalne i celowe — naprawiają konkretne miejsca bez ryzyka destabilizacji reszty aplikacji.
+---
+
+## Efekt wizualny po zmianach
+
+Użytkownik "Mateusz Sumera" który ma `guardian_approved = true` i `leader_approved = false`:
+- Fioletowa kropka statusu (zamiast bursztynowej)
+- Badge `👑 Czeka na Lidera` obok imienia
+- Przycisk "Zatwierdź" pozostaje widoczny — Admin zawsze może zatwierdzić
+
+Legenda w tabeli użytkowników będzie zawierać 6 kolorów zamiast 5, z wyjaśnieniem nowego przepływu.
