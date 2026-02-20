@@ -1,76 +1,42 @@
 
-# Naprawa: "useCurrency must be used within a CurrencyProvider"
+# Usunięcie przycisku "Podgląd strony rejestracji"
 
-## Diagnoza — przyczyna błędu
+## Co usuwamy
 
-Błąd pojawia się na stronie `/leader` (Panel Lidera), nie na `/specialist-calculator`.
+Z pliku `src/components/user-reflinks/UserReflinksPanel.tsx`:
 
-Komponent `SpecialistCalculator` (z `src/components/specialist-calculator/SpecialistCalculator.tsx`) renderuje dzieci, które wywołują `useCurrency()`:
-- `ResultCards.tsx` — linia 26: `const { formatAmount } = useCurrency();`
-- `BottomSection.tsx` — linia 28: `const { currency, formatAmount } = useCurrency();`
-- `IncomeChart.tsx` — linia 27: `const { formatAmount, symbol, convert } = useCurrency();`
+1. **Import** `ReflinkPreviewDialog` (linia 16)
+2. **Import** ikony `Eye` z lucide-react (linia 12 — o ile nie jest używana gdzie indziej)
+3. **Stan** `const [previewReflink, setPreviewReflink] = useState<UserReflink | null>(null);`
+4. **Przycisk** z ikoną Eye w JSX:
+   ```tsx
+   <Button
+     size="sm"
+     variant="ghost"
+     onClick={() => setPreviewReflink(reflink)}
+     title="Podgląd strony rejestracji"
+   >
+     <Eye className="w-4 h-4" />
+   </Button>
+   ```
+5. **Komponent dialogu** na końcu JSX:
+   ```tsx
+   {/* Preview Dialog */}
+   <ReflinkPreviewDialog
+     open={!!previewReflink}
+     onOpenChange={(open) => !open && setPreviewReflink(null)}
+     reflinkCode={previewReflink?.reflink_code || ''}
+   />
+   ```
 
-Kalkulator działa na stronie `/specialist-calculator` bo:
-```
-SpecialistCalculatorPage → <CurrencyProvider> → <SpecialistCalculator /> ✅
-```
+## Plik `ReflinkPreviewDialog.tsx`
 
-Ale w `LeaderPanel.tsx` (linie 104 i 161) jest renderowany bez opakowywania w kontekst:
-```
-LeaderPanel → <SpecialistCalculator />  ← brak CurrencyProvider! ❌
-```
+Plik `src/components/user-reflinks/ReflinkPreviewDialog.tsx` oraz jego eksport z `index.ts` zostawiamy bez zmian — komponent może być potrzebny w przyszłości gdy funkcja podglądu zostanie naprawiona.
 
-`CommissionCalculator` (kalkulator influencerów) nie ma tego problemu, bo sam zawiera własny `CurrencyProvider` w środku (`src/components/calculator/CommissionCalculator.tsx`, linia 55).
+## Zmiana: tylko 1 plik
 
-## Rozwiązanie
-
-Dwa miejsca wymagają naprawy:
-
-### Opcja A (zalecana): Dodać `CurrencyProvider` wewnątrz komponentu `SpecialistCalculator`
-Analogicznie do `CommissionCalculator`, sam komponent powinien być samowystarczalny — pobiera `eurToPlnRate` z ustawień i sam owija się `CurrencyProvider`. Dzięki temu działa poprawnie niezależnie od tego, gdzie jest użyty w drzewie komponentów.
-
-### Opcja B: Owrappować w LeaderPanel
-Owinąć każde użycie `<SpecialistCalculator />` w `LeaderPanel.tsx` przez `<CurrencyProvider>`. Ale to wymaga dodatkowego pobierania kursu w LeaderPanel, a przy przyszłych użyciach komponentu błąd może wrócić.
-
-**Wybieramy Opcję A** — komponent staje się samowystarczalny, co jest bezpieczniejsze długoterminowo.
-
-## Pliki do zmiany
-
-| Plik | Zmiana |
+| Plik | Operacja |
 |---|---|
-| `src/components/specialist-calculator/SpecialistCalculator.tsx` | Dodanie własnego `CurrencyProvider` wewnątrz komponentu — analogicznie jak w `CommissionCalculator` |
+| `src/components/user-reflinks/UserReflinksPanel.tsx` | Usunięcie stanu, przycisku Eye i komponentu ReflinkPreviewDialog |
 
-## Szczegóły zmiany
-
-`SpecialistCalculator` już pobiera `settings.eur_to_pln_rate` z hooków, więc ma dostęp do kursu wymiany. Wystarczy owrapować zwracany JSX w `CurrencyProvider`:
-
-```typescript
-// PRZED:
-return (
-  <div className="space-y-6">
-    <ClientSlider ... />
-    <ResultCards ... />
-    <BottomSection ... />
-    ...
-  </div>
-);
-
-// PO:
-return (
-  <CurrencyProvider eurToPlnRate={settings.eur_to_pln_rate || 4.3}>
-    <div className="space-y-6">
-      <ClientSlider ... />
-      <ResultCards ... />
-      <BottomSection ... />
-      ...
-    </div>
-  </CurrencyProvider>
-);
-```
-
-Dodatkowa uwaga: gdy `SpecialistCalculator` jest renderowany wewnątrz `SpecialistCalculatorPage`, strona już posiada zewnętrzny `CurrencyProvider`. Zagnieżdżone Providery Reacta są obsługiwane poprawnie — wewnętrzny Provider nadpisuje zewnętrzny dla swoich dzieci. Nie powoduje to żadnego konfliktu ani podwójnego renderowania.
-
-Po tej zmianie `SpecialistCalculator` będzie działał poprawnie zarówno na:
-- `/specialist-calculator` (dedykowana strona)
-- `/leader` → zakładka Kalkulator Specjalistów
-- Każdym innym miejscu w aplikacji
+Po zmianie lista linków będzie wyglądać tak: QR kod → kopiuj → toggle (dla aktywnych) lub QR kod → oko (wygasłe — tylko inne miejsca) → Przedłuż (dla wygasłych). Przycisk oka zniknie całkowicie z interfejsu.
