@@ -7316,6 +7316,9 @@ export type Database = {
           is_approved: boolean
           last_name: string
           last_sign_in_at: string
+          leader_approved: boolean
+          leader_approved_at: string
+          leader_approver_id: string
           phone_number: string
           postal_code: string
           profile_description: string

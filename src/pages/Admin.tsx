@@ -103,6 +103,9 @@ interface UserProfile {
   guardian_approved_at?: string | null;
   admin_approved?: boolean;
   admin_approved_at?: string | null;
+  leader_approved?: boolean | null;
+  leader_approved_at?: string | null;
+  leader_approver_id?: string | null;
   upline_eq_id?: string | null;
   guardian_name?: string | null;
   email_activated?: boolean;
@@ -497,6 +500,9 @@ const Admin = () => {
         last_sign_in_at: row.last_sign_in_at,
         guardian_approved_at: row.guardian_approved_at,
         admin_approved_at: row.admin_approved_at,
+        leader_approved: row.leader_approved,
+        leader_approved_at: row.leader_approved_at,
+        leader_approver_id: row.leader_approver_id,
         // Extended profile data
         phone_number: row.phone_number,
         street_address: row.street_address,
