@@ -2060,8 +2060,11 @@ const Admin = () => {
       return;
     }
 
+    if (!isAdmin) return;
+
     fetchData();
-  }, [user, authLoading, rolesReady, isAdmin, navigate, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading, rolesReady, isAdmin, navigate]);
 
   const fetchData = async () => {
     try {
