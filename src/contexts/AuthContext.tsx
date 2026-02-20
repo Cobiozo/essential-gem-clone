@@ -33,6 +33,10 @@ interface Profile {
   guardian_approved_at?: string | null;
   admin_approved?: boolean;
   admin_approved_at?: string | null;
+  // Leader approval fields
+  leader_approved?: boolean | null;
+  leader_approved_at?: string | null;
+  leader_approver_id?: string | null;
   upline_eq_id?: string | null;
   upline_first_name?: string | null;
   upline_last_name?: string | null;

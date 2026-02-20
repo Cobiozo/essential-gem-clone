@@ -3345,6 +3345,7 @@ export type Database = {
         Row: {
           activated_at: string | null
           activated_by: string | null
+          can_approve_registrations: boolean | null
           can_broadcast: boolean | null
           can_host_private_meetings: boolean | null
           can_view_org_tree: boolean | null
@@ -3366,6 +3367,7 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           activated_by?: string | null
+          can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
           can_view_org_tree?: boolean | null
@@ -3387,6 +3389,7 @@ export type Database = {
         Update: {
           activated_at?: string | null
           activated_by?: string | null
+          can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_host_private_meetings?: boolean | null
           can_view_org_tree?: boolean | null
@@ -5097,6 +5100,9 @@ export type Database = {
           is_searchable: boolean | null
           last_name: string | null
           last_seen_at: string | null
+          leader_approved: boolean | null
+          leader_approved_at: string | null
+          leader_approver_id: string | null
           phone_number: string | null
           postal_code: string | null
           profile_completed: boolean | null
@@ -5138,6 +5144,9 @@ export type Database = {
           is_searchable?: boolean | null
           last_name?: string | null
           last_seen_at?: string | null
+          leader_approved?: boolean | null
+          leader_approved_at?: string | null
+          leader_approver_id?: string | null
           phone_number?: string | null
           postal_code?: string | null
           profile_completed?: boolean | null
@@ -5179,6 +5188,9 @@ export type Database = {
           is_searchable?: boolean | null
           last_name?: string | null
           last_seen_at?: string | null
+          leader_approved?: boolean | null
+          leader_approved_at?: string | null
+          leader_approver_id?: string | null
           phone_number?: string | null
           postal_code?: string | null
           profile_completed?: boolean | null
@@ -7173,6 +7185,10 @@ export type Database = {
       }
       email_exists: { Args: { email_param: string }; Returns: boolean }
       eq_id_exists: { Args: { eq_id_param: string }; Returns: boolean }
+      find_nearest_leader_approver: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
       generate_user_reflink_code: { Args: { p_eq_id: string }; Returns: string }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
@@ -7208,6 +7224,21 @@ export type Database = {
           phone_number: string
           role: string
           upline_eq_id: string
+        }[]
+      }
+      get_pending_leader_approvals: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          eq_id: string
+          first_name: string
+          guardian_approved_at: string
+          last_name: string
+          upline_eq_id: string
+          upline_first_name: string
+          upline_last_name: string
+          user_id: string
         }[]
       }
       get_reflink_validity_days: { Args: never; Returns: number }
@@ -7335,6 +7366,14 @@ export type Database = {
         Returns: boolean
       }
       is_thread_participant: { Args: { thread_uuid: string }; Returns: boolean }
+      leader_approve_user: {
+        Args: { target_user_id: string }
+        Returns: boolean
+      }
+      leader_reject_user: {
+        Args: { rejection_reason?: string; target_user_id: string }
+        Returns: boolean
+      }
       refresh_all_active_reflinks: { Args: never; Returns: Json }
       reset_all_active_reflinks: { Args: never; Returns: Json }
       search_guardians: {

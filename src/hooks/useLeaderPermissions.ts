@@ -8,6 +8,7 @@ export interface LeaderPermissionsResult {
   hasInfluencerCalc: boolean;
   hasSpecialistCalc: boolean;
   hasOrgTree: boolean;
+  hasApprovalPermission: boolean;
   isAnyLeaderFeatureEnabled: boolean;
   leaderPermission: {
     individual_meetings_enabled?: boolean | null;
@@ -16,6 +17,7 @@ export interface LeaderPermissionsResult {
     can_view_team_progress?: boolean | null;
     can_view_org_tree?: boolean | null;
     can_host_private_meetings?: boolean | null;
+    can_approve_registrations?: boolean | null;
     zoom_link?: string | null;
   } | null;
   loading: boolean;
@@ -33,7 +35,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       const [leaderPermResult, calcAccessResult, specialistAccessResult] = await Promise.all([
         supabase
           .from('leader_permissions')
-          .select('individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_view_team_progress, can_view_org_tree, can_host_private_meetings, zoom_link')
+          .select('individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_view_team_progress, can_view_org_tree, can_host_private_meetings, can_approve_registrations, zoom_link')
           .eq('user_id', user.id)
           .maybeSingle(),
         supabase
@@ -71,6 +73,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       const hasMeetings = leaderPerm?.individual_meetings_enabled === true;
       const hasTeamProgress = leaderPerm?.can_view_team_progress === true;
       const hasOrgTree = leaderPerm?.can_view_org_tree === true;
+      const hasApprovalPermission = leaderPerm?.can_approve_registrations === true;
 
       // Influencer calc: enabled globally for partners AND user has access
       const calcGloballyEnabled = calcSettings?.is_enabled && 
@@ -89,6 +92,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
         hasInfluencerCalc,
         hasSpecialistCalc,
         hasOrgTree,
+        hasApprovalPermission,
       };
     },
     enabled: !!user && (isPartner || isAdmin),
@@ -100,6 +104,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
   const hasInfluencerCalc = data?.hasInfluencerCalc ?? false;
   const hasSpecialistCalc = data?.hasSpecialistCalc ?? false;
   const hasOrgTree = data?.hasOrgTree ?? false;
+  const hasApprovalPermission = data?.hasApprovalPermission ?? false;
 
   return {
     hasMeetings,
@@ -107,7 +112,8 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
     hasInfluencerCalc,
     hasSpecialistCalc,
     hasOrgTree,
-    isAnyLeaderFeatureEnabled: hasMeetings || hasTeamProgress || hasInfluencerCalc || hasSpecialistCalc || hasOrgTree,
+    hasApprovalPermission,
+    isAnyLeaderFeatureEnabled: hasMeetings || hasTeamProgress || hasInfluencerCalc || hasSpecialistCalc || hasOrgTree || hasApprovalPermission,
     leaderPermission: data?.leaderPermission ?? null,
     loading: isLoading,
   };

@@ -18,6 +18,7 @@ import {
   UserRound,
   TreePine,
   Users,
+  UserCheck,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
@@ -29,6 +30,7 @@ interface PartnerLeaderData {
   individual_meetings_enabled: boolean;
   can_view_team_progress: boolean;
   can_view_org_tree: boolean;
+  can_approve_registrations: boolean;
   permission_id?: string;
   // Calculator access
   has_influencer_calc: boolean;
@@ -72,7 +74,7 @@ export const LeaderPanelManagement: React.FC = () => {
           .order('last_name', { ascending: true }),
         supabase
           .from('leader_permissions')
-          .select('id, user_id, individual_meetings_enabled, can_view_team_progress, can_view_org_tree')
+          .select('id, user_id, individual_meetings_enabled, can_view_team_progress, can_view_org_tree, can_approve_registrations')
           .in('user_id', partnerIds),
         supabase
           .from('calculator_user_access')
@@ -100,6 +102,7 @@ export const LeaderPanelManagement: React.FC = () => {
           individual_meetings_enabled: perm?.individual_meetings_enabled || false,
           can_view_team_progress: perm?.can_view_team_progress || false,
           can_view_org_tree: perm?.can_view_org_tree || false,
+          can_approve_registrations: (perm as any)?.can_approve_registrations || false,
           permission_id: perm?.id,
           has_influencer_calc: calcAccess?.has_access || false,
           has_specialist_calc: specAccess?.has_access || false,
@@ -132,7 +135,7 @@ export const LeaderPanelManagement: React.FC = () => {
 
   const toggleLeaderPermission = async (
     userId: string,
-    field: 'individual_meetings_enabled' | 'can_view_team_progress' | 'can_view_org_tree',
+    field: 'individual_meetings_enabled' | 'can_view_team_progress' | 'can_view_org_tree' | 'can_approve_registrations',
     value: boolean
   ) => {
     setSaving(`${userId}-${field}`);
@@ -213,6 +216,7 @@ export const LeaderPanelManagement: React.FC = () => {
     p.individual_meetings_enabled ||
     p.can_view_team_progress ||
     p.can_view_org_tree ||
+    p.can_approve_registrations ||
     p.has_influencer_calc ||
     p.has_specialist_calc;
 
@@ -220,6 +224,7 @@ export const LeaderPanelManagement: React.FC = () => {
     { key: 'individual_meetings_enabled', label: 'Spotkania', icon: CalendarDays, type: 'leader' as const },
     { key: 'can_view_team_progress', label: 'Szkolenia', icon: GraduationCap, type: 'leader' as const },
     { key: 'can_view_org_tree', label: 'Moja struktura', icon: TreePine, type: 'leader' as const },
+    { key: 'can_approve_registrations', label: 'Zatwierdzanie', icon: UserCheck, type: 'leader' as const },
     { key: 'has_influencer_calc', label: 'Kalk. Influencer', icon: Calculator, type: 'calc_influencer' as const },
     { key: 'has_specialist_calc', label: 'Kalk. Specjalista', icon: UserRound, type: 'calc_specialist' as const },
   ];
@@ -324,6 +329,17 @@ export const LeaderPanelManagement: React.FC = () => {
                             disabled={saving === `${partner.user_id}-can_view_org_tree`}
                             onCheckedChange={v =>
                               toggleLeaderPermission(partner.user_id, 'can_view_org_tree', v)
+                            }
+                          />
+                        </TableCell>
+
+                        {/* Zatwierdzanie */}
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={partner.can_approve_registrations}
+                            disabled={saving === `${partner.user_id}-can_approve_registrations`}
+                            onCheckedChange={v =>
+                              toggleLeaderPermission(partner.user_id, 'can_approve_registrations', v)
                             }
                           />
                         </TableCell>
