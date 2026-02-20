@@ -8,7 +8,7 @@ const corsHeaders = {
 
 interface ApprovalEmailRequest {
   userId: string;
-  approvalType: 'guardian' | 'admin';
+  approvalType: 'guardian' | 'admin' | 'leader';
   guardianName?: string;
   approverId?: string;
 }
@@ -209,7 +209,7 @@ serve(async (req) => {
     };
 
     // Determine template based on approval type
-    const templateName = approvalType === 'guardian' ? 'guardian_approval' : 'admin_approval';
+    const templateName = approvalType === 'guardian' ? 'guardian_approval' : approvalType === 'leader' ? 'leader_approval' : 'admin_approval';
 
     // Get email template
     const { data: templateData, error: templateError } = await supabase

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Clock, CheckCircle, UserCheck, ShieldCheck, LogOut, Mail, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle, UserCheck, ShieldCheck, LogOut, Mail, RefreshCw, AlertTriangle, Crown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -40,6 +40,9 @@ export const ApprovalStatusBanner: React.FC = () => {
   const emailActivated = profile.email_activated === true;
   const guardianApproved = profile.guardian_approved === true;
   const adminApproved = profile.admin_approved === true;
+  // leader_approved = null → brak lidera w ścieżce; false → lider wyznaczony, czeka; true → lider zatwierdził
+  const leaderApproved = profile.leader_approved;
+  const awaitingLeader = leaderApproved === false; // lider w ścieżce, jeszcze nie zatwierdził
 
   // If fully approved, don't show banner
   if (emailActivated && guardianApproved && adminApproved) {
@@ -214,7 +217,71 @@ export const ApprovalStatusBanner: React.FC = () => {
     );
   }
 
-  // Case 2: Guardian approved, waiting for admin
+  // Case 2: Guardian approved, leader in path — waiting for leader OR admin
+  if (awaitingLeader) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-lg w-full">
+          <Alert className="border-violet-500 bg-violet-50 dark:bg-violet-950/20">
+            <Crown className="h-5 w-5 text-violet-600" />
+            <AlertTitle className="text-violet-800 dark:text-violet-200 text-lg font-semibold">
+              Opiekun zatwierdził Twoją rejestrację!
+            </AlertTitle>
+            <AlertDescription className="text-violet-700 dark:text-violet-300 mt-3 space-y-3">
+              <div className="flex items-center gap-2 text-base">
+                <span className="font-medium">Status:</span>
+                <span>Oczekiwanie na zatwierdzenie Lidera lub Administratora</span>
+              </div>
+              <div className="mt-4 pt-3 border-t border-violet-300 dark:border-violet-700">
+                <p className="text-sm">
+                  Twój opiekun zatwierdził Twoją rejestrację. Teraz Lider lub Administrator musi zatwierdzić Twoje konto, abyś mógł w pełni korzystać z systemu.
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+
+          <div className="mt-6 flex items-center justify-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm text-muted-foreground">Email</span>
+            </div>
+            <div className="h-0.5 w-8 bg-green-500" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm text-muted-foreground">Opiekun</span>
+            </div>
+            <div className="h-0.5 w-8 bg-green-500" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center animate-pulse">
+                <Crown className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm text-muted-foreground">Lider/Admin</span>
+            </div>
+            <div className="h-0.5 w-8 bg-muted" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <span className="text-sm text-muted-foreground">Gotowe</span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <Button variant="outline" onClick={handleLogoutAndReturn} className="gap-2">
+              <LogOut className="h-4 w-4" />
+              Powrót do strony głównej
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Case 3: Guardian approved, no leader in path — waiting for admin only
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-lg w-full">
@@ -267,11 +334,7 @@ export const ApprovalStatusBanner: React.FC = () => {
         </div>
 
         <div className="mt-6 flex justify-center">
-          <Button
-            variant="outline"
-            onClick={handleLogoutAndReturn}
-            className="gap-2"
-          >
+          <Button variant="outline" onClick={handleLogoutAndReturn} className="gap-2">
             <LogOut className="h-4 w-4" />
             Powrót do strony głównej
           </Button>
