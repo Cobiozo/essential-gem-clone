@@ -1,244 +1,209 @@
 
-# Przebudowa Panel Lidera — Unified Hub + Admin CMS
+# Zatwierdzanie przez Lidera — korekta logiki + implementacja
 
-## Wizja końcowa (wg opisu użytkownika)
+## Precyzyjne zrozumienie przepływu (po korekcie)
 
-Panel Lidera staje się jednym centralnym miejscem, gdzie lider widzi TYLKO te moduły, które admin mu przydzielił:
+Użytkownik wyjaśnił kluczową zmianę:
 
-```text
-/leader
-├── [Spotkania indywidualne] — gdy individual_meetings_enabled
-├── [Szkolenia zespołu]       — gdy can_view_team_progress  
-├── [Kalkulator Influencerów] — gdy calculator_user_access.has_access
-├── [Kalkulator Specjalistów] — gdy specialist_calculator_user_access.has_access
-└── [Moja struktura]          — gdy can_view_org_tree (nowa flaga)
+```
+Rejestracja → Email → Opiekun zatwierdza
+  ↓
+System szuka lidera w ścieżce rekrutacji (upline):
+
+PRZYPADEK A — Lider z can_approve_registrations ISTNIEJE:
+  → Powiadomienie do Lidera ORAZ do Admina
+  → Kto pierwszy zatwierdzi (Lider LUB Admin) → użytkownik AKTYWNY
+  
+PRZYPADEK B — Lider NIE istnieje w ścieżce:
+  → Tylko powiadomienie do Admina (standardowy przepływ bez zmian)
 ```
 
-Admin w CMS ma dedykowaną sekcję "Panel Lidera" — wyszukuje użytkownika i włącza mu poszczególne opcje przełącznikami.
+Admin ZAWSZE może zatwierdzić. Lider jest alternatywną ścieżką — kto pierwszy, ten zatwierdza.
 
 ---
 
-## Diagnoza stanu obecnego
+## Schemat logiki w bazie danych
 
-### Co istnieje i działa poprawnie:
-- `leader_permissions` tabela — zawiera już: `individual_meetings_enabled`, `tripartite_meeting_enabled`, `partner_consultation_enabled`, `can_broadcast`, `can_view_team_progress`
-- `UnifiedMeetingSettingsForm` — gotowy komponent spotkań dla lidera
-- `TeamTrainingProgressView` — gotowy komponent szkoleń
-- `CommissionCalculatorPage` (`/calculator/influencer`) — osobna strona z własną ochroną
-- `SpecialistCalculatorPage` (`/calculator/specialist`) — osobna strona z własną ochroną
-- Drzewo organizacyjne — `useOrganizationTree` + `OrganizationChart` — gotowe komponenty w `TeamContactsTab`
-- `IndividualMeetingsManagement` — admin może włączać spotkania i szkolenia dla partnerów
-- `CalculatorManagement` / `SpecialistCalculatorManagement` — admin może włączać kalkulatory
+Kluczowa zmiana vs poprzedni plan:
+- Poprzednio: Lider zastępuje admina (`admin_approved = true` ustawiany przez lidera)
+- Teraz: Lider i Admin mogą niezależnie zatwierdzić. Zatwierdzenie przez lidera też ustawia `admin_approved = true` (bo lider ma uprawnienie finalnego zatwierdzenia), ALE admin zawsze widzi użytkownika i może zatwierdzić samodzielnie.
 
-### Problemy do rozwiązania:
-
-1. **`/leader` odrzuca użytkowników bez `can_host_private_meetings`** — hook `useLeaderAvailability` sprawdza `can_host_private_meetings` jako warunek `isLeader`. Lider z samymi kalkulatorami lub drzewem org zostanie wyrzucony z /leader.
-
-2. **Brak zakładki "Moja struktura" w Panelu Lidera** — drzewo org jest w `TeamContactsTab` w `/my-account`, nie w Panel Lidera.
-
-3. **Brak flagi `can_view_org_tree` w `leader_permissions`** — potrzebna nowa kolumna lub osobne podejście.
-
-4. **Kalkulatory w sidebarze** — zmiana planu: sidebar ma jeden link "Panel Lidera" → `/leader` bez submenu kalkulatorów. Kalkulatory jako zakładki WEWNĄTRZ `/leader`.
-
-5. **CMS: brak spójnego "Panel Lidera" miejsca** — uprawnienia spotkań są w jednym miejscu, kalkulatory w innym. Admin musi skakać po zakładkach.
-
-6. **Sidebar: `showLeaderPanel` nadal bazuje na spotkaniach + calculatorAccess (influencer only)** — nie uwzględnia specjalist calculator ani nowej flagi org tree.
+Kolumny `leader_approved`, `leader_approved_at`, `leader_approver_id` w `profiles` służą do:
+- Śledzenia czy lider był w ścieżce (i kto to był)
+- Pokazania właściwego banera użytkownikowi ("czekasz na Lidera lub Admina")
+- Pokazania zakładki "Zatwierdzenia" liderowi z listą jego oczekujących
 
 ---
 
-## Plan techniczny
+## Zmiany bazy danych (migracja SQL)
 
-### Krok 1: Migracja bazy danych
-
-Dodanie kolumny `can_view_org_tree` do tabeli `leader_permissions`:
-
+### Nowe kolumny w `profiles`:
 ```sql
-ALTER TABLE leader_permissions 
-ADD COLUMN IF NOT EXISTS can_view_org_tree boolean DEFAULT false;
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS leader_approved boolean DEFAULT NULL;
+-- NULL = brak lidera w ścieżce (Admin zatwierdza normalnie)
+-- FALSE = lider istnieje, oczekuje na zatwierdzenie (lider LUB admin)
+-- TRUE = lider zatwierdził
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS leader_approved_at timestamptz DEFAULT NULL;
+
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS leader_approver_id uuid DEFAULT NULL;
+-- UUID lidera który jest przypisany do zatwierdzenia
 ```
 
-To jedyna zmiana schematu. Kalkulator nie wymaga osobnej flagi w `leader_permissions` — ma własne tabele (`calculator_user_access`, `specialist_calculator_user_access`).
+### Nowa kolumna w `leader_permissions`:
+```sql
+ALTER TABLE public.leader_permissions 
+ADD COLUMN IF NOT EXISTS can_approve_registrations boolean DEFAULT false;
+```
 
-### Krok 2: Refaktor `useLeaderAvailability` → nowy hook `useLeaderPermissions`
+### Nowe funkcje SQL:
 
-Obecny `useLeaderAvailability` ma `isLeader = can_host_private_meetings` — zbyt wąsko.
+**1. `find_nearest_leader_approver(p_user_id uuid)`** — rekurencyjnie przeszukuje ścieżkę upline, zwraca UUID pierwszego lidera z `can_approve_registrations = true` lub `NULL`.
 
-Nowy hook (lub rozszerzenie istniejącego) będzie zwracał:
+**2. `leader_approve_user(target_user_id uuid)`** — lider zatwierdza:
+- Sprawdza `can_approve_registrations` lidera
+- Sprawdza `leader_approved = false` dla celu
+- Ustawia `leader_approved = true`, `leader_approved_at`, `leader_approver_id = auth.uid()`
+- Ustawia `admin_approved = true`, `admin_approved_at = now()` (lider ma uprawnienie finalne)
+- Tworzy `user_notifications` dla użytkownika ("Twoje konto zostało aktywowane!")
+- Wywołuje edge function `send-approval-email` z `approvalType: 'leader'`
 
-```typescript
-{
-  // Flagi dostępu do modułów
-  hasMeetings: boolean,             // individual_meetings_enabled
-  hasTeamProgress: boolean,         // can_view_team_progress  
-  hasInfluencerCalc: boolean,       // z calculator_user_access
-  hasSpecialistCalc: boolean,       // z specialist_calculator_user_access
-  hasOrgTree: boolean,              // can_view_org_tree
+**3. `leader_reject_user(target_user_id uuid, rejection_reason text)`** — lider odrzuca:
+- Dezaktywuje profil
+- Powiadomienie dla użytkownika i adminów
+
+**4. `get_pending_leader_approvals()`** — zwraca listę użytkowników z `leader_approved = false` AND `leader_approver_id = auth.uid()`.
+
+### Modyfikacja `guardian_approve_user()`:
+
+Po zatwierdzeniu przez opiekuna — nowa logika powiadomień:
+```sql
+v_leader_id := find_nearest_leader_approver(target_user_id);
+
+IF v_leader_id IS NOT NULL THEN
+  -- Ustaw leader_approved = false i leader_approver_id
+  UPDATE profiles SET leader_approved = false, leader_approver_id = v_leader_id ...
   
-  // Czy w ogóle ma cokolwiek (czy pokazać Panel Lidera w sidebarze)
-  isAnyLeaderFeatureEnabled: boolean,
+  -- Powiadom LIDERA
+  INSERT INTO user_notifications → lider, link: '/leader?tab=approvals'
   
-  // Pozostałe dane dla komponentu spotkań
-  leaderPermission: LeaderPermission | null,
-  loading: boolean,
-}
+  -- Powiadom ADMINÓW (oni też mogą zatwierdzić)
+  INSERT INTO user_notifications → wszyscy admini, link: '/admin?tab=users'
+  
+  -- Powiadom UŻYTKOWNIKA ("oczekujesz na Lidera lub Admina")
+  INSERT INTO user_notifications → użytkownik
+ELSE
+  -- Standardowy przepływ — tylko admini
+  INSERT INTO user_notifications → wszyscy admini (istniejący kod)
+  INSERT INTO user_notifications → użytkownik (istniejący kod)
+END IF;
 ```
 
-Hook pobiera dane równolegle z 3 źródeł:
-- `leader_permissions` (spotkania + org tree)
-- `calculator_user_access` (influencer)
-- `specialist_calculator_user_access` (specialist)
+### Modyfikacja `admin_approve_user()`:
 
-### Krok 3: Refaktor `LeaderPanel.tsx`
-
-Całkowita przebudowa logiki dostępu i zakładek:
-
-```typescript
-// Warunek "czy masz dostęp do Panel Lidera"
-if (!isAnyLeaderFeatureEnabled) → redirect do /dashboard
-
-// Zakładki budowane dynamicznie:
-const availableTabs = [
-  ...(hasMeetings        ? [{ id: 'meetings',    label: 'Spotkania indywidualne', icon: CalendarDays }] : []),
-  ...(hasTeamProgress    ? [{ id: 'training',    label: 'Szkolenia zespołu',      icon: GraduationCap }] : []),
-  ...(hasInfluencerCalc  ? [{ id: 'calc-inf',   label: 'Kalkulator Influencerów',icon: Calculator }] : []),
-  ...(hasSpecialistCalc  ? [{ id: 'calc-spec',  label: 'Kalkulator Specjalistów', icon: UserRound }] : []),
-  ...(hasOrgTree         ? [{ id: 'org-tree',   label: 'Moja struktura',          icon: TreePine }] : []),
-]
-```
-
-Zawartość zakładek:
-- `meetings` → `<UnifiedMeetingSettingsForm />` (istniejący)
-- `training` → `<TeamTrainingProgressView />` (istniejący)
-- `calc-inf` → importować i osadzić `<CommissionCalculator />` (z `@/components/calculator`)
-- `calc-spec` → importować i osadzić `<SpecialistCalculator />` (z `@/components/specialist-calculator`)
-- `org-tree` → nowy wrapper `<LeaderOrgTreeView />` (oparty na `useOrganizationTree` + `OrganizationChart`)
-
-### Krok 4: Nowy komponent `LeaderOrgTreeView`
-
-Prosty wrapper renderujący drzewo organizacyjne lidera — taki sam jak w `TeamContactsTab`, ale bez zarządzania kontaktami (tylko podgląd):
-
-```typescript
-// src/components/leader/LeaderOrgTreeView.tsx
-const LeaderOrgTreeView = () => {
-  const { tree, upline, statistics, settings, loading, error } = useOrganizationTree();
-  // Renderuje: statystyki + OrganizationChart
-  // Brak przycisków dodawania/edycji kontaktów
-}
-```
-
-### Krok 5: Refaktor `DashboardSidebar.tsx`
-
-**Uproszczenie** — Panel Lidera to **jeden link** bez submenu:
-
-```typescript
-// Pobieramy nowe flagi z nowego hooka
-const { isAnyLeaderFeatureEnabled } = useLeaderPermissions();
-
-// Sidebar item:
-...(isAnyLeaderFeatureEnabled ? [{
-  id: 'leader-panel',
-  icon: Crown,
-  labelKey: 'Panel Lidera',
-  path: '/leader',  // Bezpośredni link, bez submenu
-}] : [])
-```
-
-Usunięcie poprzedniego submenu z kalkulatorami. Kalkulatory są teraz WEWNĄTRZ `/leader`.
-
-Aktualizacja warunku widoczności — hook pobierany na poziomie sidebara zastępuje dotychczasowe 3 oddzielne zapytania.
-
-### Krok 6: Nowy komponent `LeaderPanelManagement` w CMS
-
-Nowy komponent admina — "Panel Lidera" w CMS z:
-- Wyszukiwarką użytkowników (wszyscy partnerzy)
-- Kolumną statusu dla każdego uprawnienia
-- Przełącznikami: Spotkania trójstronne, Konsultacje partnerskie, Szkolenia zespołu, Kalkulator Influenserów, Kalkulator Specjalistów, Moja struktura
-
-Uprawnienia kalkulatorów (włączanie) wymagają jednoczesnego zapisu do:
-- `leader_permissions` (na potrzeby spójności i flagi can_view_org_tree)
-- `calculator_user_access` lub `specialist_calculator_user_access` (faktyczna kontrola dostępu)
-
-W osobnej sekcji tabelarycznej — widok per użytkownik, jeden wiersz = jeden partner, z ikoną Crown przy tych którzy mają cokolwiek włączone.
-
-### Krok 7: Integracja nowego CMS do panelu Admin
-
-Dodanie nowej zakładki/pozycji "Panel Lidera" w `AdminSidebar.tsx` w kategorii "Użytkownicy" lub jako osobna sekcja w grupie "Funkcje", zastępując dotychczasowe fragmentaryczne zarządzanie.
+Admin zatwierdza niezależnie od statusu `leader_approved`:
+- Istniejąca logika `bypass_guardian` pozostaje
+- Dodajemy: jeśli `leader_approved = false` (lider był w ścieżce) → przy zatwierdzeniu przez admina ustaw `leader_approved = true` (dla spójności danych)
+- Nic się nie zmienia w samym warunku dostępu — admin może zawsze zatwierdzić
 
 ---
 
-## Schemat zmian
+## Pliki do zmiany
 
-```text
-NOWE / ZMIENIONE PLIKI:
+### 1. Migracja SQL (nowy plik w `supabase/migrations/`)
+Wszystkie zmiany schematu i funkcji w jednym pliku.
 
-supabase/migrations/xxx.sql
-  └── ALTER TABLE leader_permissions ADD COLUMN can_view_org_tree
-
-src/hooks/useLeaderPermissions.ts   [NOWY]
-  └── Hook agregujący wszystkie flagi dostępu lidera
-
-src/components/leader/LeaderOrgTreeView.tsx   [NOWY]
-  └── Podgląd drzewa organizacyjnego w Panelu Lidera
-
-src/components/admin/LeaderPanelManagement.tsx   [NOWY]
-  └── CMS do zarządzania uprawnieniami Panelu Lidera
-
-src/pages/LeaderPanel.tsx   [ZMODYFIKOWANY]
-  └── Zakładki: meetings, training, calc-inf, calc-spec, org-tree
-
-src/components/dashboard/DashboardSidebar.tsx   [ZMODYFIKOWANY]
-  └── Panel Lidera = jeden link do /leader (bez submenu)
-  └── Używa useLeaderPermissions zamiast 3 osobnych zapytań
-
-src/pages/Admin.tsx   [ZMODYFIKOWANY]
-  └── Nowa zakładka "leader-panel" renderująca LeaderPanelManagement
-
-src/components/admin/AdminSidebar.tsx   [ZMODYFIKOWANY]
-  └── Dodanie pozycji "Panel Lidera" w menu CMS
-```
-
----
-
-## Logika włączania kalkulatorów przez admina
-
-Gdy admin włącza "Kalkulator Influenserów" dla partnera X w `LeaderPanelManagement`:
-
-1. Sprawdza czy rekord w `calculator_user_access` dla user_id X istnieje
-2. Jeśli nie — `INSERT { user_id: X, has_access: true }`
-3. Jeśli tak — `UPDATE SET has_access = true`
-
-Gdy wyłącza — `UPDATE SET has_access = false`
-
-Analogicznie dla specjalist calculator → `specialist_calculator_user_access`.
-
-Dla `can_view_org_tree` — zapis do `leader_permissions`.
-
----
-
-## Warunek dostępu do /leader (nowa logika)
-
+### 2. `src/hooks/useLeaderPermissions.ts`
+Dodać `hasApprovalPermission: boolean` do interfejsu i query:
 ```typescript
-isAnyLeaderFeatureEnabled = 
-  hasMeetings ||
-  hasTeamProgress ||
-  hasInfluencerCalc ||
-  hasSpecialistCalc ||
-  hasOrgTree
+// W select:
+'...can_approve_registrations'
+// W wynikach:
+hasApprovalPermission: leaderPerm?.can_approve_registrations === true
 ```
 
-Jeśli `false` → redirect do `/dashboard` z komunikatem.
+### 3. `src/pages/LeaderPanel.tsx`
+- Zmiana kolejności zakładek na: `org-tree → training → meetings → approvals → calc-inf → calc-spec`
+- Nowa zakładka `approvals` — widoczna gdy `hasApprovalPermission`
+- Badge z liczbą oczekujących na ikonie zakładki
+
+### 4. `src/components/leader/LeaderApprovalView.tsx` (NOWY)
+Komponent zakładki "Zatwierdzenia" w Panelu Lidera:
+- Wywołuje RPC `get_pending_leader_approvals()`
+- Tabela: Imię/Nazwisko, Email, Opiekun (upline_eq_id), Data rejestracji
+- Przyciski: Zatwierdź / Odrzuć (dialog z powodem)
+- Pusty stan: "Brak oczekujących zatwierdzeń"
+
+### 5. `src/hooks/useLeaderApprovals.ts` (NOWY)
+Hook zarządzający danymi zakładki zatwierdzeń:
+- `useQuery` dla `get_pending_leader_approvals()`
+- Funkcje `approveUser(targetUserId)` → RPC `leader_approve_user`
+- Funkcja `rejectUser(targetUserId, reason)` → RPC `leader_reject_user`
+- Invalidacja cache po akcji + wywołanie `send-approval-email` z `approvalType: 'leader'`
+
+### 6. `src/components/profile/ApprovalStatusBanner.tsx`
+Dodanie nowego stanu (Case 1.5 — między opiekunem a adminem, gdy lider jest w ścieżce):
+
+Profil musi zawierać `leader_approved` — `AuthContext` pobiera `select('*')` więc pole będzie dostępne automatycznie po migracji. Warunek:
+```typescript
+const leaderApproved = profile.leader_approved; // null | true | false
+// leader_approved = false → oczekuje na lidera lub admina
+```
+
+Nowy baner (indygo/violet):
+```
+Opiekun ✓ → Lider ⏳ → Gotowe
+```
+Tekst: "Twój opiekun zatwierdził rejestrację. Oczekujesz teraz na zatwierdzenie przez Lidera lub Administratora."
+
+Wskaźnik postępu gdy lider istnieje w ścieżce:
+```
+[Email ✓] → [Opiekun ✓] → [Lider/Admin ⏳] → [Gotowe]
+```
+
+Istniejący Case 2 (guardian approved, waiting for admin) pojawia się TYLKO gdy `leader_approved = null` (brak lidera w ścieżce).
+
+### 7. `src/contexts/AuthContext.tsx`
+Dodanie typów `leader_approved`, `leader_approved_at`, `leader_approver_id` do interfejsu `Profile` (dla TypeScript, dane są już pobierane przez `select('*')`).
+
+### 8. `src/components/admin/LeaderPanelManagement.tsx`
+Dodanie kolumny "Zatwierdzanie" w tabeli:
+- Nowy klucz `can_approve_registrations` w `columns[]`
+- Ikona `UserCheck`
+- Nowy typ obsługi w `toggleLeaderPermission()` (już obsługuje `leader_permissions` przez `field` parameter)
+- Nowe pole `can_approve_registrations: boolean` w interfejsie `PartnerLeaderData`
+- Aktualizacja query `leader_permissions` o `can_approve_registrations`
+
+### 9. `supabase/functions/send-approval-email/index.ts`
+Dodanie obsługi `approvalType: 'leader'`:
+```typescript
+type: 'guardian' | 'admin' | 'leader'  // rozszerzone
+```
+Template name: `leader_approval`
+Zmienne: takie same jak `admin` (imię, nazwisko, link logowania, lista szkoleń)
 
 ---
 
-## Podsumowanie zmian widocznych dla użytkownika
+## Tabela wpływu na UX
 
-**Lider (Partner z uprawnieniami)**:
-- Sidebar: jeden przycisk "Panel Lidera" → `/leader`
-- Na `/leader`: widzi tylko zakładki które ma włączone
-- Kalkulatory dostępne wewnątrz `/leader` jako zakładki (nie jako osobne linki w sidebarze)
-- Zakładka "Moja struktura" — nowy widok drzewa org od siebie w dół
+| Sytuacja | Baner użytkownika | Powiadomienia |
+|---|---|---|
+| Brak lidera w ścieżce | "Oczekujesz na Admin" (bez zmian) | Admin |
+| Lider istnieje w ścieżce | "Oczekujesz na Lidera lub Admina" (nowy) | Lider + Admin |
+| Lider zatwierdził | Brak banera (pełny dostęp) | Email aktywacyjny |
+| Admin zatwierdził (gdy był lider) | Brak banera (pełny dostęp) | Email aktywacyjny |
 
-**Administrator w CMS**:
-- Nowa sekcja "Panel Lidera" z tabelą wszystkich partnerów
-- Per partner: przełączniki dla każdej funkcji
-- Jedno miejsce do zarządzania wszystkimi uprawnieniami lidera
+---
+
+## Kolejność implementacji
+
+1. Migracja SQL (schemat + funkcje)
+2. `useLeaderPermissions.ts` + `AuthContext.tsx` (typy)
+3. `LeaderApprovalView.tsx` + `useLeaderApprovals.ts`
+4. `LeaderPanel.tsx` (kolejność + nowa zakładka)
+5. `ApprovalStatusBanner.tsx` (nowy stan)
+6. `LeaderPanelManagement.tsx` (nowa kolumna)
+7. `send-approval-email` edge function (typ `leader`)
