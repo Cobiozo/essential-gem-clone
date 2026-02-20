@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar, Eye } from 'lucide-react';
+import { Link2, Plus, Copy, Check, RefreshCw, MousePointer, UserPlus, Info, BarChart3, Calendar } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { copyToClipboard } from '@/lib/clipboardUtils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ReflinkStatusBadge } from './ReflinkStatusBadge';
 import { ReflinkQRCode } from './ReflinkQRCode';
 import { ReflinkStatsPanel } from './ReflinkStatsPanel';
-import { ReflinkPreviewDialog } from './ReflinkPreviewDialog';
+
 import { UserReflink, ReflinkGenerationSettings, getRoleLabel, getReflinkStatus } from './types';
 
 export const UserReflinksPanel: React.FC = () => {
@@ -36,8 +36,6 @@ export const UserReflinksPanel: React.FC = () => {
   // Regenerate dialog
   const [regeneratingLink, setRegeneratingLink] = useState<UserReflink | null>(null);
   
-  // Preview dialog
-  const [previewReflink, setPreviewReflink] = useState<UserReflink | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user || !userRole) return;
@@ -293,14 +291,6 @@ export const UserReflinksPanel: React.FC = () => {
                             reflinkCode={reflink.reflink_code} 
                             targetRole={reflink.target_role} 
                           />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setPreviewReflink(reflink)}
-                            title="Podgląd strony rejestracji"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Button>
                           {isExpired ? (
                             <Button
                               size="sm"
@@ -404,12 +394,6 @@ export const UserReflinksPanel: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
-      <ReflinkPreviewDialog
-        open={!!previewReflink}
-        onOpenChange={(open) => !open && setPreviewReflink(null)}
-        reflinkCode={previewReflink?.reflink_code || ''}
-      />
     </Card>
   );
 };
