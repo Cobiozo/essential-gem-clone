@@ -209,7 +209,8 @@ serve(async (req) => {
     };
 
     // Determine template based on approval type
-    const templateName = approvalType === 'guardian' ? 'guardian_approval' : approvalType === 'leader' ? 'leader_approval' : 'admin_approval';
+    // leader uses the same template as admin (full account activation)
+    const templateName = approvalType === 'guardian' ? 'guardian_approval' : 'admin_approval';
 
     // Get email template
     const { data: templateData, error: templateError } = await supabase
