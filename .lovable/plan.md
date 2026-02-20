@@ -1,70 +1,78 @@
 
-# Naprawa wysyłki emaila po zatwierdzeniu przez Lidera/Admina
+# Naprawa kopiowania linków PureLinki na iOS/iPadOS
 
-## Diagnoza przyczyny braku emaila do sebastiansnopek210587
+## Diagnoza — 3 problemy
 
-### Potwierdzone fakty z logów i bazy:
+### Problem 1 (KRYTYCZNY): Brak fallbacku dla iOS Safari
+`navigator.clipboard.writeText()` na iOS Safari wymaga:
+- Bezpośredniego wywołania z user gesture (klik), bez przerw `async/await` przed wywołaniem
+- HTTPS (spełnione)
+- iOS 13.4+ dla pełnej obsługi Clipboard API
 
-1. **Szablon `leader_approval` NIE ISTNIEJE** w tabeli `email_templates`
-   - Istnieją: `admin_approval`, `guardian_approval`, `welcome_registration`
-   - Brak: `leader_approval` — edge function `send-approval-email` rzuca błąd 500
+Na starszych iOS i w niektórych kontekstach (np. WKWebView w aplikacji) `navigator.clipboard` zwraca `undefined` lub rzuca `NotAllowedError`. Brak fallbacku = ciche niepowodzenie.
 
-2. **Sebastian (sebastiansnopek210587) został zatwierdzony przez Lidera** o 14:53:12
-   - `leader_approved = true`, `admin_approved = true`, `leader_approved_at = 2026-02-20 14:53:12`
-   - W email_logs: wysłano TYLKO email `guardian_approval` (14:35) i `welcome` (14:33)
-   - Brak emaila o pełnej aktywacji konta
+**Dotknięte pliki:**
+- `src/components/user-reflinks/UserReflinksPanel.tsx` — linia 184 (brak try/catch i brak fallbacku)
+- `src/components/dashboard/widgets/ReflinksWidget.tsx` — linia 82 (brak fallbacku)
 
-3. **W `useLeaderApprovals.ts` błąd jest łykany po cichu:**
-   ```typescript
-   } catch (emailErr) {
-     console.warn('[LeaderApprovals] Email send failed (non-critical):', emailErr);
-   }
-   ```
-   Hook uznaje brak emaila za "non-critical" — użytkownik nigdy nie dostaje powiadomienia
+### Problem 2 (KRYTYCZNY): Brak try/catch w UserReflinksPanel
+```typescript
+// PRZED — brak obsługi błędu, setCopiedId i toast nigdy się nie wykonają gdy clipboard rzuci:
+const handleCopy = async (reflink: UserReflink) => {
+  const fullUrl = `${window.location.origin}/auth?ref=${reflink.reflink_code}`;
+  await navigator.clipboard.writeText(fullUrl);  // ← rzuca na iOS, reszta nie działa
+  setCopiedId(reflink.id);
+  toast({ title: 'Skopiowano!', description: fullUrl });
+```
 
-4. **Rozwiązanie:** Zamiast tworzyć nowy szablon `leader_approval`, użyć istniejącego szablonu `admin_approval` który już zawiera treść o pełnej aktywacji. Lider ma takie samo uprawnienie co admin — efekt identyczny. Template `admin_approval` ma gotowy subject: "Witamy w Pure Life! Twoje konto jest w pełni aktywne 🌿"
+### Problem 3 (WAŻNY): Niespójny format URL w ReflinksWidget
+`ReflinksWidget` kopiuje `/ref/${code}` — ten route może nie istnieć lub obsługiwać inaczej.  
+`UserReflinksPanel` (właściwa zakładka) kopiuje `/auth?ref=${code}` — to jest poprawna ścieżka rejestracji.
+
+**Oba miejsca muszą używać tego samego formatu URL.**
 
 ---
 
-## Plan naprawy
+## Rozwiązanie: Centralny helper `copyToClipboard`
 
-### Zmiana 1: `supabase/functions/send-approval-email/index.ts`
-Zmiana mapowania szablonu: gdy `approvalType === 'leader'`, użyj szablonu `admin_approval` zamiast nieistniejącego `leader_approval`.
-
-**Linia 212:**
-```typescript
-// PRZED:
-const templateName = approvalType === 'guardian' ? 'guardian_approval' : approvalType === 'leader' ? 'leader_approval' : 'admin_approval';
-
-// PO:
-// leader używa tego samego szablonu co admin (pełna aktywacja konta)
-const templateName = approvalType === 'guardian' ? 'guardian_approval' : 'admin_approval';
-```
-
-Dzięki temu zarówno `approvalType: 'leader'` jak i `approvalType: 'admin'` użyją szablonu `admin_approval`, który jest w pełni aktywny i zawiera poprawną treść.
-
-### Zmiana 2: `src/hooks/useLeaderApprovals.ts` — naprawienie silent catch
-Zmienić `catch` żeby **nie łykał** błędu emaila bez logowania, a dodatkowo pokazał `toast.warning` gdy email się nie powiedzie:
+Stworzenie jednego, niezawodnego helpera z pełnym wsparciem iOS w `src/lib/clipboardUtils.ts`:
 
 ```typescript
-// Send approval email
-try {
-  const { error: emailErr } = await supabase.functions.invoke('send-approval-email', {
-    body: { userId: targetUserId, approvalType: 'leader', approverId: user?.id },
-  });
-  if (emailErr) {
-    console.error('[LeaderApprovals] Email send failed:', emailErr);
-    // Email failure is logged but doesn't block approval
+export async function copyToClipboard(text: string): Promise<boolean> {
+  // Metoda 1: nowoczesne Clipboard API (Chrome, Firefox, iOS 13.4+)
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      // fallthrough do metody 2
+    }
   }
-} catch (emailErr) {
-  console.error('[LeaderApprovals] Email send exception:', emailErr);
+
+  // Metoda 2: document.execCommand fallback (iOS Safari < 13.4, WKWebView)
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    // Ukryty element poza widokiem (ważne dla iOS — nie może być display:none)
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    textArea.style.opacity = '0';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+
+    // iOS wymaga setSelectionRange zamiast select()
+    textArea.focus();
+    textArea.setSelectionRange(0, text.length);
+
+    const success = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return success;
+  } catch (err) {
+    return false;
+  }
 }
 ```
-
-### Zmiana 3: Ręczne wysłanie emaila do Sebastiana (przez admin panel)
-Sebastian już jest zatwierdzony ale nie dostał emaila. Użyjemy narzędzia `send-approval-email` bezpośrednio z prawidłowym `userId`.
-
-Skorzystamy z funkcji Edge bezpośrednio żeby dostarczyć mu zaległy email po naprawie edge function.
 
 ---
 
@@ -72,7 +80,92 @@ Skorzystamy z funkcji Edge bezpośrednio żeby dostarczyć mu zaległy email po 
 
 | Plik | Zmiana |
 |---|---|
-| `supabase/functions/send-approval-email/index.ts` | Zmiana mapowania szablonu: `leader` → `admin_approval` |
-| `src/hooks/useLeaderApprovals.ts` | Naprawienie cichego catch emaila |
+| `src/lib/clipboardUtils.ts` | NOWY — centralny helper z iOS fallbackiem |
+| `src/components/user-reflinks/UserReflinksPanel.tsx` | Zastąpienie inline clipboard użyciem helpera + dodanie try/catch |
+| `src/components/dashboard/widgets/ReflinksWidget.tsx` | Zastąpienie inline clipboard + naprawa URL z `/ref/` na `/auth?ref=` |
 
-Po wdrożeniu: automatycznie wyślemy zaległy email do Sebastiana przez wywołanie edge function.
+---
+
+## Szczegóły zmian
+
+### `src/lib/clipboardUtils.ts` (nowy plik)
+Centralny helper `copyToClipboard(text)` z:
+1. Próbą nowoczesnego `navigator.clipboard.writeText`
+2. Fallbackiem z `textarea + setSelectionRange + document.execCommand('copy')` dla iOS Safari
+3. Zwraca `boolean` — sukces/porażka
+
+### `src/components/user-reflinks/UserReflinksPanel.tsx`
+```typescript
+// PRZED:
+const handleCopy = async (reflink: UserReflink) => {
+  const fullUrl = `${window.location.origin}/auth?ref=${reflink.reflink_code}`;
+  await navigator.clipboard.writeText(fullUrl);
+  setCopiedId(reflink.id);
+  toast({ title: 'Skopiowano!', description: fullUrl });
+  setTimeout(() => setCopiedId(null), 2000);
+};
+
+// PO:
+const handleCopy = async (reflink: UserReflink) => {
+  const fullUrl = `${window.location.origin}/auth?ref=${reflink.reflink_code}`;
+  const success = await copyToClipboard(fullUrl);
+  if (success) {
+    setCopiedId(reflink.id);
+    toast({ title: 'Skopiowano!', description: fullUrl });
+    setTimeout(() => setCopiedId(null), 2000);
+  } else {
+    toast({ title: 'Błąd kopiowania', description: 'Nie udało się skopiować linku', variant: 'destructive' });
+  }
+};
+```
+
+### `src/components/dashboard/widgets/ReflinksWidget.tsx`
+```typescript
+// PRZED:
+const getReflinkUrl = (code: string) => {
+  return `${window.location.origin}/ref/${code}`;  // ← błędny format
+};
+
+const handleCopy = async (reflink: UserReflink) => {
+  const url = getReflinkUrl(reflink.reflink_code);
+  try {
+    await navigator.clipboard.writeText(url);
+    ...
+  } catch (error) {
+    console.error('Failed to copy:', error);  // ← ciche niepowodzenie bez UI feedback
+  }
+};
+
+// PO:
+const getReflinkUrl = (code: string) => {
+  return `${window.location.origin}/auth?ref=${code}`;  // ← poprawny format
+};
+
+const handleCopy = async (reflink: UserReflink) => {
+  const url = getReflinkUrl(reflink.reflink_code);
+  const success = await copyToClipboard(url);
+  if (success) {
+    setCopiedId(reflink.id);
+    toast({ title: t('dashboard.copied'), description: url });
+    setTimeout(() => setCopiedId(null), 2000);
+  } else {
+    toast({ title: 'Błąd', description: 'Nie można skopiować na tym urządzeniu', variant: 'destructive' });
+  }
+};
+```
+
+---
+
+## Dlaczego iOS/iPadOS nie kopiuje
+
+iOS Safari ogranicza dostęp do schowka ze względów prywatności. `navigator.clipboard.writeText` jest asynchroniczne — iOS wymaga że wywołanie musi być natychmiastowe w ramach obsługi zdarzenia (click handler). Gdy wcześniej czeka się na inne `await`, iOS "traci ślad" user gesture i odmawia dostępu do schowka. Fallback z `textarea + execCommand` jest synchroniczny i działa we wszystkich wersjach iOS Safari.
+
+---
+
+## Po naprawie — weryfikacja
+
+Po wdrożeniu należy przetestować na fizycznym iPhone/iPad:
+1. Zakładka **PureLinki** → klik ikony kopiowania → pojawia się toast "Skopiowano!" + wklejenie linka w dowolne pole
+2. **Dashboard widget** ReflinksWidget → klik kopiowania → ta sama weryfikacja
+3. Upewnić się że URL ma format `/auth?ref=u-XXXX-EQID` (nie `/ref/`)
+
