@@ -1,127 +1,305 @@
 
-# Naprawa: Błąd w "Pure-Kontakty" i "Moja struktura" — korzeń problemu
+# Kompleksowa eliminacja pętli re-renderów — diagnoza i naprawa
 
-## Rzeczywista przyczyna — 2 niezależne błędy
+## Dlaczego sebastiansnopek.eqology nie ma problemu?
 
-### Błąd 1 (KRYTYCZNY): `fetchTree` nadal ma niestabilne zależności w `useCallback`
+Sebastian Snopek jest kontem z rolą **`admin`** (potwierdzono w bazie: eq_id `1234567890`, role: `admin`).
 
-W `useOrganizationTree.ts`, linia 34-99:
+Istnieją trzy powody, dla których admin nie doświadcza crashu:
+
+### Powód 1: Admin korzysta z Panelu Lidera, nie z Pure-Kontakty
+Admin wchodzi do `/leader` gdzie `LeaderOrgTreeView` jest ładowany przez `React.lazy + Suspense`. Suspense całkowicie **izoluje** cykl życia komponentu — jeśli wystąpi błąd wewnątrz Suspense, React go łapie i wyświetla fallback, zamiast propagować go do góry drzewa.
+
+### Powód 2: `canAccessTree()` zwraca `true` natychmiast dla admina
+W `useOrganizationTreeSettings.ts`:
 ```typescript
-const fetchTree = useCallback(async () => {
-  // ...
-  if (!canAccessTree()) { ... }
-  const maxDepth = getMaxDepthForRole();
-  // ...
-}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, canAccessTree, getMaxDepthForRole, settings?.show_upline]);
-//                                                               ^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^ ← WCIĄŻ NIESTABILNE
+if (userRoleStr === 'admin') return true;  // ← first branch, no settings check
 ```
+Admin pomija całą logikę sprawdzania `settings.visible_to_*`. Dzięki temu `settings` może być nawet `null` i admin nadal przejdzie do fetchu. Mniej warunków = mniej przejść przez logikę, które mogą generować re-rendery.
 
-Poprzednia naprawa usunęła `fetchTree` z `useEffect`, ale **nie usunęła `canAccessTree` i `getMaxDepthForRole` z tablicy `useCallback`**. Oznacza to, że:
-- `fetchTree` nadal zmienia referencję przy każdym renderze AuthContext
-- Eksportowane `refetch: fetchTree` jest niestabilną referencją
-- `useEffect` w innych komponentach, które zależą od `fetchTree`, mogą się zapętlić
+### Powód 3: Admin nie wchodzi do Pure-Kontakty
+`TeamContactsTab` — komponent który crashuje — renderuje się tylko gdy użytkownik wchodzi w "Pure-Kontakty". Admini zazwyczaj korzystają z Panelu Admina i Panelu Lidera. Partnerzy i specjaliści trafiają do Pure-Kontakty.
 
-### Błąd 2 (KRYTYCZNY): `TeamContactsTab` wywołuje `useOrganizationTree()` bezpośrednio
+---
 
-Linia 67 w `TeamContactsTab.tsx`:
+## Kompletna mapa pętli — 4 aktywne problemy
+
+### Problem 1 (KRYTYCZNY): `settings` jako obiekt w `useCallback` dependencies
+
+W `useOrganizationTree.ts`, linia 100:
 ```typescript
-const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
-```
-
-Ten komponent renderuje się za każdym razem gdy użytkownik odwiedza "Pure-Kontakty". Wywołuje `useOrganizationTree()`, który wewnętrznie wywołuje `useOrganizationTreeSettings()`. Obie instancje hooków (`TeamContactsTab` + ewentualne inne) są niezależne — każda ma własny `hasFetchedRef` inicjalizowany jako `false`.
-
-Linia 81:
-```typescript
-const [activeTab, setActiveTab] = useState<...>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-```
-
-`canSearchSpecialists` pochodzi z `useSpecialistSearch()`. Jeśli zmienia się, zmienia się `activeTab` → re-render → ponowne wywołanie `useOrganizationTree()`.
-
-Linia 206:
-```typescript
-const visibleTabsCount = (clientOnlyView ? 0 : 2) + (canSearchSpecialists ? 1 : 0) + (canAccessTree() ? 1 : 0);
-```
-
-`canAccessTree()` jest wywoływana w każdym renderze. Jeśli `canAccessTree` zmienia referencję (bo `useCallback` w `useOrganizationTreeSettings` rekonstruuje funkcję), React może wykryć zmiany i wymusić re-render.
-
-## Rozwiązanie — 2 pliki
-
-### Plik 1: `src/hooks/useOrganizationTree.ts`
-
-**Problem:** `canAccessTree` i `getMaxDepthForRole` w `useCallback` powodują niestabilność `fetchTree`.
-
-**Rozwiązanie:** Usunąć `canAccessTree` i `getMaxDepthForRole` z tablicy zależności `fetchTree`. Zamiast tego — odczytać wynik tych funkcji raz przed `useCallback`, jako stabilne wartości, lub wywołać je wewnątrz bez dodawania do deps:
-
-```typescript
-// PRZED (linia 99):
-}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, canAccessTree, getMaxDepthForRole, settings?.show_upline]);
-
-// PO — usunąć canAccessTree i getMaxDepthForRole z deps (są stabilne jeśli useOrganizationTreeSettings działa poprawnie):
-// eslint-disable-next-line react-hooks/exhaustive-deps
 }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings]);
+//                                                             ^^^^^^^^ ← OBIEKT
 ```
 
-`settings` jest stabilnym obiektem (zmieniany tylko po fetchSettings), więc jest bezpieczny jako zależność. `canAccessTree` i `getMaxDepthForRole` są zamknięciami na `settings` i `userRoleStr` — obie wartości są zawarte w `settings` i `profile`, więc `fetchTree` będzie działać poprawnie bez ich jawnego podawania w deps.
+`settings` to obiekt React state. Każde wywołanie `setSettings(data)` tworzy **nową referencję obiektu**, nawet jeśli dane są identyczne. React porównuje obiekty przez referencję (`===`), więc `settings` zawsze zmienia się po każdym fetchu ustawień — co powoduje, że `fetchTree` dostaje nową referencję.
 
-### Plik 2: `src/components/team-contacts/TeamContactsTab.tsx`
+Ale `hasFetchedRef.current = true` powinno to blokować... **ale nie blokuje**, ponieważ przy Suspense + lazy loading komponent `StructureTab` odmontowuje się i montuje ponownie, co resetuje `hasFetchedRef` do `false`. Pełny cykl:
 
-**Problem:** `TeamContactsTab` zawsze wywołuje `useOrganizationTree()`, nawet gdy użytkownik nie ma dostępu do drzewa (np. klienci). To powoduje niepotrzebny fetch i potencjalne błędy dla użytkowników bez uprawnień.
-
-**Rozwiązanie:** Zastąpić `useOrganizationTree()` lżejszym `useOrganizationTreeSettings()`. `TeamContactsTab` potrzebuje jedynie:
-- `canAccessTree()` — do decyzji czy pokazać zakładkę "Struktura"
-- `treeSettings?.default_view` — do ustawienia domyślnego widoku
-- `tree`, `upline`, `statistics` — **tylko gdy użytkownik kliknie zakładkę "Struktura"**
-
-Dane drzewa (`tree`, `upline`, `statistics`) powinny być ładowane leniwie — tylko gdy zakładka "Struktura" jest aktywna. Można to osiągnąć przez wydzielenie komponentu `StructureTabContent` z lazy loadingiem (analogicznie jak `LeaderOrgTreeView` w `LeaderPanel.tsx` używa `Suspense`).
-
-Konkretne zmiany w `TeamContactsTab.tsx`:
-
-```typescript
-// PRZED (linia 15-16):
-import { useOrganizationTree } from '@/hooks/useOrganizationTree';
-// ...
-const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
-
-// PO — użyć tylko useOrganizationTreeSettings (lżejszy hook bez RPC):
-import { useOrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
-// ...
-const { settings: treeSettings, canAccessTree } = useOrganizationTreeSettings();
+```
+StructureTab montuje się
+    ↓
+useOrganizationTree() uruchamia się — hasFetchedRef.current = false
+    ↓
+useEffect([settingsLoading, profile?.eq_id]) — settingsLoading=true, poczekaj
+    ↓
+useOrganizationTreeSettings fetchSettings() kończy → setSettings(nowy obiekt)
+    ↓
+fetchTree useCallback dostaje nową referencję (settings zmienił się)
+    ↓
+useEffect widzi settingsLoading=false, profile?.eq_id istnieje
+    ↓
+hasFetchedRef.current = true, fetchTree() uruchamia się
+    ↓
+fetchTree → setLoading(true) → setTreeData([...]) → setLoading(false)
+    ↓
+setLoading powoduje re-render StructureTab
+    ↓
+useOrganizationTree re-renderuje się, settings = ten sam obiekt (stabilny już)
+    ↓
+OK — jeden fetch, jeden re-render. Brak pętli.
 ```
 
-A treść zakładki "Struktura" (`tree`, `upline`, `statistics`) powinna być renderowana przez oddzielny komponent `StructureTab`, który wewnętrznie woła `useOrganizationTree()` — dzięki temu hook uruchomi się **dopiero gdy zakładka jest zamontowana**:
+Dlaczego więc crash? Dlatego że **dwa niezależne wywołania** `useOrganizationTreeSettings()` istnieją jednocześnie:
+- Jedno w `TeamContactsTab` (górny poziom)
+- Drugie wewnątrz `StructureTab` → `useOrganizationTree()`
 
+Obie instancje mają **osobny stan** (`settings`) i każda wywołuje `fetchSettings()` niezależnie. To podwójne fetchowanie + dwa osobne obiekty `settings` powoduje dodatkowe re-rendery.
+
+### Problem 2 (KRYTYCZNY): `fetchSettings` nie jest stabilna — brak `useCallback`
+
+W `useOrganizationTreeSettings.ts`, linia 68:
 ```typescript
-// Nowy komponent wewnątrz TeamContactsTab.tsx:
-const StructureTab: React.FC<{ defaultView: 'list' | 'graph' }> = ({ defaultView }) => {
-  const { tree, upline, statistics, settings, loading, error } = useOrganizationTree();
-  const [viewMode, setViewMode] = useState<'list' | 'graph'>(defaultView);
-  
-  if (loading) return <Loader2 />;
-  if (error) return <p>{error}</p>;
-  if (!tree) return <p>Brak danych struktury</p>;
-  
-  return (
-    // OrganizationChart / OrganizationList
-  );
+const fetchSettings = async () => {  // ← nowa funkcja przy każdym renderze
+  // ...
 };
 ```
 
-I w `TabsContent value="structure"`:
+`fetchSettings` jest zwykłą funkcją deklarowaną wewnątrz komponentu — nie jest opakowana w `useCallback`. Przy każdym renderze hooka (który jest wywoływany zarówno w `TeamContactsTab` jak i w `useOrganizationTree`) `fetchSettings` dostaje nową referencję. To nie powoduje pętli bezpośrednio (bo `useEffect([], [])` jest pusty), ale eksportowana `refetch: fetchSettings` jest niestabilną referencją — jeśli ktokolwiek doda ją do zależności `useEffect`, będzie miał pętlę.
+
+### Problem 3 (KRYTYCZNY): `specjalista` nie ma dostępu w bazie, ale `visible_to_specjalista = false`
+
+Z bazy: `visible_to_specjalista: false`.
+
+Czyli dla specjalisty `canAccessTree()` zwraca `false`. W `TeamContactsTab`:
 ```typescript
-{canAccessTree() && (
-  <TabsContent value="structure">
-    <StructureTab defaultView={treeSettings?.default_view || 'list'} />
-  </TabsContent>
-)}
+const hasTreeAccess = canAccessTree();  // ← false dla specjalisty
 ```
 
-## Podsumowanie zmian
+Zakładka "Struktura" nie jest wyświetlana. Ale `useOrganizationTreeSettings()` nadal jest wywołany na górze `TeamContactsTab`. Ten hook uruchamia `fetchSettings()` przy każdym wejściu do Pure-Kontakty — nawet gdy specjalista nie ma dostępu do drzewa. To jest nieefektywne, ale nie powinno crashować.
 
-| Plik | Zmiana | Efekt |
+**Jednak** — `StructureTab` nie jest montowany dla specjalistów (bo `hasTreeAccess = false`), więc dla specjalisty problem leży gdzie indziej.
+
+### Problem 4 (NOWY — RDZEŃ): `setLoading(false)` po `canAccessTree() === false` wyzwala re-render który destabilizuje cały hook
+
+W `useOrganizationTree.ts`, linia 43-46:
+```typescript
+if (!canAccessTree()) {
+  setLoading(false);  // ← setState wewnątrz fetchTree
+  return;
+}
+```
+
+Dla partnerów, którzy MAJ A dostęp (`visible_to_partners: true`), ta gałąź nie jest wyzwalana. Ale przez niestabilną referencję `settings` w `useCallback`, `fetchTree` może być recreowana wielokrotnie. Każde wywołanie `setLoading(false)` → re-render → useCallback widzi nowe `settings` → nowa `fetchTree` → useEffect (który jest `[settingsLoading, profile?.eq_id]`) **NIE uruchamia się ponownie** (bo te wartości się nie zmieniły), ALE `refetch: fetchTree` eksportuje niestabilną referencję.
+
+---
+
+## Prawdziwy korzeń dla partnerów
+
+Dla partnerów (`visible_to_partners: true`):
+
+1. `TeamContactsTab` montuje się
+2. `useOrganizationTreeSettings()` → `fetchSettings()` → `setSettings(obiektA)`
+3. `hasTreeAccess = canAccessTree()` = `true` → zakładka "Struktura" widoczna w tabs
+4. Użytkownik klika "Struktura" → `StructureTab` montuje się
+5. `useOrganizationTree()` → druga instancja `useOrganizationTreeSettings()` → druga instancja fetchSettings → `setSettings(obiektB)`
+6. Dwie instancje `settings` → `canAccessTree()` w `fetchTree` korzysta z **domknięcia** z instancji nr 2
+7. Fetch drzewa uruchamia się — `setLoading(true)` → `setTreeData(...)` → `setLoading(false)`
+8. Re-render `StructureTab` — `useOrganizationTree` ponownie z tym samym `hasFetchedRef.current = true`
+9. `useEffect([settingsLoading, profile?.eq_id])` nie uruchamia się ponownie — OK
+
+**Ale co jeśli TOKEN_REFRESHED?**
+- AuthContext wykrywa token refresh i wywołuje `setSession`
+- `setUser` (z stabilizacją `prev?.id === newUser?.id` → zwraca `prev`)
+- `profile` się nie zmienia (ten sam obiekt) → `profile?.eq_id` ta sama wartość
+- `userRole` **może** dostać nowy obiekt mimo tego samego ID
+- `userRoleStr = userRole?.role ?? null` — ta sama wartość string → stabilna
+- `settings` — **ten sam obiekt** (nie było `setSettings` po TOKEN_REFRESHED)
+- `settingsLoading` — `false` (nie zmienił się)
+
+Więc po TOKEN_REFRESHED nie powinno być pętli... chyba że **SIGNED_IN** (powrót z tła na Androidzie) lub rzeczywisty re-mount komponentu.
+
+**Rzeczywisty trigger crashu**: Mobilny Android/iOS po powrocie z tła wywołuje `SIGNED_IN` event, który resetuje profil i uruchamia `fetchProfile` ponownie. To powoduje:
+- `profile` zmienia referencję (nowy obiekt)
+- `profile?.eq_id` — ta sama wartość string → `useEffect` **NIE uruchamia się**
+- JEDNAK `useOrganizationTreeSettings` nie ma zabezpieczenia i może fetchować ponownie jeśli komponent się odmontuje i zamontuje
+- React Strict Mode (development) montuje każdy komponent dwa razy → podwójne wywołanie hooks → `hasFetchedRef.current = false` → dwa fetche → dwa `setLoading(true)` w szybkiej sekwencji
+
+---
+
+## Plan naprawy — 3 pliki
+
+### Plik 1: `src/hooks/useOrganizationTreeSettings.ts`
+
+**Zmiany:**
+
+1. Opakować `fetchSettings` w `useCallback` z pustą tablicą zależności — stabilna referencja dla `refetch`
+2. Dodać `hasFetchedRef` żeby zapobiec wielokrotnemu fetchowaniu przy wielu instancjach hooka
+3. Zmienić `useEffect` żeby był odporny na re-mount
+
+```typescript
+// PRZED:
+const fetchSettings = async () => { ... };
+useEffect(() => { fetchSettings(); }, []);
+
+// PO:
+const hasFetchedRef = useRef(false);
+const fetchSettings = useCallback(async () => {
+  if (hasFetchedRef.current) return;  // Jeśli już trwa lub zakończyło się
+  // ... reszta bez zmian
+}, []);  // Puste deps — stabilna referencja
+useEffect(() => { fetchSettings(); }, [fetchSettings]);
+```
+
+**Uwaga:** `hasFetchedRef` blokuje tylko pierwsze pobieranie. `refetch` (ręczne wywołanie) powinno resetować flagę i pobierać ponownie.
+
+Lepsza wersja:
+
+```typescript
+const isFetchingRef = useRef(false);  // Blokuje równoległe wywołania (nie ponowne)
+const fetchSettings = useCallback(async () => {
+  if (isFetchingRef.current) return;
+  isFetchingRef.current = true;
+  try {
+    setLoading(true);
+    // ...fetch...
+  } finally {
+    isFetchingRef.current = false;
+    setLoading(false);
+  }
+}, []);
+```
+
+4. Kluczowa zmiana: wyodrębnić `settingsId` jako stabilną wartość zamiast całego obiektu `settings` w `useCallback`:
+
+```typescript
+// Zamiast eksportować settings (niestabilny obiekt) jako zależność:
+const settingsRef = useRef<OrganizationTreeSettings | null>(null);
+
+// I w fetchSettings:
+settingsRef.current = data;
+setSettings(data);  // dla renderów UI
+
+// canAccessTree i getMaxDepthForRole używają settingsRef.current zamiast settings z state:
+const canAccessTree = useCallback((): boolean => {
+  const s = settingsRef.current;
+  if (!s || !s.is_enabled) return false;
+  // ...
+}, [userRoleStr]);  // Tylko userRoleStr — settings jest w ref, stabilny
+```
+
+To eliminuje główną przyczynę niestabilności `fetchTree` — `settings` znika z jego zależności.
+
+### Plik 2: `src/hooks/useOrganizationTree.ts`
+
+**Zmiany:**
+
+1. Usunąć `settings` z zależności `fetchTree` — używać `settingsRef` (przekazanego z `useOrganizationTreeSettings`) lub po prostu wywołać funkcje wewnątrz bez ich jawnego deklarowania w deps:
+
+```typescript
+// Eksportować settingsRef z useOrganizationTreeSettings:
+// Albo — prostsze rozwiązanie — usunąć settings z deps i wyizolować show_upline:
+
+const showUpline = settings?.show_upline ?? true;  // stabilna prymitywna wartość
+const showUplineRef = useRef(showUpline);
+showUplineRef.current = showUpline;
+
+const fetchTree = useCallback(async () => {
+  if (settingsLoading) return;
+  if (!profile?.eq_id) { setLoading(false); setError('...'); return; }
+  if (!canAccessTree()) { setLoading(false); return; }
+  
+  try {
+    setLoading(true);
+    setError(null);
+    const maxDepth = getMaxDepthForRole();
+    // ...RPC...
+    if (showUplineRef.current && profile.upline_eq_id) {
+      // ...fetch upline...
+    }
+  } finally {
+    setLoading(false);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading]);
+// settings, canAccessTree, getMaxDepthForRole — celowo pominięte
+// canAccessTree i getMaxDepthForRole są teraz stabilne (deps: tylko userRoleStr)
+// settings.show_upline jest w showUplineRef
+```
+
+2. Zabezpieczyć przed race condition z `isMountedRef`:
+
+```typescript
+const isMountedRef = useRef(true);
+useEffect(() => {
+  isMountedRef.current = true;
+  return () => { isMountedRef.current = false; };
+}, []);
+```
+
+I w `fetchTree` sprawdzać `if (!isMountedRef.current) return;` przed każdym `setState`.
+
+3. Zresetować `hasFetchedRef` gdy `profile?.eq_id` się zmieni (zmiana konta):
+
+```typescript
+useEffect(() => {
+  hasFetchedRef.current = false;
+}, [profile?.eq_id]);
+```
+
+### Plik 3: `src/components/team-contacts/TeamContactsTab.tsx`
+
+**Zmiana:** `useOrganizationTreeSettings` jest wywoływany dwa razy — raz w `TeamContactsTab`, raz wewnątrz `StructureTab → useOrganizationTree`. To podwójne fetchowanie jest nieefektywne.
+
+Najprostsze rozwiązanie: przekazać `canAccessTree` i `treeSettings` do `StructureTab` jako props, żeby `StructureTab` nie potrzebował własnej instancji `useOrganizationTreeSettings`. W `useOrganizationTree` zmienić sygnaturę — zamiast wewnętrznie wywoływać `useOrganizationTreeSettings`, przyjąć je jako parametr opcjonalny:
+
+Albo — jeszcze prostsze — przekazać `settings` z `TeamContactsTab` do `StructureTab` i wewnątrz `StructureTab` wywołać `useOrganizationTree()` który dostanie już załadowane settings z zewnątrz.
+
+Ale to wymaga większej refaktoryzacji. Minimalnie bezpieczna zmiana:
+
+Wywołanie `canAccessTree()` w linii 271 zamiast obliczać je ponownie przy każdym renderze — już jest zapisane w `hasTreeAccess` const. To jest OK. Ale:
+
+```typescript
+// PROBLEM: useOrganizationTreeSettings jest wywoływane DWIE RAZY:
+// 1. w TeamContactsTab (linia 140)
+// 2. wewnątrz useOrganizationTree (który jest wywołany przez StructureTab)
+// Obie instancje fetchują settings niezależnie
+```
+
+Rozwiązanie: `useOrganizationTree` powinien przyjmować `settings` z zewnątrz zamiast wywoływać `useOrganizationTreeSettings` wewnętrznie. LUB — `useOrganizationTreeSettings` powinien cachować wynik przez React Query (`useQuery`) zamiast lokalnego stanu, co automatycznie deduplikuje requesty.
+
+**Wybieramy React Query** dla `useOrganizationTreeSettings` — to eliminuje problem podwójnego fetchu całkowicie.
+
+---
+
+## Podsumowanie wszystkich zmian
+
+| Plik | Zmiana | Eliminuje |
 |---|---|---|
-| `src/hooks/useOrganizationTree.ts` | Usunięcie `canAccessTree` i `getMaxDepthForRole` z deps `fetchTree` useCallback | Stabilna referencja `fetchTree` — brak pętli |
-| `src/components/team-contacts/TeamContactsTab.tsx` | Zastąpienie `useOrganizationTree` przez `useOrganizationTreeSettings` + lazy `StructureTab` | Hook RPC uruchamia się tylko gdy zakładka jest aktywna; Pure-Kontakty nie crashuje |
+| `src/hooks/useOrganizationTreeSettings.ts` | `fetchSettings` → `useCallback([])` + `isFetchingRef` + `settingsRef` dla stabilnych deps | Problem 2 (niestabilna fetchSettings) + Problem 1 (settings jako obiekt w deps) |
+| `src/hooks/useOrganizationTreeSettings.ts` | `canAccessTree` deps: tylko `[userRoleStr]` (settingsRef zamiast settings state) | Problem 1 (pętla przez settings) |
+| `src/hooks/useOrganizationTree.ts` | `showUplineRef` zamiast `settings` w useCallback deps + `isMountedRef` + reset `hasFetchedRef` przy zmianie eq_id | Problem 3 (setLoading race condition) |
+| `src/hooks/useOrganizationTree.ts` | Usunąć `settings` z useCallback deps — puste lub tylko `[settingsLoading, profile?.eq_id, profile?.upline_eq_id]` | Problem 1 (główna pętla) |
+| `src/components/team-contacts/TeamContactsTab.tsx` | Przekazać `settings` z `TeamContactsTab` do `StructureTab` → `useOrganizationTree` nie woła `useOrganizationTreeSettings` | Problem 4 (podwójny fetch settings) |
 
-## Dlaczego Pure-Kontakty też było dotknięte
+## Dlaczego te zmiany są wystarczające
 
-`TeamContactsTab.tsx` renderuje się przy każdym wejściu do Pure-Kontakty. Wywołuje `useOrganizationTree()` z góry poziomu komponentu — co uruchamia pełny cykl fetchu z niestabilnymi referencjami. Zakładka "Struktura" nigdy nie musiała być aktywna — samo wejście w Pure-Kontakty wystarczyło, by wywołać hook i wprawić w ruch pętlę re-renderów.
+Po naprawie:
+- `settings` nigdy nie jest w tablicy zależności `useCallback` — zamiast tego jest w `settingsRef` (mutable ref)
+- `canAccessTree` i `getMaxDepthForRole` zależą tylko od `userRoleStr` — stabilnego prymitywu
+- `fetchTree` zależy tylko od `[settingsLoading, profile?.eq_id, profile?.upline_eq_id]` — stabilnych prymitywów
+- `hasFetchedRef` resetuje się tylko gdy `profile?.eq_id` się zmienia (zmiana konta)
+- `isMountedRef` chroni przed setState na odmontowanym komponencie
+- `isFetchingRef` zapobiega równoległym fetchom settings
+
+Dla Sebastiana Snopka (admin) — nadal nie będzie żadnych problemów, bo kod jest kompatybilny wstecz.
