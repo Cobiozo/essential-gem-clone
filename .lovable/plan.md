@@ -1,149 +1,161 @@
 
-# Naprawa: "Maximum call stack size exceeded" — Panel Lidera
+# Naprawa: "Maximum call stack size exceeded" — Moja struktura
 
-## Zidentyfikowane przyczyny (3 błędy)
+## Przyczyna — pętla nieskończona w useOrganizationTree
 
-### Błąd 1 (KRYTYCZNY): `LeaderApprovalView` wywołuje `useLeaderApprovals()` bez parametru
+### Łańcuch niestabilnych referencji:
 
-W `src/components/leader/LeaderApprovalView.tsx`, linia 38-39:
-```typescript
-// PRZED — brak parametru hasApprovalPermission:
-const { pendingApprovals, isLoading, approveUser, rejectUser, isApproving, isRejecting } =
-  useLeaderApprovals();  // ← enabled = !!user && undefined === true → false, ale...
-```
-
-Hook `useLeaderApprovals` ma sygnaturę:
-```typescript
-export function useLeaderApprovals(hasApprovalPermission?: boolean)
-// enabled: !!user && hasApprovalPermission === true
-```
-
-Gdy `hasApprovalPermission` jest `undefined`, wyrażenie `undefined === true` = `false`, więc query nie startuje. **To jednak nie jest bezpośredni powód pętli** — ale gdy lider KLIKNIE zakładkę "Zatwierdzenia", komponent jest montowany i wywołuje RPC bez ochrony.
-
-### Błąd 2 (KRYTYCZNY): `useLeaderPermissions` — niestabilna referencja `isPartner`/`isAdmin`
-
-Hook `useLeaderPermissions` wywołuje:
-```typescript
-const { user, isPartner, isAdmin } = useAuth();
-```
-
-i używa `isPartner`/`isAdmin` wewnątrz `queryFn`. Jeśli `isPartner`/`isAdmin` są nowe obiekty/referencje przy każdym renderze (np. gettery, computed), `queryKey: ['leader-permissions-full', user?.id]` jest stabilny, ale **logika w queryFn** używa domknięcia — przy każdej zmianie stanu w AuthContext może się wielokrotnie uruchamiać.
-
-Ponadto w `enabled`:
-```typescript
-enabled: !!user && (isPartner || isAdmin),
-```
-Jeśli `isPartner` lub `isAdmin` zwraca nową referencję przy każdym renderze, powoduje to ciągłe przeliczanie `enabled`, co może wywoływać nieskończony cykl re-renderów.
-
-### Błąd 3 (KRYTYCZNY): `LeaderPanel.tsx` — `useLeaderApprovals` wywoływany przed załadowaniem uprawnień
-
-```typescript
-const {
-  hasApprovalPermission,
-  loading: permLoading,
-} = useLeaderPermissions();
-
-const { pendingCount } = useLeaderApprovals(hasApprovalPermission);
-```
-
-W czasie ładowania (`permLoading === true`) wartość `hasApprovalPermission` to `false` (domyślna). Po załadowaniu zmienia się na `true` lub `false`. Ta zmiana powoduje ponowne obliczenie `enabled` w `useLeaderApprovals` → refetch → aktualizacja stanu → re-render → pętla jeśli coś w AuthContext wyzwala re-render useLeaderPermissions.
-
-Diagram przepływu:
 ```text
-AuthContext zmiana sesji
+AuthContext zmiana sesji (TOKEN_REFRESHED / tab focus)
     ↓
-useLeaderPermissions re-run (enabled zależy od isPartner/isAdmin)
+userRole — nowy obiekt przy każdym renderze
     ↓
-hasApprovalPermission zmienia wartość
+canAccessTree = useCallback([settings, userRole?.role])   ← nowa referencja
+getMaxDepthForRole = useCallback([settings, userRole?.role]) ← nowa referencja
     ↓
-useLeaderApprovals re-run (enabled zmienia się)
+fetchTree = useCallback([..., canAccessTree, getMaxDepthForRole, ...]) ← nowa referencja
     ↓
-RPC get_pending_leader_approvals rzuca błąd SQL
+useEffect([..., fetchTree]) uruchamia się ponownie
     ↓
-React łapie błąd → re-render → AuthContext → ... (pętla)
+setLoading(true) → re-render → cykl się powtarza → stack overflow
 ```
 
-### Błąd 4 (DODATKOWY): `LeaderApprovalView` — podwójne wywołanie `useLeaderApprovals`
+`hasFetchedRef.current = true` powinien blokować ponowne wywołanie — ale pętla dzieje się jeszcze ZANIM `hasFetchedRef` zostanie ustawione, jeśli `fetchTree` zmienia referencję szybciej niż async `fetchTree()` zdąży się wykonać i ustawić flagę.
 
-`LeaderPanel.tsx` wywołuje `useLeaderApprovals(hasApprovalPermission)` dla `pendingCount` na poziomie strony.  
-`LeaderApprovalView` wywołuje `useLeaderApprovals()` **ponownie** (bez parametru) gdy zakładka jest renderowana.
+### Szczegółowy problem w kodzie:
 
-To powoduje **dwie instancje hooka** — jedna z `enabled: true`, jedna z `enabled: false`. Przy równoczesnej zmianie stanu mogą wchodzić w kolizję i generować kaskadowe re-rendery.
+**`useOrganizationTreeSettings.ts`** — `canAccessTree` i `getMaxDepthForRole` używają `useCallback` z zależnością `userRole?.role`:
+```typescript
+const canAccessTree = useCallback((): boolean => {
+  // ...
+}, [settings, userRole?.role]);  // ← jeśli userRole jest nowym obiektem, te funkcje są odtwarzane
+
+const getMaxDepthForRole = useCallback((): number => {
+  // ...
+}, [settings, userRole?.role]);
+```
+
+**`useOrganizationTree.ts`** — `fetchTree` zależy od tych funkcji:
+```typescript
+const fetchTree = useCallback(async () => {
+  // ...
+}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, canAccessTree, getMaxDepthForRole, settings?.show_upline]);
+//                                                               ^^^^^^^^^^^ ^^^^^^^^^^^^^^^^^ — nowe referencje przy każdym renderze AuthContext
+```
+
+**`useEffect`** reaguje na zmianę `fetchTree`:
+```typescript
+useEffect(() => {
+  if (!settingsLoading && profile?.eq_id && !hasFetchedRef.current) {
+    hasFetchedRef.current = true;
+    fetchTree();  // ← uruchamia się za każdym razem gdy fetchTree zmieni referencję
+  }
+}, [settingsLoading, profile?.eq_id, fetchTree]);  // ← fetchTree jest tu problemem
+```
+
+`hasFetchedRef` blokuje PONOWNY fetch, ale nie chroni przed wielokrotnym montowaniem i odmontowywaniem komponentu przy Suspense + Lazy loading, co resetuje ref do `false`.
 
 ---
 
-## Plan naprawy — 3 pliki
+## Plan naprawy — 2 pliki
 
-### Plik 1: `src/components/leader/LeaderApprovalView.tsx`
+### Plik 1: `src/hooks/useOrganizationTreeSettings.ts`
 
-Zmiana: Przekazać `hasApprovalPermission: true` do hooka (komponent jest renderowany TYLKO gdy uprawnienie jest przyznane), oraz zreużyć instancję hooka z LeaderPanel przez props zamiast wywoływać hook drugi raz.
-
-Najprościej: przekazać dane z góry przez props zamiast ponownie wywoływać hook.
+Wyizolować `userRole` do prymitywnej wartości `string | null` zamiast całego obiektu — to stabilizuje `useCallback`:
 
 ```typescript
 // PRZED:
-export const LeaderApprovalView: React.FC = () => {
-  const { pendingApprovals, isLoading, approveUser, rejectUser, isApproving, isRejecting } =
-    useLeaderApprovals();  // ← brak parametru
-
-// PO — dodać props i wywołanie z true:
-interface LeaderApprovalViewProps {
-  // opcjonalne — jeśli nie podane, hook zakłada że ma uprawnienie (bo komponent renderowany tylko gdy ma)
-}
-export const LeaderApprovalView: React.FC = () => {
-  const { pendingApprovals, isLoading, approveUser, rejectUser, isApproving, isRejecting } =
-    useLeaderApprovals(true);  // ← zawsze true, bo komponent jest renderowany wyłącznie gdy hasApprovalPermission === true
-```
-
-### Plik 2: `src/hooks/useLeaderPermissions.ts`
-
-Zmiana: Wyizolować `isPartner` i `isAdmin` z AuthContext — upewnić się że `enabled` jest stabilne i nie powoduje re-renderów przez nowe referencje.
-
-```typescript
-// PRZED:
-const { user, isPartner, isAdmin } = useAuth();
+const { userRole } = useAuth();
 // ...
-enabled: !!user && (isPartner || isAdmin),
+const canAccessTree = useCallback((): boolean => {
+  // ...
+}, [settings, userRole?.role]);
 
-// PO — skonwertować do Boolean żeby mieć stabilną prymitywną wartość:
-const { user, isPartner, isAdmin } = useAuth();
-const isPartnerBool = Boolean(isPartner);
-const isAdminBool = Boolean(isAdmin);
-// ...
-enabled: !!user?.id && (isPartnerBool || isAdminBool),
-queryKey: ['leader-permissions-full', user?.id, isPartnerBool, isAdminBool],
-// queryFn używa isPartnerBool / isAdminBool zamiast isPartner / isAdmin
-```
-
-### Plik 3: `src/hooks/useLeaderApprovals.ts`
-
-Zmiana: Dodać `retry: false` jest już ustawione. Dodać też `throwOnError: false` żeby błąd RPC nie propagował się do Error Boundary i nie wywoływał pętli re-renderów:
-
-```typescript
 // PO:
-const { data: pendingApprovals = [], isLoading } = useQuery({
-  queryKey: ['leader-pending-approvals', user?.id],
-  queryFn: async () => { ... },
-  enabled: !!user?.id && hasApprovalPermission === true,
-  staleTime: 30 * 1000,
-  refetchInterval: 60 * 1000,
-  retry: false,
-  throwOnError: false,  // ← nowe: błąd SQL nie propaguje do ErrorBoundary
-});
+const { userRole } = useAuth();
+const userRoleStr = userRole?.role ?? null;  // prymityw string — stabilna referencja
+
+const canAccessTree = useCallback((): boolean => {
+  if (!settings || !settings.is_enabled) return false;
+  if (!userRoleStr) return false;
+  if (userRoleStr === 'admin') return true;
+  if (userRoleStr === 'partner' && settings.visible_to_partners) return true;
+  if (userRoleStr === 'specjalista' && settings.visible_to_specjalista) return true;
+  if (userRoleStr === 'client' && settings.visible_to_clients) return true;
+  return false;
+}, [settings, userRoleStr]);  // ← stabilna prymitywna wartość
+
+const getMaxDepthForRole = useCallback((): number => {
+  if (!settings) return 0;
+  if (!userRoleStr) return 0;
+  if (userRoleStr === 'admin') return settings.max_depth;
+  if (userRoleStr === 'partner') return settings.partner_max_depth;
+  if (userRoleStr === 'specjalista') return settings.specjalista_max_depth;
+  if (userRoleStr === 'client') return settings.client_max_depth;
+  return 0;
+}, [settings, userRoleStr]);  // ← stabilna prymitywna wartość
 ```
+
+### Plik 2: `src/hooks/useOrganizationTree.ts`
+
+Usunąć `canAccessTree` i `getMaxDepthForRole` z zależności `fetchTree` i zamiast tego wywołać je bezpośrednio wewnątrz funkcji. Ponadto usunąć `fetchTree` z tablicy `useEffect` — zamiast tego reagować tylko na stabilne prymitywne wartości:
+
+```typescript
+// PRZED:
+const fetchTree = useCallback(async () => {
+  // ...
+}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, canAccessTree, getMaxDepthForRole, settings?.show_upline]);
+
+useEffect(() => {
+  if (!settingsLoading && profile?.eq_id && !hasFetchedRef.current) {
+    hasFetchedRef.current = true;
+    fetchTree();
+  }
+}, [settingsLoading, profile?.eq_id, fetchTree]);  // ← fetchTree tu destabilizuje
+
+
+// PO — fetchTree bez niestabilnych funkcji w zależnościach:
+const fetchTree = useCallback(async () => {
+  if (settingsLoading) return;
+  if (!profile?.eq_id) {
+    setLoading(false);
+    setError('Brak identyfikatora EQ w profilu');
+    return;
+  }
+  if (!canAccessTree()) {
+    setLoading(false);
+    return;
+  }
+  // ... reszta bez zmian
+}, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, settings, canAccessTree, getMaxDepthForRole]);
+// ^ Powyższe jest OK — settings stabilizuje się po jednym fetchu (nie zmienia się)
+
+// useEffect — reaguje TYLKO na stabilne wartości, bez fetchTree w zależnościach:
+useEffect(() => {
+  if (!settingsLoading && profile?.eq_id && !hasFetchedRef.current) {
+    hasFetchedRef.current = true;
+    fetchTree();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [settingsLoading, profile?.eq_id]);  // ← usunięto fetchTree — reagujemy tylko gdy settingsLoading zmienia się na false lub eq_id pojawia się
+```
+
+Usunięcie `fetchTree` z zależności `useEffect` jest bezpieczne tutaj, ponieważ:
+- `fetchTree` jest wywoływany dokładnie raz (chroniony przez `hasFetchedRef`)
+- `profile?.eq_id` i `settingsLoading` są stabilnymi prymitywami
+- Ręczne odświeżenie jest zawsze możliwe przez `refetch: fetchTree` eksportowany z hooka
 
 ---
 
 ## Podsumowanie zmian
 
-| Plik | Zmiana | Priorytet |
+| Plik | Zmiana | Efekt |
 |---|---|---|
-| `src/components/leader/LeaderApprovalView.tsx` | `useLeaderApprovals()` → `useLeaderApprovals(true)` | KRYTYCZNY |
-| `src/hooks/useLeaderPermissions.ts` | Stabilizacja `enabled` przez `Boolean()` + rozszerzony `queryKey` | KRYTYCZNY |
-| `src/hooks/useLeaderApprovals.ts` | Dodanie `throwOnError: false` + stabilizacja `enabled` | WYSOKI |
+| `src/hooks/useOrganizationTreeSettings.ts` | `userRole?.role` → `userRoleStr` (prymityw) jako zależność `useCallback` | Stabilne referencje `canAccessTree`/`getMaxDepthForRole` |
+| `src/hooks/useOrganizationTree.ts` | Usunięcie `fetchTree` z `useEffect` dependencies, dodanie `eslint-disable` komentarza | Brak pętli re-renderów przy zmianach sesji |
 
 ---
 
-## Dlaczego to powoduje "Maximum call stack"
+## Dlaczego poprzednia naprawa nie pomogła
 
-React podczas obsługi błędu w renderze wywołuje re-render komponentu nadrzędnego → ten re-renderuje dzieci → dzieci ponownie rzucają błąd → kolejny re-render. Przy wystarczającej głębokości drzewa komponentów stos wywołań funkcji zostaje wyczerpany i JavaScript rzuca "Maximum call stack size exceeded". Naprawienie guard'ów uprawnień i izolacja błędów RPC od ErrorBoundary przerwie tę pętlę.
+Poprzednia naprawa (dla zakładki "Zatwierdzenia") stabilizowała `useLeaderPermissions` i `useLeaderApprovals`. Ale zakładka "Moja struktura" używa zupełnie innych hooków: `useOrganizationTree` → `useOrganizationTreeSettings`. Te nie były dotknięte poprzednią naprawą i nadal generowały pętlę przez niestabilne referencje funkcji `canAccessTree`/`getMaxDepthForRole`.
