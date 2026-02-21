@@ -17,7 +17,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, RefreshCw, AlertTriangle, Mail, Info, Globe, ChevronDown } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, RefreshCw, AlertTriangle, Mail, Info } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -458,6 +459,10 @@ const Training = () => {
     return { text: t('training.statusInProgress'), variant: "warning" as const };
   };
 
+  // Get dashboard preference for proper navigation
+  const dashboardPreference = localStorage.getItem('dashboard_view_preference') || 'modern';
+  const homeUrl = dashboardPreference === 'modern' ? '/dashboard' : '/';
+
   if (!trainingLanguageLoaded || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -498,9 +503,6 @@ const Training = () => {
     );
   }
 
-  // Get dashboard preference for proper navigation
-  const dashboardPreference = localStorage.getItem('dashboard_view_preference') || 'modern';
-  const homeUrl = dashboardPreference === 'modern' ? '/dashboard' : '/';
 
   // Refresh academy - check and add missing assignments
   const refreshAcademy = async () => {
@@ -670,20 +672,38 @@ const Training = () => {
 
               {/* Language catalog dropdown */}
               {availableLanguages.length > 1 && (
-                <div className="relative">
-                  <select
-                    value={viewLanguage || ''}
-                    onChange={(e) => setViewLanguage(e.target.value)}
-                    className="appearance-none cursor-pointer bg-background border border-input rounded-lg pl-3 pr-8 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
+                <Select value={viewLanguage || ''} onValueChange={(val) => setViewLanguage(val)}>
+                  <SelectTrigger className="w-auto h-9 border border-input bg-background px-3 gap-2">
+                    <SelectValue>
+                      {viewLanguage && (
+                        <span className="flex items-center gap-2">
+                          <img
+                            src={`https://flagcdn.com/w40/${viewLanguage === 'en' ? 'gb' : viewLanguage}.png`}
+                            alt=""
+                            className="w-6 h-4 object-cover rounded-sm shadow-sm"
+                          />
+                          <span className="text-sm font-medium">
+                            {availableLanguages.find(l => l.code === viewLanguage)?.native_name || viewLanguage.toUpperCase()}
+                          </span>
+                        </span>
+                      )}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent align="end">
                     {availableLanguages.map(lang => (
-                      <option key={lang.code} value={lang.code}>
-                        {lang.native_name} ({lang.name})
-                      </option>
+                      <SelectItem key={lang.code} value={lang.code}>
+                        <span className="flex items-center gap-3">
+                          <img
+                            src={`https://flagcdn.com/w40/${lang.code === 'en' ? 'gb' : lang.code}.png`}
+                            alt={lang.name}
+                            className="w-6 h-4 object-cover rounded-sm shadow-sm"
+                          />
+                          <span>{lang.native_name} ({lang.name})</span>
+                        </span>
+                      </SelectItem>
                     ))}
-                  </select>
-                  <Globe className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-                </div>
+                  </SelectContent>
+                </Select>
               )}
             </div>
           )}
