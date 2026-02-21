@@ -184,8 +184,45 @@ ${signUpLabel}: ${inviteUrl}
     
     // Zarejestrowany
     if (event.is_registered) {
+      // Spotkania indywidualne — blokada anulowania < 2h, Edge Function zamiast cancelRegistration
+      const isIndividualMeeting = ['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type);
+      
+      if (isIndividualMeeting) {
+        const minutesUntilMeeting = (eventStart.getTime() - now.getTime()) / (1000 * 60);
+        if (minutesUntilMeeting > 120) {
+          return (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 text-xs text-destructive hover:text-destructive"
+              onClick={async () => {
+                const confirmed = window.confirm(tf('events.confirmCancelMeeting', 'Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.'));
+                if (!confirmed) return;
+                try {
+                  const { data, error } = await supabase.functions.invoke('cancel-individual-meeting', {
+                    body: { event_id: event.id }
+                  });
+                  if (error || !data?.success) {
+                    toast({ title: tf('common.error', 'Błąd'), description: data?.error || tf('events.cancelFailed', 'Nie udało się anulować spotkania'), variant: 'destructive' });
+                    return;
+                  }
+                  toast({ title: tf('events.meetingCancelled', 'Spotkanie anulowane'), description: `${tf('events.emailNotificationsSent', 'Powiadomienia email wysłane')} (${data.emails_sent}/${data.total_participants}).` });
+                  window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
+                } catch (err: any) {
+                  toast({ title: tf('common.error', 'Błąd'), description: err.message, variant: 'destructive' });
+                }
+              }}
+            >
+              <X className="h-3 w-3 mr-1" />
+              {tf('events.cancelMeeting', 'Anuluj spotkanie')}
+            </Button>
+          );
+        }
+        // < 2h — brak przycisku anulowania
+        return <Badge variant="secondary" className="text-xs">{tf('events.registered', 'Zapisany/a')}</Badge>;
+      }
+      
       if (isExternalPlatform) {
-        // Zewnętrzna platforma - "Usuń z kalendarza"
         return (
           <Button
             size="sm"
@@ -473,7 +510,7 @@ ${signUpLabel}: ${inviteUrl}
           onCancelRegistration={async (eventId, occurrenceIndex) => {
             // For individual meetings (tripartite/partner_consultation) use Edge Function
             const event = detailsEvent;
-            if (event && ['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
+            if (event && ['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)) {
               const confirmed = window.confirm(tf('events.confirmCancelMeeting', 'Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.'));
               if (!confirmed) return;
               

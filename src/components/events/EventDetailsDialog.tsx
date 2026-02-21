@@ -93,7 +93,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   // Cancel allowed if more than 2 hours before meeting for individual meetings
   const minutesUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60);
   const canCancel = event.is_registered && 
-    ['tripartite_meeting', 'partner_consultation'].includes(event.event_type) && 
+    ['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && 
     minutesUntilEvent > 120;
 
   // Get occurrence index for multi-occurrence events
