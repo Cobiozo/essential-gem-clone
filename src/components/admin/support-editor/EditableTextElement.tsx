@@ -31,8 +31,12 @@ export const EditableTextElement: React.FC<EditableTextElementProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
+  const handleChange = (newValue: string) => {
+    setEditValue(newValue);
+    onChange(newValue);
+  };
+
   const handleApply = () => {
-    onChange(editValue);
     setIsOpen(false);
   };
 
@@ -80,14 +84,14 @@ export const EditableTextElement: React.FC<EditableTextElementProps> = ({
           {variant === 'multiline' ? (
             <Textarea
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
               rows={4}
             />
           ) : (
             <Input
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
             />
           )}
