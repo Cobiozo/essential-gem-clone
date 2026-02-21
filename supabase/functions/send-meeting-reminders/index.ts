@@ -161,7 +161,11 @@ serve(async (req) => {
 
     const now = new Date();
     
-    // Define time windows for reminders (NEW SCHEDULE: 1h + 15min)
+    // Define time windows for reminders (24h + 1h + 15min)
+    // 24h reminder: between 23h and 25h before event
+    const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+    const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    
     // 1h reminder: between 50min and 70min before event
     const reminder1hStart = new Date(now.getTime() + 50 * 60 * 1000);
     const reminder1hEnd = new Date(now.getTime() + 70 * 60 * 1000);
@@ -171,10 +175,11 @@ serve(async (req) => {
     const reminder15minEnd = new Date(now.getTime() + 20 * 60 * 1000);
 
     console.log('[send-meeting-reminders] Checking for meetings needing reminders...');
+    console.log(`[send-meeting-reminders] 24h window: ${reminder24hStart.toISOString()} - ${reminder24hEnd.toISOString()}`);
     console.log(`[send-meeting-reminders] 1h window: ${reminder1hStart.toISOString()} - ${reminder1hEnd.toISOString()}`);
     console.log(`[send-meeting-reminders] 15min window: ${reminder15minStart.toISOString()} - ${reminder15minEnd.toISOString()}`);
 
-    // Get individual meetings in the reminder windows
+    // Get meetings in the reminder windows (including meeting_private)
     const { data: meetings, error: meetingsError } = await supabase
       .from('events')
       .select(`
@@ -186,9 +191,9 @@ serve(async (req) => {
         zoom_link,
         created_by
       `)
-      .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+      .in('event_type', ['meeting_private', 'tripartite_meeting', 'partner_consultation'])
       .eq('is_active', true)
-      .or(`and(start_time.gte.${reminder1hStart.toISOString()},start_time.lte.${reminder1hEnd.toISOString()}),and(start_time.gte.${reminder15minStart.toISOString()},start_time.lte.${reminder15minEnd.toISOString()})`);
+      .or(`and(start_time.gte.${reminder24hStart.toISOString()},start_time.lte.${reminder24hEnd.toISOString()}),and(start_time.gte.${reminder1hStart.toISOString()},start_time.lte.${reminder1hEnd.toISOString()}),and(start_time.gte.${reminder15minStart.toISOString()},start_time.lte.${reminder15minEnd.toISOString()})`);
 
     if (meetingsError) {
       console.error('[send-meeting-reminders] Error fetching meetings:', meetingsError);
@@ -229,12 +234,13 @@ serve(async (req) => {
       from_name: smtpData.sender_name,
     };
 
-    // Get email templates (NEW: 1h and 15min)
+    // Get email templates (24h + 1h + 15min)
     const { data: templates } = await supabase
       .from('email_templates')
       .select('*')
-      .in('internal_name', ['meeting_reminder_1h', 'meeting_reminder_15min']);
+      .in('internal_name', ['meeting_reminder_24h', 'meeting_reminder_1h', 'meeting_reminder_15min']);
 
+    const template24h = templates?.find(t => t.internal_name === 'meeting_reminder_24h');
     const template1h = templates?.find(t => t.internal_name === 'meeting_reminder_1h');
     const template15min = templates?.find(t => t.internal_name === 'meeting_reminder_15min');
 
@@ -245,6 +251,10 @@ serve(async (req) => {
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
+    
+    if (!template24h) {
+      console.warn('[send-meeting-reminders] Missing meeting_reminder_24h template, 24h reminders will be skipped');
+    }
 
     let sentCount = 0;
     const errors: string[] = [];
@@ -254,10 +264,18 @@ serve(async (req) => {
       const minutesUntil = (meetingStart.getTime() - now.getTime()) / (1000 * 60);
       
       // Determine reminder type
-      let reminderType: '1h' | '15min';
+      let reminderType: '24h' | '1h' | '15min';
       let template: typeof template1h;
       
-      if (minutesUntil >= 50 && minutesUntil <= 70) {
+      const hoursUntil = minutesUntil / 60;
+      if (hoursUntil >= 23 && hoursUntil <= 25) {
+        reminderType = '24h';
+        if (!template24h) {
+          console.log(`[send-meeting-reminders] Skipping 24h reminder - no template`);
+          continue;
+        }
+        template = template24h;
+      } else if (minutesUntil >= 50 && minutesUntil <= 70) {
         reminderType = '1h';
         template = template1h;
       } else if (minutesUntil >= 10 && minutesUntil <= 20) {
