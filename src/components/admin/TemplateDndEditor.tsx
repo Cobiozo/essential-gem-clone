@@ -330,7 +330,7 @@ const TemplateDndEditor = ({ template, onSave, onClose }: Props) => {
           content: textObj.text || '',
           x: textObj.left || 0,
           y: textObj.top || 0,
-          width: (textObj as any).originalWidth || (textObj.width || 200) * (textObj.scaleX || 1),
+          width: (textObj.width || 200) * (textObj.scaleX || 1),
           height: (textObj.height || 50) * (textObj.scaleY || 1),
           fontSize: textObj.fontSize || 16,
           fontWeight: String(textObj.fontWeight || 'normal'),
