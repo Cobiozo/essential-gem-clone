@@ -1,73 +1,62 @@
 
 
-# Zmiana: Wszystkie szkolenia widoczne, klasyfikacja tylko z wybranego jezyka
+# Zmiana: Katalog jezykowy z rozwijanym selektorem w naglowku Akademii
 
-## Problem
+## Opis
 
-Obecna implementacja calkowicie ukrywa moduly spoza wybranego jezyka (`displayModules` filtruje je w linii 84-89 `Training.tsx`). Uzytkownik traci mozliwosc przegladania szkolen w innych jezykach.
+Zamiast wyswietlania wszystkich modulow razem (z badge'ami "nie wlicza sie"), wprowadzamy system katalogu jezykowego:
 
-## Zmiana koncepcji
-
-- Uzytkownik **widzi wszystkie moduly** niezaleznie od jezyka
-- **Postep procentowy i klasyfikacja** liczone sa tylko z modulow w wybranym jezyku
-- Moduly spoza wybranego jezyka maja wizualne oznaczenie (np. badge z flaga jezyka) i adnotacje ze nie wliczaja sie do postepu
-
-## Pliki do modyfikacji
-
-### 1. `src/pages/Training.tsx`
-
-**Usunac filtrowanie `displayModules`** (linie 84-89) -- wyswietlac `translatedDisplayModules` bezposrednio.
-
-**Dodac wizualne rozroznienie** na karcie modulu:
-- Jezeli `module.language_code` rozni sie od `trainingLanguage` (i nie jest `NULL`): wyswietlic maly badge z flaga jezyka modulu + tekst "Nie wlicza sie do postepu"
-- Moduly w wybranym jezyku i moduly uniwersalne (`language_code = NULL`) -- bez dodatkowego oznaczenia
-
-**Ogolny pasek postepu** (opcjonalnie w naglowku): liczyc tylko z modulow pasujacych do `trainingLanguage`.
-
-**Komunikat "brak szkolen w wybranym jezyku"**: zmiana warunku -- wyswietlac jako banner informacyjny nad lista modulow, jezeli brak modulow pasujacych do jezyka, ale nadal pokazywac wszystkie moduly ponizej.
-
-### 2. `src/components/dashboard/widgets/TrainingProgressWidget.tsx`
-
-**Bez zmian** -- widget dashboardu nadal liczy postep tylko z modulow w wybranym jezyku (to jest poprawne zachowanie).
-
-### 3. `src/components/admin/TrainingManagement.tsx` i `TeamTrainingProgressView.tsx`
-
-**Bez zmian** -- admin i lider widza postep klasyfikacyjny z wybranego jezyka (poprawne zachowanie).
+- W prawym gornym rogu naglowka Akademii widoczny jest **wybrany jezyk szkolenia** (flaga + nazwa, np. "Polski" z adnotacja "Twoja sciezka")
+- Obok znajduje sie **rozwijana lista** "Zobacz inne jezyki" umozliwiajaca przelaczenie widoku na katalog innego jezyka
+- Po wybraniu innego jezyka z listy, wyswietlane sa moduly z tego jezyka, ale z wyraznym bannerem informujacym, ze te szkolenia nie wliczaja sie do postepu
+- Przycisk powrotu do wlasnej sciezki
 
 ## Szczegoly techniczne
 
-W `Training.tsx`:
+### Plik: `src/pages/Training.tsx`
+
+**1. Dodac stan `viewLanguage`:**
+- Nowy stan `viewLanguage` (domyslnie rowny `trainingLanguage`) -- okresla ktory katalog jezykowy jest aktualnie wyswietlany
+- Filtrowanie modulow: `modules.filter(m => !m.language_code || m.language_code === viewLanguage)`
+
+**2. Zastapic obecny badge jezyka rozbudowanym naglowkiem:**
+
+W prawym gornym rogu (obok tytulu "Akademia"):
+- Wybrany jezyk szkolenia: flaga + "Polski (Twoja sciezka)" -- niezmienialny, informacyjny
+- Select/dropdown "Zobacz szkolenia w innym jezyku" -- lista jezykow z flagami pobrana z `i18n_languages`
+- Gdy `viewLanguage !== trainingLanguage`: wyswietlic banner ostrzegawczy + przycisk "Wroc do swojej sciezki"
+
+**3. Filtrowanie modulow wedlug `viewLanguage`:**
 
 ```text
-// USUNAC:
-const displayModules = useMemo(() => {
-  if (!trainingLanguage) return translatedDisplayModules;
+const filteredModules = useMemo(() => {
+  if (!viewLanguage) return translatedDisplayModules;
   return translatedDisplayModules.filter(m =>
-    !m.language_code || m.language_code === trainingLanguage
+    !m.language_code || m.language_code === viewLanguage
   );
-}, [translatedDisplayModules, trainingLanguage]);
-
-// ZASTAPIC uzyciem translatedDisplayModules bezposrednio w renderowaniu
-
-// DODAC helper:
-const isInTrainingTrack = (module) =>
-  !trainingLanguage || !module.language_code || module.language_code === trainingLanguage;
-
-// Na karcie modulu dodac badge jezyka gdy modul jest spoza sciezki:
-{!isInTrainingTrack(module) && (
-  <Badge variant="outline" className="text-xs text-muted-foreground">
-    <img src={flagUrl} ... /> {module.language_code?.toUpperCase()}
-    · Nie wlicza sie do postepu
-  </Badge>
-)}
+}, [translatedDisplayModules, viewLanguage]);
 ```
 
-Komunikat o braku szkolen w jezyku -- jako informacyjny banner nad lista (nie zamiast listy):
+**4. Banner informacyjny gdy ogladamy inny katalog:**
 
 ```text
-const trackModules = translatedDisplayModules.filter(m => isInTrainingTrack(m));
-{trainingLanguage && trackModules.length === 0 && (
-  <InfoBanner>Aktualnie brak szkolen w wybranym jezyku. Ponizej dostepne sa szkolenia w innych jezykach.</InfoBanner>
+{viewLanguage && viewLanguage !== trainingLanguage && (
+  <Banner type="info">
+    Przegladasz szkolenia w jezyku {nazwa}. Te szkolenia nie wliczaja sie do Twojego postepu.
+    <Button onClick={() => setViewLanguage(trainingLanguage)}>Wroc do swojej sciezki</Button>
+  </Banner>
 )}
 ```
+
+**5. Usunac badge "Nie wlicza sie do postepu" z kart modulow** -- juz niepotrzebny, bo katalogi sa rozdzielone.
+
+**6. Pobranie listy jezykow** -- fetch z `i18n_languages` (is_active, order by position), analogicznie do `TrainingLanguageSelector`.
+
+### Elementy UI selektora jezyka (prawy gorny rog):
+
+```text
+[Flaga PL] Polski — Twoja sciezka    |   [v] Zobacz inne jezyki
+```
+
+Dropdown z flagami i nazwami jezykow (pl, en, de itd.), po kliknieciu zmienia `viewLanguage`.
 
