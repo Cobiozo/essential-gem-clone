@@ -1,179 +1,130 @@
 
-# Naprawa systemu emaili dla spotkan indywidualnych
+# Naprawa anulowania spotkan indywidualnych - blokada 2h i zwalnianie terminu
 
 ## Zidentyfikowane problemy
 
-### Problem 1: BookMeetingDialog uzywa blednego event_type
-Plik `BookMeetingDialog.tsx` (linia 201) tworzy wydarzenia z `event_type: 'private_meeting'` zamiast `'meeting_private'`. To powoduje, ze spotkania te nie sa widoczne w zadnym filtrze ani w systemie przypomnien.
+### Problem 1: CalendarWidget pozwala anulowac spotkania indywidualne bez ograniczen
+Widget "Webinary i spotkania" pod kalendarzem wyswietla przycisk "Wypisz sie" dla WSZYSTKICH zarejestrowanych wydarzen, wlacznie ze spotkaniami indywidualnymi (`tripartite_meeting`, `partner_consultation`). Nie sprawdza:
+- Czy to spotkanie indywidualne (ktore wymaga Edge Function do anulowania)
+- Czy jest mniej niz 2h do spotkania
 
-### Problem 2: Brak wysylki emaili po rezerwacji (oba dialogi)
-- `BookMeetingDialog.tsx` — po zarezerwowaniu spotkania NIE wywoluje `send-notification-email`. Brak jakiegokolwiek powiadomienia email.
-- `useLeaderAvailability.ts` `bookMeeting()` — ten sam problem, brak emaili po rezerwacji.
+Wywoluje standardowa funkcje `cancelRegistration()` ktora jedynie usuwa rejestracje uzytkownika BEZ:
+- Oznaczenia wydarzenia jako `is_active: false`
+- Anulowania rejestracji hosta
+- Wysylki powiadomien email
+- Zwalniania terminu
 
-### Problem 3: send-meeting-reminders pomija meeting_private
-Edge Function `send-meeting-reminders` filtruje tylko `tripartite_meeting` i `partner_consultation` (linia 189). Spotkania indywidualne (`meeting_private`) sa calkowicie pominiete.
+### Problem 2: Termin nie wraca po anulowaniu
+Poniewaz CalendarWidget uzywa `cancelRegistration()` zamiast Edge Function `cancel-individual-meeting`, wydarzenie pozostaje `is_active: true`. System sprawdzania dostepnosci slotow (`PartnerMeetingBooking`) filtruje po `is_active: true`, wiec termin nadal jest "zajety".
 
-### Problem 4: Brak przypomnienia 24h
-Szablon `meeting_reminder_24h` istnieje w bazie, ale nigdzie nie jest uzywany. Przypomnienia sa wysylane tylko 1h i 15min przed spotkaniem.
+### Dowod z bazy danych
+Spotkanie Sebastian Snopek z Elzbieta Dabrowska (21.02.2026, 16:00 Warszawa):
+- Event ID: `2cf51ff7-...` — `is_active: true` (powinno byc `false`)
+- Sebastian (booker): status `cancelled` o 15:05 — 55 minut przed spotkaniem
+- Elzbieta (host): status `registered` — nie zostala powiadomiona
+- Anulowanie przeszlo przez `cancelRegistration()` zamiast Edge Function
 
-### Problem 5: BookMeetingDialog nie rejestruje hosta
-`useLeaderAvailability.ts` rejestruje tylko uzytkownika rezerwujacego, ale nie hosta. Host nie pojawi sie w `event_registrations`, wiec nie dostanie przypomnien.
+### Problem 3: MyMeetingsWidget nie obejmuje meeting_private
+Przycisk anulowania w MyMeetingsWidget jest wyswietlany tylko dla `tripartite_meeting` i `partner_consultation`, pomija `meeting_private`.
 
 ## Plan napraw
 
-### 1. Naprawic event_type w BookMeetingDialog.tsx
-Zmienic `'private_meeting'` na `'meeting_private'` (linia 201).
+### 1. CalendarWidget — dodac obsluge spotkan indywidualnych
 
-### 2. Dodac wysylke emaili po rezerwacji w BookMeetingDialog.tsx
-Po utworzeniu wydarzenia i rejestracji, dodac wywolania `send-notification-email`:
-- Do hosta (lidera): szablon `meeting_booked` z danymi rezerwujacego
-- Do rezerwujacego: szablon `meeting_confirmed` z danymi lidera
+W funkcji `getRegistrationButton()` (linia ~186-210), PRZED wyswietleniem przycisku "Wypisz sie", dodac sprawdzenie:
+- Czy wydarzenie jest typu `tripartite_meeting`, `partner_consultation` lub `meeting_private`
+- Jesli tak: NIE pokazywac przycisku "Wypisz sie" jesli do spotkania jest mniej niz 2h
+- Jesli wiecej niz 2h: pokazac przycisk "Anuluj spotkanie" ktory wywola Edge Function `cancel-individual-meeting` (tak jak robi to juz `onCancelRegistration` w `EventDetailsDialog`)
 
-### 3. Dodac wysylke emaili w useLeaderAvailability.ts bookMeeting()
-Analogicznie — po utworzeniu eventu i rejestracji, wyslac emaile do obu stron. Dodatkowo zarejestrowac hosta w `event_registrations`.
+### 2. CalendarWidget — dodac logike anulowania przez Edge Function
 
-### 4. Rozszerzyc send-meeting-reminders o meeting_private
-Dodac `'meeting_private'` do filtra `event_type` w zapytaniu (linia 189). Dodac okno czasowe 24h (23h-25h przed spotkaniem) i uzyc szablonu `meeting_reminder_24h`.
+Dla spotkan indywidualnych przycisk powinien:
+1. Wyswietlac "Anuluj spotkanie" zamiast "Wypisz sie"
+2. Wywolywac `cancel-individual-meeting` Edge Function
+3. Byc ukryty gdy do spotkania < 2h
 
-### 5. Dodac rejestracje hosta w BookMeetingDialog.tsx
-Po rejestracji uzytkownika dodac insert do `event_registrations` dla hosta (lidera), aby system przypomnien go uwzglednial.
+### 3. MyMeetingsWidget — dodac meeting_private do listy typow
+
+W warunku na liniach 239 i 285, dodac `'meeting_private'` obok `tripartite_meeting` i `partner_consultation`.
+
+### 4. EventDetailsDialog — dodac meeting_private do canCancel
+
+W warunku `canCancel` (linia 96), dodac `'meeting_private'` do tablicy typow.
+
+### 5. Naprawic konkretne spotkanie w bazie
+
+Wydarzenie `2cf51ff7-...` wymaga recznej naprawy — ustawic `is_active: false` aby zwolnic termin.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/events/BookMeetingDialog.tsx` | Naprawic event_type na `meeting_private`, dodac rejestracje hosta, dodac wysylke 2 emaili (meeting_booked + meeting_confirmed) |
-| `src/hooks/useLeaderAvailability.ts` | Dodac rejestracje hosta w event_registrations, dodac wysylke 2 emaili po rezerwacji |
-| `supabase/functions/send-meeting-reminders/index.ts` | Dodac `meeting_private` do filtra event_type, dodac okno 24h z szablonem `meeting_reminder_24h` |
+| `src/components/dashboard/widgets/CalendarWidget.tsx` | Dodac logike blokowania "Wypisz sie" dla spotkan indywidualnych < 2h, zamienic na "Anuluj" z wywolaniem Edge Function |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Dodac `meeting_private` do warunkow wyswietlania przycisku anulowania |
+| `src/components/events/EventDetailsDialog.tsx` | Dodac `meeting_private` do warunku `canCancel` |
 
 ## Szczegoly techniczne
 
-### BookMeetingDialog.tsx — zmiany
+### CalendarWidget.tsx — zmiana getRegistrationButton()
 
+Obecna logika (linia 186-210):
 ```text
-// Linia 201: naprawic event_type
-event_type: 'meeting_private',  // bylo: 'private_meeting'
-
-// Po rejestracji uzytkownika (po linii 228): dodac rejestracje hosta
-await supabase.from('event_registrations').insert({
-  event_id: event.id,
-  user_id: selectedTopic.leader_user_id,
-  status: 'registered',
-});
-
-// Dodac wysylke emaili:
-// 1. Email do hosta (meeting_booked)
-supabase.functions.invoke('send-notification-email', {
-  body: {
-    event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b',
-    recipient_user_id: selectedTopic.leader_user_id,
-    payload: {
-      temat: selectedTopic.title,
-      data_spotkania: format(selectedDate, 'dd.MM.yyyy'),
-      godzina_spotkania: selectedTime,
-      imie_rezerwujacego: userProfile.first_name,
-      nazwisko_rezerwujacego: userProfile.last_name,
-    },
-  },
-}).catch(err => console.log('Email to leader failed:', err));
-
-// 2. Email do rezerwujacego (meeting_confirmed)
-supabase.functions.invoke('send-notification-email', {
-  body: {
-    event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e',
-    recipient_user_id: user.id,
-    payload: {
-      temat: selectedTopic.title,
-      data_spotkania: format(selectedDate, 'dd.MM.yyyy'),
-      godzina_spotkania: selectedTime,
-      imie_lidera: selectedTopic.leader.first_name,
-      nazwisko_lidera: selectedTopic.leader.last_name,
-    },
-  },
-}).catch(err => console.log('Email to booker failed:', err));
+if (event.is_registered) {
+  // Pokazuje "Wypisz sie" dla WSZYSTKICH wydarzen
+  return <Button onClick={() => cancelRegistration(...)}>Wypisz sie</Button>
+}
 ```
 
-### useLeaderAvailability.ts — zmiany
-
+Nowa logika:
 ```text
-// Po rejestracji uzytkownika (po linii 414): dodac rejestracje hosta
-await supabase.from('event_registrations').insert({
-  event_id: event.id,
-  user_id: leaderUserId,
-  status: 'registered',
-});
-
-// Pobrac profil uzytkownika
-const { data: userProfile } = await supabase
-  .from('profiles')
-  .select('first_name, last_name')
-  .eq('user_id', user.id)
-  .single();
-
-// Pobrac profil lidera
-const { data: leaderProfile } = await supabase
-  .from('profiles')
-  .select('first_name, last_name')
-  .eq('user_id', leaderUserId)
-  .single();
-
-// Email do hosta
-supabase.functions.invoke('send-notification-email', {
-  body: {
-    event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b',
-    recipient_user_id: leaderUserId,
-    payload: {
-      temat: topic.data?.title || 'Spotkanie prywatne',
-      data_spotkania: format(new Date(startTime), 'dd.MM.yyyy'),
-      godzina_spotkania: format(new Date(startTime), 'HH:mm'),
-      imie_rezerwujacego: userProfile?.first_name || '',
-      nazwisko_rezerwujacego: userProfile?.last_name || '',
-    },
-  },
-}).catch(err => console.log('Email to leader failed:', err));
-
-// Email do rezerwujacego
-supabase.functions.invoke('send-notification-email', {
-  body: {
-    event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e',
-    recipient_user_id: user.id,
-    payload: {
-      temat: topic.data?.title || 'Spotkanie prywatne',
-      data_spotkania: format(new Date(startTime), 'dd.MM.yyyy'),
-      godzina_spotkania: format(new Date(startTime), 'HH:mm'),
-      imie_lidera: leaderProfile?.first_name || '',
-      nazwisko_lidera: leaderProfile?.last_name || '',
-    },
-  },
-}).catch(err => console.log('Email to booker failed:', err));
+if (event.is_registered) {
+  const isIndividualMeeting = ['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type);
+  
+  if (isIndividualMeeting) {
+    const minutesUntil = (eventStart.getTime() - now.getTime()) / (1000 * 60);
+    if (minutesUntil > 120) {
+      // Pokaz "Anuluj spotkanie" z Edge Function
+      return <Button onClick={() => handleCancelIndividualMeeting(event)}>Anuluj spotkanie</Button>;
+    }
+    // < 2h — nie pokazuj zadnego przycisku anulowania
+    return <Badge>Zapisany/a</Badge>;
+  }
+  
+  // Dla zwyklych wydarzen — standardowe "Wypisz sie"
+  return <Button onClick={() => cancelRegistration(...)}>Wypisz sie</Button>;
+}
 ```
 
-### send-meeting-reminders — zmiany
+Funkcja `handleCancelIndividualMeeting` wywola Edge Function `cancel-individual-meeting` (identyczna logika jak juz istnieje w `onCancelRegistration` w EventDetailsDialog, linia 473-505).
 
-1. Dodac `'meeting_private'` do filtra event_type (linia 189):
+### MyMeetingsWidget.tsx — zmiana warunkow
+
+Linia 239 i 367:
 ```text
-.in('event_type', ['meeting_private', 'tripartite_meeting', 'partner_consultation'])
+// Bylo:
+event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation'
+
+// Bedzie:
+['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)
 ```
 
-2. Dodac okno czasowe 24h:
+### EventDetailsDialog.tsx — zmiana canCancel
+
+Linia 96:
 ```text
-const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+// Bylo:
+['tripartite_meeting', 'partner_consultation'].includes(event.event_type)
+
+// Bedzie:
+['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)
 ```
 
-3. Rozszerzyc zapytanie OR o okno 24h.
+### Naprawa danych — event 2cf51ff7
 
-4. Pobrac szablon `meeting_reminder_24h` obok istniejacych szablonow.
-
-5. Dodac logike `reminderType = '24h'` i uzyc szablonu `meeting_reminder_24h`.
-
-## Analiza ostatnich 7 dni
-
-Zapytanie do bazy pokazalo, ze w ciagu ostatnich 7 dni NIE BYLO zadnych spotkan indywidualnych (`meeting_private`). Moga jednak istniec spotkania z blednym typem `private_meeting` (z BookMeetingDialog). Te nie beda widoczne w zadnym systemie.
+Ustawic `is_active: false` dla anulowanego spotkania, aby termin 15:00 UTC u Elzbiety Dabrowskiej zostal zwolniony.
 
 ## Wplyw na istniejacy kod
 
-- Nie narusza istniejacych flow dla `tripartite_meeting` i `partner_consultation` — te dzialaja poprawnie
-- Nie zmienia logiki anulowania — `cancel-individual-meeting` juz dziala prawidlowo
-- Nie wymaga zmian w bazie danych — szablony i typy juz istnieja
-- Dodaje brakujaca funkcjonalnosc bez usuwania istniejacego kodu
+- Nie narusza logiki webinarow, szkolen zespolowych ani spotkan publicznych — te dalej uzywaja standardowego "Wypisz sie"
+- Edge Function `cancel-individual-meeting` juz ma wbudowana walidacje 2h serwerowa — to jest druga warstwa ochrony
+- Nie wymaga zmian w bazie danych ani nowych Edge Functions
