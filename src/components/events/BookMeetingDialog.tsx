@@ -198,7 +198,7 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
         .insert({
           title: selectedTopic.title,
           description: selectedTopic.description,
-          event_type: 'private_meeting',
+          event_type: 'meeting_private',
           start_time: startDateTime.toISOString(),
           end_time: endDateTime.toISOString(),
           host_user_id: selectedTopic.leader_user_id,
@@ -236,6 +236,39 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
           status: 'registered',
         });
       
+      // Send email notifications (non-blocking)
+      const formattedDate = format(selectedDate, 'dd.MM.yyyy');
+      
+      // Email to host (leader) - meeting_booked
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b',
+          recipient_user_id: selectedTopic.leader_user_id,
+          payload: {
+            temat: selectedTopic.title,
+            data_spotkania: formattedDate,
+            godzina_spotkania: selectedTime,
+            imie_rezerwujacego: user.user_metadata?.first_name || '',
+            nazwisko_rezerwujacego: user.user_metadata?.last_name || '',
+          },
+        },
+      }).catch(err => console.log('Email to leader failed:', err));
+
+      // Email to booker - meeting_confirmed
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e',
+          recipient_user_id: user.id,
+          payload: {
+            temat: selectedTopic.title,
+            data_spotkania: formattedDate,
+            godzina_spotkania: selectedTime,
+            imie_lidera: selectedTopic.leader?.first_name || '',
+            nazwisko_lidera: selectedTopic.leader?.last_name || '',
+          },
+        },
+      }).catch(err => console.log('Email to booker failed:', err));
+
       toast({
         title: t('toast.success'),
         description: t('events.meetingBooked'),

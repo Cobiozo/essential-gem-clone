@@ -413,6 +413,58 @@ export const useLeaderAvailability = () => {
 
       if (regError) throw regError;
 
+      // Register the host (leader) for reminders
+      await supabase
+        .from('event_registrations')
+        .insert({
+          event_id: event.id,
+          user_id: leaderUserId,
+          status: 'registered',
+        });
+
+      // Get profiles for email notifications
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', user.id)
+        .single();
+
+      const { data: leaderProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('user_id', leaderUserId)
+        .single();
+
+      // Email to host (leader) - meeting_booked
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b',
+          recipient_user_id: leaderUserId,
+          payload: {
+            temat: topic.data?.title || 'Spotkanie prywatne',
+            data_spotkania: format(new Date(startTime), 'dd.MM.yyyy'),
+            godzina_spotkania: format(new Date(startTime), 'HH:mm'),
+            imie_rezerwujacego: userProfile?.first_name || '',
+            nazwisko_rezerwujacego: userProfile?.last_name || '',
+          },
+        },
+      }).catch(err => console.log('Email to leader failed:', err));
+
+      // Email to booker - meeting_confirmed
+      supabase.functions.invoke('send-notification-email', {
+        body: {
+          event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e',
+          recipient_user_id: user.id,
+          payload: {
+            temat: topic.data?.title || 'Spotkanie prywatne',
+            data_spotkania: format(new Date(startTime), 'dd.MM.yyyy'),
+            godzina_spotkania: format(new Date(startTime), 'HH:mm'),
+            imie_lidera: leaderProfile?.first_name || '',
+            nazwisko_lidera: leaderProfile?.last_name || '',
+          },
+        },
+      }).catch(err => console.log('Email to booker failed:', err));
+
       toast({ 
         title: 'Sukces', 
         description: 'Spotkanie zostało zarezerwowane' 
