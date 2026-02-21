@@ -1,37 +1,103 @@
 
 
-# Natychmiastowa edycja w "Wsparcie i pomoc"
+# Naprawa edytora "Wsparcie i pomoc" - natychmiastowa propagacja zmian
 
 ## Problem
 
-Komponent `EditableTextElement` uzywa lokalnego stanu `editValue` i przekazuje zmiany do rodzica (`onChange`) **tylko po kliknieciu "Zastosuj"**. Uzytkownik oczekuje, ze tekst bedzie sie aktualizowal w podgladzie natychmiast podczas wpisywania, a zapis do bazy nastapi automatycznie (debounce juz dziala).
+Plik `SupportSettingsManagement.tsx` zawiera **wlasne lokalne komponenty** (`EditableText`, `EditableFormField`, `SortableInfoCard`), ktore przekazuja zmiany do rodzica (`onChange`) **tylko po kliknieciu "Zastosuj"**. Auto-save (debounce) dziala poprawnie, ale nigdy nie jest wyzwalany, poniewaz stan `settings` nie zmienia sie az do klikniecia "Zastosuj".
 
 ## Rozwiazanie
 
-Zmodyfikowac `EditableTextElement` aby wywolywalo `onChange` przy kazdej zmianie tekstu (na kazdym keystroke), nie tylko po kliknieciu "Zastosuj". Przycisk "Zastosuj" zamknie popover (potwierdzenie edycji).
+Zmodyfikowac **3 lokalne komponenty** w `SupportSettingsManagement.tsx` aby propagowaly zmiany natychmiast (na kazdym keystroke). Przycisk "Zastosuj" pozostaje jako sposob zamkniecia popovera.
 
 ## Plik do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/admin/support-editor/EditableTextElement.tsx` | Wywolywac `onChange` na kazdym keystroke zamiast tylko na "Zastosuj". Przycisk "Zastosuj" zamknie popover. |
+| `src/components/admin/SupportSettingsManagement.tsx` | Zmiany w 3 komponentach: `EditableText`, `EditableFormField`, `SortableInfoCard` |
 
 ## Szczegoly techniczne
 
-W `EditableTextElement.tsx`:
+### 1. EditableText (linie 254-330)
 
-1. Zmienic handler `onChange` w `Input`/`Textarea` aby od razu propagowal wartosc do rodzica:
+Dodac natychmiastowe propagowanie zmian:
 
 ```typescript
+// Przed (linia 264-267):
+const handleApply = () => {
+  onChange(editValue);
+  setIsOpen(false);
+};
+
+// Po:
 const handleChange = (newValue: string) => {
   setEditValue(newValue);
-  onChange(newValue); // propaguj natychmiast
+  onChange(newValue);
+};
+
+const handleApply = () => {
+  setIsOpen(false);
 };
 ```
 
-2. Przycisk "Zastosuj" zostaje jako sposob zamkniecia popovera (potwierdzenie zakonczenia edycji).
+Zmienic handlery w Input/Textarea z `setEditValue(e.target.value)` na `handleChange(e.target.value)`.
 
-3. Dzieki temu lancuch dziala:
-   - Uzytkownik wpisuje tekst -> `onChange` aktualizuje `settings` w rodzicu -> podglad sie aktualizuje natychmiast
-   - Po 1 sekundzie od ostatniej zmiany -> debounced auto-save zapisuje do bazy
+### 2. EditableFormField (linie 341-407)
+
+Dodac natychmiastowe propagowanie:
+
+```typescript
+// Przed (linia 352-356):
+const handleApply = () => {
+  onLabelChange(editLabel);
+  onPlaceholderChange(editPlaceholder);
+  setIsOpen(false);
+};
+
+// Po:
+const handleLabelChange = (newValue: string) => {
+  setEditLabel(newValue);
+  onLabelChange(newValue);
+};
+
+const handlePlaceholderChange = (newValue: string) => {
+  setEditPlaceholder(newValue);
+  onPlaceholderChange(newValue);
+};
+
+const handleApply = () => {
+  setIsOpen(false);
+};
+```
+
+### 3. SortableInfoCard (linie 95-243)
+
+Dodac natychmiastowe propagowanie na kazdym keystroke:
+
+```typescript
+// Przed (linia 123-131):
+const handleApply = () => {
+  onUpdate({ iconName, label, value, labelVisible });
+  setIsOpen(false);
+};
+
+// Po - propagowac przy kazdej zmianie:
+const handleFieldChange = (field: string, newValue: any) => {
+  // aktualizuj lokalny stan
+  // wywolaj onUpdate z aktualnymi wartosciami
+};
+
+const handleApply = () => {
+  setIsOpen(false);
+};
+```
+
+### Lancuch dzialania po zmianach:
+
+1. Uzytkownik wpisuje tekst w popover
+2. `handleChange` aktualizuje lokalny stan + wywoluje `onChange`/`onUpdate`
+3. Rodzic aktualizuje `settings` przez `updateField`
+4. `useEffect` z debounce wykrywa zmiane `settings`
+5. Po 1 sekundzie auto-save zapisuje do bazy
+6. Podglad aktualizuje sie natychmiast
 
