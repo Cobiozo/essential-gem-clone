@@ -1,103 +1,97 @@
 
 
-# Naprawa edytora "Wsparcie i pomoc" - natychmiastowa propagacja zmian
+# Rozbudowany edytor "Wsparcie i pomoc" - dynamiczne dodawanie elementow
 
 ## Problem
 
-Plik `SupportSettingsManagement.tsx` zawiera **wlasne lokalne komponenty** (`EditableText`, `EditableFormField`, `SortableInfoCard`), ktore przekazuja zmiany do rodzica (`onChange`) **tylko po kliknieciu "Zastosuj"**. Auto-save (debounce) dziala poprawnie, ale nigdy nie jest wyzwalany, poniewaz stan `settings` nie zmienia sie az do klikniecia "Zastosuj".
+Obecnie edytor ma sztywno zakodowane 3 karty (Email, Telefon, Godziny pracy) i 4 pola formularza. Nie mozna dodawac nowych kart, pol, boxow informacyjnych ani przyciskow. Kazda karta ma dedykowane kolumny w bazie danych, co uniemozliwia rozszerzanie.
 
 ## Rozwiazanie
 
-Zmodyfikowac **3 lokalne komponenty** w `SupportSettingsManagement.tsx` aby propagowaly zmiany natychmiast (na kazdym keystroke). Przycisk "Zastosuj" pozostaje jako sposob zamkniecia popovera.
+Przejsc z indywidualnych kolumn na dynamiczne tablice JSONB w bazie danych. Dzieki temu administrator bedzie mogl:
+- Dodawac/usuwac karty kontaktowe (np. WhatsApp, Messenger, Adres biura)
+- Dodawac/usuwac pola formularza
+- Dodawac/usuwac boxy informacyjne
+- Zarzadzac przyciskami
 
-## Plik do zmiany
+## Zmiany w bazie danych
+
+Dodac 3 nowe kolumny JSONB do tabeli `support_settings`:
+
+| Kolumna | Typ | Opis |
+|---|---|---|
+| `custom_cards` | jsonb | Tablica dynamicznych kart kontaktowych |
+| `custom_form_fields` | jsonb | Tablica dynamicznych pol formularza |
+| `custom_info_boxes` | jsonb | Tablica dynamicznych boxow informacyjnych |
+
+Struktura `custom_cards`:
+```text
+[
+  { "id": "card_1", "icon": "Mail", "label": "Email", "value": "support@...", "visible": true, "position": 0 },
+  { "id": "card_2", "icon": "Phone", "label": "Telefon", "value": "+48...", "visible": true, "position": 1 },
+  { "id": "card_3", "icon": "MessageCircle", "label": "WhatsApp", "value": "+48...", "visible": true, "position": 2 }
+]
+```
+
+Struktura `custom_form_fields`:
+```text
+[
+  { "id": "field_1", "label": "Imie i nazwisko", "placeholder": "Jan Kowalski", "type": "input", "required": true, "position": 0, "width": "half" },
+  { "id": "field_2", "label": "Email", "placeholder": "jan@example.com", "type": "input", "required": true, "position": 1, "width": "half" },
+  { "id": "field_3", "label": "Temat", "placeholder": "W czym mozemy pomoc?", "type": "input", "required": true, "position": 2, "width": "full" },
+  { "id": "field_4", "label": "Wiadomosc", "placeholder": "Opisz problem...", "type": "textarea", "required": true, "position": 3, "width": "full" }
+]
+```
+
+Struktura `custom_info_boxes`:
+```text
+[
+  { "id": "box_1", "icon": "Info", "title": "Informacja", "content": "Odpowiedz moze...", "visible": true, "position": 0 }
+]
+```
+
+## Migracja danych
+
+Przy pierwszym zaladowaniu, jesli `custom_cards` jest puste, system automatycznie zmigruje dane z istniejacych kolumn (email_address, phone_number, working_hours itd.) do nowej struktury JSONB. Stare kolumny pozostana w bazie dla kompatybilnosci wstecznej.
+
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/admin/SupportSettingsManagement.tsx` | Zmiany w 3 komponentach: `EditableText`, `EditableFormField`, `SortableInfoCard` |
+| Migracja SQL | ALTER TABLE: dodac 3 kolumny JSONB z wartosciami domyslnymi |
+| `src/components/admin/SupportSettingsManagement.tsx` | Przepisac na dynamiczne tablice z przyciskami "Dodaj karte", "Dodaj pole", "Dodaj box". Karty i pola sortowalne drag-and-drop, usuwalne, edytowalne inline |
+| `src/components/support/SupportFormDialog.tsx` | Renderowac karty, pola i boxy z tablic JSONB zamiast ze sztywnych kolumn |
 
-## Szczegoly techniczne
+## Szczegoly techniczne - Edytor admina
 
-### 1. EditableText (linie 254-330)
+### Panel kart kontaktowych
+- Przycisk "+ Dodaj karte" pod siatka kart
+- Kazda karta: ikona, etykieta, wartosc, widocznosc, usuwanie (ikona kosza)
+- Drag-and-drop sortowanie (juz istniejacy mechanizm)
+- Minimum 0 kart, brak gornego limitu
 
-Dodac natychmiastowe propagowanie zmian:
+### Panel pol formularza
+- Przycisk "+ Dodaj pole" pod polami
+- Kazde pole: etykieta, placeholder, typ (input/textarea), wymagane (tak/nie), szerokosc (polowa/cala)
+- Drag-and-drop sortowanie
+- Przycisk usuwania na kazdym polu
+- Minimum 1 pole
 
-```typescript
-// Przed (linia 264-267):
-const handleApply = () => {
-  onChange(editValue);
-  setIsOpen(false);
-};
+### Panel boxow informacyjnych
+- Przycisk "+ Dodaj box" pod boxami
+- Kazdy box: ikona, tytul, tresc, widocznosc
+- Mozliwosc usuwania i sortowania
 
-// Po:
-const handleChange = (newValue: string) => {
-  setEditValue(newValue);
-  onChange(newValue);
-};
+### Przycisk wysylania
+- Edytowalny tekst, komunikat sukcesu i bledu (bez zmian)
 
-const handleApply = () => {
-  setIsOpen(false);
-};
-```
+### Auto-save
+- Caly stan (wlacznie z tablicami JSONB) zapisywany automatycznie z debounce 1s (istniejacy mechanizm)
 
-Zmienic handlery w Input/Textarea z `setEditValue(e.target.value)` na `handleChange(e.target.value)`.
+## Szczegoly techniczne - Strona uzytkownika (SupportFormDialog)
 
-### 2. EditableFormField (linie 341-407)
-
-Dodac natychmiastowe propagowanie:
-
-```typescript
-// Przed (linia 352-356):
-const handleApply = () => {
-  onLabelChange(editLabel);
-  onPlaceholderChange(editPlaceholder);
-  setIsOpen(false);
-};
-
-// Po:
-const handleLabelChange = (newValue: string) => {
-  setEditLabel(newValue);
-  onLabelChange(newValue);
-};
-
-const handlePlaceholderChange = (newValue: string) => {
-  setEditPlaceholder(newValue);
-  onPlaceholderChange(newValue);
-};
-
-const handleApply = () => {
-  setIsOpen(false);
-};
-```
-
-### 3. SortableInfoCard (linie 95-243)
-
-Dodac natychmiastowe propagowanie na kazdym keystroke:
-
-```typescript
-// Przed (linia 123-131):
-const handleApply = () => {
-  onUpdate({ iconName, label, value, labelVisible });
-  setIsOpen(false);
-};
-
-// Po - propagowac przy kazdej zmianie:
-const handleFieldChange = (field: string, newValue: any) => {
-  // aktualizuj lokalny stan
-  // wywolaj onUpdate z aktualnymi wartosciami
-};
-
-const handleApply = () => {
-  setIsOpen(false);
-};
-```
-
-### Lancuch dzialania po zmianach:
-
-1. Uzytkownik wpisuje tekst w popover
-2. `handleChange` aktualizuje lokalny stan + wywoluje `onChange`/`onUpdate`
-3. Rodzic aktualizuje `settings` przez `updateField`
-4. `useEffect` z debounce wykrywa zmiane `settings`
-5. Po 1 sekundzie auto-save zapisuje do bazy
-6. Podglad aktualizuje sie natychmiast
+- Renderowanie kart z `custom_cards` zamiast hardkodowanych case-switch
+- Renderowanie pol formularza z `custom_form_fields` z dynamicznym `formData`
+- Renderowanie boxow z `custom_info_boxes`
+- Kompatybilnosc wsteczna: jesli `custom_cards` jest puste, uzyj starych kolumn
 
