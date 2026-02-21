@@ -1,91 +1,152 @@
 
+# Web Push dla szkolen, wydarzen i spotkan + naprawa problemow
 
-# Uniwersalny edytor blokowy "Wsparcie i pomoc"
+## Aktualny stan
 
-## Problem
+Push notifications sa skonfigurowane (VAPID, Service Worker, `send-push-notification` Edge Function), ale wywolywane **tylko z panelu testowego admina**. Zadne realne zdarzenia (szkolenia, webinary, spotkania, czat) nie wysylaja Push. System `useEventSystem` (przetwarzanie eventow po stronie klienta) nie jest nigdzie uzywany w komponentach.
 
-Obecnie edytor ma sztywna strukture: naglowek na gorze, karty pod nim, boxy informacyjne nizej, formularz na dole. Kazda kategoria elementow (karty, pola, boxy) jest sortowalna tylko w obrebie swojej grupy. Nie mozna dodac dodatkowego naglowka pomiedzy kartami a formularzem, ani przesunac boxu informacyjnego nad karty.
+## Problemy do rozwiazania
+
+1. **Push nigdzie nie wywolywany** - Edge Function `send-push-notification` istnieje, ale nie jest wywolywana z zadnego flow produkcyjnego
+2. **useEventSystem dziala client-side** - jesli uzytkownik zamknie przegladarke przed przetworzeniem, powiadomienia nie powstana
+3. **Brak Push w szkoleniach, webinarach i spotkaniach** - tylko email
 
 ## Rozwiazanie
 
-Zastapic 3 oddzielne tablice JSONB (`custom_cards`, `custom_form_fields`, `custom_info_boxes`) **jedna ujednolicona tablica blokow** (`custom_blocks`), gdzie kazdy blok ma `type` okreslajacy jego rodzaj. Wszystkie bloki sa w jednej liscie, sortowalne drag-and-drop pomiedzy soba.
-
-## Dostepne typy blokow
-
-| Typ | Opis | Pola |
-|---|---|---|
-| `heading` | Naglowek (H1-H3) | text, level (h1/h2/h3), alignment |
-| `text` | Opis / paragraf | text, alignment |
-| `cards_group` | Grupa kart kontaktowych | cards[] (tablica kart jak dotychczas) |
-| `info_box` | Box informacyjny | icon, title, content, visible |
-| `form` | Formularz z polami | title, fields[], submit_text, success_msg, error_msg |
-| `button` | Samodzielny przycisk/link | text, url, icon, variant |
-
-## Zmiany w bazie danych
-
-Nowa kolumna JSONB w tabeli `support_settings`:
-
-```text
-custom_blocks jsonb DEFAULT '[]'::jsonb
-```
-
-Struktura bloku:
-```text
-{
-  "id": "block_abc123",
-  "type": "heading",
-  "position": 0,
-  "visible": true,
-  "data": { ... }  // dane specyficzne dla typu
-}
-```
-
-Migracja: automatyczna konwersja istniejacych danych z `custom_cards`, `custom_form_fields`, `custom_info_boxes` do jednej tablicy `custom_blocks` przy pierwszym uruchomieniu.
+Dodac wywolania `send-push-notification` do istniejacych Edge Functions serwerowych, ktore juz przetwarzaja powiadomienia. Dzieki temu Push bedzie wysylany **obok emaila**, niezaleznie od stanu przegladarki uzytkownika.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| Migracja SQL | Dodac kolumne `custom_blocks` + migracja danych z 3 starych kolumn |
-| `src/components/admin/SupportSettingsManagement.tsx` | Przepisac na system blokowy: jedna lista sortowalna, przycisk "+ Dodaj blok" z menu wyboru typu, kazdy blok edytowalny przez popover |
-| `src/components/support/SupportFormDialog.tsx` | Renderowac bloki z `custom_blocks` zamiast z 3 oddzielnych tablic |
+| `supabase/functions/process-pending-notifications/index.ts` | Dodac wywolania `send-push-notification` przy: (1) przypisaniu szkolenia, (2) przypomnieniu o szkoleniu, (3) przypomnieniu webinarowym 24h i 1h |
+| `supabase/functions/send-meeting-reminders/index.ts` | Dodac wywolanie `send-push-notification` dla kazdego uczestnika spotkania indywidualnego przy przypomnieniu 1h i 15min |
+| `supabase/functions/send-chat-notification-email/index.ts` | Dodac wywolanie `send-push-notification` gdy uzytkownik jest offline (razem z emailem lub zamiast jesli nie ma emaila) |
 
-## Szczegoly techniczne - Edytor admina
+## Szczegoly techniczne
 
-### Przycisk dodawania
-- Przycisk "+ Dodaj blok" na dole listy
-- Po kliknieciu rozwija sie menu z dostepnymi typami (Naglowek, Tekst, Karty, Box informacyjny, Formularz, Przycisk)
-- Nowy blok dodawany na koncu listy
+### 1. Szkolenia - nowe przypisanie (`process-pending-notifications`)
 
-### Drag-and-drop
-- Jedna wspolna lista DnD dla wszystkich blokow
-- Kazdy blok ma uchwyt do przeciagania (GripVertical)
-- Bloki mozna dowolnie przesuwac wzgledem siebie
+Po wyslaniu emaila o nowym szkoleniu, dodac:
 
-### Edycja blokow
-- Klikniecie otwiera popover z polami specyficznymi dla danego typu
-- Naglowek: tekst + poziom (h1/h2/h3) + wyrownanie
-- Tekst: tresc (textarea) + wyrownanie
-- Karty: wewnetrzna lista kart z mozliwoscia dodawania/usuwania (jak dotychczas, ale zagniezdzona)
-- Box: ikona + tytul + tresc + widocznosc
-- Formularz: tytul + lista pol + przycisk wysylania (jak dotychczas, ale jako blok)
-- Przycisk: tekst + URL + ikona + wariant (primary/outline/ghost)
+```text
+await supabase.functions.invoke("send-push-notification", {
+  body: {
+    userId: assignment.user_id,
+    title: "Nowe szkolenie",
+    body: `Przypisano Ci modul: ${assignment.module_title}`,
+    url: "/training",
+    tag: `training-new-${assignment.module_id}`
+  }
+});
+```
 
-### Usuwanie i widocznosc
-- Ikona kosza w popoverze kazdego bloku
-- Przelacznik widocznosci dla kazdego bloku
+### 2. Szkolenia - przypomnienie o nieaktywnosci (`process-pending-notifications`)
 
-### Auto-save
-- Ten sam mechanizm debounce 1s, zapisujacy `custom_blocks` do bazy
+Po wyslaniu emaila z przypomnieniem, dodac:
 
-## Szczegoly techniczne - Strona uzytkownika
+```text
+await supabase.functions.invoke("send-push-notification", {
+  body: {
+    userId: reminder.user_id,
+    title: "Przypomnienie o szkoleniu",
+    body: `Modul "${reminder.module_title}" czeka - ukonczyles ${reminder.progress_percent}%`,
+    url: "/training",
+    tag: `training-reminder-${reminder.module_id}`
+  }
+});
+```
 
-- Iteracja po `custom_blocks` posortowanych wg `position`
-- Filtrowanie `visible === true`
-- Renderowanie odpowiedniego komponentu na podstawie `type`
-- Formularz zbiera dane z blokow typu `form` i wysyla email
+### 3. Webinary - przypomnienie 24h (`process-pending-notifications`)
 
-## Kompatybilnosc wsteczna
+Webinary maja tylko gosci (guest_event_registrations) z emailem, bez user_id. Trzeba sprawdzic, czy goscie sa powiazani z profilami uzytkownikow. Jesli tak - wyslac Push. Jesli nie (goscie zewnetrzni) - tylko email.
 
-Jesli `custom_blocks` jest puste ale stare kolumny (`custom_cards`, `custom_form_fields`, `custom_info_boxes`) maja dane, system automatycznie zbuduje tablice blokow ze starych danych i zapisze ja.
+```text
+// Sprawdz czy gosc ma konto w systemie
+const { data: userProfile } = await supabase
+  .from("profiles")
+  .select("user_id")
+  .eq("email", guest.email)
+  .maybeSingle();
 
+if (userProfile) {
+  await supabase.functions.invoke("send-push-notification", {
+    body: {
+      userId: userProfile.user_id,
+      title: `Webinar jutro: ${webinar.title}`,
+      body: `Jutro o ${formattedTime}`,
+      url: "/events",
+      tag: `webinar-24h-${webinar.id}`
+    }
+  });
+}
+```
+
+### 4. Webinary - przypomnienie 1h
+
+Analogicznie jak 24h, z innym tytlem:
+
+```text
+title: `Webinar za godzine: ${webinar.title}`
+```
+
+### 5. Spotkania indywidualne (`send-meeting-reminders`)
+
+Po wyslaniu emaila z przypomnieniem, dodac Push dla kazdego uczestnika:
+
+```text
+await supabase.functions.invoke("send-push-notification", {
+  body: {
+    userId: participant.user_id,
+    title: reminderType === "1h" 
+      ? "Spotkanie za godzine" 
+      : "Spotkanie za 15 minut",
+    body: `${meeting.title || "Spotkanie indywidualne"} - ${formattedTime}`,
+    url: "/meetings",
+    tag: `meeting-${reminderType}-${meeting.id}`
+  }
+});
+```
+
+### 6. Czat - offline fallback (`send-chat-notification-email`)
+
+Gdy uzytkownik jest offline (last_seen_at > 5 min), przed wyslaniem emaila dodac Push:
+
+```text
+// Najpierw probuj Push (szybszy kanal)
+try {
+  await supabase.functions.invoke("send-push-notification", {
+    body: {
+      userId: recipient_id,
+      title: `Wiadomosc od ${sender_name}`,
+      body: message_content.substring(0, 100),
+      url: "/messages",
+      tag: `chat-${Date.now()}`
+    }
+  });
+} catch (pushErr) {
+  console.warn("Push failed, falling back to email only");
+}
+
+// Potem email jako fallback
+```
+
+### 7. Przeniesienie logiki useEventSystem na serwer
+
+`useEventSystem` (przetwarzanie eventow client-side) nie jest uzywany nigdzie w komponentach, wiec nie wymaga migracji - jest martwym kodem. Realne powiadomienia sa tworzone przez:
+- Triggery SQL (rejestracja, zatwierdzanie)
+- Edge Functions CRON (szkolenia, webinary, spotkania)
+- Bezposrednie inserty do `user_notifications`
+
+Nie ma potrzeby tworzenia nowej Edge Function - wystarczy dodac wywolania `send-push-notification` do istniejacych Edge Functions.
+
+## Obsluga bledow
+
+Kazde wywolanie Push bedzie opakowane w try/catch, aby blad Push nie przerwal wysylki emaila. Push traktowany jako "best effort" - jesli sie nie powiedzie (np. brak subskrypcji), email nadal zostanie wyslany.
+
+## Wplyw na istniejacy kod
+
+- Brak zmian w bazie danych
+- Brak nowych Edge Functions
+- Brak zmian w kodzie frontendu
+- Jedynie dodanie wywolan `send-push-notification` wewnatrz istniejacych Edge Functions
