@@ -98,7 +98,7 @@ export const useCertificateGeneration = () => {
       console.log('Step 1: Fetching user profile...');
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('first_name, last_name, email, eq_id, city, country')
+        .select('first_name, last_name, email, eq_id, city, country, training_language')
         .eq('user_id', userId)
         .single();
 
@@ -115,8 +115,10 @@ export const useCertificateGeneration = () => {
       const eqId = profile?.eq_id || 'N/A';
       const userCity = profile?.city || '';
       const userCountry = profile?.country || '';
+      const userTrainingLanguage = profile?.training_language || 'pl';
       
       console.log('✅ User name:', userName);
+      console.log('✅ Training language:', userTrainingLanguage);
 
       // 3. Get user role
       console.log('Step 2: Fetching user role...');
@@ -155,18 +157,35 @@ export const useCertificateGeneration = () => {
       let template = null;
       let priorityUsed = '';
 
-      // PRIORITY 1: Template assigned to THIS MODULE and user's role
+      // PRIORITY 1: Template assigned to THIS MODULE, user's role AND user's training language
       template = templates.find(t => {
         const hasModule = hasModuleMatch(t.module_ids);
         const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
-        return hasModule && hasRole;
+        const hasLang = t.language_code === userTrainingLanguage;
+        return hasModule && hasRole && hasLang;
       });
-      if (template) priorityUsed = 'PRIORITY 1: Module + Role match';
+      if (template) priorityUsed = 'PRIORITY 1: Module + Role + Language match';
 
-      // PRIORITY 2: Template assigned to THIS MODULE (any role)
+      // PRIORITY 2: Template assigned to THIS MODULE and user's training language (any role)
+      if (!template) {
+        template = templates.find(t => hasModuleMatch(t.module_ids) && t.language_code === userTrainingLanguage);
+        if (template) priorityUsed = 'PRIORITY 2: Module + Language match';
+      }
+
+      // PRIORITY 3: Template assigned to THIS MODULE and user's role (any language)
+      if (!template) {
+        template = templates.find(t => {
+          const hasModule = hasModuleMatch(t.module_ids);
+          const hasRole = t.roles && Array.isArray(t.roles) && t.roles.length > 0 && t.roles.includes(userRole);
+          return hasModule && hasRole;
+        });
+        if (template) priorityUsed = 'PRIORITY 3: Module + Role match';
+      }
+
+      // PRIORITY 4: Template assigned to THIS MODULE (any role, any language)
       if (!template) {
         template = templates.find(t => hasModuleMatch(t.module_ids));
-        if (template) priorityUsed = 'PRIORITY 2: Module match (ignoring role)';
+        if (template) priorityUsed = 'PRIORITY 4: Module match (ignoring role & language)';
       }
 
       // NO FALLBACK - template MUST be assigned to the module
@@ -454,6 +473,7 @@ export const useCertificateGeneration = () => {
           issued_by: userId,
           file_url: filePath,
           generated_at: nowIso,
+          language_code: userTrainingLanguage,
           ...(forceRegenerate ? { last_regenerated_at: nowIso } : {})
         })
         .select()

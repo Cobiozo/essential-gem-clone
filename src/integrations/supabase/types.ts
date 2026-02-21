@@ -710,6 +710,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          language_code: string | null
           layout: Json
           module_ids: string[] | null
           name: string
@@ -720,6 +721,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          language_code?: string | null
           layout?: Json
           module_ids?: string[] | null
           name: string
@@ -730,6 +732,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          language_code?: string | null
           layout?: Json
           module_ids?: string[] | null
           name?: string
@@ -747,6 +750,7 @@ export type Database = {
           id: string
           issued_at: string
           issued_by: string
+          language_code: string | null
           last_regenerated_at: string | null
           module_id: string
           updated_at: string
@@ -760,6 +764,7 @@ export type Database = {
           id?: string
           issued_at?: string
           issued_by: string
+          language_code?: string | null
           last_regenerated_at?: string | null
           module_id: string
           updated_at?: string
@@ -773,6 +778,7 @@ export type Database = {
           id?: string
           issued_at?: string
           issued_by?: string
+          language_code?: string | null
           last_regenerated_at?: string | null
           module_id?: string
           updated_at?: string
@@ -5123,6 +5129,7 @@ export type Database = {
           search_keywords: string[] | null
           specialization: string | null
           street_address: string | null
+          training_language: string | null
           tutorial_completed: boolean | null
           tutorial_completed_at: string | null
           tutorial_shown_once: boolean | null
@@ -5167,6 +5174,7 @@ export type Database = {
           search_keywords?: string[] | null
           specialization?: string | null
           street_address?: string | null
+          training_language?: string | null
           tutorial_completed?: boolean | null
           tutorial_completed_at?: string | null
           tutorial_shown_once?: boolean | null
@@ -5211,6 +5219,7 @@ export type Database = {
           search_keywords?: string[] | null
           specialization?: string | null
           street_address?: string | null
+          training_language?: string | null
           tutorial_completed?: boolean | null
           tutorial_completed_at?: string | null
           tutorial_shown_once?: boolean | null

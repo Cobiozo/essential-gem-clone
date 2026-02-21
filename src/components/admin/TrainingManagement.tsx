@@ -68,6 +68,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useToast } from "@/hooks/use-toast";
@@ -129,6 +130,7 @@ interface UserProgress {
   first_name: string;
   last_name: string;
   eq_id?: string;
+  training_language?: string | null;
   modules: {
     module_id: string;
     module_title: string;
@@ -672,7 +674,8 @@ const TrainingManagement = () => {
             email,
             first_name,
             last_name,
-            eq_id
+            eq_id,
+            training_language
           ),
           training_modules!training_assignments_module_id_fkey (
             title
@@ -759,6 +762,7 @@ const TrainingManagement = () => {
             first_name: profile.first_name || '',
             last_name: profile.last_name || '',
             eq_id: profile.eq_id || undefined,
+            training_language: profile.training_language || null,
             modules: []
           };
         }
@@ -1683,12 +1687,63 @@ const TrainingManagement = () => {
                           </Avatar>
                           <div className="text-left">
                             <div className="font-medium">{progressUser.first_name} {progressUser.last_name}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {progressUser.eq_id ? `EQID: ${progressUser.eq_id}` : progressUser.email}
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>{progressUser.eq_id ? `EQID: ${progressUser.eq_id}` : progressUser.email}</span>
+                              {progressUser.training_language ? (
+                                <Badge variant="outline" className="text-xs py-0 h-4 gap-1">
+                                  <img
+                                    src={`https://flagcdn.com/12x9/${progressUser.training_language === 'en' ? 'gb' : progressUser.training_language}.png`}
+                                    alt={progressUser.training_language}
+                                    className="w-3 h-2 object-cover rounded-sm"
+                                  />
+                                  {progressUser.training_language.toUpperCase()}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs py-0 h-4 text-muted-foreground">
+                                  Brak języka
+                                </Badge>
+                              )}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Admin language change dropdown */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7" title="Zmień język szkolenia">
+                                <Globe className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {['pl', 'en', 'de', 'fr', 'es', 'it'].map(lang => (
+                                <DropdownMenuItem
+                                  key={lang}
+                                  onClick={async () => {
+                                    if (!confirm(`Czy na pewno chcesz zmienić język szkolenia na ${lang.toUpperCase()} dla ${progressUser.first_name} ${progressUser.last_name}?`)) return;
+                                    const { error } = await supabase
+                                      .from('profiles')
+                                      .update({ training_language: lang })
+                                      .eq('user_id', progressUser.user_id);
+                                    if (error) {
+                                      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+                                    } else {
+                                      toast({ title: 'Sukces', description: `Język zmieniony na ${lang.toUpperCase()}` });
+                                      fetchUserProgress();
+                                    }
+                                  }}
+                                  className="gap-2"
+                                >
+                                  <img
+                                    src={`https://flagcdn.com/16x12/${lang === 'en' ? 'gb' : lang}.png`}
+                                    alt={lang}
+                                    className="w-4 h-3 object-cover rounded-sm"
+                                  />
+                                  {lang.toUpperCase()}
+                                  {progressUser.training_language === lang && ' ✓'}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                           <Badge variant={overallProgress === 100 ? "default" : "secondary"}>
                             {overallProgress}%
                           </Badge>
