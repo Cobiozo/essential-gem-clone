@@ -111,17 +111,22 @@ export const TrainingProgressWidget: React.FC = () => {
           let totalLessons = lessons.length;
           if (certIssuedAt) {
             const certDate = new Date(certIssuedAt);
-            totalLessons = lessons.filter(l => new Date(l.created_at) <= certDate).length;
+            const filtered = lessons.filter(l => new Date(l.created_at) <= certDate).length;
+            totalLessons = filtered > 0 ? filtered : lessons.length;
           }
 
           // Count completed lessons for this module
           let completedInModule = 0;
           if (certIssuedAt) {
             const certDate = new Date(certIssuedAt);
-            completedInModule = (progressRes.data || []).filter(
+            const filteredCompleted = (progressRes.data || []).filter(
               (p: any) => p.training_lessons?.module_id === mod.id &&
                          new Date(p.training_lessons?.created_at) <= certDate
             ).length;
+            const allCompleted = (progressRes.data || []).filter(
+              (p: any) => p.training_lessons?.module_id === mod.id
+            ).length;
+            completedInModule = filteredCompleted > 0 ? filteredCompleted : allCompleted;
           } else {
             completedInModule = (progressRes.data || []).filter(
               (p: any) => p.training_lessons?.module_id === mod.id
