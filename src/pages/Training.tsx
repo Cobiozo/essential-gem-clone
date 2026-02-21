@@ -80,13 +80,12 @@ const Training = () => {
     return translated ? { ...m, title: translated.title, description: translated.description } : m;
   });
 
-  // Filter by user's training language
-  const displayModules = useMemo(() => {
-    if (!trainingLanguage) return translatedDisplayModules;
-    return translatedDisplayModules.filter(m => 
-      !m.language_code || m.language_code === trainingLanguage
-    );
-  }, [translatedDisplayModules, trainingLanguage]);
+  // Helper: check if module is in user's training track (counts toward progress)
+  const isInTrainingTrack = (module: TrainingModule) =>
+    !trainingLanguage || !module.language_code || module.language_code === trainingLanguage;
+
+  // Modules that count toward classification
+  const trackModules = translatedDisplayModules.filter(m => isInTrainingTrack(m));
 
   // Load user's training_language from profile
   useEffect(() => {
@@ -646,25 +645,29 @@ const Training = () => {
           )}
         </div>
 
-        {displayModules.length === 0 ? (
+        {/* Info banner when no modules in selected language */}
+        {trainingLanguage && trackModules.length === 0 && translatedDisplayModules.length > 0 && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg flex items-center gap-3">
+            <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              Aktualnie brak szkoleń w wybranym języku. Poniżej dostępne są szkolenia w innych językach — nie wliczają się do Twojego postępu.
+            </p>
+          </div>
+        )}
+
+        {translatedDisplayModules.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">
-                  {modules.length === 0 ? t('training.noTrainings') : `Aktualnie brak szkoleń w wybranym języku`}
-                </h3>
-                <p className="text-muted-foreground">
-                  {modules.length === 0
-                    ? t('training.noTrainingsDescription')
-                    : 'Skontaktuj się z administratorem lub poczekaj na dodanie materiałów w Twoim języku.'}
-                </p>
+                <h3 className="text-lg font-medium mb-2">{t('training.noTrainings')}</h3>
+                <p className="text-muted-foreground">{t('training.noTrainingsDescription')}</p>
               </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {displayModules.map((module) => {
+            {translatedDisplayModules.map((module) => {
               const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
               const status = getModuleStatus(module.completed_lessons, module.lessons_count);
               const hasCertificate = !!certificates[module.id];
@@ -678,6 +681,16 @@ const Training = () => {
                       <Badge variant={status.variant === "success" ? "default" : status.variant === "warning" ? "secondary" : status.variant}>{status.text}</Badge>
                     </div>
                     <CardTitle className="text-xl">{module.title}</CardTitle>
+                    {!isInTrainingTrack(module) && (
+                      <Badge variant="outline" className="text-xs text-muted-foreground w-fit flex items-center gap-1.5">
+                        <img
+                          src={`https://flagcdn.com/16x12/${module.language_code === 'en' ? 'gb' : module.language_code}.png`}
+                          alt={module.language_code || ''}
+                          className="w-4 h-3 object-cover rounded-sm"
+                        />
+                        {module.language_code?.toUpperCase()} · Nie wlicza się do postępu
+                      </Badge>
+                    )}
                     {module.description && (
                       <p className="text-muted-foreground text-sm">{module.description}</p>
                     )}
