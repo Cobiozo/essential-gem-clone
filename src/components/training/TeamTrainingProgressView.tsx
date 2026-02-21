@@ -365,6 +365,18 @@ export const TeamTrainingProgressView: React.FC = () => {
                                 <span className="text-xs text-muted-foreground">
                                   {getLevelLabel(person.level)}
                                 </span>
+                                {(person as any).training_language ? (
+                                  <Badge variant="outline" className="text-xs py-0 h-4 gap-1">
+                                    <img
+                                      src={`https://flagcdn.com/12x9/${(person as any).training_language === 'en' ? 'gb' : (person as any).training_language}.png`}
+                                      alt={(person as any).training_language}
+                                      className="w-3 h-2 object-cover rounded-sm"
+                                    />
+                                    {(person as any).training_language.toUpperCase()}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs py-0 h-4 text-muted-foreground">Brak języka</Badge>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">

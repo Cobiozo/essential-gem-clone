@@ -2,13 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, ArrowRight, Play } from 'lucide-react';
+import { GraduationCap, ArrowRight, Play, Globe } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { TrainingDonutChart } from './TrainingDonutChart';
 import { Widget3DIcon } from './Widget3DIcon';
+
 interface ModuleProgress {
   id: string;
   title: string;
@@ -22,16 +23,31 @@ export const TrainingProgressWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const [modules, setModules] = useState<ModuleProgress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [trainingLanguage, setTrainingLanguage] = useState<string | null | undefined>(undefined);
+
+  // Load user's training_language
+  useEffect(() => {
+    const loadLang = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('training_language')
+        .eq('user_id', user.id)
+        .single();
+      setTrainingLanguage(data?.training_language || null);
+    };
+    loadLang();
+  }, [user]);
 
   useEffect(() => {
     const fetchModules = async () => {
-      if (!user) return;
+      if (!user || trainingLanguage === undefined) return;
 
       try {
         const roleFilter = userRole?.role || 'client';
         let modulesQuery = supabase
           .from('training_modules')
-          .select('id, title')
+          .select('id, title, language_code')
           .eq('is_active', true)
           .order('position', { ascending: true })
           .limit(4);
@@ -52,7 +68,18 @@ export const TrainingProgressWidget: React.FC = () => {
           return;
         }
 
-        const allModuleIds = modulesData.map((m: any) => m.id);
+        // Filter by training_language
+        const filteredModules = trainingLanguage
+          ? modulesData.filter((m: any) => !m.language_code || m.language_code === trainingLanguage)
+          : modulesData;
+
+        if (filteredModules.length === 0) {
+          setModules([]);
+          setLoading(false);
+          return;
+        }
+
+        const allModuleIds = filteredModules.map((m: any) => m.id);
 
         // Fetch translations for non-default language
         let titleTransMap = new Map<string, string>();
@@ -67,7 +94,7 @@ export const TrainingProgressWidget: React.FC = () => {
           }
         }
 
-        // Batch: fetch ALL lessons for all modules at once (fixes N+1)
+        // Batch fetch
         const [certificatesRes, lessonsRes, progressRes] = await Promise.all([
           supabase
             .from('certificates')
@@ -86,15 +113,11 @@ export const TrainingProgressWidget: React.FC = () => {
             .eq('is_completed', true),
         ]);
 
-        // Build certificate map: module_id -> newest issued_at
         const certMap: Record<string, string> = {};
         certificatesRes.data?.forEach(cert => {
-          if (!certMap[cert.module_id]) {
-            certMap[cert.module_id] = cert.issued_at;
-          }
+          if (!certMap[cert.module_id]) certMap[cert.module_id] = cert.issued_at;
         });
 
-        // Group lessons by module_id
         const lessonsByModule = new Map<string, any[]>();
         lessonsRes.data?.forEach(l => {
           const arr = lessonsByModule.get(l.module_id) || [];
@@ -102,12 +125,10 @@ export const TrainingProgressWidget: React.FC = () => {
           lessonsByModule.set(l.module_id, arr);
         });
 
-        // Calculate progress for each module
-        const modulesWithProgress: ModuleProgress[] = modulesData.map((mod: any) => {
+        const modulesWithProgress: ModuleProgress[] = filteredModules.map((mod: any) => {
           const certIssuedAt = certMap[mod.id];
           const lessons = lessonsByModule.get(mod.id) || [];
 
-          // Filter lessons if certificate exists
           let totalLessons = lessons.length;
           if (certIssuedAt) {
             const certDate = new Date(certIssuedAt);
@@ -115,7 +136,6 @@ export const TrainingProgressWidget: React.FC = () => {
             totalLessons = filtered > 0 ? filtered : lessons.length;
           }
 
-          // Count completed lessons for this module
           let completedInModule = 0;
           if (certIssuedAt) {
             const certDate = new Date(certIssuedAt);
@@ -152,13 +172,12 @@ export const TrainingProgressWidget: React.FC = () => {
     };
 
     fetchModules();
-  }, [user, userRole, language]);
+  }, [user, userRole, language, trainingLanguage]);
 
   return (
     <Card variant="premium" className="shadow-xl relative" data-tour="training-widget">
       <WidgetInfoButton description="Postęp w szkoleniach - śledź ukończone moduły i kontynuuj naukę" />
       <CardHeader className="pb-2 flex flex-row items-center justify-between relative">
-        {/* Blur backdrop effect - różny dla light/dark */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/[0.02] to-transparent dark:from-white/5 dark:to-transparent rounded-t-2xl dark:backdrop-blur-[2px]" />
         <CardTitle className="relative z-10 text-base font-semibold flex items-center gap-3">
           <Widget3DIcon icon={GraduationCap} variant="gold" size="md" />
@@ -182,6 +201,14 @@ export const TrainingProgressWidget: React.FC = () => {
               </div>
             ))}
           </div>
+        ) : trainingLanguage === null ? (
+          <div className="text-center py-4 space-y-2">
+            <Globe className="h-8 w-8 text-muted-foreground mx-auto" />
+            <p className="text-sm text-muted-foreground">Wybierz język szkolenia w Akademii</p>
+            <Button variant="outline" size="sm" onClick={() => navigate('/training')}>
+              Przejdź do Akademii
+            </Button>
+          </div>
         ) : modules.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-4">
             {t('dashboard.noModulesAvailable')}
@@ -195,12 +222,10 @@ export const TrainingProgressWidget: React.FC = () => {
                 onClick={() => navigate(`/training/${module.id}`)}
               >
                 <div className="flex items-center gap-4">
-                  {/* Donut chart instead of progress bar */}
                   <TrainingDonutChart 
                     progress={module.progress} 
                     isCompleted={module.isCompleted}
                   />
-                  
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium text-foreground line-clamp-1">
                       {module.title}

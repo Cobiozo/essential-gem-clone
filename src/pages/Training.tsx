@@ -24,7 +24,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
 import { useTrainingTranslations } from "@/hooks/useTrainingTranslations";
 import { TrainingModule as TrainingModuleType } from "@/types/training";
-import { ContentLanguageSelector } from "@/components/ContentLanguageSelector";
+import { TrainingLanguageSelector } from "@/components/training/TrainingLanguageSelector";
 
 interface TrainingModule {
   id: string;
@@ -49,7 +49,8 @@ const Training = () => {
   const [hasRefreshReminder, setHasRefreshReminder] = useState(false);
   const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string, generatedAt: string | null, emailSentAt: string | null, lastRegeneratedAt: string | null}}>({});
   const { t, language } = useLanguage();
-  const [trainingLanguage, setTrainingLanguage] = useState<string>(language);
+  const [trainingLanguage, setTrainingLanguage] = useState<string | null>(null);
+  const [trainingLanguageLoaded, setTrainingLanguageLoaded] = useState(false);
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -79,16 +80,32 @@ const Training = () => {
     return translated ? { ...m, title: translated.title, description: translated.description } : m;
   });
 
-  // Filter by language
+  // Filter by user's training language
   const displayModules = useMemo(() => {
-    if (trainingLanguage === 'all') return translatedDisplayModules;
+    if (!trainingLanguage) return translatedDisplayModules;
     return translatedDisplayModules.filter(m => 
       !m.language_code || m.language_code === trainingLanguage
     );
   }, [translatedDisplayModules, trainingLanguage]);
 
+  // Load user's training_language from profile
+  useEffect(() => {
+    const loadTrainingLanguage = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('training_language')
+        .eq('user_id', user.id)
+        .single();
+      setTrainingLanguage(data?.training_language || null);
+      setTrainingLanguageLoaded(true);
+    };
+    loadTrainingLanguage();
+  }, [user]);
+
   useEffect(() => {
     const loadData = async () => {
+      if (!trainingLanguageLoaded) return;
       setLoading(true);
       
       if (user) {
@@ -99,7 +116,7 @@ const Training = () => {
       setLoading(false);
     };
     loadData();
-  }, [user]);
+  }, [user, trainingLanguageLoaded]);
 
   // Check for training refresh reminder notifications
   const checkRefreshReminder = async () => {
@@ -424,12 +441,41 @@ const Training = () => {
     return { text: t('training.statusInProgress'), variant: "warning" as const };
   };
 
-  if (loading) {
+  if (!trainingLanguageLoaded || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">{t('training.loadingAcademy')}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show language selection screen if not yet chosen
+  if (trainingLanguage === null) {
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => navigate(homeUrl)}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('training.backToHome')}
+            </Button>
+            <Separator orientation="vertical" className="h-6" />
+            <h1 className="text-xl font-semibold">{t('training.title')}</h1>
+          </div>
+        </header>
+        <div className="container mx-auto px-4 py-8">
+          <TrainingLanguageSelector
+            userId={user!.id}
+            onLanguageSelected={(lang) => setTrainingLanguage(lang)}
+          />
         </div>
       </div>
     );
@@ -588,17 +634,30 @@ const Training = () => {
               {t('training.description')}
             </p>
           </div>
-          <ContentLanguageSelector value={trainingLanguage} onValueChange={setTrainingLanguage} />
+          {trainingLanguage && (
+            <Badge variant="outline" className="flex items-center gap-2 px-3 py-1.5">
+              <img
+                src={`https://flagcdn.com/16x12/${trainingLanguage === 'en' ? 'gb' : trainingLanguage}.png`}
+                alt={trainingLanguage}
+                className="w-4 h-3 object-cover rounded-sm"
+              />
+              <span className="text-xs font-medium uppercase">{trainingLanguage}</span>
+            </Badge>
+          )}
         </div>
 
-        {modules.length === 0 ? (
+        {displayModules.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
               <div className="text-center py-8">
                 <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium mb-2">{t('training.noTrainings')}</h3>
+                <h3 className="text-lg font-medium mb-2">
+                  {modules.length === 0 ? t('training.noTrainings') : `Aktualnie brak szkoleń w wybranym języku`}
+                </h3>
                 <p className="text-muted-foreground">
-                  {t('training.noTrainingsDescription')}
+                  {modules.length === 0
+                    ? t('training.noTrainingsDescription')
+                    : 'Skontaktuj się z administratorem lub poczekaj na dodanie materiałów w Twoim języku.'}
                 </p>
               </div>
             </CardContent>
