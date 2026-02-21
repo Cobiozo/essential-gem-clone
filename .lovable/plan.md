@@ -1,77 +1,37 @@
 
 
-# Auto-zapis ustawien "Wsparcie i pomoc"
+# Natychmiastowa edycja w "Wsparcie i pomoc"
 
 ## Problem
 
-Obecnie po edycji pola w edytorze "Wsparcie i pomoc" trzeba recznie kliknac przycisk "Zapisz zmiany". Uzytkownik oczekuje, ze zmiany beda zapisywane automatycznie po kazdej edycji (dynamicznie).
+Komponent `EditableTextElement` uzywa lokalnego stanu `editValue` i przekazuje zmiany do rodzica (`onChange`) **tylko po kliknieciu "Zastosuj"**. Uzytkownik oczekuje, ze tekst bedzie sie aktualizowal w podgladzie natychmiast podczas wpisywania, a zapis do bazy nastapi automatycznie (debounce juz dziala).
 
 ## Rozwiazanie
 
-Dodac mechanizm auto-zapisu (debounced) - po kazdej zmianie w `settings` automatycznie zapisywac do bazy danych z opoznieniem 1 sekundy (debounce), aby uniknac nadmiernej liczby zapytan.
+Zmodyfikowac `EditableTextElement` aby wywolywalo `onChange` przy kazdej zmianie tekstu (na kazdym keystroke), nie tylko po kliknieciu "Zastosuj". Przycisk "Zastosuj" zamknie popover (potwierdzenie edycji).
 
-Dodatkowo dodac weryfikacje zapisu (`.select()`) aby wykryc ciche bledy RLS.
-
-## Pliki do zmiany
+## Plik do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/admin/SupportSettingsManagement.tsx` | Dodac `useEffect` z debounce na `settings`, ktory automatycznie wywoluje zapis po kazdej zmianie. Dodac `.select().maybeSingle()` do zapytania update dla weryfikacji. Opcjonalnie ukryc przycisk "Zapisz zmiany" lub zamienic na wskaznik statusu auto-zapisu. |
+| `src/components/admin/support-editor/EditableTextElement.tsx` | Wywolywac `onChange` na kazdym keystroke zamiast tylko na "Zastosuj". Przycisk "Zastosuj" zamknie popover. |
 
 ## Szczegoly techniczne
 
-1. Dodac ref `isInitialLoad` aby nie zapisywac przy pierwszym zaladowaniu danych
-2. Dodac `useRef` z timeoutem (debounce 1000ms) na zmiane `settings`
-3. W `useEffect` obserwujacym `settings` - po opoznieniu wywolac `handleSave`
-4. Zmodyfikowac `handleSave` aby uzywal `.select().maybeSingle()` i weryfikowal zwrocone dane
-5. Zamienic przycisk "Zapisz zmiany" na wskaznik statusu: "Zapisano" / "Zapisywanie..." / "Blad zapisu"
+W `EditableTextElement.tsx`:
+
+1. Zmienic handler `onChange` w `Input`/`Textarea` aby od razu propagowal wartosc do rodzica:
 
 ```typescript
-// Debounced auto-save
-const isInitialLoad = useRef(true);
-const saveTimeoutRef = useRef<NodeJS.Timeout>();
-
-useEffect(() => {
-  if (isInitialLoad.current) {
-    isInitialLoad.current = false;
-    return;
-  }
-  if (!settings) return;
-
-  if (saveTimeoutRef.current) {
-    clearTimeout(saveTimeoutRef.current);
-  }
-
-  saveTimeoutRef.current = setTimeout(() => {
-    handleSave();
-  }, 1000);
-
-  return () => {
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-  };
-}, [settings]);
+const handleChange = (newValue: string) => {
+  setEditValue(newValue);
+  onChange(newValue); // propaguj natychmiast
+};
 ```
 
-Weryfikacja zapisu:
-```typescript
-const { data, error } = await supabase
-  .from('support_settings')
-  .update({ ... })
-  .eq('id', settings.id)
-  .select()
-  .maybeSingle();
+2. Przycisk "Zastosuj" zostaje jako sposob zamkniecia popovera (potwierdzenie zakonczenia edycji).
 
-if (error) throw error;
-if (!data) {
-  toast.error('Nie udalo sie zapisac. Sprawdz uprawnienia.');
-  return;
-}
-```
-
-Wskaznik statusu zamiast przycisku:
-- Ikona zielonego znacznika z tekstem "Zapisano" po udanym zapisie
-- Animacja ladowania z tekstem "Zapisywanie..." podczas zapisu
-- Czerwony komunikat bledu jezeli zapis sie nie powiodl
+3. Dzieki temu lancuch dziala:
+   - Uzytkownik wpisuje tekst -> `onChange` aktualizuje `settings` w rodzicu -> podglad sie aktualizuje natychmiast
+   - Po 1 sekundzie od ostatniej zmiany -> debounced auto-save zapisuje do bazy
 
