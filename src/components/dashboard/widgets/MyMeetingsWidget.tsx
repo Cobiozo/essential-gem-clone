@@ -236,7 +236,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     }
     
     // For individual meetings (tripartite, partner_consultation) - show "Szczegóły" button
-    if (event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') {
+    if (['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)) {
       return (
         <div className="flex items-center gap-1">
           <Button
@@ -282,7 +282,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     }
     
     // For individual meetings without zoom link - show cancel button if > 2 hours before
-    if ((event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && 
+    if (['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && 
         minutesUntilEvent > 120) {
       return (
         <Button
@@ -364,7 +364,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
                       </div>
 
                       {/* Info for individual meetings - compact */}
-                      {(event.event_type === 'tripartite_meeting' || event.event_type === 'partner_consultation') && (
+                      {['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && (
                         <div className="text-xs text-muted-foreground">
                           {event.host_profile && event.host_user_id !== user?.id && (
                             <span className="flex items-center gap-1">
