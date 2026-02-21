@@ -176,13 +176,11 @@ const CertificatePreview: React.FC<CertificatePreviewProps> = ({
       } else if (element.type === 'text' && element.content) {
         const text = replacePlaceholders(element.content);
         const fontSize = element.fontSize || 16;
-        // Korekta px->pt identyczna jak w jsPDF (fontSize * 0.75)
-        const adjustedFontSize = fontSize * 0.75;
         const fontWeight = element.fontWeight === 'bold' || Number(element.fontWeight) >= 700 ? 'bold' : 'normal';
         const fontStyle = element.fontStyle === 'italic' ? 'italic' : 'normal';
         const fontFamily = element.fontFamily || 'Arial';
         
-        ctx.font = `${fontStyle} ${fontWeight} ${adjustedFontSize}px ${fontFamily}`;
+        ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
         ctx.fillStyle = element.color || '#000000';
         ctx.globalAlpha = (element.opacity ?? 100) / 100;
         
@@ -199,18 +197,15 @@ const CertificatePreview: React.FC<CertificatePreviewProps> = ({
         
         ctx.textAlign = textAlign;
 
-        // Y offset - symuluje jsPDF offset (y + fontSizeVal * PX_TO_MM)
-        const yOffset = adjustedFontSize;
-
         // Renderowanie tekstu z lub bez zawijania
         if (element.noWrap) {
           // Bez zawijania - tekst w jednej linii
-          ctx.fillText(text, textX, y + yOffset);
+          ctx.fillText(text, textX, y);
           
           // Podkreślenie dla noWrap
           if (element.textDecoration === 'underline') {
             const metrics = ctx.measureText(text);
-            const underlineY = y + yOffset + adjustedFontSize + 2;
+            const underlineY = y + fontSize + 2;
             ctx.beginPath();
             if (textAlign === 'center') {
               ctx.moveTo(textX - metrics.width / 2, underlineY);
@@ -229,16 +224,16 @@ const CertificatePreview: React.FC<CertificatePreviewProps> = ({
         } else {
           // Z zawijaniem - identycznie jak jsPDF maxWidth
           const lines = wrapText(ctx, text, width);
-          const lineHeight = adjustedFontSize * 1.2;
+          const lineHeight = fontSize * 1.2;
           
           lines.forEach((line, lineIndex) => {
-            const lineY = y + yOffset + (lineIndex * lineHeight);
+            const lineY = y + (lineIndex * lineHeight);
             ctx.fillText(line, textX, lineY);
             
             // Podkreślenie dla każdej linii
             if (element.textDecoration === 'underline') {
               const metrics = ctx.measureText(line);
-              const underlineY = lineY + adjustedFontSize + 2;
+              const underlineY = lineY + fontSize + 2;
               ctx.beginPath();
               if (textAlign === 'center') {
                 ctx.moveTo(textX - metrics.width / 2, underlineY);
