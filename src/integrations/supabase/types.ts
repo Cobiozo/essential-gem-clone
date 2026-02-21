@@ -741,30 +741,39 @@ export type Database = {
       certificates: {
         Row: {
           created_at: string
+          email_sent_at: string | null
           file_url: string
+          generated_at: string | null
           id: string
           issued_at: string
           issued_by: string
+          last_regenerated_at: string | null
           module_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          email_sent_at?: string | null
           file_url: string
+          generated_at?: string | null
           id?: string
           issued_at?: string
           issued_by: string
+          last_regenerated_at?: string | null
           module_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          email_sent_at?: string | null
           file_url?: string
+          generated_at?: string | null
           id?: string
           issued_at?: string
           issued_by?: string
+          last_regenerated_at?: string | null
           module_id?: string
           updated_at?: string
           user_id?: string
