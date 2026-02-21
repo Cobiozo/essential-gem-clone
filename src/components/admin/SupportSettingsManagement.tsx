@@ -120,13 +120,19 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
     transition,
   };
 
+  const handleFieldChange = (updates: Partial<{ iconName: string; label: string; value: string; labelVisible: boolean }>) => {
+    const newIconName = updates.iconName ?? editIconName;
+    const newLabel = updates.label ?? editLabel;
+    const newValue = updates.value ?? editValue;
+    const newLabelVisible = updates.labelVisible ?? editLabelVisible;
+    if (updates.iconName !== undefined) setEditIconName(newIconName);
+    if (updates.label !== undefined) setEditLabel(newLabel);
+    if (updates.value !== undefined) setEditValue(newValue);
+    if (updates.labelVisible !== undefined) setEditLabelVisible(newLabelVisible);
+    onUpdate({ iconName: newIconName, label: newLabel, value: newValue, labelVisible: newLabelVisible });
+  };
+
   const handleApply = () => {
-    onUpdate({
-      iconName: editIconName,
-      label: editLabel,
-      value: editValue,
-      labelVisible: editLabelVisible,
-    });
     setIsOpen(false);
   };
 
@@ -195,7 +201,7 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
               <Label>Ikona</Label>
               <IconPicker
                 value={editIconName}
-                onChange={(name) => setEditIconName(name || 'HelpCircle')}
+                onChange={(name) => handleFieldChange({ iconName: name || 'HelpCircle' })}
                 trigger={
                   <Button variant="outline" className="w-full justify-start gap-2">
                     <DynamicIcon name={editIconName} className="h-4 w-4" />
@@ -209,7 +215,7 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
               <Label>Etykieta</Label>
               <Input
                 value={editLabel}
-                onChange={(e) => setEditLabel(e.target.value)}
+                onChange={(e) => handleFieldChange({ label: e.target.value })}
                 placeholder="Np. E-mail"
               />
             </div>
@@ -218,7 +224,7 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
               <Label>Wartość</Label>
               <Input
                 value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
+                onChange={(e) => handleFieldChange({ value: e.target.value })}
                 placeholder="Np. support@example.com"
               />
             </div>
@@ -228,7 +234,7 @@ const SortableInfoCard: React.FC<SortableInfoCardProps> = ({
               <Switch
                 id={`label-visible-${id}`}
                 checked={editLabelVisible}
-                onCheckedChange={setEditLabelVisible}
+                onCheckedChange={(checked) => handleFieldChange({ labelVisible: checked })}
               />
             </div>
 
@@ -261,8 +267,12 @@ const EditableText: React.FC<EditableTextProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [editValue, setEditValue] = useState(value);
 
+  const handleChange = (newValue: string) => {
+    setEditValue(newValue);
+    onChange(newValue);
+  };
+
   const handleApply = () => {
-    onChange(editValue);
     setIsOpen(false);
   };
 
@@ -308,14 +318,14 @@ const EditableText: React.FC<EditableTextProps> = ({
           {variant === 'multiline' ? (
             <Textarea
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
               rows={4}
             />
           ) : (
             <Input
               value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
+              onChange={(e) => handleChange(e.target.value)}
               placeholder={placeholder}
             />
           )}
@@ -349,9 +359,17 @@ const EditableFormField: React.FC<EditableFormFieldProps> = ({
   const [editLabel, setEditLabel] = useState(fieldLabel);
   const [editPlaceholder, setEditPlaceholder] = useState(fieldPlaceholder);
 
+  const handleLabelChange = (newValue: string) => {
+    setEditLabel(newValue);
+    onLabelChange(newValue);
+  };
+
+  const handlePlaceholderChange = (newValue: string) => {
+    setEditPlaceholder(newValue);
+    onPlaceholderChange(newValue);
+  };
+
   const handleApply = () => {
-    onLabelChange(editLabel);
-    onPlaceholderChange(editPlaceholder);
     setIsOpen(false);
   };
 
@@ -387,14 +405,14 @@ const EditableFormField: React.FC<EditableFormFieldProps> = ({
             <Label>Etykieta pola</Label>
             <Input
               value={editLabel}
-              onChange={(e) => setEditLabel(e.target.value)}
+              onChange={(e) => handleLabelChange(e.target.value)}
             />
           </div>
           <div className="space-y-2">
             <Label>Placeholder</Label>
             <Input
               value={editPlaceholder}
-              onChange={(e) => setEditPlaceholder(e.target.value)}
+              onChange={(e) => handlePlaceholderChange(e.target.value)}
             />
           </div>
           <Button onClick={handleApply} className="w-full">
