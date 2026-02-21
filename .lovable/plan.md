@@ -1,70 +1,90 @@
 
-# Naprawa szkolenia BIZNESOWE (0/0 lekcji) i bledu generowania certyfikatow
 
-## Zidentyfikowane problemy
+# Certyfikat: automatyczne pobieranie, email z kopia, usuwanie pliku, blokada z informacja
 
-### Problem 1: BIZNESOWE pokazuje 0/0 lekcji
-Certyfikat dla modulu BIZNESOWE zostal wydany 5 stycznia o 01:31, ale WSZYSTKIE 21 lekcji zostaly utworzone POZNIEJ tego samego dnia (od 15:08). Kod w `Training.tsx` (linia 460-467) filtruje lekcje warunkiem `created_at <= certDate`, co wyklucza wszystkie lekcje i daje wynik 0/0.
-
-Uzytkownik ukonczyl 21/21 lekcji, ale system pokazuje "Brak lekcji" z powodu blednego filtrowania temporalnego.
-
-### Problem 2: Blad RLS przy generowaniu certyfikatu
-Blad "Upload error: new row violates row-level security policy" wystepuje przy uploadzie PDF do storage. Przyczyna: generowanie certyfikatu wykonuje duzo operacji asynchronicznych (ladowanie profilu, szablonu, czcionek, obrazow, renderowanie PDF) ktore moga trwac 10-30 sekund. W tym czasie token JWT moze wygasnac, co powoduje ze `auth.uid()` zwraca NULL i polityka RLS na `storage.objects` odrzuca upload.
-
-Polityka wymaga: `foldername(name)[1] = auth.uid()::text` — jesli sesja wygasla, `auth.uid()` jest NULL i warunek nie jest spelniony.
-
-## Plan napraw
-
-### 1. Training.tsx — naprawic filtrowanie lekcji po dacie certyfikatu
-
-W logice obliczania `relevantLessonsCount` (linia 460-467), dodac zabezpieczenie: jesli filtrowanie po dacie certyfikatu daje 0 lekcji, ale modul ma aktywne lekcje, uzyc pelnej liczby lekcji. To obsluguje przypadek gdy certyfikat predatuje wszystkie lekcje (np. z testowania).
+## Przeplyw
 
 ```text
-// Obecna logika (linia 460-467):
-let relevantLessonsCount = lessonsData?.length || 0;
-if (certIssuedAt && lessonsData) {
-  const certDate = new Date(certIssuedAt);
-  relevantLessonsCount = lessonsData.filter(l => 
-    new Date(l.created_at) <= certDate
-  ).length;
-}
-
-// Nowa logika:
-let relevantLessonsCount = lessonsData?.length || 0;
-if (certIssuedAt && lessonsData) {
-  const certDate = new Date(certIssuedAt);
-  const filtered = lessonsData.filter(l => new Date(l.created_at) <= certDate).length;
-  // Jesli filtrowanie daje 0 ale sa lekcje, certyfikat predatuje cala zawartosc — uzyj pelnej liczby
-  if (filtered > 0) {
-    relevantLessonsCount = filtered;
-  }
-}
+Uzytkownik ukonczyl szkolenie (100%)
+   |
+   v
+Widzi przycisk "Wygeneruj"
+   |
+   v  [klikniecie]
+   |
+1. PDF generowany lokalnie (jsPDF)
+2. PDF uploadowany do storage
+3. PDF automatycznie pobierany na komputer uzytkownika
+4. Email z PDF (link) wyslany do uzytkownika
+5. Kopia emaila wyslana na support@purelife.info.pl
+6. Daty generated_at i email_sent_at zapisane w certificates
+7. Plik PDF USUNIETY ze storage (po uplywie emaila)
+   |
+   v
+Przy ponownym wejsciu widzi:
+- Komunikat: "Certyfikat wygenerowany dnia X. Email wyslany dnia Y."
+- Instrukcja: sprawdz skrzynke/spam, kontakt przez Wsparcie i Pomoc
+- Przycisk "Regeneruj" (dostepny raz na 24h, potem info o kontakcie z supportem)
 ```
 
-Ta sama zmiana dla `completedLessons` (linia 484-492) — analogicznie nie filtrowac po dacie gdy daloby to 0.
+## Zmiany w bazie danych
 
-### 2. useCertificateGeneration.ts — odswiezyc sesje przed uploadem
+Migracja SQL - dodanie kolumn do tabeli `certificates`:
 
-Dodac odswiezenie sesji (`supabase.auth.refreshSession()`) bezposrednio PRZED uploadem do storage (przed linia 400). To zapewni ze token JWT jest aktualny po dlugiej operacji generowania PDF.
-
-```text
-// Przed uploadem - odswiezyc sesje (generowanie PDF moglo trwac dlugo)
-console.log('Step 4c: Refreshing session before upload...');
-const { error: refreshError } = await supabase.auth.refreshSession();
-if (refreshError) {
-  console.warn('Session refresh failed:', refreshError);
-}
+```sql
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS generated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS email_sent_at TIMESTAMPTZ;
+ALTER TABLE certificates ADD COLUMN IF NOT EXISTS last_regenerated_at TIMESTAMPTZ;
 ```
 
-## Pliki do zmiany
+Istniejace certyfikaty automatycznie dostana `generated_at = NOW()` (default). `email_sent_at` i `last_regenerated_at` beda NULL dla starych rekordow.
 
-| Plik | Zmiana |
-|---|---|
-| `src/pages/Training.tsx` | Zabezpieczyc filtrowanie lekcji i postepu po dacie certyfikatu — gdy wynik = 0, uzyc pelnej liczby |
-| `src/hooks/useCertificateGeneration.ts` | Dodac `refreshSession()` przed uploadem PDF do storage |
+## Zmiany w plikach
+
+### 1. `src/hooks/useCertificateGeneration.ts`
+
+Po wygenerowaniu i uploadzie PDF:
+- Pobrac blob PDF i automatycznie uruchomic pobieranie w przegladarce (createElement('a'), click, revokeObjectURL)
+- Dodac `generated_at: new Date().toISOString()` do insertu certyfikatu
+- Po wyslaniu emaila: zaktualizowac `email_sent_at` w tabeli certificates
+- Po wszystkim: usunac plik PDF ze storage i ustawic `file_url = 'downloaded-and-deleted'`
+- Zwrocic dodatkowe pola w rezultacie: `generatedAt`, `emailSentAt`
+
+Przy regeneracji (`forceRegenerate = true`):
+- Ustawic `last_regenerated_at` na rekordzie certyfikatu
+
+### 2. `supabase/functions/send-certificate-email/index.ts`
+
+- Po wyslaniu emaila do uzytkownika, wyslac **drugi email** na `support@purelife.info.pl` z ta sama trescia i linkiem do certyfikatu
+- Zaktualizowac kolumne `email_sent_at` w tabeli `certificates` po pomyslnej wysylce
+- Zwrocic `emailSentAt` w odpowiedzi JSON
+
+### 3. `src/pages/Training.tsx`
+
+**fetchCertificates**: Pobierac dodatkowe kolumny `generated_at`, `email_sent_at`, `last_regenerated_at`. Rozszerzyc typ stanu certificates.
+
+**Sekcja certyfikatu (linie 766-848)**: Calkowicie przebudowac logike wyswietlania:
+
+- **Gdy certyfikat NIE istnieje**: przycisk "Wygeneruj" (jak dotychczas)
+- **Gdy certyfikat istnieje (wygenerowany)**: 
+  - Komunikat informacyjny z datami: "Certyfikat zostal wygenerowany dnia [data]. Email z certyfikatem wyslany dnia [data]."
+  - Instrukcja: "Sprawdz skrzynke poczty email oraz folder spam. Jesli nie znalazles wiadomosci, skontaktuj sie poprzez formularz w zakladce Wsparcie i Pomoc z Support Pure Life Center."
+  - Przycisk "Regeneruj certyfikat":
+    - Jesli `last_regenerated_at` jest w ciagu ostatnich 24h: przycisk zablokowany, tekst "Regeneracja mozliwa po [data+24h]. Skontaktuj sie przez formularz w zakladce Wsparcie i Pomoc."
+    - Jesli minelo >24h lub nigdy nie regenerowano: przycisk aktywny z AlertDialog potwierdzenia
+    - Po regeneracji: automatyczne pobranie + email + aktualizacja `last_regenerated_at`
+
+**handleGenerateCertificate**: Po sukcesie, odswiezyc certyfikaty i wyswietlic toast z informacja o pobraniu i emailu.
+
+**handleRegenerateCertificate**: Sprawdzic 24h cooldown przed wywolaniem. Ustawic `last_regenerated_at`.
+
+**Usunac przycisk "Pobierz certyfikat"**: Po pierwszym wygenerowaniu plik jest pobierany automatycznie i usuwany ze storage — nie ma czego pobierac ponownie.
 
 ## Wplyw na istniejacy kod
 
-- Nie zmienia logiki dla certyfikatow wydanych PO utworzeniu lekcji — te dzialaja poprawnie
-- Nie narusza bezpieczenstwa — odswiezanie sesji to standardowa operacja Supabase
-- Nie wymaga zmian w bazie danych, storage ani RLS
+- Przycisk "Pobierz" znika — plik nie jest przechowywany w storage po wygenerowaniu
+- Regeneracja ograniczona do raz na 24h — po tym kontakt z supportem
+- Kopia emaila zawsze trafia na support@purelife.info.pl
+- Istniejace certyfikaty (bez generated_at/email_sent_at) beda traktowane jako wygenerowane bez daty — pokaza "data nieznana"
+- Nie wymaga zmian w RLS ani edge function `get-certificate-url` (nie bedzie juz uzywany do pobierania)
+
