@@ -1,134 +1,71 @@
 
 
-# Opiekun = Lider: zatwierdzenie w Panelu Lidera aktywuje konto
+# Naprawa rozbieznosci miedzy edytorem a podgladem certyfikatu
 
-## Obecny problem
+## Zidentyfikowane problemy
 
-Gdy Mateusz Sumera jest jednoczesnie opiekunem (upline) i liderem z uprawnieniem `can_approve_registrations`, proces wymaga **dwoch oddzielnych zatwierdzen**:
+Na podstawie analizy kodu zidentyfikowalem **3 kluczowe rozbieznosci** miedzy edytorem (Fabric.js canvas po lewej), podgladem na zywo (Canvas API po prawej) a finalnym PDF (jsPDF):
 
-1. Pure-kontakty --> "Zatwierdz" --> `guardian_approve_user()` (jako opiekun)
-2. Panel Lidera --> Zatwierdzenia --> "Zatwierdz" --> `leader_approve_user()` (jako lider)
+### Problem 1: Podglad jest za maly i przyciety
+Podglad skaluje sie do `Math.min(500 / canvasWidth, 1)` = ~0.59, co daje miniaturke ~500px szerokosc. Przy tak malym rozmiarze tekst jest nieczytelny, a elementy wyglabaja na przesuniete. Kontener jest zbyt waski (panel boczny).
 
-To jest zbedne -- ta sama osoba klika dwa razy w dwoch roznych miejscach.
+### Problem 2: Rozmiar czcionki — rozna konwersja w PDF vs podglad
+- **Podglad (Canvas API)**: uzywa `fontSize` bezposrednio w px (np. 36px)
+- **PDF (jsPDF)**: uzywa `fontSize * 0.75` (linia 318: `doc.setFontSize(fontSizeVal * 0.75)`) bo konwertuje px->pt
+- **Efekt**: tekst w podgladzie jest ~33% wiekszy niz w finalnym PDF
 
-## Nowa zasada
+### Problem 3: Pozycja Y tekstu — rozne obliczenia
+- **Podglad**: `ctx.textBaseline = 'top'`, pozycja Y = `y` (bezposrednio)
+- **PDF**: pozycja Y = `y + fontSizeVal * PX_TO_MM` (dodaje przesuniecie o rozmiar czcionki)
+- **Efekt**: tekst w podgladzie jest przesuniety w pionie wzgledem PDF
 
-**Jezeli lider = opiekun (ta sama osoba)**, to:
-- Uzytkownik pojawia sie **od razu w Panelu Lidera** w zakladce "Zatwierdzenia"
-- Jedno klikniecie "Zatwierdz" w Panelu Lidera **w pelni aktywuje konto** (pomija krok opiekuna, bo opiekun = lider)
-- Uzytkownik NIE pojawia sie w Pure-kontakty jako "oczekujacy na zatwierdzenie opiekuna"
+## Rozwiazanie
 
-## Plan zmian
+Naprawienie CertificatePreview.tsx aby renderowanie bylo **identyczne** z logika w useCertificateGeneration.ts. Podglad musi dzialac jak wierny symulator PDF.
 
-### Zmiana 1: Funkcja SQL `guardian_approve_user`
+### Zmiana 1: Skalowanie podgladu (CertificatePreview.tsx)
+Zmiana stalej skali z `Math.min(500 / canvasWidth, 1)` na wieksza wartosc dopasowana do kontenera, np. `Math.min(450 / canvasWidth, 1)` — ale glowny problem to za maly kontener. Podglad powinien rozciagac sie bardziej.
 
-Wewnatrz bloku `IF v_leader_approver_id IS NOT NULL THEN` (linia 308), dodac warunek:
+### Zmiana 2: Korekta rozmiaru czcionki w podgladzie
+Dodanie mnoznika `* 0.75` do fontSize w renderowaniu tekstu, aby odpowiadal konwersji px->pt stosowanej w jsPDF:
+```
+// Przed (zle):
+ctx.font = `... ${fontSize}px ...`;
 
-```text
-IF v_leader_approver_id = auth.uid() THEN
-  -- Opiekun = Lider --> nie robimy nic wiecej tutaj
-  -- Konto czeka na zatwierdzenie w Panelu Lidera
-  -- guardian_approved juz ustawione na TRUE powyzej
-  RETURN TRUE;
-END IF;
+// Po (poprawnie):
+const adjustedFontSize = fontSize * 0.75;
+ctx.font = `... ${adjustedFontSize}px ...`;
 ```
 
-Ale to wymaga ze opiekun i tak najpierw klika w Pure-kontakty. Wiec lepsze podejscie:
+### Zmiana 3: Korekta pozycji Y tekstu
+Dodanie przesuniecia Y identycznego jak w jsPDF:
+```
+// Przed (zle):
+const lineY = y + (lineIndex * lineHeight);
 
-### Zmiana 1 (poprawiona): Funkcja SQL `handle_new_user` (trigger rejestracji)
-
-W triggerze rejestracji nowego uzytkownika, po znalezieniu `guardian_user_id`, sprawdzic:
-
-```text
-v_leader_approver_id := find_nearest_leader_approver(NEW.id);
-
-JEZELI v_leader_approver_id = guardian_user_id WTEDY:
-  -- Opiekun jest jednoczesnie liderem
-  -- Od razu ustaw guardian_approved = TRUE (auto-skip kroku opiekuna)
-  -- Ustaw leader_approver_id = guardian_user_id
-  -- Uzytkownik pojawi sie w Panelu Lidera do zatwierdzenia
+// Po (poprawnie - symuluje jsPDF offset):
+const yOffset = fontSize * 0.75 * PX_TO_MM_RATIO;
+const lineY = y + yOffset + (lineIndex * lineHeight);
 ```
 
-### Zmiana 2: Funkcja SQL `get_pending_leader_approvals`
+Ale uwaga - podglad pracuje w px a PDF w mm. Trzeba to wyrownac: w podgladzie pracujemy w pikselach, wiec offset powinien byc `fontSize * 0.75` (tyle samo co adjustedFontSize), poniewaz jsPDF dodaje `fontSizeVal * PX_TO_MM` w mm, co odpowiada `fontSizeVal * 0.75` w proporcji px-renderingu.
 
-Obecny filtr: `WHERE p.guardian_approved = true AND p.admin_approved = false AND p.leader_approver_id = auth.uid()`
-
-Ten filtr juz dziala poprawnie -- jezeli w triggerze ustawimy `guardian_approved = true` i `leader_approver_id`, uzytkownik pojawi sie w liscie lidera.
-
-### Zmiana 3: Funkcja SQL `leader_approve_user`
-
-Obecna logika juz ustawia `admin_approved = true` (pelna aktywacja). Bez zmian.
-
-## Szczegoly techniczne migracji SQL
-
-### Modyfikacja `handle_new_user()`:
-
-Po linii gdzie znajdujemy `guardian_user_id` (obecna logika), dodac:
-
-```text
--- Sprawdz czy opiekun jest jednoczesnie liderem z uprawnieniami zatwierdzania
-IF guardian_user_id IS NOT NULL THEN
-  IF EXISTS (
-    SELECT 1 FROM leader_permissions lp
-    WHERE lp.user_id = guardian_user_id
-      AND lp.can_approve_registrations = true
-  ) THEN
-    -- Opiekun = Lider: auto-approve guardian step
-    -- Uzytkownik trafi bezposrednio do Panelu Lidera
-    UPDATE profiles SET
-      guardian_approved = true,
-      guardian_approved_at = now(),
-      leader_approver_id = guardian_user_id
-    WHERE user_id = NEW.id;
-
-    -- Powiadom lidera-opiekuna w Panelu Lidera (nie w Pure-kontakty)
-    INSERT INTO user_notifications (
-      user_id, notification_type, source_module, title, message, link, metadata
-    ) VALUES (
-      guardian_user_id,
-      'approval_request',
-      'registration',
-      'Nowa osoba oczekuje na Twoje zatwierdzenie w Panelu Lidera',
-      format('%s %s zarejestrował sie wskazujac Ciebie jako opiekuna. Jako Lider mozesz zatwierdzic konto jednym kliknieciem w Panelu Lidera.',
-        new_user_first_name, new_user_last_name),
-      '/leader?tab=approvals',
-      jsonb_build_object('new_user_id', NEW.id, 'auto_guardian_approved', true)
-    );
-
-    -- NIE wysylaj powiadomienia "oczekuje na zatwierdzenie opiekuna" w Pure-kontakty
-    -- (pomijamy standardowe powiadomienie ponizej)
-  ELSE
-    -- Standardowy przeplyw: opiekun NIE jest liderem
-    -- (obecna logika powiadomienia do opiekuna bez zmian)
-  END IF;
-END IF;
-```
-
-### Modyfikacja `guardian_approve_user()`:
-
-Dodac warunek na poczatku: jezeli `guardian_approved` juz jest TRUE (bo auto-approved w triggerze), to zwroc informacje ze uzytkownik czeka w Panelu Lidera:
-
-```text
-IF EXISTS (SELECT 1 FROM profiles WHERE user_id = target_user_id AND guardian_approved = TRUE) THEN
-  RAISE EXCEPTION 'Uzytkownik jest juz zatwierdzony przez opiekuna. Jezeli jestes tez Liderem, zatwierdz go w Panelu Lidera.';
-END IF;
-```
-
-Ta walidacja juz istnieje (linia 294), wiec nie wymaga zmian.
-
-## Podsumowanie przeplywu
-
-| Scenariusz | Rejestracja | Zatwierdzenie | Rezultat |
-|---|---|---|---|
-| Opiekun = Lider | Trigger auto-ustawia `guardian_approved=true`, `leader_approver_id` | 1 klikniecie w Panelu Lidera | Konto w pelni aktywne |
-| Opiekun (nie lider), jest lider w sciezce | Trigger standardowy | Opiekun zatwierdza w Pure-kontakty, potem Lider w Panelu Lidera | Konto aktywne po 2 krokach |
-| Opiekun, brak lidera | Trigger standardowy | Opiekun zatwierdza, potem Admin | Konto aktywne po 2 krokach |
+### Zmiana 4: Zawijanie tekstu z poprawionym fontSize
+Funkcja `wrapText` musi uzywac tego samego skorygowanego rozmiaru czcionki, zeby obliczenia szerokosc linii sie zgadzaly.
 
 ## Pliki do zmiany
 
-| Element | Zmiana |
+| Plik | Zmiana |
 |---|---|
-| Migracja SQL: `handle_new_user()` | Dodanie wykrywania opiekun=lider, auto `guardian_approved`, przekierowanie do Panelu Lidera |
-| Migracja SQL: `guardian_approve_user()` | Drobna zmiana komunikatu bledu (opcjonalna, walidacja juz istnieje) |
-| Brak zmian frontendowych | `useLeaderApprovals`, `leader_approve_user`, Panel Lidera -- wszystko dziala bez zmian |
+| `src/components/admin/CertificatePreview.tsx` | Korekta fontSize (*0.75), korekta pozycji Y tekstu, poprawiony lineHeight, lepsza szerokosc podgladu |
 
+## Szczegoly techniczne
+
+W `CertificatePreview.tsx`, w bloku renderowania tekstu (linia 176-253):
+
+1. **fontSize**: `const adjustedFontSize = fontSize * 0.75;` — uzyc `adjustedFontSize` w `ctx.font` i obliczeniach
+2. **Y offset**: dodac `adjustedFontSize` do pozycji Y (symuluje `y + fontSizeVal * PX_TO_MM` z jsPDF, ktore w px-space odpowiada przesunieciu o rozmiar czcionki)  
+3. **lineHeight**: uzyc `adjustedFontSize * 1.2` zamiast `fontSize * 1.2`
+4. **wrapText**: wywolywac z `adjustedFontSize` ustawionym w `ctx.font` (juz bedzie poprawne bo ctx.measureText uzywa aktualnego fontu)
+
+Te zmiany zapewnia ze podglad bedzie wiernie odzwierciedlal finalny PDF.
