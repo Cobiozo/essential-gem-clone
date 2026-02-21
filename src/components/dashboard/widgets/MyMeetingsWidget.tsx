@@ -16,6 +16,7 @@ import type { EventWithRegistration } from '@/types/events';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+import { expandEventsForCalendar } from '@/hooks/useOccurrences';
 
 interface MyMeetingsWidgetProps {
   events?: EventWithRegistration[];
@@ -39,7 +40,8 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   // Filter user's registered events from shared data
   const userEvents = useMemo(() => {
     if (!sharedEvents) return [];
-    return sharedEvents.filter(e => e.is_registered);
+    const expanded = expandEventsForCalendar(sharedEvents);
+    return expanded.filter(e => e.is_registered);
   }, [sharedEvents]);
 
   const toggleExpand = (type: string) => {
