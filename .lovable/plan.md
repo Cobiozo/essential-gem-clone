@@ -1,48 +1,48 @@
 
 
-# Naprawa podgladu certyfikatu - dopasowanie do edytora
+# Naprawa rozbieznosci podgladu certyfikatu
 
-## Problem
+## Zidentyfikowany problem
 
-Poprzednia zmiana dodala mnoznik `fontSize * 0.75` i `yOffset` do podgladu, co spowodowalo:
-- Tekst jest za maly (75% oryginalnego rozmiaru)
-- Tekst jest przesuniety w dol (dodatkowy yOffset)
-- "CERTYFIKAT" (duzy tekst) moze byc przesuniety poza widoczny obszar lub nachodzic na tlo
-- Podglad nie odpowiada temu co uzytkownik widzi w edytorze Fabric.js
+Znaleziono **glowna przyczyne** rozbieznosci: funkcja `collectElementsForPreview()` (uzywana do podgladu na zywo) oblicza `width` tekstu inaczej niz funkcja zapisu szablonu (uzywana do generowania PDF).
 
-## Przyczyna
+### Roznica w kodzie:
 
-Podglad powinien wiernie odwzorowywac **edytor** (Fabric.js canvas po lewej stronie), a nie wewnetrzna logike PDF. Uzytkownik porownuje edytor z podgladem -- musza wygladac identycznie.
+**Podglad (linia 333):** 
+```
+width: (textObj as any).originalWidth || (textObj.width || 200) * (textObj.scaleX || 1)
+```
+Uzywa `originalWidth` - szerokosc ustawiona przy tworzeniu elementu, ktora moze byc inna niz aktualna szerokosc tekstu.
 
-Fabric.js renderuje tekst:
-- Rozmiar czcionki: `fontSize` bezposrednio w px (bez mnoznika 0.75)
-- Pozycja Y: bezposrednio `y` (bez dodatkowego offsetu)
-- textBaseline: `top`
+**Zapis/PDF (linia 907):**
+```
+width: (textObj.width || 200) * (textObj.scaleX || 1)
+```
+Uzywa aktualnej szerokosci tekstu z Fabric.js.
+
+Ta roznica powoduje ze tekst w podgladzie zawija sie w innych miejscach niz w wygenerowanym PDF, a wyrownanie (centrowanie) jest przesiniete.
 
 ## Rozwiazanie
 
-Cofniecie zmian z poprzedniej poprawki w `CertificatePreview.tsx`:
-
-1. **Usunac mnoznik 0.75** -- uzyc `fontSize` bezposrednio zamiast `fontSize * 0.75`
-2. **Usunac yOffset** -- renderowac tekst na pozycji `y` zamiast `y + adjustedFontSize`
-3. **Przywrocic lineHeight** -- uzyc `fontSize * 1.2` zamiast `adjustedFontSize * 1.2`
-4. **Przywrocic underlineY** -- uzyc `fontSize` zamiast `adjustedFontSize`
-
-## Szczegoly techniczne
-
-W pliku `src/components/admin/CertificatePreview.tsx`:
-
-- Linia 180: usunac `const adjustedFontSize = fontSize * 0.75;`
-- Linia 185: zmienic `ctx.font` z `adjustedFontSize` na `fontSize`
-- Linia 203: usunac `const yOffset = adjustedFontSize;`
-- Linie 208, 213, 235, 241: usunac dodawanie `yOffset` i zamienic `adjustedFontSize` na `fontSize`
-- Linia 232: `lineHeight = fontSize * 1.2`
-
-To przywroci renderowanie identyczne z edytorem Fabric.js.
+Ujednolicenie obliczania `width` w `collectElementsForPreview()` - uzyc identycznej formuly jak w funkcji zapisu szablonu.
 
 ## Plik do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/admin/CertificatePreview.tsx` | Usuniecie mnoznika 0.75, yOffset, przywrocenie fontSize w renderowaniu tekstu |
+| `src/components/admin/TemplateDndEditor.tsx` | Linia 333: zmienic `(textObj as any).originalWidth \|\| (textObj.width \|\| 200) * (textObj.scaleX \|\| 1)` na `(textObj.width \|\| 200) * (textObj.scaleX \|\| 1)` - identycznie jak w funkcji zapisu (linia 907) |
+
+## Szczegoly techniczne
+
+Zmiana jednej linii w funkcji `collectElementsForPreview()`:
+
+```typescript
+// Przed (zle - uzywa originalWidth):
+width: (textObj as any).originalWidth || (textObj.width || 200) * (textObj.scaleX || 1),
+
+// Po (poprawnie - identycznie jak w zapisie/PDF):
+width: (textObj.width || 200) * (textObj.scaleX || 1),
+```
+
+Dzieki temu podglad bedzie uzywal dokladnie tych samych wymiarow co generator PDF, co wyeliminuje roznice w zawijaniu tekstu i wyrownaniu.
 
