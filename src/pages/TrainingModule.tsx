@@ -473,42 +473,7 @@ const TrainingModule = () => {
     };
   }, []);
 
-  // Preload następnej lekcji wideo dla płynniejszego przejścia
-  useEffect(() => {
-    if (lessons.length === 0 || currentLessonIndex >= lessons.length - 1) return;
-    
-    const nextLesson = lessons[currentLessonIndex + 1];
-    if (nextLesson?.media_type === 'video' && nextLesson?.media_url) {
-      const url = nextLesson.media_url;
-      
-      // Nie prefetchuj YouTube (powodują błędy CORS)
-      const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
-      
-      if (isYouTube) {
-        console.log('[TrainingModule] Skipping prefetch for YouTube:', nextLesson.title);
-        return;
-      }
-      
-      // Prefetch dla plików z Supabase Storage i VPS (purelife.info.pl)
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = url;
-      link.as = 'video';
-      // Dodaj crossorigin dla VPS
-      if (url.includes('purelife.info.pl')) {
-        link.crossOrigin = 'anonymous';
-      }
-      document.head.appendChild(link);
-      
-      console.log('[TrainingModule] Preloading next lesson video:', nextLesson.title);
-      
-      return () => {
-        if (link.parentNode) {
-          document.head.removeChild(link);
-        }
-      };
-    }
-  }, [lessons, currentLessonIndex]);
+  // Prefetch usunięty - zanieczyszczał cache przeglądarki i powodował wyświetlanie klatek z innej lekcji
 
   // Save progress before unload with localStorage backup and proper auth
   // STABILIZED: Uses refs to avoid re-registering listener every second

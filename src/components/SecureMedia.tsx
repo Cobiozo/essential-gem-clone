@@ -94,6 +94,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
   const spinnerTimeoutRef = useRef<NodeJS.Timeout>();
   
+  // NEW: Hide video until loadeddata fires to prevent showing wrong frame
+  const [videoReady, setVideoReady] = useState(false);
+  
   // Use adaptive buffer config based on device and network
   const bufferConfigRef = useRef<BufferConfig>(getAdaptiveBufferConfig());
   
@@ -463,6 +466,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     setBufferedRanges([]);
     // NEW: Reset debounced spinner state and clear all pending timeouts
     setShowBufferingSpinner(false);
+    // NEW: Reset videoReady so old frame is hidden until new video loads
+    setVideoReady(false);
     if (spinnerTimeoutRef.current) {
       clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = undefined;
@@ -714,6 +719,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     const handleCanPlay = () => {
       console.log('[SecureMedia] Video can play');
+      // Mark video as ready to display (prevents showing wrong frame)
+      setVideoReady(true);
       
       // NEW: Clear any pending timeouts - video recovered
       if (bufferingTimeoutRef.current) {
@@ -1037,6 +1044,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       console.log('[SecureMedia] Unrestricted mode - can play');
       setIsBuffering(false);
       setShowBufferingSpinner(false);
+      setVideoReady(true);
       if (spinnerTimeoutRef.current) {
         clearTimeout(spinnerTimeoutRef.current);
         spinnerTimeoutRef.current = undefined;
@@ -1420,6 +1428,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
+              style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
               preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
@@ -1430,7 +1439,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {isBuffering && !forceHideBuffering && (
+            {(!videoReady || (isBuffering && !forceHideBuffering)) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
@@ -1508,6 +1517,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               controlsList="nodownload noremoteplayback"
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
+              style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
               preload={signedUrl.includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
@@ -1520,7 +1530,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {/* OPTIMIZED: Use debounced spinner state instead of isBuffering */}
-            {showBufferingSpinner && !isSmartBuffering && !forceHideBuffering && (
+            {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
@@ -1599,6 +1609,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           controls
           controlsList="nodownload"
           className="absolute inset-0 w-full h-full object-contain rounded-lg"
+          style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
           preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
           playsInline
           // @ts-ignore - webkit-playsinline for older iOS
@@ -1609,7 +1620,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           Twoja przeglądarka nie obsługuje odtwarzania wideo.
         </video>
         {/* Buffering spinner overlay for native controls */}
-        {showBufferingSpinner && (
+        {(!videoReady || showBufferingSpinner) && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg pointer-events-none">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
             <span className="text-white text-sm mt-2">Ładowanie...</span>
