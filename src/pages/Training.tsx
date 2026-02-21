@@ -461,9 +461,13 @@ const Training = () => {
           let relevantLessonsCount = lessonsData?.length || 0;
           if (certIssuedAt && lessonsData) {
             const certDate = new Date(certIssuedAt);
-            relevantLessonsCount = lessonsData.filter(l => 
+            const filtered = lessonsData.filter(l => 
               new Date(l.created_at) <= certDate
             ).length;
+            // If filtering gives 0 but lessons exist, cert predates all content — use full count
+            if (filtered > 0) {
+              relevantLessonsCount = filtered;
+            }
           }
 
           // Get user progress if logged in
@@ -484,9 +488,11 @@ const Training = () => {
             // Count completed lessons - exclude lessons created after certificate if user has one
             if (certIssuedAt && progressData) {
               const certDate = new Date(certIssuedAt);
-              completedLessons = progressData.filter((p: any) => 
+              const filteredCompleted = progressData.filter((p: any) => 
                 new Date(p.lesson.created_at) <= certDate
               ).length;
+              // If filtering gives 0 but progress exists, cert predates all content — use full count
+              completedLessons = filteredCompleted > 0 ? filteredCompleted : (progressData?.length || 0);
             } else {
               completedLessons = progressData?.length || 0;
             }

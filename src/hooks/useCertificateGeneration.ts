@@ -391,6 +391,13 @@ export const useCertificateGeneration = () => {
         }
       }
 
+      // 7.5. Refresh session before upload (PDF generation may have taken long)
+      console.log('Step 4c: Refreshing session before upload...');
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.warn('Session refresh failed:', refreshError);
+      }
+
       // 8. Upload to storage
       console.log('Step 5: Uploading PDF to storage...');
       const pdfBlob = doc.output('blob');
