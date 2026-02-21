@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, Download, RefreshCw, AlertTriangle } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, RefreshCw, AlertTriangle, Mail, Info } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -44,11 +44,10 @@ const Training = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [hasRefreshReminder, setHasRefreshReminder] = useState(false);
-  const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string}}>({});
+  const [certificates, setCertificates] = useState<{[key: string]: {id: string, url: string, issuedAt: string, generatedAt: string | null, emailSentAt: string | null, lastRegeneratedAt: string | null}}>({});
   const { t, language } = useLanguage();
   const [trainingLanguage, setTrainingLanguage] = useState<string>(language);
   const { user, userRole } = useAuth();
@@ -137,23 +136,29 @@ const Training = () => {
     }
   };
 
-  const fetchCertificates = async (): Promise<{[key: string]: {id: string, url: string, issuedAt: string}}> => {
+  const fetchCertificates = async (): Promise<{[key: string]: {id: string, url: string, issuedAt: string, generatedAt: string | null, emailSentAt: string | null, lastRegeneratedAt: string | null}}> => {
     if (!user) return {};
 
     try {
       const { data, error } = await supabase
         .from('certificates')
-        .select('id, module_id, file_url, issued_at')
+        .select('id, module_id, file_url, issued_at, generated_at, email_sent_at, last_regenerated_at')
         .eq('user_id', user.id)
         .order('issued_at', { ascending: false });
 
       if (error) throw error;
 
-      const certMap: {[key: string]: {id: string, url: string, issuedAt: string}} = {};
-      // Only keep the newest certificate for each module
+      const certMap: {[key: string]: {id: string, url: string, issuedAt: string, generatedAt: string | null, emailSentAt: string | null, lastRegeneratedAt: string | null}} = {};
       data?.forEach(cert => {
         if (!certMap[cert.module_id]) {
-          certMap[cert.module_id] = { id: cert.id, url: cert.file_url, issuedAt: cert.issued_at };
+          certMap[cert.module_id] = { 
+            id: cert.id, 
+            url: cert.file_url, 
+            issuedAt: cert.issued_at,
+            generatedAt: cert.generated_at,
+            emailSentAt: cert.email_sent_at,
+            lastRegeneratedAt: cert.last_regenerated_at
+          };
         }
       });
       setCertificates(certMap);
@@ -168,11 +173,10 @@ const Training = () => {
   const handleGenerateCertificate = async (moduleId: string, moduleTitle: string) => {
     if (!user) return;
 
-    // Check if certificate already exists and has a valid file
-    if (certificates[moduleId] && certificates[moduleId].url !== 'downloaded-and-deleted') {
+    if (certificates[moduleId]) {
       toast({
         title: "Certyfikat już wygenerowany",
-        description: "Możesz go pobrać klikając przycisk 'Pobierz certyfikat'.",
+        description: "Certyfikat został już wygenerowany i wysłany na email.",
       });
       return;
     }
@@ -182,22 +186,20 @@ const Training = () => {
     try {
       toast({
         title: "Generowanie certyfikatu...",
-        description: "Trwa przygotowywanie certyfikatu.",
+        description: "Trwa przygotowywanie certyfikatu. Plik zostanie automatycznie pobrany.",
       });
 
-      // Generate without forceRegenerate (one-time only)
       const result = await generateCertificate(user.id, moduleId, moduleTitle, false);
 
       if (!result.success) {
         throw new Error(result.error || 'Błąd generowania certyfikatu');
       }
 
-      // Refresh certificates list
       await fetchCertificates();
 
       toast({
         title: "Sukces!",
-        description: "Certyfikat został wygenerowany. Możesz go teraz pobrać.",
+        description: "Certyfikat został wygenerowany, pobrany na komputer i wysłany na Twój email.",
       });
     } catch (error) {
       console.error('Error generating certificate:', error);
@@ -211,9 +213,24 @@ const Training = () => {
     }
   };
 
-  // Regenerate certificate with confirmation
+  // Regenerate certificate with 24h cooldown
   const handleRegenerateCertificate = async (moduleId: string, moduleTitle: string) => {
     if (!user) return;
+
+    // Check 24h cooldown
+    const cert = certificates[moduleId];
+    if (cert?.lastRegeneratedAt) {
+      const lastRegen = new Date(cert.lastRegeneratedAt);
+      const cooldownEnd = new Date(lastRegen.getTime() + 24 * 60 * 60 * 1000);
+      if (new Date() < cooldownEnd) {
+        toast({
+          title: "Regeneracja niedostępna",
+          description: `Regeneracja możliwa po ${cooldownEnd.toLocaleString('pl-PL')}. Skontaktuj się przez formularz w zakładce Wsparcie i Pomoc.`,
+          variant: "destructive"
+        });
+        return;
+      }
+    }
 
     setRegenerating(moduleId);
     
@@ -233,7 +250,7 @@ const Training = () => {
 
       toast({
         title: "Sukces!",
-        description: "Nowy certyfikat został wygenerowany.",
+        description: "Nowy certyfikat został wygenerowany, pobrany i wysłany na email.",
       });
     } catch (error) {
       console.error('Error regenerating certificate:', error);
@@ -247,138 +264,9 @@ const Training = () => {
     }
   };
 
-  // Download existing certificate (no regeneration)
-  const downloadCertificate = async (moduleId: string, moduleTitle: string) => {
-    const cert = certificates[moduleId];
-    if (!cert) return;
+  // downloadCertificate removed — files are auto-downloaded and deleted from storage
 
-    setDownloading(moduleId);
-    
-    try {
-      // Check if session is active before calling edge function
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        toast({
-          title: "Sesja wygasła",
-          description: "Zaloguj się ponownie, aby pobrać certyfikat.",
-          variant: "destructive"
-        });
-        setDownloading(null);
-        return;
-      }
-
-      let data, error;
-      
-      // First attempt
-      const result = await supabase.functions.invoke('get-certificate-url', {
-        body: { certificateId: cert.id }
-      });
-      
-      data = result.data;
-      error = result.error;
-
-      // If auth error, try to refresh session and retry
-      if (error || data?.sessionExpired) {
-        console.log('Auth error, attempting session refresh...');
-        const { error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          toast({
-            title: "Sesja wygasła",
-            description: "Zaloguj się ponownie, aby pobrać certyfikat.",
-            variant: "destructive"
-          });
-          setDownloading(null);
-          return;
-        }
-        
-        // Retry after refresh
-        const retryResult = await supabase.functions.invoke('get-certificate-url', {
-          body: { certificateId: cert.id }
-        });
-        
-        data = retryResult.data;
-        error = retryResult.error;
-        
-        if (error || data?.sessionExpired) {
-          throw new Error('Nie udało się odświeżyć sesji');
-        }
-      }
-
-      if (data?.url) {
-        const response = await fetch(data.url);
-        const blob = await response.blob();
-        
-        const filename = `certyfikat-${moduleTitle.replace(/[^a-zA-Z0-9]/g, '-')}.pdf`;
-        
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-
-        // Auto-delete certificate file from Storage after successful download
-        try {
-          if (cert.url && !cert.url.startsWith('pending') && !cert.url.startsWith('downloaded')) {
-            let filePath = cert.url;
-            // Extract path if it's a full URL
-            if (filePath.includes('/storage/v1/object/')) {
-              const parts = filePath.split('certificates/');
-              if (parts.length > 1) {
-                filePath = parts[1];
-              }
-            }
-            await supabase.storage.from('certificates').remove([filePath]);
-            await supabase.from('certificates').update({ file_url: 'downloaded-and-deleted' }).eq('id', cert.id);
-            // Update local state
-            setCertificates(prev => ({
-              ...prev,
-              [moduleId]: { ...prev[moduleId], url: 'downloaded-and-deleted' }
-            }));
-            console.log('Certificate file deleted from Storage after download');
-          }
-        } catch (cleanupError) {
-          console.warn('Could not clean up certificate file from Storage:', cleanupError);
-          // Don't fail the download if cleanup fails
-        }
-        
-        toast({
-          title: "Sukces",
-          description: "Certyfikat został pobrany.",
-        });
-      } else if (data?.deleted) {
-        toast({
-          title: "Certyfikat już pobrany",
-          description: "Użyj opcji 'Regeneruj certyfikat' aby wygenerować nowy.",
-          variant: "default"
-        });
-      } else if (data?.pending) {
-        toast({
-          title: "Certyfikat w trakcie generowania",
-          description: "Poczekaj chwilę i spróbuj ponownie.",
-          variant: "default"
-        });
-      } else if (data?.error) {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      console.error('Error downloading certificate:', error);
-      toast({
-        title: t('common.error'),
-        description: error instanceof Error ? error.message : "Nie udało się pobrać certyfikatu. Spróbuj odświeżyć stronę.",
-        variant: "destructive"
-      });
-    } finally {
-      setDownloading(null);
-    }
-  };
-
-  const fetchTrainingModules = async (certMap: {[key: string]: {id: string, url: string, issuedAt: string}} = certificates) => {
+  const fetchTrainingModules = async (certMap: {[key: string]: {id: string, url: string, issuedAt: string, generatedAt: string | null, emailSentAt: string | null, lastRegeneratedAt: string | null}} = certificates) => {
     try {
       // Get current user's profile to check if admin
       const { data: profile } = await supabase
@@ -763,50 +651,89 @@ const Training = () => {
                       </div>
 
                       {/* Certificate Section - Only show when 100% completed */}
-                      {progress === 100 && (
-                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <Award className="h-5 w-5 text-primary" />
-                              <span className="text-sm font-medium">
-                                {certDeleted
-                                  ? "Certyfikat pobrany — wygeneruj ponownie"
-                                  : hasCertificate 
-                                    ? "Certyfikat gotowy do pobrania" 
-                                    : "Certyfikat dostępny do wygenerowania"}
-                              </span>
-                            </div>
-                            
-                            {hasCertificate && !certDeleted ? (
-                              <div className="flex flex-col gap-1">
+                      {progress === 100 && (() => {
+                        const cert = certificates[module.id];
+                        const formatDate = (d: string | null) => d ? new Date(d).toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' }) : 'data nieznana';
+                        
+                        // Check 24h cooldown for regeneration
+                        const canRegenerate = !cert?.lastRegeneratedAt || 
+                          new Date().getTime() - new Date(cert.lastRegeneratedAt).getTime() > 24 * 60 * 60 * 1000;
+                        const cooldownEnd = cert?.lastRegeneratedAt 
+                          ? new Date(new Date(cert.lastRegeneratedAt).getTime() + 24 * 60 * 60 * 1000)
+                          : null;
+
+                        if (!hasCertificate) {
+                          // No certificate yet - show Generate button
+                          return (
+                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Award className="h-5 w-5 text-primary" />
+                                  <span className="text-sm font-medium">Certyfikat dostępny do wygenerowania</span>
+                                </div>
                                 <Button
                                   size="sm"
-                                  variant="ghost"
-                                  onClick={() => downloadCertificate(module.id, module.title)}
-                                  disabled={downloading === module.id}
+                                  onClick={() => handleGenerateCertificate(module.id, module.title)}
+                                  disabled={generating === module.id}
                                 >
-                                  {downloading === module.id ? (
+                                  {generating === module.id ? (
                                     <RefreshCw className="h-4 w-4 animate-spin" />
                                   ) : (
-                                    <Download className="h-4 w-4" />
+                                    <Award className="h-4 w-4" />
                                   )}
-                                  <span className="ml-2">Pobierz certyfikat</span>
+                                  <span className="ml-2">Wygeneruj</span>
                                 </Button>
-                                
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // Certificate exists - show info message + regenerate option
+                        return (
+                          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-3">
+                            {/* Status info */}
+                            <div className="flex items-start gap-2">
+                              <CheckCircle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                              <div className="text-sm space-y-1">
+                                <p className="font-medium">Certyfikat wygenerowany</p>
+                                <p className="text-muted-foreground">
+                                  Wygenerowano: {formatDate(cert.generatedAt)}
+                                </p>
+                                {cert.emailSentAt && (
+                                  <p className="text-muted-foreground flex items-center gap-1">
+                                    <Mail className="h-3 w-3" />
+                                    Email wysłany: {formatDate(cert.emailSentAt)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Instructions */}
+                            <div className="flex items-start gap-2 bg-muted/50 rounded p-2">
+                              <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                              <p className="text-xs text-muted-foreground">
+                                Sprawdź skrzynkę poczty email oraz folder spam. Jeśli nie znalazłeś wiadomości, 
+                                skontaktuj się poprzez formularz w zakładce <strong>Wsparcie i Pomoc</strong> z Support Pure Life Center.
+                              </p>
+                            </div>
+
+                            {/* Regenerate button with 24h cooldown */}
+                            <div className="pt-1">
+                              {canRegenerate ? (
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
                                     <Button
                                       size="sm"
-                                      variant="destructive"
-                                      className="text-xs h-7"
+                                      variant="outline"
+                                      className="text-xs h-7 w-full"
                                       disabled={regenerating === module.id}
                                     >
                                       {regenerating === module.id ? (
-                                        <RefreshCw className="h-3 w-3 animate-spin" />
+                                        <RefreshCw className="h-3 w-3 animate-spin mr-1" />
                                       ) : (
-                                        <RefreshCw className="h-3 w-3" />
+                                        <RefreshCw className="h-3 w-3 mr-1" />
                                       )}
-                                      <span className="ml-1">Regeneruj certyfikat</span>
+                                      Regeneruj certyfikat
                                     </Button>
                                   </AlertDialogTrigger>
                                   <AlertDialogContent>
@@ -814,38 +741,30 @@ const Training = () => {
                                       <AlertDialogTitle>Regeneruj certyfikat</AlertDialogTitle>
                                       <AlertDialogDescription>
                                         Czy na pewno chcesz wygenerować nowy certyfikat? 
-                                        Poprzedni certyfikat zostanie zastąpiony.
+                                        Plik zostanie pobrany automatycznie i wysłany na email. 
+                                        Ponowna regeneracja będzie możliwa po 24 godzinach.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>Anuluj</AlertDialogCancel>
                                       <AlertDialogAction
                                         onClick={() => handleRegenerateCertificate(module.id, module.title)}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                       >
                                         Tak, regeneruj
                                       </AlertDialogAction>
                                     </AlertDialogFooter>
                                   </AlertDialogContent>
                                 </AlertDialog>
-                              </div>
-                            ) : (
-                              <Button
-                                size="sm"
-                                onClick={() => handleGenerateCertificate(module.id, module.title)}
-                                disabled={generating === module.id}
-                              >
-                                {generating === module.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Award className="h-4 w-4" />
-                                )}
-                                <span className="ml-2">Wygeneruj</span>
-                              </Button>
-                            )}
+                              ) : (
+                                <p className="text-xs text-muted-foreground text-center">
+                                  Regeneracja możliwa po {cooldownEnd?.toLocaleString('pl-PL')}. 
+                                  Skontaktuj się przez formularz w zakładce <strong>Wsparcie i Pomoc</strong>.
+                                </p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Action Button */}
                       <Button 

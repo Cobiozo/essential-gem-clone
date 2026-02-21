@@ -415,12 +415,28 @@ export const useCertificateGeneration = () => {
         throw new Error(`Upload error: ${uploadError.message}`);
       }
 
-      // For private bucket - store only file path, not full URL
       const filePath = fileName;
       console.log('✅ PDF uploaded, file path:', filePath);
 
-      // 9. Save certificate record
+      // 8.5. Auto-download PDF to user's computer
+      console.log('Step 5b: Auto-downloading PDF...');
+      try {
+        const downloadUrl = URL.createObjectURL(pdfBlob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = downloadUrl;
+        downloadLink.download = `certyfikat-${moduleTitle.replace(/[^a-zA-Z0-9ąćęłńóśżźĄĆĘŁŃÓŚŻŹ ]/g, '-')}.pdf`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(downloadUrl);
+        console.log('✅ PDF auto-downloaded');
+      } catch (dlError) {
+        console.warn('⚠️ Auto-download failed:', dlError);
+      }
+
+      // 9. Save certificate record with generated_at
       console.log('Step 6: Saving certificate record...');
+      const nowIso = new Date().toISOString();
       const { data: certificate, error: certError } = await supabase
         .from('certificates')
         .insert({
@@ -428,6 +444,8 @@ export const useCertificateGeneration = () => {
           module_id: moduleId,
           issued_by: userId,
           file_url: filePath,
+          generated_at: nowIso,
+          ...(forceRegenerate ? { last_regenerated_at: nowIso } : {})
         })
         .select()
         .single();
@@ -465,12 +483,22 @@ export const useCertificateGeneration = () => {
         console.warn('Warning: Email sending failed:', emailError);
       }
 
+      // 12. Delete PDF from storage (file already downloaded + emailed)
+      console.log('Step 8: Deleting PDF from storage...');
+      try {
+        await supabase.storage.from('certificates').remove([filePath]);
+        await supabase.from('certificates').update({ file_url: 'downloaded-and-deleted' }).eq('id', certificate.id);
+        console.log('✅ PDF deleted from storage');
+      } catch (cleanupError) {
+        console.warn('⚠️ Storage cleanup failed:', cleanupError);
+      }
+
       console.log('=== CERTIFICATE GENERATION COMPLETE ===');
       
       return {
         success: true,
         certificateId: certificate.id,
-        certificateUrl: filePath
+        certificateUrl: 'downloaded-and-deleted'
       };
 
     } catch (error) {

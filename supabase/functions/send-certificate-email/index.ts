@@ -42,7 +42,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
   ]);
 }
 
-// Real SMTP email sending - copied from send-group-email
+// Real SMTP email sending
 async function sendSmtpEmail(
   settings: SmtpSettings,
   to: string,
@@ -60,113 +60,67 @@ async function sendSmtpEmail(
   let conn: Deno.TlsConn | Deno.TcpConn | null = null;
   
   try {
-    // Connect based on encryption type
     if (smtp_encryption === 'ssl') {
       conn = await withTimeout(
-        Deno.connectTls({
-          hostname: smtp_host,
-          port: smtp_port,
-        }),
-        15000,
-        'SSL connection timeout'
+        Deno.connectTls({ hostname: smtp_host, port: smtp_port }),
+        15000, 'SSL connection timeout'
       );
     } else {
       conn = await withTimeout(
-        Deno.connect({
-          hostname: smtp_host,
-          port: smtp_port,
-        }),
-        15000,
-        'TCP connection timeout'
+        Deno.connect({ hostname: smtp_host, port: smtp_port }),
+        15000, 'TCP connection timeout'
       );
     }
     
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     
-    // Helper to read response
     const readResponse = async (): Promise<string> => {
       const buffer = new Uint8Array(4096);
-      const bytesRead = await withTimeout(
-        conn!.read(buffer),
-        10000,
-        'Read timeout'
-      );
+      const bytesRead = await withTimeout(conn!.read(buffer), 10000, 'Read timeout');
       if (bytesRead === null) return '';
       return decoder.decode(buffer.subarray(0, bytesRead));
     };
     
-    // Helper to send command
     const sendCommand = async (command: string): Promise<string> => {
       await conn!.write(encoder.encode(command + "\r\n"));
       return await readResponse();
     };
     
-    // Read greeting
     const greeting = await readResponse();
     console.log(`[SMTP] Greeting: ${greeting.trim()}`);
+    if (!greeting.startsWith('220')) throw new Error(`Invalid SMTP greeting: ${greeting}`);
     
-    if (!greeting.startsWith('220')) {
-      throw new Error(`Invalid SMTP greeting: ${greeting}`);
-    }
-    
-    // EHLO
     const ehloResponse = await sendCommand(`EHLO ${smtp_host}`);
-    console.log(`[SMTP] EHLO response received`);
+    if (!ehloResponse.includes('250')) throw new Error(`EHLO failed: ${ehloResponse}`);
     
-    if (!ehloResponse.includes('250')) {
-      throw new Error(`EHLO failed: ${ehloResponse}`);
-    }
-    
-    // Handle STARTTLS if needed
     if (smtp_encryption === 'starttls' && ehloResponse.includes('STARTTLS')) {
       const starttlsResponse = await sendCommand('STARTTLS');
       if (starttlsResponse.startsWith('220')) {
-        // Upgrade connection to TLS
         conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: smtp_host });
-        // Re-send EHLO after STARTTLS
         await sendCommand(`EHLO ${smtp_host}`);
       }
     }
     
-    // AUTH LOGIN
     const authResponse = await sendCommand('AUTH LOGIN');
-    if (!authResponse.startsWith('334')) {
-      throw new Error(`AUTH LOGIN failed: ${authResponse}`);
-    }
+    if (!authResponse.startsWith('334')) throw new Error(`AUTH LOGIN failed: ${authResponse}`);
     
-    // Send username (base64 - ASCII)
     const userResponse = await sendCommand(base64EncodeAscii(smtp_username));
-    if (!userResponse.startsWith('334')) {
-      throw new Error(`Username rejected: ${userResponse}`);
-    }
+    if (!userResponse.startsWith('334')) throw new Error(`Username rejected: ${userResponse}`);
     
-    // Send password (base64 - ASCII)
     const passResponse = await sendCommand(base64EncodeAscii(smtp_password));
-    if (!passResponse.startsWith('235')) {
-      throw new Error(`Authentication failed: ${passResponse}`);
-    }
+    if (!passResponse.startsWith('235')) throw new Error(`Authentication failed: ${passResponse}`);
     console.log(`[SMTP] Authentication successful`);
     
-    // MAIL FROM
     const mailFromResponse = await sendCommand(`MAIL FROM:<${fromEmail}>`);
-    if (!mailFromResponse.startsWith('250')) {
-      throw new Error(`MAIL FROM rejected: ${mailFromResponse}`);
-    }
+    if (!mailFromResponse.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResponse}`);
     
-    // RCPT TO
     const rcptToResponse = await sendCommand(`RCPT TO:<${to}>`);
-    if (!rcptToResponse.startsWith('250')) {
-      throw new Error(`RCPT TO rejected: ${rcptToResponse}`);
-    }
+    if (!rcptToResponse.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptToResponse}`);
     
-    // DATA
     const dataResponse = await sendCommand('DATA');
-    if (!dataResponse.startsWith('354')) {
-      throw new Error(`DATA command rejected: ${dataResponse}`);
-    }
+    if (!dataResponse.startsWith('354')) throw new Error(`DATA command rejected: ${dataResponse}`);
     
-    // Build email message with UTF-8 encoding for content
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const emailMessage = [
       `From: =?UTF-8?B?${base64EncodeUtf8(fromName)}?= <${fromEmail}>`,
@@ -193,13 +147,9 @@ async function sendSmtpEmail(
     ].join('\r\n');
     
     const endDataResponse = await sendCommand(emailMessage);
-    if (!endDataResponse.startsWith('250')) {
-      throw new Error(`Email data rejected: ${endDataResponse}`);
-    }
+    if (!endDataResponse.startsWith('250')) throw new Error(`Email data rejected: ${endDataResponse}`);
     
     console.log(`[SMTP] Email sent successfully to ${to}`);
-    
-    // QUIT
     await sendCommand('QUIT');
     
     return { success: true };
@@ -209,9 +159,7 @@ async function sendSmtpEmail(
     return { success: false, error: error.message };
   } finally {
     if (conn) {
-      try {
-        conn.close();
-      } catch (_) {}
+      try { conn.close(); } catch (_) {}
     }
   }
 }
@@ -225,9 +173,7 @@ serve(async (req) => {
     console.log('[send-certificate-email] Starting...');
     
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
+    if (!authHeader) throw new Error('No authorization header');
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -240,8 +186,7 @@ serve(async (req) => {
       throw new Error('userId, moduleId, and certificateId are required');
     }
 
-    // 1. Get SMTP settings from database (same as send-group-email)
-    console.log('[send-certificate-email] Fetching SMTP settings from database...');
+    // 1. Get SMTP settings
     const { data: smtpSettings, error: smtpError } = await supabaseAdmin
       .from('smtp_settings')
       .select('*')
@@ -249,13 +194,10 @@ serve(async (req) => {
       .single();
 
     if (smtpError || !smtpSettings) {
-      console.error('[send-certificate-email] SMTP settings error:', smtpError);
       throw new Error('Brak aktywnej konfiguracji SMTP. Skonfiguruj ustawienia SMTP w panelu administracyjnym.');
     }
-    console.log(`[send-certificate-email] SMTP settings loaded: ${smtpSettings.smtp_host}:${smtpSettings.smtp_port}`);
 
     // 2. Get user email
-    console.log('[send-certificate-email] Fetching user profile...');
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('email, first_name, last_name')
@@ -263,7 +205,6 @@ serve(async (req) => {
       .single();
 
     if (profileError || !profile?.email) {
-      console.error('[send-certificate-email] Profile error:', profileError);
       throw new Error('User profile or email not found');
     }
 
@@ -272,10 +213,7 @@ serve(async (req) => {
       ? `${profile.first_name} ${profile.last_name}` 
       : profile.email);
 
-    console.log(`[send-certificate-email] Sending to: ${userEmail}, name: ${displayName}`);
-
     // 3. Get certificate file path
-    console.log('[send-certificate-email] Fetching certificate...');
     const { data: certificate, error: certError } = await supabaseAdmin
       .from('certificates')
       .select('file_url')
@@ -283,42 +221,27 @@ serve(async (req) => {
       .single();
 
     if (certError || !certificate?.file_url) {
-      console.error('[send-certificate-email] Certificate error:', certError);
       throw new Error('Certificate not found');
     }
 
-    // Check if file_url is a placeholder
     if (certificate.file_url.startsWith('pending-generation')) {
-      console.error('[send-certificate-email] Certificate is still pending generation');
       throw new Error('Certificate is still being generated');
     }
 
-    // Extract file path from URL if it's a full URL
     let filePath = certificate.file_url;
-    console.log('[send-certificate-email] Original file_url:', filePath);
-    
     if (filePath.includes('/storage/v1/object/')) {
-      // Extract path after 'certificates/'
       const parts = filePath.split('certificates/');
-      if (parts.length > 1) {
-        filePath = parts[1];
-      }
+      if (parts.length > 1) filePath = parts[1];
     }
-    console.log('[send-certificate-email] Extracted file path:', filePath);
 
-    // 4. Generate signed URL for certificate (valid for 7 days)
-    console.log('[send-certificate-email] Generating signed URL...');
+    // 4. Generate signed URL (valid for 7 days)
     const { data: signedUrlData, error: urlError } = await supabaseAdmin.storage
       .from('certificates')
-      .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days
+      .createSignedUrl(filePath, 60 * 60 * 24 * 7);
 
-    if (urlError) {
-      console.error('[send-certificate-email] Signed URL error:', urlError);
-      throw new Error('Failed to generate certificate download URL');
-    }
+    if (urlError) throw new Error('Failed to generate certificate download URL');
 
     const downloadUrl = signedUrlData.signedUrl;
-    console.log('[send-certificate-email] Signed URL generated successfully');
 
     // 5. Build email content
     const emailSubject = `🎉 Gratulacje! Twój certyfikat ukończenia szkolenia "${moduleTitle}"`;
@@ -366,24 +289,38 @@ serve(async (req) => {
       </html>
     `;
 
-    // 6. Send email via SMTP (using the same function as send-group-email)
-    console.log('[send-certificate-email] Sending email via SMTP...');
-    const result = await sendSmtpEmail(
-      smtpSettings,
-      userEmail,
-      emailSubject,
-      emailBody,
-      smtpSettings.sender_name
-    );
+    // 6. Send email to user via SMTP
+    console.log('[send-certificate-email] Sending email to user...');
+    const result = await sendSmtpEmail(smtpSettings, userEmail, emailSubject, emailBody, smtpSettings.sender_name);
 
     if (!result.success) {
-      console.error('[send-certificate-email] SMTP send failed:', result.error);
       throw new Error(`Failed to send email: ${result.error}`);
     }
+    console.log('[send-certificate-email] ✅ Email sent to user');
 
-    console.log('[send-certificate-email] ✅ Email sent successfully via SMTP');
+    // 7. Send CC copy to support@purelife.info.pl
+    const supportEmail = 'support@purelife.info.pl';
+    const supportSubject = `[KOPIA] Certyfikat: ${displayName} - "${moduleTitle}"`;
+    console.log(`[send-certificate-email] Sending CC to ${supportEmail}...`);
+    
+    const ccResult = await sendSmtpEmail(smtpSettings, supportEmail, supportSubject, emailBody, smtpSettings.sender_name);
+    
+    if (!ccResult.success) {
+      console.warn(`[send-certificate-email] ⚠️ CC to support failed: ${ccResult.error}`);
+      // Don't throw - CC failure should not block the main flow
+    } else {
+      console.log('[send-certificate-email] ✅ CC sent to support');
+    }
 
-    // 7. Log the email
+    // 8. Update email_sent_at in certificates table
+    const emailSentAt = new Date().toISOString();
+    await supabaseAdmin
+      .from('certificates')
+      .update({ email_sent_at: emailSentAt })
+      .eq('id', certificateId);
+    console.log('[send-certificate-email] ✅ email_sent_at updated');
+
+    // 9. Log the email
     await supabaseAdmin
       .from('email_logs')
       .insert({
@@ -391,15 +328,14 @@ serve(async (req) => {
         recipient_user_id: userId,
         subject: emailSubject,
         status: 'sent',
-        sent_at: new Date().toISOString(),
-        metadata: { certificateId, moduleId, moduleTitle, method: 'smtp' }
+        sent_at: emailSentAt,
+        metadata: { certificateId, moduleId, moduleTitle, method: 'smtp', cc_support: ccResult.success }
       });
-
-    console.log('[send-certificate-email] ✅ Email logged successfully');
 
     return new Response(JSON.stringify({
       success: true,
-      message: 'Certificate email sent successfully via SMTP'
+      message: 'Certificate email sent successfully via SMTP',
+      emailSentAt
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
