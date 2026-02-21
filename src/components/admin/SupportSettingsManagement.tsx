@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Save, Loader2, Pencil, GripVertical, Info } from 'lucide-react';
+import { Loader2, Pencil, GripVertical, Info, Check, AlertCircle } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { IconPicker } from '@/components/cms/IconPicker';
 import {
@@ -411,6 +411,9 @@ export const SupportSettingsManagement: React.FC = () => {
   const [settings, setSettings] = useState<SupportSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const isInitialLoad = useRef(true);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -479,12 +482,13 @@ export const SupportSettingsManagement: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!settings) return;
 
     setSaving(true);
+    setSaveStatus('saving');
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('support_settings')
         .update({
           header_title: settings.header_title,
@@ -520,18 +524,52 @@ export const SupportSettingsManagement: React.FC = () => {
           cards_order: settings.cards_order as unknown as Json,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', settings.id);
+        .eq('id', settings.id)
+        .select()
+        .maybeSingle();
 
       if (error) throw error;
 
-      toast.success('Ustawienia zapisane');
+      if (!data) {
+        setSaveStatus('error');
+        toast.error('Nie udało się zapisać. Sprawdź czy jesteś zalogowany jako administrator.');
+        return;
+      }
+
+      setSaveStatus('saved');
     } catch (error) {
       console.error('Error saving support settings:', error);
+      setSaveStatus('error');
       toast.error('Błąd podczas zapisywania ustawień');
     } finally {
       setSaving(false);
     }
-  };
+  }, [settings]);
+
+  // Debounced auto-save
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    if (!settings) return;
+
+    setSaveStatus('idle');
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      handleSave();
+    }, 1000);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [settings, handleSave]);
 
   const updateField = <K extends keyof SupportSettings>(field: K, value: SupportSettings[K]) => {
     if (!settings) return;
@@ -626,19 +664,26 @@ export const SupportSettingsManagement: React.FC = () => {
             Kliknij na element aby edytować • Przeciągnij karty aby zmienić kolejność
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+        <div className="flex items-center gap-2 text-sm">
+          {saveStatus === 'saving' && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
               Zapisywanie...
-            </>
-          ) : (
-            <>
-              <Save className="mr-2 h-4 w-4" />
-              Zapisz zmiany
-            </>
+            </span>
           )}
-        </Button>
+          {saveStatus === 'saved' && (
+            <span className="flex items-center gap-1.5 text-green-600">
+              <Check className="h-4 w-4" />
+              Zapisano
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="flex items-center gap-1.5 text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              Błąd zapisu
+            </span>
+          )}
+        </div>
       </div>
 
       {/* WYSIWYG Preview */}
