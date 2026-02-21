@@ -5970,6 +5970,7 @@ export type Database = {
         Row: {
           cards_order: Json | null
           created_at: string | null
+          custom_blocks: Json | null
           custom_cards: Json | null
           custom_form_fields: Json | null
           custom_info_boxes: Json | null
@@ -6009,6 +6010,7 @@ export type Database = {
         Insert: {
           cards_order?: Json | null
           created_at?: string | null
+          custom_blocks?: Json | null
           custom_cards?: Json | null
           custom_form_fields?: Json | null
           custom_info_boxes?: Json | null
@@ -6048,6 +6050,7 @@ export type Database = {
         Update: {
           cards_order?: Json | null
           created_at?: string | null
+          custom_blocks?: Json | null
           custom_cards?: Json | null
           custom_form_fields?: Json | null
           custom_info_boxes?: Json | null
