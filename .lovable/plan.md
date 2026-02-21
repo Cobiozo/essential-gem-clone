@@ -1,97 +1,91 @@
 
 
-# Rozbudowany edytor "Wsparcie i pomoc" - dynamiczne dodawanie elementow
+# Uniwersalny edytor blokowy "Wsparcie i pomoc"
 
 ## Problem
 
-Obecnie edytor ma sztywno zakodowane 3 karty (Email, Telefon, Godziny pracy) i 4 pola formularza. Nie mozna dodawac nowych kart, pol, boxow informacyjnych ani przyciskow. Kazda karta ma dedykowane kolumny w bazie danych, co uniemozliwia rozszerzanie.
+Obecnie edytor ma sztywna strukture: naglowek na gorze, karty pod nim, boxy informacyjne nizej, formularz na dole. Kazda kategoria elementow (karty, pola, boxy) jest sortowalna tylko w obrebie swojej grupy. Nie mozna dodac dodatkowego naglowka pomiedzy kartami a formularzem, ani przesunac boxu informacyjnego nad karty.
 
 ## Rozwiazanie
 
-Przejsc z indywidualnych kolumn na dynamiczne tablice JSONB w bazie danych. Dzieki temu administrator bedzie mogl:
-- Dodawac/usuwac karty kontaktowe (np. WhatsApp, Messenger, Adres biura)
-- Dodawac/usuwac pola formularza
-- Dodawac/usuwac boxy informacyjne
-- Zarzadzac przyciskami
+Zastapic 3 oddzielne tablice JSONB (`custom_cards`, `custom_form_fields`, `custom_info_boxes`) **jedna ujednolicona tablica blokow** (`custom_blocks`), gdzie kazdy blok ma `type` okreslajacy jego rodzaj. Wszystkie bloki sa w jednej liscie, sortowalne drag-and-drop pomiedzy soba.
+
+## Dostepne typy blokow
+
+| Typ | Opis | Pola |
+|---|---|---|
+| `heading` | Naglowek (H1-H3) | text, level (h1/h2/h3), alignment |
+| `text` | Opis / paragraf | text, alignment |
+| `cards_group` | Grupa kart kontaktowych | cards[] (tablica kart jak dotychczas) |
+| `info_box` | Box informacyjny | icon, title, content, visible |
+| `form` | Formularz z polami | title, fields[], submit_text, success_msg, error_msg |
+| `button` | Samodzielny przycisk/link | text, url, icon, variant |
 
 ## Zmiany w bazie danych
 
-Dodac 3 nowe kolumny JSONB do tabeli `support_settings`:
+Nowa kolumna JSONB w tabeli `support_settings`:
 
-| Kolumna | Typ | Opis |
-|---|---|---|
-| `custom_cards` | jsonb | Tablica dynamicznych kart kontaktowych |
-| `custom_form_fields` | jsonb | Tablica dynamicznych pol formularza |
-| `custom_info_boxes` | jsonb | Tablica dynamicznych boxow informacyjnych |
-
-Struktura `custom_cards`:
 ```text
-[
-  { "id": "card_1", "icon": "Mail", "label": "Email", "value": "support@...", "visible": true, "position": 0 },
-  { "id": "card_2", "icon": "Phone", "label": "Telefon", "value": "+48...", "visible": true, "position": 1 },
-  { "id": "card_3", "icon": "MessageCircle", "label": "WhatsApp", "value": "+48...", "visible": true, "position": 2 }
-]
+custom_blocks jsonb DEFAULT '[]'::jsonb
 ```
 
-Struktura `custom_form_fields`:
+Struktura bloku:
 ```text
-[
-  { "id": "field_1", "label": "Imie i nazwisko", "placeholder": "Jan Kowalski", "type": "input", "required": true, "position": 0, "width": "half" },
-  { "id": "field_2", "label": "Email", "placeholder": "jan@example.com", "type": "input", "required": true, "position": 1, "width": "half" },
-  { "id": "field_3", "label": "Temat", "placeholder": "W czym mozemy pomoc?", "type": "input", "required": true, "position": 2, "width": "full" },
-  { "id": "field_4", "label": "Wiadomosc", "placeholder": "Opisz problem...", "type": "textarea", "required": true, "position": 3, "width": "full" }
-]
+{
+  "id": "block_abc123",
+  "type": "heading",
+  "position": 0,
+  "visible": true,
+  "data": { ... }  // dane specyficzne dla typu
+}
 ```
 
-Struktura `custom_info_boxes`:
-```text
-[
-  { "id": "box_1", "icon": "Info", "title": "Informacja", "content": "Odpowiedz moze...", "visible": true, "position": 0 }
-]
-```
-
-## Migracja danych
-
-Przy pierwszym zaladowaniu, jesli `custom_cards` jest puste, system automatycznie zmigruje dane z istniejacych kolumn (email_address, phone_number, working_hours itd.) do nowej struktury JSONB. Stare kolumny pozostana w bazie dla kompatybilnosci wstecznej.
+Migracja: automatyczna konwersja istniejacych danych z `custom_cards`, `custom_form_fields`, `custom_info_boxes` do jednej tablicy `custom_blocks` przy pierwszym uruchomieniu.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| Migracja SQL | ALTER TABLE: dodac 3 kolumny JSONB z wartosciami domyslnymi |
-| `src/components/admin/SupportSettingsManagement.tsx` | Przepisac na dynamiczne tablice z przyciskami "Dodaj karte", "Dodaj pole", "Dodaj box". Karty i pola sortowalne drag-and-drop, usuwalne, edytowalne inline |
-| `src/components/support/SupportFormDialog.tsx` | Renderowac karty, pola i boxy z tablic JSONB zamiast ze sztywnych kolumn |
+| Migracja SQL | Dodac kolumne `custom_blocks` + migracja danych z 3 starych kolumn |
+| `src/components/admin/SupportSettingsManagement.tsx` | Przepisac na system blokowy: jedna lista sortowalna, przycisk "+ Dodaj blok" z menu wyboru typu, kazdy blok edytowalny przez popover |
+| `src/components/support/SupportFormDialog.tsx` | Renderowac bloki z `custom_blocks` zamiast z 3 oddzielnych tablic |
 
 ## Szczegoly techniczne - Edytor admina
 
-### Panel kart kontaktowych
-- Przycisk "+ Dodaj karte" pod siatka kart
-- Kazda karta: ikona, etykieta, wartosc, widocznosc, usuwanie (ikona kosza)
-- Drag-and-drop sortowanie (juz istniejacy mechanizm)
-- Minimum 0 kart, brak gornego limitu
+### Przycisk dodawania
+- Przycisk "+ Dodaj blok" na dole listy
+- Po kliknieciu rozwija sie menu z dostepnymi typami (Naglowek, Tekst, Karty, Box informacyjny, Formularz, Przycisk)
+- Nowy blok dodawany na koncu listy
 
-### Panel pol formularza
-- Przycisk "+ Dodaj pole" pod polami
-- Kazde pole: etykieta, placeholder, typ (input/textarea), wymagane (tak/nie), szerokosc (polowa/cala)
-- Drag-and-drop sortowanie
-- Przycisk usuwania na kazdym polu
-- Minimum 1 pole
+### Drag-and-drop
+- Jedna wspolna lista DnD dla wszystkich blokow
+- Kazdy blok ma uchwyt do przeciagania (GripVertical)
+- Bloki mozna dowolnie przesuwac wzgledem siebie
 
-### Panel boxow informacyjnych
-- Przycisk "+ Dodaj box" pod boxami
-- Kazdy box: ikona, tytul, tresc, widocznosc
-- Mozliwosc usuwania i sortowania
+### Edycja blokow
+- Klikniecie otwiera popover z polami specyficznymi dla danego typu
+- Naglowek: tekst + poziom (h1/h2/h3) + wyrownanie
+- Tekst: tresc (textarea) + wyrownanie
+- Karty: wewnetrzna lista kart z mozliwoscia dodawania/usuwania (jak dotychczas, ale zagniezdzona)
+- Box: ikona + tytul + tresc + widocznosc
+- Formularz: tytul + lista pol + przycisk wysylania (jak dotychczas, ale jako blok)
+- Przycisk: tekst + URL + ikona + wariant (primary/outline/ghost)
 
-### Przycisk wysylania
-- Edytowalny tekst, komunikat sukcesu i bledu (bez zmian)
+### Usuwanie i widocznosc
+- Ikona kosza w popoverze kazdego bloku
+- Przelacznik widocznosci dla kazdego bloku
 
 ### Auto-save
-- Caly stan (wlacznie z tablicami JSONB) zapisywany automatycznie z debounce 1s (istniejacy mechanizm)
+- Ten sam mechanizm debounce 1s, zapisujacy `custom_blocks` do bazy
 
-## Szczegoly techniczne - Strona uzytkownika (SupportFormDialog)
+## Szczegoly techniczne - Strona uzytkownika
 
-- Renderowanie kart z `custom_cards` zamiast hardkodowanych case-switch
-- Renderowanie pol formularza z `custom_form_fields` z dynamicznym `formData`
-- Renderowanie boxow z `custom_info_boxes`
-- Kompatybilnosc wsteczna: jesli `custom_cards` jest puste, uzyj starych kolumn
+- Iteracja po `custom_blocks` posortowanych wg `position`
+- Filtrowanie `visible === true`
+- Renderowanie odpowiedniego komponentu na podstawie `type`
+- Formularz zbiera dane z blokow typu `form` i wysyla email
+
+## Kompatybilnosc wsteczna
+
+Jesli `custom_blocks` jest puste ale stare kolumny (`custom_cards`, `custom_form_fields`, `custom_info_boxes`) maja dane, system automatycznie zbuduje tablice blokow ze starych danych i zapisze ja.
 
