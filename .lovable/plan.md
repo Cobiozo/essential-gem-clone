@@ -1,152 +1,179 @@
 
-# Web Push dla szkolen, wydarzen i spotkan + naprawa problemow
+# Naprawa systemu emaili dla spotkan indywidualnych
 
-## Aktualny stan
+## Zidentyfikowane problemy
 
-Push notifications sa skonfigurowane (VAPID, Service Worker, `send-push-notification` Edge Function), ale wywolywane **tylko z panelu testowego admina**. Zadne realne zdarzenia (szkolenia, webinary, spotkania, czat) nie wysylaja Push. System `useEventSystem` (przetwarzanie eventow po stronie klienta) nie jest nigdzie uzywany w komponentach.
+### Problem 1: BookMeetingDialog uzywa blednego event_type
+Plik `BookMeetingDialog.tsx` (linia 201) tworzy wydarzenia z `event_type: 'private_meeting'` zamiast `'meeting_private'`. To powoduje, ze spotkania te nie sa widoczne w zadnym filtrze ani w systemie przypomnien.
 
-## Problemy do rozwiazania
+### Problem 2: Brak wysylki emaili po rezerwacji (oba dialogi)
+- `BookMeetingDialog.tsx` — po zarezerwowaniu spotkania NIE wywoluje `send-notification-email`. Brak jakiegokolwiek powiadomienia email.
+- `useLeaderAvailability.ts` `bookMeeting()` — ten sam problem, brak emaili po rezerwacji.
 
-1. **Push nigdzie nie wywolywany** - Edge Function `send-push-notification` istnieje, ale nie jest wywolywana z zadnego flow produkcyjnego
-2. **useEventSystem dziala client-side** - jesli uzytkownik zamknie przegladarke przed przetworzeniem, powiadomienia nie powstana
-3. **Brak Push w szkoleniach, webinarach i spotkaniach** - tylko email
+### Problem 3: send-meeting-reminders pomija meeting_private
+Edge Function `send-meeting-reminders` filtruje tylko `tripartite_meeting` i `partner_consultation` (linia 189). Spotkania indywidualne (`meeting_private`) sa calkowicie pominiete.
 
-## Rozwiazanie
+### Problem 4: Brak przypomnienia 24h
+Szablon `meeting_reminder_24h` istnieje w bazie, ale nigdzie nie jest uzywany. Przypomnienia sa wysylane tylko 1h i 15min przed spotkaniem.
 
-Dodac wywolania `send-push-notification` do istniejacych Edge Functions serwerowych, ktore juz przetwarzaja powiadomienia. Dzieki temu Push bedzie wysylany **obok emaila**, niezaleznie od stanu przegladarki uzytkownika.
+### Problem 5: BookMeetingDialog nie rejestruje hosta
+`useLeaderAvailability.ts` rejestruje tylko uzytkownika rezerwujacego, ale nie hosta. Host nie pojawi sie w `event_registrations`, wiec nie dostanie przypomnien.
+
+## Plan napraw
+
+### 1. Naprawic event_type w BookMeetingDialog.tsx
+Zmienic `'private_meeting'` na `'meeting_private'` (linia 201).
+
+### 2. Dodac wysylke emaili po rezerwacji w BookMeetingDialog.tsx
+Po utworzeniu wydarzenia i rejestracji, dodac wywolania `send-notification-email`:
+- Do hosta (lidera): szablon `meeting_booked` z danymi rezerwujacego
+- Do rezerwujacego: szablon `meeting_confirmed` z danymi lidera
+
+### 3. Dodac wysylke emaili w useLeaderAvailability.ts bookMeeting()
+Analogicznie — po utworzeniu eventu i rejestracji, wyslac emaile do obu stron. Dodatkowo zarejestrowac hosta w `event_registrations`.
+
+### 4. Rozszerzyc send-meeting-reminders o meeting_private
+Dodac `'meeting_private'` do filtra `event_type` w zapytaniu (linia 189). Dodac okno czasowe 24h (23h-25h przed spotkaniem) i uzyc szablonu `meeting_reminder_24h`.
+
+### 5. Dodac rejestracje hosta w BookMeetingDialog.tsx
+Po rejestracji uzytkownika dodac insert do `event_registrations` dla hosta (lidera), aby system przypomnien go uwzglednial.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `supabase/functions/process-pending-notifications/index.ts` | Dodac wywolania `send-push-notification` przy: (1) przypisaniu szkolenia, (2) przypomnieniu o szkoleniu, (3) przypomnieniu webinarowym 24h i 1h |
-| `supabase/functions/send-meeting-reminders/index.ts` | Dodac wywolanie `send-push-notification` dla kazdego uczestnika spotkania indywidualnego przy przypomnieniu 1h i 15min |
-| `supabase/functions/send-chat-notification-email/index.ts` | Dodac wywolanie `send-push-notification` gdy uzytkownik jest offline (razem z emailem lub zamiast jesli nie ma emaila) |
+| `src/components/events/BookMeetingDialog.tsx` | Naprawic event_type na `meeting_private`, dodac rejestracje hosta, dodac wysylke 2 emaili (meeting_booked + meeting_confirmed) |
+| `src/hooks/useLeaderAvailability.ts` | Dodac rejestracje hosta w event_registrations, dodac wysylke 2 emaili po rezerwacji |
+| `supabase/functions/send-meeting-reminders/index.ts` | Dodac `meeting_private` do filtra event_type, dodac okno 24h z szablonem `meeting_reminder_24h` |
 
 ## Szczegoly techniczne
 
-### 1. Szkolenia - nowe przypisanie (`process-pending-notifications`)
-
-Po wyslaniu emaila o nowym szkoleniu, dodac:
+### BookMeetingDialog.tsx — zmiany
 
 ```text
-await supabase.functions.invoke("send-push-notification", {
-  body: {
-    userId: assignment.user_id,
-    title: "Nowe szkolenie",
-    body: `Przypisano Ci modul: ${assignment.module_title}`,
-    url: "/training",
-    tag: `training-new-${assignment.module_id}`
-  }
+// Linia 201: naprawic event_type
+event_type: 'meeting_private',  // bylo: 'private_meeting'
+
+// Po rejestracji uzytkownika (po linii 228): dodac rejestracje hosta
+await supabase.from('event_registrations').insert({
+  event_id: event.id,
+  user_id: selectedTopic.leader_user_id,
+  status: 'registered',
 });
+
+// Dodac wysylke emaili:
+// 1. Email do hosta (meeting_booked)
+supabase.functions.invoke('send-notification-email', {
+  body: {
+    event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b',
+    recipient_user_id: selectedTopic.leader_user_id,
+    payload: {
+      temat: selectedTopic.title,
+      data_spotkania: format(selectedDate, 'dd.MM.yyyy'),
+      godzina_spotkania: selectedTime,
+      imie_rezerwujacego: userProfile.first_name,
+      nazwisko_rezerwujacego: userProfile.last_name,
+    },
+  },
+}).catch(err => console.log('Email to leader failed:', err));
+
+// 2. Email do rezerwujacego (meeting_confirmed)
+supabase.functions.invoke('send-notification-email', {
+  body: {
+    event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e',
+    recipient_user_id: user.id,
+    payload: {
+      temat: selectedTopic.title,
+      data_spotkania: format(selectedDate, 'dd.MM.yyyy'),
+      godzina_spotkania: selectedTime,
+      imie_lidera: selectedTopic.leader.first_name,
+      nazwisko_lidera: selectedTopic.leader.last_name,
+    },
+  },
+}).catch(err => console.log('Email to booker failed:', err));
 ```
 
-### 2. Szkolenia - przypomnienie o nieaktywnosci (`process-pending-notifications`)
-
-Po wyslaniu emaila z przypomnieniem, dodac:
+### useLeaderAvailability.ts — zmiany
 
 ```text
-await supabase.functions.invoke("send-push-notification", {
-  body: {
-    userId: reminder.user_id,
-    title: "Przypomnienie o szkoleniu",
-    body: `Modul "${reminder.module_title}" czeka - ukonczyles ${reminder.progress_percent}%`,
-    url: "/training",
-    tag: `training-reminder-${reminder.module_id}`
-  }
+// Po rejestracji uzytkownika (po linii 414): dodac rejestracje hosta
+await supabase.from('event_registrations').insert({
+  event_id: event.id,
+  user_id: leaderUserId,
+  status: 'registered',
 });
-```
 
-### 3. Webinary - przypomnienie 24h (`process-pending-notifications`)
-
-Webinary maja tylko gosci (guest_event_registrations) z emailem, bez user_id. Trzeba sprawdzic, czy goscie sa powiazani z profilami uzytkownikow. Jesli tak - wyslac Push. Jesli nie (goscie zewnetrzni) - tylko email.
-
-```text
-// Sprawdz czy gosc ma konto w systemie
+// Pobrac profil uzytkownika
 const { data: userProfile } = await supabase
-  .from("profiles")
-  .select("user_id")
-  .eq("email", guest.email)
-  .maybeSingle();
+  .from('profiles')
+  .select('first_name, last_name')
+  .eq('user_id', user.id)
+  .single();
 
-if (userProfile) {
-  await supabase.functions.invoke("send-push-notification", {
-    body: {
-      userId: userProfile.user_id,
-      title: `Webinar jutro: ${webinar.title}`,
-      body: `Jutro o ${formattedTime}`,
-      url: "/events",
-      tag: `webinar-24h-${webinar.id}`
-    }
-  });
-}
-```
+// Pobrac profil lidera
+const { data: leaderProfile } = await supabase
+  .from('profiles')
+  .select('first_name, last_name')
+  .eq('user_id', leaderUserId)
+  .single();
 
-### 4. Webinary - przypomnienie 1h
-
-Analogicznie jak 24h, z innym tytlem:
-
-```text
-title: `Webinar za godzine: ${webinar.title}`
-```
-
-### 5. Spotkania indywidualne (`send-meeting-reminders`)
-
-Po wyslaniu emaila z przypomnieniem, dodac Push dla kazdego uczestnika:
-
-```text
-await supabase.functions.invoke("send-push-notification", {
+// Email do hosta
+supabase.functions.invoke('send-notification-email', {
   body: {
-    userId: participant.user_id,
-    title: reminderType === "1h" 
-      ? "Spotkanie za godzine" 
-      : "Spotkanie za 15 minut",
-    body: `${meeting.title || "Spotkanie indywidualne"} - ${formattedTime}`,
-    url: "/meetings",
-    tag: `meeting-${reminderType}-${meeting.id}`
-  }
-});
+    event_type_id: '1a6d6530-c93e-4486-83b8-6f875a989d0b',
+    recipient_user_id: leaderUserId,
+    payload: {
+      temat: topic.data?.title || 'Spotkanie prywatne',
+      data_spotkania: format(new Date(startTime), 'dd.MM.yyyy'),
+      godzina_spotkania: format(new Date(startTime), 'HH:mm'),
+      imie_rezerwujacego: userProfile?.first_name || '',
+      nazwisko_rezerwujacego: userProfile?.last_name || '',
+    },
+  },
+}).catch(err => console.log('Email to leader failed:', err));
+
+// Email do rezerwujacego
+supabase.functions.invoke('send-notification-email', {
+  body: {
+    event_type_id: '8f25b35a-1fb9-41e6-a6f2-d7b4863d092e',
+    recipient_user_id: user.id,
+    payload: {
+      temat: topic.data?.title || 'Spotkanie prywatne',
+      data_spotkania: format(new Date(startTime), 'dd.MM.yyyy'),
+      godzina_spotkania: format(new Date(startTime), 'HH:mm'),
+      imie_lidera: leaderProfile?.first_name || '',
+      nazwisko_lidera: leaderProfile?.last_name || '',
+    },
+  },
+}).catch(err => console.log('Email to booker failed:', err));
 ```
 
-### 6. Czat - offline fallback (`send-chat-notification-email`)
+### send-meeting-reminders — zmiany
 
-Gdy uzytkownik jest offline (last_seen_at > 5 min), przed wyslaniem emaila dodac Push:
-
+1. Dodac `'meeting_private'` do filtra event_type (linia 189):
 ```text
-// Najpierw probuj Push (szybszy kanal)
-try {
-  await supabase.functions.invoke("send-push-notification", {
-    body: {
-      userId: recipient_id,
-      title: `Wiadomosc od ${sender_name}`,
-      body: message_content.substring(0, 100),
-      url: "/messages",
-      tag: `chat-${Date.now()}`
-    }
-  });
-} catch (pushErr) {
-  console.warn("Push failed, falling back to email only");
-}
-
-// Potem email jako fallback
+.in('event_type', ['meeting_private', 'tripartite_meeting', 'partner_consultation'])
 ```
 
-### 7. Przeniesienie logiki useEventSystem na serwer
+2. Dodac okno czasowe 24h:
+```text
+const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
+const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+```
 
-`useEventSystem` (przetwarzanie eventow client-side) nie jest uzywany nigdzie w komponentach, wiec nie wymaga migracji - jest martwym kodem. Realne powiadomienia sa tworzone przez:
-- Triggery SQL (rejestracja, zatwierdzanie)
-- Edge Functions CRON (szkolenia, webinary, spotkania)
-- Bezposrednie inserty do `user_notifications`
+3. Rozszerzyc zapytanie OR o okno 24h.
 
-Nie ma potrzeby tworzenia nowej Edge Function - wystarczy dodac wywolania `send-push-notification` do istniejacych Edge Functions.
+4. Pobrac szablon `meeting_reminder_24h` obok istniejacych szablonow.
 
-## Obsluga bledow
+5. Dodac logike `reminderType = '24h'` i uzyc szablonu `meeting_reminder_24h`.
 
-Kazde wywolanie Push bedzie opakowane w try/catch, aby blad Push nie przerwal wysylki emaila. Push traktowany jako "best effort" - jesli sie nie powiedzie (np. brak subskrypcji), email nadal zostanie wyslany.
+## Analiza ostatnich 7 dni
+
+Zapytanie do bazy pokazalo, ze w ciagu ostatnich 7 dni NIE BYLO zadnych spotkan indywidualnych (`meeting_private`). Moga jednak istniec spotkania z blednym typem `private_meeting` (z BookMeetingDialog). Te nie beda widoczne w zadnym systemie.
 
 ## Wplyw na istniejacy kod
 
-- Brak zmian w bazie danych
-- Brak nowych Edge Functions
-- Brak zmian w kodzie frontendu
-- Jedynie dodanie wywolan `send-push-notification` wewnatrz istniejacych Edge Functions
+- Nie narusza istniejacych flow dla `tripartite_meeting` i `partner_consultation` — te dzialaja poprawnie
+- Nie zmienia logiki anulowania — `cancel-individual-meeting` juz dziala prawidlowo
+- Nie wymaga zmian w bazie danych — szablony i typy juz istnieja
+- Dodaje brakujaca funkcjonalnosc bez usuwania istniejacego kodu
