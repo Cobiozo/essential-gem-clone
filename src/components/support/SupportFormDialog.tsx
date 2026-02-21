@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,42 +13,50 @@ import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Phone, Clock, Send } from 'lucide-react';
+import { Loader2, Send } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+
+// ========== Types ==========
+
+interface CustomCard {
+  id: string;
+  icon: string;
+  label: string;
+  value: string;
+  visible: boolean;
+  position: number;
+}
+
+interface CustomFormField {
+  id: string;
+  label: string;
+  placeholder: string;
+  type: 'input' | 'textarea';
+  required: boolean;
+  position: number;
+  width: 'half' | 'full';
+}
+
+interface CustomInfoBox {
+  id: string;
+  icon: string;
+  title: string;
+  content: string;
+  visible: boolean;
+  position: number;
+}
 
 interface SupportSettings {
   id: string;
   header_title: string;
   header_description: string;
-  email_address: string;
-  email_label: string;
-  email_icon: string;
-  phone_number: string;
-  phone_label: string;
-  phone_icon: string;
-  working_hours: string;
-  working_hours_label: string;
-  working_hours_icon: string;
-  info_box_title: string;
-  info_box_content: string;
-  info_box_icon: string;
   form_title: string;
-  name_label: string;
-  name_placeholder: string;
-  email_field_label: string;
-  email_placeholder: string;
-  subject_label: string;
-  subject_placeholder: string;
-  message_label: string;
-  message_placeholder: string;
   submit_button_text: string;
   success_message: string;
   error_message: string;
-  // New fields
-  email_label_visible: boolean;
-  phone_label_visible: boolean;
-  working_hours_label_visible: boolean;
-  cards_order: string[];
+  custom_cards: CustomCard[];
+  custom_form_fields: CustomFormField[];
+  custom_info_boxes: CustomInfoBox[];
 }
 
 interface SupportFormDialogProps {
@@ -56,29 +64,23 @@ interface SupportFormDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-// Dynamic icon renderer
 const DynamicIcon = ({ name, className }: { name: string; className?: string }) => {
-  const IconComponent = (LucideIcons as any)[name] || Mail;
+  const IconComponent = (LucideIcons as any)[name] || LucideIcons.HelpCircle;
   return <IconComponent className={className} />;
 };
 
 export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOpenChange }) => {
   const { profile, user } = useAuth();
   const { toast } = useToast();
-  
+
   const [settings, setSettings] = useState<SupportSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: '',
-  });
+  const [formData, setFormData] = useState<Record<string, string>>({});
 
   // Fetch settings
   useEffect(() => {
+    if (!open) return;
     const fetchSettings = async () => {
       try {
         const { data, error } = await supabase
@@ -89,18 +91,27 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
 
         if (error) throw error;
         if (data) {
-          // Parse cards_order from Json to string[]
-          const cardsOrder = Array.isArray(data.cards_order) 
-            ? data.cards_order as string[]
-            : ['email', 'phone', 'working_hours'];
-          
+          const customCards = Array.isArray(data.custom_cards) ? (data.custom_cards as unknown as CustomCard[]) : [];
+          const customFormFields = Array.isArray(data.custom_form_fields) ? (data.custom_form_fields as unknown as CustomFormField[]) : [];
+          const customInfoBoxes = Array.isArray(data.custom_info_boxes) ? (data.custom_info_boxes as unknown as CustomInfoBox[]) : [];
+
           setSettings({
-            ...data,
-            email_label_visible: data.email_label_visible ?? true,
-            phone_label_visible: data.phone_label_visible ?? true,
-            working_hours_label_visible: data.working_hours_label_visible ?? true,
-            cards_order: cardsOrder,
-          } as SupportSettings);
+            id: data.id,
+            header_title: data.header_title || 'Wsparcie techniczne',
+            header_description: data.header_description || 'Masz pytania? Skontaktuj się z naszym zespołem wsparcia.',
+            form_title: data.form_title || 'Napisz do nas',
+            submit_button_text: data.submit_button_text || 'Wyślij wiadomość',
+            success_message: data.success_message || 'Wiadomość wysłana!',
+            error_message: data.error_message || 'Nie udało się wysłać wiadomości',
+            custom_cards: customCards.filter(c => c.visible).sort((a, b) => a.position - b.position),
+            custom_form_fields: customFormFields.sort((a, b) => a.position - b.position),
+            custom_info_boxes: customInfoBoxes.filter(b => b.visible).sort((a, b) => a.position - b.position),
+          });
+
+          // Initialize form data from fields
+          const initialFormData: Record<string, string> = {};
+          customFormFields.forEach(f => { initialFormData[f.id] = ''; });
+          setFormData(initialFormData);
         }
       } catch (error) {
         console.error('Error fetching support settings:', error);
@@ -108,155 +119,68 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
         setLoading(false);
       }
     };
-
-    if (open) {
-      fetchSettings();
-    }
+    setLoading(true);
+    fetchSettings();
   }, [open]);
 
-  // Auto-fill form for logged in users
+  // Auto-fill for logged in users
   useEffect(() => {
-    if (profile && user) {
-      setFormData(prev => ({
-        ...prev,
-        name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-        email: user.email || '',
-      }));
-    }
-  }, [profile, user]);
+    if (!profile || !user || !settings) return;
+    const nameField = settings.custom_form_fields.find(f => f.id === 'field_name' || f.label.toLowerCase().includes('imię'));
+    const emailField = settings.custom_form_fields.find(f => f.id === 'field_email' || f.label.toLowerCase().includes('email'));
+    setFormData(prev => ({
+      ...prev,
+      ...(nameField ? { [nameField.id]: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() } : {}),
+      ...(emailField ? { [emailField.id]: user.email || '' } : {}),
+    }));
+  }, [profile, user, settings]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.name || !formData.email || !formData.subject || !formData.message) {
-      toast({
-        title: 'Błąd',
-        description: 'Wszystkie pola są wymagane',
-        variant: 'destructive',
-      });
+    if (!settings) return;
+
+    // Validate required fields
+    const missingFields = settings.custom_form_fields
+      .filter(f => f.required && !formData[f.id]?.trim())
+      .map(f => f.label);
+
+    if (missingFields.length > 0) {
+      toast({ title: 'Błąd', description: `Wypełnij wymagane pola: ${missingFields.join(', ')}`, variant: 'destructive' });
       return;
     }
 
     setSending(true);
     try {
+      // Build readable form data for email
+      const fieldEntries = settings.custom_form_fields
+        .map(f => ({ label: f.label, value: formData[f.id] || '' }))
+        .filter(e => e.value);
+
       const { data, error } = await supabase.functions.invoke('send-support-email', {
         body: {
-          name: formData.name,
-          email: formData.email,
-          subject: formData.subject,
-          message: formData.message,
+          name: formData['field_name'] || fieldEntries[0]?.value || 'Nieznany',
+          email: formData['field_email'] || user?.email || '',
+          subject: formData['field_subject'] || 'Formularz wsparcia',
+          message: fieldEntries.map(e => `${e.label}: ${e.value}`).join('\n'),
           userId: user?.id,
         },
       });
 
-      // Check for invoke error
-      if (error) {
-        console.error('Edge function invoke error:', error);
-        throw new Error(error.message || 'Błąd wywołania funkcji');
-      }
+      if (error) throw new Error(error.message || 'Błąd wywołania funkcji');
+      if (data && !data.success) throw new Error(data.error || 'Nie udało się wysłać wiadomości');
 
-      // Check for business logic error in response
-      if (data && !data.success) {
-        console.error('Edge function returned error:', data.error);
-        throw new Error(data.error || 'Nie udało się wysłać wiadomości');
-      }
-
-      toast({
-        title: 'Sukces',
-        description: settings?.success_message || 'Wiadomość wysłana!',
-      });
-
-      // Reset form and close dialog
-      setFormData({ name: '', email: '', subject: '', message: '' });
+      toast({ title: 'Sukces', description: settings.success_message });
+      const resetData: Record<string, string> = {};
+      settings.custom_form_fields.forEach(f => { resetData[f.id] = ''; });
+      setFormData(resetData);
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error sending support email:', error);
-      
-      // Provide more detailed error message
-      let errorMessage = settings?.error_message || 'Nie udało się wysłać wiadomości';
-      if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: 'Błąd',
-        description: errorMessage,
-        variant: 'destructive',
-      });
+      toast({ title: 'Błąd', description: error.message || settings.error_message, variant: 'destructive' });
     } finally {
       setSending(false);
     }
   };
-
-  // Render info card based on type - if card_visible is false, don't render the card at all
-  const renderInfoCard = (cardType: string) => {
-    if (!settings) return null;
-
-    switch (cardType) {
-      case 'email':
-        // If card visibility is disabled, don't render the card
-        if (!settings.email_label_visible) return null;
-        return (
-          <Card key="email" className="bg-card border shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <DynamicIcon name={settings.email_icon || 'Mail'} className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-sm text-foreground">
-                {settings.email_label || 'Email'}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {settings.email_address || 'support@purelife.info.pl'}
-              </p>
-            </CardContent>
-          </Card>
-        );
-      case 'phone':
-        // If card visibility is disabled, don't render the card
-        if (!settings.phone_label_visible) return null;
-        return (
-          <Card key="phone" className="bg-card border shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <DynamicIcon name={settings.phone_icon || 'Phone'} className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-sm text-foreground">
-                {settings.phone_label || 'Telefon'}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {settings.phone_number || '+48 123 456 789'}
-              </p>
-            </CardContent>
-          </Card>
-        );
-      case 'working_hours':
-        // If card visibility is disabled, don't render the card
-        if (!settings.working_hours_label_visible) return null;
-        return (
-          <Card key="working_hours" className="bg-card border shadow-sm">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                <DynamicIcon name={settings.working_hours_icon || 'Clock'} className="h-6 w-6 text-primary" />
-              </div>
-              <h3 className="font-semibold text-sm text-foreground">
-                {settings.working_hours_label || 'Godziny pracy'}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {settings.working_hours || 'Pon-Pt: 09:00-14:00'}
-              </p>
-            </CardContent>
-          </Card>
-        );
-      default:
-        return null;
-    }
-  };
-
-  // Get cards in the correct order
-  const orderedCards = useMemo(() => {
-    const order = settings?.cards_order || ['email', 'phone', 'working_hours'];
-    return order.map(cardType => renderInfoCard(cardType)).filter(Boolean);
-  }, [settings]);
 
   if (loading) {
     return (
@@ -275,109 +199,81 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-foreground">
-            {settings?.header_title || 'Wsparcie techniczne'}
+            {settings?.header_title}
           </DialogTitle>
-          <p className="text-muted-foreground">
-            {settings?.header_description || 'Masz pytania? Skontaktuj się z naszym zespołem wsparcia.'}
-          </p>
+          <p className="text-muted-foreground">{settings?.header_description}</p>
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
-          {/* Info Cards Grid - Rendered in order */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {orderedCards}
-          </div>
-
-          {/* Info Box */}
-          <div className="flex items-start gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-r-lg">
-            <DynamicIcon name={settings?.info_box_icon || 'Clock'} className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-            <div>
-              <h4 className="font-semibold text-sm text-foreground">
-                {settings?.info_box_title || 'Informacja'}
-              </h4>
-              <p className="text-sm text-muted-foreground mt-1">
-                {settings?.info_box_content || 'W przypadku dużej ilości zgłoszeń odpowiedź może potrwać do 24h. W pilnych sprawach zalecamy kontakt telefoniczny.'}
-              </p>
+          {/* Dynamic Cards */}
+          {settings && settings.custom_cards.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {settings.custom_cards.map((card) => (
+                <Card key={card.id} className="bg-card border shadow-sm">
+                  <CardContent className="p-4 flex flex-col items-center text-center">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                      <DynamicIcon name={card.icon} className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="font-semibold text-sm text-foreground">{card.label}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{card.value}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          </div>
+          )}
 
-          {/* Contact Form */}
+          {/* Dynamic Info Boxes */}
+          {settings?.custom_info_boxes.map((box) => (
+            <div key={box.id} className="flex items-start gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-r-lg">
+              <DynamicIcon name={box.icon} className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold text-sm text-foreground">{box.title}</h4>
+                <p className="text-sm text-muted-foreground mt-1">{box.content}</p>
+              </div>
+            </div>
+          ))}
+
+          {/* Dynamic Form */}
           <Card>
             <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                {settings?.form_title || 'Napisz do nas'}
-              </h3>
+              <h3 className="text-lg font-semibold mb-4">{settings?.form_title}</h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">
-                      {settings?.name_label || 'Imię i nazwisko'}
-                    </Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder={settings?.name_placeholder || 'Jan Kowalski'}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">
-                      {settings?.email_field_label || 'Email'}
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                      placeholder={settings?.email_placeholder || 'jan@example.com'}
-                      required
-                    />
-                  </div>
+                  {settings?.custom_form_fields.map((field) => (
+                    <div
+                      key={field.id}
+                      className={`space-y-2 ${field.width === 'full' ? 'md:col-span-2' : ''}`}
+                    >
+                      <Label htmlFor={field.id}>
+                        {field.label} {field.required && <span className="text-destructive">*</span>}
+                      </Label>
+                      {field.type === 'textarea' ? (
+                        <Textarea
+                          id={field.id}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          rows={5}
+                          required={field.required}
+                        />
+                      ) : (
+                        <Input
+                          id={field.id}
+                          value={formData[field.id] || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
+                          placeholder={field.placeholder}
+                          required={field.required}
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="subject">
-                    {settings?.subject_label || 'Temat'}
-                  </Label>
-                  <Input
-                    id="subject"
-                    value={formData.subject}
-                    onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value }))}
-                    placeholder={settings?.subject_placeholder || 'W czym możemy pomóc?'}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="message">
-                    {settings?.message_label || 'Wiadomość'}
-                  </Label>
-                  <Textarea
-                    id="message"
-                    value={formData.message}
-                    onChange={(e) => setFormData(prev => ({ ...prev, message: e.target.value }))}
-                    placeholder={settings?.message_placeholder || 'Opisz swoje pytanie lub problem...'}
-                    rows={5}
-                    required
-                  />
-                </div>
-
-                <Button 
-                  type="submit" 
-                  className="w-full" 
-                  disabled={sending}
-                >
+                <Button type="submit" className="w-full" disabled={sending}>
                   {sending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Wysyłanie...
-                    </>
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Wysyłanie...</>
                   ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      {settings?.submit_button_text || 'Wyślij wiadomość'}
-                    </>
+                    <><Send className="mr-2 h-4 w-4" />{settings?.submit_button_text}</>
                   )}
                 </Button>
               </form>
