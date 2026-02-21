@@ -395,7 +395,16 @@ export const useCertificateGeneration = () => {
       console.log('Step 4c: Refreshing session before upload...');
       const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
-        console.warn('Session refresh failed:', refreshError);
+        console.warn('Session refresh failed, trying getSession...', refreshError);
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData?.session) {
+          throw new Error('Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.');
+        }
+      }
+      // Verify user is still authenticated
+      const { data: currentUser } = await supabase.auth.getUser();
+      if (!currentUser?.user) {
+        throw new Error('Sesja wygasła. Zaloguj się ponownie i spróbuj jeszcze raz.');
       }
 
       // 8. Upload to storage
@@ -408,7 +417,7 @@ export const useCertificateGeneration = () => {
         .from('certificates')
         .upload(fileName, pdfBlob, {
           contentType: 'application/pdf',
-          upsert: true
+          upsert: false
         });
 
       if (uploadError) {
