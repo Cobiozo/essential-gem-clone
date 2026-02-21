@@ -1,53 +1,33 @@
 
+# Naprawa: fallback dla postępu szkoleń w widgecie dashboardu
 
-# Naprawa bledu "new row violates row-level security policy" przy generowaniu certyfikatu
+## Problem
 
-## Przyczyna
-
-Blad wystepuje przy uploadzie PDF do storage. Polityka RLS bucketa `certificates` wymaga roli `authenticated`, ale podczas dlugiego procesu generowania PDF (ladowanie obrazow, renderowanie elementow) token JWT moze wygasnac. Kod odswiezy sesje przed uploadem (linia 396), ale **kontynuuje nawet jesli odswiezenie sie nie powiedzie** — przez co upload uzywa wygaslego tokena i RLS blokuje operacje.
-
-Dodatkowo flaga `upsert: true` w storage upload jest niepotrzebna (kazda sciezka pliku ma unikalny timestamp) i moze powodowac dodatkowe problemy z politykami UPDATE.
+Gdy certyfikat `issued_at` jest wcześniejszy niż `created_at` lekcji (np. certyfikat o 01:31, lekcje o 15:08 tego samego dnia), filtr `created_at <= certDate` zwraca 0 lekcji, co daje 0/0 = 0% zamiast 100%.
 
 ## Zmiana
 
-Plik: `src/hooks/useCertificateGeneration.ts`
+Plik: `src/components/dashboard/widgets/TrainingProgressWidget.tsx` (linie 110-129)
 
-1. Po odswiezeniu sesji (linia 396-399) — dodac weryfikacje ze uzytkownik jest nadal zalogowany. Jesli `auth.getUser()` zwraca blad lub brak uzytkownika, rzucic czytelny blad zamiast kontynuowac z wygaslym tokenem.
+Dodać fallback w dwóch miejscach — identyczny jak już istniejący w `Training.tsx`:
 
-2. Zmienic `upsert: true` na `upsert: false` w storage upload (linia 411) — kazdy upload ma unikalny timestamp w nazwie pliku, wiec nie ma potrzeby nadpisywania.
-
-3. Dodac zapasowe odswiezenie sesji — jesli pierwsze odswiezenie zawiedzie, sprobowac `getSession()` aby wymusic pobranie aktualnego tokena.
+1. **totalLessons** (linie 112-115): jeśli filtr po dacie certyfikatu zwraca 0 ale lekcje istnieją, użyć pełnej listy lekcji
+2. **completedInModule** (linie 119-124): jeśli filtr po dacie certyfikatu zwraca 0 ale istnieją ukończone lekcje w module, użyć pełnej liczby ukończonych
 
 ```text
-// Obecny kod (linie 394-399):
-console.log('Step 4c: Refreshing session before upload...');
-const { error: refreshError } = await supabase.auth.refreshSession();
-if (refreshError) {
-  console.warn('Session refresh failed:', refreshError);
+// totalLessons z fallbackiem:
+if (certIssuedAt) {
+  const certDate = new Date(certIssuedAt);
+  const filtered = lessons.filter(l => new Date(l.created_at) <= certDate).length;
+  totalLessons = filtered > 0 ? filtered : lessons.length;  // fallback
 }
 
-// Nowy kod:
-console.log('Step 4c: Refreshing session before upload...');
-const { error: refreshError } = await supabase.auth.refreshSession();
-if (refreshError) {
-  console.warn('Session refresh failed, trying getSession...', refreshError);
-  const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData?.session) {
-    throw new Error('Sesja wygasla. Zaloguj sie ponownie i sprobuj jeszcze raz.');
-  }
+// completedInModule z fallbackiem:
+if (certIssuedAt) {
+  const certDate = new Date(certIssuedAt);
+  const filtered = progressRes.filter(module match AND created_at <= certDate).length;
+  completedInModule = filtered > 0 ? filtered : progressRes.filter(module match).length;  // fallback
 }
-// Verify user is still authenticated
-const { data: currentUser } = await supabase.auth.getUser();
-if (!currentUser?.user) {
-  throw new Error('Sesja wygasla. Zaloguj sie ponownie i sprobuj jeszcze raz.');
-}
-
-// Linia 411: upsert: true -> upsert: false
 ```
 
-## Wplyw
-
-- Uzytkownik dostanie czytelny komunikat "Sesja wygasla" zamiast technicznego bledu RLS
-- Brak ryzyka bledow z `upsert` na istniejacych plikach
-- Istniejacy przeplyw nie zmienia sie gdy sesja jest aktywna
-
+Żadne inne pliki nie wymagają zmian — `Training.tsx` już ma ten fallback.
