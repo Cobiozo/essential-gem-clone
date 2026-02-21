@@ -1,53 +1,77 @@
 
-# Naprawa widgetu "Moje spotkania" - brak wyswietlania zapisanych wydarzen
 
-## Zidentyfikowany problem
+# Auto-zapis ustawien "Wsparcie i pomoc"
 
-Widget "Moje spotkania" otrzymuje **nierozwiniete** wydarzenia (base events) z Dashboard, podczas gdy CalendarWidget je rozwija za pomoca `expandEventsForCalendar`. To powoduje dwa problemy:
+## Problem
 
-1. **Dla wydarzen cyklicznych (multi-occurrence)**: base event ma `start_time`/`end_time` pierwszego terminu, ktory moze byc w przeszlosci. Filtr `new Date(e.end_time) > new Date()` odrzuca takie wydarzenie, mimo ze uzytkownik jest zapisany na przyszly termin.
-
-2. **Bledny status `is_registered`**: base event dostaje `is_registered: true` jezeli uzytkownik jest zapisany na **jakikolwiek** termin (Set eventIds). Ale nie rozroznia, na ktory konkretny termin. Natomiast `expandEventsForCalendar` sprawdza per-occurrence: `"event_id:occurrence_index"`.
-
-## Przyklad problemu
-
-- Wydarzenie "O!Mega Chill" ma terminy: 21.02, 25.02, 26.02
-- Base event `end_time` = 21.02 11:00 (pierwszy termin)
-- Uzytkownik zapisuje sie na termin 25.02 (occurrence_index=1)
-- MyMeetingsWidget: `end_time (21.02 11:00) > now (21.02 15:00)` = FALSE -> **wydarzenie nie pojawia sie**
+Obecnie po edycji pola w edytorze "Wsparcie i pomoc" trzeba recznie kliknac przycisk "Zapisz zmiany". Uzytkownik oczekuje, ze zmiany beda zapisywane automatycznie po kazdej edycji (dynamicznie).
 
 ## Rozwiazanie
 
-Uzyc `expandEventsForCalendar` w MyMeetingsWidget do rozwinecia wydarzen cyklicznych - identycznie jak CalendarWidget. Dzieki temu kazdy termin bedzie mial wlasciwy `start_time`, `end_time` i `is_registered`.
+Dodac mechanizm auto-zapisu (debounced) - po kazdej zmianie w `settings` automatycznie zapisywac do bazy danych z opoznieniem 1 sekundy (debounce), aby uniknac nadmiernej liczby zapytan.
 
-## Plik do zmiany
+Dodatkowo dodac weryfikacje zapisu (`.select()`) aby wykryc ciche bledy RLS.
+
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Import `expandEventsForCalendar`, rozwinac wydarzenia przed filtrowaniem `is_registered` |
+| `src/components/admin/SupportSettingsManagement.tsx` | Dodac `useEffect` z debounce na `settings`, ktory automatycznie wywoluje zapis po kazdej zmianie. Dodac `.select().maybeSingle()` do zapytania update dla weryfikacji. Opcjonalnie ukryc przycisk "Zapisz zmiany" lub zamienic na wskaznik statusu auto-zapisu. |
 
 ## Szczegoly techniczne
 
-W `MyMeetingsWidget.tsx`:
+1. Dodac ref `isInitialLoad` aby nie zapisywac przy pierwszym zaladowaniu danych
+2. Dodac `useRef` z timeoutem (debounce 1000ms) na zmiane `settings`
+3. W `useEffect` obserwujacym `settings` - po opoznieniu wywolac `handleSave`
+4. Zmodyfikowac `handleSave` aby uzywal `.select().maybeSingle()` i weryfikowal zwrocone dane
+5. Zamienic przycisk "Zapisz zmiany" na wskaznik statusu: "Zapisano" / "Zapisywanie..." / "Blad zapisu"
 
-1. Dodac import:
 ```typescript
-import { expandEventsForCalendar } from '@/hooks/useOccurrences';
+// Debounced auto-save
+const isInitialLoad = useRef(true);
+const saveTimeoutRef = useRef<NodeJS.Timeout>();
+
+useEffect(() => {
+  if (isInitialLoad.current) {
+    isInitialLoad.current = false;
+    return;
+  }
+  if (!settings) return;
+
+  if (saveTimeoutRef.current) {
+    clearTimeout(saveTimeoutRef.current);
+  }
+
+  saveTimeoutRef.current = setTimeout(() => {
+    handleSave();
+  }, 1000);
+
+  return () => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+  };
+}, [settings]);
 ```
 
-2. Zmienic `userEvents` useMemo (linia 40-43):
+Weryfikacja zapisu:
 ```typescript
-const userEvents = useMemo(() => {
-  if (!sharedEvents) return [];
-  // Expand multi-occurrence events so each occurrence has correct
-  // start_time, end_time, and per-occurrence is_registered
-  const expanded = expandEventsForCalendar(sharedEvents);
-  return expanded.filter(e => e.is_registered);
-}, [sharedEvents]);
+const { data, error } = await supabase
+  .from('support_settings')
+  .update({ ... })
+  .eq('id', settings.id)
+  .select()
+  .maybeSingle();
+
+if (error) throw error;
+if (!data) {
+  toast.error('Nie udalo sie zapisac. Sprawdz uprawnienia.');
+  return;
+}
 ```
 
-To zapewni ze:
-- Kazdy termin cykliczny bedzie osobnym wpisem z prawidlowymi datami
-- Filtr `is_registered` sprawdzi per-occurrence (klucz `event_id:occurrence_index`)
-- Filtr `end_time > now` bedzie pracowal na prawidlowych datach terminow
-- Po zapisaniu/wypisaniu sie widget natychmiast pokaze/ukryje termin
+Wskaznik statusu zamiast przycisku:
+- Ikona zielonego znacznika z tekstem "Zapisano" po udanym zapisie
+- Animacja ladowania z tekstem "Zapisywanie..." podczas zapisu
+- Czerwony komunikat bledu jezeli zapis sie nie powiodl
+
