@@ -1,52 +1,70 @@
 
-# Naprawa bledu wyswietlania blednej klatki wideo przy przelaczaniu lekcji
+# Naprawa szkolenia BIZNESOWE (0/0 lekcji) i bledu generowania certyfikatow
 
-## Problem
+## Zidentyfikowane problemy
 
-Przy przechodzeniu miedzy lekcjami w module szkoleniowym (Akademia), odtwarzacz wideo przez chwile wyswietla pierwsza klatke INNEJ lekcji niz ta aktualnie wybrana. Na przyklad: uzytkownik wybiera "Kuracja 6 miesieczna" (2:42), ale widzi miniature "Certyfikaty i badania".
+### Problem 1: BIZNESOWE pokazuje 0/0 lekcji
+Certyfikat dla modulu BIZNESOWE zostal wydany 5 stycznia o 01:31, ale WSZYSTKIE 21 lekcji zostaly utworzone POZNIEJ tego samego dnia (od 15:08). Kod w `Training.tsx` (linia 460-467) filtruje lekcje warunkiem `created_at <= certDate`, co wyklucza wszystkie lekcje i daje wynik 0/0.
 
-## Analiza przyczyn
+Uzytkownik ukonczyl 21/21 lekcji, ale system pokazuje "Brak lekcji" z powodu blednego filtrowania temporalnego.
 
-Zidentyfikowalem dwa wspoldzialajace zrodla problemu:
+### Problem 2: Blad RLS przy generowaniu certyfikatu
+Blad "Upload error: new row violates row-level security policy" wystepuje przy uploadzie PDF do storage. Przyczyna: generowanie certyfikatu wykonuje duzo operacji asynchronicznych (ladowanie profilu, szablonu, czcionek, obrazow, renderowanie PDF) ktore moga trwac 10-30 sekund. W tym czasie token JWT moze wygasnac, co powoduje ze `auth.uid()` zwraca NULL i polityka RLS na `storage.objects` odrzuca upload.
 
-### 1. Prefetch `<link>` zanieczyszcza cache przegladarki
-W `TrainingModule.tsx` (linie 476-511) istnieje mechanizm prefetch, ktory tworzy element `<link rel="prefetch" href={url} as="video">` z surowym `media_url` nastepnej lekcji. To powoduje, ze przegladarka laduje dane wideo nastepnej lekcji do swojej pamieci podrecznej. Gdy uzytkownik przechodzi do kolejnej lekcji, przegladarka moze chwilowo wyswietlic zakeszowana klatke z innego wideo zanim zaladuje poprawny plik.
+Polityka wymaga: `foldername(name)[1] = auth.uid()::text` — jesli sesja wygasla, `auth.uid()` jest NULL i warunek nie jest spelniony.
 
-Problem jest szczegolnie widoczny dla filmow z `purelife.info.pl`, gdzie prefetch uzywa surowego URL (ktory nie dziala bez tokena), ale cache przegladarki moze interferowac z poprawnymi podpisanymi URL-ami.
+## Plan napraw
 
-### 2. Element `<video>` renderuje sie przed zaladowaniem nowego zrodla
-Gdy komponent `SecureMedia` montuje sie ponownie (dzieki `key={currentLesson.id}`), `<video>` element jest renderowany natychmiast po rozwiazaniu `signedUrl`. Przegladarka moze przez ulamek sekundy wyswietlic zakeszowana klatke z poprzedniego wideo z tej samej domeny, zanim zaladuje nowe metadane.
+### 1. Training.tsx — naprawic filtrowanie lekcji po dacie certyfikatu
 
-## Plan naprawy
+W logice obliczania `relevantLessonsCount` (linia 460-467), dodac zabezpieczenie: jesli filtrowanie po dacie certyfikatu daje 0 lekcji, ale modul ma aktywne lekcje, uzyc pelnej liczby lekcji. To obsluguje przypadek gdy certyfikat predatuje wszystkie lekcje (np. z testowania).
 
-### Zmiana 1: Usunac prefetch nastepnej lekcji z TrainingModule.tsx
+```text
+// Obecna logika (linia 460-467):
+let relevantLessonsCount = lessonsData?.length || 0;
+if (certIssuedAt && lessonsData) {
+  const certDate = new Date(certIssuedAt);
+  relevantLessonsCount = lessonsData.filter(l => 
+    new Date(l.created_at) <= certDate
+  ).length;
+}
 
-Usunac caly blok `useEffect` (linie 476-511) odpowiedzialny za tworzenie `<link rel="prefetch">`. Ten mechanizm:
-- Nie dziala poprawnie dla chronionych URL-i (purelife.info.pl wymaga tokena)
-- Zanieczyszcza cache przegladarki danymi z innej lekcji
-- Jest glowna przyczyna wyswietlania blednych klatek
+// Nowa logika:
+let relevantLessonsCount = lessonsData?.length || 0;
+if (certIssuedAt && lessonsData) {
+  const certDate = new Date(certIssuedAt);
+  const filtered = lessonsData.filter(l => new Date(l.created_at) <= certDate).length;
+  // Jesli filtrowanie daje 0 ale sa lekcje, certyfikat predatuje cala zawartosc — uzyj pelnej liczby
+  if (filtered > 0) {
+    relevantLessonsCount = filtered;
+  }
+}
+```
 
-### Zmiana 2: Ukryc element `<video>` do momentu zaladowania danych nowego wideo
+Ta sama zmiana dla `completedLessons` (linia 484-492) — analogicznie nie filtrowac po dacie gdy daloby to 0.
 
-W komponencie `SecureMedia.tsx` dodac stan `videoReady` (domyslnie `false`), ktory przechodzi na `true` dopiero po zdarzeniu `loadeddata` na nowym elemencie `<video>`. Do tego momentu element wideo bedzie ukryty (`opacity: 0` / `visibility: hidden`), a w jego miejscu bedzie widoczny placeholder ladowania. Dzieki temu uzytkownik nigdy nie zobaczy starej klatki.
+### 2. useCertificateGeneration.ts — odswiezyc sesje przed uploadem
 
-Konkretnie:
-- Dodac `const [videoReady, setVideoReady] = useState(false)` obok istniejacych stanow
-- Resetowac `videoReady` na `false` przy zmianie `signedUrl`
-- Ustawic `videoReady = true` przy zdarzeniu `loadeddata` na elemencie video
-- Dodac `style={{ opacity: videoReady ? 1 : 0 }}` na elementach `<video>` (3 sciezki renderowania: secure, restricted, full controls)
-- Wyswietlac istniejacy spinner/placeholder gdy `!videoReady`
+Dodac odswiezenie sesji (`supabase.auth.refreshSession()`) bezposrednio PRZED uploadem do storage (przed linia 400). To zapewni ze token JWT jest aktualny po dlugiej operacji generowania PDF.
+
+```text
+// Przed uploadem - odswiezyc sesje (generowanie PDF moglo trwac dlugo)
+console.log('Step 4c: Refreshing session before upload...');
+const { error: refreshError } = await supabase.auth.refreshSession();
+if (refreshError) {
+  console.warn('Session refresh failed:', refreshError);
+}
+```
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/pages/TrainingModule.tsx` | Usunac useEffect prefetch (linie 476-511) |
-| `src/components/SecureMedia.tsx` | Dodac stan `videoReady`, ukryc video do momentu `loadeddata` |
+| `src/pages/Training.tsx` | Zabezpieczyc filtrowanie lekcji i postepu po dacie certyfikatu — gdy wynik = 0, uzyc pelnej liczby |
+| `src/hooks/useCertificateGeneration.ts` | Dodac `refreshSession()` przed uploadem PDF do storage |
 
 ## Wplyw na istniejacy kod
 
-- Usuwany prefetch nie wplywat pozytywnie na wydajnosc (nie dzialal dla chronionych URL-i)
-- Ukrywanie video do `loadeddata` moze spowodowac minimalne opoznienie (ulamki sekundy) w wyswietlaniu nowego wideo, ale eliminuje wizualny blad
-- Nie narusza logiki postepow, zapisywania pozycji ani kontrolek odtwarzacza
-- Nie wymaga zmian w bazie danych ani Edge Functions
+- Nie zmienia logiki dla certyfikatow wydanych PO utworzeniu lekcji — te dzialaja poprawnie
+- Nie narusza bezpieczenstwa — odswiezanie sesji to standardowa operacja Supabase
+- Nie wymaga zmian w bazie danych, storage ani RLS
