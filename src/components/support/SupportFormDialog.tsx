@@ -15,10 +15,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Send } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // ========== Types ==========
 
-interface CustomCard {
+interface CardItem {
   id: string;
   icon: string;
   label: string;
@@ -27,7 +28,7 @@ interface CustomCard {
   position: number;
 }
 
-interface CustomFormField {
+interface FormFieldItem {
   id: string;
   label: string;
   placeholder: string;
@@ -37,26 +38,28 @@ interface CustomFormField {
   width: 'half' | 'full';
 }
 
-interface CustomInfoBox {
-  id: string;
-  icon: string;
-  title: string;
-  content: string;
-  visible: boolean;
-  position: number;
+interface BlockData {
+  text?: string;
+  level?: 'h1' | 'h2' | 'h3';
+  alignment?: 'left' | 'center' | 'right';
+  cards?: CardItem[];
+  icon?: string;
+  title?: string;
+  content?: string;
+  fields?: FormFieldItem[];
+  submit_text?: string;
+  success_msg?: string;
+  error_msg?: string;
+  url?: string;
+  variant?: 'default' | 'outline' | 'ghost';
 }
 
-interface SupportSettings {
+interface SupportBlock {
   id: string;
-  header_title: string;
-  header_description: string;
-  form_title: string;
-  submit_button_text: string;
-  success_message: string;
-  error_message: string;
-  custom_cards: CustomCard[];
-  custom_form_fields: CustomFormField[];
-  custom_info_boxes: CustomInfoBox[];
+  type: 'heading' | 'text' | 'cards_group' | 'info_box' | 'form' | 'button';
+  position: number;
+  visible: boolean;
+  data: BlockData;
 }
 
 interface SupportFormDialogProps {
@@ -73,44 +76,27 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
   const { profile, user } = useAuth();
   const { toast } = useToast();
 
-  const [settings, setSettings] = useState<SupportSettings | null>(null);
+  const [blocks, setBlocks] = useState<SupportBlock[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
 
-  // Fetch settings
   useEffect(() => {
     if (!open) return;
     const fetchSettings = async () => {
       try {
-        const { data, error } = await supabase
-          .from('support_settings')
-          .select('*')
-          .limit(1)
-          .maybeSingle();
-
+        const { data, error } = await supabase.from('support_settings').select('*').limit(1).maybeSingle();
         if (error) throw error;
         if (data) {
-          const customCards = Array.isArray(data.custom_cards) ? (data.custom_cards as unknown as CustomCard[]) : [];
-          const customFormFields = Array.isArray(data.custom_form_fields) ? (data.custom_form_fields as unknown as CustomFormField[]) : [];
-          const customInfoBoxes = Array.isArray(data.custom_info_boxes) ? (data.custom_info_boxes as unknown as CustomInfoBox[]) : [];
+          const rawBlocks = Array.isArray(data.custom_blocks) ? (data.custom_blocks as unknown as SupportBlock[]) : [];
+          const visibleBlocks = rawBlocks.filter(b => b.visible).sort((a, b) => a.position - b.position);
+          setBlocks(visibleBlocks);
 
-          setSettings({
-            id: data.id,
-            header_title: data.header_title || 'Wsparcie techniczne',
-            header_description: data.header_description || 'Masz pytania? Skontaktuj się z naszym zespołem wsparcia.',
-            form_title: data.form_title || 'Napisz do nas',
-            submit_button_text: data.submit_button_text || 'Wyślij wiadomość',
-            success_message: data.success_message || 'Wiadomość wysłana!',
-            error_message: data.error_message || 'Nie udało się wysłać wiadomości',
-            custom_cards: customCards.filter(c => c.visible).sort((a, b) => a.position - b.position),
-            custom_form_fields: customFormFields.sort((a, b) => a.position - b.position),
-            custom_info_boxes: customInfoBoxes.filter(b => b.visible).sort((a, b) => a.position - b.position),
-          });
-
-          // Initialize form data from fields
+          // Initialize form data from all form blocks
           const initialFormData: Record<string, string> = {};
-          customFormFields.forEach(f => { initialFormData[f.id] = ''; });
+          visibleBlocks.filter(b => b.type === 'form').forEach(b => {
+            (b.data.fields || []).forEach(f => { initialFormData[f.id] = ''; });
+          });
           setFormData(initialFormData);
         }
       } catch (error) {
@@ -125,25 +111,22 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
 
   // Auto-fill for logged in users
   useEffect(() => {
-    if (!profile || !user || !settings) return;
-    const nameField = settings.custom_form_fields.find(f => f.id === 'field_name' || f.label.toLowerCase().includes('imię'));
-    const emailField = settings.custom_form_fields.find(f => f.id === 'field_email' || f.label.toLowerCase().includes('email'));
+    if (!profile || !user || blocks.length === 0) return;
+    const allFields = blocks.filter(b => b.type === 'form').flatMap(b => b.data.fields || []);
+    const nameField = allFields.find(f => f.id === 'field_name' || f.label.toLowerCase().includes('imię'));
+    const emailField = allFields.find(f => f.id === 'field_email' || f.label.toLowerCase().includes('email'));
     setFormData(prev => ({
       ...prev,
       ...(nameField ? { [nameField.id]: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() } : {}),
       ...(emailField ? { [emailField.id]: user.email || '' } : {}),
     }));
-  }, [profile, user, settings]);
+  }, [profile, user, blocks]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, formBlock: SupportBlock) => {
     e.preventDefault();
-    if (!settings) return;
+    const fields = formBlock.data.fields || [];
 
-    // Validate required fields
-    const missingFields = settings.custom_form_fields
-      .filter(f => f.required && !formData[f.id]?.trim())
-      .map(f => f.label);
-
+    const missingFields = fields.filter(f => f.required && !formData[f.id]?.trim()).map(f => f.label);
     if (missingFields.length > 0) {
       toast({ title: 'Błąd', description: `Wypełnij wymagane pola: ${missingFields.join(', ')}`, variant: 'destructive' });
       return;
@@ -151,10 +134,7 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
 
     setSending(true);
     try {
-      // Build readable form data for email
-      const fieldEntries = settings.custom_form_fields
-        .map(f => ({ label: f.label, value: formData[f.id] || '' }))
-        .filter(e => e.value);
+      const fieldEntries = fields.map(f => ({ label: f.label, value: formData[f.id] || '' })).filter(e => e.value);
 
       const { data, error } = await supabase.functions.invoke('send-support-email', {
         body: {
@@ -169,16 +149,102 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
       if (error) throw new Error(error.message || 'Błąd wywołania funkcji');
       if (data && !data.success) throw new Error(data.error || 'Nie udało się wysłać wiadomości');
 
-      toast({ title: 'Sukces', description: settings.success_message });
+      toast({ title: 'Sukces', description: formBlock.data.success_msg || 'Wiadomość wysłana!' });
       const resetData: Record<string, string> = {};
-      settings.custom_form_fields.forEach(f => { resetData[f.id] = ''; });
-      setFormData(resetData);
+      fields.forEach(f => { resetData[f.id] = ''; });
+      setFormData(prev => ({ ...prev, ...resetData }));
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error sending support email:', error);
-      toast({ title: 'Błąd', description: error.message || settings.error_message, variant: 'destructive' });
+      toast({ title: 'Błąd', description: error.message || formBlock.data.error_msg || 'Nie udało się wysłać wiadomości', variant: 'destructive' });
     } finally {
       setSending(false);
+    }
+  };
+
+  const renderBlock = (block: SupportBlock) => {
+    switch (block.type) {
+      case 'heading': {
+        const level = block.data.level || 'h2';
+        const align = block.data.alignment || 'left';
+        const sizeClass = level === 'h1' ? 'text-3xl font-bold' : level === 'h2' ? 'text-2xl font-bold' : 'text-xl font-semibold';
+        const Tag = level as keyof JSX.IntrinsicElements;
+        return <Tag className={cn(sizeClass, 'text-foreground', align === 'center' && 'text-center', align === 'right' && 'text-right')}>{block.data.text}</Tag>;
+      }
+      case 'text': {
+        const align = block.data.alignment || 'left';
+        return <p className={cn('text-muted-foreground whitespace-pre-wrap', align === 'center' && 'text-center', align === 'right' && 'text-right')}>{block.data.text}</p>;
+      }
+      case 'cards_group': {
+        const cards = (block.data.cards || []).filter(c => c.visible).sort((a, b) => a.position - b.position);
+        if (cards.length === 0) return null;
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {cards.map(card => (
+              <Card key={card.id} className="bg-card border shadow-sm">
+                <CardContent className="p-4 flex flex-col items-center text-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                    <DynamicIcon name={card.icon} className="h-6 w-6 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-sm text-foreground">{card.label}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{card.value}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        );
+      }
+      case 'info_box':
+        return (
+          <div className="flex items-start gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-r-lg">
+            <DynamicIcon name={block.data.icon || 'Info'} className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+            <div>
+              <h4 className="font-semibold text-sm text-foreground">{block.data.title}</h4>
+              <p className="text-sm text-muted-foreground mt-1">{block.data.content}</p>
+            </div>
+          </div>
+        );
+      case 'form': {
+        const fields = (block.data.fields || []).sort((a, b) => a.position - b.position);
+        return (
+          <Card>
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-4">{block.data.title}</h3>
+              <form onSubmit={(e) => handleSubmit(e, block)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {fields.map(field => (
+                    <div key={field.id} className={cn('space-y-2', field.width === 'full' && 'md:col-span-2')}>
+                      <Label htmlFor={field.id}>{field.label} {field.required && <span className="text-destructive">*</span>}</Label>
+                      {field.type === 'textarea' ? (
+                        <Textarea id={field.id} value={formData[field.id] || ''} onChange={(e) => setFormData(prev => ({ ...prev, [field.id]: e.target.value }))} placeholder={field.placeholder} rows={5} required={field.required} />
+                      ) : (
+                        <Input id={field.id} value={formData[field.id] || ''} onChange={(e) => setFormData(prev => ({ ...prev, [field.id]: e.target.value }))} placeholder={field.placeholder} required={field.required} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Button type="submit" className="w-full" disabled={sending}>
+                  {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Wysyłanie...</> : <><Send className="mr-2 h-4 w-4" />{block.data.submit_text || 'Wyślij'}</>}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        );
+      }
+      case 'button': {
+        const variant = block.data.variant || 'default';
+        const handleClick = () => { if (block.data.url) window.open(block.data.url, '_blank'); };
+        return (
+          <div className="flex justify-center">
+            <Button variant={variant as any} onClick={handleClick}>
+              {block.data.icon && <DynamicIcon name={block.data.icon} className="h-4 w-4 mr-2" />}
+              {block.data.text || 'Przycisk'}
+            </Button>
+          </div>
+        );
+      }
+      default:
+        return null;
     }
   };
 
@@ -198,87 +264,15 @@ export const SupportFormDialog: React.FC<SupportFormDialogProps> = ({ open, onOp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">
-            {settings?.header_title}
-          </DialogTitle>
-          <p className="text-muted-foreground">{settings?.header_description}</p>
+          <DialogTitle className="sr-only">Wsparcie</DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-6 mt-4">
-          {/* Dynamic Cards */}
-          {settings && settings.custom_cards.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {settings.custom_cards.map((card) => (
-                <Card key={card.id} className="bg-card border shadow-sm">
-                  <CardContent className="p-4 flex flex-col items-center text-center">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                      <DynamicIcon name={card.icon} className="h-6 w-6 text-primary" />
-                    </div>
-                    <h3 className="font-semibold text-sm text-foreground">{card.label}</h3>
-                    <p className="text-sm text-muted-foreground mt-1">{card.value}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-
-          {/* Dynamic Info Boxes */}
-          {settings?.custom_info_boxes.map((box) => (
-            <div key={box.id} className="flex items-start gap-3 p-4 bg-primary/5 border-l-4 border-primary rounded-r-lg">
-              <DynamicIcon name={box.icon} className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-              <div>
-                <h4 className="font-semibold text-sm text-foreground">{box.title}</h4>
-                <p className="text-sm text-muted-foreground mt-1">{box.content}</p>
-              </div>
-            </div>
+        <div className="space-y-6">
+          {blocks.map(block => (
+            <div key={block.id}>{renderBlock(block)}</div>
           ))}
-
-          {/* Dynamic Form */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">{settings?.form_title}</h3>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {settings?.custom_form_fields.map((field) => (
-                    <div
-                      key={field.id}
-                      className={`space-y-2 ${field.width === 'full' ? 'md:col-span-2' : ''}`}
-                    >
-                      <Label htmlFor={field.id}>
-                        {field.label} {field.required && <span className="text-destructive">*</span>}
-                      </Label>
-                      {field.type === 'textarea' ? (
-                        <Textarea
-                          id={field.id}
-                          value={formData[field.id] || ''}
-                          onChange={(e) => setFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
-                          placeholder={field.placeholder}
-                          rows={5}
-                          required={field.required}
-                        />
-                      ) : (
-                        <Input
-                          id={field.id}
-                          value={formData[field.id] || ''}
-                          onChange={(e) => setFormData(prev => ({ ...prev, [field.id]: e.target.value }))}
-                          placeholder={field.placeholder}
-                          required={field.required}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <Button type="submit" className="w-full" disabled={sending}>
-                  {sending ? (
-                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Wysyłanie...</>
-                  ) : (
-                    <><Send className="mr-2 h-4 w-4" />{settings?.submit_button_text}</>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
+          {blocks.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">Brak skonfigurowanych treści wsparcia.</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>
