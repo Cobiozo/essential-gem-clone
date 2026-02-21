@@ -279,6 +279,22 @@ serve(async (req) => {
             console.log(`[CRON] Sent training notification to ${assignment.user_email} for module: ${assignment.module_title}`);
             results.trainingNotifications.success++;
             
+            // Send Push notification (best effort)
+            try {
+              await supabase.functions.invoke("send-push-notification", {
+                body: {
+                  userId: assignment.user_id,
+                  title: "Nowe szkolenie",
+                  body: `Przypisano Ci moduł: ${assignment.module_title}`,
+                  url: "/training",
+                  tag: `training-new-${assignment.module_id}`
+                }
+              });
+              console.log(`[CRON] Push sent for training assignment to ${assignment.user_email}`);
+            } catch (pushErr) {
+              console.warn(`[CRON] Push failed for training assignment (non-blocking):`, pushErr);
+            }
+            
             // Mark as notified
             await supabase
               .from("training_assignments")
@@ -390,6 +406,30 @@ serve(async (req) => {
               } else {
                 console.log(`[CRON] Sent webinar reminder 24h to ${guest.email} for: ${webinar.title}`);
                 results.webinarReminders24h.success++;
+
+                // Send Push notification if guest has a system account (best effort)
+                try {
+                  const { data: userProfile } = await supabase
+                    .from("profiles")
+                    .select("user_id")
+                    .eq("email", guest.email)
+                    .maybeSingle();
+
+                  if (userProfile) {
+                    await supabase.functions.invoke("send-push-notification", {
+                      body: {
+                        userId: userProfile.user_id,
+                        title: `Webinar jutro: ${webinar.title}`,
+                        body: `Jutro o ${formattedTime}`,
+                        url: "/events",
+                        tag: `webinar-24h-${webinar.id}`
+                      }
+                    });
+                    console.log(`[CRON] Push sent for webinar 24h reminder to ${guest.email}`);
+                  }
+                } catch (pushErr) {
+                  console.warn(`[CRON] Push failed for webinar 24h reminder (non-blocking):`, pushErr);
+                }
 
                 // Mark reminder as sent
                 await supabase
@@ -507,6 +547,30 @@ serve(async (req) => {
               } else {
                 console.log(`[CRON] Sent webinar reminder 1h to ${guest.email} for: ${webinar.title}`);
                 results.webinarReminders1h.success++;
+
+                // Send Push notification if guest has a system account (best effort)
+                try {
+                  const { data: userProfile } = await supabase
+                    .from("profiles")
+                    .select("user_id")
+                    .eq("email", guest.email)
+                    .maybeSingle();
+
+                  if (userProfile) {
+                    await supabase.functions.invoke("send-push-notification", {
+                      body: {
+                        userId: userProfile.user_id,
+                        title: `Webinar za godzinę: ${webinar.title}`,
+                        body: `Rozpoczęcie o ${formattedTime}`,
+                        url: "/events",
+                        tag: `webinar-1h-${webinar.id}`
+                      }
+                    });
+                    console.log(`[CRON] Push sent for webinar 1h reminder to ${guest.email}`);
+                  }
+                } catch (pushErr) {
+                  console.warn(`[CRON] Push failed for webinar 1h reminder (non-blocking):`, pushErr);
+                }
 
                 // Mark 1h reminder as sent
                 await supabase
@@ -638,6 +702,22 @@ serve(async (req) => {
             } else {
               console.log(`[CRON] Sent training reminder to ${reminder.user_email} for module: ${reminder.module_title} (${reminder.days_inactive} days inactive, ${reminder.progress_percent}% complete)`);
               results.trainingReminders.success++;
+              
+              // Send Push notification (best effort)
+              try {
+                await supabase.functions.invoke("send-push-notification", {
+                  body: {
+                    userId: reminder.user_id,
+                    title: "Przypomnienie o szkoleniu",
+                    body: `Moduł "${reminder.module_title}" czeka — ukończyłeś ${reminder.progress_percent}%`,
+                    url: "/training",
+                    tag: `training-reminder-${reminder.module_id}`
+                  }
+                });
+                console.log(`[CRON] Push sent for training reminder to ${reminder.user_email}`);
+              } catch (pushErr) {
+                console.warn(`[CRON] Push failed for training reminder (non-blocking):`, pushErr);
+              }
             }
           } catch (err) {
             console.error(`[CRON] Exception sending training reminder:`, err);

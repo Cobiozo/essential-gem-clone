@@ -82,7 +82,25 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // User is offline - send email
+    // User is offline - try Push first (faster channel), then email as fallback
+    try {
+      await supabase.functions.invoke("send-push-notification", {
+        body: {
+          userId: recipient_id,
+          title: `Wiadomość od ${sender_name}`,
+          body: (message_type !== "text" 
+            ? `[${message_type === "image" ? "Zdjęcie" : message_type === "video" ? "Wideo" : message_type === "audio" ? "Wiadomość głosowa" : "Plik"}]`
+            : message_content.substring(0, 100)),
+          url: "/messages",
+          tag: `chat-${Date.now()}`
+        }
+      });
+      console.log("[send-chat-notification-email] Push notification sent to offline user");
+    } catch (pushErr) {
+      console.warn("[send-chat-notification-email] Push failed, continuing with email fallback:", pushErr);
+    }
+
+    // Send email as additional fallback
     if (!profile.email) {
       console.error("[send-chat-notification-email] No email address for user");
       return new Response(

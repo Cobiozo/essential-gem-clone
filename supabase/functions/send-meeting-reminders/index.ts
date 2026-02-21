@@ -395,6 +395,24 @@ serve(async (req) => {
             },
           });
 
+          // Send Push notification (best effort)
+          try {
+            await supabase.functions.invoke("send-push-notification", {
+              body: {
+                userId: profile.user_id,
+                title: reminderType === '1h' 
+                  ? "Spotkanie za godzinę" 
+                  : "Spotkanie za 15 minut",
+                body: `${meeting.title || 'Spotkanie indywidualne'} — ${timeStr}`,
+                url: "/meetings",
+                tag: `meeting-${reminderType}-${meeting.id}`
+              }
+            });
+            console.log(`[send-meeting-reminders] Push sent for ${reminderType} reminder to ${profile.email}`);
+          } catch (pushErr) {
+            console.warn(`[send-meeting-reminders] Push failed (non-blocking):`, pushErr);
+          }
+
           sentCount++;
           console.log(`[send-meeting-reminders] Sent ${reminderType} reminder to ${profile.email}`);
         } else {
