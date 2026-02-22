@@ -209,3 +209,6 @@ verify_jwt = false
 
 [functions.renew-push-subscription]
 verify_jwt = false
+
+[functions.audit-storage-files]
+verify_jwt = false

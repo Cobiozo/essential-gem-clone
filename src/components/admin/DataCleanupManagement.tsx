@@ -28,6 +28,7 @@ import {
   Loader2,
   Info,
 } from 'lucide-react';
+import { StorageAuditSection } from './StorageAuditSection';
 
 interface CleanupSetting {
   id: string;
@@ -444,6 +445,9 @@ export const DataCleanupManagement: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Storage Audit Section */}
+      <StorageAuditSection />
     </div>
   );
 };
