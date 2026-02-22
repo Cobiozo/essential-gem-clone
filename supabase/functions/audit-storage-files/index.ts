@@ -22,10 +22,10 @@ const BUCKET_REFERENCES: Record<string, { table: string; column: string }[]> = {
     { table: 'training_lessons', column: 'media_url' },
   ],
   'healthy-knowledge': [
-    { table: 'healthy_knowledge_items', column: 'file_url' },
+    { table: 'healthy_knowledge', column: 'media_url' },
   ],
   'knowledge-resources': [
-    { table: 'knowledge_resources', column: 'file_url' },
+    { table: 'knowledge_resources', column: 'source_url' },
   ],
   'cms-files': [
     { table: 'cms_items', column: 'media_url' },
@@ -37,6 +37,11 @@ const BUCKET_REFERENCES: Record<string, { table: string; column: string }[]> = {
 
 const ALL_BUCKETS = Object.keys(BUCKET_REFERENCES);
 
+interface FileInfo {
+  path: string;
+  size: number;
+}
+
 interface BucketAuditResult {
   bucket_id: string;
   total_files: number;
@@ -44,6 +49,46 @@ interface BucketAuditResult {
   orphaned_files: number;
   orphaned_bytes: number;
   orphaned_file_paths: string[];
+}
+
+// Recursively list all files in a bucket
+async function listAllFiles(
+  supabaseAdmin: any,
+  bucketId: string,
+  folder: string = ''
+): Promise<FileInfo[]> {
+  const files: FileInfo[] = [];
+
+  const { data, error } = await supabaseAdmin
+    .storage
+    .from(bucketId)
+    .list(folder, { limit: 10000 });
+
+  if (error) {
+    console.error(`[audit-storage] Error listing ${bucketId}/${folder}:`, error.message);
+    return files;
+  }
+
+  for (const item of data || []) {
+    const fullPath = folder ? `${folder}/${item.name}` : item.name;
+
+    // If item has metadata with mimetype or size > 0, it's a file
+    // If item has no metadata or id is null, it's likely a folder
+    const isFile = item.id && item.metadata && (item.metadata.mimetype || item.metadata.size > 0);
+
+    if (isFile) {
+      files.push({
+        path: fullPath,
+        size: item.metadata?.size || 0,
+      });
+    } else if (item.id === null || (!item.metadata?.mimetype)) {
+      // It's a folder — recurse into it
+      const subFiles = await listAllFiles(supabaseAdmin, bucketId, fullPath);
+      files.push(...subFiles);
+    }
+  }
+
+  return files;
 }
 
 async function auditBucket(
@@ -59,48 +104,17 @@ async function auditBucket(
     orphaned_file_paths: [],
   };
 
-  // List all files in bucket from storage.objects
-  const { data: objects, error: listError } = await supabaseAdmin
-    .from('storage_objects_view')
-    .select('name, metadata')
-    .eq('bucket_id', bucketId);
-
-  // Fallback: query storage.objects directly via RPC if view doesn't exist
-  let files: { name: string; size: number }[] = [];
-
-  if (listError) {
-    // Use storage API to list files
-    const { data: storageFiles, error: storageError } = await supabaseAdmin
-      .storage
-      .from(bucketId)
-      .list('', { limit: 10000 });
-
-    if (storageError) {
-      console.error(`[audit-storage] Error listing ${bucketId}:`, storageError.message);
-      return result;
-    }
-
-    files = (storageFiles || [])
-      .filter((f: any) => f.name && !f.name.endsWith('/'))
-      .map((f: any) => ({
-        name: f.name,
-        size: f.metadata?.size || 0,
-      }));
-  } else {
-    files = (objects || []).map((o: any) => ({
-      name: o.name,
-      size: o.metadata?.size || 0,
-    }));
-  }
+  // Recursively list all files
+  const files = await listAllFiles(supabaseAdmin, bucketId);
 
   result.total_files = files.length;
   result.total_bytes = files.reduce((sum, f) => sum + f.size, 0);
 
   if (files.length === 0) return result;
 
-  // Collect all referenced URLs from related tables
+  // Collect all referenced paths from related tables
   const refs = BUCKET_REFERENCES[bucketId] || [];
-  const referencedFilenames = new Set<string>();
+  const referencedPaths = new Set<string>();
 
   for (const ref of refs) {
     try {
@@ -118,18 +132,20 @@ async function auditBucket(
         const url = row[ref.column];
         if (!url || typeof url !== 'string') continue;
 
-        // Extract filename from various URL formats
-        // Supabase storage URL: .../storage/v1/object/public/bucket/filename
-        // Direct filename reference
+        // Extract full path from Supabase storage URL
+        // Format: .../storage/v1/object/public/bucket-name/path/to/file
         if (url.includes(`/${bucketId}/`)) {
           const parts = url.split(`/${bucketId}/`);
-          const filename = parts[parts.length - 1].split('?')[0];
-          if (filename) referencedFilenames.add(decodeURIComponent(filename));
+          const filePath = parts[parts.length - 1].split('?')[0];
+          if (filePath) referencedPaths.add(decodeURIComponent(filePath));
+        } else if (!url.startsWith('http')) {
+          // Direct path reference (e.g. icon names)
+          referencedPaths.add(decodeURIComponent(url));
         } else {
-          // Try just the filename
+          // External URL (VPS etc) — extract filename for partial match
           const urlParts = url.split('/');
           const filename = urlParts[urlParts.length - 1].split('?')[0];
-          if (filename) referencedFilenames.add(decodeURIComponent(filename));
+          if (filename) referencedPaths.add(decodeURIComponent(filename));
         }
       }
     } catch (e: any) {
@@ -137,17 +153,26 @@ async function auditBucket(
     }
   }
 
-  // Find orphaned files
+  // Find orphaned files by comparing full paths
   for (const file of files) {
-    const isReferenced = referencedFilenames.has(file.name) ||
-      referencedFilenames.has(decodeURIComponent(file.name)) ||
-      // Check if any referenced URL contains this filename
-      Array.from(referencedFilenames).some(ref => ref.includes(file.name) || file.name.includes(ref));
+    const decodedPath = decodeURIComponent(file.path);
+
+    const isReferenced =
+      referencedPaths.has(file.path) ||
+      referencedPaths.has(decodedPath) ||
+      // Check if any referenced URL ends with this file path
+      Array.from(referencedPaths).some(ref =>
+        ref === file.path ||
+        ref === decodedPath ||
+        ref.endsWith('/' + file.path) ||
+        ref.endsWith('/' + decodedPath) ||
+        file.path.endsWith('/' + ref)
+      );
 
     if (!isReferenced) {
       result.orphaned_files++;
       result.orphaned_bytes += file.size;
-      result.orphaned_file_paths.push(file.name);
+      result.orphaned_file_paths.push(file.path);
     }
   }
 
@@ -162,7 +187,6 @@ async function cleanupBucket(
   let deleted = 0;
   let errors = 0;
 
-  // Delete in batches of 100
   for (let i = 0; i < filePaths.length; i += 100) {
     const batch = filePaths.slice(i, i + 100);
     const { error } = await supabaseAdmin
@@ -187,7 +211,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify admin auth
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -217,7 +240,6 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Check admin role
     const { data: roleData } = await supabaseAdmin
       .from('user_roles')
       .select('role')
@@ -270,7 +292,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // First audit to get orphaned files
       const audit = await auditBucket(supabaseAdmin, bucket_name);
       if (audit.orphaned_files === 0) {
         return new Response(JSON.stringify({ deleted: 0, errors: 0, message: 'No orphaned files found' }), {
