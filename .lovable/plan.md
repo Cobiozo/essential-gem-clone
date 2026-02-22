@@ -1,75 +1,88 @@
 
 
-## Rozszerzenie panelu "Czyszczenie danych" o audyt plików storage
+## Naprawa audytu plików Storage
 
-### Cel
-Rozbudowa komponentu `DataCleanupManagement` o sekcje audytu plików w Supabase Storage, pokazujace przy kazdej kategorii:
-- Ile plików do usuniecia
-- Ile GB zaoszczedzone (lokalnie / cloud / lacznie)
+### Zidentyfikowane problemy
 
-### Aktualne dane (ze skanowania bazy)
+1. **Storage API `list()` nie dziala rekursywnie** -- zwraca tylko obiekty na 1. poziomie folderow. W buckecie `certificates` (struktura `userId/certId/file.pdf`) pokazuje 33 folderow zamiast 196 plikow.
+2. **Rozmiary plikow = 0 B** -- foldery z `list()` nie maja metadanych `size`.
+3. **Bledne nazwy tabel/kolumn w mapowaniu** -- `healthy_knowledge_items` (nie istnieje), `knowledge_resources.file_url` (nie istnieje).
+4. **Certyfikaty -- 100% oznaczane jako osierocone** -- bo mechanizm porownywania nie radzi sobie ze sciezkami zagniezdzonymi.
 
-| Bucket | Plików | Rozmiar | Osierocone |
-|--------|--------|---------|------------|
-| certificates | 196 | ~1.30 GB | ~69 plików (~0.75 GB) - nie powiazane z zadnym rekordem certyfikatu |
-| cms-videos | 25 | ~380 MB | ~24 pliki (~367 MB) - stare uploady training-media, duplikaty |
-| cms-images | 347 | ~142 MB | Do weryfikacji |
-| training-media | 1 | ~7 MB | 0 |
-| healthy-knowledge | 50 | ~74 MB | Do weryfikacji |
-| cms-files | 6 | ~28 MB | Do weryfikacji |
+### Rozwiazanie
 
-### Plan implementacji
+#### 1. Edge Function `audit-storage-files` -- przepisanie listowania plikow
 
-#### 1. Nowa Edge Function: `audit-storage-files`
-Utworzenie nowej Edge Function, ktora:
-- Przyjmuje `action: 'audit' | 'cleanup'` i opcjonalnie `bucket_name`
-- Dla kazdego bucketu:
-  - Liczy wszystkie pliki i ich laczny rozmiar
-  - Sprawdza powiazania z tabelami bazodanowymi (np. `certificates.file_url`, `training_lessons.media_url`, `cms_items.media_url`, `healthy_knowledge_items.file_url`)
-  - Zwraca: `total_files`, `total_bytes`, `orphaned_files`, `orphaned_bytes`
-- Dla `action: 'cleanup'` -- usuwa osierocone pliki
-- Wymaga autoryzacji admina (tak jak `cleanup-database-data`)
-
-#### 2. Rozbudowa komponentu `DataCleanupManagement.tsx`
-
-Dodanie nowej sekcji **"Audyt plików Storage"** pod istniejacymi kategoriami czyszczenia danych:
-
-- Nowa karta podsumowania w headerze: **"Oszczednosc storage"** z laczna wartoscia GB do odzyskania
-- Dla kazdego bucketu wyswietlenie karty z:
-  - Nazwa bucketu i ikona
-  - Liczba plików: lacznie / osierocone
-  - Rozmiar: lacznie / osierocone (w MB/GB)
-  - Przycisk "Wyczysc osierocone"
-- Podsumowanie na dole: **laczna wartosc po usunieciu wszystkich osieroconych plikow**
-- Rozroznienie: pliki lokalne (VPS - `purelife.info.pl`) vs cloud (Supabase Storage)
-
-#### 3. Podsumowanie oszczednosci
-
-Widok zbiorczy:
-- **Cloud Storage (Supabase)**: X plików / Y GB
-- **Lacznie do odzyskania**: podliczenie calkowite
-
-### Szczegoly techniczne
-
-**Edge Function `audit-storage-files`:**
-- Mapowanie bucketow do tabel referencyjnych:
+Zamiast `storage.list()` (ktore nie dziala rekursywnie), uzyc **bezposredniego zapytania do `storage.objects`** przez Supabase Admin Client:
 
 ```text
-certificates    -> certificates.file_url
-cms-videos      -> training_lessons.media_url, cms_items.media_url
-cms-images      -> cms_items.media_url, cms_sections (background)
-training-media  -> training_lessons.media_url
-healthy-knowledge -> (tabela healthy_knowledge)
-knowledge-resources -> knowledge_resources.file_url
-cms-files       -> cms_items.media_url
+supabaseAdmin
+  .from('objects')           -- NIE storage_objects_view
+  .select('name, metadata')
+  .eq('bucket_id', bucketId)
 ```
 
-- Plik osierocony = istnieje w `storage.objects` ale nie jest odwolywany w zadnej z powiazanych tabel
-- Usuwanie w partiach po 100 plikow
+Uwaga: tabela `storage.objects` nie jest dostepna przez `.from()` (to schemat `storage`, nie `public`). Dlatego nalezy uzyc **RPC** lub rekursywnego listowania przez Storage API.
 
-**Komponent:**
-- Nowy interfejs `StorageBucketAudit` z polami: `bucket_id`, `total_files`, `total_bytes`, `orphaned_files`, `orphaned_bytes`
-- Stan ladowania per-bucket
-- Dialog potwierdzenia przed usunieciem
-- Formatowanie rozmiarow za pomoca istniejacego helpera `formatFileSize` z `storageConfig.ts`
+Podejscie: rekursywne `storage.from(bucket).list(folder)` -- czyli:
+- Wylistuj top-level
+- Dla kazdego elementu bez rozszerzenia (folder) -- wylistuj jego zawartosc rekursywnie
+- Zbierz wszystkie pliki z pelna sciezka
+
+#### 2. Poprawka mapowania tabel
+
+Aktualne (bledne) vs prawidlowe:
+
+```text
+healthy-knowledge:
+  BLAD:    healthy_knowledge_items.file_url
+  POPRAWKA: healthy_knowledge.media_url
+
+knowledge-resources:
+  BLAD:    knowledge_resources.file_url
+  POPRAWKA: knowledge_resources.source_url
+
+Dodac brakujace:
+  cms_sections.background_image (dla cms-images)
+```
+
+#### 3. Poprawka dopasowania plikow certyfikatow
+
+Pliki certyfikatow maja sciezki: `userId/certId/certificate-timestamp.pdf`
+Rekordy `certificates.file_url` zawieraja te same sciezki.
+
+Dopasowanie musi porownywac pelna sciezke pliku z wartoscia `file_url`, a nie tylko nazwe pliku.
+
+#### 4. Rozszerzenie o pliki na VPS (informacyjnie)
+
+Wiele plikow jest hostowanych na `purelife.info.pl/uploads/...`, nie w Supabase Storage. Audyt Storage tego nie obejmie, ale mozna dodac sekcje informacyjna: "X plikow w bazie odwoluje sie do serwera VPS" -- bez mozliwosci czyszczenia z poziomu aplikacji.
+
+### Plan zmian plikow
+
+**Plik 1: `supabase/functions/audit-storage-files/index.ts`**
+- Zamienic `storage_objects_view` i fallback `list()` na rekursywne listowanie z `storage.from(bucket).list(folder)` w glab
+- Poprawic `BUCKET_REFERENCES`:
+  - `healthy-knowledge` -> `healthy_knowledge.media_url`
+  - `knowledge-resources` -> `knowledge_resources.source_url`
+- Poprawic logike dopasowania: porownywac pelna sciezke pliku z wartoscia URL z bazy (nie tylko nazwe pliku)
+- Dodac obsluge sciezek zagniezdonych (certyfikaty: `userId/certId/file.pdf`)
+
+**Plik 2: `src/components/admin/StorageAuditSection.tsx`**
+- Bez zmian strukturalnych -- komponent bedzie dzialal poprawnie po naprawie Edge Function
+- Opcjonalnie: dodac informacje o plikach na VPS
+
+### Oczekiwane wyniki po naprawie
+
+| Bucket | Plikow | Rozmiar | Status |
+|--------|--------|---------|--------|
+| certificates | 196 | 1.30 GB | Prawidlowy audyt -- porownanie z certificates.file_url |
+| cms-videos | 25 | 380 MB | Prawidlowy audyt |
+| cms-images | 347 | 142 MB | Prawidlowy audyt |
+| healthy-knowledge | 50 | 74 MB | Naprawiony -- prawidlowa tabela/kolumna |
+| knowledge-resources | 5 | 14 MB | Naprawiony -- source_url zamiast file_url |
+| cms-files | 6 | 28 MB | Bez zmian |
+| training-media | 1 | 7 MB | Bez zmian |
+| sidebar-icons | 5 | 60 KB | Bez zmian |
+
+**Laczna pojemnosc Storage: ~1.95 GB** (zamiast 83.95 MB wyswietlanych obecnie)
 
