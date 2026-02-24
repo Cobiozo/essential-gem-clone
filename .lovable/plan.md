@@ -1,28 +1,36 @@
 
-Cel: doprecyzować animację widżeta PLC Omega Base do dokładnego cyklu „2s ruch + 10s bezruch” w pętli, bez żadnych drgań podczas postoju.
 
-Zakres zmian:
-1) `tailwind.config.ts` — jedyne miejsce wymagające edycji
-- Zaktualizuję keyframes `omega-coin-flip`, aby:
-  - start: `0%` → `rotateY(0deg)`
-  - koniec obrotu po 2 sekundach: `16.6667%` → `rotateY(360deg)`  
-    (bo 2s / 12s = 16.6667%)
-  - pełny postój do końca cyklu: `100%` → `rotateY(360deg)`
-- Zmieniam definicję animacji:
-  - z `9.5s ease-in-out infinite`
-  - na `12s ease-in-out infinite` (2s obrót + 10s pauza)
+## Animacja widgetu PLC Omega Base -- wolny obrot monety
 
-Dlaczego to spełni wymagania:
-- Pełny obrót 360° trwa dokładnie 2 sekundy.
-- Potem przez 10 sekund transformacja pozostaje identyczna (`rotateY(360deg)`), więc nie ma ruchu ani „mikropulsu”.
-- Pętla jest naprzemienna i nieskończona: ruch → bezruch → ruch → bezruch.
+### Parametry animacji
+- Calkowity cykl: **30 sekund**
+- Obrot 360 stopni: **10 sekund** (wolny, plynny)
+- Bezruch (zero drgan): **20 sekund**
+- Petla nieskonczona
 
-Co pozostaje bez zmian:
-- `src/components/MedicalChatWidget.tsx` już ma poprawne użycie klasy `animate-omega-coin-flip` oraz 3D (`perspective`, `transformStyle`), więc nie wymaga dodatkowych modyfikacji dla tego żądania.
+### Zmiana w pliku `tailwind.config.ts`
 
-Walidacja po wdrożeniu:
-1) Otworzyć dashboard z widżetem.
-2) Zmierzyć wizualnie cykl:
-   - ~2s płynnego obrotu (ease-in-out),
-   - ~10s całkowitego postoju (zero drgań).
-3) Potwierdzić, że cykl powtarza się stale w tej samej sekwencji.
+Proporcje: 10s / 30s = 33.3333%
+
+**Keyframes `omega-coin-flip`** (linie 223-227):
+```text
+"omega-coin-flip": {
+  "0%": { transform: "rotateY(0deg)" },
+  "33.3333%": { transform: "rotateY(360deg)" },
+  "100%": { transform: "rotateY(360deg)" },
+}
+```
+
+**Animacja** (linia 261):
+```text
+"omega-coin-flip": "omega-coin-flip 30s ease-in-out infinite"
+```
+
+### Dlaczego to zadziala
+- Od 0% do 33.3333% (= 10 sekund) -- wolny, plynny obrot 360 stopni z ease-in-out
+- Od 33.3333% do 100% (= 20 sekund) -- wartosc transform jest identyczna (`rotateY(360deg)`), wiec zero ruchu, zero drgan
+- Petla powtarza sie w nieskonczonosc: obrot -> bezruch -> obrot -> bezruch
+
+### Bez zmian
+- `src/components/MedicalChatWidget.tsx` -- klasa `animate-omega-coin-flip` i style 3D (`perspective`, `transformStyle`) pozostaja bez zmian
+
