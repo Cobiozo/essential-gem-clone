@@ -1,61 +1,30 @@
 
 
-## Zapamietywanie wynikow wyszukiwania po odswiezeniu strony
+## Poprawki: wolniejsza animacja + naprawienie linkow PubMed
 
-### Problem
+### Zmiana 1: Bardzo wolna animacja ikony
 
-Gdy uzytkownik odswieza strone `/omega-base?q=pytanie`, stan komponentu (messages) resetuje sie do pustego, a `useEffect` ponownie wysyla zapytanie z parametru URL `q`. Caly proces wyszukiwania powtarza sie niepotrzebnie.
+Obecna animacja trwa 6 sekund -- to wciaz za szybko. Zmiana na **20 sekund** z minimalnymi ruchami:
 
-### Rozwiazanie
+**Plik: `tailwind.config.ts`** (linia 262)
+- Duration: `6s` -> `20s`
+- Zmniejszenie amplitudy skokow: `translateY(-4px)` -> `translateY(-2px)`, `translateY(-2px)` -> `translateY(-1px)`
+- Zmniejszenie skali: `scale(1.08)` -> `scale(1.03)`
+- Delikatniejsze cienie
 
-Uzycie `sessionStorage` do przechowywania wynikow wyszukiwania. Po zakonczeniu streamowania odpowiedzi, wiadomosci zostana zapisane w `sessionStorage`. Przy ladowaniu strony, jesli istnieja zapisane wiadomosci dla tego samego zapytania, zostana one odtworzone zamiast ponownego wyszukiwania.
+### Zmiana 2: Naprawienie linkow PubMed
 
-### Szczegoly techniczne
+Blad `ERR_BLOCKED_BY_RESPONSE` na screenie to blokada PubMed przez przegladarke (naglowki CORS/X-Frame-Options). Dzieje sie to w srodowisku podgladu Lovable -- w opublikowanej wersji (purelife.lovable.app) powinno dzialac.
 
-**Plik: `src/pages/OmegaBasePage.tsx`**
+Jednak aby poprawic doswiadczenie, dodam `onClick` handler z `window.open()` na wszystkich linkach w odpowiedziach. To obejdzie ograniczenia iframe podgladu.
 
-Zmiany w logice inicjalizacji (useEffect na liniach 74-85):
+**Plik: `src/pages/OmegaBasePage.tsx`** (linie 399-404 i 431-436)
+- Dodanie `onClick={(e) => { e.preventDefault(); window.open(url, '_blank', 'noopener,noreferrer'); }}` do obu typow linkow (markdown i bare URL)
 
-1. Przy ladowaniu strony sprawdzic `sessionStorage` pod kluczem `omega-base-session`
-2. Jesli zapisane dane istnieja i zapytanie `q` pasuje do zapisanego zapytania -- odtworzyc wiadomosci ze storage zamiast wysylac nowe zapytanie
-3. Jesli nie ma danych lub zapytanie jest inne -- wyslac nowe zapytanie jak dotychczas
+### Podsumowanie zmian
 
-**Plik: `src/hooks/useMedicalChatStream.ts`**
-
-Dodanie:
-- Nowej funkcji `setMessagesDirectly(msgs: MedicalChatMessage[])` do ustawiania wiadomosci bez wysylania zapytania (do odtwarzania z cache)
-- Hook zwraca dodatkowa funkcje `setMessagesDirectly`
-
-**Plik: `src/pages/OmegaBasePage.tsx`**
-
-Dodanie:
-- `useEffect` ktory zapisuje wiadomosci do `sessionStorage` po kazdej zmianie (tylko gdy sa wiadomosci z trescia)
-- Klucz storage: `omega-base-session` z wartoscia `{ query: string, messages: MedicalChatMessage[], resultsCount: number }`
-- Przy `clearMessages` rowniez czyszczenie `sessionStorage`
-- Przy `loadFromHistory` nadpisanie storage nowym kontekstem
-
-### Przeplyw
-
-```text
-[Uzytkownik wchodzi na /omega-base?q=pytanie]
-  |
-  v
-[Sprawdz sessionStorage]
-  |
-  +-- Jest cache z tym samym q? --> Odtworz wiadomosci, nie wysylaj zapytania
-  |
-  +-- Brak cache lub inne q? --> Wyslij zapytanie, zapisz wynik do sessionStorage
-  |
-  v
-[Uzytkownik odswieza strone]
-  |
-  v
-[Cache istnieje --> Odtworzenie wynikow bez ponownego wyszukiwania]
-```
-
-### Czyszczenie cache
-
-- Klikniecie "kosza" (clearMessages) czysci rowniez sessionStorage
-- Zamkniecie karty/przegladarki automatycznie czysci sessionStorage (wbudowane zachowanie)
-- Nowe zapytanie nadpisuje stary cache
+| Plik | Zmiana |
+|------|--------|
+| `tailwind.config.ts` | Animacja `omega-pulse-bounce`: 20s, mniejsze skoki i skala |
+| `src/pages/OmegaBasePage.tsx` | Dodanie `onClick` + `window.open()` na linkach |
 
