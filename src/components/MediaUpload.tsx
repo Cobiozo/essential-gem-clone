@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,6 +35,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [urlInput, setUrlInput] = useState('');
   const [libraryFiles, setLibraryFiles] = useState<Array<{name: string, url: string, type: string}>>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { uploadFile, deleteFile, uploadProgress, isUploading, listFiles } = useLocalStorage();
 
@@ -177,7 +178,12 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      uploadMedia(file);
+      uploadMedia(file).finally(() => {
+        // Reset inputa po uploadzie - zapobiega duplikatom przy ponownym wyborze tego samego pliku
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      });
     }
   };
 
@@ -363,6 +369,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
           <TabsContent value="upload" className={compact ? "space-y-1 mt-1" : "space-y-3"}>
             <Input
+              ref={fileInputRef}
               id="media-upload"
               type="file"
               accept={getAcceptString()}
