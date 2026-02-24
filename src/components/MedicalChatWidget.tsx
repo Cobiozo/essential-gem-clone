@@ -1212,18 +1212,19 @@ Provide a structured summary:`;
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                    className={`max-w-[85%] rounded-lg px-3 py-2 text-sm break-words ${
                       message.role === 'user'
                         ? 'bg-gradient-to-br from-[#1A1A1A]/95 to-[#121212]/90 border-r-[3px] border-[#C5A059] text-[#F5F5F5] shadow-[0_2px_8px_rgba(0,0,0,0.4)]'
                         : 'bg-[#1A1A1A]/60 backdrop-blur-sm border border-[#C5A059]/10 text-[#E0E0E0]'
                     }`}
+                    style={{ overflowWrap: 'anywhere' }}
                   >
                     {message.role === 'assistant' ? (
                       <div className="prose prose-sm prose-invert max-w-none [&_a]:text-[#D4AF37] [&_a]:underline [&_a]:underline-offset-2 [&_a:hover]:text-[#F5E050]">
                         {renderMessageContent(message.content)}
                       </div>
                     ) : (
-                      message.content
+                      <span style={{ wordBreak: 'break-word' }}>{message.content}</span>
                     )}
                   </div>
                 </div>
