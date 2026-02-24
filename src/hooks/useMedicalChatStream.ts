@@ -215,6 +215,11 @@ export const useMedicalChatStream = () => {
     }
   }, [messages, language, resultsCount, user]);
 
+  const setMessagesDirectly = useCallback((msgs: MedicalChatMessage[]) => {
+    setMessages(msgs);
+    setError(null);
+  }, []);
+
   const clearMessages = useCallback(() => {
     setMessages([]);
     setError(null);
@@ -233,6 +238,7 @@ export const useMedicalChatStream = () => {
     error, 
     sendMessage, 
     clearMessages, 
+    setMessagesDirectly,
     resultsCount, 
     setResultsCount,
     chatHistory,
