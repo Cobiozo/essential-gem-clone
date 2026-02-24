@@ -873,7 +873,7 @@ const Admin = () => {
     setShowResetPasswordDialog(true);
   };
 
-  const handleResetPassword = async () => {
+  const handleResetPassword = async (sendEmail: boolean = true) => {
     if (!resetPasswordData.newPassword || resetPasswordData.newPassword.length < 8) {
       toast({
         title: t('toast.error'),
@@ -890,7 +890,8 @@ const Admin = () => {
         body: { 
           user_email: resetPasswordData.userEmail,
           new_password: resetPasswordData.newPassword,
-          admin_name: user?.email || 'Administrator'
+          admin_name: user?.email || 'Administrator',
+          send_email: sendEmail
         }
       });
 
@@ -898,7 +899,9 @@ const Admin = () => {
 
       toast({
         title: "Sukces",
-        description: `Nowe hasło zostało ustawione i wysłane na adres ${resetPasswordData.userEmail}`,
+        description: sendEmail 
+          ? `Nowe hasło zostało ustawione i wysłane na adres ${resetPasswordData.userEmail}`
+          : `Nowe hasło zostało ustawione (bez wysyłania emaila)`,
       });
       
       setShowResetPasswordDialog(false);
@@ -4468,11 +4471,11 @@ const Admin = () => {
                       className="mt-1"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Hasło zostanie natychmiast ustawione i wysłane emailem do użytkownika
+                      Wybierz czy ustawić hasło bez powiadomienia, czy wysłać email z nowym hasłem
                     </p>
                   </div>
                 </div>
-                <DialogFooter className="flex gap-2">
+                <DialogFooter className="flex flex-col sm:flex-row gap-2">
                   <Button
                     variant="outline"
                     onClick={() => {
@@ -4482,8 +4485,18 @@ const Admin = () => {
                   >
                     Anuluj
                   </Button>
-                  <Button onClick={handleResetPassword} disabled={passwordLoading}>
-                    {passwordLoading ? 'Resetowanie...' : 'Resetuj hasło'}
+                  <Button 
+                    variant="secondary"
+                    onClick={() => handleResetPassword(false)} 
+                    disabled={passwordLoading}
+                  >
+                    {passwordLoading ? 'Ustawianie...' : 'Ustaw hasło (bez emaila)'}
+                  </Button>
+                  <Button 
+                    onClick={() => handleResetPassword(true)} 
+                    disabled={passwordLoading}
+                  >
+                    {passwordLoading ? 'Wysyłanie...' : 'Ustaw i wyślij email'}
                   </Button>
                 </DialogFooter>
               </DialogContent>

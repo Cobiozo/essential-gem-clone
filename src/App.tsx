@@ -125,6 +125,7 @@ const PaidEventsListPage = lazyWithRetry(() => import("./pages/PaidEventsListPag
 const PartnerPage = lazyWithRetry(() => import("./pages/PartnerPage"));
 const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"));
 const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
+const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -328,6 +329,7 @@ const AppContent = () => {
               <Route path="/auth" element={
                 user ? <Navigate to="/dashboard" replace /> : <Auth />
               } />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/my-account" element={<MyAccount />} />
               <Route path="/training" element={<Training />} />
