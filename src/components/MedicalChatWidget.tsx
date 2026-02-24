@@ -65,19 +65,28 @@ export const MedicalChatWidget: React.FC = () => {
   } = useMedicalChatStream();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const lastAssistantRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLenRef = useRef(0);
   const { t, language } = useLanguage();
 
   // Only show widget for partner, client, specjalista or admin roles
   const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Smart scroll: scroll to start of assistant response, bottom for user messages
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    if (messages.length > prevMessagesLenRef.current) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.role === 'assistant' && lastAssistantRef.current) {
+        // Scroll to the beginning of the assistant response
+        lastAssistantRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (lastMsg?.role === 'user') {
+        // Scroll to bottom so user sees their question
+        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
+      prevMessagesLenRef.current = messages.length;
     }
+    // No auto-scroll during streaming (content updates to existing message)
   }, [messages]);
 
   // Focus input when opening
@@ -1194,9 +1203,12 @@ Provide a structured summary:`;
           {/* Messages - Glassmorphism */}
           <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 bg-[#0A0A0A]/30">
             <div className="space-y-4">
-              {messages.map((message, index) => (
+              {messages.map((message, index) => {
+                const isLastAssistant = message.role === 'assistant' && index === messages.length - 1;
+                return (
                 <div
                   key={index}
+                  ref={isLastAssistant ? lastAssistantRef : undefined}
                   className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
@@ -1215,7 +1227,8 @@ Provide a structured summary:`;
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
               
               {isLoading && (
                 <div className="flex justify-start">

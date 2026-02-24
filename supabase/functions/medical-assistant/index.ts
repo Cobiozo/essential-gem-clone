@@ -593,7 +593,7 @@ async function translateQueryToEnglish(query: string, language: string, apiKey: 
   }
 }
 
-function getSystemPrompt(language: string, includeEqology: boolean = false): string {
+function getSystemPrompt(language: string, includeEqology: boolean = false, resultsCount: number = 10): string {
   const eqologyNote = {
     pl: `\n\nW CZĘŚCI 2, jeśli produkty Eqology są istotne, wspomnij o nich jako o możliwej suplementacji na końcu tej części.`,
     de: `\n\nIn TEIL 2, wenn Eqology-Produkte relevant sind, erwähnen Sie sie als mögliche Ergänzung am Ende dieses Teils.`,
@@ -624,9 +624,12 @@ Przedstaw rolę kwasów omega-3 w kontekście pytania użytkownika:
 
 ## 📚 CZĘŚĆ 3: WYNIKI Z PUBMED
 
-Przedstaw szczegółową listę znalezionych badań naukowych:
+Przedstaw WSZYSTKIE dostarczone badania (do ${resultsCount} sztuk). Nie pomijaj żadnego.
+Tytuły badań PRZETŁUMACZ na język polski, a oryginalny tytuł angielski podaj w nawiasie po przetłumaczonym tytule.
+Format: **Przetłumaczony tytuł** *(Original English Title)*
+
 - Dla KAŻDEGO badania podaj:
-  - Tytuł badania (pogrubiony)
+  - Tytuł badania (przetłumaczony + oryginalny w nawiasie, pogrubiony)
   - Autorzy i rok publikacji
   - Krótkie podsumowanie wniosków
   - WSZYSTKIE dostępne linki: PubMed, DOI, PMC (jako klikalne linki markdown)
@@ -658,6 +661,10 @@ Stellen Sie die Rolle von Omega-3 im Kontext der Frage dar:
 
 ## 📚 TEIL 3: PUBMED-ERGEBNISSE
 
+Präsentieren Sie ALLE bereitgestellten Studien (bis zu ${resultsCount}). Überspringen Sie keine.
+Übersetzen Sie die Studientitel ins Deutsche und geben Sie den englischen Originaltitel in Klammern an.
+Format: **Übersetzter Titel** *(Original English Title)*
+
 Präsentieren Sie die gefundenen Studien mit allen Details und Links.
 
 WICHTIG: Antworten Sie auf Deutsch. Fügen Sie am Ende IMMER hinzu: "⚠️ Diese Informationen dienen Bildungszwecken und ersetzen keine ärztliche Beratung."`,
@@ -684,7 +691,7 @@ Present the role of omega-3 fatty acids in the context of the question:
 
 ## 📚 PART 3: PUBMED RESULTS
 
-Present a detailed list of found scientific studies:
+Present ALL ${resultsCount} provided studies. Do not skip any.
 - For EACH study provide: title (bold), authors and year, brief summary, ALL available links (PubMed, DOI, PMC)
 
 IMPORTANT: Respond in English. ALWAYS add at the end: "⚠️ This information is for educational purposes and does not replace medical consultation."`,
@@ -708,6 +715,10 @@ Presenta il ruolo degli omega-3 nel contesto della domanda:
 - Indica i dosaggi raccomandati basati sulla ricerca${includeEqology ? eqologyNote.it : ''}
 
 ## 📚 PARTE 3: RISULTATI DA PUBMED
+
+Presenta TUTTI i ${resultsCount} studi forniti. Non saltarne nessuno.
+Traduci i titoli degli studi in italiano e indica il titolo originale inglese tra parentesi.
+Formato: **Titolo tradotto** *(Original English Title)*
 
 Presenta l'elenco dettagliato degli studi con tutti i link disponibili.
 
@@ -807,7 +818,7 @@ Provide a well-structured summary:`;
     const eqologyContext = isHealthQuery ? findRelevantEqologyProducts(userQuery, language) : '';
 
     // Prepare messages for AI with PubMed context and Eqology products
-    const systemPrompt = getSystemPrompt(language, isHealthQuery);
+    const systemPrompt = getSystemPrompt(language, isHealthQuery, resultsCount);
     const enhancedMessages = [
       { role: 'system', content: systemPrompt },
       { role: 'system', content: `KONTEKST NAUKOWY:\n${pubmedContext}${eqologyContext ? `\n\nPRODUKTY EQOLOGY DO ZASUGEROWANIA:\n${eqologyContext}` : ''}` },
