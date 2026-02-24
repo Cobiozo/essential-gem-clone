@@ -181,16 +181,31 @@ Deno.serve(async (req) => {
       console.log('[cancel-individual-meeting] Google Calendar sync failed (non-critical):', gcalError);
     }
 
-    // 5. Prepare email payload
+    // 5. Get profiles of all participants for enriched emails
+    const { data: allProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('user_id, first_name, last_name, email')
+      .in('user_id', Array.from(allUserIds));
+
+    const hostProfile = allProfiles?.find(p => p.user_id === event.host_user_id);
+    const bookerProfile = allProfiles?.find(p => p.user_id === event.created_by);
+
+    // 6. Prepare email payload with participant data
     const eventStart = new Date(event.start_time);
+    const dateStr = format(eventStart, 'dd.MM.yyyy', { locale: pl });
+    const timeStr = format(eventStart, 'HH:mm');
     const emailPayload = {
       temat: event.title,
-      data_spotkania: format(eventStart, 'dd.MM.yyyy', { locale: pl }),
-      godzina_spotkania: format(eventStart, 'HH:mm'),
+      data_spotkania: dateStr,
+      godzina_spotkania: timeStr,
       kto_odwolal: cancelerName,
+      imie_lidera: hostProfile?.first_name || '',
+      nazwisko_lidera: hostProfile?.last_name || '',
+      imie_rezerwujacego: bookerProfile?.first_name || '',
+      nazwisko_rezerwujacego: bookerProfile?.last_name || '',
     };
 
-    // 6. Send email notifications to all participants
+    // 7. In-app notifications + Push + Email for all participants
     const emailPromises: Promise<any>[] = [];
     
     for (const participantId of allUserIds) {
@@ -200,6 +215,37 @@ Deno.serve(async (req) => {
         kto_odwolal: isSelf ? 'Ty' : cancelerName
       };
 
+      // In-app notification
+      try {
+        await supabaseAdmin.from('user_notifications').insert({
+          user_id: participantId,
+          notification_type: 'meeting_cancelled',
+          source_module: 'meetings',
+          title: 'Spotkanie anulowane',
+          message: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} spotkanie ${event.title || ''} (${dateStr} ${timeStr})`,
+          link: '/meetings',
+          metadata: { event_id: event.id, cancelled_by: user.id },
+        });
+      } catch (inAppErr) {
+        console.warn('[cancel-individual-meeting] In-app notification failed for', participantId, ':', inAppErr);
+      }
+
+      // Push notification
+      try {
+        await supabaseAdmin.functions.invoke('send-push-notification', {
+          body: {
+            userId: participantId,
+            title: 'Spotkanie anulowane',
+            body: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} ${event.title || 'spotkanie'} — ${dateStr} ${timeStr}`,
+            url: '/meetings',
+            tag: `meeting-cancelled-${event.id}`,
+          },
+        });
+      } catch (pushErr) {
+        console.warn('[cancel-individual-meeting] Push failed for', participantId, ':', pushErr);
+      }
+
+      // Email
       console.log('[cancel-individual-meeting] Sending email to:', participantId);
       
       emailPromises.push(

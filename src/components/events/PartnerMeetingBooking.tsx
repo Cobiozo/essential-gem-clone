@@ -660,6 +660,54 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         },
       }).catch(err => console.log('[PartnerMeetingBooking] Email to booker failed:', err));
 
+      // === In-app notifications ===
+      const meetingTypeLabel = meetingType === 'tripartite' ? 'trójstronne' : 'konsultacje';
+      const bookerName = `${userProfile?.first_name || ''} ${userProfile?.last_name || ''}`.trim();
+      const leaderName = `${selectedPartner.first_name || ''} ${selectedPartner.last_name || ''}`.trim();
+
+      // In-app for leader (host)
+      supabase.from('user_notifications').insert({
+        user_id: selectedPartner.user_id,
+        notification_type: 'meeting_booked',
+        source_module: 'meetings',
+        title: 'Nowa rezerwacja spotkania',
+        message: `${bookerName} zarezerwował(a) spotkanie ${meetingTypeLabel} na ${emailDate} o ${emailTime}`,
+        link: '/meetings',
+        metadata: { event_id: event.id, booker_id: user.id },
+      }).then(({ error }) => { if (error) console.warn('[PartnerMeetingBooking] In-app notification to leader failed:', error); });
+
+      // In-app for booker
+      supabase.from('user_notifications').insert({
+        user_id: user.id,
+        notification_type: 'meeting_confirmed',
+        source_module: 'meetings',
+        title: 'Spotkanie potwierdzone',
+        message: `Twoje spotkanie z ${leaderName} (${meetingTypeLabel}) zostało potwierdzone na ${emailDate} o ${emailTime}`,
+        link: '/meetings',
+        metadata: { event_id: event.id, host_id: selectedPartner.user_id },
+      }).then(({ error }) => { if (error) console.warn('[PartnerMeetingBooking] In-app notification to booker failed:', error); });
+
+      // === Push notifications ===
+      supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: selectedPartner.user_id,
+          title: 'Nowa rezerwacja spotkania',
+          body: `${bookerName} zarezerwował(a) ${meetingTypeLabel} na ${emailDate} ${emailTime}`,
+          url: '/meetings',
+          tag: `meeting-booked-${event.id}`,
+        },
+      }).catch(err => console.warn('[PartnerMeetingBooking] Push to leader failed:', err));
+
+      supabase.functions.invoke('send-push-notification', {
+        body: {
+          userId: user.id,
+          title: 'Spotkanie potwierdzone',
+          body: `Spotkanie z ${leaderName} potwierdzone na ${emailDate} ${emailTime}`,
+          url: '/meetings',
+          tag: `meeting-confirmed-${event.id}`,
+        },
+      }).catch(err => console.warn('[PartnerMeetingBooking] Push to booker failed:', err));
+
       toast({
         title: 'Sukces!',
         description: 'Spotkanie zostało zarezerwowane. Powiadomienia email zostały wysłane.',
