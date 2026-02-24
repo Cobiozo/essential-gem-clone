@@ -196,21 +196,48 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<{
     
     const refreshResult = await refreshAccessToken(tokenData.refresh_token);
     
-    // Token was revoked - delete from database
+    // Token was revoked - use retry logic with refresh_fail_count
     if (refreshResult?.token_revoked) {
-      console.log('[sync-google-calendar] Token revoked by user, removing from database for user:', userId);
-      await supabase
+      console.log('[sync-google-calendar] invalid_grant for user:', userId, '- checking retry count');
+      
+      // Get current fail count
+      const { data: currentToken } = await supabase
         .from('user_google_tokens')
-        .delete()
-        .eq('user_id', userId);
+        .select('refresh_fail_count')
+        .eq('user_id', userId)
+        .single();
       
-      // Also clean up sync records
-      await supabase
-        .from('event_google_sync')
-        .delete()
-        .eq('user_id', userId);
+      const currentFailCount = currentToken?.refresh_fail_count || 0;
       
-      return { token_revoked: true };
+      if (currentFailCount >= 2) {
+        // 3rd failure (0, 1, 2) - permanently remove token
+        console.log('[sync-google-calendar] 3 consecutive failures, removing token for user:', userId);
+        await supabase
+          .from('user_google_tokens')
+          .delete()
+          .eq('user_id', userId);
+        
+        // Create in-app notification for user
+        await supabase.from('user_notifications').insert({
+          user_id: userId,
+          notification_type: 'google_calendar_disconnected',
+          source_module: 'google_calendar',
+          title: 'Google Calendar rozłączony',
+          message: 'Połączenie z Google Calendar zostało utracone po kilku nieudanych próbach odświeżenia. Połącz ponownie w ustawieniach konta.',
+          link: '/my-account',
+        });
+        
+        return { token_revoked: true };
+      } else {
+        // Increment fail count, don't delete yet
+        console.log('[sync-google-calendar] Incrementing refresh_fail_count to', currentFailCount + 1, 'for user:', userId);
+        await supabase
+          .from('user_google_tokens')
+          .update({ refresh_fail_count: currentFailCount + 1, updated_at: new Date().toISOString() })
+          .eq('user_id', userId);
+        
+        return { token_revoked: false };
+      }
     }
     
     if (!refreshResult?.access_token) {
@@ -224,6 +251,7 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<{
       .update({
         access_token: refreshResult.access_token,
         expires_at: newExpiresAt,
+        refresh_fail_count: 0, // Reset on successful refresh
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId);

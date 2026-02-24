@@ -198,6 +198,9 @@ verify_jwt = false
 [functions.get-turn-credentials]
 verify_jwt = false
 
+[functions.refresh-google-tokens]
+verify_jwt = false
+
 [functions.generate-meeting-guest-token]
 verify_jwt = false
 

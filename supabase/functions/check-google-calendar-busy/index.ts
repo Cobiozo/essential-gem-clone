@@ -203,28 +203,48 @@ Deno.serve(async (req) => {
       
       const refreshResult = await refreshAccessToken(tokenData.refresh_token);
       
-      // Token został unieważniony - wyczyść bazę danych
+      // Token invalid_grant - retry logic
       if (refreshResult?.token_revoked) {
-        console.log('[check-google-calendar-busy] Token revoked, cleaning up database for user:', leader_user_id);
+        console.log('[check-google-calendar-busy] invalid_grant for user:', leader_user_id, '- checking retry count');
         
-        // Usuń nieważny token
-        await supabase
+        const { data: currentToken } = await supabase
           .from('user_google_tokens')
-          .delete()
-          .eq('user_id', leader_user_id);
+          .select('refresh_fail_count')
+          .eq('user_id', leader_user_id)
+          .single();
         
-        // Usuń powiązane rekordy synchronizacji
-        await supabase
-          .from('event_google_sync')
-          .delete()
-          .eq('user_id', leader_user_id);
+        const currentFailCount = currentToken?.refresh_fail_count || 0;
         
-        console.log('[check-google-calendar-busy] Cleanup complete for user:', leader_user_id);
-        
-        return new Response(
-          JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        if (currentFailCount >= 2) {
+          // 3rd failure - permanently remove
+          console.log('[check-google-calendar-busy] 3 consecutive failures, removing token for user:', leader_user_id);
+          await supabase.from('user_google_tokens').delete().eq('user_id', leader_user_id);
+          
+          await supabase.from('user_notifications').insert({
+            user_id: leader_user_id,
+            notification_type: 'google_calendar_disconnected',
+            source_module: 'google_calendar',
+            title: 'Google Calendar rozłączony',
+            message: 'Połączenie z Google Calendar zostało utracone. Połącz ponownie w ustawieniach konta.',
+            link: '/my-account',
+          });
+          
+          return new Response(
+            JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          // Increment fail count
+          console.log('[check-google-calendar-busy] Incrementing refresh_fail_count to', currentFailCount + 1);
+          await supabase.from('user_google_tokens')
+            .update({ refresh_fail_count: currentFailCount + 1, updated_at: new Date().toISOString() })
+            .eq('user_id', leader_user_id);
+          
+          return new Response(
+            JSON.stringify({ error: 'Token refresh temporarily failed', busy: [] }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
       
       if (!refreshResult?.access_token) {
@@ -243,6 +263,7 @@ Deno.serve(async (req) => {
         .update({
           access_token: accessToken,
           expires_at: newExpiresAt.toISOString(),
+          refresh_fail_count: 0, // Reset on successful refresh
         })
         .eq('user_id', leader_user_id);
     }
@@ -285,22 +306,29 @@ Deno.serve(async (req) => {
         const refreshResult = await refreshAccessToken(tokenData.refresh_token);
         
         if (refreshResult?.token_revoked) {
-          console.log('[check-google-calendar-busy] Token confirmed revoked during FreeBusy call, cleaning up');
+          console.log('[check-google-calendar-busy] invalid_grant during FreeBusy 401, incrementing fail count');
           
-          await supabase
-            .from('user_google_tokens')
-            .delete()
-            .eq('user_id', leader_user_id);
+          const { data: ct } = await supabase.from('user_google_tokens')
+            .select('refresh_fail_count').eq('user_id', leader_user_id).single();
+          const fc = ct?.refresh_fail_count || 0;
           
-          await supabase
-            .from('event_google_sync')
-            .delete()
-            .eq('user_id', leader_user_id);
-          
-          return new Response(
-            JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
-            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          if (fc >= 2) {
+            await supabase.from('user_google_tokens').delete().eq('user_id', leader_user_id);
+            await supabase.from('user_notifications').insert({
+              user_id: leader_user_id, notification_type: 'google_calendar_disconnected',
+              source_module: 'google_calendar', title: 'Google Calendar rozłączony',
+              message: 'Połączenie z Google Calendar zostało utracone. Połącz ponownie w ustawieniach konta.',
+              link: '/my-account',
+            });
+            return new Response(
+              JSON.stringify({ connected: false, token_revoked: true, busy: [] }),
+              { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          } else {
+            await supabase.from('user_google_tokens')
+              .update({ refresh_fail_count: fc + 1, updated_at: new Date().toISOString() })
+              .eq('user_id', leader_user_id);
+          }
         }
       }
       
