@@ -1,106 +1,95 @@
 
 
-## Naprawa problemow z uploadem plikow na serwer VPS
+## Naprawa odswiezania pulpitu po powrocie z innej karty
 
-### Zidentyfikowane problemy
+### Zidentyfikowane przyczyny
 
-**1. CORS blokuje POST i DELETE (KRYTYCZNY)**
-W `server.js` linia 102, CORS zezwala tylko na `['GET', 'HEAD', 'OPTIONS']`. Brakuje `POST` i `DELETE`, wiec przegladarka blokuje upload i usuwanie plikow z domen Lovable/produkcyjnej.
+**1. Stale closure `profile` w AuthContext (GLOWNA PRZYCZYNA)**
 
-**2. Brak autoryzacji endpointow upload/delete (BEZPIECZENSTWO)**
-Endpointy `/upload` (POST), `/upload/:filename` (DELETE) i `/list-files` (GET) nie sprawdzaja zadnego tokenu -- kazdy moze uploadowac lub usuwac pliki.
+W pliku `AuthContext.tsx` linia 203, zmienna `profile` jest odczytywana z zamknietego scope useEffect, ktory uruchamia sie tylko raz. Wartosc `profile` w tym closure to zawsze `null` (wartosc poczatkowa), wiec warunek `profileAlreadyLoaded` jest zawsze `false`.
 
-**3. Krotki timeout serwera (DUZE PLIKI)**
-Domyslny timeout Node.js to 2 minuty, ale dla plikow >100MB to moze byc za malo. Brak jawnego ustawienia timeout dla uploadu.
+Skutek: kazdy event auth (np. po odswiezeniu tokenu przy powrocie na karte) powoduje zbedne wywolanie `fetchProfile()`, ktore tworzy nowy obiekt profile -> kaskada re-renderow calego Dashboard.
 
-**4. Brak filtrowania typow MIME w multer (BEZPIECZENSTWO)**
-Multer przyjmuje kazdy typ pliku -- brak `fileFilter`, co pozwala na upload np. plikow `.exe`.
+**2. `setProfile()` nie stabilizuje referencji**
 
-**5. Duplikaty plikow (GLOWNY PROBLEM UZYTKOWNIKA)**
-Przyczyny duplikatow:
-- **Input file nie jest resetowany** po uplywie uploadu w `MediaUpload.tsx` -- klikniecie tego samego pliku ponownie nie triggeruje `onChange` (bo wartosc sie nie zmienila), ale React moze re-renderowac komponent
-- **Brak blokady podwojnego klikniecia** -- uzytkownik moze kliknac "Upload" lub wybrac plik zanim poprzedni upload sie zakonczy
-- **`useCallback` bez blokady rownoleglych wywolan** -- `uploadFile` w `useLocalStorage.ts` nie sprawdza czy juz trwa upload, wiec mozna uruchomic rownolegle kilka uploadow tego samego pliku
-- **React re-render** -- zmiana stanu `isUploading`/`uploadProgress` moze powodowac re-render i ponowne wywolanie uploadMedia
+W przeciwienstwie do `setUser` (linie 180-184, ktory porownuje ID i zachowuje stara referencje), `setProfile` zawsze ustawia nowy obiekt nawet jesli dane sie nie zmienily. To powoduje ze wszystkie hooki zalezne od `profile` sie odswieza.
+
+**3. Service Worker `skipWaiting` + `clients.claim`**
+
+W `sw-push.js` nowa wersja SW natychmiast przejmuje kontrole nad strona. Jesli aktualizacja SW nastapi podczas gdy uzytkownik jest na innej karcie, powrot moze wymusic przeladowanie zasobow.
 
 ---
 
-### Plan zmian
+### Plan naprawy
 
-#### 1. server.js -- CORS, timeout, MIME filter, autoryzacja
+#### 1. AuthContext.tsx -- naprawic stale closure i stabilizowac profile
 
-- **CORS**: Dodanie `POST` i `DELETE` do `methods`
-- **Timeout**: Ustawienie `server.timeout = 10 * 60 * 1000` (10 minut) i `req.setTimeout()` w endpoincie upload
-- **MIME filter**: Dodanie `fileFilter` do konfiguracji multer z lista dozwolonych typow (obraz, video, audio, dokumenty)
-- **Autoryzacja**: Dodanie middleware sprawdzajacego naglowek `x-upload-key` z prostym kluczem API (ustawianym w zmiennej srodowiskowej `UPLOAD_API_KEY`), lub weryfikacja tokenu Supabase JWT
+**a) Uzyc `useRef` dla profile w auth listener:**
+Zamiast czytac `profile` z closure, uzyc `profileRef.current` ktory jest zawsze aktualny:
 
-#### 2. src/hooks/useLocalStorage.ts -- blokada duplikatow
-
-- Dodanie flagi `uploadInProgress` (ref) zabezpieczajacej przed rownoleglymi wywolaniami `uploadFile`
-- Jesli upload juz trwa, nowe wywolanie jest odrzucane z komunikatem
-
-#### 3. src/components/MediaUpload.tsx -- reset inputa, blokada podwojnego klikniecia
-
-- Dodanie `useRef` na input file i resetowanie `input.value = ''` po kazdym uplyciu uploadu
-- Dodanie `disabled={isUploading}` na przyciskach i inputach (czesciowo juz jest, ale trzeba upewnic sie ze pokrywa wszystkie sciezki)
-- Wyczyszczenie event handlera zeby nie wywolywal `uploadMedia` wielokrotnie
-
----
-
-### Szczegoly techniczne
-
-**server.js -- CORS fix (linia 102):**
 ```
-methods: ['GET', 'HEAD', 'OPTIONS', 'POST', 'DELETE'],
+const profileRef = useRef<Profile | null>(null);
+
+// synchronizowac ref z state:
+useEffect(() => { profileRef.current = profile; }, [profile]);
+
+// W auth listener:
+const profileAlreadyLoaded = profileRef.current && 
+  profileRef.current.user_id === newSession.user.id;
 ```
 
-**server.js -- timeout (po linii 491):**
+**b) Stabilizowac `setProfile` -- porownanie po `user_id` + `updated_at`:**
+
 ```
-server.timeout = 10 * 60 * 1000; // 10 min
-server.keepAliveTimeout = 65000;
+setProfile(prev => {
+  if (prev && newData && 
+      prev.user_id === newData.user_id && 
+      prev.updated_at === newData.updated_at) {
+    return prev; // zachowaj stara referencje
+  }
+  return newData;
+});
 ```
 
-**server.js -- multer fileFilter:**
-```javascript
-const allowedMimes = [
-  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-  'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo',
-  'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/x-m4a',
-  'application/pdf', 'application/msword', 'text/plain',
-  // + formaty Office
-];
-fileFilter: (req, file, cb) => {
-  if (allowedMimes.includes(file.mimetype)) cb(null, true);
-  else cb(new Error('Niedozwolony typ pliku'));
+#### 2. sw-push.js -- kontrolowane aktualizacje SW
+
+Zamiast natychmiastowego `skipWaiting()` w instalacji, pozwolic uzytkownikowi zdecydowac (baner aktualizacji juz istnieje w `main.tsx`):
+
+```
+// USUNAC z install event:
+// self.skipWaiting();
+
+// ZOSTAWIC tylko w message handler (linia 270-272):
+if (event.data === 'SKIP_WAITING') {
+  self.skipWaiting();
 }
 ```
 
-**useLocalStorage.ts -- blokada duplikatow:**
-```typescript
-const uploadLockRef = useRef(false);
+To zapobiegnie sytuacji gdzie SW przejmuje strone podczas gdy uzytkownik jest na innej karcie.
 
-const uploadFile = useCallback(async (...) => {
-  if (uploadLockRef.current) {
-    throw new Error('Upload juz trwa, poczekaj na zakonczenie');
-  }
-  uploadLockRef.current = true;
-  try { ... } finally { uploadLockRef.current = false; }
-}, []);
-```
-
-**MediaUpload.tsx -- reset inputa:**
-```typescript
-const fileInputRef = useRef<HTMLInputElement>(null);
-
-// Po uplycie uploadu:
-if (fileInputRef.current) fileInputRef.current.value = '';
-```
+---
 
 ### Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `server.js` | CORS methods, timeout, multer fileFilter, opcjonalna autoryzacja |
-| `src/hooks/useLocalStorage.ts` | Blokada rownoleglych uploadow (useRef lock) |
-| `src/components/MediaUpload.tsx` | Reset inputa po uploadzie, ref na input element |
+| `src/contexts/AuthContext.tsx` | Dodanie `profileRef` do eliminacji stale closure. Stabilizacja `setProfile` przez porownanie `user_id` + `updated_at`. |
+| `public/sw-push.js` | Usuniecie `self.skipWaiting()` z handlera install (zostawienie tylko w message handler). |
 
+### Szczegoly techniczne
+
+**AuthContext.tsx:**
+- Linia ~86: dodanie `const profileRef = useRef<Profile | null>(null);`
+- Nowy useEffect: `useEffect(() => { profileRef.current = profile; }, [profile]);`
+- Linia ~140: zmiana `setProfile(profileResult.data)` na stabilizowana wersje z porownaniem
+- Linia ~203: zmiana `profile` na `profileRef.current`
+
+**sw-push.js:**
+- Linia 44: usuniecie `self.skipWaiting();` z handlera `install`
+
+### Efekt koncowy
+
+- Powrot na karte NIE powoduje ponownego pobierania profilu (jesli uzytkownik sie nie zmienil)
+- Referencja `profile` pozostaje stabilna -> brak kaskady re-renderow
+- Service Worker nie przejmuje strony automatycznie -> brak wymuszonych przeladowan
+- Widgety Dashboard nie migaja ani nie laduja sie ponownie
