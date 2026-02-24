@@ -1,43 +1,32 @@
 
 
-## Dodanie sekcji zgod prawnych (Regulamin, Polityka Prywatnosci, RODO) dla uzytkownikow
+## Interaktywna sekcja zgod prawnych w Moje Konto
 
 ### Problem
-Kolumny `accepted_terms`, `accepted_privacy`, `accepted_rodo` i `accepted_terms_at` istnieja w bazie danych, a panel admina je wyswietla, ale **uzytkownicy nie maja zadnego miejsca w interfejsie, gdzie moga te zgody wyrazic**. Brakuje checkboxow w formularzu uzupelniania profilu oraz sekcji w ustawieniach konta.
+Sekcja "Zgody i regulaminy" na stronie Moje Konto jest tylko do odczytu -- uzytkownik widzi status ale nie ma mozliwosci zaakceptowania zgod ani zapoznania sie z dokumentami.
 
 ### Rozwiazanie
 
-Zmiany w 3 plikach:
+Zmiana sekcji "Zgody i regulaminy" w pliku `MyAccount.tsx` z widoku read-only na interaktywny formularz:
 
 ---
 
-### 1. ProfileCompletionForm.tsx -- checkboxy zgod przy rejestracji/uzupelnianiu profilu
+### Jak to bedzie dzialac
 
-Dodanie na koncu formularza (przed przyciskami) nowej karty "Zgody i regulaminy" z 3 obowiazkowymi checkboxami:
+Kazda pozycja (Regulamin, Polityka Prywatnosci, Zgoda RODO) bedzie zawierac:
 
-- **Akceptuje Regulamin** (wymagany)
-- **Akceptuje Polityke Prywatnosci** (wymagany)
-- **Wyrazam zgode RODO** (wymagany)
+1. **Link do dokumentu zrodlowego** -- otwiera sie w nowej karcie (`/html/regulamin`, `/html/polityka-prywatnosci`, `/html/rodo`), uzytkownik moze zapoznac sie z trescia
+2. **Checkbox akceptacji** -- jesli jeszcze nie zaakceptowane, uzytkownik zaznacza checkbox
+3. **Status** -- zielony znacznik jesli juz zaakceptowane, z data akceptacji
+4. **Przycisk "Zatwierdz zgody"** -- zapisuje wszystkie zaznaczone zgody do bazy danych jednym kliknieciem
 
-Kazdy checkbox z linkiem do odpowiedniego dokumentu (jesli istnieje).
+Jesli wszystkie 3 zgody sa juz zaakceptowane, sekcja wyswietla sie w trybie read-only z zielonymi znacznikami i data.
 
-Zmiany:
-- 3 nowe stany: `acceptedTerms`, `acceptedPrivacy`, `acceptedRodo`
-- Inicjalizacja z profilu (`profile.accepted_terms` itd.)
-- Walidacja: jesli ktorykolwiek nie zaznaczony -- blad "Wszystkie zgody sa wymagane"
-- Przy zapisie: `accepted_terms: true`, `accepted_privacy: true`, `accepted_rodo: true`, `accepted_terms_at: new Date().toISOString()`
+Po zatwierdzeniu admin widzi w panelu CMS ze uzytkownik zaakceptowal wszystkie pozycje (to juz dziala).
 
-### 2. useProfileCompletion.ts -- uwzglednienie zgod w statusie kompletnosci
-
-Dodanie sprawdzenia `accepted_terms`, `accepted_privacy`, `accepted_rodo` do listy brakujacych pol. Dzieki temu profil bez zaakceptowanych zgod nie bedzie traktowany jako kompletny, a uzytkownik zostanie przekierowany do formularza.
-
-### 3. MyAccount.tsx -- sekcja zgod w zakladce Profil (widok tylko do odczytu)
-
-W widoku profilu (gdy `showProfileForm = false`), po sekcji "Informacje o koncie", dodanie karty "Zgody i regulaminy" pokazujacej aktualny status zgod uzytkownika:
-
-- Zielony znacznik lub czerwony X przy kazdej zgodzie
-- Data akceptacji (jesli dostepna)
-- Przycisk "Edytuj profil" juz istnieje i pozwala przejsc do formularza edycji gdzie mozna zmienic zgody
+### Walidacja
+- Wszystkie 3 zgody musza byc zaznaczone zeby przycisk "Zatwierdz" byl aktywny
+- Nie mozna cofnac raz wyrazonych zgod (checkboxy zaakceptowanych pozycji sa zablokowane)
 
 ---
 
@@ -45,7 +34,16 @@ W widoku profilu (gdy `showProfileForm = false`), po sekcji "Informacje o koncie
 
 | Plik | Typ zmiany |
 |------|------------|
-| `src/components/profile/ProfileCompletionForm.tsx` | Dodanie karty z 3 checkboxami zgod + walidacja + zapis do bazy |
-| `src/hooks/useProfileCompletion.ts` | Dodanie sprawdzenia zgod do listy brakujacych pol |
-| `src/pages/MyAccount.tsx` | Sekcja "Zgody i regulaminy" w widoku profilu (read-only) |
+| `src/pages/MyAccount.tsx` | Zamiana sekcji "Zgody i regulaminy" (linie 845-898) z read-only na interaktywna z checkboxami, linkami do dokumentow i przyciskiem zapisu |
+
+### Szczegoly techniczne
+
+W sekcji "Zgody i regulaminy" w `MyAccount.tsx`:
+
+- Dodanie 3 stanow lokalnych: `consentTerms`, `consentPrivacy`, `consentRodo` (inicjalizowane z profilu)
+- Kazda pozycja: link "Przeczytaj" otwierajacy dokument + checkbox + etykieta
+- Linki do dokumentow: `/html/regulamin`, `/html/polityka-prywatnosci`, `/html/rodo`
+- Przycisk "Zatwierdz zgody" wywoluje `supabase.from('profiles').update(...)` z polami `accepted_terms`, `accepted_privacy`, `accepted_rodo`, `accepted_terms_at`
+- Po zapisie: `refreshProfile()` odswierza dane w kontekscie
+- Juz zaakceptowane zgody: checkbox zablokowany (disabled), zielony znacznik
 
