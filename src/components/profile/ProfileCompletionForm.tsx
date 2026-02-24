@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Save, User, AlertCircle, CheckCircle, Briefcase, MapPin } from 'lucide-react';
+import { Save, User, AlertCircle, CheckCircle, Briefcase, MapPin, ShieldCheck } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,6 +46,10 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
   const [specialization, setSpecialization] = useState('');
   const [profileDescription, setProfileDescription] = useState('');
   const [searchKeywords, setSearchKeywords] = useState('');
+  // Consent fields
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [acceptedRodo, setAcceptedRodo] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Initialize form values from profile
@@ -65,6 +70,10 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       setSpecialization(profileAny.specialization || '');
       setProfileDescription(profileAny.profile_description || '');
       setSearchKeywords(profileAny.search_keywords?.join(', ') || '');
+      // Consents
+      setAcceptedTerms(profileAny.accepted_terms || false);
+      setAcceptedPrivacy(profileAny.accepted_privacy || false);
+      setAcceptedRodo(profileAny.accepted_rodo || false);
     }
   }, [profile]);
 
@@ -79,6 +88,11 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
       if (!specialization.trim()) return 'Specjalizacje i dziedziny są wymagane dla roli Specjalista';
       if (!profileDescription.trim()) return 'Opis profilu jest wymagany dla roli Specjalista';
     }
+    
+    // Consent validation
+    if (!acceptedTerms) return 'Akceptacja Regulaminu jest wymagana';
+    if (!acceptedPrivacy) return 'Akceptacja Polityki Prywatności jest wymagana';
+    if (!acceptedRodo) return 'Wyrażenie zgody RODO jest wymagane';
     
     return null;
   };
@@ -124,6 +138,11 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
         specialization: specialization.trim() || null,
         profile_description: profileDescription.trim() || null,
         search_keywords: keywordsArray.length > 0 ? keywordsArray : null,
+        // Consents
+        accepted_terms: acceptedTerms,
+        accepted_privacy: acceptedPrivacy,
+        accepted_rodo: acceptedRodo,
+        accepted_terms_at: new Date().toISOString(),
         profile_completed: true,
         updated_at: new Date().toISOString(),
       };
@@ -426,6 +445,75 @@ export const ProfileCompletionForm: React.FC<ProfileCompletionFormProps> = ({
               disabled={loading}
             />
             <p className="text-xs text-muted-foreground">Rozdziel słowa kluczowe przecinkami - ułatwią znalezienie Cię w wyszukiwarce</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Legal Consents */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5" />
+            Zgody i regulaminy *
+          </CardTitle>
+          <CardDescription>
+            Wszystkie zgody są wymagane do korzystania z aplikacji
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="acceptTerms"
+              checked={acceptedTerms}
+              onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+              disabled={loading}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="acceptTerms" className="text-sm font-medium cursor-pointer">
+                Akceptuję Regulamin *
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Zapoznałem/am się z Regulaminem i akceptuję jego postanowienia
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="acceptPrivacy"
+              checked={acceptedPrivacy}
+              onCheckedChange={(checked) => setAcceptedPrivacy(checked === true)}
+              disabled={loading}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="acceptPrivacy" className="text-sm font-medium cursor-pointer">
+                Akceptuję Politykę Prywatności *
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Zapoznałem/am się z Polityką Prywatności i akceptuję jej postanowienia
+              </p>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="acceptRodo"
+              checked={acceptedRodo}
+              onCheckedChange={(checked) => setAcceptedRodo(checked === true)}
+              disabled={loading}
+            />
+            <div className="grid gap-1.5 leading-none">
+              <Label htmlFor="acceptRodo" className="text-sm font-medium cursor-pointer">
+                Wyrażam zgodę RODO *
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Wyrażam zgodę na przetwarzanie moich danych osobowych zgodnie z RODO
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
