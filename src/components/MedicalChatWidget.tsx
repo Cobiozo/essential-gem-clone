@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Select,
@@ -26,6 +26,7 @@ export const MedicalChatWidget: React.FC = () => {
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { language } = useLanguage();
   const {
     resultsCount,
@@ -42,6 +43,7 @@ export const MedicalChatWidget: React.FC = () => {
   }, [isOpen]);
 
   if (!hasAccess) return null;
+  if (location.pathname === '/omega-base') return null;
 
   const getTranslation = (key: string): string => {
     const translations: Record<string, Record<string, string>> = {
@@ -207,10 +209,12 @@ export const MedicalChatWidget: React.FC = () => {
           backdrop-blur-sm
           flex items-center justify-center transition-all duration-300 
           hover:scale-110
-          animate-omega-pulse-bounce"
+          animate-omega-coin-flip"
         style={{
           bottom: 'max(4rem, calc(env(safe-area-inset-bottom, 0px) + 3rem))',
-          right: 'max(1rem, env(safe-area-inset-right, 0px))'
+          right: 'max(1rem, env(safe-area-inset-right, 0px))',
+          perspective: '600px',
+          transformStyle: 'preserve-3d',
         }}
         aria-label="PLC Omega Base"
       >
