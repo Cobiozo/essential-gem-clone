@@ -948,15 +948,10 @@ const MyAccount = () => {
                           <CheckCircle className="w-4 h-4 text-green-600" />
                         )}
                       </div>
-                      <a
-                        href="/html/rodo"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                        Przeczytaj informację RODO
-                      </a>
+                      <div className="bg-muted/50 p-3 rounded border text-xs text-muted-foreground mt-1">
+                        <p className="font-semibold text-foreground">{t('myAccount.gdprNotice')}</p>
+                        <p className="mt-1">{t('myAccount.gdprText')}</p>
+                      </div>
                     </div>
                   </div>
 
@@ -966,6 +961,14 @@ const MyAccount = () => {
                       Data akceptacji: {new Date((profile as any).accepted_terms_at).toLocaleDateString('pl-PL', {
                         day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
                       })}
+                    </p>
+                  )}
+
+                  {/* Info about changing consents */}
+                  {(profile as any)?.accepted_terms && (profile as any)?.accepted_privacy && (profile as any)?.accepted_rodo && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Zmiana zgód jest możliwa wyłącznie poprzez formularz kontaktowy lub e-mail na adres{' '}
+                      <a href="mailto:support@purelife.info.pl" className="text-primary hover:underline">support@purelife.info.pl</a>
                     </p>
                   )}
 
