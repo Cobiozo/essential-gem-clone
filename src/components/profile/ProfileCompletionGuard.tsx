@@ -32,6 +32,8 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/infolink/',  // InfoLink pages are public (OTP protected)
     '/zdrowa-wiedza/', // Zdrowa Wiedza public pages (OTP protected)
     '/events/register/', // Guest registration pages
+    '/change-password', // Temp password change page
+    '/reset-password',  // Password reset page
   ];
   
   // Sprawdź czy ścieżka jest publiczna
@@ -47,7 +49,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
     '/events', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
-    '/meeting-room'
+    '/meeting-room', '/change-password', '/reset-password'
   ];
   const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);
   const isKnownRoute = KNOWN_APP_ROUTES.some(r =>
