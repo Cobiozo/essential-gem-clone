@@ -1,37 +1,45 @@
 
 
-## Ukrycie widgetu na stronie Omega Base + animacja obracania monety
+## Poprawka animacji widgetu PLC Omega Base -- obrot monety 3D
 
-### Zmiana 1: Ukrycie widgetu na stronie `/omega-base`
+### Problem
 
-Widget z lupa jest zbedny na pelnostronicowym widoku PLC Omega Base. Komponent `MedicalChatWidget` dostanie dostep do aktualnej sciezki przez `useLocation()` z react-router-dom i nie bedzie renderowany jesli uzytkownik jest na `/omega-base`.
+Obecna animacja `omega-coin-flip` trwa 5s z kompresja obrotu w 10% czasu -- efekt jest nienaturalny. Uzytkownik chce dokladnie: 1.5s obrotu + 8s postoju, plynnie, bez drgan.
 
-**Plik: `src/components/MedicalChatWidget.tsx`**
-- Import `useLocation` z `react-router-dom`
-- Dodanie warunku: jesli `location.pathname === '/omega-base'` -- zwroc `null` (nie renderuj nic)
+### Rozwiazanie
 
-### Zmiana 2: Zamiana animacji pulsowania na obracanie monety
+Calkowity cykl animacji: **9.5 sekund** (1.5s obrotu + 8s postoju).
 
-Usuniecie animacji `omega-pulse-bounce` z przycisku i zastapienie nowa animacja `omega-coin-flip` -- obrot wokol osi Y (jak moneta) co 5 sekund.
+Proporcje w keyframes:
+- Obrot zajmuje 1.5 / 9.5 = ~15.8% czasu
+- Postoj zajmuje 8 / 9.5 = ~84.2% czasu
+
+Keyframes:
+- `0%`: `rotateY(0deg)` -- start obrotu
+- `15.8%`: `rotateY(360deg)` -- koniec obrotu (po 1.5s)
+- `100%`: `rotateY(360deg)` -- postoj az do konca (8s bez ruchu)
+
+### Zmiany techniczne
 
 **Plik: `tailwind.config.ts`**
-- Nowe keyframes `omega-coin-flip`:
-  - `0%` do `90%`: brak ruchu (`rotateY(0deg)`)
-  - `93%`: `rotateY(180deg)` -- pol obrotu
-  - `96%`: `rotateY(360deg)` -- pelny obrot
-  - `100%`: `rotateY(360deg)` -- zatrzymanie
-  - Calkowity czas: 5 sekund, wiec obrot trwa ~0.3s z 5s przerwa miedzy obrotami
-- Nowa animacja: `omega-coin-flip: "omega-coin-flip 5s ease-in-out infinite"`
-- Usuniecie starej animacji `omega-pulse-bounce` (keyframes i animation)
 
-**Plik: `src/components/MedicalChatWidget.tsx`**
-- Zamiana klasy `animate-omega-pulse-bounce` na `animate-omega-coin-flip`
-- Dodanie `style={{ perspective: '600px' }}` na kontenerze lub `transform-style: preserve-3d` dla lepszego efektu 3D
+Keyframes `omega-coin-flip` (linie 223-227):
+```
+"omega-coin-flip": {
+  "0%": { transform: "rotateY(0deg)" },
+  "15.8%": { transform: "rotateY(360deg)" },
+  "100%": { transform: "rotateY(360deg)" },
+},
+```
 
-### Szczegoly techniczne
+Animacja (linia 261):
+```
+"omega-coin-flip": "omega-coin-flip 9.5s ease-in-out infinite",
+```
+
+**Plik: `src/components/MedicalChatWidget.tsx`** -- bez zmian, klasa `animate-omega-coin-flip` i style `perspective`/`transformStyle` pozostaja.
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/MedicalChatWidget.tsx` | Import `useLocation`, wczesny return `null` na `/omega-base`, zamiana klasy animacji |
-| `tailwind.config.ts` | Nowe keyframes `omega-coin-flip` (obrot Y 360deg), nowa animacja 5s, usuniecie starej `omega-pulse-bounce` |
+| `tailwind.config.ts` | Nowe keyframes (0% -> 15.8% -> 100%) i czas 9.5s |
 
