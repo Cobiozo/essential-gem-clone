@@ -1,45 +1,28 @@
 
+Cel: doprecyzować animację widżeta PLC Omega Base do dokładnego cyklu „2s ruch + 10s bezruch” w pętli, bez żadnych drgań podczas postoju.
 
-## Poprawka animacji widgetu PLC Omega Base -- obrot monety 3D
+Zakres zmian:
+1) `tailwind.config.ts` — jedyne miejsce wymagające edycji
+- Zaktualizuję keyframes `omega-coin-flip`, aby:
+  - start: `0%` → `rotateY(0deg)`
+  - koniec obrotu po 2 sekundach: `16.6667%` → `rotateY(360deg)`  
+    (bo 2s / 12s = 16.6667%)
+  - pełny postój do końca cyklu: `100%` → `rotateY(360deg)`
+- Zmieniam definicję animacji:
+  - z `9.5s ease-in-out infinite`
+  - na `12s ease-in-out infinite` (2s obrót + 10s pauza)
 
-### Problem
+Dlaczego to spełni wymagania:
+- Pełny obrót 360° trwa dokładnie 2 sekundy.
+- Potem przez 10 sekund transformacja pozostaje identyczna (`rotateY(360deg)`), więc nie ma ruchu ani „mikropulsu”.
+- Pętla jest naprzemienna i nieskończona: ruch → bezruch → ruch → bezruch.
 
-Obecna animacja `omega-coin-flip` trwa 5s z kompresja obrotu w 10% czasu -- efekt jest nienaturalny. Uzytkownik chce dokladnie: 1.5s obrotu + 8s postoju, plynnie, bez drgan.
+Co pozostaje bez zmian:
+- `src/components/MedicalChatWidget.tsx` już ma poprawne użycie klasy `animate-omega-coin-flip` oraz 3D (`perspective`, `transformStyle`), więc nie wymaga dodatkowych modyfikacji dla tego żądania.
 
-### Rozwiazanie
-
-Calkowity cykl animacji: **9.5 sekund** (1.5s obrotu + 8s postoju).
-
-Proporcje w keyframes:
-- Obrot zajmuje 1.5 / 9.5 = ~15.8% czasu
-- Postoj zajmuje 8 / 9.5 = ~84.2% czasu
-
-Keyframes:
-- `0%`: `rotateY(0deg)` -- start obrotu
-- `15.8%`: `rotateY(360deg)` -- koniec obrotu (po 1.5s)
-- `100%`: `rotateY(360deg)` -- postoj az do konca (8s bez ruchu)
-
-### Zmiany techniczne
-
-**Plik: `tailwind.config.ts`**
-
-Keyframes `omega-coin-flip` (linie 223-227):
-```
-"omega-coin-flip": {
-  "0%": { transform: "rotateY(0deg)" },
-  "15.8%": { transform: "rotateY(360deg)" },
-  "100%": { transform: "rotateY(360deg)" },
-},
-```
-
-Animacja (linia 261):
-```
-"omega-coin-flip": "omega-coin-flip 9.5s ease-in-out infinite",
-```
-
-**Plik: `src/components/MedicalChatWidget.tsx`** -- bez zmian, klasa `animate-omega-coin-flip` i style `perspective`/`transformStyle` pozostaja.
-
-| Plik | Zmiana |
-|------|--------|
-| `tailwind.config.ts` | Nowe keyframes (0% -> 15.8% -> 100%) i czas 9.5s |
-
+Walidacja po wdrożeniu:
+1) Otworzyć dashboard z widżetem.
+2) Zmierzyć wizualnie cykl:
+   - ~2s płynnego obrotu (ease-in-out),
+   - ~10s całkowitego postoju (zero drgań).
+3) Potwierdzić, że cykl powtarza się stale w tej samej sekwencji.
