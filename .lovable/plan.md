@@ -1,62 +1,61 @@
 
-## Przywrocenie pelnego panelu widgeta PLC Omega Base + wolniejsza animacja
 
-### Zmiana 1: Przywrocenie pelnego panelu w `MedicalChatWidget.tsx`
+## Zapamietywanie wynikow wyszukiwania po odswiezeniu strony
 
-Obecny widgiet pokazuje tylko maly input. Trzeba przywrocic pelny panel jak na screenie:
-- Naglowek: ikona Search + "PLC OMEGA BASE" + przyciski (historia, pobieranie, kosz)
-- Wiersz z wynikami: "Wyniki:" + dropdown z liczba wynikow
-- Disclaimer (zolty pasek z ostrzezeniem)
-- Obszar na wiadomosci (pusty domyslnie)
-- Input na dole z przyciskiem wyslania
+### Problem
 
-Panel otwiera sie po kliknieciu pulsujacego przycisku. Po wyslaniu pytania (Enter / klik Send), wybraniu z historii lub zmianie wynikow i wyslaniu -- nastepuje nawigacja do `/omega-base?q=...&results=N`.
+Gdy uzytkownik odswieza strone `/omega-base?q=pytanie`, stan komponentu (messages) resetuje sie do pustego, a `useEffect` ponownie wysyla zapytanie z parametru URL `q`. Caly proces wyszukiwania powtarza sie niepotrzebnie.
 
-Cala logika czatu (streamowanie, eksport, rendering) pozostaje na stronie `/omega-base` -- panel widgetu sluzy TYLKO jako interfejs wejsciowy.
+### Rozwiazanie
 
-### Zmiana 2: Bardzo wolna animacja bounce
-
-Zmiana w `tailwind.config.ts`: wydluzenie czasu animacji `omega-pulse-bounce` z `2.5s` na `6s` (bardzo wolne pulsowanie i skoki).
+Uzycie `sessionStorage` do przechowywania wynikow wyszukiwania. Po zakonczeniu streamowania odpowiedzi, wiadomosci zostana zapisane w `sessionStorage`. Przy ladowaniu strony, jesli istnieja zapisane wiadomosci dla tego samego zapytania, zostana one odtworzone zamiast ponownego wyszukiwania.
 
 ### Szczegoly techniczne
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/MedicalChatWidget.tsx` | Pelna przebudowa panelu: naglowek z "PLC OMEGA BASE", historia (Popover z chatHistory z hooka useMedicalChatStream), download (nawigacja do omega-base), resultsCount selector, disclaimer, input. Po submit/historia -> navigate(`/omega-base?q=...&results=N`) |
-| `tailwind.config.ts` | Zmiana `omega-pulse-bounce` duration z `2.5s` na `6s` |
-| `src/pages/OmegaBasePage.tsx` | Dodanie odczytu parametru `results` z URL i ustawienie `resultsCount` na starcie |
+**Plik: `src/pages/OmegaBasePage.tsx`**
+
+Zmiany w logice inicjalizacji (useEffect na liniach 74-85):
+
+1. Przy ladowaniu strony sprawdzic `sessionStorage` pod kluczem `omega-base-session`
+2. Jesli zapisane dane istnieja i zapytanie `q` pasuje do zapisanego zapytania -- odtworzyc wiadomosci ze storage zamiast wysylac nowe zapytanie
+3. Jesli nie ma danych lub zapytanie jest inne -- wyslac nowe zapytanie jak dotychczas
+
+**Plik: `src/hooks/useMedicalChatStream.ts`**
+
+Dodanie:
+- Nowej funkcji `setMessagesDirectly(msgs: MedicalChatMessage[])` do ustawiania wiadomosci bez wysylania zapytania (do odtwarzania z cache)
+- Hook zwraca dodatkowa funkcje `setMessagesDirectly`
+
+**Plik: `src/pages/OmegaBasePage.tsx`**
+
+Dodanie:
+- `useEffect` ktory zapisuje wiadomosci do `sessionStorage` po kazdej zmianie (tylko gdy sa wiadomosci z trescia)
+- Klucz storage: `omega-base-session` z wartoscia `{ query: string, messages: MedicalChatMessage[], resultsCount: number }`
+- Przy `clearMessages` rowniez czyszczenie `sessionStorage`
+- Przy `loadFromHistory` nadpisanie storage nowym kontekstem
 
 ### Przeplyw
 
 ```text
-[Pulsujacy przycisk - wolny bounce 6s]
-  |
-  v (klik)
-[Panel jak na screenie: naglowek, wyniki, disclaimer, input]
-  |
-  v (wyslanie pytania / wybranie z historii)
-[navigate("/omega-base?q=pytanie&results=10")]
+[Uzytkownik wchodzi na /omega-base?q=pytanie]
   |
   v
-[Pelnostronicowy interfejs z odpowiedzia]
+[Sprawdz sessionStorage]
+  |
+  +-- Jest cache z tym samym q? --> Odtworz wiadomosci, nie wysylaj zapytania
+  |
+  +-- Brak cache lub inne q? --> Wyslij zapytanie, zapisz wynik do sessionStorage
+  |
+  v
+[Uzytkownik odswieza strone]
+  |
+  v
+[Cache istnieje --> Odtworzenie wynikow bez ponownego wyszukiwania]
 ```
 
-### Zawartosc panelu (odtworzenie z screena)
+### Czyszczenie cache
 
-```text
-+-----------------------------------------------+
-| [Q] PLC OMEGA BASE        [hist][dl][trash]   |
-+-----------------------------------------------+
-| Wyniki:                            [10 v]     |
-+-----------------------------------------------+
-| ! Ten asystent sluzy wylacznie celom          |
-|   informacyjnym i nie zastepuje porady        |
-|   lekarskiej.                                 |
-+-----------------------------------------------+
-|                                               |
-|           (pusty obszar czatu)                |
-|                                               |
-+-----------------------------------------------+
-| [Zadaj pytanie naukowe...        ] [>]        |
-+-----------------------------------------------+
-```
+- Klikniecie "kosza" (clearMessages) czysci rowniez sessionStorage
+- Zamkniecie karty/przegladarki automatycznie czysci sessionStorage (wbudowane zachowanie)
+- Nowe zapytanie nadpisuje stary cache
+
