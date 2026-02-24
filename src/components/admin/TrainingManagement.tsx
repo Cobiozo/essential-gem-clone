@@ -78,6 +78,21 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { ActionButtonsEditor } from "./ActionButtonsEditor";
 import { ModuleResourcesSelector } from "./ModuleResourcesSelector";
+import { SortableLessonCard } from "./SortableLessonCard";
+import {
+  DndContext,
+  DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { LessonActionButton } from "@/types/training";
 import { LANGUAGE_OPTIONS, getLanguageLabel } from "@/types/knowledge";
 // jsPDF imported dynamically when generating certificates
@@ -635,6 +650,10 @@ const TrainingManagement = () => {
     }
   };
 
+  const dndPointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const dndTouchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 10 } });
+  const dndSensors = useSensors(dndPointerSensor, dndTouchSensor);
+
   const moveLessonPosition = async (lessonId: string, direction: 'up' | 'down') => {
     const sortedLessons = [...lessons].sort((a, b) => a.position - b.position);
     const currentIdx = sortedLessons.findIndex(l => l.id === lessonId);
@@ -661,6 +680,38 @@ const TrainingManagement = () => {
       if (selectedModule) await fetchLessons(selectedModule);
     } catch (error) {
       console.error('Error moving lesson:', error);
+      toast({
+        title: t('admin.training.error'),
+        description: 'Nie udało się zmienić kolejności lekcji',
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleLessonDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const sortedLessons = [...lessons].sort((a, b) => a.position - b.position);
+    const oldIndex = sortedLessons.findIndex(l => l.id === active.id);
+    const newIndex = sortedLessons.findIndex(l => l.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(sortedLessons, oldIndex, newIndex);
+
+    try {
+      // Batch update all positions
+      for (let i = 0; i < reordered.length; i++) {
+        const { error } = await supabase
+          .from('training_lessons')
+          .update({ position: i + 1 })
+          .eq('id', reordered[i].id);
+        if (error) throw error;
+      }
+      if (selectedModule) await fetchLessons(selectedModule);
+    } catch (error) {
+      console.error('Error reordering lessons:', error);
       toast({
         title: t('admin.training.error'),
         description: 'Nie udało się zmienić kolejności lekcji',
@@ -1517,175 +1568,45 @@ const TrainingManagement = () => {
 
           {/* Lessons List */}
           {selectedModule && (
-            <div className="space-y-4">
-              {lessons.map((lesson, index) => (
-                <Card key={lesson.id}>
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      {/* Thumbnail */}
-                      <div className="w-20 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-                        {lesson.media_url ? (
-                          lesson.media_type === 'image' ? (
-                            <img 
-                              src={lesson.media_url} 
-                              alt={lesson.media_alt_text || lesson.title}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : lesson.media_type === 'video' ? (
-                            <div className="relative w-full h-full bg-muted flex items-center justify-center">
-                              <Video className="h-6 w-6 text-muted-foreground" />
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-6 h-6 rounded-full bg-primary/80 flex items-center justify-center">
-                                  <Play className="h-3 w-3 text-primary-foreground ml-0.5" />
-                                </div>
-                              </div>
-                            </div>
-                          ) : lesson.media_type === 'audio' ? (
-                            <Music className="h-6 w-6 text-muted-foreground" />
-                          ) : (
-                            <FileText className="h-6 w-6 text-muted-foreground" />
-                          )
-                        ) : (
-                          <BookOpen className="h-6 w-6 text-muted-foreground/50" />
-                        )}
-                      </div>
+            <DndContext
+              sensors={dndSensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleLessonDragEnd}
+            >
+              <SortableContext
+                items={[...lessons].sort((a, b) => a.position - b.position).map(l => l.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-4">
+                  {[...lessons].sort((a, b) => a.position - b.position).map((lesson, index) => (
+                    <SortableLessonCard
+                      key={lesson.id}
+                      lesson={lesson}
+                      index={index}
+                      lessonsCount={lessons.length}
+                      onEdit={(l) => {
+                        setEditingLesson(l as any);
+                        setShowLessonForm(true);
+                      }}
+                      onDelete={deleteLesson}
+                      onMoveUp={(id) => moveLessonPosition(id, 'up')}
+                      onMoveDown={(id) => moveLessonPosition(id, 'down')}
+                    />
+                  ))}
 
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        {/* Header */}
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <h4 className="font-semibold text-sm truncate">
-                            <span className="text-muted-foreground mr-1">#{lesson.position}</span>
-                            {lesson.title}
-                          </h4>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
-                            <Badge variant={lesson.is_active ? "default" : "secondary"} className="text-xs">
-                              {lesson.is_active ? "Aktywna" : "Nieaktywna"}
-                            </Badge>
-                            {lesson.min_time_seconds > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {Math.ceil(lesson.min_time_seconds / 60)} min
-                              </Badge>
-                            )}
-                          </div>
+                  {lessons.length === 0 && (
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center text-muted-foreground">
+                          <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                          <p>Brak lekcji w tym module</p>
                         </div>
-
-                        {/* Content badges */}
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {lesson.media_type && (
-                            <Badge variant="outline" className="text-xs gap-1">
-                              {lesson.media_type === 'video' && <Video className="h-3 w-3" />}
-                              {lesson.media_type === 'audio' && <Music className="h-3 w-3" />}
-                              {lesson.media_type === 'image' && <ImageIcon className="h-3 w-3" />}
-                              {lesson.media_type === 'document' && <FileText className="h-3 w-3" />}
-                              {lesson.media_type === 'video' && 'Wideo'}
-                              {lesson.media_type === 'audio' && 'Audio'}
-                              {lesson.media_type === 'image' && 'Obraz'}
-                              {lesson.media_type === 'document' && 'Dokument'}
-                            </Badge>
-                          )}
-                          {lesson.content && lesson.content.length > 0 && (
-                            <Badge variant="outline" className="text-xs gap-1">
-                              <AlignLeft className="h-3 w-3" />
-                              Treść
-                            </Badge>
-                          )}
-                          {lesson.is_required && (
-                            <Badge variant="outline" className="text-xs gap-1 border-amber-500/50 text-amber-600">
-                              <AlertCircle className="h-3 w-3" />
-                              Wymagana
-                            </Badge>
-                          )}
-                          {lesson.action_buttons && lesson.action_buttons.length > 0 && (
-                            <Badge variant="outline" className="text-xs gap-1">
-                              <Link className="h-3 w-3" />
-                              {lesson.action_buttons.length} {lesson.action_buttons.length === 1 ? 'przycisk' : 'przyciski'}
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Action buttons list */}
-                        {lesson.action_buttons && lesson.action_buttons.length > 0 && (
-                          <div className="mb-2 space-y-0.5">
-                            {lesson.action_buttons.slice(0, 3).map((button, btnIndex) => (
-                              <div key={btnIndex} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <span className="truncate">• {button.label}</span>
-                                <Badge variant="secondary" className="text-[10px] px-1 py-0">
-                                  {button.type === 'file' ? 'plik' : 
-                                   button.type === 'external' ? 'zewn.' : 
-                                   button.type === 'internal' ? 'wewn.' : 'zasób'}
-                                </Badge>
-                              </div>
-                            ))}
-                            {lesson.action_buttons.length > 3 && (
-                              <div className="text-xs text-muted-foreground">
-                                +{lesson.action_buttons.length - 3} więcej...
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Admin actions */}
-                        <div className="flex items-center gap-2 mt-2">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            disabled={index === 0}
-                            onClick={() => moveLessonPosition(lesson.id, 'up')}
-                            title="Przenieś w górę"
-                          >
-                            <ChevronUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            disabled={index === lessons.length - 1}
-                            onClick={() => moveLessonPosition(lesson.id, 'down')}
-                            title="Przenieś w dół"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-7 text-xs"
-                            onClick={() => {
-                              setEditingLesson(lesson);
-                              setShowLessonForm(true);
-                            }}
-                          >
-                            <Edit className="h-3 w-3 mr-1" />
-                            Edytuj
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-7 text-xs"
-                            onClick={() => deleteLesson(lesson.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              
-              {lessons.length === 0 && (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center text-muted-foreground">
-                      <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Brak lekcji w tym module</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </TabsContent>
 
