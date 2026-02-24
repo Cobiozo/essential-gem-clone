@@ -6838,6 +6838,7 @@ export type Database = {
           expires_at: string
           google_email: string | null
           id: string
+          refresh_fail_count: number | null
           refresh_token: string
           updated_at: string
           user_id: string
@@ -6849,6 +6850,7 @@ export type Database = {
           expires_at: string
           google_email?: string | null
           id?: string
+          refresh_fail_count?: number | null
           refresh_token: string
           updated_at?: string
           user_id: string
@@ -6860,6 +6862,7 @@ export type Database = {
           expires_at?: string
           google_email?: string | null
           id?: string
+          refresh_fail_count?: number | null
           refresh_token?: string
           updated_at?: string
           user_id?: string

@@ -258,16 +258,36 @@ Deno.serve(async (req) => {
 
     console.log('[google-oauth-callback] Saving tokens to database for user:', user_id);
 
+    // Determine refresh_token to save - preserve existing if Google didn't return a new one
+    let refreshTokenToSave = tokens.refresh_token;
+    
+    if (!refreshTokenToSave) {
+      console.log('[google-oauth-callback] No refresh_token in response, preserving existing one from database');
+      const { data: existingToken } = await supabaseAdmin
+        .from('user_google_tokens')
+        .select('refresh_token')
+        .eq('user_id', user_id)
+        .single();
+      
+      if (existingToken?.refresh_token) {
+        refreshTokenToSave = existingToken.refresh_token;
+        console.log('[google-oauth-callback] Using existing refresh_token from database');
+      } else {
+        console.warn('[google-oauth-callback] No existing refresh_token found either - user may need to re-authorize with consent');
+      }
+    }
+
     // Upsert tokens (update if exists, insert if not)
     const { error: upsertError } = await supabaseAdmin
       .from('user_google_tokens')
       .upsert({
         user_id,
         access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
+        refresh_token: refreshTokenToSave,
         expires_at: expiresAt,
         calendar_id: 'primary',
         google_email: googleEmail,
+        refresh_fail_count: 0,
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'user_id',
