@@ -40,6 +40,11 @@ export const useProfileCompletion = (): ProfileCompletionStatus => {
       if (!profileAny.profile_description?.trim()) missingFields.push('profile_description');
     }
     
+    // Check legal consents
+    if (!profileAny.accepted_terms) missingFields.push('accepted_terms');
+    if (!profileAny.accepted_privacy) missingFields.push('accepted_privacy');
+    if (!profileAny.accepted_rodo) missingFields.push('accepted_rodo');
+    
     return {
       isComplete: missingFields.length === 0,
       missingFields,

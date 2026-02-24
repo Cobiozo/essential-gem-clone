@@ -842,6 +842,61 @@ const MyAccount = () => {
                 </CardContent>
               </Card>
 
+              {/* Legal Consents Status */}
+              <Card className="mt-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5" />
+                    Zgody i regulaminy
+                  </CardTitle>
+                  <CardDescription>
+                    Status Twoich zgód prawnych
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    {(profile as any)?.accepted_terms ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                    )}
+                    <span className="text-sm">Regulamin</span>
+                    {(profile as any)?.accepted_terms && (
+                      <Badge variant="outline" className="ml-auto text-xs">Zaakceptowany</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(profile as any)?.accepted_privacy ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                    )}
+                    <span className="text-sm">Polityka Prywatności</span>
+                    {(profile as any)?.accepted_privacy && (
+                      <Badge variant="outline" className="ml-auto text-xs">Zaakceptowana</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {(profile as any)?.accepted_rodo ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                    )}
+                    <span className="text-sm">Zgoda RODO</span>
+                    {(profile as any)?.accepted_rodo && (
+                      <Badge variant="outline" className="ml-auto text-xs">Wyrażona</Badge>
+                    )}
+                  </div>
+                  {(profile as any)?.accepted_terms_at && (
+                    <p className="text-xs text-muted-foreground pt-2">
+                      Data akceptacji: {new Date((profile as any).accepted_terms_at).toLocaleDateString('pl-PL', {
+                        day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                      })}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Specialist Fields - Always visible for specjalista role */}
               {(userRole?.role === 'specjalista' || (profile as any)?.specialization || (profile as any)?.profile_description) && (
                 <Card className="mt-6">
