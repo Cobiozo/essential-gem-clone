@@ -1,56 +1,119 @@
 
-## Naprawa usuwania użytkownika -- blokada przez foreign key constraints
 
-### Problem
+## Dodanie powiadomień in-app, Push i ulepszenie e-maili dla spotkań indywidualnych
 
-Usuwanie użytkownika z panelu administratora kończy się błędem:
+### Zakres zmian
+
+Trzy pliki wymagają modyfikacji:
+
+1. **`src/components/events/PartnerMeetingBooking.tsx`** -- dodanie powiadomień in-app i Push przy rezerwacji
+2. **`supabase/functions/send-meeting-reminders/index.ts`** -- dodanie powiadomień in-app przy przypomnieniach + naprawa Push 24h + dodanie info o uczestnikach w e-mailach
+3. **`supabase/functions/cancel-individual-meeting/index.ts`** -- dodanie powiadomień in-app i Push przy anulowaniu + dodanie info o uczestnikach w e-mailach
+
+---
+
+### 1. Rezerwacja spotkania (`PartnerMeetingBooking.tsx`)
+
+Po utworzeniu wydarzenia i wysłaniu e-maili, dodać:
+
+**a) Powiadomienie in-app dla lidera (host):**
 ```
-"update or delete on table "users" violates foreign key constraint "events_created_by_fkey" on table "events""
+Tytuł: "Nowa rezerwacja spotkania"
+Treść: "{imię_rezerwującego} {nazwisko} zarezerwował(a) spotkanie {typ} na {data} o {godzina}"
+Link: /meetings
 ```
 
-Edge function `admin-delete-user` wywołuje `supabaseAdmin.auth.admin.deleteUser(userId)`, co próbuje usunąć wiersz z `auth.users`. Jednak 17 tabel posiada foreign key do `auth.users` BEZ kaskadowego usuwania (domyślnie `NO ACTION`), co blokuje operację.
+**b) Powiadomienie in-app dla partnera (booker):**
+```
+Tytuł: "Spotkanie potwierdzone"
+Treść: "Twoje spotkanie z {imię_lidera} {nazwisko} ({typ}) zostało potwierdzone na {data} o {godzina}"
+Link: /meetings
+```
 
-### Dotknięte tabele i kolumny
+**c) Push notification dla lidera:**
+```
+Tytuł: "Nowa rezerwacja spotkania"
+Body: "{imię_rezerwującego} zarezerwował(a) {typ} na {data} {godzina}"
+```
 
-| Tabela | Constraint | Kolumna | Obecna reguła |
-|--------|-----------|---------|---------------|
-| events | events_created_by_fkey | created_by | NO ACTION |
-| events | events_host_user_id_fkey | host_user_id | NO ACTION |
-| certificates | certificates_issued_by_fkey | issued_by | NO ACTION |
-| admin_alerts | admin_alerts_resolved_by_fkey | resolved_by | NO ACTION |
-| calculator_user_access | calculator_user_access_granted_by_fkey | granted_by | NO ACTION |
-| healthy_knowledge | healthy_knowledge_created_by_fkey | created_by | NO ACTION |
-| hk_otp_codes | hk_otp_codes_partner_id_fkey | partner_id | NO ACTION |
-| html_pages | html_pages_created_by_fkey | created_by | NO ACTION |
-| leader_permissions | leader_permissions_activated_by_fkey | activated_by | NO ACTION |
-| news_ticker_items | news_ticker_items_created_by_fkey | created_by | NO ACTION |
-| paid_event_orders | paid_event_orders_user_id_fkey | user_id | NO ACTION |
-| paid_events | paid_events_created_by_fkey | created_by | NO ACTION |
-| partner_page_user_access | partner_page_user_access_granted_by_fkey | granted_by | NO ACTION |
-| specialist_calculator_user_access | specialist_calculator_user_access_granted_by_fkey | granted_by | NO ACTION |
-| translation_jobs | translation_jobs_created_by_fkey | created_by | NO ACTION |
+**d) Push notification dla partnera (booker):**
+```
+Tytuł: "Spotkanie potwierdzone"
+Body: "Spotkanie z {imię_lidera} potwierdzone na {data} {godzina}"
+```
 
-### Rozwiązanie
+**e) Rozszerzenie e-maili o dane uczestników:**
+- E-mail do lidera: dodać imię i nazwisko rezerwującego (już jest)
+- E-mail do bookera: dodać imię i nazwisko lidera (już jest)
+- OK, e-maile przy rezerwacji już zawierają dane uczestników.
 
-Zmiana reguły usuwania na `SET NULL` dla kolumn referencyjnych typu "created_by", "issued_by", "granted_by", "activated_by", "resolved_by", "host_user_id". Te kolumny przechowują informację "kto utworzył/zatwierdzil", więc po usunięciu użytkownika powinny zostać ustawione na NULL (dane pozostają, ale tracą powiązanie z usuniętym użytkownikiem).
+---
 
-Dla kolumn będących głównym identyfikatorem użytkownika (np. `paid_event_orders.user_id`, `hk_otp_codes.partner_id`) -- użycie `CASCADE` (usunięcie powiązanych rekordów wraz z użytkownikiem).
+### 2. Przypomnienia CRON (`send-meeting-reminders/index.ts`)
+
+**a) Naprawa Push 24h:**
+Obecny kod:
+```typescript
+title: reminderType === '1h' 
+  ? "Spotkanie za godzinę" 
+  : "Spotkanie za 15 minut"
+```
+Zmiana na:
+```typescript
+title: reminderType === '24h' 
+  ? "Spotkanie jutro"
+  : reminderType === '1h' 
+    ? "Spotkanie za godzinę" 
+    : "Spotkanie za 15 minut"
+```
+
+**b) Dodanie powiadomień in-app przy każdym przypomnieniu (24h, 1h, 15min):**
+Po wysłaniu e-maila i Push, wstawić `user_notifications` z:
+```
+Tytuł: "Przypomnienie: {tytuł_spotkania}"
+Treść: "Spotkanie z {druga_strona} — {data} o {godzina} ({typ_przypomnienia})"
+Link: /meetings
+```
+
+**c) Dodanie danych uczestników do zmiennych e-maila:**
+Dodać zmienne `imie_rezerwujacego`, `nazwisko_rezerwujacego`, `imie_lidera`, `nazwisko_lidera` do templatek, aby każdy e-mail zawierał informację kto jest uczestnikiem spotkania i kto je zarezerwował.
+
+---
+
+### 3. Anulowanie spotkania (`cancel-individual-meeting/index.ts`)
+
+**a) Dodanie powiadomień in-app dla wszystkich uczestników:**
+Po anulowaniu, przed wysyłką e-maili, wstawić `user_notifications`:
+```
+Tytuł: "Spotkanie anulowane"
+Treść: "{kto_anulował} anulował(a) spotkanie {tytuł} ({data} {godzina})"
+Link: /meetings
+```
+
+**b) Dodanie Push notification dla wszystkich uczestników:**
+```
+Tytuł: "Spotkanie anulowane"
+Body: "{kto_anulował} anulował(a) {tytuł} — {data} {godzina}"
+```
+
+**c) Rozszerzenie e-maili o dane uczestników:**
+Dodać do payload e-maila:
+- `imie_lidera`, `nazwisko_lidera` (prowadzący)
+- `imie_rezerwujacego`, `nazwisko_rezerwujacego` (osoba rezerwująca)
+- `kto_odwolal` (już jest)
+
+Pobrać profile wszystkich uczestników i wzbogacić payload.
+
+---
 
 ### Szczegoly techniczne
 
-Migracja SQL wykona dla każdej z 17 tabel:
-1. `ALTER TABLE ... DROP CONSTRAINT ...`
-2. `ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY ... REFERENCES auth.users(id) ON DELETE SET NULL` lub `ON DELETE CASCADE`
+| Plik | Zmiana |
+|------|--------|
+| `src/components/events/PartnerMeetingBooking.tsx` | Dodanie 2x insert `user_notifications` + 2x invoke `send-push-notification` po rezerwacji |
+| `supabase/functions/send-meeting-reminders/index.ts` | Naprawa ternary Push title dla 24h, dodanie insert `user_notifications` w petli, dodanie zmiennych uczestników |
+| `supabase/functions/cancel-individual-meeting/index.ts` | Dodanie insert `user_notifications` + invoke `send-push-notification` w pętli po anulowaniu, dodanie danych uczestników do e-maila |
 
-Podział:
-- **SET NULL** (kolumny "kto utworzył" -- dane pozostają): events.created_by, events.host_user_id, certificates.issued_by, admin_alerts.resolved_by, calculator_user_access.granted_by, healthy_knowledge.created_by, html_pages.created_by, leader_permissions.activated_by, news_ticker_items.created_by, paid_events.created_by, partner_page_user_access.granted_by, specialist_calculator_user_access.granted_by, translation_jobs.created_by
-- **CASCADE** (dane powiązane z użytkownikiem -- usuwane): paid_event_orders.user_id, hk_otp_codes.partner_id
+### Bez zmian w bazie danych
+Wszystkie tabele (`user_notifications`, `meeting_reminders_sent`) już istnieją. Nie trzeba migracji.
 
-Kolumny z SET NULL muszą dopuszczać wartość NULL. Migracja doda `ALTER COLUMN ... DROP NOT NULL` tam, gdzie to konieczne.
-
-### Pliki do zmian
-
-| Element | Zmiana |
-|---------|--------|
-| Migracja SQL | Zmiana 17 foreign key constraints na SET NULL lub CASCADE |
-| Bez zmian w kodzie | Edge function `admin-delete-user` nie wymaga zmian -- problem jest wyłącznie na poziomie bazy danych |
