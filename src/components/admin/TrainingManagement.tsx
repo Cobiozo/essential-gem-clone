@@ -59,6 +59,7 @@ import {
   CheckCircle,
   MoreVertical,
   ChevronDown,
+  ChevronUp,
   RotateCcw,
   AlertTriangle
 } from "lucide-react";
@@ -629,6 +630,40 @@ const TrainingManagement = () => {
       toast({
         title: t('admin.training.error'),
         description: t('admin.training.cannotDeleteModule'),
+        variant: "destructive"
+      });
+    }
+  };
+
+  const moveLessonPosition = async (lessonId: string, direction: 'up' | 'down') => {
+    const sortedLessons = [...lessons].sort((a, b) => a.position - b.position);
+    const currentIdx = sortedLessons.findIndex(l => l.id === lessonId);
+    const targetIdx = direction === 'up' ? currentIdx - 1 : currentIdx + 1;
+    
+    if (targetIdx < 0 || targetIdx >= sortedLessons.length) return;
+    
+    const currentLesson = sortedLessons[currentIdx];
+    const targetLesson = sortedLessons[targetIdx];
+    
+    try {
+      const { error: err1 } = await supabase
+        .from('training_lessons')
+        .update({ position: targetLesson.position })
+        .eq('id', currentLesson.id);
+      
+      const { error: err2 } = await supabase
+        .from('training_lessons')
+        .update({ position: currentLesson.position })
+        .eq('id', targetLesson.id);
+      
+      if (err1 || err2) throw err1 || err2;
+      
+      if (selectedModule) await fetchLessons(selectedModule);
+    } catch (error) {
+      console.error('Error moving lesson:', error);
+      toast({
+        title: t('admin.training.error'),
+        description: 'Nie udało się zmienić kolejności lekcji',
         variant: "destructive"
       });
     }
@@ -1593,6 +1628,26 @@ const TrainingManagement = () => {
 
                         {/* Admin actions */}
                         <div className="flex items-center gap-2 mt-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={index === 0}
+                            onClick={() => moveLessonPosition(lesson.id, 'up')}
+                            title="Przenieś w górę"
+                          >
+                            <ChevronUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            disabled={index === lessons.length - 1}
+                            onClick={() => moveLessonPosition(lesson.id, 'down')}
+                            title="Przenieś w dół"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"
