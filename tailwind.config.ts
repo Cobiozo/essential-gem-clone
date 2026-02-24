@@ -222,7 +222,7 @@ export default {
         },
         "omega-coin-flip": {
           "0%": { transform: "rotateY(0deg)" },
-          "33.3333%": { transform: "rotateY(360deg)" },
+          "16.6667%": { transform: "rotateY(360deg)" },
           "100%": { transform: "rotateY(360deg)" },
         },
       },
@@ -258,7 +258,7 @@ export default {
         "icon-float": "icon-float 3s ease-in-out infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "metal-shine": "metal-shine 3s linear infinite",
-        "omega-coin-flip": "omega-coin-flip 30s ease-in-out infinite",
+        "omega-coin-flip": "omega-coin-flip 120s ease-in-out infinite",
       },
     },
   },
