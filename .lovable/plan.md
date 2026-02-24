@@ -1,88 +1,113 @@
 
 
-## Naprawa audytu plików Storage
+## Naprawa systemu resetowania hasla
 
 ### Zidentyfikowane problemy
 
-1. **Storage API `list()` nie dziala rekursywnie** -- zwraca tylko obiekty na 1. poziomie folderow. W buckecie `certificates` (struktura `userId/certId/file.pdf`) pokazuje 33 folderow zamiast 196 plikow.
-2. **Rozmiary plikow = 0 B** -- foldery z `list()` nie maja metadanych `size`.
-3. **Bledne nazwy tabel/kolumn w mapowaniu** -- `healthy_knowledge_items` (nie istnieje), `knowledge_resources.file_url` (nie istnieje).
-4. **Certyfikaty -- 100% oznaczane jako osierocone** -- bo mechanizm porownywania nie radzi sobie ze sciezkami zagniezdzonymi.
+#### Problem 1: Brak strony `/reset-password`
+Aplikacja nie posiada strony do ustawienia nowego hasla po kliknieciu linku z emaila. Aktualnie:
+- Link recovery z emaila kieruje na `/auth`
+- Strona `/auth` wykrywa zalogowanego uzytkownika i przekierowuje na `/dashboard`
+- Uzytkownik nigdy nie widzi formularza zmiany hasla
 
-### Rozwiazanie
+#### Problem 2: Admin -- brak opcji "bez emaila"
+Dialog resetowania hasla admina ma tylko jeden przycisk "Resetuj haslo" ktory zawsze zmienia haslo I wysyla email. Brak opcji:
+- "Ustaw haslo bez wysylania emaila"
+- "Ustaw haslo tymczasowe i wyslij email"
 
-#### 1. Edge Function `audit-storage-files` -- przepisanie listowania plikow
+#### Problem 3: Brakujace ostrzezenie bezpieczenstwa w szablonach email
+Oba szablony (`password_reset` i `password_reset_admin`) nie zawieraja pelnego ostrzezenia:
+- "Jezeli nie dokonywales zmiany hasla, zignoruj wiadomosc, nie klikaj w linki oraz poinformuj support w osobnej wiadomosci lub formularz na stronie Pure Life Center"
 
-Zamiast `storage.list()` (ktore nie dziala rekursywnie), uzyc **bezposredniego zapytania do `storage.objects`** przez Supabase Admin Client:
+#### Problem 4: Flow uzytkownika niezgodny z oczekiwaniami
+Uzytkownik oczekuje: email z haslem tymczasowym -> strona z polem "haslo tymczasowe" + "nowe haslo" + "powtorz nowe haslo".
+Aktualnie: email z linkiem recovery Supabase -> brak strony docelowej.
 
+---
+
+### Plan naprawy
+
+#### 1. Nowa strona `ResetPassword.tsx`
+
+Utworzenie strony `/reset-password` z formularzem:
+- Pole "Nowe haslo"
+- Pole "Powtorz nowe haslo"
+- Walidacja zgodnosci hasel i wymagan (min. 8 znakow, duza litera, cyfra)
+- Po zatwierdzeniu: wywolanie `supabase.auth.updateUser({ password })` 
+- Po sukcesie: przekierowanie na `/auth` z komunikatem "Haslo zmienione, zaloguj sie"
+
+Strona obsluguje token recovery z URL hash (`type=recovery`).
+
+#### 2. Nowa trasa w `App.tsx`
+
+Dodanie:
 ```text
-supabaseAdmin
-  .from('objects')           -- NIE storage_objects_view
-  .select('name, metadata')
-  .eq('bucket_id', bucketId)
+<Route path="/reset-password" element={<ResetPassword />} />
+```
+Trasa musi byc publiczna (nie chroniona auth guardem).
+
+#### 3. Poprawka `send-password-reset` Edge Function
+
+Zmiana `redirectTo` z obecnego:
+```text
+redirectTo: supabaseUrl.replace('.supabase.co', '.lovable.app') + '/auth'
+```
+na:
+```text
+redirectTo: 'https://purelife.lovable.app/reset-password'
 ```
 
-Uwaga: tabela `storage.objects` nie jest dostepna przez `.from()` (to schemat `storage`, nie `public`). Dlatego nalezy uzyc **RPC** lub rekursywnego listowania przez Storage API.
+#### 4. Rozbudowa dialogu admina w `Admin.tsx`
 
-Podejscie: rekursywne `storage.from(bucket).list(folder)` -- czyli:
-- Wylistuj top-level
-- Dla kazdego elementu bez rozszerzenia (folder) -- wylistuj jego zawartosc rekursywnie
-- Zbierz wszystkie pliki z pelna sciezka
+Zamiana jednego przycisku na dwa:
+- **"Ustaw haslo (bez emaila)"** -- wywoluje `admin-reset-password` z parametrem `send_email: false`, zmienia haslo bez wysylania wiadomosci
+- **"Ustaw i wyslij email"** -- dotychczasowe dzialanie, zmienia haslo i wysyla email z nowym haslem
 
-#### 2. Poprawka mapowania tabel
+Modyfikacja Edge Function `admin-reset-password` o obsluge parametru `send_email`.
 
-Aktualne (bledne) vs prawidlowe:
+#### 5. Aktualizacja szablonow email (SQL migration)
+
+Dodanie do obu szablonow (`password_reset` i `password_reset_admin`) sekcji ostrzezenia bezpieczenstwa:
 
 ```text
-healthy-knowledge:
-  BLAD:    healthy_knowledge_items.file_url
-  POPRAWKA: healthy_knowledge.media_url
-
-knowledge-resources:
-  BLAD:    knowledge_resources.file_url
-  POPRAWKA: knowledge_resources.source_url
-
-Dodac brakujace:
-  cms_sections.background_image (dla cms-images)
+UWAGA: Jezeli nie dokonywales zmiany hasla, zignoruj ta wiadomosc, 
+nie klikaj w zadne linki oraz poinformuj nasz zespol wsparcia 
+w osobnej wiadomosci lub przez formularz kontaktowy 
+znajdujacy sie na stronie Pure Life Center.
 ```
 
-#### 3. Poprawka dopasowania plikow certyfikatow
+---
 
-Pliki certyfikatow maja sciezki: `userId/certId/certificate-timestamp.pdf`
-Rekordy `certificates.file_url` zawieraja te same sciezki.
+### Szczegoly techniczne
 
-Dopasowanie musi porownywac pelna sciezke pliku z wartoscia `file_url`, a nie tylko nazwe pliku.
+**Nowe pliki:**
+- `src/pages/ResetPassword.tsx` -- strona resetowania hasla z formularzem
 
-#### 4. Rozszerzenie o pliki na VPS (informacyjnie)
+**Modyfikowane pliki:**
+- `src/App.tsx` -- dodanie trasy `/reset-password`
+- `src/pages/Admin.tsx` -- rozbudowa dialogu resetu hasla (2 przyciski)
+- `supabase/functions/send-password-reset/index.ts` -- poprawka `redirectTo`
+- `supabase/functions/admin-reset-password/index.ts` -- obsluga `send_email: boolean`
 
-Wiele plikow jest hostowanych na `purelife.info.pl/uploads/...`, nie w Supabase Storage. Audyt Storage tego nie obejmie, ale mozna dodac sekcje informacyjna: "X plikow w bazie odwoluje sie do serwera VPS" -- bez mozliwosci czyszczenia z poziomu aplikacji.
+**Migracja SQL:**
+- UPDATE szablonow `password_reset` i `password_reset_admin` o sekcje ostrzezenia bezpieczenstwa
 
-### Plan zmian plikow
+**Strona ResetPassword -- logika:**
+1. Przy montowaniu: sprawdz `window.location.hash` na obecnosc `type=recovery`
+2. Jesli token recovery obecny -- Supabase automatycznie loguje uzytkownika sesja recovery
+3. Uzytkownik wpisuje nowe haslo + powtorzenie
+4. Wywolanie `supabase.auth.updateUser({ password: newPassword })`
+5. Po sukcesie: wylogowanie i przekierowanie na `/auth`
 
-**Plik 1: `supabase/functions/audit-storage-files/index.ts`**
-- Zamienic `storage_objects_view` i fallback `list()` na rekursywne listowanie z `storage.from(bucket).list(folder)` w glab
-- Poprawic `BUCKET_REFERENCES`:
-  - `healthy-knowledge` -> `healthy_knowledge.media_url`
-  - `knowledge-resources` -> `knowledge_resources.source_url`
-- Poprawic logike dopasowania: porownywac pelna sciezke pliku z wartoscia URL z bazy (nie tylko nazwe pliku)
-- Dodac obsluge sciezek zagniezdonych (certyfikaty: `userId/certId/file.pdf`)
+**Admin dialog -- nowa struktura:**
 
-**Plik 2: `src/components/admin/StorageAuditSection.tsx`**
-- Bez zmian strukturalnych -- komponent bedzie dzialal poprawnie po naprawie Edge Function
-- Opcjonalnie: dodac informacje o plikach na VPS
-
-### Oczekiwane wyniki po naprawie
-
-| Bucket | Plikow | Rozmiar | Status |
-|--------|--------|---------|--------|
-| certificates | 196 | 1.30 GB | Prawidlowy audyt -- porownanie z certificates.file_url |
-| cms-videos | 25 | 380 MB | Prawidlowy audyt |
-| cms-images | 347 | 142 MB | Prawidlowy audyt |
-| healthy-knowledge | 50 | 74 MB | Naprawiony -- prawidlowa tabela/kolumna |
-| knowledge-resources | 5 | 14 MB | Naprawiony -- source_url zamiast file_url |
-| cms-files | 6 | 28 MB | Bez zmian |
-| training-media | 1 | 7 MB | Bez zmian |
-| sidebar-icons | 5 | 60 KB | Bez zmian |
-
-**Laczna pojemnosc Storage: ~1.95 GB** (zamiast 83.95 MB wyswietlanych obecnie)
-
+```text
++------------------------------------------+
+| Resetuj haslo uzytkownika                |
+| Email: user@example.com                  |
+|                                          |
+| [Nowe haslo: _______________]            |
+|                                          |
+| [Anuluj] [Bez emaila] [Wyslij email]    |
++------------------------------------------+
+```
