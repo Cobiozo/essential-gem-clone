@@ -1,36 +1,35 @@
 
 
-## Animacja widgetu PLC Omega Base -- wolny obrot monety
+## Zmiana proporcji animacji omega-coin-flip
 
-### Parametry animacji
-- Calkowity cykl: **30 sekund**
-- Obrot 360 stopni: **10 sekund** (wolny, plynny)
-- Bezruch (zero drgan): **20 sekund**
-- Petla nieskonczona
+### Parametry
+- Calkowity cykl: **200s** (bez zmian -- uzytkownik juz to zatwierdził)
+- Obrot: **20s**
+- Bezruch: **100s**
+- Laczny cykl: **120s** (20s + 100s)
 
-### Zmiana w pliku `tailwind.config.ts`
+Uwaga: uzytkownik chce 20s obrotu + 100s bezruchu = **120s** calkowity cykl, nie 200s. Dostosuje cykl do 120s.
 
-Proporcje: 10s / 30s = 33.3333%
+Proporcje: 20s / 120s = **16.6667%**
 
-**Keyframes `omega-coin-flip`** (linie 223-227):
+### Zmiana w `tailwind.config.ts`
+
+1. **Keyframes** -- zmiana progu z `33.3333%` na `16.6667%`:
 ```text
 "omega-coin-flip": {
   "0%": { transform: "rotateY(0deg)" },
-  "33.3333%": { transform: "rotateY(360deg)" },
+  "16.6667%": { transform: "rotateY(360deg)" },
   "100%": { transform: "rotateY(360deg)" },
 }
 ```
 
-**Animacja** (linia 261):
+2. **Czas animacji** -- zmiana z `30s` na `120s`:
 ```text
-"omega-coin-flip": "omega-coin-flip 30s ease-in-out infinite"
+"omega-coin-flip": "omega-coin-flip 120s ease-in-out infinite"
 ```
 
-### Dlaczego to zadziala
-- Od 0% do 33.3333% (= 10 sekund) -- wolny, plynny obrot 360 stopni z ease-in-out
-- Od 33.3333% do 100% (= 20 sekund) -- wartosc transform jest identyczna (`rotateY(360deg)`), wiec zero ruchu, zero drgan
-- Petla powtarza sie w nieskonczonosc: obrot -> bezruch -> obrot -> bezruch
-
-### Bez zmian
-- `src/components/MedicalChatWidget.tsx` -- klasa `animate-omega-coin-flip` i style 3D (`perspective`, `transformStyle`) pozostaja bez zmian
+### Efekt
+- 0-20s: wolny, plynny obrot 360 stopni
+- 20-120s: calkowity bezruch (100 sekund)
+- Petla nieskonczona
 
