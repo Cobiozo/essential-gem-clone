@@ -1,91 +1,75 @@
 
 
-## 1. Ustandaryzowanie wygladu wszystkich szablonow email
+## Wyswietlanie statusu zgod (Regulamin, Polityka Prywatnosci, RODO) w panelu CMS Uzytkownicy
 
-### Obecny stan
-- **Logo/naglowek**: Wszystkie 23 szablony juz maja logo (zlote tlo #ffc105) -- to zostalo naprawione wczesniej
-- **Footer**: Tylko 8 z 23 szablonow ma `footer_html`, pozostale 15 nie ma zadnego footera. Dodatkowo istniejace footery sa niespojne -- rozne style, rozne tresci
-- **Uklad**: Czesc szablonow uzywa `font-family: -apple-system...`, inne `font-family: 'Segoe UI'...` -- brak spojnosci
-
-### Plan zmian
-
-#### A. Ujednolicony footer dla WSZYSTKICH szablonow (migracja SQL)
-
-Ustawienie identycznego `footer_html` dla wszystkich 23 szablonow:
-
-```text
-<div style="background-color: #f9fafb; padding: 25px 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-  <p style="color: #9ca3af; font-size: 12px; margin: 0 0 8px 0;">
-    Pozdrawiamy, Zespol Pure Life Center
-  </p>
-  <p style="color: #9ca3af; font-size: 11px; margin: 0 0 5px 0;">
-    (c) 2025 Pure Life Center. Wszelkie prawa zastrzezone.
-  </p>
-  <p style="color: #9ca3af; font-size: 11px; margin: 0;">
-    Kontakt: support@purelife.info.pl
-  </p>
-</div>
-```
-
-Jedna instrukcja SQL `UPDATE email_templates SET footer_html = '...'` dla wszystkich rekordow.
-
-#### B. Szablony bez footera (15 sztuk do aktualizacji)
-- `activation_email`, `admin_approval`, `guardian_approval`, `individual_meeting_booked`, `individual_meeting_cancelled`, `individual_meeting_confirmed`, `meeting_reminder_1h`, `meeting_reminder_24h`, `password_reset_admin`, `specialist_message`, `training_assigned`, `training_reminder`, `webinar_confirmation`, `webinar_reminder_1h`, `webinar_reminder_24h`
-
-#### C. Szablony z niestandardowym footerem (8 sztuk do nadpisania)
-- `admin_notification`, `first_login_welcome`, `meeting_reminder_15min`, `password_changed`, `password_reset`, `system_reminder`, `training_new_lessons`, `welcome_registration`
-
-### Plik do zmian
-- **Migracja SQL**: jeden UPDATE na wszystkie 23 szablony
+### Cel
+Administrator w rozwinietych szczegolach karty uzytkownika (`CompactUserCard`) widzi informacje czy uzytkownik zaakceptowal Regulamin, Polityke Prywatnosci i RODO, oraz date akceptacji.
 
 ---
 
-## 2. Drag & Drop lekcji w panelu admina
+### Krok 1: Aktualizacja funkcji RPC `get_user_profiles_with_confirmation`
 
-### Obecny stan
-- Strzalki ChevronUp/ChevronDown juz dzialaja (swap pozycji w bazie)
-- Projekt juz posiada `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` w dependencjach
-- Istnieje generyczny `DragDropProvider` w `src/components/dnd/DragDropProvider.tsx`
-
-### Plan zmian
-
-#### A. Dodanie drag & drop do listy lekcji
-
-Plik: `src/components/admin/TrainingManagement.tsx`
-
-Zmiany w sekcji renderowania lekcji (linie ~1520-1688):
-
-1. **Import** `DndContext`, `SortableContext`, `useSortable`, `arrayMove`, `verticalListSortingStrategy`, `CSS`, `closestCenter`, `PointerSensor`, `TouchSensor`, `useSensor`, `useSensors` z `@dnd-kit/core` i `@dnd-kit/sortable`
-2. **Dodanie stanu** `activeLesson` dla DragOverlay
-3. **Nowa funkcja `handleLessonDragEnd`**: po zakonczeniu przeciagania oblicza nowa kolejnosc, aktualizuje pozycje wszystkich przeniesionych lekcji w bazie i odswierza widok
-4. **Owinac liste lekcji** w `DndContext` + `SortableContext`
-5. **Kazda karta lekcji** dostaje `useSortable` hook -- uchwyt do przeciagania (ikona GripVertical) + transformacje CSS
-6. **DragOverlay** z podgladem przeciaganej lekcji
-7. **Strzalki pozostaja** jako alternatywna metoda zmiany kolejnosci
-
-#### B. Wyodrebnienie komponentu `SortableLessonCard`
-
-Aby nie komplikowac i tak duzego pliku TrainingManagement.tsx (2737 linii), wyodrebnie renderowanie pojedynczej karty lekcji do nowego komponentu:
-
-Nowy plik: `src/components/admin/SortableLessonCard.tsx`
-
-- Przyjmuje `lesson`, `index`, `lessonsCount`, callbacki (`onEdit`, `onDelete`, `onMoveUp`, `onMoveDown`)
-- Uzywa `useSortable` hooka
-- Renderuje karty z uchwytem GripVertical + istniejaca zawartosc (miniatura, badze, przyciski)
-- Strzalki gora/dol pozostaja obok uchwytu
-
-#### C. Logika aktualizacji pozycji po drag & drop
+Funkcja RPC zwracajaca dane uzytkownikow musi zostac rozszerzona o nowe kolumny:
 
 ```text
-handleLessonDragEnd(event):
-  1. Pobierz active.id i over.id
-  2. Jesli rozne -- uzyj arrayMove na lokalnej tablicy
-  3. Zaktualizuj pozycje wszystkich lekcji w bazie (batch update)
-  4. Odswierz widok fetchLessons()
+p.accepted_terms
+p.accepted_privacy
+p.accepted_rodo
+p.accepted_terms_at
 ```
 
+Dodanie tych 4 pol do instrukcji SELECT i RETURN TABLE w definicji funkcji (migracja SQL: `CREATE OR REPLACE FUNCTION`).
+
+### Krok 2: Rozszerzenie interfejsu `UserProfile`
+
+Pliki: `src/pages/Admin.tsx` (linie 89-123) i `src/components/admin/CompactUserCard.tsx` (linie 39-73)
+
+Dodanie do interfejsu:
+
+```text
+accepted_terms?: boolean;
+accepted_privacy?: boolean;
+accepted_rodo?: boolean;
+accepted_terms_at?: string | null;
+```
+
+### Krok 3: Mapowanie danych RPC
+
+Plik: `src/pages/Admin.tsx` (linie 484-517, funkcja `fetchUsers`)
+
+Dodanie mapowania nowych pol z odpowiedzi RPC:
+
+```text
+accepted_terms: row.accepted_terms,
+accepted_privacy: row.accepted_privacy,
+accepted_rodo: row.accepted_rodo,
+accepted_terms_at: row.accepted_terms_at,
+```
+
+### Krok 4: Wyswietlanie zgod w rozwijanej karcie uzytkownika
+
+Plik: `src/components/admin/CompactUserCard.tsx`
+
+W sekcji "Aktywnosc konta" (linie 559-593) dodanie nowej podsekcji "Zgody i regulaminy" z 3 pozycjami:
+
+```text
+Regulamin:          [zielony checkmark] Zaakceptowany  /  [czerwony X] Brak
+Polityka Prywatnosci: [zielony checkmark] Zaakceptowana  /  [czerwony X] Brak
+RODO:               [zielony checkmark] Wyrażona       /  [czerwony X] Brak
+Data akceptacji:     DD.MM.YYYY HH:MM (jesli accepted_terms_at istnieje)
+```
+
+Wizualnie: ikona `ShieldCheck` z lucide-react jako naglowek sekcji, kolorowe znaczniki (zielony/czerwony) przy kazdej zgodzie.
+
+Dodatkowo: na glownej linii karty (obok badzy Email, roli) dodanie malego badze "Zgody" -- zielone jesli wszystkie 3 true, czerwone jesli brakuje ktorejkolwiek. Pozwoli to adminom na szybka identyfikacje bez rozwijania karty.
+
+---
+
 ### Pliki do zmian
-- **Nowy**: `src/components/admin/SortableLessonCard.tsx`
-- **Edycja**: `src/components/admin/TrainingManagement.tsx` (dodanie DndContext, zamiana renderowania lekcji na SortableLessonCard)
-- **Migracja SQL**: ujednolicenie footer_html we wszystkich szablonach email
+
+| Plik | Typ zmiany |
+|------|------------|
+| Migracja SQL | `CREATE OR REPLACE FUNCTION get_user_profiles_with_confirmation` -- dodanie 4 nowych kolumn |
+| `src/pages/Admin.tsx` | Rozszerzenie interfejsu `UserProfile` + mapowanie w `fetchUsers` |
+| `src/components/admin/CompactUserCard.tsx` | Rozszerzenie interfejsu + sekcja "Zgody" w rozwijanej czesci + badge na glownej linii |
 
