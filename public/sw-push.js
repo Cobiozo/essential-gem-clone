@@ -41,7 +41,8 @@ self.addEventListener('install', (event) => {
       });
     })
   );
-  self.skipWaiting();
+  // Removed self.skipWaiting() — controlled via 'SKIP_WAITING' message from app
+  // Prevents SW from taking over page while user is on another tab
 });
 
 // ─── Activate ──────────────────────────────────────────────────────────

@@ -93,16 +93,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [initialized, setInitialized] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
+  // Ref to always have current profile value in auth listener (prevents stale closure)
+  const profileRef = useRef<Profile | null>(null);
+  
   // Ref to track if page is hidden (tab switch) - prevents state resets
   const isPageHiddenRef = useRef(false);
   // Ref to track setTimeout for cleanup
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Keep profileRef in sync with state
+  useEffect(() => { profileRef.current = profile; }, [profile]);
+
   useEffect(() => {
     let debounceTimeout: NodeJS.Timeout | null = null;
     
     const handleVisibilityChange = () => {
-      // Debounce to prevent rapid state changes when switching tabs quickly
       if (debounceTimeout) clearTimeout(debounceTimeout);
       debounceTimeout = setTimeout(() => {
         isPageHiddenRef.current = document.hidden;
@@ -137,7 +142,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileResult.error) {
         console.error('Error fetching profile:', profileResult.error);
       } else {
-        setProfile(profileResult.data);
+        // Stabilize profile reference — only update if data actually changed
+        setProfile(prev => {
+          const newData = profileResult.data;
+          if (prev && newData && 
+              prev.user_id === newData.user_id && 
+              prev.updated_at === newData.updated_at) {
+            return prev; // keep old reference to prevent re-renders
+          }
+          return newData;
+        });
       }
 
       if (roleResult.error) {
@@ -200,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (newSession?.user) {
           // TOKEN_REFRESHED - tylko odśwież token, nie resetuj UI
           // Jeśli profil już istnieje dla tego użytkownika - pomiń refetch
-          const profileAlreadyLoaded = profile && profile.user_id === newSession.user.id;
+          const profileAlreadyLoaded = profileRef.current && profileRef.current.user_id === newSession.user.id;
           
           if (event === 'TOKEN_REFRESHED') {
             // Token odświeżony - NIGDY nie resetuj UI
