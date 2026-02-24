@@ -33,7 +33,9 @@ import {
   Send,
   Loader2,
   ExternalLink,
-  Crown
+  Crown,
+  ShieldCheck,
+  ShieldX
 } from 'lucide-react';
 
 interface UserProfile {
@@ -70,6 +72,10 @@ interface UserProfile {
   profile_description?: string | null;
   upline_first_name?: string | null;
   upline_last_name?: string | null;
+  accepted_terms?: boolean;
+  accepted_privacy?: boolean;
+  accepted_rodo?: boolean;
+  accepted_terms_at?: string | null;
 }
 
 interface CompactUserCardProps {
@@ -259,6 +265,18 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                 {!userProfile.is_active && (
                   <Badge variant="destructive" className="text-xs h-5">
                     Zablokowany
+                  </Badge>
+                )}
+                {/* Consent badge */}
+                {(userProfile.accepted_terms && userProfile.accepted_privacy && userProfile.accepted_rodo) ? (
+                  <Badge variant="outline" className="text-xs h-5 border-green-300 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400 dark:border-green-800">
+                    <ShieldCheck className="w-3 h-3 mr-0.5" />
+                    Zgody
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="text-xs h-5 border-red-300 text-red-700 bg-red-50 dark:bg-red-950 dark:text-red-400 dark:border-red-800">
+                    <ShieldX className="w-3 h-3 mr-0.5" />
+                    Zgody
                   </Badge>
                 )}
               </div>
@@ -590,6 +608,44 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                   <span className="text-muted-foreground">Data rejestracji:</span>{' '}
                   <span>{new Date(userProfile.created_at).toLocaleString('pl-PL')}</span>
                 </div>
+              </div>
+
+              {/* Consents section */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground mb-2">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Zgody i regulaminy
+                </div>
+                <div className="text-xs flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Regulamin:</span>
+                  {userProfile.accepted_terms ? (
+                    <span className="text-green-600 dark:text-green-400 flex items-center gap-0.5">✓ Zaakceptowany</span>
+                  ) : (
+                    <span className="text-red-600 dark:text-red-400 flex items-center gap-0.5">✗ Brak</span>
+                  )}
+                </div>
+                <div className="text-xs flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Polityka Prywatności:</span>
+                  {userProfile.accepted_privacy ? (
+                    <span className="text-green-600 dark:text-green-400 flex items-center gap-0.5">✓ Zaakceptowana</span>
+                  ) : (
+                    <span className="text-red-600 dark:text-red-400 flex items-center gap-0.5">✗ Brak</span>
+                  )}
+                </div>
+                <div className="text-xs flex items-center gap-1.5">
+                  <span className="text-muted-foreground">RODO:</span>
+                  {userProfile.accepted_rodo ? (
+                    <span className="text-green-600 dark:text-green-400 flex items-center gap-0.5">✓ Wyrażona</span>
+                  ) : (
+                    <span className="text-red-600 dark:text-red-400 flex items-center gap-0.5">✗ Brak</span>
+                  )}
+                </div>
+                {userProfile.accepted_terms_at && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Data akceptacji:</span>{' '}
+                    <span>{new Date(userProfile.accepted_terms_at).toLocaleString('pl-PL')}</span>
+                  </div>
+                )}
               </div>
 
               {/* Address data */}

@@ -120,6 +120,10 @@ interface UserProfile {
   profile_description?: string | null;
   upline_first_name?: string | null;
   upline_last_name?: string | null;
+  accepted_terms?: boolean;
+  accepted_privacy?: boolean;
+  accepted_rodo?: boolean;
+  accepted_terms_at?: string | null;
 }
 
 interface Page {
@@ -514,6 +518,10 @@ const Admin = () => {
         upline_first_name: row.upline_first_name,
         upline_last_name: row.upline_last_name,
         upline_eq_id: row.upline_eq_id,
+        accepted_terms: row.accepted_terms,
+        accepted_privacy: row.accepted_privacy,
+        accepted_rodo: row.accepted_rodo,
+        accepted_terms_at: row.accepted_terms_at,
       }));
       
       setUsers(mappedUsers);

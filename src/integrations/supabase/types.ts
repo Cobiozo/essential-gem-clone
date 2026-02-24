@@ -7329,6 +7329,10 @@ export type Database = {
       get_user_profiles_with_confirmation: {
         Args: never
         Returns: {
+          accepted_privacy: boolean
+          accepted_rodo: boolean
+          accepted_terms: boolean
+          accepted_terms_at: string
           admin_approved_at: string
           city: string
           country: string
