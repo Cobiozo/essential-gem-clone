@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, Globe } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, Globe, ExternalLink, FileText } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -96,7 +97,7 @@ const PreferencesTab: React.FC<{ userId: string; t: (key: string) => string }> =
 };
 
 const MyAccount = () => {
-  const { user, profile, userRole, signOut, isPartner, isSpecjalista, isClient } = useAuth();
+  const { user, profile, userRole, signOut, refreshProfile, isPartner, isSpecjalista, isClient } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
@@ -123,6 +124,21 @@ const MyAccount = () => {
   
   // Pending approvals count for badge
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
+  
+  // Consent states
+  const [consentTerms, setConsentTerms] = useState(false);
+  const [consentPrivacy, setConsentPrivacy] = useState(false);
+  const [consentRodo, setConsentRodo] = useState(false);
+  const [consentSaving, setConsentSaving] = useState(false);
+  
+  // Initialize consent states from profile
+  useEffect(() => {
+    if (profile) {
+      setConsentTerms(!!(profile as any)?.accepted_terms);
+      setConsentPrivacy(!!(profile as any)?.accepted_privacy);
+      setConsentRodo(!!(profile as any)?.accepted_rodo);
+    }
+  }, [profile]);
   
   // Handle URL tab parameter
   useEffect(() => {
@@ -842,57 +858,148 @@ const MyAccount = () => {
                 </CardContent>
               </Card>
 
-              {/* Legal Consents Status */}
+              {/* Legal Consents - Interactive */}
               <Card className="mt-6">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5" />
+                    <FileText className="w-5 h-5" />
                     Zgody i regulaminy
                   </CardTitle>
                   <CardDescription>
-                    Status Twoich zgód prawnych
+                    Zapoznaj się z dokumentami i zaakceptuj wymagane zgody
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    {(profile as any)?.accepted_terms ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-destructive" />
-                    )}
-                    <span className="text-sm">Regulamin</span>
-                    {(profile as any)?.accepted_terms && (
-                      <Badge variant="outline" className="ml-auto text-xs">Zaakceptowany</Badge>
-                    )}
+                <CardContent className="space-y-4">
+                  {/* Regulamin */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                    <Checkbox
+                      id="consent-terms"
+                      checked={consentTerms}
+                      onCheckedChange={(checked) => setConsentTerms(!!checked)}
+                      disabled={!!(profile as any)?.accepted_terms}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="consent-terms" className="text-sm font-medium cursor-pointer">
+                          Akceptuję Regulamin
+                        </label>
+                        {(profile as any)?.accepted_terms && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+                      <a
+                        href="/html/regulamin"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Przeczytaj Regulamin
+                      </a>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {(profile as any)?.accepted_privacy ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-destructive" />
-                    )}
-                    <span className="text-sm">Polityka Prywatności</span>
-                    {(profile as any)?.accepted_privacy && (
-                      <Badge variant="outline" className="ml-auto text-xs">Zaakceptowana</Badge>
-                    )}
+
+                  {/* Polityka Prywatności */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                    <Checkbox
+                      id="consent-privacy"
+                      checked={consentPrivacy}
+                      onCheckedChange={(checked) => setConsentPrivacy(!!checked)}
+                      disabled={!!(profile as any)?.accepted_privacy}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="consent-privacy" className="text-sm font-medium cursor-pointer">
+                          Akceptuję Politykę Prywatności
+                        </label>
+                        {(profile as any)?.accepted_privacy && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+                      <a
+                        href="/html/polityka-prywatnosci"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Przeczytaj Politykę Prywatności
+                      </a>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {(profile as any)?.accepted_rodo ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-destructive" />
-                    )}
-                    <span className="text-sm">Zgoda RODO</span>
-                    {(profile as any)?.accepted_rodo && (
-                      <Badge variant="outline" className="ml-auto text-xs">Wyrażona</Badge>
-                    )}
+
+                  {/* RODO */}
+                  <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30">
+                    <Checkbox
+                      id="consent-rodo"
+                      checked={consentRodo}
+                      onCheckedChange={(checked) => setConsentRodo(!!checked)}
+                      disabled={!!(profile as any)?.accepted_rodo}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="consent-rodo" className="text-sm font-medium cursor-pointer">
+                          Wyrażam zgodę RODO
+                        </label>
+                        {(profile as any)?.accepted_rodo && (
+                          <CheckCircle className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+                      <a
+                        href="/html/rodo"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Przeczytaj informację RODO
+                      </a>
+                    </div>
                   </div>
+
+                  {/* Acceptance date */}
                   {(profile as any)?.accepted_terms_at && (
-                    <p className="text-xs text-muted-foreground pt-2">
+                    <p className="text-xs text-muted-foreground">
                       Data akceptacji: {new Date((profile as any).accepted_terms_at).toLocaleDateString('pl-PL', {
                         day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
                       })}
                     </p>
+                  )}
+
+                  {/* Save button - only if not all accepted yet */}
+                  {!((profile as any)?.accepted_terms && (profile as any)?.accepted_privacy && (profile as any)?.accepted_rodo) && (
+                    <Button
+                      onClick={async () => {
+                        if (!consentTerms || !consentPrivacy || !consentRodo) {
+                          toast({ title: 'Wszystkie zgody są wymagane', description: 'Zaznacz wszystkie checkboxy aby kontynuować.', variant: 'destructive' });
+                          return;
+                        }
+                        setConsentSaving(true);
+                        try {
+                          const { error } = await supabase.from('profiles').update({
+                            accepted_terms: true,
+                            accepted_privacy: true,
+                            accepted_rodo: true,
+                            accepted_terms_at: new Date().toISOString(),
+                          } as any).eq('user_id', user?.id);
+                          if (error) throw error;
+                          await refreshProfile();
+                          toast({ title: 'Zgody zatwierdzone', description: 'Twoje zgody zostały zapisane pomyślnie.' });
+                        } catch (err: any) {
+                          toast({ title: 'Błąd', description: err.message || 'Nie udało się zapisać zgód.', variant: 'destructive' });
+                        } finally {
+                          setConsentSaving(false);
+                        }
+                      }}
+                      disabled={!consentTerms || !consentPrivacy || !consentRodo || consentSaving}
+                      className="w-full"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {consentSaving ? 'Zapisywanie...' : 'Zatwierdź zgody'}
+                    </Button>
                   )}
                 </CardContent>
               </Card>
