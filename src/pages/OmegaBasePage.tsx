@@ -57,6 +57,7 @@ const OmegaBasePage: React.FC = () => {
     error, 
     sendMessage, 
     clearMessages,
+    setMessagesDirectly,
     resultsCount,
     setResultsCount,
     chatHistory,
@@ -70,7 +71,9 @@ const OmegaBasePage: React.FC = () => {
 
   const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
 
-  // Read results param and send initial query from URL params
+  const SESSION_KEY = 'omega-base-session';
+
+  // Read results param and send initial query from URL params (with sessionStorage cache)
   useEffect(() => {
     const resultsParam = searchParams.get('results');
     if (resultsParam) {
@@ -80,9 +83,35 @@ const OmegaBasePage: React.FC = () => {
     const q = searchParams.get('q');
     if (q && !initialQuerySent && !isLoading) {
       setInitialQuerySent(true);
+      // Check sessionStorage cache
+      try {
+        const cached = sessionStorage.getItem(SESSION_KEY);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed.query === q && parsed.messages?.length > 0) {
+            setMessagesDirectly(parsed.messages);
+            if (parsed.resultsCount) setResultsCount(parsed.resultsCount);
+            return;
+          }
+        }
+      } catch {}
       sendMessage(q);
     }
-  }, [searchParams, initialQuerySent, isLoading, sendMessage, setResultsCount]);
+  }, [searchParams, initialQuerySent, isLoading, sendMessage, setResultsCount, setMessagesDirectly]);
+
+  // Save messages to sessionStorage when they change
+  useEffect(() => {
+    const q = searchParams.get('q');
+    if (q && messages.length > 0 && messages.some(m => m.content)) {
+      try {
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+          query: q,
+          messages,
+          resultsCount,
+        }));
+      } catch {}
+    }
+  }, [messages, resultsCount, searchParams]);
 
   // Smart scroll
   useEffect(() => {
@@ -118,6 +147,7 @@ const OmegaBasePage: React.FC = () => {
   const handleClearMessages = () => {
     clearMessages();
     setCachedDocContent(null);
+    try { sessionStorage.removeItem(SESSION_KEY); } catch {}
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
