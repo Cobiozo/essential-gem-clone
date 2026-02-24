@@ -10,6 +10,7 @@ interface ResetPasswordRequest {
   user_email: string;
   new_password: string;
   admin_name: string;
+  send_email?: boolean;
 }
 
 interface SmtpSettings {
@@ -168,8 +169,8 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { user_email, new_password, admin_name }: ResetPasswordRequest = await req.json();
-    console.log("[admin-reset-password] Request for:", user_email, "by:", admin_name);
+    const { user_email, new_password, admin_name, send_email = true }: ResetPasswordRequest = await req.json();
+    console.log("[admin-reset-password] Request for:", user_email, "by:", admin_name, "send_email:", send_email);
 
     // Get user by email
     const { data: users, error: getUserError } = await supabase.auth.admin.listUsers();
@@ -197,6 +198,19 @@ serve(async (req) => {
     if (updateError) {
       console.error("Error updating password:", updateError);
       throw new Error("Nie udało się zaktualizować hasła");
+    }
+
+    // If send_email is false, just return success without sending email
+    if (!send_email) {
+      console.log("[admin-reset-password] Password changed without email for:", user_email);
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Hasło zostało zmienione (bez wysyłania emaila)",
+        email_sent: false
+      }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     // Get SMTP settings
@@ -269,7 +283,6 @@ serve(async (req) => {
     });
 
     if (!result.success) {
-      // Password was changed but email failed - still return success with warning
       console.warn("Password changed but email failed:", result.error);
       return new Response(JSON.stringify({ 
         success: true, 

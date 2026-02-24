@@ -219,7 +219,7 @@ serve(async (req) => {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/auth`
+        redirectTo: 'https://purelife.lovable.app/reset-password'
       }
     });
 
