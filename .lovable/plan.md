@@ -1,95 +1,122 @@
 
 
-## Naprawa odswiezania pulpitu po powrocie z innej karty
+## Naprawa Pure Science Search AI -- struktura odpowiedzi i tlumaczenie zapytan
 
-### Zidentyfikowane przyczyny
+### Zidentyfikowane problemy
 
-**1. Stale closure `profile` w AuthContext (GLOWNA PRZYCZYNA)**
+**1. Zapytania do PubMed nie sa tlumaczone na angielski**
 
-W pliku `AuthContext.tsx` linia 203, zmienna `profile` jest odczytywana z zamknietego scope useEffect, ktory uruchamia sie tylko raz. Wartosc `profile` w tym closure to zawsze `null` (wartosc poczatkowa), wiec warunek `profileAlreadyLoaded` jest zawsze `false`.
+Funkcja `searchPubMed()` (linia 723) otrzymuje `userQuery` w oryginalnym jezyku uzytkownika. Funkcja `parseQueryTerms()` tlumacy tylko terminy znajdujace sie w slowniku `medicalTermsWithSynonyms` -- nieznane slowa (np. "wplywa", "leczenie", "stosowanie") trafiaja do PubMed po polsku/niemiecku, co drastycznie obniza jakosc wynikow.
 
-Skutek: kazdy event auth (np. po odswiezeniu tokenu przy powrocie na karte) powoduje zbedne wywolanie `fetchProfile()`, ktore tworzy nowy obiekt profile -> kaskada re-renderow calego Dashboard.
+**2. Struktura odpowiedzi jest nieprawidlowa**
 
-**2. `setProfile()` nie stabilizuje referencji**
+Aktualny system prompt (linia 580-602) instruuje AI, zeby odpowiadal WYLACZNIE na podstawie badan PubMed. Brak rozdzielenia na 3 czesci:
+- Czesc 1: Analiza naukowa pytania (co to jest, mechanizmy, patofizjologia)
+- Czesc 2: Zastosowanie Omega-3 w leczeniu z dowodami naukowymi
+- Czesc 3: Konkretne wyniki z PubMed
 
-W przeciwienstwie do `setUser` (linie 180-184, ktory porownuje ID i zachowuje stara referencje), `setProfile` zawsze ustawia nowy obiekt nawet jesli dane sie nie zmienily. To powoduje ze wszystkie hooki zalezne od `profile` sie odswieza.
+**3. Brak tlumaczenia zapytania przed wyszukiwaniem PubMed**
 
-**3. Service Worker `skipWaiting` + `clients.claim`**
-
-W `sw-push.js` nowa wersja SW natychmiast przejmuje kontrole nad strona. Jesli aktualizacja SW nastapi podczas gdy uzytkownik jest na innej karcie, powrot moze wymusic przeladowanie zasobow.
+Nie ma zadnego kroku tlumaczenia calego zapytania na angielski. Slownik pokrywa ok. 60 terminow, ale nie pokrywa calych zdan ani fraz kontekstowych.
 
 ---
 
-### Plan naprawy
+### Plan zmian
 
-#### 1. AuthContext.tsx -- naprawic stale closure i stabilizowac profile
+#### Plik: `supabase/functions/medical-assistant/index.ts`
 
-**a) Uzyc `useRef` dla profile w auth listener:**
-Zamiast czytac `profile` z closure, uzyc `profileRef.current` ktory jest zawsze aktualny:
+**A) Dodanie tlumaczenia zapytania na angielski przez AI**
 
+Przed wyszukiwaniem w PubMed, zapytanie uzytkownika bedzie tlumaczone na angielski za pomoca Lovable AI Gateway (bez streamingu, szybkie wywolanie). Tlumaczenie bedzie uzywane TYLKO do budowania query PubMed -- odpowiedz AI bedzie w jezyku interfejsu.
+
+```text
+Nowa funkcja: translateQueryToEnglish(query, language, apiKey)
+- Jesli language === 'en' -> zwroc query bez zmian
+- W przeciwnym razie -> wywolaj AI z prosba o tlumaczenie na angielski (medyczny kontekst)
+- Uzyj modelu gemini-2.5-flash-lite (najtanszy, wystarczajacy do tlumaczenia)
+- Bez streamingu, krótki prompt
+- Fallback: jesli tlumaczenie sie nie uda, uzyj oryginalnego query
 ```
-const profileRef = useRef<Profile | null>(null);
 
-// synchronizowac ref z state:
-useEffect(() => { profileRef.current = profile; }, [profile]);
+**B) Przebudowa system promptu na 3-czesciowa strukture**
 
-// W auth listener:
-const profileAlreadyLoaded = profileRef.current && 
-  profileRef.current.user_id === newSession.user.id;
+Nowy format odpowiedzi AI:
+
+```text
+CZESC 1: ANALIZA NAUKOWA
+- Wyjasnienie tematu z perspektywy naukowej
+- Mechanizmy, patofizjologia, aktualna wiedza medyczna
+- Odpowiedz na pytanie uzytkownika merytorycznie
+
+CZESC 2: ZASTOSOWANIE OMEGA-3
+- Rola kwasow omega-3 (EPA/DHA) w kontekscie pytania
+- Mechanizm dzialania omega-3 w danym schorzeniu/obszarze
+- Dowody naukowe na skutecznosc (z dostarczonych badan)
+- Dawkowanie i zalecenia oparte na badaniach
+
+CZESC 3: WYNIKI Z PUBMED
+- Lista badan z linkami (PubMed, DOI, PMC)
+- Krotkie podsumowanie kazdego badania
+
+Na koncu: produkty Eqology (jesli dotyczy) + disclaimer
 ```
 
-**b) Stabilizowac `setProfile` -- porownanie po `user_id` + `updated_at`:**
+**C) Uzycie przetlumaczonego query w PubMed**
 
+Zmiana w linii 723:
 ```
-setProfile(prev => {
-  if (prev && newData && 
-      prev.user_id === newData.user_id && 
-      prev.updated_at === newData.updated_at) {
-    return prev; // zachowaj stara referencje
+// Przed:
+const articles = await searchPubMed(userQuery, resultsCount, shouldEnrichWithOmega3);
+
+// Po:
+const englishQuery = await translateQueryToEnglish(userQuery, language, LOVABLE_API_KEY);
+const articles = await searchPubMed(englishQuery, resultsCount, shouldEnrichWithOmega3);
+```
+
+---
+
+### Szczegoly techniczne
+
+**Nowa funkcja translateQueryToEnglish (~linia 560):**
+```typescript
+async function translateQueryToEnglish(query: string, language: string, apiKey: string): Promise<string> {
+  if (language === 'en') return query;
+  
+  try {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [
+          { role: 'system', content: 'Translate the following medical/health query to English. Return ONLY the translated query, nothing else. Keep medical terms precise.' },
+          { role: 'user', content: query }
+        ],
+      }),
+    });
+    
+    if (!response.ok) return query; // fallback
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || query;
+  } catch {
+    return query; // fallback
   }
-  return newData;
-});
-```
-
-#### 2. sw-push.js -- kontrolowane aktualizacje SW
-
-Zamiast natychmiastowego `skipWaiting()` w instalacji, pozwolic uzytkownikowi zdecydowac (baner aktualizacji juz istnieje w `main.tsx`):
-
-```
-// USUNAC z install event:
-// self.skipWaiting();
-
-// ZOSTAWIC tylko w message handler (linia 270-272):
-if (event.data === 'SKIP_WAITING') {
-  self.skipWaiting();
 }
 ```
 
-To zapobiegnie sytuacji gdzie SW przejmuje strone podczas gdy uzytkownik jest na innej karcie.
+**Przebudowany system prompt (funkcja getSystemPrompt):**
 
----
+Prompt bedzie instruowal AI aby odpowiadal w 3 krokach:
+1. Analiza naukowa pytania (wlasna wiedza + dostarczone badania)
+2. Rola Omega-3 w kontekscie pytania z dowodami
+3. Lista badan PubMed ze szczegolami i linkami
 
 ### Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/contexts/AuthContext.tsx` | Dodanie `profileRef` do eliminacji stale closure. Stabilizacja `setProfile` przez porownanie `user_id` + `updated_at`. |
-| `public/sw-push.js` | Usuniecie `self.skipWaiting()` z handlera install (zostawienie tylko w message handler). |
+| `supabase/functions/medical-assistant/index.ts` | Dodanie funkcji `translateQueryToEnglish`, przebudowa `getSystemPrompt` na 3-czesciowa strukture, uzycie przetlumaczonego query w PubMed search |
 
-### Szczegoly techniczne
-
-**AuthContext.tsx:**
-- Linia ~86: dodanie `const profileRef = useRef<Profile | null>(null);`
-- Nowy useEffect: `useEffect(() => { profileRef.current = profile; }, [profile]);`
-- Linia ~140: zmiana `setProfile(profileResult.data)` na stabilizowana wersje z porownaniem
-- Linia ~203: zmiana `profile` na `profileRef.current`
-
-**sw-push.js:**
-- Linia 44: usuniecie `self.skipWaiting();` z handlera `install`
-
-### Efekt koncowy
-
-- Powrot na karte NIE powoduje ponownego pobierania profilu (jesli uzytkownik sie nie zmienil)
-- Referencja `profile` pozostaje stabilna -> brak kaskady re-renderow
-- Service Worker nie przejmuje strony automatycznie -> brak wymuszonych przeladowan
-- Widgety Dashboard nie migaja ani nie laduja sie ponownie
