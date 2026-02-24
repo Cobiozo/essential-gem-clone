@@ -258,7 +258,7 @@ export default {
         "icon-float": "icon-float 3s ease-in-out infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "metal-shine": "metal-shine 3s linear infinite",
-        "omega-coin-flip": "omega-coin-flip 120s ease-in-out infinite",
+        "omega-coin-flip": "omega-coin-flip 1200s ease-in-out infinite",
       },
     },
   },
