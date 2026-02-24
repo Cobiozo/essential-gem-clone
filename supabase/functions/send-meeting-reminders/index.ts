@@ -353,6 +353,10 @@ serve(async (req) => {
         const isBooker = profile.user_id === meeting.created_by && profile.user_id !== meeting.host_user_id;
 
         // Build variables
+        // Find host and booker profiles for email variables
+        const hostProfile = profiles.find(p => p.user_id === meeting.host_user_id);
+        const bookerProfile = profiles.find(p => p.user_id === meeting.created_by);
+
         const variables: Record<string, string> = {
           imię: profile.first_name || '',
           temat: meeting.title,
@@ -360,6 +364,10 @@ serve(async (req) => {
           godzina_spotkania: timeStr,
           druga_strona: otherPartyName,
           zoom_link: meeting.zoom_link || '',
+          imie_lidera: hostProfile?.first_name || '',
+          nazwisko_lidera: hostProfile?.last_name || '',
+          imie_rezerwujacego: bookerProfile?.first_name || '',
+          nazwisko_rezerwujacego: bookerProfile?.last_name || '',
         };
 
         // Add special note for booker in tripartite meetings (1h reminder only)
@@ -418,9 +426,11 @@ serve(async (req) => {
             await supabase.functions.invoke("send-push-notification", {
               body: {
                 userId: profile.user_id,
-                title: reminderType === '1h' 
-                  ? "Spotkanie za godzinę" 
-                  : "Spotkanie za 15 minut",
+                title: reminderType === '24h' 
+                  ? "Spotkanie jutro"
+                  : reminderType === '1h' 
+                    ? "Spotkanie za godzinę" 
+                    : "Spotkanie za 15 minut",
                 body: `${meeting.title || 'Spotkanie indywidualne'} — ${timeStr}`,
                 url: "/meetings",
                 tag: `meeting-${reminderType}-${meeting.id}`
@@ -429,6 +439,23 @@ serve(async (req) => {
             console.log(`[send-meeting-reminders] Push sent for ${reminderType} reminder to ${profile.email}`);
           } catch (pushErr) {
             console.warn(`[send-meeting-reminders] Push failed (non-blocking):`, pushErr);
+          }
+
+          // In-app notification
+          const reminderLabel = reminderType === '24h' ? 'jutro' : reminderType === '1h' ? 'za godzinę' : 'za 15 minut';
+          try {
+            await supabase.from('user_notifications').insert({
+              user_id: profile.user_id,
+              notification_type: 'meeting_reminder',
+              source_module: 'meetings',
+              title: `Przypomnienie: ${meeting.title || 'Spotkanie'}`,
+              message: `Spotkanie z ${otherPartyName} — ${dateStr} o ${timeStr} (${reminderLabel})`,
+              link: '/meetings',
+              metadata: { event_id: meeting.id, reminder_type: reminderType },
+            });
+            console.log(`[send-meeting-reminders] In-app notification sent to ${profile.email}`);
+          } catch (inAppErr) {
+            console.warn(`[send-meeting-reminders] In-app notification failed:`, inAppErr);
           }
 
           sentCount++;
