@@ -1,78 +1,37 @@
 
 
-## Nowa strona zmiany hasla tymczasowego
+## Naprawa przekierowania i ujednolicenie formularza resetu hasla
 
-### Kontekst
-Aktualnie email od admina z haslem tymczasowym kieruje na `/auth` (standardowe logowanie). Uzytkownik potrzebuje dedykowanej strony, gdzie wpisze haslo tymczasowe, ustali nowe haslo i dopiero potem zostanie przekierowany do logowania.
+### Diagnoza
+Strona `/change-password` istnieje i dziala poprawnie w podgladzie (preview), ale na opublikowanej wersji (`purelife.lovable.app`) nie jest jeszcze wdrozona -- stad blad "strona nie znaleziona". Nalezy opublikowac aplikacje.
+
+Dodatkowo, `ProfileCompletionGuard` nie ma `/change-password` ani `/reset-password` na liscie tras publicznych (`PUBLIC_PATHS`) ani `KNOWN_APP_ROUTES`. Trasy te dzialaja przypadkowo, bo sa traktowane jako "partner page". Nalezy to naprawic, zeby byly jawnie publiczne.
 
 ### Plan zmian
 
-#### 1. Nowa strona `src/pages/ChangeTempPassword.tsx`
+#### 1. Dodanie `/change-password` i `/reset-password` do PublicPaths w `ProfileCompletionGuard`
 
-Formularz z polami:
-- **Email** (pole tekstowe, wymagane)
-- **Haslo tymczasowe** (z emaila od admina)
-- **Nowe haslo** (z walidacja: min. 8 znakow, wielka litera, cyfra)
-- **Powtorz nowe haslo** (sprawdzenie zgodnosci)
-- Przycisk **"Ustaw nowe haslo"**
+Plik: `src/components/profile/ProfileCompletionGuard.tsx`
 
-Logika dzialania:
-1. Uzytkownik wpisuje email + haslo tymczasowe + nowe haslo
-2. System loguje uzytkownika za pomoca `supabase.auth.signInWithPassword({ email, password: tempPassword })`
-3. Jesli logowanie sie powiedzie -- wywoluje `supabase.auth.updateUser({ password: newPassword })`
-4. Wylogowuje uzytkownika `supabase.auth.signOut()`
-5. Przekierowuje na `/auth` z komunikatem "Haslo zmienione, zaloguj sie nowym haslem"
-
-#### 2. Nowa trasa w `src/App.tsx`
-
-Dodanie publicznej trasy:
+Dodanie do tablicy `PUBLIC_PATHS`:
 ```text
-<Route path="/change-password" element={<ChangeTempPassword />} />
+'/change-password',
+'/reset-password',
 ```
 
-#### 3. Zmiana linku w Edge Function `admin-reset-password`
-
-Linia 250 -- zamiana:
+Dodanie do tablicy `KNOWN_APP_ROUTES`:
 ```text
-const loginUrl = 'https://purelife.lovable.app/auth';
-```
-na:
-```text
-const loginUrl = 'https://purelife.lovable.app/change-password';
+'/change-password',
+'/reset-password',
 ```
 
-Przycisk w emailu bedzie teraz prowadzil do formularza zmiany hasla tymczasowego zamiast do standardowego logowania.
+To zapewnia, ze te strony sa jawnie publiczne i nie beda blokowane przez guard ani blednie traktowane jako strony partnerskie.
 
-#### 4. Aktualizacja szablonu email (SQL migration)
+#### 2. Publikacja aplikacji
 
-Zmiana tekstu przycisku w szablonie `password_reset_admin`:
-- Zamiast "Zaloguj sie do systemu" -> "Zmien haslo tymczasowe"
-- Dodanie informacji: "Po kliknieciu przycisku wpisz haslo tymczasowe z tej wiadomosci, a nastepnie ustal nowe haslo"
+Po wdrozeniu zmian nalezy opublikowac aplikacje, zeby zmiany pojawily sie na `purelife.lovable.app`.
 
-### Podsumowanie flow
+### Podsumowanie
 
-```text
-Admin ustawia haslo tymczasowe i wysyla email
-  |
-  v
-Uzytkownik otrzymuje email z haslem tymczasowym
-  |
-  v
-Klika "Zmien haslo tymczasowe" -> /change-password
-  |
-  v
-Wpisuje: email, haslo tymczasowe, nowe haslo, powtorz haslo
-  |
-  v
-System: signIn(temp) -> updateUser(new) -> signOut()
-  |
-  v
-Przekierowanie na /auth -> logowanie nowym haslem -> panel
-```
-
-### Pliki do zmian
-- **Nowy:** `src/pages/ChangeTempPassword.tsx`
-- **Edycja:** `src/App.tsx` (nowa trasa)
-- **Edycja:** `supabase/functions/admin-reset-password/index.ts` (loginUrl)
-- **Migracja SQL:** szablon `password_reset_admin` (tekst przycisku i instrukcja)
+Formularz na `/change-password` juz istnieje i dziala prawidlowo (email, haslo tymczasowe, nowe haslo, powtorz haslo). Link w emailu (`{{login_url}}`) wskazuje na `https://purelife.lovable.app/change-password`. Jedyny problem to brak publikacji + brak jawnego oznaczenia tras jako publicznych w ProfileCompletionGuard.
 
