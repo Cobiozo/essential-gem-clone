@@ -90,7 +90,6 @@ function lazyWithRetry<T extends ComponentType<any>>(
 }
 
 // Lazy load chat widgets - only mount when first opened
-const ChatWidget = lazy(() => import("@/components/ChatWidget"));
 const MedicalChatWidget = lazy(() => import("@/components/MedicalChatWidget"));
 
 // Eager load - critical pages
@@ -127,6 +126,7 @@ const MeetingRoom = lazyWithRetry(() => import("./pages/MeetingRoom"));
 const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
 const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ChangeTempPassword = lazyWithRetry(() => import("./pages/ChangeTempPassword"));
+const OmegaBasePage = lazyWithRetry(() => import("./pages/OmegaBasePage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -157,14 +157,9 @@ const ChatWidgetsWrapper = () => {
   if (!user || isInfoLinkPage || isMeetingPage) return null;
 
   return (
-    <>
-      <Suspense fallback={null}>
-        <MedicalChatWidget />
-      </Suspense>
-      <Suspense fallback={null}>
-        <ChatWidget />
-      </Suspense>
-    </>
+    <Suspense fallback={null}>
+      <MedicalChatWidget />
+    </Suspense>
   );
 };
 
@@ -358,6 +353,7 @@ const AppContent = () => {
               <Route path="/install" element={<InstallPage />} />
               <Route path="/meeting-room/:roomId" element={<MeetingRoom />} />
               <Route path="/leader" element={<LeaderPanel />} />
+              <Route path="/omega-base" element={<OmegaBasePage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
