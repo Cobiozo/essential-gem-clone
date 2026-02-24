@@ -396,8 +396,10 @@ const OmegaBasePage: React.FC = () => {
         const textBetween = content.slice(lastIndex, match.index);
         parts.push(...renderBareUrls(textBetween, `pre-${match.index}`));
       }
+      const mdUrl = match[2];
       parts.push(
-        <a key={`md-${match.index}`} href={match[2]} target="_blank" rel="noopener noreferrer"
+        <a key={`md-${match.index}`} href={mdUrl} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => { e.preventDefault(); window.open(mdUrl, '_blank', 'noopener,noreferrer'); }}
           className="text-[#D4AF37] hover:text-[#F5E050] underline underline-offset-2 inline-flex items-center gap-1">
           {match[1]}<ExternalLink className="w-3 h-3" />
         </a>
@@ -428,10 +430,12 @@ const OmegaBasePage: React.FC = () => {
           }} />
         );
       }
+      const bareUrl = m[0];
       parts.push(
-        <a key={`${keyPrefix}-u-${m.index}`} href={m[0]} target="_blank" rel="noopener noreferrer"
+        <a key={`${keyPrefix}-u-${m.index}`} href={bareUrl} target="_blank" rel="noopener noreferrer"
+          onClick={(e) => { e.preventDefault(); window.open(bareUrl, '_blank', 'noopener,noreferrer'); }}
           className="text-[#D4AF37] hover:text-[#F5E050] underline underline-offset-2 inline-flex items-center gap-1 break-all">
-          {m[0].length > 60 ? m[0].slice(0, 57) + '...' : m[0]}<ExternalLink className="w-3 h-3 shrink-0" />
+          {bareUrl.length > 60 ? bareUrl.slice(0, 57) + '...' : bareUrl}<ExternalLink className="w-3 h-3 shrink-0" />
         </a>
       );
       lastIdx = m.index + m[0].length;
