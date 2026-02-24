@@ -749,7 +749,7 @@ export type Database = {
           generated_at: string | null
           id: string
           issued_at: string
-          issued_by: string
+          issued_by: string | null
           language_code: string | null
           last_regenerated_at: string | null
           module_id: string
@@ -763,7 +763,7 @@ export type Database = {
           generated_at?: string | null
           id?: string
           issued_at?: string
-          issued_by: string
+          issued_by?: string | null
           language_code?: string | null
           last_regenerated_at?: string | null
           module_id: string
@@ -777,7 +777,7 @@ export type Database = {
           generated_at?: string | null
           id?: string
           issued_at?: string
-          issued_by?: string
+          issued_by?: string | null
           language_code?: string | null
           last_regenerated_at?: string | null
           module_id?: string
@@ -2138,7 +2138,7 @@ export type Database = {
           allow_invites: boolean | null
           buttons: Json | null
           created_at: string | null
-          created_by: string
+          created_by: string | null
           description: string | null
           duration_minutes: number | null
           email_reminder_enabled: boolean | null
@@ -2184,7 +2184,7 @@ export type Database = {
           allow_invites?: boolean | null
           buttons?: Json | null
           created_at?: string | null
-          created_by: string
+          created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
           email_reminder_enabled?: boolean | null
@@ -2230,7 +2230,7 @@ export type Database = {
           allow_invites?: boolean | null
           buttons?: Json | null
           created_at?: string | null
-          created_by?: string
+          created_by?: string | null
           description?: string | null
           duration_minutes?: number | null
           email_reminder_enabled?: boolean | null
