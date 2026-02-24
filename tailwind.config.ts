@@ -221,10 +221,10 @@ export default {
           "100%": { backgroundPosition: "200% 0" },
         },
         "omega-pulse-bounce": {
-          "0%, 100%": { transform: "scale(1) translateY(0)", boxShadow: "0 0 15px rgba(212, 175, 55, 0.3)" },
-          "25%": { transform: "scale(1) translateY(-4px)", boxShadow: "0 0 20px rgba(212, 175, 55, 0.4)" },
-          "50%": { transform: "scale(1.08) translateY(0)", boxShadow: "0 0 30px rgba(212, 175, 55, 0.6)" },
-          "75%": { transform: "scale(1) translateY(-2px)", boxShadow: "0 0 20px rgba(212, 175, 55, 0.4)" },
+          "0%, 100%": { transform: "scale(1) translateY(0)", boxShadow: "0 0 10px rgba(212, 175, 55, 0.2)" },
+          "25%": { transform: "scale(1) translateY(-2px)", boxShadow: "0 0 14px rgba(212, 175, 55, 0.25)" },
+          "50%": { transform: "scale(1.03) translateY(0)", boxShadow: "0 0 18px rgba(212, 175, 55, 0.35)" },
+          "75%": { transform: "scale(1) translateY(-1px)", boxShadow: "0 0 14px rgba(212, 175, 55, 0.25)" },
         },
       },
       animation: {
@@ -259,7 +259,7 @@ export default {
         "icon-float": "icon-float 3s ease-in-out infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "metal-shine": "metal-shine 3s linear infinite",
-        "omega-pulse-bounce": "omega-pulse-bounce 6s ease-in-out infinite",
+        "omega-pulse-bounce": "omega-pulse-bounce 20s ease-in-out infinite",
       },
     },
   },
