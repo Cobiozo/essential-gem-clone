@@ -5096,6 +5096,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accepted_privacy: boolean | null
+          accepted_rodo: boolean | null
+          accepted_terms: boolean | null
+          accepted_terms_at: string | null
           admin_approved: boolean | null
           admin_approved_at: string | null
           avatar_url: string | null
@@ -5141,6 +5145,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          accepted_privacy?: boolean | null
+          accepted_rodo?: boolean | null
+          accepted_terms?: boolean | null
+          accepted_terms_at?: string | null
           admin_approved?: boolean | null
           admin_approved_at?: string | null
           avatar_url?: string | null
@@ -5186,6 +5194,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          accepted_privacy?: boolean | null
+          accepted_rodo?: boolean | null
+          accepted_terms?: boolean | null
+          accepted_terms_at?: string | null
           admin_approved?: boolean | null
           admin_approved_at?: string | null
           avatar_url?: string | null
