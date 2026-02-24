@@ -220,11 +220,10 @@ export default {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
-        "omega-pulse-bounce": {
-          "0%, 100%": { transform: "scale(1) translateY(0)", boxShadow: "0 0 10px rgba(212, 175, 55, 0.2)" },
-          "25%": { transform: "scale(1) translateY(-2px)", boxShadow: "0 0 14px rgba(212, 175, 55, 0.25)" },
-          "50%": { transform: "scale(1.03) translateY(0)", boxShadow: "0 0 18px rgba(212, 175, 55, 0.35)" },
-          "75%": { transform: "scale(1) translateY(-1px)", boxShadow: "0 0 14px rgba(212, 175, 55, 0.25)" },
+        "omega-coin-flip": {
+          "0%, 90%": { transform: "rotateY(0deg)" },
+          "93%": { transform: "rotateY(180deg)" },
+          "96%, 100%": { transform: "rotateY(360deg)" },
         },
       },
       animation: {
@@ -259,7 +258,7 @@ export default {
         "icon-float": "icon-float 3s ease-in-out infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "metal-shine": "metal-shine 3s linear infinite",
-        "omega-pulse-bounce": "omega-pulse-bounce 20s ease-in-out infinite",
+        "omega-coin-flip": "omega-coin-flip 5s ease-in-out infinite",
       },
     },
   },
