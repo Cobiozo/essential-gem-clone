@@ -259,7 +259,7 @@ export default {
         "icon-float": "icon-float 3s ease-in-out infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         "metal-shine": "metal-shine 3s linear infinite",
-        "omega-pulse-bounce": "omega-pulse-bounce 2.5s ease-in-out infinite",
+        "omega-pulse-bounce": "omega-pulse-bounce 6s ease-in-out infinite",
       },
     },
   },

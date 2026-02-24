@@ -70,14 +70,19 @@ const OmegaBasePage: React.FC = () => {
 
   const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
 
-  // Send initial query from URL params
+  // Read results param and send initial query from URL params
   useEffect(() => {
+    const resultsParam = searchParams.get('results');
+    if (resultsParam) {
+      const num = Number(resultsParam);
+      if (!isNaN(num) && num > 0) setResultsCount(num);
+    }
     const q = searchParams.get('q');
     if (q && !initialQuerySent && !isLoading) {
       setInitialQuerySent(true);
       sendMessage(q);
     }
-  }, [searchParams, initialQuerySent, isLoading, sendMessage]);
+  }, [searchParams, initialQuerySent, isLoading, sendMessage, setResultsCount]);
 
   // Smart scroll
   useEffect(() => {
