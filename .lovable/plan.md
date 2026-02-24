@@ -1,119 +1,66 @@
 
+## Zabezpieczenie synchronizacji Google Calendar przed rozłączaniem
 
-## Dodanie powiadomień in-app, Push i ulepszenie e-maili dla spotkań indywidualnych
+### Problem
+Tokeny Google Calendar rozłączają się samoczynnie z trzech powodów:
+1. **Brak proaktywnego odswiezania** -- tokeny wygasaja po 1h, a odswiezanie nastepuje tylko gdy uzytkownik otworzy komponent. Jesli nikt nie wejdzie na strone przez dluzszy czas, token wygasa i kolejna operacja (np. CRON reminder) zakonczy sie bledem.
+2. **Nadpisywanie refresh_token wartoscia null** -- w `google-oauth-callback` upsert zawsze zapisuje `tokens.refresh_token`, nawet jesli Google go nie zwrocil (wartosc `null`/`undefined`). Utrata refresh_token = trwale rozlaczenie.
+3. **Natychmiastowe usuwanie tokenow przy invalid_grant** -- brak retry logic; tymczasowy blad sieciowy lub Google API moze byc interpretowany jako trwale uniewazniony token.
 
-### Zakres zmian
+### Rozwiazanie -- 3 zmiany
 
-Trzy pliki wymagają modyfikacji:
+#### 1. Zabezpieczenie refresh_token w `google-oauth-callback/index.ts`
 
-1. **`src/components/events/PartnerMeetingBooking.tsx`** -- dodanie powiadomień in-app i Push przy rezerwacji
-2. **`supabase/functions/send-meeting-reminders/index.ts`** -- dodanie powiadomień in-app przy przypomnieniach + naprawa Push 24h + dodanie info o uczestnikach w e-mailach
-3. **`supabase/functions/cancel-individual-meeting/index.ts`** -- dodanie powiadomień in-app i Push przy anulowaniu + dodanie info o uczestnikach w e-mailach
+Zmiana logiki upsert: jesli Google nie zwrocil `refresh_token`, zachowaj istniejacy w bazie zamiast nadpisywac go wartoscia null.
 
----
+```text
+Obecnie:
+  upsert({
+    refresh_token: tokens.refresh_token,  // <-- moze byc null
+    ...
+  })
 
-### 1. Rezerwacja spotkania (`PartnerMeetingBooking.tsx`)
-
-Po utworzeniu wydarzenia i wysłaniu e-maili, dodać:
-
-**a) Powiadomienie in-app dla lidera (host):**
-```
-Tytuł: "Nowa rezerwacja spotkania"
-Treść: "{imię_rezerwującego} {nazwisko} zarezerwował(a) spotkanie {typ} na {data} o {godzina}"
-Link: /meetings
-```
-
-**b) Powiadomienie in-app dla partnera (booker):**
-```
-Tytuł: "Spotkanie potwierdzone"
-Treść: "Twoje spotkanie z {imię_lidera} {nazwisko} ({typ}) zostało potwierdzone na {data} o {godzina}"
-Link: /meetings
+Po zmianie:
+  - Jesli tokens.refresh_token istnieje: zapisz nowy
+  - Jesli tokens.refresh_token jest null/undefined: pobierz istniejacy z bazy i uzyj go
 ```
 
-**c) Push notification dla lidera:**
+#### 2. Nowa edge function `refresh-google-tokens` + CRON co 30 minut
+
+Nowa funkcja cykliczna, ktora:
+- Pobiera wszystkie rekordy z `user_google_tokens` gdzie `expires_at` < NOW() + 15 minut
+- Dla kazdego rekordu wywoluje Google token refresh endpoint
+- Aktualizuje `access_token` i `expires_at` w bazie
+- Przy `invalid_grant`:
+  - Sprawdza ile prob bylo (nowe pole `refresh_fail_count` w tabeli)
+  - Jesli < 3 proby: inkrementuje licznik, NIE usuwa tokena
+  - Jesli >= 3 proby: dopiero wtedy usuwa token i sync records, tworzy powiadomienie in-app dla uzytkownika
+- Przy sukcesie: resetuje `refresh_fail_count` do 0
+
+CRON schedule: co 30 minut (`*/30 * * * *`)
+
+#### 3. Migracja bazy -- dodanie kolumny `refresh_fail_count`
+
+```sql
+ALTER TABLE user_google_tokens 
+  ADD COLUMN IF NOT EXISTS refresh_fail_count integer DEFAULT 0;
 ```
-Tytuł: "Nowa rezerwacja spotkania"
-Body: "{imię_rezerwującego} zarezerwował(a) {typ} na {data} {godzina}"
-```
-
-**d) Push notification dla partnera (booker):**
-```
-Tytuł: "Spotkanie potwierdzone"
-Body: "Spotkanie z {imię_lidera} potwierdzone na {data} {godzina}"
-```
-
-**e) Rozszerzenie e-maili o dane uczestników:**
-- E-mail do lidera: dodać imię i nazwisko rezerwującego (już jest)
-- E-mail do bookera: dodać imię i nazwisko lidera (już jest)
-- OK, e-maile przy rezerwacji już zawierają dane uczestników.
-
----
-
-### 2. Przypomnienia CRON (`send-meeting-reminders/index.ts`)
-
-**a) Naprawa Push 24h:**
-Obecny kod:
-```typescript
-title: reminderType === '1h' 
-  ? "Spotkanie za godzinę" 
-  : "Spotkanie za 15 minut"
-```
-Zmiana na:
-```typescript
-title: reminderType === '24h' 
-  ? "Spotkanie jutro"
-  : reminderType === '1h' 
-    ? "Spotkanie za godzinę" 
-    : "Spotkanie za 15 minut"
-```
-
-**b) Dodanie powiadomień in-app przy każdym przypomnieniu (24h, 1h, 15min):**
-Po wysłaniu e-maila i Push, wstawić `user_notifications` z:
-```
-Tytuł: "Przypomnienie: {tytuł_spotkania}"
-Treść: "Spotkanie z {druga_strona} — {data} o {godzina} ({typ_przypomnienia})"
-Link: /meetings
-```
-
-**c) Dodanie danych uczestników do zmiennych e-maila:**
-Dodać zmienne `imie_rezerwujacego`, `nazwisko_rezerwujacego`, `imie_lidera`, `nazwisko_lidera` do templatek, aby każdy e-mail zawierał informację kto jest uczestnikiem spotkania i kto je zarezerwował.
-
----
-
-### 3. Anulowanie spotkania (`cancel-individual-meeting/index.ts`)
-
-**a) Dodanie powiadomień in-app dla wszystkich uczestników:**
-Po anulowaniu, przed wysyłką e-maili, wstawić `user_notifications`:
-```
-Tytuł: "Spotkanie anulowane"
-Treść: "{kto_anulował} anulował(a) spotkanie {tytuł} ({data} {godzina})"
-Link: /meetings
-```
-
-**b) Dodanie Push notification dla wszystkich uczestników:**
-```
-Tytuł: "Spotkanie anulowane"
-Body: "{kto_anulował} anulował(a) {tytuł} — {data} {godzina}"
-```
-
-**c) Rozszerzenie e-maili o dane uczestników:**
-Dodać do payload e-maila:
-- `imie_lidera`, `nazwisko_lidera` (prowadzący)
-- `imie_rezerwujacego`, `nazwisko_rezerwujacego` (osoba rezerwująca)
-- `kto_odwolal` (już jest)
-
-Pobrać profile wszystkich uczestników i wzbogacić payload.
-
----
 
 ### Szczegoly techniczne
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/events/PartnerMeetingBooking.tsx` | Dodanie 2x insert `user_notifications` + 2x invoke `send-push-notification` po rezerwacji |
-| `supabase/functions/send-meeting-reminders/index.ts` | Naprawa ternary Push title dla 24h, dodanie insert `user_notifications` w petli, dodanie zmiennych uczestników |
-| `supabase/functions/cancel-individual-meeting/index.ts` | Dodanie insert `user_notifications` + invoke `send-push-notification` w pętli po anulowaniu, dodanie danych uczestników do e-maila |
+| Element | Zmiana |
+|---------|--------|
+| `supabase/functions/google-oauth-callback/index.ts` | Zabezpieczenie upsert -- nie nadpisuj refresh_token jesli null |
+| `supabase/functions/refresh-google-tokens/index.ts` | Nowa edge function -- proaktywne odswiezanie tokenow |
+| `supabase/functions/sync-google-calendar/index.ts` | Retry logic przy `invalid_grant` -- inkrementuj `refresh_fail_count` zamiast natychmiastowego usuwania |
+| `supabase/functions/check-google-calendar-busy/index.ts` | Ta sama retry logic przy `invalid_grant` |
+| Migracja SQL | Dodanie kolumny `refresh_fail_count` |
+| CRON SQL (insert) | Rejestracja crona `refresh-google-tokens` co 30 minut |
+| `supabase/config.toml` | Rejestracja nowej funkcji z `verify_jwt = false` |
 
-### Bez zmian w bazie danych
-Wszystkie tabele (`user_notifications`, `meeting_reminders_sent`) już istnieją. Nie trzeba migracji.
+### Efekt
 
+- Tokeny beda odswiezane co 30 minut proaktywnie, niezaleznie od aktywnosci uzytkownika
+- Refresh token nigdy nie zostanie przypadkowo nadpisany wartoscia null
+- Rozlaczenie nastapi dopiero po 3 nieudanych probach odswiezenia (ok. 1.5h), nie po pierwszym bledzie
+- Uzytkownik dostanie powiadomienie in-app o koniecznosci ponownego polaczenia
