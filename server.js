@@ -76,10 +76,30 @@ const storage = multer.diskStorage({
   }
 });
 
+// Dozwolone typy MIME
+const allowedMimes = [
+  'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+  'video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo', 'video/x-matroska',
+  'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/x-m4a', 'audio/flac',
+  'application/pdf', 'application/msword', 'text/plain',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+];
+
 const upload = multer({
   storage,
   limits: {
     fileSize: MAX_FILE_SIZE
+  },
+  fileFilter: (req, file, cb) => {
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Niedozwolony typ pliku: ${file.mimetype}`));
+    }
   }
 });
 
@@ -99,8 +119,8 @@ app.use(cors({
     'http://localhost:8080',
     'http://localhost:5173'
   ],
-  methods: ['GET', 'HEAD', 'OPTIONS'],
-  allowedHeaders: ['Range', 'Content-Type'],
+  methods: ['GET', 'HEAD', 'OPTIONS', 'POST', 'DELETE'],
+  allowedHeaders: ['Range', 'Content-Type', 'x-upload-key', 'Authorization'],
   exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length'],
   credentials: false
 }));
@@ -240,8 +260,30 @@ app.get('/health', (req, res) => {
 // FILE UPLOAD ENDPOINTS
 // ========================================
 
+// Middleware autoryzacji uploadu
+const UPLOAD_API_KEY = process.env.UPLOAD_API_KEY || '';
+
+const requireUploadAuth = (req, res, next) => {
+  // Jeśli klucz API jest skonfigurowany, wymagaj go
+  if (UPLOAD_API_KEY) {
+    const providedKey = req.headers['x-upload-key'];
+    if (providedKey !== UPLOAD_API_KEY) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: Invalid or missing upload key'
+      });
+    }
+  }
+  next();
+};
+
 // Upload single file
-app.post('/upload', upload.single('file'), (req, res) => {
+app.post('/upload', requireUploadAuth, (req, res, next) => {
+  // Zwiększ timeout dla uploadu dużych plików
+  req.setTimeout(10 * 60 * 1000); // 10 minut
+  res.setTimeout(10 * 60 * 1000);
+  next();
+}, upload.single('file'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -279,7 +321,7 @@ app.post('/upload', upload.single('file'), (req, res) => {
 });
 
 // List files in a folder
-app.get('/list-files', (req, res) => {
+app.get('/list-files', requireUploadAuth, (req, res) => {
   try {
     const folder = req.query.folder || '';
     const folderPath = folder ? path.join(UPLOADS_DIR, folder) : UPLOADS_DIR;
@@ -345,7 +387,7 @@ app.get('/list-files', (req, res) => {
 });
 
 // Delete file
-app.delete('/upload/:filename', (req, res) => {
+app.delete('/upload/:filename', requireUploadAuth, (req, res) => {
   try {
     const folder = req.query.folder || '';
     const filename = req.params.filename;
@@ -504,10 +546,10 @@ const server = app.listen(PORT, HOST, () => {
   console.log('');
 });
 
-// CRITICAL: Timeouts for Phusion Passenger on shared hosting
-server.keepAliveTimeout = 5000;    // 5 seconds - close idle connections faster
-server.headersTimeout = 10000;     // 10 seconds - timeout for headers
-server.timeout = 30000;            // 30 seconds - general request timeout
+// Timeouts - zwiększone dla dużych plików video
+server.keepAliveTimeout = 65000;     // 65 seconds
+server.headersTimeout = 70000;       // 70 seconds
+server.timeout = 10 * 60 * 1000;     // 10 minut - duże pliki video
 
 // Track active connections for graceful shutdown
 server.on('connection', (socket) => {

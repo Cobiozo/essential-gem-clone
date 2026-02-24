@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { STORAGE_CONFIG, formatFileSize } from '@/lib/storageConfig';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -95,8 +95,15 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const uploadLockRef = useRef(false);
 
   const uploadFile = useCallback(async (file: File, options?: UploadOptions): Promise<UploadResult> => {
+    // Blokada równoległych uploadów - zapobiega duplikatom
+    if (uploadLockRef.current) {
+      throw new Error('Upload już trwa, poczekaj na zakończenie poprzedniego.');
+    }
+    uploadLockRef.current = true;
+
     setIsUploading(true);
     setUploadProgress(0);
     setError(null);
@@ -106,6 +113,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       const errorMsg = `Plik jest za duży. Maksymalny rozmiar to ${STORAGE_CONFIG.MAX_FILE_SIZE_MB}MB (${formatFileSize(STORAGE_CONFIG.MAX_FILE_SIZE_BYTES)})`;
       setError(errorMsg);
       setIsUploading(false);
+      uploadLockRef.current = false;
       throw new Error(errorMsg);
     }
 
@@ -123,6 +131,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
           options?.onProgress?.(progress);
         });
         setIsUploading(false);
+        uploadLockRef.current = false;
         return result;
       } catch (supabaseErr) {
         // Fallback do VPS jeśli Supabase nie działa
@@ -174,6 +183,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       
       setUploadProgress(100);
       setIsUploading(false);
+      uploadLockRef.current = false;
       
       options?.onProgress?.(100);
       
@@ -195,6 +205,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       
       setError(errorMsg);
       setIsUploading(false);
+      uploadLockRef.current = false;
       throw new Error(errorMsg);
     }
   }, []);
