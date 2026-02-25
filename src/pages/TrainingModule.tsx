@@ -227,6 +227,60 @@ const TrainingModule = () => {
 
         if (!mounted) return;
         if (moduleError) throw moduleError;
+
+        // Check sequential unlock - if this module has unlock_order, verify it's unlocked
+        if (moduleData.unlock_order != null) {
+          // Get all modules with unlock_order for the same language
+          const { data: allSeqModules } = await supabase
+            .from('training_modules')
+            .select('id, unlock_order, language_code')
+            .not('unlock_order', 'is', null)
+            .eq('is_active', true)
+            .order('unlock_order');
+
+          const sameLanguageModules = (allSeqModules || []).filter(m =>
+            !m.language_code || !moduleData.language_code || m.language_code === moduleData.language_code
+          );
+
+          // Find modules before this one in the sequence
+          const previousModules = sameLanguageModules.filter(m => (m.unlock_order || 0) < (moduleData.unlock_order || 0));
+
+          // Check if all previous modules are completed (100%)
+          let allPreviousCompleted = true;
+          for (const prev of previousModules) {
+            const { data: prevLessons } = await supabase
+              .from('training_lessons')
+              .select('id')
+              .eq('module_id', prev.id)
+              .eq('is_active', true);
+            
+            const prevLessonIds = (prevLessons || []).map(l => l.id);
+            if (prevLessonIds.length === 0) continue;
+
+            const { data: prevProgress } = await supabase
+              .from('training_progress')
+              .select('lesson_id')
+              .eq('user_id', user.id)
+              .eq('is_completed', true)
+              .in('lesson_id', prevLessonIds);
+
+            if ((prevProgress?.length || 0) < prevLessonIds.length) {
+              allPreviousCompleted = false;
+              break;
+            }
+          }
+
+          if (!allPreviousCompleted) {
+            toast({
+              title: "Moduł zablokowany",
+              description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
+              variant: "destructive"
+            });
+            navigate('/training');
+            return;
+          }
+        }
+
         setModule(moduleData);
 
         const { data: lessonsData, error: lessonsError } = await supabase

@@ -111,6 +111,7 @@ interface TrainingModule {
   visible_to_anonymous: boolean;
   resource_ids?: string[];
   language_code?: string | null;
+  unlock_order?: number | null;
   created_at: string;
 }
 
@@ -1375,6 +1376,7 @@ const TrainingManagement = () => {
                 <TableRow>
                   <TableHead className="whitespace-nowrap">{t('admin.training.moduleName') || 'Nazwa modułu'}</TableHead>
                   <TableHead className="w-20 text-center whitespace-nowrap">{t('admin.training.lessons') || 'Lekcje'}</TableHead>
+                  <TableHead className="w-20 text-center whitespace-nowrap">Odsłanianie</TableHead>
                   <TableHead className="w-28 whitespace-nowrap">{t('admin.training.status') || 'Status'}</TableHead>
                   <TableHead className="whitespace-nowrap">{t('admin.training.visibleTo') || 'Widoczność'}</TableHead>
                   <TableHead className="text-right w-36 whitespace-nowrap">{t('admin.training.actions') || 'Akcje'}</TableHead>
@@ -1383,7 +1385,7 @@ const TrainingManagement = () => {
               <TableBody>
                 {modules.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       {t('admin.training.noModules') || 'Brak modułów szkoleniowych'}
                     </TableCell>
                   </TableRow>
@@ -1400,6 +1402,9 @@ const TrainingManagement = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">{lessonCount}</TableCell>
+                        <TableCell className="text-center text-sm text-muted-foreground">
+                          {module.unlock_order != null ? module.unlock_order : '---'}
+                        </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             <div className={cn(
@@ -1967,6 +1972,7 @@ const ModuleForm = ({
     visible_to_anonymous: module?.visible_to_anonymous ?? false,
     resource_ids: module?.resource_ids || [],
     language_code: module?.language_code || 'pl',
+    unlock_order: module?.unlock_order ?? null as number | null,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2094,6 +2100,24 @@ const ModuleForm = ({
         selectedIds={formData.resource_ids}
         onChange={(ids) => setFormData(prev => ({ ...prev, resource_ids: ids }))}
       />
+
+      <div>
+        <Label htmlFor="unlock_order">Kolejność odsłaniania (opcjonalne)</Label>
+        <Input
+          id="unlock_order"
+          type="number"
+          min={1}
+          value={formData.unlock_order ?? ''}
+          onChange={(e) => setFormData(prev => ({ 
+            ...prev, 
+            unlock_order: e.target.value === '' ? null : parseInt(e.target.value, 10)
+          }))}
+          placeholder="Puste = zawsze dostępny"
+        />
+        <p className="text-xs text-muted-foreground mt-1">
+          Ustaw liczbę (1, 2, 3...) aby moduł był odsłaniany sekwencyjnie. Puste pole = moduł zawsze dostępny.
+        </p>
+      </div>
 
       <div className="flex gap-2">
         <Button type="submit">Zapisz</Button>

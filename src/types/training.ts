@@ -24,6 +24,7 @@ export interface TrainingModule {
   visible_to_anonymous: boolean;
   resource_ids?: string[];
   language_code?: string | null;
+  unlock_order?: number | null;
   created_at: string;
 }
 
