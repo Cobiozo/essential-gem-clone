@@ -35,6 +35,7 @@ interface ProspectData {
   prospect_first_name?: string;
   prospect_last_name?: string;
   prospect_phone?: string;
+  prospect_email?: string;
   booking_notes?: string;
   consultation_purpose?: string;
 }
@@ -235,6 +236,9 @@ export const UpcomingMeetings: React.FC = () => {
                       </p>
                       {prospectData.prospect_phone && (
                         <p className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" />{prospectData.prospect_phone}</p>
+                      )}
+                      {prospectData.prospect_email && (
+                        <p className="text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" />{prospectData.prospect_email}</p>
                       )}
                       {prospectData.booking_notes && (
                         <p className="text-muted-foreground"><MessageSquare className="h-3 w-3 inline mr-1" />{prospectData.booking_notes}</p>

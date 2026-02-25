@@ -9,7 +9,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Users, User, Video, Calendar, Clock, XCircle, CheckCircle } from 'lucide-react';
+import { Loader2, Users, User, Video, Calendar, Clock, XCircle, CheckCircle, Mail } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -217,6 +217,11 @@ export const LeaderMeetingSchedule: React.FC = () => {
                       <span className="font-medium">{desc.prospect_first_name} {desc.prospect_last_name}</span>
                       {desc.prospect_phone && (
                         <span className="text-muted-foreground ml-2">Tel: {desc.prospect_phone}</span>
+                      )}
+                      {desc.prospect_email && (
+                        <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
+                          <Mail className="h-3 w-3" />{desc.prospect_email}
+                        </span>
                       )}
                     </div>
                   )}
