@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Loader2, CalendarCheck, Users, User, Calendar, Clock, Video, 
-  XCircle, FileText, Phone, Target, MessageSquare 
+  XCircle, FileText, Phone, Target, MessageSquare, Mail 
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -251,7 +251,7 @@ export const UpcomingMeetings: React.FC = () => {
                   )}
 
                   {/* Cancel */}
-                  {canCancel(meeting.start_time) && (
+                  {canCancel(meeting.start_time) ? (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" disabled={cancelling === meeting.id}>
@@ -272,7 +272,16 @@ export const UpcomingMeetings: React.FC = () => {
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
-                  )}
+                  ) : !isHost && meeting.otherParty?.email ? (
+                    <div className="flex items-start gap-2 text-sm bg-muted/50 rounded p-2">
+                      <Mail className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                      <div>
+                        <p className="text-muted-foreground">Anulowanie możliwe tylko przez kontakt z prowadzącym:</p>
+                        <p className="font-medium">{meeting.otherParty.first_name} {meeting.otherParty.last_name}</p>
+                        <a href={`mailto:${meeting.otherParty.email}`} className="text-primary underline">{meeting.otherParty.email}</a>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
