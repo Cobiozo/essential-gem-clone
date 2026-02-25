@@ -17,7 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, RefreshCw, AlertTriangle, Mail, Info } from "lucide-react";
+import { BookOpen, Clock, CheckCircle, ArrowLeft, Award, RefreshCw, AlertTriangle, Mail, Info, Lock } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -34,11 +34,13 @@ interface TrainingModule {
   icon_name: string;
   position: number;
   language_code?: string | null;
+  unlock_order?: number | null;
   lessons_count: number;
   completed_lessons: number;
   total_time_minutes: number;
   certificate_id?: string;
   certificate_url?: string;
+  isLocked?: boolean;
 }
 
 const Training = () => {
@@ -83,13 +85,44 @@ const Training = () => {
     return translated ? { ...m, title: translated.title, description: translated.description } : m;
   });
 
+  // Compute isLocked for sequential unlock system
+  const modulesWithLockState = useMemo(() => {
+    // Get modules with unlock_order, sorted by unlock_order
+    const sequentialModules = translatedDisplayModules
+      .filter(m => m.unlock_order != null)
+      .sort((a, b) => (a.unlock_order || 0) - (b.unlock_order || 0));
+
+    const unlockedIds = new Set<string>();
+    for (let i = 0; i < sequentialModules.length; i++) {
+      const mod = sequentialModules[i];
+      if (i === 0) {
+        unlockedIds.add(mod.id);
+      } else {
+        const prev = sequentialModules[i - 1];
+        const prevProgress = prev.lessons_count > 0
+          ? Math.round((prev.completed_lessons / prev.lessons_count) * 100)
+          : 0;
+        if (prevProgress === 100) {
+          unlockedIds.add(mod.id);
+        } else {
+          break; // remaining are also locked
+        }
+      }
+    }
+
+    return translatedDisplayModules.map(m => ({
+      ...m,
+      isLocked: m.unlock_order != null && !unlockedIds.has(m.id),
+    }));
+  }, [translatedDisplayModules]);
+
   // Filter modules by the currently viewed language catalog
   const filteredModules = useMemo(() => {
-    if (!viewLanguage) return translatedDisplayModules;
-    return translatedDisplayModules.filter(m =>
+    if (!viewLanguage) return modulesWithLockState;
+    return modulesWithLockState.filter(m =>
       !m.language_code || m.language_code === viewLanguage
     );
-  }, [translatedDisplayModules, viewLanguage]);
+  }, [modulesWithLockState, viewLanguage]);
 
   // Load user's training_language from profile
   useEffect(() => {
@@ -743,15 +776,21 @@ const Training = () => {
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredModules.map((module) => {
               const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
-              const status = getModuleStatus(module.completed_lessons, module.lessons_count);
+              const status = module.isLocked 
+                ? { text: 'Zablokowany', variant: 'secondary' as const }
+                : getModuleStatus(module.completed_lessons, module.lessons_count);
               const hasCertificate = !!certificates[module.id];
               const certDeleted = certificates[module.id]?.url === 'downloaded-and-deleted';
               
               return (
-                <Card key={module.id} className="hover:shadow-lg transition-shadow">
+                <Card key={module.id} className={`transition-shadow ${module.isLocked ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'}`}>
                   <CardHeader>
                     <div className="flex items-center gap-3 mb-2">
-                      <BookOpen className="h-6 w-6 text-primary" />
+                      {module.isLocked ? (
+                        <Lock className="h-6 w-6 text-muted-foreground" />
+                      ) : (
+                        <BookOpen className="h-6 w-6 text-primary" />
+                      )}
                       <Badge variant={status.variant === "success" ? "default" : status.variant === "warning" ? "secondary" : status.variant}>{status.text}</Badge>
                     </div>
                     <CardTitle className="text-xl">{module.title}</CardTitle>
@@ -904,11 +943,17 @@ const Training = () => {
 
                       {/* Action Button */}
                       <Button 
-                        onClick={() => navigate(`/training/${module.id}`)}
+                        onClick={() => !module.isLocked && navigate(`/training/${module.id}`)}
                         className="w-full"
                         variant={progress === 100 ? "outline" : "default"}
+                        disabled={module.isLocked}
                       >
-                        {progress === 100 ? (
+                        {module.isLocked ? (
+                          <>
+                            <Lock className="h-4 w-4 mr-2" />
+                            {t('training.startTraining')}
+                          </>
+                        ) : progress === 100 ? (
                           <>
                             <CheckCircle className="h-4 w-4 mr-2" />
                             {t('training.reviewAgain')}
@@ -919,6 +964,11 @@ const Training = () => {
                           t('training.startTraining')
                         )}
                       </Button>
+                      {module.isLocked && (
+                        <p className="text-xs text-muted-foreground text-center mt-1">
+                          Ukończ poprzednie szkolenie, aby odblokować
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

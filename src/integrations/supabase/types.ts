@@ -6551,6 +6551,7 @@ export type Database = {
           position: number
           resource_ids: string[] | null
           title: string
+          unlock_order: number | null
           updated_at: string
           visible_to_anonymous: boolean
           visible_to_clients: boolean
@@ -6568,6 +6569,7 @@ export type Database = {
           position?: number
           resource_ids?: string[] | null
           title: string
+          unlock_order?: number | null
           updated_at?: string
           visible_to_anonymous?: boolean
           visible_to_clients?: boolean
@@ -6585,6 +6587,7 @@ export type Database = {
           position?: number
           resource_ids?: string[] | null
           title?: string
+          unlock_order?: number | null
           updated_at?: string
           visible_to_anonymous?: boolean
           visible_to_clients?: boolean

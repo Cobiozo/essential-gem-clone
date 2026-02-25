@@ -1,0 +1,1 @@
+ALTER TABLE training_modules ADD COLUMN unlock_order integer DEFAULT NULL;
