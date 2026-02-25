@@ -34,6 +34,7 @@ export const MedicalChatWidget: React.FC = () => {
     chatHistory,
   } = useMedicalChatStream();
 
+  const [isSpinning, setIsSpinning] = useState(false);
   const hasAccess = user && (isAdmin || isPartner || isClient || isSpecjalista);
 
   useEffect(() => {
@@ -41,6 +42,22 @@ export const MedicalChatWidget: React.FC = () => {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Timer-driven spin: 2s rotation, then 10s pause (12s cycle)
+  useEffect(() => {
+    setIsSpinning(true);
+    const spinTimeout = setTimeout(() => setIsSpinning(false), 2000);
+
+    const interval = setInterval(() => {
+      setIsSpinning(true);
+      setTimeout(() => setIsSpinning(false), 2000);
+    }, 12000);
+
+    return () => {
+      clearTimeout(spinTimeout);
+      clearInterval(interval);
+    };
+  }, []);
 
   if (!hasAccess) return null;
   if (location.pathname === '/omega-base') return null;
@@ -209,7 +226,7 @@ export const MedicalChatWidget: React.FC = () => {
           backdrop-blur-sm
           flex items-center justify-center transition-all duration-300 
           hover:scale-110
-          animate-omega-coin-flip"
+          ${isSpinning ? 'animate-omega-coin-flip' : ''}"
         style={{
           bottom: 'max(4rem, calc(env(safe-area-inset-bottom, 0px) + 3rem))',
           right: 'max(1rem, env(safe-area-inset-right, 0px))',
