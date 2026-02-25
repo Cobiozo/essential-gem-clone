@@ -51,11 +51,14 @@ export const LeaderMeetingSchedule: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
+      const now = new Date().toISOString();
       const { data: events, error } = await supabase
         .from('events')
         .select('id, title, description, event_type, start_time, end_time, zoom_link, is_active, created_by')
         .eq('host_user_id', user.id)
         .in('event_type', ['tripartite_meeting', 'partner_consultation'])
+        .eq('is_active', true)
+        .gte('start_time', now)
         .order('start_time', { ascending: true });
 
       if (error) throw error;
@@ -103,7 +106,7 @@ export const LeaderMeetingSchedule: React.FC = () => {
       <Card>
         <CardContent className="text-center py-8 text-muted-foreground">
           <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-          <p>Brak zarezerwowanych spotkań</p>
+          <p>Brak zaplanowanych spotkań</p>
         </CardContent>
       </Card>
     );
