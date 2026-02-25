@@ -15,6 +15,7 @@ interface RemoteParticipant {
   displayName: string;
   stream: MediaStream | null;
   isMuted?: boolean;
+  isCameraOff?: boolean;
   avatarUrl?: string;
   userId?: string;
 }
@@ -64,6 +65,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const cleanupDoneRef = useRef(false);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const screenSharePendingRef = useRef(false);
+  const cachedAuthTokenRef = useRef<string | null>(null);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<RemoteParticipant[]>([]);
@@ -96,6 +98,25 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Meeting settings & co-host state
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>(initialSettings || DEFAULT_SETTINGS);
   const [coHostUserIds, setCoHostUserIds] = useState<string[]>([]);
+
+  // Zmiana 2: coHostUserIdsRef synced with state for use in closures
+  const coHostUserIdsRef = useRef<string[]>([]);
+  useEffect(() => { coHostUserIdsRef.current = coHostUserIds; }, [coHostUserIds]);
+
+  // Zmiana 6: localAvatarUrl ref for stable callPeer closure
+  const localAvatarUrlRef = useRef<string | undefined>();
+  useEffect(() => { localAvatarUrlRef.current = localAvatarUrl; }, [localAvatarUrl]);
+
+  // Zmiana 4: cache auth token for beforeunload (can't use async there)
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      cachedAuthTokenRef.current = data?.session?.access_token || null;
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      cachedAuthTokenRef.current = session?.access_token || null;
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Emit video-activity every 60s and meeting-active/meeting-ended to prevent inactivity logout
   useEffect(() => {
@@ -302,6 +323,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     localStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch {} });
     localStreamRef.current = null;
     if (peerRef.current) { try { peerRef.current.destroy(); } catch {} peerRef.current = null; }
+
+    // Zmiana 5: cleanup iceDisconnectTimers to prevent memory leaks
+    iceDisconnectTimersRef.current.forEach((timer) => { clearTimeout(timer); });
+    iceDisconnectTimersRef.current.clear();
+
     console.log('[VideoRoom] Cleanup complete');
   }, [roomId, user, guestMode, guestTokenId]);
 
@@ -315,28 +341,27 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       if (peerRef.current) { try { peerRef.current.destroy(); } catch {} }
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xzlhssqqbajqhnsmbucf.supabase.co';
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA';
+      // Zmiana 4: removed sendBeacon (doesn't support PATCH), added Authorization header
+      // Note: can't use await in beforeunload, so we cache the session token via ref
+      const authToken = cachedAuthTokenRef.current;
+      const authHeaders: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+        'Prefer': 'return=minimal',
+      };
+      if (authToken) authHeaders['Authorization'] = `Bearer ${authToken}`;
+
       if (user) {
         const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
-        navigator.sendBeacon(url, new Blob([body], { type: 'application/json; charset=utf-8' }));
         try {
-          fetch(url, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Prefer': 'return=minimal' },
-            body,
-            keepalive: true,
-          }).catch(() => {});
+          fetch(url, { method: 'PATCH', headers: authHeaders, body, keepalive: true }).catch(() => {});
         } catch {}
       } else if (guestTokenId) {
         const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&guest_token_id=eq.${guestTokenId}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
         try {
-          fetch(url, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'apikey': anonKey, 'Prefer': 'return=minimal' },
-            body,
-            keepalive: true,
-          }).catch(() => {});
+          fetch(url, { method: 'PATCH', headers: authHeaders, body, keepalive: true }).catch(() => {});
         } catch {}
       }
     };
@@ -590,7 +615,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             if (!cancelled && payload?.settings) {
               const newSettings = payload.settings as MeetingSettings;
               setMeetingSettings(newSettings);
-              const isManager = !guestMode && (isHost || (user && coHostUserIds.includes(user.id)));
+              // Zmiana 2: use ref to get current coHostUserIds
+              const isManager = !guestMode && (isHost || (user && coHostUserIdsRef.current.includes(user.id)));
               if (!isManager) {
                 if (!newSettings.allowMicrophone) {
                   localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
@@ -622,11 +648,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               }
             });
           }
+          // Zmiana 1: sync both isMuted and isCameraOff from broadcast
           channel.on('broadcast', { event: 'media-state-changed' }, ({ payload }) => {
             if (!cancelled && payload?.peerId) {
               setParticipants(prev => prev.map(p => 
                 p.peerId === payload.peerId 
-                  ? { ...p, isMuted: payload.isMuted } 
+                  ? { ...p, isMuted: payload.isMuted, isCameraOff: payload.isCameraOff } 
                   : p
               ));
             }
@@ -719,13 +746,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => { cancelled = true; cleanup(); };
   }, [user, roomId, guestMode, guestTokenId]);
 
-  const callPeer = (remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
+  // Zmiana 6: callPeer uses ref for localAvatarUrl to avoid stale closure
+  const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
     const call = peerRef.current.call(remotePeerId, stream, {
-      metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrl },
+      metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrlRef.current },
     });
     if (call) handleCall(call, name, avatarUrl, userId);
-  };
+  }, [displayName, user?.id]);
 
   const handleCall = (call: MediaConnection, name: string, avatarUrl?: string, userId?: string) => {
     connectionsRef.current.set(call.peer, call);
@@ -853,6 +881,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       });
     } catch (err) {
       console.error('[VideoRoom] Failed to restore camera:', err);
+      // Zmiana 3: fallback to audio-only if camera unavailable
+      try {
+        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioOnlyStream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
+        localStreamRef.current = audioOnlyStream;
+        setLocalStream(audioOnlyStream);
+        console.log('[VideoRoom] restoreCamera fallback: audio-only stream');
+      } catch (audioErr) {
+        console.error('[VideoRoom] restoreCamera fallback also failed:', audioErr);
+      }
+    } finally {
+      // Always clear screen sharing state even if getUserMedia fails
+      setIsScreenSharing(false);
     }
   }, []);
 
