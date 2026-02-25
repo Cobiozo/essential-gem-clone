@@ -1,37 +1,25 @@
 
 
-## Naprawa animacji omega-coin-flip
+## Wydluzenie czasu obrotu widgetu
 
-### Problem
+Obecny czas obrotu to **2 sekundy**. Wydluze go do **4 sekund** -- obrot bedzie wolniejszy i bardziej elegancki.
 
-Przycisk ma klase `transition-all duration-300` ktora przechwytuje wlasciwosc `transform` i blokuje animacje CSS `rotateY`. Transition i animation walcza o te sama wlasciwosc.
+### Zmiany
 
-Dodatkowo `perspective` powinno byc na elemencie nadrzednym, nie na samym obracajacym sie elemencie.
-
-### Rozwiazanie
-
-**1. `src/components/MedicalChatWidget.tsx`**
-
-- Usunac `transition-all duration-300` z przycisku i zastapic specyficznymi transitionami ktore nie obejmuja `transform`:
-  - `transition-colors duration-300` (dla hover na gradiencie)
-- Przeniesc `perspective` do wrappera `<div>`, a na przycisku zostawic tylko `transformStyle: preserve-3d`
-- Otoczyc przycisk w `<div>` z `style={{ perspective: '600px' }}`
-
-**2. Bez zmian w `tailwind.config.ts`** -- konfiguracja jest poprawna.
-
-### Zmieniony przycisk (schemat)
+**1. `tailwind.config.ts`** -- zmiana czasu animacji z 2s na 4s:
 
 ```text
-<div style={{ perspective: '600px' }}>
-  <button
-    className="... transition-colors duration-300 hover:scale-110
-      ${isSpinning ? 'animate-omega-coin-flip' : ''}"
-    style={{ transformStyle: 'preserve-3d' }}
-  >
-    ...
-  </button>
-</div>
+"omega-coin-flip": "omega-coin-flip 4s ease-in-out forwards"
 ```
 
-Efekt: obrot 360 stopni w 2s, pauza 10s, powtarza sie.
+**2. `src/components/MedicalChatWidget.tsx`** -- dostosowanie timera:
+
+- `setTimeout(() => setIsSpinning(false), 4000)` zamiast 2000
+- `setInterval(triggerSpin, 14000)` zamiast 12000 (4s obrot + 10s pauza)
+
+### Efekt
+
+- Obrot trwa 4 sekundy (wolniejszy, plynniejszy)
+- Pauza nadal 10 sekund
+- Cykl: 14 sekund (4s + 10s)
 
