@@ -1228,8 +1228,11 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           {/* Motivational message */}
           <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground">
             <p className="italic">
-              💡 Niezależnie od powiadomień systemowych, dbaj o profesjonalne podejście do każdego zaproszonego — 
-              żadne systemy nie zastąpią kontaktu bezpośredniego z prospektem aż do momentu odbycia spotkania.
+              {meetingType === 'consultation' ? (
+                <>📋 Aby spotkanie przebiegło sprawnie i merytorycznie, opisz możliwie dokładnie cel konsultacji, tak aby prowadzący mógł się odpowiednio przygotować. Pamiętaj, że warunkiem rezerwacji konsultacji jest ukończenie wymaganych szkoleń w Akademii.</>
+              ) : (
+                <>💡 Niezależnie od powiadomień systemowych, dbaj o profesjonalne podejście do każdego zaproszonego — żadne systemy nie zastąpią kontaktu bezpośredniego z prospektem aż do momentu odbycia spotkania.</>
+              )}
             </p>
           </div>
 
