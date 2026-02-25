@@ -3718,6 +3718,7 @@ export type Database = {
           left_at: string | null
           peer_id: string | null
           room_id: string
+          updated_at: string | null
           user_id: string | null
         }
         Insert: {
@@ -3730,6 +3731,7 @@ export type Database = {
           left_at?: string | null
           peer_id?: string | null
           room_id: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Update: {
@@ -3742,6 +3744,7 @@ export type Database = {
           left_at?: string | null
           peer_id?: string | null
           room_id?: string
+          updated_at?: string | null
           user_id?: string | null
         }
         Relationships: [
