@@ -82,6 +82,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | undefined>();
   const reconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const iceDisconnectTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const channelReconnectAttemptsRef = useRef(0);
+  const channelReconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // === Zmiana A: participantsRef synced with state ===
   const participantsRef = useRef<RemoteParticipant[]>([]);
@@ -328,6 +330,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     iceDisconnectTimersRef.current.forEach((timer) => { clearTimeout(timer); });
     iceDisconnectTimersRef.current.clear();
 
+    // Cleanup channel reconnect timer
+    if (channelReconnectTimerRef.current) {
+      clearTimeout(channelReconnectTimerRef.current);
+      channelReconnectTimerRef.current = null;
+    }
+
     console.log('[VideoRoom] Cleanup complete');
   }, [roomId, user, guestMode, guestTokenId]);
 
@@ -429,6 +437,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               connectionsRef.current.delete(peerId);
             });
             setParticipants(prev => prev.filter(p => activePeerIds.has(p.peerId)));
+          }
+        }
+
+        // 3. Channel health check - verify signaling channel is alive
+        const channelState = (channelRef.current as any)?.state;
+        if (channelRef.current && channelState !== 'joined') {
+          console.warn(`[VideoRoom] Heartbeat: signaling channel state is "${channelState}", not "joined". Channel may need reconnect.`);
+          // The channel's own error/timeout handler will trigger reconnect,
+          // but if state is stuck, we can help by unsubscribing to force an error
+          if (channelState !== 'joining') {
+            try { supabase.removeChannel(channelRef.current); } catch {}
+            channelRef.current = null;
+            // This will be picked up on next peer-open or visibility change
+            console.warn('[VideoRoom] Heartbeat: removed dead channel, awaiting reconnect');
           }
         }
       } catch (e) { console.warn('[VideoRoom] Heartbeat/sync failed:', e); }
@@ -575,95 +597,148 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             }
           }
 
-          const channel = supabase.channel(`meeting:${roomId}`);
-          channelRef.current = channel;
+          // === Signaling channel setup with reconnect logic ===
+          const setupSignalingChannel = () => {
+            if (cancelled || cleanupDoneRef.current) return;
+            
+            // Clean up old channel
+            if (channelRef.current) {
+              try { supabase.removeChannel(channelRef.current); } catch {}
+              channelRef.current = null;
+            }
 
-          channel.on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
-            if (payload.peerId !== peerId && !cancelled) {
-              callPeer(payload.peerId, payload.displayName, stream, undefined, payload.userId);
-            }
-          });
-          channel.on('broadcast', { event: 'peer-left' }, ({ payload }) => {
-            if (!cancelled) removePeer(payload.peerId);
-          });
-          channel.on('broadcast', { event: 'meeting-ended' }, () => {
-            if (!cancelled) {
-              toast({ title: 'Spotkanie zakończone', description: 'Prowadzący zakończył spotkanie.' });
-              handleLeave();
-            }
-          });
-          channel.on('broadcast', { event: 'mute-all' }, ({ payload }) => {
-            if (!cancelled && payload?.senderPeerId !== peerId) {
-              localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
-              setIsMuted(true);
-              toast({ title: 'Zostałeś wyciszony', description: 'Prowadzący wyciszył wszystkich uczestników.' });
-            }
-          });
-          channel.on('broadcast', { event: 'mute-peer' }, ({ payload }) => {
-            if (!cancelled && payload?.targetPeerId === peerId) {
-              localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
-              setIsMuted(true);
-              toast({ title: 'Zostałeś wyciszony', description: 'Prowadzący wyciszył Twój mikrofon.' });
-            }
-          });
-          channel.on('broadcast', { event: 'unmute-request' }, ({ payload }) => {
-            if (!cancelled && payload?.targetPeerId === peerId) {
-              toast({ title: 'Prośba o odciszenie', description: 'Prowadzący prosi o włączenie mikrofonu.' });
-            }
-          });
-          channel.on('broadcast', { event: 'settings-changed' }, ({ payload }) => {
-            if (!cancelled && payload?.settings) {
-              const newSettings = payload.settings as MeetingSettings;
-              setMeetingSettings(newSettings);
-              // Zmiana 2: use ref to get current coHostUserIds
-              const isManager = !guestMode && (isHost || (user && coHostUserIdsRef.current.includes(user.id)));
-              if (!isManager) {
-                if (!newSettings.allowMicrophone) {
-                  localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
-                  setIsMuted(true);
-                }
-                if (!newSettings.allowCamera) {
-                  localStreamRef.current?.getVideoTracks().forEach(t => (t.enabled = false));
-                  setIsCameraOff(true);
-                }
-              }
-              toast({ title: 'Ustawienia spotkania zmienione', description: 'Prowadzący zmienił ustawienia.' });
-            }
-          });
-          if (!guestMode && user) {
-            channel.on('broadcast', { event: 'co-host-assigned' }, ({ payload }) => {
-              if (!cancelled && payload?.userId) {
-                setCoHostUserIds(prev => prev.includes(payload.userId) ? prev : [...prev, payload.userId]);
-                if (payload.userId === user.id) {
-                  toast({ title: 'Nadano Ci rolę współprowadzącego!' });
-                }
+            const channel = supabase.channel(`meeting:${roomId}`);
+            channelRef.current = channel;
+
+            channel.on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
+              if (payload.peerId !== peerId && !cancelled) {
+                callPeer(payload.peerId, payload.displayName, stream, undefined, payload.userId);
               }
             });
-            channel.on('broadcast', { event: 'co-host-removed' }, ({ payload }) => {
-              if (!cancelled && payload?.userId) {
-                setCoHostUserIds(prev => prev.filter(id => id !== payload.userId));
-                if (payload.userId === user.id) {
-                  toast({ title: 'Odebrano Ci rolę współprowadzącego' });
-                }
+            channel.on('broadcast', { event: 'peer-left' }, ({ payload }) => {
+              if (!cancelled) removePeer(payload.peerId);
+            });
+            channel.on('broadcast', { event: 'meeting-ended' }, () => {
+              if (!cancelled) {
+                toast({ title: 'Spotkanie zakończone', description: 'Prowadzący zakończył spotkanie.' });
+                handleLeave();
               }
             });
-          }
-          // Zmiana 1: sync both isMuted and isCameraOff from broadcast
-          channel.on('broadcast', { event: 'media-state-changed' }, ({ payload }) => {
-            if (!cancelled && payload?.peerId) {
-              setParticipants(prev => prev.map(p => 
-                p.peerId === payload.peerId 
-                  ? { ...p, isMuted: payload.isMuted, isCameraOff: payload.isCameraOff } 
-                  : p
-              ));
+            channel.on('broadcast', { event: 'mute-all' }, ({ payload }) => {
+              if (!cancelled && payload?.senderPeerId !== peerId) {
+                localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
+                setIsMuted(true);
+                toast({ title: 'Zostałeś wyciszony', description: 'Prowadzący wyciszył wszystkich uczestników.' });
+              }
+            });
+            channel.on('broadcast', { event: 'mute-peer' }, ({ payload }) => {
+              if (!cancelled && payload?.targetPeerId === peerId) {
+                localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
+                setIsMuted(true);
+                toast({ title: 'Zostałeś wyciszony', description: 'Prowadzący wyciszył Twój mikrofon.' });
+              }
+            });
+            channel.on('broadcast', { event: 'unmute-request' }, ({ payload }) => {
+              if (!cancelled && payload?.targetPeerId === peerId) {
+                toast({ title: 'Prośba o odciszenie', description: 'Prowadzący prosi o włączenie mikrofonu.' });
+              }
+            });
+            channel.on('broadcast', { event: 'settings-changed' }, ({ payload }) => {
+              if (!cancelled && payload?.settings) {
+                const newSettings = payload.settings as MeetingSettings;
+                setMeetingSettings(newSettings);
+                const isManager = !guestMode && (isHost || (user && coHostUserIdsRef.current.includes(user.id)));
+                if (!isManager) {
+                  if (!newSettings.allowMicrophone) {
+                    localStreamRef.current?.getAudioTracks().forEach(t => (t.enabled = false));
+                    setIsMuted(true);
+                  }
+                  if (!newSettings.allowCamera) {
+                    localStreamRef.current?.getVideoTracks().forEach(t => (t.enabled = false));
+                    setIsCameraOff(true);
+                  }
+                }
+                toast({ title: 'Ustawienia spotkania zmienione', description: 'Prowadzący zmienił ustawienia.' });
+              }
+            });
+            if (!guestMode && user) {
+              channel.on('broadcast', { event: 'co-host-assigned' }, ({ payload }) => {
+                if (!cancelled && payload?.userId) {
+                  setCoHostUserIds(prev => prev.includes(payload.userId) ? prev : [...prev, payload.userId]);
+                  if (payload.userId === user.id) {
+                    toast({ title: 'Nadano Ci rolę współprowadzącego!' });
+                  }
+                }
+              });
+              channel.on('broadcast', { event: 'co-host-removed' }, ({ payload }) => {
+                if (!cancelled && payload?.userId) {
+                  setCoHostUserIds(prev => prev.filter(id => id !== payload.userId));
+                  if (payload.userId === user.id) {
+                    toast({ title: 'Odebrano Ci rolę współprowadzącego' });
+                  }
+                }
+              });
             }
-          });
+            channel.on('broadcast', { event: 'media-state-changed' }, ({ payload }) => {
+              if (!cancelled && payload?.peerId) {
+                setParticipants(prev => prev.map(p => 
+                  p.peerId === payload.peerId 
+                    ? { ...p, isMuted: payload.isMuted, isCameraOff: payload.isCameraOff } 
+                    : p
+                ));
+              }
+            });
 
-          channel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED' && !cancelled) {
-              await channel.send({ type: 'broadcast', event: 'peer-joined', payload: { peerId, displayName, userId: user?.id, isGuest: guestMode } });
-            }
-          });
+            channel.subscribe(async (status) => {
+              if (cancelled || cleanupDoneRef.current) return;
+              
+              if (status === 'SUBSCRIBED') {
+                // Reset reconnect counter on success
+                channelReconnectAttemptsRef.current = 0;
+                console.log('[VideoRoom] Signaling channel subscribed (re-announcing peer)');
+                
+                // Always re-announce on subscribe (handles both initial + reconnect)
+                await channel.send({ type: 'broadcast', event: 'peer-joined', payload: { peerId, displayName, userId: user?.id, isGuest: guestMode } });
+                
+                // After reconnect: sync missing peers from DB
+                try {
+                  const { data: activeParticipants } = await supabase
+                    .from('meeting_room_participants')
+                    .select('peer_id, display_name, user_id, guest_token_id')
+                    .eq('room_id', roomId).eq('is_active', true);
+                  if (activeParticipants) {
+                    for (const p of activeParticipants) {
+                      if (!p.peer_id || p.peer_id === peerId) continue;
+                      if (user && p.user_id === user.id) continue;
+                      if (guestTokenId && p.guest_token_id === guestTokenId) continue;
+                      if (!connectionsRef.current.has(p.peer_id)) {
+                        console.log(`[VideoRoom] Reconnect: calling missing peer ${p.peer_id}`);
+                        callPeer(p.peer_id, p.display_name || 'Uczestnik', stream, undefined, p.user_id || undefined);
+                      }
+                    }
+                  }
+                } catch (e) { console.warn('[VideoRoom] Post-reconnect sync failed:', e); }
+              } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                const attempts = channelReconnectAttemptsRef.current;
+                if (attempts >= 5) {
+                  console.error('[VideoRoom] Signaling channel failed after 5 attempts');
+                  toast({ 
+                    title: 'Utracono połączenie z kanałem', 
+                    description: 'Odśwież stronę, aby ponownie dołączyć.', 
+                    variant: 'destructive' 
+                  });
+                  return;
+                }
+                const delay = Math.min(Math.pow(2, attempts + 1) * 1000, 32000); // 2s, 4s, 8s, 16s, 32s
+                channelReconnectAttemptsRef.current = attempts + 1;
+                console.warn(`[VideoRoom] Signaling channel ${status}, reconnecting in ${delay}ms (attempt ${attempts + 1}/5)`);
+                if (channelReconnectTimerRef.current) clearTimeout(channelReconnectTimerRef.current);
+                channelReconnectTimerRef.current = setTimeout(setupSignalingChannel, delay);
+              }
+            });
+          };
+
+          setupSignalingChannel();
 
           // Fetch existing participants
           const { data: existing } = await supabase
