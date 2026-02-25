@@ -216,27 +216,30 @@ export const MedicalChatWidget: React.FC = () => {
       )}
 
       {/* Floating button with omega-pulse-bounce animation */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed z-50 w-14 h-14 rounded-full 
-          bg-gradient-to-br from-[#D4AF37]/90 via-[#C5A059]/85 to-[#B8860B]/80
-          hover:from-[#F5E050]/95 hover:via-[#D4AF37]/90 hover:to-[#C5A059]/85
-          text-[#0A0A0A] 
-          border border-[#F5E050]/30
-          backdrop-blur-sm
-          flex items-center justify-center transition-all duration-300 
-          hover:scale-110
-          ${isSpinning ? 'animate-omega-coin-flip' : ''}"
+      <div
+        className="fixed z-50"
         style={{
           bottom: 'max(4rem, calc(env(safe-area-inset-bottom, 0px) + 3rem))',
           right: 'max(1rem, env(safe-area-inset-right, 0px))',
           perspective: '600px',
-          transformStyle: 'preserve-3d',
         }}
-        aria-label="PLC Omega Base"
       >
-        {isOpen ? <X className="w-6 h-6" /> : <Search className="w-6 h-6" />}
-      </button>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`w-14 h-14 rounded-full 
+            bg-gradient-to-br from-[#D4AF37]/90 via-[#C5A059]/85 to-[#B8860B]/80
+            hover:from-[#F5E050]/95 hover:via-[#D4AF37]/90 hover:to-[#C5A059]/85
+            text-[#0A0A0A] 
+            border border-[#F5E050]/30
+            backdrop-blur-sm
+            flex items-center justify-center transition-colors duration-300
+            ${isSpinning ? 'animate-omega-coin-flip' : ''}`}
+          style={{ transformStyle: 'preserve-3d' }}
+          aria-label="PLC Omega Base"
+        >
+          {isOpen ? <X className="w-6 h-6" /> : <Search className="w-6 h-6" />}
+        </button>
+      </div>
     </>
   );
 };
