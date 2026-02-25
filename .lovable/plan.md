@@ -1,80 +1,80 @@
 
-## Naprawa braku przycisku "Dołącz do spotkania" dla wewnetrznych spotkan
+## Naprawa gubienia sygnalow w spotkaniach WebRTC
 
-### Zidentyfikowany problem
+### Glowna przyczyna: Brak reconnect logic na kanale sygnalizacyjnym
 
-W **CalendarWidget** (linia 171-182) i czesciowo w **MyMeetingsWidget** (linia 174-207) logika przyciskow dołączenia do spotkania sprawdza TYLKO `zoom_link`. Dla spotkan wewnetrznych (`use_internal_meeting: true`, `meeting_room_id` ustawiony, `zoom_link: null`):
+**Plik: `src/components/meeting/VideoRoom.tsx`, linia 662-666**
 
-- **CalendarWidget**: Wyswietla jedynie badge "Trwa teraz" BEZ przycisku dolaczenia. Uzytkownik nie ma jak wejsc na spotkanie z poziomu kalendarza.
-- **MyMeetingsWidget**: Wyswietla przycisk "Wejdz" ktory otwiera dialog szczegolów -- ale w dialogu przycisk "Dolacz do spotkania" powinien byc widoczny (logika w EventDetailsDialog jest poprawna).
+Kanal `supabase.channel(`meeting:${roomId}`)` obsluguje WSZYSTKIE sygnaly P2P:
+- `peer-joined` / `peer-left`
+- `media-state-changed`
+- `settings-changed`
+- `mute-all` / `mute-peer` / `unmute-request`
+- `meeting-ended`
+- `co-host-assigned` / `co-host-removed`
 
-### Plan naprawy
-
-**Plik 1: `src/components/dashboard/widgets/CalendarWidget.tsx`** (linia 171-183)
-
-Zmiana w `getRegistrationButton` -- dodac obsluge spotkan wewnetrznych:
-
-```typescript
-// Mozna dolaczyc (15 min przed lub trwa)
-if (event.is_registered && isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
-  // Spotkanie wewnetrzne z meeting_room_id
-  if (event.use_internal_meeting && event.meeting_room_id) {
-    return (
-      <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
-        <a href={`/meeting-room/${event.meeting_room_id}`} target="_blank" rel="noopener noreferrer">
-          <Video className="h-3 w-3 mr-1" />
-          WEJDZ
-        </a>
-      </Button>
-    );
+Subskrypcja wygląda tak:
+```text
+channel.subscribe(async (status) => {
+  if (status === 'SUBSCRIBED' && !cancelled) {
+    await channel.send(...peer-joined...);
   }
-  // Zoom link
-  if (event.zoom_link) {
-    return (
-      <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
-        <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
-          <ExternalLink className="h-3 w-3 mr-1" />
-          WEJDZ
-        </a>
-      </Button>
-    );
-  }
-  return <Badge className="text-xs bg-emerald-600">Trwa teraz</Badge>;
+});
+```
+
+**Problem**: Nie ma handlera dla `CHANNEL_ERROR` ani `TIMED_OUT`. Gdy kanal Realtime sie rozlaczy (zmiana sieci, timeout, problem serwerowy), wszystkie sygnaly sa CICHE gubione. Nowi uczestnicy nie sa widoczni, media state nie jest synchronizowany, mute/unmute nie dziala.
+
+Dla porownania: `MeetingChat` (linia 128-131) MA reconnect logic:
+```text
+if (status === 'CHANNEL_ERROR') {
+  setTimeout(setupChannel, 3000);
 }
 ```
 
-**Plik 2: `src/components/dashboard/widgets/MyMeetingsWidget.tsx`** (linia 174-207)
+### Dodatkowe problemy
 
-Zmiana w `getActionButton` -- dodac obsluge spotkan wewnetrznych PRZED sprawdzeniem zoomUrl:
+#### Problem 2: Brak re-announcement po reconnect
+Nawet gdyby kanal sie reconnectowel, nie ma ponownego wyslania `peer-joined`. Inni uczestnicy ktory dolaczyli podczas disconnectu nie beda wiedziec o istniejaych peerach.
 
-```typescript
-if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
-  // Spotkanie wewnetrzne
-  if (event.use_internal_meeting && event.meeting_room_id) {
-    return (
-      <Button size="sm" className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium" asChild>
-        <a href={`/meeting-room/${event.meeting_room_id}`} target="_blank" rel="noopener noreferrer">
-          <span className="relative flex h-2 w-2 mr-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-          </span>
-          WEJDZ
-        </a>
-      </Button>
-    );
-  }
-  // Zoom URL
-  if (zoomUrl) { ... istniejacy kod ... }
-  // Brak linka - otwórz dialog
-  return ( ... istniejacy kod ... );
-}
-```
+#### Problem 3: Brak okresowej synchronizacji kanalu
+Heartbeat (co 30s) synchronizuje DB, ale nie weryfikuje czy kanal broadcast jest aktywny. Moze byc sytuacja ze DB jest aktualne ale kanal jest martwy.
 
-### Pliki do modyfikacji
-- `src/components/dashboard/widgets/CalendarWidget.tsx` -- dodac warunek `use_internal_meeting` w `getRegistrationButton`
-- `src/components/dashboard/widgets/MyMeetingsWidget.tsx` -- dodac warunek `use_internal_meeting` w `getActionButton`
+### Plan naprawy (1 plik)
 
-### Efekt
-- Przycisk "WEJDZ" z bezposrednim linkiem do `/meeting-room/{id}` pojawi sie zarowno w kalendarzu jak i w widgecie "Moje spotkania" dla spotkan wewnetrznych
-- Przycisk bedzie mial pulsujacy czerwony wskaznik (jak w obecnym designie MyMeetingsWidget)
-- Nie trzeba juz klikac "Szczegoly" zeby dostac sie do spotkania
+**Plik: `src/components/meeting/VideoRoom.tsx`**
+
+#### Zmiana 1: Dodac CHANNEL_ERROR handler z reconnect
+
+W `channel.subscribe()` (linia 662):
+- Dodac obsluge statusow `CHANNEL_ERROR` i `TIMED_OUT`
+- Przy bledzie: usunac stary kanal, stworzyc nowy z wszystkimi handlerami
+- Wyekstrahowac setup kanalu do osobnej funkcji `setupSignalingChannel` (podobnie jak w MeetingChat)
+- Ref `channelReconnectAttemptsRef` z limitem 5 prob, reset przy sukcesie
+
+#### Zmiana 2: Re-announce po reconnect
+
+Po udanym reconnect (`SUBSCRIBED`):
+- Wyslac ponownie `peer-joined` z aktualnymi danymi
+- Pobrac aktualnych uczestnikow z DB i nawiazac brakujace polaczenia (jak w `handleVisibilityChange`)
+
+#### Zmiana 3: Dodac channel health check w heartbeat
+
+W heartbeat (linia 372-437):
+- Sprawdzic stan kanalu: `channelRef.current?.state`
+- Jesli kanal nie jest w stanie `joined`, wywolac reconnect
+- Logowac stan kanalu dla diagnostyki
+
+#### Zmiana 4: Dodac exponential backoff do reconnect
+
+- Pierwsza proba: 2s
+- Druga: 4s
+- Trzecia: 8s
+- Czwarta: 16s
+- Piata: 32s
+- Po 5 probach: toast z bledem i propozycja recznego odswiezenia
+
+### Szacowany wplyw
+- Kanal sygnalizacyjny bedzie sie automatycznie reconnectowac po utracie polaczenia
+- Uczestnicy beda re-announced po reconnect -- nie beda "niewidzialni"
+- Heartbeat bedzie dodatkowym watchdogiem dla kanalu
+- Exponential backoff zapobiega floodowaniu serwera przy dluzszych przerwach
