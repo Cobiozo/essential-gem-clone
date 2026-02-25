@@ -1,79 +1,82 @@
 
-Cel: zatrzymać „miganie” uczestników (pojawia się/znika prowadzący), losowe wyrzucanie osób z listy oraz nerwowe przełączanie aktywnego mówcy/widoku w trakcie webinaru.
 
-Diagnoza po przeglądzie kodu (najważniejsze):
-1) W `VideoRoom.tsx` logika heartbeat/ghost-cleanup jest zbyt agresywna i działa po stronie każdego klienta:
-- klient potrafi oznaczyć INNYCH uczestników jako `is_active=false` w tabeli `meeting_room_participants` (na podstawie lokalnej oceny „stale”),
-- po 3 nieudanych reconnectach klient także oznacza zdalnego peera jako nieaktywnego.
-To powoduje globalny efekt uboczny: jedna niestabilna przeglądarka potrafi „wyrzucić” prowadzącego dla wszystkich.
+## System sekwencyjnego odsłaniania modułów szkoleniowych
 
-2) Heartbeat pomija aktualizację gdy karta jest ukryta (`document.hidden`), a próg stale to 90s — przy throttlingu mobilnym/desktopowym łatwo o fałszywe „zniknięcie”.
+### Opis funkcjonalności
 
-3) Heartbeat aktualizuje własny rekord z warunkiem `.eq('is_active', true)`, więc jeśli ktoś wcześniej ustawił rekord na `false`, klient może nie odzyskać obecności samym heartbeatem.
+Nowi użytkownicy (lub ci, którzy jeszcze nie rozpoczęli nauki) widzą moduły szkoleniowe odsłaniane jeden po drugim. Administrator ustala kolejność odsłaniania. Pierwszy moduł w kolejce jest od razu dostępny (kolorowy, klikalny). Pozostałe są wyszarzone i nieklikalne. Po ukończeniu aktualnego modułu (100%) i powrocie do Akademii, kolejny moduł staje się dostępny.
 
-4) Watchdog kanału sygnalizacyjnego usuwa kanał, ale nie zawsze natychmiast go odtwarza — to pogłębia niespójność sygnałów.
+### Zmiany w bazie danych
 
-5) W `VideoGrid.tsx` aktywny mówca przełącza się dość szybko (krótki debounce + niski próg), więc przy jitterze audio daje efekt „skaczącego” widoku.
+**Nowa kolumna w tabeli `training_modules`:**
+- `unlock_order` (integer, nullable, default null) -- kolejność odsłaniania ustawiana przez administratora. Moduły z `unlock_order` uczestniczą w systemie sekwencyjnym. Null = moduł nie uczestniczy w sekwencji (zawsze dostępny, zachowanie jak dotychczas).
 
-Zakres zmian:
-- Głównie `src/components/meeting/VideoRoom.tsx`
-- Dodatkowo `src/components/meeting/VideoGrid.tsx` (stabilizacja active speaker)
+Migracja SQL:
+```text
+ALTER TABLE training_modules ADD COLUMN unlock_order integer DEFAULT NULL;
+```
 
-Plan implementacji:
+### Logika odsłaniania (frontend -- Training.tsx)
 
-1) Usunąć klientowe „dezaktywowanie” innych uczestników
-- W heartbeat/visibility sync usunąć fragmenty, które robią `update is_active=false` dla innych peerów.
-- W `reconnectToPeer` po przekroczeniu limitu prób nie pisać do DB o zdalnym peerze; tylko lokalnie zamknąć połączenie i oznaczyć go jako „nieosiągalny” w UI.
-Efekt: pojedynczy klient nie będzie mógł „wyrzucić” prowadzącego globalnie.
+1. Po pobraniu modułów z postępem, posortować te z `unlock_order != null` wg `unlock_order`.
+2. Dla każdego modułu z `unlock_order` sprawdzić:
+   - Pierwszy w kolejności (`unlock_order` najniższy) -- ZAWSZE odblokowany.
+   - Kolejny moduł jest odblokowany TYLKO jeśli poprzedni ma `progress === 100` (lub posiada certyfikat).
+   - Moduły bez `unlock_order` (null) -- zachowanie bez zmian, zawsze dostępne.
+3. Dodać flagę `isLocked` do każdego modułu.
 
-2) Zmienić heartbeat na self-healing własnej obecności
-- Aktualizacja własnego rekordu ma ustawiać:
-  - `is_active=true`,
-  - `left_at=null`,
-  - `updated_at=now`,
-  - opcjonalnie `peer_id` = aktualny peer.
-- Usunąć warunek `.eq('is_active', true)` z własnej aktualizacji.
-Efekt: nawet jeśli rekord został błędnie oznaczony jako nieaktywny, klient sam go odtworzy.
+### Zmiany UI w Training.tsx (strona Akademii)
 
-3) Ograniczyć fałszywe ghost-removale lokalnie
-- Zamiast natychmiastowego usuwania uczestnika z UI po pojedynczym „braku w active list”, wprowadzić lokalny licznik/bramkę (np. 2–3 kolejne cykle heartbeat) zanim participant zniknie.
-- Dodatkowo: jeśli istnieje żywe połączenie WebRTC (`connectionState/iceConnectionState` nie jest failed/closed), nie usuwać od razu z UI.
-Efekt: koniec „pojawia się i znika” przy chwilowych lagach DB/realtime.
+- Moduły z `isLocked = true`:
+  - Karta ma obniżoną przezroczystość (`opacity-50`) i szary overlay.
+  - Kursor `cursor-not-allowed`, brak `onClick` nawet na przycisku.
+  - Badge "Zablokowany" zamiast "Nierozpoczęty".
+  - Przycisk "Rozpocznij szkolenie" jest wyszarzony (`disabled`).
+  - Mała informacja pod przyciskiem: "Ukończ poprzednie szkolenie, aby odblokować".
+- Moduły z `isLocked = false` -- bez zmian, pełna interakcja.
 
-4) Poprawić watchdog kanału sygnalizacyjnego
-- Gdy heartbeat wykryje martwy kanał (`state` != joined/joining), uruchomić jawnie funkcję reconnect (a nie tylko remove i czekanie).
-- Utrzymać jeden aktywny timer reconnect i blokadę przed wielokrotnym równoległym `setupSignalingChannel`.
-Efekt: mniejsze okna utraty sygnałów i mniej niespójności.
+### Ochrona dostępu do modułu (TrainingModule.tsx)
 
-5) Uspokoić przełączanie aktywnego mówcy (UX)
-- W `VideoGrid.tsx` podnieść minimalny próg aktywności audio i wydłużyć „hold time” aktywnego mówcy (np. 2–3s zamiast szybkiego przełączania).
-- Przełączać tylko gdy nowy mówca ma wyraźnie wyższy poziom (histereza), nie przy drobnych fluktuacjach.
-Efekt: widok przestanie „przerzucać” mówcę co chwilę.
+- Przy wejściu do `/training/:moduleId` sprawdzić czy moduł jest zablokowany (pobrać `unlock_order` modułu, sprawdzić czy poprzedni moduł w sekwencji ma 100% postępu).
+- Jeśli zablokowany -- przekierować do `/training` z toastem "Najpierw ukończ poprzednie szkolenie".
 
-6) Twarde kryteria bezpieczeństwa stanu uczestników
-- Źródła „opuszczenia spotkania”:
-  - własny `beforeunload/leave`,
-  - `peer-left` broadcast,
-  - długotrwały brak sygnału + brak aktywnego połączenia (lokalnie, bez kasowania innych z DB).
-- DB nie powinna być używana przez każdego klienta do agresywnego „moderowania” aktywności innych.
+### Panel administracyjny (TrainingManagement.tsx)
 
-7) Plan testów po wdrożeniu
-- Test 2–3 klientów: prowadzący + uczestnik + opcjonalnie gość.
-- Symulacja słabego łącza/utrata sieci na jednym kliencie:
-  - prowadzący nie znika pozostałym,
-  - uczestnik nie „miga” na liście.
-- Test przełączania karty/background na mobile i desktop:
-  - brak masowego znikania po ~90s.
-- Test aktywnego mówcy:
-  - brak nerwowego skakania kafla.
-- Test end-to-end całego webinaru (dołączenie, chwilowe zerwanie, powrót, wyjście).
+- W formularzu edycji modułu dodać pole "Kolejność odsłaniania" (number input, opcjonalne).
+  - Puste = moduł zawsze dostępny (jak dotychczas).
+  - Wartość liczbowa = pozycja w sekwencji odsłaniania (1, 2, 3...).
+- W tabeli modułów wyświetlić kolumnę "Odsłanianie" z wartością `unlock_order` lub "---" (brak sekwencji).
 
-Ryzyka i uwagi:
-- Po ograniczeniu agresywnego cleanupu mogą dłużej wisieć „martwe” wpisy — to celowy trade-off na rzecz stabilności live; można je sprzątać bezpiecznie po dłuższym czasie po stronie serwera (scheduled cleanup), nie przez każdego klienta.
-- Zmiany są kompatybilne z obecną architekturą PeerJS + Supabase Realtime i nie wymagają przebudowy całego flow.
+### Szczegóły techniczne
 
-Kolejność wdrożenia:
-1. `VideoRoom.tsx`: usunięcie globalnych deaktywacji + self-healing heartbeat.
-2. `VideoRoom.tsx`: watchdog reconnect kanału + łagodniejszy local prune.
-3. `VideoGrid.tsx`: stabilizacja active speaker.
-4. Testy end-to-end i korekta progów.
+**Pliki do modyfikacji:**
+1. **Migracja SQL** -- dodanie kolumny `unlock_order` do `training_modules`.
+2. **`src/pages/Training.tsx`** -- logika obliczania `isLocked` dla każdego modułu + UI wyszarzenia zablokowanych kart.
+3. **`src/pages/TrainingModule.tsx`** -- guard sprawdzający czy moduł jest odblokowany przed załadowaniem treści.
+4. **`src/components/admin/TrainingManagement.tsx`** -- pole `unlock_order` w formularzu modułu + wyświetlanie w tabeli.
+5. **`src/types/training.ts`** -- dodanie `unlock_order?: number | null` do interfejsu `TrainingModule`.
+6. **`src/components/dashboard/widgets/TrainingProgressWidget.tsx`** -- uwzględnienie `isLocked` (opcjonalnie, aby widget też pokazywał tylko odblokowane moduły).
+
+**Algorytm odsłaniania (pseudokod):**
+```text
+sequentialModules = modules.filter(m => m.unlock_order != null).sort(by unlock_order)
+unlockedIds = new Set()
+
+for each module in sequentialModules:
+  if this is the first module:
+    unlockedIds.add(module.id)
+  else if previous module has progress === 100:
+    unlockedIds.add(module.id)
+  else:
+    break  // kolejne moduły też zablokowane
+
+// Moduły bez unlock_order: zawsze odblokowane
+// Moduły z unlock_order ale w unlockedIds: odblokowane
+// Moduły z unlock_order ale NIE w unlockedIds: zablokowane (isLocked = true)
+```
+
+**Kompatybilność wsteczna:**
+- Domyślnie `unlock_order = null` -- wszystkie istniejące moduły zachowują dotychczasowe zachowanie (zawsze dostępne).
+- Administrator włącza sekwencyjne odsłanianie ustawiając `unlock_order` na wybranych modułach.
+- System działa per język (filtrowanie modułów po `language_code` przed obliczeniem sekwencji).
+
