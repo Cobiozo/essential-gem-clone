@@ -1,53 +1,37 @@
 
 
-## Animacja omega-coin-flip: timer zamiast ciaglej petli CSS
+## Naprawa animacji omega-coin-flip
 
-Obecna animacja uzywa `animation: omega-coin-flip 60s linear infinite` -- ciaglej petli CSS. Uzytkownik chce **pojedynczy obrot co 12 sekund** sterowany timerem JavaScript.
+### Problem
 
-### Podejscie
+Przycisk ma klase `transition-all duration-300` ktora przechwytuje wlasciwosc `transform` i blokuje animacje CSS `rotateY`. Transition i animation walcza o te sama wlasciwosc.
 
-Zamiast klasy `animate-omega-coin-flip` w Tailwindzie, przycisk bedzie sterowal animacja przez `useEffect` + `setInterval`:
+Dodatkowo `perspective` powinno byc na elemencie nadrzednym, nie na samym obracajacym sie elemencie.
 
-1. Co 12 sekund dodaje klase CSS uruchamiajaca obrot (2s, 360 stopni)
-2. Po 2 sekundach klasa jest usuwana -- przycisk stoi nieruchomo
-3. Po kolejnych 10 sekundach cykl sie powtarza
+### Rozwiazanie
 
-### Zmiany
+**1. `src/components/MedicalChatWidget.tsx`**
 
-**1. `tailwind.config.ts`** -- zmiana keyframes i animacji:
+- Usunac `transition-all duration-300` z przycisku i zastapic specyficznymi transitionami ktore nie obejmuja `transform`:
+  - `transition-colors duration-300` (dla hover na gradiencie)
+- Przeniesc `perspective` do wrappera `<div>`, a na przycisku zostawic tylko `transformStyle: preserve-3d`
+- Otoczyc przycisk w `<div>` z `style={{ perspective: '600px' }}`
 
-```text
-Keyframes:
-"omega-coin-flip": {
-  "0%": { transform: "rotateY(0deg)" },
-  "100%": { transform: "rotateY(360deg)" },
-}
+**2. Bez zmian w `tailwind.config.ts`** -- konfiguracja jest poprawna.
 
-Animation:
-"omega-coin-flip": "omega-coin-flip 2s ease-in-out forwards"
-```
-
-- 360 stopni (jeden obrot)
-- 2 sekundy
-- `forwards` -- zatrzymuje sie na koncu
-- Bez `infinite`
-
-**2. `src/components/MedicalChatWidget.tsx`** -- logika timera:
-
-- Usunac klase `animate-omega-coin-flip` z przycisku
-- Dodac `useState` + `useEffect` z `setInterval(12000)`:
-  - Ustawia flage `isSpinning = true` --> dodaje klase `animate-omega-coin-flip`
-  - Po 2s ustawia `isSpinning = false` --> usuwa klase
-- Przycisk dostaje klase warunkowo: `isSpinning && 'animate-omega-coin-flip'`
-- Zachowane `perspective: 600px` i `transformStyle: preserve-3d`
-
-### Cykl koncowy
+### Zmieniony przycisk (schemat)
 
 ```text
-[0s]   obrot start (2s)
-[2s]   obrot koniec, stop
-[12s]  obrot start (2s)
-[14s]  obrot koniec, stop
-[24s]  ...
+<div style={{ perspective: '600px' }}>
+  <button
+    className="... transition-colors duration-300 hover:scale-110
+      ${isSpinning ? 'animate-omega-coin-flip' : ''}"
+    style={{ transformStyle: 'preserve-3d' }}
+  >
+    ...
+  </button>
+</div>
 ```
+
+Efekt: obrot 360 stopni w 2s, pauza 10s, powtarza sie.
 
