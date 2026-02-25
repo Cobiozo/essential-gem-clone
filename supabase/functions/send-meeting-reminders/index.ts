@@ -432,7 +432,7 @@ serve(async (req) => {
                     ? "Spotkanie za godzinę" 
                     : "Spotkanie za 15 minut",
                 body: `${meeting.title || 'Spotkanie indywidualne'} — ${timeStr}`,
-                url: "/meetings",
+                url: `/events/individual-meetings?event=${meeting.id}`,
                 tag: `meeting-${reminderType}-${meeting.id}`
               }
             });
@@ -450,7 +450,7 @@ serve(async (req) => {
               source_module: 'meetings',
               title: `Przypomnienie: ${meeting.title || 'Spotkanie'}`,
               message: `Spotkanie z ${otherPartyName} — ${dateStr} o ${timeStr} (${reminderLabel})`,
-              link: '/events/individual-meetings',
+              link: `/events/individual-meetings?event=${meeting.id}`,
               metadata: { event_id: meeting.id, reminder_type: reminderType },
             });
             console.log(`[send-meeting-reminders] In-app notification sent to ${profile.email}`);

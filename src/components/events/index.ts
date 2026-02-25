@@ -9,3 +9,5 @@ export { DateExceptionsManager } from './DateExceptionsManager';
 export type { DateException } from './DateExceptionsManager';
 export { MeetingTypeCard } from './MeetingTypeCard';
 export type { MeetingTypeSettings } from './MeetingTypeCard';
+export { MeetingSummaryCard } from './MeetingSummaryCard';
+export { UpcomingMeetings } from './UpcomingMeetings';
