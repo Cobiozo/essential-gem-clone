@@ -172,6 +172,24 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     
     // 15 min before or during event - show WEJDŹ button with pulsing red dot
     if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
+      // Internal WebRTC meeting
+      if ((event as any).use_internal_meeting && (event as any).meeting_room_id) {
+        return (
+          <Button
+            size="sm"
+            className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+            asChild
+          >
+            <a href={`/meeting-room/${(event as any).meeting_room_id}`} target="_blank" rel="noopener noreferrer">
+              <span className="relative flex h-2 w-2 mr-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              {tf('events.join', 'WEJDŹ')}
+            </a>
+          </Button>
+        );
+      }
       if (zoomUrl) {
         return (
           <Button
