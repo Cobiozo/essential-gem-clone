@@ -1402,8 +1402,44 @@ const TrainingManagement = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-center">{lessonCount}</TableCell>
-                        <TableCell className="text-center text-sm text-muted-foreground">
-                          {module.unlock_order != null ? module.unlock_order : '---'}
+                        <TableCell className="text-center">
+                          <Select
+                            value={module.unlock_order != null ? String(module.unlock_order) : 'none'}
+                            onValueChange={async (val) => {
+                              const newOrder = val === 'none' ? null : parseInt(val, 10);
+                              try {
+                                const { error } = await supabase
+                                  .from('training_modules')
+                                  .update({ unlock_order: newOrder })
+                                  .eq('id', module.id);
+                                if (error) throw error;
+                                await fetchModules();
+                                toast({ title: 'Zapisano', description: 'Kolejność odsłaniania zaktualizowana' });
+                              } catch (err) {
+                                console.error('Error updating unlock_order:', err);
+                                toast({ title: 'Błąd', description: 'Nie udało się zapisać', variant: 'destructive' });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 w-[70px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">---</SelectItem>
+                              {(() => {
+                                const moduleLang = module.language_code || 'pl';
+                                const sameLanguageModules = modules.filter(m => (m.language_code || 'pl') === moduleLang);
+                                const usedOrders = modules
+                                  .filter(m => (m.language_code || 'pl') === moduleLang && m.id !== module.id && m.unlock_order != null)
+                                  .map(m => m.unlock_order!);
+                                return Array.from({ length: sameLanguageModules.length }, (_, i) => i + 1)
+                                  .filter(n => !usedOrders.includes(n) || n === module.unlock_order)
+                                  .map(n => (
+                                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                                  ));
+                              })()}
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">

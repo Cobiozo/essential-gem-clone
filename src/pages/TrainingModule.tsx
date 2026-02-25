@@ -228,57 +228,64 @@ const TrainingModule = () => {
         if (!mounted) return;
         if (moduleError) throw moduleError;
 
-        // Check sequential unlock - if this module has unlock_order, verify it's unlocked
+        // Check sequential unlock - only enforce for user's own training language
         if (moduleData.unlock_order != null) {
-          // Get all modules with unlock_order for the same language
-          const { data: allSeqModules } = await supabase
-            .from('training_modules')
-            .select('id, unlock_order, language_code')
-            .not('unlock_order', 'is', null)
-            .eq('is_active', true)
-            .order('unlock_order');
+          // Get user's training_language
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('training_language')
+            .eq('user_id', user.id)
+            .single();
 
-          const sameLanguageModules = (allSeqModules || []).filter(m =>
-            !m.language_code || !moduleData.language_code || m.language_code === moduleData.language_code
-          );
+          const userTrainingLang = profileData?.training_language || null;
 
-          // Find modules before this one in the sequence
-          const previousModules = sameLanguageModules.filter(m => (m.unlock_order || 0) < (moduleData.unlock_order || 0));
+          // Only enforce lock if module is in user's training language
+          if (userTrainingLang && moduleData.language_code === userTrainingLang) {
+            const { data: allSeqModules } = await supabase
+              .from('training_modules')
+              .select('id, unlock_order, language_code')
+              .not('unlock_order', 'is', null)
+              .eq('is_active', true)
+              .eq('language_code', userTrainingLang)
+              .order('unlock_order');
 
-          // Check if all previous modules are completed (100%)
-          let allPreviousCompleted = true;
-          for (const prev of previousModules) {
-            const { data: prevLessons } = await supabase
-              .from('training_lessons')
-              .select('id')
-              .eq('module_id', prev.id)
-              .eq('is_active', true);
-            
-            const prevLessonIds = (prevLessons || []).map(l => l.id);
-            if (prevLessonIds.length === 0) continue;
+            const previousModules = (allSeqModules || []).filter(m => (m.unlock_order || 0) < (moduleData.unlock_order || 0));
 
-            const { data: prevProgress } = await supabase
-              .from('training_progress')
-              .select('lesson_id')
-              .eq('user_id', user.id)
-              .eq('is_completed', true)
-              .in('lesson_id', prevLessonIds);
+            let allPreviousCompleted = true;
+            for (const prev of previousModules) {
+              const { data: prevLessons } = await supabase
+                .from('training_lessons')
+                .select('id')
+                .eq('module_id', prev.id)
+                .eq('is_active', true);
+              
+              const prevLessonIds = (prevLessons || []).map(l => l.id);
+              if (prevLessonIds.length === 0) continue;
 
-            if ((prevProgress?.length || 0) < prevLessonIds.length) {
-              allPreviousCompleted = false;
-              break;
+              const { data: prevProgress } = await supabase
+                .from('training_progress')
+                .select('lesson_id')
+                .eq('user_id', user.id)
+                .eq('is_completed', true)
+                .in('lesson_id', prevLessonIds);
+
+              if ((prevProgress?.length || 0) < prevLessonIds.length) {
+                allPreviousCompleted = false;
+                break;
+              }
+            }
+
+            if (!allPreviousCompleted) {
+              toast({
+                title: "Moduł zablokowany",
+                description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
+                variant: "destructive"
+              });
+              navigate('/training');
+              return;
             }
           }
-
-          if (!allPreviousCompleted) {
-            toast({
-              title: "Moduł zablokowany",
-              description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
-              variant: "destructive"
-            });
-            navigate('/training');
-            return;
-          }
+          // If module is in a different language than user's training language, skip lock check
         }
 
         setModule(moduleData);

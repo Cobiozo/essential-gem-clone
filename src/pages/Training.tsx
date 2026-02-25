@@ -85,11 +85,11 @@ const Training = () => {
     return translated ? { ...m, title: translated.title, description: translated.description } : m;
   });
 
-  // Compute isLocked for sequential unlock system
+  // Compute isLocked for sequential unlock system (per language)
   const modulesWithLockState = useMemo(() => {
-    // Get modules with unlock_order, sorted by unlock_order
+    // Only lock modules matching user's trainingLanguage
     const sequentialModules = translatedDisplayModules
-      .filter(m => m.unlock_order != null)
+      .filter(m => m.unlock_order != null && m.language_code === trainingLanguage)
       .sort((a, b) => (a.unlock_order || 0) - (b.unlock_order || 0));
 
     const unlockedIds = new Set<string>();
@@ -112,9 +112,10 @@ const Training = () => {
 
     return translatedDisplayModules.map(m => ({
       ...m,
-      isLocked: m.unlock_order != null && !unlockedIds.has(m.id),
+      // Modules in a different language than user's trainingLanguage are never locked
+      isLocked: m.language_code === trainingLanguage && m.unlock_order != null && !unlockedIds.has(m.id),
     }));
-  }, [translatedDisplayModules]);
+  }, [translatedDisplayModules, trainingLanguage]);
 
   // Filter modules by the currently viewed language catalog
   const filteredModules = useMemo(() => {
