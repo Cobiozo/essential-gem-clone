@@ -84,6 +84,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const iceDisconnectTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const channelReconnectAttemptsRef = useRef(0);
   const channelReconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const channelReconnectHandlerRef = useRef<(() => void) | null>(null);
 
   // === Zmiana A: participantsRef synced with state ===
   const participantsRef = useRef<RemoteParticipant[]>([]);
@@ -377,85 +378,116 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [roomId, user, guestTokenId]);
 
-  // === Zmiana E: Heartbeat + periodic ghost cleanup ===
+  // === Local miss counter for graceful pruning ===
+  const peerMissCountRef = useRef<Map<string, number>>(new Map());
+
+  // === Zmiana E: Self-healing heartbeat + graceful local pruning (NO global deactivation) ===
   useEffect(() => {
     if (!user && !guestTokenId) return;
     const heartbeat = async () => {
-      if (document.hidden || cleanupDoneRef.current) return;
+      if (cleanupDoneRef.current) return;
       try {
-        // 1. Update own heartbeat
+        // 1. Self-healing heartbeat: always set is_active=true, left_at=null (no .eq('is_active', true) condition)
+        const now = new Date().toISOString();
+        const peerIdValue = peerRef.current?.id || null;
         if (guestTokenId) {
           await supabase.from('meeting_room_participants')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('room_id', roomId).eq('guest_token_id', guestTokenId).eq('is_active', true);
+            .update({ updated_at: now, is_active: true, left_at: null, ...(peerIdValue ? { peer_id: peerIdValue } : {}) })
+            .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
         } else if (user) {
           await supabase.from('meeting_room_participants')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('room_id', roomId).eq('user_id', user.id).eq('is_active', true);
+            .update({ updated_at: now, is_active: true, left_at: null, ...(peerIdValue ? { peer_id: peerIdValue } : {}) })
+            .eq('room_id', roomId).eq('user_id', user.id);
         }
 
-        // 2. Sync participants from DB - remove ghosts
+        // 2. Sync participants from DB - graceful local pruning (NO deactivation of others in DB)
         const { data: activeParticipants } = await supabase
           .from('meeting_room_participants')
           .select('peer_id, display_name, user_id, guest_token_id, updated_at')
           .eq('room_id', roomId).eq('is_active', true);
 
         if (activeParticipants) {
-          const now = Date.now();
-          const staleThreshold = 90000; // 90s
           const activePeerIds = new Set<string>();
 
           for (const p of activeParticipants) {
             if (!p.peer_id) continue;
             if (user && p.user_id === user.id) continue;
             if (guestTokenId && p.guest_token_id === guestTokenId) continue;
-
-            const lastSeen = p.updated_at ? new Date(p.updated_at).getTime() : 0;
-            if (now - lastSeen > staleThreshold) {
-              // Mark stale in DB
-              if (p.user_id) {
-                supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('user_id', p.user_id).then(() => {});
-              } else if (p.guest_token_id) {
-                supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('guest_token_id', p.guest_token_id).then(() => {});
-              }
-              continue;
-            }
             activePeerIds.add(p.peer_id);
           }
 
-          // Remove ghosts from local participants and close their connections
+          // Graceful local pruning: only remove after 3 consecutive misses AND no live WebRTC connection
           const currentParticipants = participantsRef.current;
-          const ghostPeerIds = currentParticipants
-            .filter(p => !activePeerIds.has(p.peerId))
-            .map(p => p.peerId);
+          const toRemove: string[] = [];
 
-          if (ghostPeerIds.length > 0) {
-            console.log('[VideoRoom] Removing ghost participants:', ghostPeerIds);
-            ghostPeerIds.forEach(peerId => {
+          for (const p of currentParticipants) {
+            if (activePeerIds.has(p.peerId)) {
+              // Present in DB - reset miss counter
+              peerMissCountRef.current.delete(p.peerId);
+            } else {
+              // Not in DB active list - check if WebRTC connection is still alive
+              const conn = connectionsRef.current.get(p.peerId);
+              const pc = conn ? (conn as any).peerConnection as RTCPeerConnection | undefined : undefined;
+              const iceState = pc?.iceConnectionState;
+              const connState = pc?.connectionState;
+              const hasLiveConnection = iceState && iceState !== 'failed' && iceState !== 'closed' && iceState !== 'disconnected'
+                && connState !== 'failed' && connState !== 'closed';
+
+              if (hasLiveConnection) {
+                // Live WebRTC connection exists - don't remove, reset counter
+                peerMissCountRef.current.delete(p.peerId);
+                continue;
+              }
+
+              const missCount = (peerMissCountRef.current.get(p.peerId) || 0) + 1;
+              peerMissCountRef.current.set(p.peerId, missCount);
+
+              if (missCount >= 3) {
+                // 3 consecutive misses + no live connection -> remove locally
+                toRemove.push(p.peerId);
+                peerMissCountRef.current.delete(p.peerId);
+              }
+            }
+          }
+
+          // Also reset counters for peers no longer in our local list
+          peerMissCountRef.current.forEach((_, key) => {
+            if (!currentParticipants.some(p => p.peerId === key)) {
+              peerMissCountRef.current.delete(key);
+            }
+          });
+
+          if (toRemove.length > 0) {
+            console.log('[VideoRoom] Removing ghost participants after 3 misses:', toRemove);
+            toRemove.forEach(peerId => {
               const conn = connectionsRef.current.get(peerId);
               if (conn) { try { conn.close(); } catch {} }
               connectionsRef.current.delete(peerId);
             });
-            setParticipants(prev => prev.filter(p => activePeerIds.has(p.peerId)));
+            setParticipants(prev => prev.filter(p => !toRemove.includes(p.peerId)));
           }
         }
 
         // 3. Channel health check - verify signaling channel is alive
         const channelState = (channelRef.current as any)?.state;
-        if (channelRef.current && channelState !== 'joined') {
-          console.warn(`[VideoRoom] Heartbeat: signaling channel state is "${channelState}", not "joined". Channel may need reconnect.`);
-          // The channel's own error/timeout handler will trigger reconnect,
-          // but if state is stuck, we can help by unsubscribing to force an error
-          if (channelState !== 'joining') {
-            try { supabase.removeChannel(channelRef.current); } catch {}
-            channelRef.current = null;
-            // This will be picked up on next peer-open or visibility change
-            console.warn('[VideoRoom] Heartbeat: removed dead channel, awaiting reconnect');
+        if (channelRef.current && channelState !== 'joined' && channelState !== 'joining') {
+          console.warn(`[VideoRoom] Heartbeat: signaling channel dead ("${channelState}"), triggering reconnect`);
+          try { supabase.removeChannel(channelRef.current); } catch {}
+          channelRef.current = null;
+          // Trigger reconnect immediately if no timer is pending
+          if (!channelReconnectTimerRef.current) {
+            channelReconnectTimerRef.current = setTimeout(() => {
+              channelReconnectTimerRef.current = null;
+              // setupSignalingChannel will be available in init scope - dispatch event
+              window.dispatchEvent(new CustomEvent('meeting-channel-reconnect'));
+            }, 1000);
           }
         }
       } catch (e) { console.warn('[VideoRoom] Heartbeat/sync failed:', e); }
     };
     const interval = setInterval(heartbeat, 30000);
+    // Run first heartbeat immediately to self-heal on mount
+    heartbeat();
     return () => clearInterval(interval);
   }, [roomId, user, guestTokenId]);
 
@@ -488,39 +520,22 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       try {
         const { data: activeParticipants } = await supabase
           .from('meeting_room_participants')
-          .select('peer_id, display_name, user_id, guest_token_id, updated_at')
+          .select('peer_id, display_name, user_id, guest_token_id')
           .eq('room_id', roomId).eq('is_active', true);
 
         if (!activeParticipants) return;
-
-        const now = Date.now();
-        const staleThreshold = 90000;
-        const activePeerIds = new Set<string>();
 
         for (const p of activeParticipants) {
           if (!p.peer_id) continue;
           if (user && p.user_id === user.id) continue;
           if (guestTokenId && p.guest_token_id === guestTokenId) continue;
-          
-          const lastSeen = p.updated_at ? new Date(p.updated_at).getTime() : 0;
-          if (now - lastSeen > staleThreshold) {
-            if (p.user_id) {
-              supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('user_id', p.user_id).then(() => {});
-            } else if (p.guest_token_id) {
-              supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('guest_token_id', p.guest_token_id).then(() => {});
-            }
-            continue;
-          }
-
-          activePeerIds.add(p.peer_id);
 
           if (!connectionsRef.current.has(p.peer_id)) {
             console.log(`[VideoRoom] Reconnecting to missing peer: ${p.peer_id}`);
             callPeer(p.peer_id, p.display_name || 'Uczestnik', stream, undefined, p.user_id || undefined);
           }
         }
-
-        setParticipants(prev => prev.filter(p => activePeerIds.has(p.peerId)));
+        // Don't prune participants here - let heartbeat handle graceful pruning
       } catch (e) { console.warn('[VideoRoom] Visibility sync failed:', e); }
     };
 
@@ -740,6 +755,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
           setupSignalingChannel();
 
+          // Listen for heartbeat-triggered reconnects
+          const handleChannelReconnect = () => {
+            if (!cancelled && !cleanupDoneRef.current) {
+              console.log('[VideoRoom] Channel reconnect triggered by heartbeat watchdog');
+              setupSignalingChannel();
+            }
+          };
+          // Store ref for cleanup
+          if (channelReconnectHandlerRef.current) {
+            window.removeEventListener('meeting-channel-reconnect', channelReconnectHandlerRef.current);
+          }
+          channelReconnectHandlerRef.current = handleChannelReconnect;
+          window.addEventListener('meeting-channel-reconnect', handleChannelReconnect);
+
           // Fetch existing participants
           const { data: existing } = await supabase
             .from('meeting_room_participants')
@@ -818,7 +847,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     };
 
     init();
-    return () => { cancelled = true; cleanup(); };
+    return () => { 
+      cancelled = true; 
+      if (channelReconnectHandlerRef.current) {
+        window.removeEventListener('meeting-channel-reconnect', channelReconnectHandlerRef.current);
+        channelReconnectHandlerRef.current = null;
+      }
+      cleanup(); 
+    };
   }, [user, roomId, guestMode, guestTokenId]);
 
   // Zmiana 6: callPeer uses ref for localAvatarUrl to avoid stale closure
@@ -901,12 +937,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const reconnectToPeer = useCallback(async (peerId: string) => {
     const attempts = reconnectAttemptsRef.current.get(peerId) || 0;
     if (attempts >= 3) {
-      console.warn(`[VideoRoom] Max reconnect attempts (3) reached for ${peerId}, giving up`);
+      console.warn(`[VideoRoom] Max reconnect attempts (3) reached for ${peerId}, marking locally unreachable`);
       reconnectAttemptsRef.current.delete(peerId);
+      // Only remove locally - do NOT update DB for remote peer
       removePeer(peerId);
-      supabase.from('meeting_room_participants')
-        .update({ is_active: false })
-        .eq('room_id', roomId).eq('peer_id', peerId).then(() => {});
       return;
     }
     reconnectAttemptsRef.current.set(peerId, attempts + 1);
