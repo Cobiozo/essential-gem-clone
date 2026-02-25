@@ -1,36 +1,25 @@
 
-## Reorganizacja zakladek w Panelu Lidera - Spotkania indywidualne
 
-### Zmiany
+## Zmiana reguly 2h -- ukrywanie terminow zamiast oznaczania jako contactOnly
 
-**1. Zakladka "Harmonogram" -> "Najblizsze Twoje spotkania" (tylko przyszle, aktywne)**
+### Obecny stan
+Sloty < 2h od teraz sa oznaczane jako `contactOnly: true` i wyswietlane z innym stylem + dialog kontaktowy. Uzytkownik chce je calkowicie ukryc.
 
-Plik: `src/components/events/LeaderMeetingSchedule.tsx`
-- Zmienic zapytanie: dodac filtr `.eq('is_active', true)` i `.gte('start_time', new Date().toISOString())` -- tylko przyszle aktywne spotkania
-- Zmienic pusty stan: "Brak zaplanowanych spotkan" zamiast "Brak zarezerwowanych spotkan"
-- Sortowanie od najwczesniejszych (juz jest ascending: true)
+### Zmiana
 
-**2. Zakladka "Historia" -- przeszle + anulowane + mozliwosc usuwania**
+**Plik: `src/components/events/PartnerMeetingBooking.tsx`**
 
-Plik: `src/components/events/IndividualMeetingsHistory.tsx`
-- Zmienic zapytanie: zamiast `lt('end_time', now)` uzyc logiki OR: spotkania ktore sie odbyly (end_time < now) ORAZ spotkania anulowane (is_active = false, niezaleznie od daty)
-- Pobrac dodatkowe pola: `description`, `is_active` -- do wyswietlenia pelnych danych (prospekt, cel, notatki) i statusu (odbyte/anulowane)
-- Dodac przycisk "Usun" (ikona kosza) przy kazdym spotkaniu w historii
-- Usuwanie: `supabase.from('events').delete().eq('id', meetingId).eq('host_user_id', user.id)` z potwierdzeniem (AlertDialog)
-- Wyswietlic badge statusu: "Odbyte" (zielony) vs "Anulowane" (czerwony)
-- Wyswietlic dane prospekta/cel konsultacji (parsowanie JSON z description)
+1. W filtrze slotow (linia 433-443) dodac warunek: jesli `slotStartUTC < twoHoursFromNow` to `return false` (ukryj slot)
+2. Usunac logike `contactOnly` z `.map()` (linie 448-451, 464) -- pole juz niepotrzebne
+3. Usunac dialog kontaktowy (komponent Dialog z emailem/telefonem) i powiazany stan (`showContactDialog`, `contactPartnerInfo`)
+4. Usunac obsluge klikniecia slotu contactOnly w `handleSelectSlot` -- teraz kazdy widoczny slot jest rezerwowalny
+5. Usunac warunkowe stylowanie slotow contactOnly (opacity, border-dashed, ikona telefonu, tooltip)
 
-**3. Zmiana nazw zakladek**
+**Plik: `src/components/events/PartnerMeetingBooking.tsx` -- interfejs AvailableSlot**
 
-Plik: `src/components/events/UnifiedMeetingSettingsForm.tsx` (linie 431-442)
-- "Ustawienia" -> "Ustawienia Twojej dostepnosci"
-- "Harmonogram" -> "Najblizsze Twoje spotkania"
-- "Historia" -- bez zmian
+Usunac pole `contactOnly?: boolean` z interfejsu.
 
-### Podsumowanie plikow
+### Efekt
 
-| Plik | Zmiana |
-|------|--------|
-| `UnifiedMeetingSettingsForm.tsx` | Zmiana nazw 2 zakladek (linie 431-437) |
-| `LeaderMeetingSchedule.tsx` | Filtr: tylko przyszle aktywne spotkania |
-| `IndividualMeetingsHistory.tsx` | Dodac: anulowane spotkania, pelne dane, przycisk usuwania z potwierdzeniem |
+Jesli jest 15:01, to sloty 15:00, 16:00 i 17:00 sa ukryte. Najblizszy widoczny termin to 18:00 (pierwszy slot >= 2h od teraz). Zadne sloty "do kontaktu" nie sa wyswietlane.
+
