@@ -81,7 +81,7 @@ export const useMedicalChatStream = () => {
     }
   };
 
-  const sendMessage = useCallback(async (userMessage: string) => {
+  const sendMessage = useCallback(async (userMessage: string, overrideResultsCount?: number) => {
     if (!userMessage.trim()) return;
 
     // Abort any previous pending request
@@ -93,6 +93,8 @@ export const useMedicalChatStream = () => {
     setIsLoading(true);
     setError(null);
 
+    const effectiveResultsCount = overrideResultsCount !== undefined ? overrideResultsCount : resultsCount;
+
     try {
       const response = await fetch(MEDICAL_CHAT_URL, {
         method: 'POST',
@@ -102,7 +104,7 @@ export const useMedicalChatStream = () => {
         body: JSON.stringify({
           messages: [...messages, userMsg],
           language,
-          resultsCount: resultsCount === 0 ? 100 : resultsCount, // 0 = max = 100
+          resultsCount: effectiveResultsCount === 0 ? 100 : effectiveResultsCount, // 0 = max = 100
         }),
         signal: abortControllerRef.current.signal,
       });
