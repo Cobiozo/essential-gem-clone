@@ -228,7 +228,7 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
     });
 
     const interval = setInterval(() => {
-      let maxLevel = 10; // lowered threshold
+      let maxLevel = 25; // raised threshold to reduce false triggers
       let maxIndex = -1;
       const newLevels = new Map<string, number>();
 
@@ -255,16 +255,25 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
       setAudioLevels(newLevels);
 
       const now = Date.now();
-      if (maxIndex !== -1 && now - lastSpeakerChangeRef.current > 800) {
+      // Hold time: 2.5s minimum before switching speaker + hysteresis
+      if (maxIndex !== -1 && now - lastSpeakerChangeRef.current > 2500) {
         setSpeakingIndex((prev) => {
           if (prev !== maxIndex) {
-            lastSpeakerChangeRef.current = now;
-            return maxIndex;
+            // Hysteresis: only switch if new speaker is significantly louder
+            const prevLevel = prev >= 0 && prev < participants.length
+              ? newLevels.get(participants[prev].peerId) || 0
+              : 0;
+            const newLevel = newLevels.get(participants[maxIndex].peerId) || 0;
+            // Only switch if new speaker is at least 0.15 louder (normalized) or prev is silent
+            if (newLevel > prevLevel + 0.15 || prevLevel < 0.05) {
+              lastSpeakerChangeRef.current = now;
+              return maxIndex;
+            }
           }
           return prev;
         });
       }
-    }, 200);
+    }, 250); // slightly slower polling
 
     return () => clearInterval(interval);
   }, [participants]);
