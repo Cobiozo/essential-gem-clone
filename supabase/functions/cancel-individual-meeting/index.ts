@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
           source_module: 'meetings',
           title: 'Spotkanie anulowane',
           message: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} spotkanie ${event.title || ''} (${dateStr} ${timeStr})`,
-          link: '/events/individual-meetings',
+          link: `/events/individual-meetings?event=${event.id}`,
           metadata: { event_id: event.id, cancelled_by: user.id },
         });
       } catch (inAppErr) {
@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
             userId: participantId,
             title: 'Spotkanie anulowane',
             body: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} ${event.title || 'spotkanie'} — ${dateStr} ${timeStr}`,
-            url: '/meetings',
+            url: `/events/individual-meetings?event=${event.id}`,
             tag: `meeting-cancelled-${event.id}`,
           },
         });

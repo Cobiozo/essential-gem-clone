@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
@@ -18,7 +21,9 @@ import {
   CheckCircle,
   ArrowRight,
   Globe,
-  ExternalLink
+  ExternalLink,
+  FileText,
+  Target
 } from 'lucide-react';
 import { format, addMinutes, parse, addDays, getDay, startOfDay, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
@@ -65,6 +70,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [leaderTimezone, setLeaderTimezone] = useState<string>('Europe/Warsaw');
+
+  // Prospect / booking form fields
+  const [prospectFirstName, setProspectFirstName] = useState('');
+  const [prospectLastName, setProspectLastName] = useState('');
+  const [prospectPhone, setProspectPhone] = useState('');
+  const [bookingNotes, setBookingNotes] = useState('');
+  const [consultationPurpose, setConsultationPurpose] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
   
   // Meeting settings from leader_meeting_settings
   const [meetingSettings, setMeetingSettings] = useState<{
@@ -504,6 +517,19 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   const handleBookMeeting = async () => {
     if (!user || !selectedPartner || !selectedSlot) return;
 
+    // Validate form fields
+    if (meetingType === 'tripartite') {
+      if (!prospectFirstName.trim() || !prospectLastName.trim()) {
+        setFormError('Podaj imię i nazwisko prospekta');
+        return;
+      }
+    } else {
+      if (!consultationPurpose.trim()) {
+        setFormError('Podaj cel konsultacji');
+        return;
+      }
+    }
+    setFormError(null);
     setBooking(true);
     try {
       // CRITICAL: Use leader's time in leader's timezone, then convert to UTC
@@ -574,10 +600,24 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         ? 'Spotkanie trójstronne' 
         : 'Konsultacje dla partnerów');
 
+      // Build description JSON with prospect/consultation data
+      const descriptionData = meetingType === 'tripartite'
+        ? JSON.stringify({
+            prospect_first_name: prospectFirstName.trim(),
+            prospect_last_name: prospectLastName.trim(),
+            prospect_phone: prospectPhone.trim() || undefined,
+            booking_notes: bookingNotes.trim() || undefined,
+          })
+        : JSON.stringify({
+            consultation_purpose: consultationPurpose.trim(),
+            booking_notes: bookingNotes.trim() || undefined,
+          });
+
       const { data: event, error: eventError } = await supabase
         .from('events')
         .insert({
           title: eventTitle,
+          description: descriptionData,
           event_type: meetingType === 'tripartite' 
             ? 'tripartite_meeting' 
             : 'partner_consultation',
@@ -672,7 +712,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         source_module: 'meetings',
         title: 'Nowa rezerwacja spotkania',
         message: `${bookerName} zarezerwował(a) spotkanie ${meetingTypeLabel} na ${emailDate} o ${emailTime}`,
-        link: '/events/individual-meetings',
+        link: `/events/individual-meetings?event=${event.id}`,
         metadata: { event_id: event.id, booker_id: user.id },
       }).then(({ error }) => { if (error) console.warn('[PartnerMeetingBooking] In-app notification to leader failed:', error); });
 
@@ -683,7 +723,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         source_module: 'meetings',
         title: 'Spotkanie potwierdzone',
         message: `Twoje spotkanie z ${leaderName} (${meetingTypeLabel}) zostało potwierdzone na ${emailDate} o ${emailTime}`,
-        link: '/events/individual-meetings',
+        link: `/events/individual-meetings?event=${event.id}`,
         metadata: { event_id: event.id, host_id: selectedPartner.user_id },
       }).then(({ error }) => { if (error) console.warn('[PartnerMeetingBooking] In-app notification to booker failed:', error); });
 
@@ -693,7 +733,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           userId: selectedPartner.user_id,
           title: 'Nowa rezerwacja spotkania',
           body: `${bookerName} zarezerwował(a) ${meetingTypeLabel} na ${emailDate} ${emailTime}`,
-          url: '/events/individual-meetings',
+          url: `/events/individual-meetings?event=${event.id}`,
           tag: `meeting-booked-${event.id}`,
         },
       }).catch(err => console.warn('[PartnerMeetingBooking] Push to leader failed:', err));
@@ -703,7 +743,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           userId: user.id,
           title: 'Spotkanie potwierdzone',
           body: `Spotkanie z ${leaderName} potwierdzone na ${emailDate} ${emailTime}`,
-          url: '/events/individual-meetings',
+          url: `/events/individual-meetings?event=${event.id}`,
           tag: `meeting-confirmed-${event.id}`,
         },
       }).catch(err => console.warn('[PartnerMeetingBooking] Push to booker failed:', err));
@@ -718,6 +758,12 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       setSelectedPartner(null);
       setSelectedDate(undefined);
       setSelectedSlot(null);
+      setProspectFirstName('');
+      setProspectLastName('');
+      setProspectPhone('');
+      setBookingNotes('');
+      setConsultationPurpose('');
+      setFormError(null);
       
       loadPartners();
     } catch (error: any) {
@@ -1027,6 +1073,88 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
               </div>
             )}
           </div>
+
+          {/* Prospect / Consultation Form */}
+          <div className="border rounded-lg p-4 space-y-4">
+            {meetingType === 'tripartite' ? (
+              <>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Dane osoby zapraszanej na spotkanie (prospekt)
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="prospect-first-name">Imię *</Label>
+                    <Input
+                      id="prospect-first-name"
+                      value={prospectFirstName}
+                      onChange={(e) => setProspectFirstName(e.target.value)}
+                      placeholder="Imię prospekta"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="prospect-last-name">Nazwisko *</Label>
+                    <Input
+                      id="prospect-last-name"
+                      value={prospectLastName}
+                      onChange={(e) => setProspectLastName(e.target.value)}
+                      placeholder="Nazwisko prospekta"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="prospect-phone">Telefon (opcjonalnie)</Label>
+                  <Input
+                    id="prospect-phone"
+                    value={prospectPhone}
+                    onChange={(e) => setProspectPhone(e.target.value)}
+                    placeholder="+48..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="booking-notes">Dodatkowe informacje (opcjonalnie)</Label>
+                  <Textarea
+                    id="booking-notes"
+                    value={bookingNotes}
+                    onChange={(e) => setBookingNotes(e.target.value)}
+                    placeholder="Np. z jakiego źródła pochodzi kontakt, czym się zajmuje..."
+                    rows={3}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Informacje o konsultacji
+                </p>
+                <div className="space-y-1.5">
+                  <Label htmlFor="consultation-purpose">Cel konsultacji *</Label>
+                  <Textarea
+                    id="consultation-purpose"
+                    value={consultationPurpose}
+                    onChange={(e) => setConsultationPurpose(e.target.value)}
+                    placeholder="Opisz cel spotkania, np. strategia rozwoju, problem z zespołem..."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="booking-notes-c">Dodatkowe informacje (opcjonalnie)</Label>
+                  <Textarea
+                    id="booking-notes-c"
+                    value={bookingNotes}
+                    onChange={(e) => setBookingNotes(e.target.value)}
+                    placeholder="Dodatkowe uwagi..."
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {formError && (
+            <p className="text-sm text-destructive">{formError}</p>
+          )}
 
           <Button 
             onClick={handleBookMeeting} 
