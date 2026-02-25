@@ -67,8 +67,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuCheckboxItem,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCertificateGeneration } from "@/hooks/useCertificateGeneration";
@@ -170,6 +174,7 @@ interface CertificateHistory {
 const TrainingManagement = () => {
   const [modules, setModules] = useState<TrainingModule[]>([]);
   const [lessons, setLessons] = useState<TrainingLesson[]>([]);
+  const [allLessonCounts, setAllLessonCounts] = useState<Record<string, number>>({});
   const [selectedModule, setSelectedModule] = useState<string>("");
   const [editingModule, setEditingModule] = useState<TrainingModule | null>(null);
   const [editingLesson, setEditingLesson] = useState<TrainingLesson | null>(null);
@@ -217,6 +222,8 @@ const TrainingManagement = () => {
   
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'position' | 'unlock_order'>('position');
+  const [progressSortBy, setProgressSortBy] = useState<string>('completion');
+  const [progressLanguageFilter, setProgressLanguageFilter] = useState<string>('all');
 
   const { toast } = useToast();
   const { t } = useTranslations();
@@ -258,6 +265,49 @@ const TrainingManagement = () => {
       (u as any).eq_id?.toLowerCase().includes(query)
     );
   }, [userProgress, userSearchQuery]);
+
+  // Available progress languages
+  const availableProgressLanguages = useMemo(() => {
+    const langs = new Set(userProgress.map(u => u.training_language || 'pl'));
+    return [{ code: 'all', label: 'Wszystkie języki' }, ...Array.from(langs).map(l => ({ code: l, label: l.toUpperCase() }))];
+  }, [userProgress]);
+
+  // Sorted & filtered user progress
+  const sortedFilteredUserProgress = useMemo(() => {
+    let result = filteredUserProgress;
+    
+    // Language filter
+    if (progressLanguageFilter !== 'all') {
+      result = result.filter(u => (u.training_language || 'pl') === progressLanguageFilter);
+    }
+
+    // Sorting
+    result = [...result].sort((a, b) => {
+      const getOverall = (u: UserProgress) => u.modules.length > 0
+        ? u.modules.reduce((acc, m) => acc + m.progress_percentage, 0) / u.modules.length
+        : 0;
+      
+      switch (progressSortBy) {
+        case 'completion':
+          return getOverall(b) - getOverall(a);
+        case 'name':
+          return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+        case 'language':
+          return (a.training_language || 'pl').localeCompare(b.training_language || 'pl');
+        case 'join_date': {
+          const aDate = a.modules.length > 0 ? Math.min(...a.modules.map(m => new Date(m.assigned_at).getTime())) : Infinity;
+          const bDate = b.modules.length > 0 ? Math.min(...b.modules.map(m => new Date(m.assigned_at).getTime())) : Infinity;
+          return aDate - bDate;
+        }
+        case 'modules_count':
+          return b.modules.length - a.modules.length;
+        default:
+          return 0;
+      }
+    });
+
+    return result;
+  }, [filteredUserProgress, progressSortBy, progressLanguageFilter]);
 
   useEffect(() => {
     fetchModules();
@@ -329,6 +379,22 @@ const TrainingManagement = () => {
     };
   }, [activeTab, isEditing]);
 
+  const fetchAllLessonCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('training_lessons')
+        .select('module_id');
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      (data || []).forEach(l => {
+        counts[l.module_id] = (counts[l.module_id] || 0) + 1;
+      });
+      setAllLessonCounts(counts);
+    } catch (error) {
+      console.error('Error fetching lesson counts:', error);
+    }
+  };
+
   const fetchModules = async () => {
     try {
       const { data, error } = await supabase
@@ -338,6 +404,8 @@ const TrainingManagement = () => {
 
       if (error) throw error;
       setModules(data || []);
+      // Also refresh lesson counts
+      fetchAllLessonCounts();
     } catch (error) {
       console.error('Error fetching modules:', error);
       toast({
@@ -347,6 +415,22 @@ const TrainingManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateModuleField = async (moduleId: string, field: string, value: any) => {
+    try {
+      const { error } = await supabase
+        .from('training_modules')
+        .update({ [field]: value })
+        .eq('id', moduleId);
+      if (error) throw error;
+      // Optimistic update
+      setModules(prev => prev.map(m => m.id === moduleId ? { ...m, [field]: value } : m));
+      toast({ title: 'Zapisano' });
+    } catch (error) {
+      console.error('Error updating module field:', error);
+      toast({ title: 'Błąd', description: 'Nie udało się zapisać', variant: 'destructive' });
     }
   };
 
@@ -1348,7 +1432,7 @@ const TrainingManagement = () => {
               </Card>
             ) : (
               filteredModules.map((module) => {
-                const lessonCount = lessons.filter(l => l.module_id === module.id).length;
+                const lessonCount = allLessonCounts[module.id] || 0;
                 return (
                   <Card key={module.id} className={cn(!module.is_active && "opacity-60")}>
                     <CardContent className="p-4">
@@ -1356,16 +1440,36 @@ const TrainingManagement = () => {
                         <div className="flex-1 min-w-0">
                           <h3 className="font-medium truncate">{module.title}</h3>
                           <div className="flex flex-wrap items-center gap-2 mt-2">
-                            <Badge variant={module.is_active ? "default" : "secondary"} className="text-xs">
+                            <Switch
+                              checked={module.is_active}
+                              onCheckedChange={(checked) => updateModuleField(module.id, 'is_active', checked)}
+                              className="scale-75"
+                            />
+                            <span className="text-xs text-muted-foreground">
                               {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
-                            </Badge>
+                            </span>
                             <span className="text-xs text-muted-foreground">
                               {lessonCount} {lessonCount === 1 ? 'lekcja' : lessonCount < 5 ? 'lekcje' : 'lekcji'}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 truncate">
-                            {getVisibilityText(module)}
-                          </p>
+                          <div className="mt-1">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button className="text-xs text-muted-foreground hover:text-foreground cursor-pointer truncate">
+                                  {getVisibilityText(module)}
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="start">
+                                <DropdownMenuLabel className="text-xs">Widoczność</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuCheckboxItem checked={module.visible_to_everyone} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_everyone', v)}>Wszyscy</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem checked={module.visible_to_clients} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_clients', v)}>Klienci</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem checked={module.visible_to_partners} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_partners', v)}>Partnerzy</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem checked={module.visible_to_specjalista} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_specjalista', v)}>Specjaliści</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem checked={module.visible_to_anonymous} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_anonymous', v)}>Anonimowi</DropdownMenuCheckboxItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <Button
@@ -1445,7 +1549,7 @@ const TrainingManagement = () => {
                   </TableRow>
                 ) : (
                   filteredModules.map((module) => {
-                    const lessonCount = lessons.filter(l => l.module_id === module.id).length;
+                    const lessonCount = allLessonCounts[module.id] || 0;
                     
                     return (
                       <TableRow key={module.id} className={cn(!module.is_active && "opacity-60")}>
@@ -1497,20 +1601,36 @@ const TrainingManagement = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
-                            <div className={cn(
-                              "w-2 h-2 rounded-full",
-                              module.is_active ? "bg-green-500" : "bg-gray-400"
-                            )} />
+                            <Switch
+                              checked={module.is_active}
+                              onCheckedChange={(checked) => updateModuleField(module.id, 'is_active', checked)}
+                              className="scale-90"
+                            />
                             <span className={cn(
-                              "text-sm whitespace-nowrap",
+                              "text-xs whitespace-nowrap",
                               module.is_active ? "text-green-600" : "text-muted-foreground"
                             )}>
                               {module.is_active ? t('admin.training.active') : t('admin.training.inactive')}
                             </span>
                           </div>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {getVisibilityText(module)}
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="text-sm text-muted-foreground hover:text-foreground cursor-pointer whitespace-nowrap">
+                                {getVisibilityText(module)} ▾
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start">
+                              <DropdownMenuLabel className="text-xs">Widoczność</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuCheckboxItem checked={module.visible_to_everyone} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_everyone', v)}>Wszyscy</DropdownMenuCheckboxItem>
+                              <DropdownMenuCheckboxItem checked={module.visible_to_clients} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_clients', v)}>Klienci</DropdownMenuCheckboxItem>
+                              <DropdownMenuCheckboxItem checked={module.visible_to_partners} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_partners', v)}>Partnerzy</DropdownMenuCheckboxItem>
+                              <DropdownMenuCheckboxItem checked={module.visible_to_specjalista} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_specjalista', v)}>Specjaliści</DropdownMenuCheckboxItem>
+                              <DropdownMenuCheckboxItem checked={module.visible_to_anonymous} onCheckedChange={(v) => updateModuleField(module.id, 'visible_to_anonymous', v)}>Anonimowi</DropdownMenuCheckboxItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
@@ -1706,15 +1826,42 @@ const TrainingManagement = () => {
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-4">
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Szukaj użytkownika (imię, nazwisko, EQID)..."
-              value={userSearchQuery}
-              onChange={(e) => setUserSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+          {/* Search and filter bar */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj użytkownika (imię, nazwisko, EQID)..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <Select value={progressSortBy} onValueChange={setProgressSortBy}>
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="completion">Wg ukończenia %</SelectItem>
+                <SelectItem value="name">Wg nazwy A-Z</SelectItem>
+                <SelectItem value="language">Wg języka</SelectItem>
+                <SelectItem value="join_date">Wg daty dołączenia</SelectItem>
+                <SelectItem value="modules_count">Wg ilości modułów</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <Select value={progressLanguageFilter} onValueChange={setProgressLanguageFilter}>
+                <SelectTrigger className="w-[150px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableProgressLanguages.map(lang => (
+                    <SelectItem key={lang.code} value={lang.code}>{lang.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {progressLoading ? (
@@ -1725,19 +1872,19 @@ const TrainingManagement = () => {
                 </div>
               </CardContent>
             </Card>
-          ) : filteredUserProgress.length === 0 ? (
+          ) : sortedFilteredUserProgress.length === 0 ? (
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center text-muted-foreground">
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>{userSearchQuery ? 'Nie znaleziono użytkowników' : 'Brak przypisanych szkoleń'}</p>
-                  {!userSearchQuery && <p className="text-sm mt-2">Przypisz moduły szkoleniowe użytkownikom w zakładce "Moduły"</p>}
+                  <p>{userSearchQuery || progressLanguageFilter !== 'all' ? 'Nie znaleziono użytkowników' : 'Brak przypisanych szkoleń'}</p>
+                  {!userSearchQuery && progressLanguageFilter === 'all' && <p className="text-sm mt-2">Przypisz moduły szkoleniowe użytkownikom w zakładce "Moduły"</p>}
                 </div>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredUserProgress.map((progressUser) => {
+              {sortedFilteredUserProgress.map((progressUser) => {
                 const overallProgress = progressUser.modules.length > 0
                   ? Math.round(progressUser.modules.reduce((acc, m) => acc + m.progress_percentage, 0) / progressUser.modules.length)
                   : 0;
