@@ -223,7 +223,7 @@ Deno.serve(async (req) => {
           source_module: 'meetings',
           title: 'Spotkanie anulowane',
           message: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} spotkanie ${event.title || ''} (${dateStr} ${timeStr})`,
-          link: '/meetings',
+          link: '/events/individual-meetings',
           metadata: { event_id: event.id, cancelled_by: user.id },
         });
       } catch (inAppErr) {
