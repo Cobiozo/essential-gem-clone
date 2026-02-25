@@ -1,53 +1,62 @@
 
+## Poprawki i ulepszenia panelu administracyjnego szkolen
 
-## Sortowanie i filtrowanie modułów w panelu administracyjnym
+### 1. Naprawa kolumny "Lekcje" (wartosci "0")
 
-### Co się zmieni
+**Problem:** Stan `lessons` przechowuje tylko lekcje dla aktualnie wybranego modulu (z zakladki "Lekcje"). Na zakladce "Moduly" filtrowanie `lessons.filter(l => l.module_id === module.id)` daje 0 dla kazdego modulu, bo lessons dotyczy innego kontekstu.
 
-Nad tabelą modułów pojawi się pasek filtrów z dwoma kontrolkami:
+**Rozwiazanie:** Dodac osobny stan `allLessonCounts` -- mape `module_id -> liczba lekcji` -- pobierana jednorazowo razem z modulami. Osobne zapytanie:
+```text
+SELECT module_id, count(*) FROM training_lessons GROUP BY module_id
+```
+Lub pobranie wszystkich lekcji (tylko id i module_id) i zliczenie na froncie. Uzyc tego w kolumnie "Lekcje" zamiast filtrowania po `lessons`.
 
-1. **Filtr języka** -- Select z opcjami: "Wszystkie języki" (domyslnie) + lista języków, w których faktycznie istnieją moduły (dynamicznie obliczana z `modules`). Po wybraniu języka tabela pokazuje tylko moduły w tym języku.
+### 2. Szybkie przelaczanie statusu (aktywny/nieaktywny) w tabeli
 
-2. **Sortowanie** -- Select z opcjami:
-   - "Wg pozycji" (domyślne, jak teraz -- `position`)
-   - "Wg odsłaniania" (sortowanie po `unlock_order`, moduły bez order na końcu)
+Zamiana statycznego tekstu statusu na klikalny przycisk/switch. Po kliknieciu natychmiastowy UPDATE `is_active` w bazie i odswiezenie listy.
+
+**Implementacja:** W kolumnie "Status" (linie 1498-1511) zamiast tekstu, uzyc komponentu `Switch` lub klikalnego `Badge` z `onClick`. Wywolanie:
+```text
+supabase.from('training_modules').update({ is_active: !module.is_active }).eq('id', module.id)
+```
+
+### 3. Szybkie wybieranie widocznosci w tabeli
+
+Zamiana tekstu "partnerzy, specjalisci" na multi-select dropdown lub zestaw checkboxow w popoverze. Po zmianie -- natychmiastowy zapis do bazy.
+
+**Implementacja:** W kolumnie "Widoczny dla" (linie 1512-1514) dodac `DropdownMenu` z checkboxami dla kazdej roli (wszyscy, klienci, partnerzy, specjalisci, anonimowi). Kazdy checkbox wywoluje UPDATE odpowiedniego pola `visible_to_*`.
+
+### 4. Sortowanie i filtrowanie w zakladce "Postepy uzytkownikow"
+
+Dodac pasek filtrów/sortowania nad lista uzytkownikow (przed searchbarem lub obok). Nowy stan `progressSortBy` z opcjami:
+
+- **Wg procentu ukonczenia** (domyslnie) -- sortowanie malejaco po `overallProgress`
+- **Wg nazwy** (alfabetycznie A-Z)
+- **Wg jezyka szkolenia** -- grupowanie po `training_language`
+- **Wg daty dolaczenia** -- sortowanie po najwczesniejszym `assigned_at` z modulow uzytkownika
+- **Wg ostatniej aktywnosci** -- wymaga dodatkowego pola; mozna uzyc `assigned_at` jako przyblizonego wskaznika lub pobrania `max(updated_at)` z training_progress
+
+Dodac rowniez filtr jezyka (Select: Wszystkie / PL / EN / DE / ...) analogiczny do zakladki Moduly.
+
+**Implementacja:** 
+- Nowe stany: `progressSortBy`, `progressLanguageFilter`
+- `useMemo` generujacy `sortedFilteredUserProgress` z `filteredUserProgress`
+- Pasek filtrów UI: dwa Select obok searchbara
 
 ### Zmiany techniczne
 
 **Plik: `src/components/admin/TrainingManagement.tsx`**
 
-1. **Nowe stany:**
-   - `const [languageFilter, setLanguageFilter] = useState<string>('all');`
-   - `const [sortBy, setSortBy] = useState<'position' | 'unlock_order'>('position');`
+1. **Nowy stan `allLessonCounts`** (Map/Record) -- pobierany w `fetchModules` lub osobnym useEffect. Zapytanie: `supabase.from('training_lessons').select('module_id')` i zliczenie.
 
-2. **Obliczenie `filteredModules` (useMemo):**
-   ```text
-   const availableLanguages = useMemo(() => {
-     const langs = new Set(modules.map(m => m.language_code || 'pl'));
-     return LANGUAGE_OPTIONS.filter(l => l.code === 'all' || langs.has(l.code));
-   }, [modules]);
+2. **Zamiana `lessonCount`** w renderowaniu tabeli modulow -- uzyc `allLessonCounts[module.id] || 0` zamiast `lessons.filter(...)`.
 
-   const filteredModules = useMemo(() => {
-     let result = modules;
-     if (languageFilter !== 'all') {
-       result = result.filter(m => (m.language_code || 'pl') === languageFilter);
-     }
-     if (sortBy === 'unlock_order') {
-       result = [...result].sort((a, b) => {
-         if (a.unlock_order == null && b.unlock_order == null) return 0;
-         if (a.unlock_order == null) return 1;
-         if (b.unlock_order == null) return -1;
-         return a.unlock_order - b.unlock_order;
-       });
-     }
-     return result;
-   }, [modules, languageFilter, sortBy]);
-   ```
+3. **Funkcja `updateModuleField(moduleId, field, value)`** -- generyczna do aktualizacji pojedynczego pola modulu. Uzyc jej zarowno dla statusu jak i widocznosci.
 
-3. **Pasek filtrów** -- wstawiony przed sekcją mobile cards i desktop table (po formularzu modułu, ~linia 1286):
-   - Dwa komponenty `Select` obok siebie w `flex` kontenerze.
-   - Filtr języka: ikona Globe, opcje z flagami.
-   - Sortowanie: opcje "Wg pozycji" / "Wg odsłaniania".
+4. **Kolumna "Status"** -- zamiana na klikalny element (Switch lub Badge z kursorem pointer).
 
-4. **Zamiana `modules` na `filteredModules`** -- w obu miejscach renderowania (mobile cards linia ~1296, desktop table linia ~1393) zmienić `modules.map(...)` na `filteredModules.map(...)` oraz `modules.length === 0` na `filteredModules.length === 0`.
+5. **Kolumna "Widoczny dla"** -- zamiana na DropdownMenu z checkboxami ról.
 
+6. **Pasek filtrów "Postepy"** -- dwa Select nad lista uzytkownikow + logika sortowania w useMemo.
+
+7. **Identyczne zmiany w widoku mobilnym** (Card layout) dla statusu i widocznosci.
