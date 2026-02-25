@@ -61,10 +61,17 @@ export const getBufferConfig = (): BufferConfig => {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const deviceConfig = isMobile ? VIDEO_BUFFER_CONFIG.mobile : VIDEO_BUFFER_CONFIG.desktop;
   
-  return {
+  const config = {
     ...deviceConfig,
     ...VIDEO_BUFFER_CONFIG.common,
   };
+  
+  // CHANGE 4: On iOS (no Connection API), use lower minBuffer for faster start
+  if (isMobile && !isConnectionApiAvailable()) {
+    config.minBufferSeconds = 2; // More conservative for iOS
+  }
+  
+  return config;
 };
 
 /**
@@ -82,7 +89,15 @@ export const getNetworkQuality = (): NetworkQuality => {
 };
 
 /**
+ * Check if Connection API is available (not supported on iOS Safari)
+ */
+export const isConnectionApiAvailable = (): boolean => {
+  return typeof navigator !== 'undefined' && 'connection' in navigator && !!(navigator as any).connection;
+};
+
+/**
  * Check if network is slow (2g, slow-2g, low downlink, high RTT)
+ * CHANGE 4: Returns false on iOS (no Connection API) - prevents false smart buffering activation
  */
 export const isSlowNetwork = (): boolean => {
   if (typeof navigator !== 'undefined' && 'connection' in navigator) {
