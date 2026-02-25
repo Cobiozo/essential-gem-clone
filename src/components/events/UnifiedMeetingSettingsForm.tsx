@@ -25,6 +25,7 @@ import { getDefaultSchedule, WeeklySchedule } from './WorkingHoursScheduler';
 import { DateException } from './DateExceptionsManager';
 import { MeetingTypeCard, MeetingTypeSettings } from './MeetingTypeCard';
 import { IndividualMeetingsHistory } from './IndividualMeetingsHistory';
+import { LeaderMeetingSchedule } from './LeaderMeetingSchedule';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -431,6 +432,10 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
           <Settings className="h-4 w-4" />
           Ustawienia
         </TabsTrigger>
+        <TabsTrigger value="schedule" className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4" />
+          Harmonogram
+        </TabsTrigger>
         <TabsTrigger value="history" className="flex items-center gap-2">
           <History className="h-4 w-4" />
           Historia
@@ -585,6 +590,10 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
             )}
           </Button>
         </div>
+      </TabsContent>
+
+      <TabsContent value="schedule">
+        <LeaderMeetingSchedule />
       </TabsContent>
 
       <TabsContent value="history">
