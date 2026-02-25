@@ -213,5 +213,8 @@ verify_jwt = false
 [functions.renew-push-subscription]
 verify_jwt = false
 
+[functions.send-prospect-meeting-email]
+verify_jwt = false
+
 [functions.audit-storage-files]
 verify_jwt = false

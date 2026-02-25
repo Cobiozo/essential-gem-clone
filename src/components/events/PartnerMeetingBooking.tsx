@@ -76,6 +76,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   const [prospectFirstName, setProspectFirstName] = useState('');
   const [prospectLastName, setProspectLastName] = useState('');
   const [prospectPhone, setProspectPhone] = useState('');
+  const [prospectEmail, setProspectEmail] = useState('');
   const [bookingNotes, setBookingNotes] = useState('');
   const [consultationPurpose, setConsultationPurpose] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
@@ -529,8 +530,12 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
     // Validate form fields
     if (meetingType === 'tripartite') {
-      if (!prospectFirstName.trim() || !prospectLastName.trim()) {
-        setFormError('Podaj imię i nazwisko prospekta');
+      if (!prospectFirstName.trim()) {
+        setFormError('Podaj imię prospekta');
+        return;
+      }
+      if (!bookingNotes.trim()) {
+        setFormError('Podaj dodatkowe informacje o prospekcie');
         return;
       }
     } else {
@@ -614,9 +619,10 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       const descriptionData = meetingType === 'tripartite'
         ? JSON.stringify({
             prospect_first_name: prospectFirstName.trim(),
-            prospect_last_name: prospectLastName.trim(),
+            prospect_last_name: prospectLastName.trim() || undefined,
             prospect_phone: prospectPhone.trim() || undefined,
-            booking_notes: bookingNotes.trim() || undefined,
+            prospect_email: prospectEmail.trim() || undefined,
+            booking_notes: bookingNotes.trim(),
           })
         : JSON.stringify({
             consultation_purpose: consultationPurpose.trim(),
@@ -758,6 +764,21 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         },
       }).catch(err => console.warn('[PartnerMeetingBooking] Push to booker failed:', err));
 
+      // Send booking confirmation to prospect if email provided
+      if (meetingType === 'tripartite' && prospectEmail.trim()) {
+        supabase.functions.invoke('send-prospect-meeting-email', {
+          body: {
+            event_id: event.id,
+            prospect_email: prospectEmail.trim(),
+            prospect_first_name: prospectFirstName.trim(),
+            inviter_name: bookerName,
+            meeting_date: emailDate,
+            meeting_time: emailTime,
+            reminder_type: 'booking',
+          },
+        }).catch(err => console.warn('[PartnerMeetingBooking] Prospect email failed:', err));
+      }
+
       toast({
         title: 'Sukces!',
         description: 'Spotkanie zostało zarezerwowane. Powiadomienia email zostały wysłane.',
@@ -771,6 +792,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       setProspectFirstName('');
       setProspectLastName('');
       setProspectPhone('');
+      setProspectEmail('');
       setBookingNotes('');
       setConsultationPurpose('');
       setFormError(null);
@@ -1103,7 +1125,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="prospect-last-name">Nazwisko *</Label>
+                    <Label htmlFor="prospect-last-name">Nazwisko (opcjonalnie)</Label>
                     <Input
                       id="prospect-last-name"
                       value={prospectLastName}
@@ -1122,12 +1144,28 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="booking-notes">Dodatkowe informacje (opcjonalnie)</Label>
+                  <Label htmlFor="prospect-email">E-mail prospekta (opcjonalnie)</Label>
+                  <Input
+                    id="prospect-email"
+                    type="email"
+                    value={prospectEmail}
+                    onChange={(e) => setProspectEmail(e.target.value)}
+                    placeholder="email@example.com"
+                  />
+                  {!prospectEmail.trim() && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                      ⚠️ Brak adresu e-mail oznacza, że prospekt nie otrzyma wiadomości przypominających o spotkaniu. 
+                      Partner dołączający musi samodzielnie zadbać o przekazanie danych do dołączenia.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="booking-notes">Dodatkowe informacje o prospekcie *</Label>
                   <Textarea
                     id="booking-notes"
                     value={bookingNotes}
                     onChange={(e) => setBookingNotes(e.target.value)}
-                    placeholder="Np. z jakiego źródła pochodzi kontakt, czym się zajmuje..."
+                    placeholder="Np. z jakiego źródła pochodzi kontakt, czym się zajmuje, co go interesuje..."
                     rows={3}
                   />
                 </div>
@@ -1160,6 +1198,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 </div>
               </>
             )}
+          </div>
+
+          {/* Motivational message */}
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-sm text-muted-foreground">
+            <p className="italic">
+              💡 Niezależnie od powiadomień systemowych, dbaj o profesjonalne podejście do każdego zaproszonego — 
+              żadne systemy nie zastąpią kontaktu bezpośredniego z prospektem aż do momentu odbycia spotkania.
+            </p>
           </div>
 
           {formError && (

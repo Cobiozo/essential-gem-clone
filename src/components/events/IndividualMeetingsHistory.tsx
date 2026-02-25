@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, History, Users, User, Calendar, Clock, Video, Trash2, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, History, Users, User, Calendar, Clock, Video, Trash2, CheckCircle, XCircle, Mail } from 'lucide-react';
 import { format, subMonths } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -241,6 +241,11 @@ export const IndividualMeetingsHistory: React.FC = () => {
                         <span className="font-medium">{desc.prospect_first_name} {desc.prospect_last_name}</span>
                         {desc.prospect_phone && (
                           <span className="text-muted-foreground ml-2">Tel: {desc.prospect_phone}</span>
+                        )}
+                        {desc.prospect_email && (
+                          <span className="text-muted-foreground ml-2 inline-flex items-center gap-1">
+                            <Mail className="h-3 w-3" />{desc.prospect_email}
+                          </span>
                         )}
                       </div>
                     )}

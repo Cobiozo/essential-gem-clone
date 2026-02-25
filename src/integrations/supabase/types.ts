@@ -3676,23 +3676,26 @@ export type Database = {
         Row: {
           event_id: string
           id: string
+          prospect_email: string | null
           reminder_type: string
           sent_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           event_id: string
           id?: string
+          prospect_email?: string | null
           reminder_type: string
           sent_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           event_id?: string
           id?: string
+          prospect_email?: string | null
           reminder_type?: string
           sent_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {
