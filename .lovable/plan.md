@@ -1,99 +1,84 @@
 
 
-## Naprawa 4 problemow WebRTC: widma, utrata obrazu, ekran i PiP
+## Naprawa nieskonczonego buforowania wideo na mobilnych urzadzeniach i PWA
 
-### Problem 1: Widma uczestnikow (ghost participants)
-**Przyczyna**: `reconnectToPeer` uzywa `useCallback` z zaleznoscia `participants`, ale `participants` state jest staly (stale closure). Gdy ICE reconnect nastepuje, `participants.find(p => p.peerId === peerId)` na linii 766 moze nie znalezc uczestnika bo state jest nieaktualny. Rowniez brak periodycznego czyszczenia widm z lokalnej listy -- heartbeat aktualizuje DB ale nie usuwa starych uczestnikow z `participants` state.
+### Zidentyfikowane przyczyny (5 problemow)
 
-**Rozwiazanie**:
-- Zamienic `participants` w `reconnectToPeer` na `participantsRef` (nowy ref synchronizowany z state)
-- Dodac periodyczna synchronizacje co 30s (razem z heartbeat): pobierac aktywnych uczestnikow z DB i usuwac z lokalnej listy tych ktorzy nie sa w DB
+#### 1. `window.blur` agresywnie pauzuje wideo na mobile (KRYTYCZNY)
+**Linia 1293-1297**: Handler `handleWindowBlur` pauzuje wideo i ustawia `isTabHidden = true` za kazdym razem gdy okno traci focus. Na mobile blur moze sie wywolyc gdy:
+- Uzytkownik dotknie customowych kontrolek odtwarzacza
+- Pojawi sie powiadomienie systemowe
+- Uzytkownik przewinie strone
+- Klawiatura ekranowa sie pojawi
 
-### Problem 2: Utrata obrazu/dzwieku drugiej osoby
-**Przyczyna**: Ten sam problem stale closure. Gdy `reconnectToPeer` probuje ponownie polaczyc, `callPeer` uzywa starych danych uczestnika (lub nie znajduje go wcale). Takze po ICE reconnect, nowy stream moze nie byc poprawnie ustawiony w `participants` state bo `handleCall` dodaje nowego uczestnika zamiast aktualizowac istniejacego.
+Problem: **nie ma handlera `window.focus`** ktory by zdejmowel `isTabHidden`. Jedynym sposobem na reset jest `visibilitychange` z `!document.hidden`, ale `blur` czesto wystepuje BEZ zmiany visibility. Efekt: wideo zapauzowane na stale z overlayem "Wroc do karty".
 
-**Rozwiazanie**:
-- Uzyc `participantsRef` w `reconnectToPeer` aby zawsze miec aktualne dane
-- W `handleCall` -> `call.on('stream')`: zawsze aktualizowac stream istniejacego uczestnika (juz jest na linii 701, ale upewnic sie ze nie duplicates)
-- Dodac `stream` track event listeners zeby wykryc gdy remote track sie konczy i zasygnalizowac reconnect
+#### 2. Smart buffering pauzuje wideo na mobile -> przeglądarka przestaje ladowac (KRYTYCZNY)
+**Linia 716-719**: Gdy `isSlowNetworkNow` jest true, wideo jest pauzowane aby "poczekac na bufor". Problem: **mobilne przegladarki (szczegolnie Safari) depriorytetyzuja ladowanie zapauzowanych wideo**. Zdarzenie `progress` przestaje sie emitowac, wiec warunek `bufferedAhead >= minBuffer` nigdy nie jest spelniony. Brak timeoutu oznacza nieskonczone buforowanie.
 
-### Problem 3: Ekran udostepniania nie zamyka sie automatycznie
-**Przyczyna**: Linia 851 `videoTrack.onended = () => { handleToggleScreenShare(); }` -- `handleToggleScreenShare` jest zdefiniowana jako zwykla funkcja (nie `useCallback`), wiec `onended` callback przechowuje stale referencje do `isScreenSharing`, `isMuted`, `localStreamRef` z momentu ustawienia handlera. Gdy uzytkownik klika "Stop sharing" w przegladarce, `onended` wywoluje stara wersje `handleToggleScreenShare` gdzie `isScreenSharing` moze byc `false` zamiast `true`.
+#### 3. Brak timeoutu/recovery dla smart buffering
+Gdy smart buffering sie aktywuje (linia 719), nie ma zadnego maksymalnego czasu oczekiwania. Jedyne sposoby na wyjscie:
+- `canplay` event (moze nie przyjsc dla zapauzowanego wideo)
+- `progress` event z wystarczajacym buforem (moze nie przyjsc)
+- Reczny retry uzytkownika
 
-**Rozwiazanie**:
-- Uzyc ref `isScreenSharingRef` synchronizowany z `isScreenSharing` state
-- W `onended` callback: sprawdzac `isScreenSharingRef.current` zamiast closure state
-- Wydzielic logike powrotu do kamery do osobnej funkcji `restoreCamera()` wywolywanej bezposrednio z `onended`
+Na mobile oba eventy moga przestac przychodzic = nieskonczone buforowanie.
 
-### Problem 4: Brak auto-PiP przy udostepnianiu ekranu na desktop
-**Przyczyna**: PiP uruchamia sie tylko na `visibilitychange` (zmiana karty). Nie ma logiki ktora automatycznie wlacza PiP gdy uzytkownik zaczyna udostepniac ekran na desktop -- co jest naturalne zachowanie (uzytkownik widzi udostepniany ekran, a PiP pokazuje uczestnikow).
+#### 4. iOS Safari nie wspiera `navigator.connection` API
+**Linia 87-101**: `isSlowNetwork()` zawsze zwraca `false` na iOS bo Safari nie implementuje Connection API. `getNetworkQuality()` zwraca `'unknown'`. Oznacza to ze na iOS:
+- Konfiguracja adaptacyjna nigdy nie jest dostosowana do wolnej sieci
+- `minBufferSeconds` zostaje na 3s nawet na bardzo wolnym WiFi/LTE
+- Ale tez smart buffering nigdy nie pauzuje wideo (co ironicznie jest lepsze)
 
-**Rozwiazanie**:
-- Po rozpoczeciu screen share na desktop: automatycznie uruchomic PiP z video elementem pierwszego zdalnego uczestnika
-- Dodac warunek: tylko jesli `isPiPSupported` i jest przynajmniej 1 zdalny uczestnik
-- Przy zakonczeniu screen share: automatycznie zamknac PiP
+Problem polega na tym ze na Androidzie (ktory wspiera Connection API) smart buffering MOZE sie aktywowac i zablokować na stale.
 
----
+#### 5. Token refresh + blur = restart wideo na mobile
+**Linia 318-327**: Deferred token refresh czeka na pause. Na mobile `blur` czesto wywoluje pause, wiec token refresh jest stosowany natychmiast po kazdym blur. Zmiana URL restartuje ladowanie wideo.
 
-### Szczegoly techniczne
+### Plan naprawy
 
-**Plik: `src/components/meeting/VideoRoom.tsx`**
+#### Zmiana 1: Usunac `window.blur` na mobile, dodac `window.focus`
+**Plik: `src/components/SecureMedia.tsx`** (linie 1278-1324)
+- Wykryc mobile (`window.innerWidth < 768` lub `'ontouchstart' in window`)
+- Na mobile: NIE rejestrowac `handleWindowBlur` - zbyt agresywny
+- Na wszystkich urzadzeniach: dodac `handleWindowFocus` ktory ustawia `isTabHidden = false`
+- Zostawic `visibilitychange` i `pagehide` bez zmian (te dzialaja poprawnie)
 
-#### Zmiana A: Dodac `participantsRef` (nowy ref)
-```typescript
-const participantsRef = useRef<RemoteParticipant[]>([]);
-// Sync ref z state:
-useEffect(() => { participantsRef.current = participants; }, [participants]);
-```
+#### Zmiana 2: Nigdy nie pauzowac wideo podczas smart buffering na mobile
+**Plik: `src/components/SecureMedia.tsx`** (linia 716)
+- Na mobile: zamiast `video.pause()`, pozwolic przegladarce na natywne buforowanie
+- Ustawic `isBuffering = true` i pokazac spinner, ale NIE pauzowac wideo
+- Mobilne przegladarki lepiej radza sobie z buforowaniem w tle gdy wideo jest "playing"
 
-#### Zmiana B: Naprawic `reconnectToPeer` -- uzyc ref zamiast state
-Linia 766: zamienic `participants.find(...)` na `participantsRef.current.find(...)` i usunac `participants` z dependencies `useCallback`.
+#### Zmiana 3: Dodac timeout recovery dla smart buffering (max 15s)
+**Plik: `src/components/SecureMedia.tsx`** (w `handleWaiting`, po aktywacji smart buffering)
+- Dodac `setTimeout` po 15s ktory:
+  - Wznawia wideo (`video.play()`)
+  - Czyści flagi buforowania
+  - Loguje ostrzezenie
+- Ref `smartBufferingTimeoutRef` do przechowywania timera
+- Czyszczenie w `handleCanPlay` i w cleanup
 
-#### Zmiana C: Dodac `isScreenSharingRef` i naprawic `onended`
-```typescript
-const isScreenSharingRef = useRef(false);
-useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
-```
-W `handleToggleScreenShare` linia 851: zamienic `onended` na:
-```typescript
-videoTrack.onended = () => {
-  if (isScreenSharingRef.current) {
-    restoreCamera();
-  }
-};
-```
-Wydzielic `restoreCamera()` jako osobna funkcje ktora zawsze pobiera aktualne wartosci z refs.
+#### Zmiana 4: Dodac fallback dla braku Connection API (iOS)
+**Plik: `src/lib/videoBufferConfig.ts`**
+- Gdy `navigator.connection` jest niedostepny: estymowac jakosc sieci na podstawie czasu ladowania pierwszego chunka wideo
+- Dodac flage `connectionApiAvailable` do konfiguracji
+- Na iOS: uzyc bardziej konserwatywnych wartosci domyslnych (`minBufferSeconds: 2` zamiast 3)
 
-#### Zmiana D: Auto-PiP przy screen share
-Po linii 845 (`setIsScreenSharing(true)`): dodac logike auto-PiP:
-```typescript
-// Auto-PiP on desktop when screen sharing starts
-if (isPiPSupported && participants.length > 0) {
-  setTimeout(async () => {
-    const videos = document.querySelectorAll('video');
-    const remoteVideo = Array.from(videos).find(
-      v => v.srcObject && v.videoWidth > 0 && !v.muted
-    );
-    if (remoteVideo && !document.pictureInPictureElement) {
-      try {
-        await remoteVideo.requestPictureInPicture();
-        setIsPiPActive(true);
-      } catch {}
-    }
-  }, 500);
-}
-```
-W `restoreCamera()`: zamknac PiP jesli jest aktywny.
-
-#### Zmiana E: Periodyczne czyszczenie widm z lokalnej listy
-Rozszerzyc istniejacy heartbeat (linia 340-358) o synchronizacje:
-Co 30s rownoczesnie z heartbeat: pobrac aktywnych z DB, porownac z lokalna lista, usunac widma z `participants` state i zamknac ich connections.
+#### Zmiana 5: Zablokowac deferred token refresh po blur na mobile
+**Plik: `src/components/SecureMedia.tsx`** (linia 1002-1010, handlePause)
+- Sprawdzic czy pauza nastapila z powodu blur (`isTabHidden`)
+- Jesli tak: NIE aplikowac deferred token refresh
+- Aplikowac refresh tylko gdy uzytkownik swiadomie zapauzowel (kliknal pause)
 
 ### Pliki do modyfikacji
-- `src/components/meeting/VideoRoom.tsx` -- wszystkie zmiany A-E
+- `src/components/SecureMedia.tsx` -- zmiany 1, 2, 3, 5
+- `src/lib/videoBufferConfig.ts` -- zmiana 4
 
-### Wplyw
-- Widma beda automatycznie usuwane co 30s
-- Reconnect po ICE failure zawsze uzywa aktualnych danych uczestnikow
-- Zakonczenie screen share (przycisk przegladarki) poprawnie wraca do kamery
-- PiP uruchamia sie automatycznie przy udostepnianiu ekranu na desktop
+### Szacowany wplyw
+- Eliminacja falszywych "tab hidden" na mobile (blur nie pauzuje wideo)
+- Smart buffering nie blokuje wideo w nieskonczonosc (max 15s timeout)
+- Mobilne przegladarki moga buforowac w tle (brak pauzy na mobile)
+- Token refresh nie restartuje wideo po kazdym blur
+- iOS dostaje odpowiednie wartosci buforowania mimo braku Connection API
+
