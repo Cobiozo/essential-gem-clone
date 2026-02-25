@@ -46,12 +46,12 @@ export const MedicalChatWidget: React.FC = () => {
   // Timer-driven spin: 2s rotation, then 10s pause (12s cycle)
   useEffect(() => {
     setIsSpinning(true);
-    const spinTimeout = setTimeout(() => setIsSpinning(false), 2000);
+    const spinTimeout = setTimeout(() => setIsSpinning(false), 4000);
 
     const interval = setInterval(() => {
       setIsSpinning(true);
-      setTimeout(() => setIsSpinning(false), 2000);
-    }, 12000);
+      setTimeout(() => setIsSpinning(false), 4000);
+    }, 14000);
 
     return () => {
       clearTimeout(spinTimeout);
