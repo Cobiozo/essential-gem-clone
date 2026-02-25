@@ -1,22 +1,25 @@
 
 
-## Dodanie przycisku anulowania spotkań w "Najbliższe Twoje spotkania"
+## Informacja kontaktowa do anulowania < 2h przed spotkaniem
 
-### Zmiana
+### Problem
+Gdy do spotkania zostalo mniej niz 2 godziny, przycisk "Anuluj spotkanie" jest ukryty, ale uzytkownik nie wie jak anulowac -- brak informacji kontaktowej do prowadzacego.
 
-**Plik: `src/components/events/LeaderMeetingSchedule.tsx`**
+### Rozwiazanie
 
-1. Dodac importy: `Button`, `AlertDialog` (z komponentami), `toast` z sonner
-2. Dodac stan `cancellingId` do sledzenia ktore spotkanie jest anulowane (loading state)
-3. Dodac funkcje `handleCancelMeeting(eventId)`:
-   - Wywoluje edge function `cancel-individual-meeting` z `{ event_id: eventId }`
-   - Po sukcesie: toast sukcesu + odswiezenie listy (`loadMeetings()`)
-   - Przy bledzie: toast z bledem
-4. Przy kazdym spotkaniu dodac przycisk "Anuluj spotkanie" opakowany w `AlertDialog` z potwierdzeniem:
-   - Tytul: "Anulować to spotkanie?"
-   - Opis: informacja ze wszyscy uczestnicy zostana powiadomieni
-   - Przycisk potwierdzajacy wywoluje `handleCancelMeeting`
-   - Przycisk wyswietla loader gdy `cancellingId === meeting.id`
+**Plik: `src/components/events/UpcomingMeetings.tsx`**
 
-Przycisk bedzie umieszczony na dole kazdej karty spotkania, z wariantem `destructive` i ikona `XCircle`, analogicznie do widoku na screenshocie uzytkownika.
+Po sekcji przycisku anulowania (linia 253-275), dodac warunek `else`: gdy `!canCancel(meeting.start_time)` i uzytkownik nie jest hostem (`!isHost`), wyswietlic komunikat informacyjny z:
+- Ikoną Mail
+- Tekstem: "Anulowanie mozliwe tylko przez kontakt z prowadzacym"
+- Imieniem, nazwiskiem i adresem email prowadzacego (z `meeting.otherParty`) jako klikalny link `mailto:`
+
+Dla hosta (prowadzacego) -- nie wyswietlac tego komunikatu, poniewaz prowadzacy moze anulowac z panelu lidera (tam nie ma ograniczenia 2h).
+
+### Szczegoly techniczne
+
+- Import ikony `Mail` z lucide-react (juz zaimportowane inne ikony)
+- Adres email wyswietlony jako `<a href="mailto:...">` z podkresleniem
+- Styl: delikatny alert/info box z ikona koperty
+- Warunek: `!canCancel(meeting.start_time) && !isHost && meeting.otherParty?.email`
 
