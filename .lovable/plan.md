@@ -1,76 +1,53 @@
 
 
-## Kolejność odsłaniania modułów -- podział na języki
+## Sortowanie i filtrowanie modułów w panelu administracyjnym
 
-### Problem
+### Co się zmieni
 
-Obecnie `unlock_order` jest globalny -- jeden numer na moduł niezależnie od języka. Administrator nie widzi podziału na języki i nie może ustawić osobnej kolejności np. "1, 2, 3" dla polskich modułów i "1, 2, 3" dla niemieckich. Logika w `Training.tsx` też nie filtruje sekwencji po języku -- mieszają się moduły z różnych języków w jednym łańcuchu odsłaniania.
+Nad tabelą modułów pojawi się pasek filtrów z dwoma kontrolkami:
 
-### Rozwiązanie
+1. **Filtr języka** -- Select z opcjami: "Wszystkie języki" (domyslnie) + lista języków, w których faktycznie istnieją moduły (dynamicznie obliczana z `modules`). Po wybraniu języka tabela pokazuje tylko moduły w tym języku.
 
-Unlock_order będzie działać **per język**. Ten sam numer (np. 1) może istnieć w module polskim i niemieckim -- to dwie niezależne sekwencje. Blokowanie dotyczy TYLKO modułów w języku `training_language` użytkownika. Moduły z innych języków (przeglądane przez katalog) nie mają blokady.
+2. **Sortowanie** -- Select z opcjami:
+   - "Wg pozycji" (domyślne, jak teraz -- `position`)
+   - "Wg odsłaniania" (sortowanie po `unlock_order`, moduły bez order na końcu)
 
-### Zmiany
+### Zmiany techniczne
 
-#### 1. Baza danych -- BEZ ZMIAN
-Kolumna `unlock_order` już istnieje. Numery są unikalne w ramach danego `language_code` (pilnowane na froncie, bez constraintu DB). Nie trzeba migracji.
+**Plik: `src/components/admin/TrainingManagement.tsx`**
 
-#### 2. Training.tsx -- logika blokowania per język
+1. **Nowe stany:**
+   - `const [languageFilter, setLanguageFilter] = useState<string>('all');`
+   - `const [sortBy, setSortBy] = useState<'position' | 'unlock_order'>('position');`
 
-Zmiana w `modulesWithLockState`:
-- Filtrować moduły z `unlock_order != null` **tylko dla `trainingLanguage`** użytkownika.
-- Budować łańcuch odsłaniania wyłącznie z modułów o `language_code === trainingLanguage`.
-- Moduły z **innego** języka niż `trainingLanguage`: nigdy nie są blokowane (`isLocked = false`), bo są "do wglądu".
+2. **Obliczenie `filteredModules` (useMemo):**
+   ```text
+   const availableLanguages = useMemo(() => {
+     const langs = new Set(modules.map(m => m.language_code || 'pl'));
+     return LANGUAGE_OPTIONS.filter(l => l.code === 'all' || langs.has(l.code));
+   }, [modules]);
 
-```text
-sequentialModules = modules
-  .filter(m => m.unlock_order != null && m.language_code === trainingLanguage)
-  .sort(by unlock_order)
+   const filteredModules = useMemo(() => {
+     let result = modules;
+     if (languageFilter !== 'all') {
+       result = result.filter(m => (m.language_code || 'pl') === languageFilter);
+     }
+     if (sortBy === 'unlock_order') {
+       result = [...result].sort((a, b) => {
+         if (a.unlock_order == null && b.unlock_order == null) return 0;
+         if (a.unlock_order == null) return 1;
+         if (b.unlock_order == null) return -1;
+         return a.unlock_order - b.unlock_order;
+       });
+     }
+     return result;
+   }, [modules, languageFilter, sortBy]);
+   ```
 
-// ... budowanie unlockedIds jak dotychczas ...
+3. **Pasek filtrów** -- wstawiony przed sekcją mobile cards i desktop table (po formularzu modułu, ~linia 1286):
+   - Dwa komponenty `Select` obok siebie w `flex` kontenerze.
+   - Filtr języka: ikona Globe, opcje z flagami.
+   - Sortowanie: opcje "Wg pozycji" / "Wg odsłaniania".
 
-// Wynik:
-// moduł z language_code !== trainingLanguage -> isLocked = false (zawsze dostępny do wglądu)
-// moduł z language_code === trainingLanguage i unlock_order != null i NIE w unlockedIds -> isLocked = true
-// reszta -> isLocked = false
-```
+4. **Zamiana `modules` na `filteredModules`** -- w obu miejscach renderowania (mobile cards linia ~1296, desktop table linia ~1393) zmienić `modules.map(...)` na `filteredModules.map(...)` oraz `modules.length === 0` na `filteredModules.length === 0`.
 
-#### 3. TrainingModule.tsx -- guard per język
-
-W sprawdzeniu blokady przy wejściu do `/training/:moduleId`:
-- Filtrować `allSeqModules` po `language_code` modułu docelowego (już częściowo zrobione).
-- Dodać warunek: jeśli `language_code` modułu !== `training_language` użytkownika, to moduł NIE jest blokowany (jest "do wglądu").
-
-#### 4. TrainingManagement.tsx -- admin widzi podział na języki
-
-**Tabela modułów** -- w kolumnie "Odsłanianie" zamiast statycznego tekstu, dropdown `Select` z:
-- Opcja "---" (null = brak sekwencji, moduł zawsze dostępny).
-- Cyfry 1..N, gdzie N = liczba modułów **w tym samym języku**.
-- Ukryte są numery już zajęte przez **inne moduły w tym samym języku** (nie globalne).
-- Zmiana wartości natychmiastowo zapisuje do DB i odświeża listę.
-
-**Logika `usedUnlockOrders`** -- grupowana per `language_code`:
-```text
-// Dla modułu o language_code = 'pl':
-usedByLanguage = modules
-  .filter(m => m.language_code === module.language_code && m.id !== module.id && m.unlock_order != null)
-  .map(m => m.unlock_order)
-
-availableOptions = [1..N].filter(n => !usedByLanguage.includes(n))
-```
-
-**Funkcja `updateUnlockOrder(moduleId, newValue)`:**
-- `supabase.from('training_modules').update({ unlock_order: newValue }).eq('id', moduleId)`
-- Po sukcesie: `fetchModules()` + toast.
-
-### Szczegoly techniczne
-
-**Pliki do modyfikacji:**
-
-1. **`src/pages/Training.tsx`** (linie ~88-117) -- dodanie filtrowania `language_code === trainingLanguage` w logice `modulesWithLockState`. Moduły spoza `trainingLanguage` dostają `isLocked = false`.
-
-2. **`src/pages/TrainingModule.tsx`** (linie ~229-270) -- dodanie warunku: jeśli moduł jest w innym języku niż `training_language` profilu, pominąć blokadę.
-
-3. **`src/components/admin/TrainingManagement.tsx`** (linie ~1405-1407) -- zamiana statycznego tekstu na komponent `Select` z dynamiczną listą dostępnych numerów per język. Dodanie funkcji `updateUnlockOrder`.
-
-**Bez zmian:** baza danych, typy, migracje.
