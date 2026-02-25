@@ -1,82 +1,76 @@
 
 
-## System sekwencyjnego odsłaniania modułów szkoleniowych
+## Kolejność odsłaniania modułów -- podział na języki
 
-### Opis funkcjonalności
+### Problem
 
-Nowi użytkownicy (lub ci, którzy jeszcze nie rozpoczęli nauki) widzą moduły szkoleniowe odsłaniane jeden po drugim. Administrator ustala kolejność odsłaniania. Pierwszy moduł w kolejce jest od razu dostępny (kolorowy, klikalny). Pozostałe są wyszarzone i nieklikalne. Po ukończeniu aktualnego modułu (100%) i powrocie do Akademii, kolejny moduł staje się dostępny.
+Obecnie `unlock_order` jest globalny -- jeden numer na moduł niezależnie od języka. Administrator nie widzi podziału na języki i nie może ustawić osobnej kolejności np. "1, 2, 3" dla polskich modułów i "1, 2, 3" dla niemieckich. Logika w `Training.tsx` też nie filtruje sekwencji po języku -- mieszają się moduły z różnych języków w jednym łańcuchu odsłaniania.
 
-### Zmiany w bazie danych
+### Rozwiązanie
 
-**Nowa kolumna w tabeli `training_modules`:**
-- `unlock_order` (integer, nullable, default null) -- kolejność odsłaniania ustawiana przez administratora. Moduły z `unlock_order` uczestniczą w systemie sekwencyjnym. Null = moduł nie uczestniczy w sekwencji (zawsze dostępny, zachowanie jak dotychczas).
+Unlock_order będzie działać **per język**. Ten sam numer (np. 1) może istnieć w module polskim i niemieckim -- to dwie niezależne sekwencje. Blokowanie dotyczy TYLKO modułów w języku `training_language` użytkownika. Moduły z innych języków (przeglądane przez katalog) nie mają blokady.
 
-Migracja SQL:
+### Zmiany
+
+#### 1. Baza danych -- BEZ ZMIAN
+Kolumna `unlock_order` już istnieje. Numery są unikalne w ramach danego `language_code` (pilnowane na froncie, bez constraintu DB). Nie trzeba migracji.
+
+#### 2. Training.tsx -- logika blokowania per język
+
+Zmiana w `modulesWithLockState`:
+- Filtrować moduły z `unlock_order != null` **tylko dla `trainingLanguage`** użytkownika.
+- Budować łańcuch odsłaniania wyłącznie z modułów o `language_code === trainingLanguage`.
+- Moduły z **innego** języka niż `trainingLanguage`: nigdy nie są blokowane (`isLocked = false`), bo są "do wglądu".
+
 ```text
-ALTER TABLE training_modules ADD COLUMN unlock_order integer DEFAULT NULL;
+sequentialModules = modules
+  .filter(m => m.unlock_order != null && m.language_code === trainingLanguage)
+  .sort(by unlock_order)
+
+// ... budowanie unlockedIds jak dotychczas ...
+
+// Wynik:
+// moduł z language_code !== trainingLanguage -> isLocked = false (zawsze dostępny do wglądu)
+// moduł z language_code === trainingLanguage i unlock_order != null i NIE w unlockedIds -> isLocked = true
+// reszta -> isLocked = false
 ```
 
-### Logika odsłaniania (frontend -- Training.tsx)
+#### 3. TrainingModule.tsx -- guard per język
 
-1. Po pobraniu modułów z postępem, posortować te z `unlock_order != null` wg `unlock_order`.
-2. Dla każdego modułu z `unlock_order` sprawdzić:
-   - Pierwszy w kolejności (`unlock_order` najniższy) -- ZAWSZE odblokowany.
-   - Kolejny moduł jest odblokowany TYLKO jeśli poprzedni ma `progress === 100` (lub posiada certyfikat).
-   - Moduły bez `unlock_order` (null) -- zachowanie bez zmian, zawsze dostępne.
-3. Dodać flagę `isLocked` do każdego modułu.
+W sprawdzeniu blokady przy wejściu do `/training/:moduleId`:
+- Filtrować `allSeqModules` po `language_code` modułu docelowego (już częściowo zrobione).
+- Dodać warunek: jeśli `language_code` modułu !== `training_language` użytkownika, to moduł NIE jest blokowany (jest "do wglądu").
 
-### Zmiany UI w Training.tsx (strona Akademii)
+#### 4. TrainingManagement.tsx -- admin widzi podział na języki
 
-- Moduły z `isLocked = true`:
-  - Karta ma obniżoną przezroczystość (`opacity-50`) i szary overlay.
-  - Kursor `cursor-not-allowed`, brak `onClick` nawet na przycisku.
-  - Badge "Zablokowany" zamiast "Nierozpoczęty".
-  - Przycisk "Rozpocznij szkolenie" jest wyszarzony (`disabled`).
-  - Mała informacja pod przyciskiem: "Ukończ poprzednie szkolenie, aby odblokować".
-- Moduły z `isLocked = false` -- bez zmian, pełna interakcja.
+**Tabela modułów** -- w kolumnie "Odsłanianie" zamiast statycznego tekstu, dropdown `Select` z:
+- Opcja "---" (null = brak sekwencji, moduł zawsze dostępny).
+- Cyfry 1..N, gdzie N = liczba modułów **w tym samym języku**.
+- Ukryte są numery już zajęte przez **inne moduły w tym samym języku** (nie globalne).
+- Zmiana wartości natychmiastowo zapisuje do DB i odświeża listę.
 
-### Ochrona dostępu do modułu (TrainingModule.tsx)
+**Logika `usedUnlockOrders`** -- grupowana per `language_code`:
+```text
+// Dla modułu o language_code = 'pl':
+usedByLanguage = modules
+  .filter(m => m.language_code === module.language_code && m.id !== module.id && m.unlock_order != null)
+  .map(m => m.unlock_order)
 
-- Przy wejściu do `/training/:moduleId` sprawdzić czy moduł jest zablokowany (pobrać `unlock_order` modułu, sprawdzić czy poprzedni moduł w sekwencji ma 100% postępu).
-- Jeśli zablokowany -- przekierować do `/training` z toastem "Najpierw ukończ poprzednie szkolenie".
+availableOptions = [1..N].filter(n => !usedByLanguage.includes(n))
+```
 
-### Panel administracyjny (TrainingManagement.tsx)
+**Funkcja `updateUnlockOrder(moduleId, newValue)`:**
+- `supabase.from('training_modules').update({ unlock_order: newValue }).eq('id', moduleId)`
+- Po sukcesie: `fetchModules()` + toast.
 
-- W formularzu edycji modułu dodać pole "Kolejność odsłaniania" (number input, opcjonalne).
-  - Puste = moduł zawsze dostępny (jak dotychczas).
-  - Wartość liczbowa = pozycja w sekwencji odsłaniania (1, 2, 3...).
-- W tabeli modułów wyświetlić kolumnę "Odsłanianie" z wartością `unlock_order` lub "---" (brak sekwencji).
-
-### Szczegóły techniczne
+### Szczegoly techniczne
 
 **Pliki do modyfikacji:**
-1. **Migracja SQL** -- dodanie kolumny `unlock_order` do `training_modules`.
-2. **`src/pages/Training.tsx`** -- logika obliczania `isLocked` dla każdego modułu + UI wyszarzenia zablokowanych kart.
-3. **`src/pages/TrainingModule.tsx`** -- guard sprawdzający czy moduł jest odblokowany przed załadowaniem treści.
-4. **`src/components/admin/TrainingManagement.tsx`** -- pole `unlock_order` w formularzu modułu + wyświetlanie w tabeli.
-5. **`src/types/training.ts`** -- dodanie `unlock_order?: number | null` do interfejsu `TrainingModule`.
-6. **`src/components/dashboard/widgets/TrainingProgressWidget.tsx`** -- uwzględnienie `isLocked` (opcjonalnie, aby widget też pokazywał tylko odblokowane moduły).
 
-**Algorytm odsłaniania (pseudokod):**
-```text
-sequentialModules = modules.filter(m => m.unlock_order != null).sort(by unlock_order)
-unlockedIds = new Set()
+1. **`src/pages/Training.tsx`** (linie ~88-117) -- dodanie filtrowania `language_code === trainingLanguage` w logice `modulesWithLockState`. Moduły spoza `trainingLanguage` dostają `isLocked = false`.
 
-for each module in sequentialModules:
-  if this is the first module:
-    unlockedIds.add(module.id)
-  else if previous module has progress === 100:
-    unlockedIds.add(module.id)
-  else:
-    break  // kolejne moduły też zablokowane
+2. **`src/pages/TrainingModule.tsx`** (linie ~229-270) -- dodanie warunku: jeśli moduł jest w innym języku niż `training_language` profilu, pominąć blokadę.
 
-// Moduły bez unlock_order: zawsze odblokowane
-// Moduły z unlock_order ale w unlockedIds: odblokowane
-// Moduły z unlock_order ale NIE w unlockedIds: zablokowane (isLocked = true)
-```
+3. **`src/components/admin/TrainingManagement.tsx`** (linie ~1405-1407) -- zamiana statycznego tekstu na komponent `Select` z dynamiczną listą dostępnych numerów per język. Dodanie funkcji `updateUnlockOrder`.
 
-**Kompatybilność wsteczna:**
-- Domyślnie `unlock_order = null` -- wszystkie istniejące moduły zachowują dotychczasowe zachowanie (zawsze dostępne).
-- Administrator włącza sekwencyjne odsłanianie ustawiając `unlock_order` na wybranych modułach.
-- System działa per język (filtrowanie modułów po `language_code` przed obliczeniem sekwencji).
-
+**Bez zmian:** baza danych, typy, migracje.
