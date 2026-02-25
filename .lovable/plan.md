@@ -1,62 +1,74 @@
 
-## Poprawki i ulepszenia panelu administracyjnego szkolen
+## Sortowanie grafik w Bibliotece + poprawka znacznika "Nowa"
 
-### 1. Naprawa kolumny "Lekcje" (wartosci "0")
+### 1. Znacznik "Nowa" -- tylko dla grafik dodanych w ostatnich 7 dniach
 
-**Problem:** Stan `lessons` przechowuje tylko lekcje dla aktualnie wybranego modulu (z zakladki "Lekcje"). Na zakladce "Moduly" filtrowanie `lessons.filter(l => l.module_id === module.id)` daje 0 dla kazdego modulu, bo lessons dotyczy innego kontekstu.
+Obecnie `is_new` jest ustawiane recznie w bazie. Zamiast polegac na tym polu, logika wyswietlania znacznika "Nowa" w `GraphicsCard` i w siatce grafik bedzie oparta na dacie: `created_at` musi byc nie starsze niz 7 dni od teraz.
 
-**Rozwiazanie:** Dodac osobny stan `allLessonCounts` -- mape `module_id -> liczba lekcji` -- pobierana jednorazowo razem z modulami. Osobne zapytanie:
-```text
-SELECT module_id, count(*) FROM training_lessons GROUP BY module_id
-```
-Lub pobranie wszystkich lekcji (tylko id i module_id) i zliczenie na froncie. Uzyc tego w kolumnie "Lekcje" zamiast filtrowania po `lessons`.
+**Zmiana w `src/components/share/GraphicsCard.tsx`:**
+- Zamiast `resource.is_new` uzyc warunku: `new Date(resource.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)`
 
-### 2. Szybkie przelaczanie statusu (aktywny/nieaktywny) w tabeli
+**Zmiana w `src/types/knowledge.ts`:**
+- Brak zmian w typie -- pole `is_new` pozostaje, ale nie bedzie uzywane do wyswietlania znacznika w grafice.
 
-Zamiana statycznego tekstu statusu na klikalny przycisk/switch. Po kliknieciu natychmiastowy UPDATE `is_active` w bazie i odswiezenie listy.
+### 2. Sortowanie grafik
 
-**Implementacja:** W kolumnie "Status" (linie 1498-1511) zamiast tekstu, uzyc komponentu `Switch` lub klikalnego `Badge` z `onClick`. Wywolanie:
-```text
-supabase.from('training_modules').update({ is_active: !module.is_active }).eq('id', module.id)
-```
+Dodac nowy stan `graphicsSortBy` w `src/pages/KnowledgeCenter.tsx` z opcjami:
+- **"newest"** (domyslnie) -- najnowsze u gory (`created_at` malejaco)
+- **"oldest"** -- najstarsze u gory (`created_at` rosnaco)
+- **"alphabetical"** -- alfabetycznie A-Z po tytule
+- **"most_downloaded"** -- po `download_count` malejaco
 
-### 3. Szybkie wybieranie widocznosci w tabeli
+Dodac `Select` obok istniejacego filtru kategorii w pasku filtrow grafik.
 
-Zamiana tekstu "partnerzy, specjalisci" na multi-select dropdown lub zestaw checkboxow w popoverze. Po zmianie -- natychmiastowy zapis do bazy.
+### 3. Domyslne sortowanie -- najnowsze u gory
 
-**Implementacja:** W kolumnie "Widoczny dla" (linie 1512-1514) dodac `DropdownMenu` z checkboxami dla kazdej roli (wszyscy, klienci, partnerzy, specjalisci, anonimowi). Kazdy checkbox wywoluje UPDATE odpowiedniego pola `visible_to_*`.
-
-### 4. Sortowanie i filtrowanie w zakladce "Postepy uzytkownikow"
-
-Dodac pasek filtrów/sortowania nad lista uzytkownikow (przed searchbarem lub obok). Nowy stan `progressSortBy` z opcjami:
-
-- **Wg procentu ukonczenia** (domyslnie) -- sortowanie malejaco po `overallProgress`
-- **Wg nazwy** (alfabetycznie A-Z)
-- **Wg jezyka szkolenia** -- grupowanie po `training_language`
-- **Wg daty dolaczenia** -- sortowanie po najwczesniejszym `assigned_at` z modulow uzytkownika
-- **Wg ostatniej aktywnosci** -- wymaga dodatkowego pola; mozna uzyc `assigned_at` jako przyblizonego wskaznika lub pobrania `max(updated_at)` z training_progress
-
-Dodac rowniez filtr jezyka (Select: Wszystkie / PL / EN / DE / ...) analogiczny do zakladki Moduly.
-
-**Implementacja:** 
-- Nowe stany: `progressSortBy`, `progressLanguageFilter`
-- `useMemo` generujacy `sortedFilteredUserProgress` z `filteredUserProgress`
-- Pasek filtrów UI: dwa Select obok searchbara
+Zmiana w `filteredGraphics` -- po filtrowaniu dodac sortowanie. Domyslnie `created_at DESC` (najnowsze na gorze).
 
 ### Zmiany techniczne
 
-**Plik: `src/components/admin/TrainingManagement.tsx`**
+**Plik: `src/pages/KnowledgeCenter.tsx`**
 
-1. **Nowy stan `allLessonCounts`** (Map/Record) -- pobierany w `fetchModules` lub osobnym useEffect. Zapytanie: `supabase.from('training_lessons').select('module_id')` i zliczenie.
+1. Nowy stan: `const [graphicsSortBy, setGraphicsSortBy] = useState<string>('newest');`
 
-2. **Zamiana `lessonCount`** w renderowaniu tabeli modulow -- uzyc `allLessonCounts[module.id] || 0` zamiast `lessons.filter(...)`.
+2. Zmiana `filteredGraphics` -- po `.filter(...)` dodac `.sort(...)`:
+```text
+const filteredGraphics = graphicsResources
+  .filter(r => { ...existing logic... })
+  .sort((a, b) => {
+    switch (graphicsSortBy) {
+      case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'alphabetical': return a.title.localeCompare(b.title);
+      case 'most_downloaded': return (b.download_count || 0) - (a.download_count || 0);
+      default: return 0;
+    }
+  });
+```
 
-3. **Funkcja `updateModuleField(moduleId, field, value)`** -- generyczna do aktualizacji pojedynczego pola modulu. Uzyc jej zarowno dla statusu jak i widocznosci.
+3. Nowy `Select` w UI -- dodany obok filtru kategorii (linia ~625-635):
+```text
+<Select value={graphicsSortBy} onValueChange={setGraphicsSortBy}>
+  <SelectTrigger className="w-full sm:w-[200px]">
+    <SelectValue placeholder="Sortowanie" />
+  </SelectTrigger>
+  <SelectContent>
+    <SelectItem value="newest">Najnowsze</SelectItem>
+    <SelectItem value="oldest">Najstarsze</SelectItem>
+    <SelectItem value="alphabetical">Alfabetycznie</SelectItem>
+    <SelectItem value="most_downloaded">Najpopularniejsze</SelectItem>
+  </SelectContent>
+</Select>
+```
 
-4. **Kolumna "Status"** -- zamiana na klikalny element (Switch lub Badge z kursorem pointer).
+4. Przycisk "Wyczysc filtry" -- dodac resetowanie sortowania: `setGraphicsSortBy('newest')`.
 
-5. **Kolumna "Widoczny dla"** -- zamiana na DropdownMenu z checkboxami ról.
+**Plik: `src/components/share/GraphicsCard.tsx`**
 
-6. **Pasek filtrów "Postepy"** -- dwa Select nad lista uzytkownikow + logika sortowania w useMemo.
+1. Zamiana warunku `resource.is_new` na:
+```text
+const isNew = new Date(resource.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+```
+Uzyc `isNew` zamiast `resource.is_new` przy renderowaniu Badge "Nowa".
 
-7. **Identyczne zmiany w widoku mobilnym** (Card layout) dla statusu i widocznosci.
+**Plik: `src/types/knowledge.ts`** -- bez zmian.
