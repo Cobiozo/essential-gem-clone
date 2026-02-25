@@ -501,7 +501,7 @@ serve(async (req) => {
                   : reminderType === '1h' 
                     ? "Spotkanie za godzinę" 
                     : "Spotkanie za 15 minut",
-                body: `${meeting.title || 'Spotkanie indywidualne'} — ${timeStr}`,
+                body: `${meeting.title || 'Spotkanie indywidualne'} — ${timeStr} (Warsaw)`,
                 url: `/events/individual-meetings?event=${meeting.id}`,
                 tag: `meeting-${reminderType}-${meeting.id}`
               }
@@ -519,7 +519,7 @@ serve(async (req) => {
               notification_type: 'meeting_reminder',
               source_module: 'meetings',
               title: `Przypomnienie: ${meeting.title || 'Spotkanie'}`,
-              message: `Spotkanie z ${otherPartyName} — ${dateStr} o ${timeStr} (${reminderLabel})`,
+              message: `Spotkanie z ${otherPartyName} — ${dateStr} o ${timeStr} (Warsaw) (${reminderLabel})`,
               link: `/events/individual-meetings?event=${meeting.id}`,
               metadata: { event_id: meeting.id, reminder_type: reminderType },
             });

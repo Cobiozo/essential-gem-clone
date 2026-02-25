@@ -1,6 +1,4 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { format } from 'https://esm.sh/date-fns@3.6.0';
-import { pl } from 'https://esm.sh/date-fns@3.6.0/locale';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -192,8 +190,13 @@ Deno.serve(async (req) => {
 
     // 6. Prepare email payload with participant data
     const eventStart = new Date(event.start_time);
-    const dateStr = format(eventStart, 'dd.MM.yyyy', { locale: pl });
-    const timeStr = format(eventStart, 'HH:mm');
+    const dateStr = eventStart.toLocaleDateString('pl-PL', {
+      day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Warsaw'
+    });
+    const timeStr = eventStart.toLocaleTimeString('pl-PL', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw'
+    });
+    const timeWithTz = `${timeStr} (Warsaw)`;
     const emailPayload = {
       temat: event.title,
       data_spotkania: dateStr,
@@ -222,7 +225,7 @@ Deno.serve(async (req) => {
           notification_type: 'meeting_cancelled',
           source_module: 'meetings',
           title: 'Spotkanie anulowane',
-          message: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} spotkanie ${event.title || ''} (${dateStr} ${timeStr})`,
+          message: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} spotkanie ${event.title || ''} (${dateStr} ${timeWithTz})`,
           link: `/events/individual-meetings?event=${event.id}`,
           metadata: { event_id: event.id, cancelled_by: user.id },
         });
@@ -236,7 +239,7 @@ Deno.serve(async (req) => {
           body: {
             userId: participantId,
             title: 'Spotkanie anulowane',
-            body: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} ${event.title || 'spotkanie'} — ${dateStr} ${timeStr}`,
+            body: `${isSelf ? 'Ty anulowałeś/aś' : cancelerName + ' anulował(a)'} ${event.title || 'spotkanie'} — ${dateStr} ${timeWithTz}`,
             url: `/events/individual-meetings?event=${event.id}`,
             tag: `meeting-cancelled-${event.id}`,
           },

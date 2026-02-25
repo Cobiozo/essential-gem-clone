@@ -377,12 +377,14 @@ serve(async (req) => {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
-                day: 'numeric'
+                day: 'numeric',
+                timeZone: 'Europe/Warsaw'
               });
               const formattedTime = eventDate.toLocaleTimeString('pl-PL', {
                 hour: '2-digit',
-                minute: '2-digit'
-              });
+                minute: '2-digit',
+                timeZone: 'Europe/Warsaw'
+              }) + ' (Warsaw)';
 
               // Send reminder email using send-webinar-email with template
               const { error: sendError } = await supabase.functions.invoke("send-webinar-email", {
@@ -518,12 +520,14 @@ serve(async (req) => {
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
-                day: 'numeric'
+                day: 'numeric',
+                timeZone: 'Europe/Warsaw'
               });
               const formattedTime = eventDate.toLocaleTimeString('pl-PL', {
                 hour: '2-digit',
-                minute: '2-digit'
-              });
+                minute: '2-digit',
+                timeZone: 'Europe/Warsaw'
+              }) + ' (Warsaw)';
 
               // Send 1h reminder email using send-webinar-email with template
               const { error: sendError } = await supabase.functions.invoke("send-webinar-email", {
