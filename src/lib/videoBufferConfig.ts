@@ -13,7 +13,9 @@ export interface BufferConfig {
   bufferingStateDelayMs: number;
   seekToleranceSeconds: number;
   smartBufferingDelayMs: number; // Delay before activating smart buffering
-  spinnerDebounceMs: number; // NEW: Delay before showing spinner (without pausing video)
+  spinnerDebounceMs: number; // Delay before showing spinner (without pausing video)
+  stalledDebounceMs: number; // Delay before treating stalled event as real buffering
+  canplayGuardMs: number; // Guard period after canplay before allowing new waiting to trigger buffering
 }
 
 export const VIDEO_BUFFER_CONFIG = {
@@ -41,7 +43,9 @@ export const VIDEO_BUFFER_CONFIG = {
     bufferingStateDelayMs: 800,       // Zmniejszone z 1200 na 800ms - szybsze wznowienie po buforowaniu
     seekToleranceSeconds: 5,          // Max allowed time jump before blocking
     smartBufferingDelayMs: 3500,      // Zwiększone z 2000 na 3500ms - większa tolerancja dla mikro-zacinań
-    spinnerDebounceMs: 1500,          // NEW: Opóźnienie przed pokazaniem spinnera (nie pauzuje wideo)
+    spinnerDebounceMs: 1500,          // Opóźnienie przed pokazaniem spinnera (nie pauzuje wideo)
+    stalledDebounceMs: 2000,          // Debounce dla stalled event - zapobiega fałszywemu buforowaniu
+    canplayGuardMs: 500,              // Guard po canplay zanim kolejny waiting może ustawić buforowanie
   }
 } as const;
 

@@ -93,6 +93,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // NEW: Debounced spinner state - spinner appears only after delay without pausing video
   const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
   const spinnerTimeoutRef = useRef<NodeJS.Timeout>();
+  const stalledTimeoutRef = useRef<NodeJS.Timeout>(); // Debounce for stalled event
+  const canplayGuardRef = useRef<boolean>(false); // Guard after canplay to ignore immediate waiting
+  const pendingTokenRefreshRef = useRef<string | null>(null); // Deferred token refresh URL
   
   // NEW: Hide video until loadeddata fires to prevent showing wrong frame
   const [videoReady, setVideoReady] = useState(false);
@@ -299,23 +302,30 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           setSignedUrl(realUrl);
           setLoading(false);
           
-          // Schedule token refresh 3.5 minutes from now (token TTL is 5 min)
+          // CHANGE 5: Schedule token refresh - defer URL swap if video is playing
           if (tokenRefreshTimerRef.current) clearTimeout(tokenRefreshTimerRef.current);
           tokenRefreshTimerRef.current = setTimeout(async () => {
             if (!mounted) return;
             try {
               console.log('[SecureMedia] Refreshing media token before expiry');
-              const currentVideoTime = videoRef.current?.currentTime || 0;
               const newToken = await generateMediaToken(mediaUrl);
               if (!mounted) return;
               mediaTokenRef.current = newToken;
               const newRealUrl = await resolveStreamUrl(newToken);
               if (!mounted) return;
               
-              // Save position, swap URL, restore position
-              lastValidTimeRef.current = currentVideoTime;
-              initialPositionSetRef.current = false;
-              setSignedUrl(newRealUrl);
+              const video = videoRef.current;
+              // CHANGE 5: If video is paused or not available, swap URL immediately
+              if (!video || video.paused) {
+                const currentVideoTime = video?.currentTime || 0;
+                lastValidTimeRef.current = currentVideoTime;
+                initialPositionSetRef.current = false;
+                setSignedUrl(newRealUrl);
+              } else {
+                // CHANGE 5: Video is playing - store new URL and apply on next pause
+                console.log('[SecureMedia] Video is playing - deferring URL swap to next pause');
+                pendingTokenRefreshRef.current = newRealUrl;
+              }
             } catch (err) {
               console.error('[SecureMedia] Token refresh failed:', err);
             }
@@ -645,6 +655,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Buffering handlers - prevent false seek detection during network delays
     // OPTIMIZED: Smarter buffering logic - only pause on slow networks, debounced spinner
     const handleWaiting = () => {
+      // CHANGE 6: Ignore waiting if video has sufficient data (readyState >= 3 = HAVE_FUTURE_DATA)
+      if (video.readyState >= 3) {
+        console.log('[SecureMedia] Ignoring waiting event - readyState:', video.readyState, '(has future data)');
+        return;
+      }
+      
+      // CHANGE 6: Ignore waiting during canplay guard period
+      if (canplayGuardRef.current) {
+        console.log('[SecureMedia] Ignoring waiting event - within canplay guard period');
+        return;
+      }
+      
       const bufferedAheadValue = getBufferedAhead(video);
       const networkQualityNow = getNetworkQuality();
       const isSlowNetworkNow = isSlowNetwork() || networkQualityNow === '3g';
@@ -667,14 +689,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         clearTimeout(spinnerTimeoutRef.current);
       }
       
-      // Delay smart buffering activation - increased tolerance for micro-stalls
       const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 3500;
       const spinnerDebounce = bufferConfigRef.current.spinnerDebounceMs || 1500;
-      const minRequired = bufferConfigRef.current.minBufferSeconds * 0.5; // Half of min buffer
+      const minRequired = bufferConfigRef.current.minBufferSeconds * 0.5;
       
-      // START: Debounced spinner - shows after 1.5s without pausing video
+      // Debounced spinner - shows after delay without pausing video
       spinnerTimeoutRef.current = setTimeout(() => {
-        // Only show spinner if video is still waiting and has insufficient data
         if (!video.paused && video.readyState < 3) {
           console.log('[SecureMedia] Showing buffering spinner (debounced)');
           setShowBufferingSpinner(true);
@@ -683,14 +703,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       // Smart buffering - only for SLOW networks, pause video and wait for buffer
       bufferingTimeoutRef.current = setTimeout(() => {
-        // Check if video already recovered or has sufficient buffer
         const currentBufferedAhead = getBufferedAhead(video);
         if (video.paused || video.readyState >= 3 || currentBufferedAhead >= minRequired) {
-          console.log('[SecureMedia] Video recovered before smart buffering activation', {
-            paused: video.paused,
-            readyState: video.readyState,
-            bufferedAhead: currentBufferedAhead.toFixed(2)
-          });
+          console.log('[SecureMedia] Video recovered before smart buffering activation');
           return;
         }
         
@@ -698,45 +713,72 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         isBufferingRef.current = true;
         setIsBuffering(true);
         
-        // CONDITIONAL PAUSE: Only pause on slow networks - let fast connections recover naturally
         if (isSlowNetworkNow && !video.paused) {
           wasPlayingBeforeBufferRef.current = true;
           video.pause();
           setIsSmartBuffering(true);
-          console.log('[SecureMedia] Smart buffering activated (slow network) - pausing until sufficient buffer');
+          console.log('[SecureMedia] Smart buffering activated (slow network)');
         } else {
-          // For good networks - just show spinner, don't pause
-          console.log('[SecureMedia] Good network detected - not pausing, waiting for browser to catch up');
+          console.log('[SecureMedia] Good network - not pausing, waiting for browser to catch up');
         }
       }, smartBufferingDelay);
     };
 
+    // CHANGE 2: Debounced stalled handler - prevents false buffering from browser stalled events
     const handleStalled = () => {
-      console.log('[SecureMedia] Video stalled');
-      isBufferingRef.current = true;
-      setIsBuffering(true);
+      console.log('[SecureMedia] Video stalled event received');
+      
+      // Clear previous stalled timeout
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+      }
+      
+      const stalledDebounce = bufferConfigRef.current.stalledDebounceMs || 2000;
+      
+      stalledTimeoutRef.current = setTimeout(() => {
+        // Only set buffering if video is still actually stalled
+        if (video.readyState < 3 && !video.paused) {
+          console.log('[SecureMedia] Stalled confirmed after debounce - setting buffering');
+          isBufferingRef.current = true;
+          setIsBuffering(true);
+        } else {
+          console.log('[SecureMedia] Stalled resolved during debounce period');
+        }
+      }, stalledDebounce);
     };
 
+    // CHANGE 1: Fixed canplay handler - immediate resume, delayed UI cleanup
     const handleCanPlay = () => {
       console.log('[SecureMedia] Video can play');
-      // Mark video as ready to display (prevents showing wrong frame)
+      // CHANGE 4: Mark video as ready to display
       setVideoReady(true);
       
-      // NEW: Clear any pending timeouts - video recovered
+      // Clear ALL pending timeouts - video recovered
       if (bufferingTimeoutRef.current) {
         clearTimeout(bufferingTimeoutRef.current);
         bufferingTimeoutRef.current = undefined;
       }
-      // NEW: Immediately hide spinner
       if (spinnerTimeoutRef.current) {
         clearTimeout(spinnerTimeoutRef.current);
         spinnerTimeoutRef.current = undefined;
       }
+      // CHANGE 2: Clear stalled debounce timeout
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+        stalledTimeoutRef.current = undefined;
+      }
       setShowBufferingSpinner(false);
       
-      // NEW: Immediately resume if smart buffering was active (faster recovery)
+      // CHANGE 6: Set canplay guard to prevent immediate waiting from re-triggering buffering
+      canplayGuardRef.current = true;
+      const guardMs = bufferConfigRef.current.canplayGuardMs || 500;
+      setTimeout(() => {
+        canplayGuardRef.current = false;
+      }, guardMs);
+      
+      // CHANGE 1: IMMEDIATE resume if smart buffering was active (no 800ms delay)
       if (isSmartBufferingRef.current && wasPlayingBeforeBufferRef.current) {
-        console.log('[SecureMedia] Smart buffering recovery - resuming immediately');
+        console.log('[SecureMedia] Smart buffering recovery - resuming IMMEDIATELY');
         setIsSmartBuffering(false);
         setIsBuffering(false);
         isBufferingRef.current = false;
@@ -748,48 +790,44 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         return;
       }
       
-      // Delay before disabling buffering flag to prevent false seek detection
-      setTimeout(() => {
-        if (isBufferingRef.current) {
-          // CRITICAL: Sync lastValidTimeRef after buffering to prevent false seek detection
-          lastValidTimeRef.current = video.currentTime;
-          console.log('[SecureMedia] Synced lastValidTimeRef after buffering:', video.currentTime);
+      // CHANGE 1: Immediate resume for regular buffering too, delay only for UI flag cleanup
+      if (isBufferingRef.current) {
+        // Sync position immediately
+        lastValidTimeRef.current = video.currentTime;
+        
+        // Resume playback immediately if was playing
+        if (wasPlayingBeforeBufferRef.current && !document.hidden) {
+          video.play().catch(console.error);
+          wasPlayingBeforeBufferRef.current = false;
+        }
+        
+        // Update buffer stats
+        if (video.buffered.length > 0 && video.duration > 0) {
+          const bufferedAheadValue = getBufferedAhead(video);
+          const remainingDuration = video.duration - video.currentTime;
+          const minBuffer = bufferConfigRef.current.minBufferSeconds;
+          const targetBuffer = Math.min(minBuffer, remainingDuration);
           
-          // Check if buffer is sufficient for immediate playback
-          if (video.buffered.length > 0 && video.duration > 0) {
-            // Use utility that correctly finds range containing current position
-            const bufferedAheadValue = getBufferedAhead(video);
-            const remainingDuration = video.duration - video.currentTime;
-            const minBuffer = bufferConfigRef.current.minBufferSeconds;
-            const targetBuffer = Math.min(minBuffer, remainingDuration);
-            
-            // Calculate and set buffer progress (ensure 0-100 range)
-            const progress = targetBuffer > 0 
-              ? Math.max(0, Math.min(100, (bufferedAheadValue / targetBuffer) * 100)) 
-              : 100;
-            setBufferProgress(progress);
-            
-            // Update buffered ranges for visualization
-            setBufferedRanges(getBufferedRanges(video));
-            
-            // Disable initial buffering when buffer is ready
-            if (isInitialBufferingRef.current) {
-              console.log('[SecureMedia] Initial buffer complete via canPlay (browser ready)');
-              setIsInitialBuffering(false);
-            }
-            
-            if (bufferedAheadValue >= targetBuffer || bufferedAheadValue >= remainingDuration) {
-              setIsSmartBuffering(false);
-            if (wasPlayingBeforeBufferRef.current && !document.hidden) {
-                video.play().catch(console.error);
-                wasPlayingBeforeBufferRef.current = false;
-              }
-            }
+          const progress = targetBuffer > 0 
+            ? Math.max(0, Math.min(100, (bufferedAheadValue / targetBuffer) * 100)) 
+            : 100;
+          setBufferProgress(progress);
+          setBufferedRanges(getBufferedRanges(video));
+          
+          if (isInitialBufferingRef.current) {
+            console.log('[SecureMedia] Initial buffer complete via canPlay');
+            setIsInitialBuffering(false);
+          }
+          
+          if (bufferedAheadValue >= targetBuffer || bufferedAheadValue >= remainingDuration) {
+            setIsSmartBuffering(false);
           }
         }
-        isBufferingRef.current = false;
-        setIsBuffering(false);
-      }, bufferConfigRef.current.bufferingStateDelayMs); // Use config delay (800ms)
+      }
+      
+      // Clear buffering flags immediately (no 800ms delay that caused the loop)
+      isBufferingRef.current = false;
+      setIsBuffering(false);
     };
     
     // NEW: Progress handler for buffer calculation
@@ -843,7 +881,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
     };
 
-    // Handle video errors with auto-retry and exponential backoff
+    // CHANGE 3: Handle video errors - only use video.load() for actual errors
     const handleError = (e: Event) => {
       const errorType = getVideoErrorType(video);
       console.error('[SecureMedia] Video error:', errorType, e);
@@ -857,14 +895,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setTimeout(() => {
           if (video) {
             const currentPos = lastValidTimeRef.current;
-            video.load();
+            // Only use video.load() for actual network/source errors (destroys buffer)
+            if (errorType === VIDEO_ERROR_TYPES.NETWORK || errorType === VIDEO_ERROR_TYPES.SRC_NOT_SUPPORTED) {
+              video.load();
+            }
             video.currentTime = currentPos;
+            video.play().catch(console.error);
             setRetryCount(prev => prev + 1);
           }
         }, delay);
       } else {
         console.error('[SecureMedia] Max retries reached, error type:', errorType);
-        // Ustaw flagę wyczerpanych prób - pokaże komunikat użytkownikowi
         setHasExhaustedRetries(true);
       }
     };
@@ -948,16 +989,31 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setIsPlaying(false);
       onPlayStateChangeRef.current?.(false);
       
-      // NEW: Reset play timer and force-hide flag on pause
       playStartTimeRef.current = null;
       setForceHideBuffering(false);
       
-      // CRITICAL: Save current position on pause for accurate progress tracking
+      // CRITICAL: Save current position on pause
       if (video) {
         const currentPos = video.currentTime;
         lastValidTimeRef.current = currentPos;
         onTimeUpdateRef.current?.(currentPos);
       }
+      
+      // CHANGE 5: Apply deferred token refresh URL on pause
+      if (pendingTokenRefreshRef.current) {
+        console.log('[SecureMedia] Applying deferred token refresh on pause');
+        const newUrl = pendingTokenRefreshRef.current;
+        pendingTokenRefreshRef.current = null;
+        lastValidTimeRef.current = video.currentTime;
+        initialPositionSetRef.current = false;
+        setSignedUrl(newUrl);
+      }
+    };
+    
+    // CHANGE 4: loadeddata handler to ensure videoReady is set even if canplay is delayed
+    const handleLoadedData = () => {
+      console.log('[SecureMedia] Video loadeddata fired');
+      setVideoReady(true);
     };
 
     // Block playback rate changes
@@ -977,7 +1033,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('pause', handlePause);
     video.addEventListener('ratechange', handleRateChange);
     video.addEventListener('error', handleError);
-    video.addEventListener('progress', handleProgress); // NEW: Buffer progress tracking
+    video.addEventListener('progress', handleProgress);
+    video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
     
     return () => {
       console.log('[SecureMedia] Removing event listeners from video element');
@@ -992,6 +1049,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('ratechange', handleRateChange);
       video.removeEventListener('error', handleError);
       video.removeEventListener('progress', handleProgress);
+      video.removeEventListener('loadeddata', handleLoadedData);
       
       // CRITICAL: Clear pending timeouts to prevent memory leaks
       if (bufferingTimeoutRef.current) {
@@ -1001,6 +1059,10 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       if (spinnerTimeoutRef.current) {
         clearTimeout(spinnerTimeoutRef.current);
         spinnerTimeoutRef.current = undefined;
+      }
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+        stalledTimeoutRef.current = undefined;
       }
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]);
@@ -1018,13 +1080,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     let mounted = true; // Prevent state updates after unmount
     const video = videoElement;
 
-    // NEW: Buffering handlers for unrestricted/secure modes
+    // Buffering handlers for unrestricted/secure modes - with same fixes as restricted
     const handleWaiting = () => {
       if (!mounted) return;
+      // CHANGE 6: Ignore waiting if sufficient data or within canplay guard
+      if (video.readyState >= 3 || canplayGuardRef.current) {
+        console.log('[SecureMedia] Unrestricted mode - ignoring waiting (readyState:', video.readyState, ')');
+        return;
+      }
       console.log('[SecureMedia] Unrestricted mode - video waiting');
       setIsBuffering(true);
       
-      // Debounced spinner display - shows after 1.5s without pausing video
       if (spinnerTimeoutRef.current) clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = setTimeout(() => {
         if (!video.paused && video.readyState < 3) {
@@ -1033,10 +1099,16 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }, 1500);
     };
 
+    // CHANGE 2: Debounced stalled for unrestricted mode
     const handleStalled = () => {
       if (!mounted) return;
       console.log('[SecureMedia] Unrestricted mode - video stalled');
-      setIsBuffering(true);
+      if (stalledTimeoutRef.current) clearTimeout(stalledTimeoutRef.current);
+      stalledTimeoutRef.current = setTimeout(() => {
+        if (video.readyState < 3 && !video.paused) {
+          setIsBuffering(true);
+        }
+      }, 2000);
     };
 
     const handleCanPlay = () => {
@@ -1049,8 +1121,16 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         clearTimeout(spinnerTimeoutRef.current);
         spinnerTimeoutRef.current = undefined;
       }
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+        stalledTimeoutRef.current = undefined;
+      }
+      // CHANGE 6: canplay guard
+      canplayGuardRef.current = true;
+      setTimeout(() => { canplayGuardRef.current = false; }, 500);
     };
 
+    // CHANGE 3: Same fix - only use video.load() for network/source errors
     const handleError = (e: Event) => {
       if (!mounted) return;
       const errorType = getVideoErrorType(video);
@@ -1064,8 +1144,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setTimeout(() => {
           if (video && mounted) {
             const currentPos = video.currentTime;
-            video.load();
+            if (errorType === VIDEO_ERROR_TYPES.NETWORK || errorType === VIDEO_ERROR_TYPES.SRC_NOT_SUPPORTED) {
+              video.load();
+            }
             video.currentTime = currentPos;
+            video.play().catch(console.error);
             setRetryCount(prev => prev + 1);
           }
         }, delay);
@@ -1105,10 +1188,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setIsPlaying(false);
       onPlayStateChangeRef.current?.(false);
       
-      // Ensure accurate position is saved on pause (consistent with restricted mode)
       if (video) {
         onTimeUpdateRef.current?.(video.currentTime);
       }
+      
+      // CHANGE 5: Apply deferred token refresh on pause
+      if (pendingTokenRefreshRef.current) {
+        console.log('[SecureMedia] Unrestricted: Applying deferred token refresh on pause');
+        const newUrl = pendingTokenRefreshRef.current;
+        pendingTokenRefreshRef.current = null;
+        lastValidTimeRef.current = video.currentTime;
+        initialPositionSetRef.current = false;
+        setSignedUrl(newUrl);
+      }
+    };
+
+    // CHANGE 4: loadeddata handler for unrestricted mode
+    const handleLoadedData = () => {
+      if (!mounted) return;
+      console.log('[SecureMedia] Unrestricted: loadeddata fired');
+      setVideoReady(true);
     };
 
     const handleLoadedMetadata = () => {
@@ -1147,6 +1246,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     
     return () => {
@@ -1160,12 +1260,17 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       
-      // Clear pending spinner timeout
+      // Clear pending timeouts
       if (spinnerTimeoutRef.current) {
         clearTimeout(spinnerTimeoutRef.current);
         spinnerTimeoutRef.current = undefined;
+      }
+      if (stalledTimeoutRef.current) {
+        clearTimeout(stalledTimeoutRef.current);
+        stalledTimeoutRef.current = undefined;
       }
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, controlMode]);
@@ -1228,7 +1333,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     }
   }, []);
 
-  // NEW: Manual retry function for stuck playback
+  // CHANGE 3: Manual retry - try without video.load() first, preserve buffer
   const handleRetry = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -1242,11 +1347,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     isBufferingRef.current = false;
     wasPlayingBeforeBufferRef.current = false;
     setBufferProgress(0);
+    setShowBufferingSpinner(false);
+    canplayGuardRef.current = false;
     
-    // Reload video from current position
-    video.load();
+    // CHANGE 3: Try to resume without destroying buffer first
+    // Only use video.load() if simple resume doesn't work
     video.currentTime = currentPos;
-    video.play().catch(console.error);
+    video.play().catch((err) => {
+      console.warn('[SecureMedia] Resume failed, falling back to full reload:', err);
+      video.load();
+      video.currentTime = currentPos;
+      video.play().catch(console.error);
+    });
   }, []);
 
   // NEW: Auto-recovery for stuck playback detection
