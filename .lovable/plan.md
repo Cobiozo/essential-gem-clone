@@ -1,65 +1,99 @@
 
 
-## Naprawa dlugiego i nieskonczonego buforowania wideo w szkoleniach
+## Naprawa 4 problemow WebRTC: widma, utrata obrazu, ekran i PiP
 
-### Zidentyfikowane przyczyny problemow
+### Problem 1: Widma uczestnikow (ghost participants)
+**Przyczyna**: `reconnectToPeer` uzywa `useCallback` z zaleznoscia `participants`, ale `participants` state jest staly (stale closure). Gdy ICE reconnect nastepuje, `participants.find(p => p.peerId === peerId)` na linii 766 moze nie znalezc uczestnika bo state jest nieaktualny. Rowniez brak periodycznego czyszczenia widm z lokalnej listy -- heartbeat aktualizuje DB ale nie usuwa starych uczestnikow z `participants` state.
 
-#### 1. Petla buforowania (KRYTYCZNY)
-Sekwencja zdarzen prowadzi do nieskonczonej petli:
-- `waiting` event -> ustawia smart buffering -> pauzuje wideo (na wolnej sieci)
-- `canplay` event -> 800ms opoznienie -> probuje wznowic
-- Wznowienie triggeruje kolejne `waiting` jeszcze zanim bufor jest wystarczajacy
-- Cykl powtarza sie w nieskonczonosc
+**Rozwiazanie**:
+- Zamienic `participants` w `reconnectToPeer` na `participantsRef` (nowy ref synchronizowany z state)
+- Dodac periodyczna synchronizacje co 30s (razem z heartbeat): pobierac aktywnych uczestnikow z DB i usuwac z lokalnej listy tych ktorzy nie sa w DB
 
-#### 2. `handleStalled` natychmiast ustawia buforowanie (WAZNY)
-Linia 714-718: zdarzenie `stalled` natychmiast ustawia `isBuffering = true` i `isBufferingRef = true` bez zadnego debounce. Przegladarki emituja `stalled` nawet gdy jest wystarczajaco danych do odtwarzania -- to powoduje falszywe wejscie w tryb buforowania.
+### Problem 2: Utrata obrazu/dzwieku drugiej osoby
+**Przyczyna**: Ten sam problem stale closure. Gdy `reconnectToPeer` probuje ponownie polaczyc, `callPeer` uzywa starych danych uczestnika (lub nie znajduje go wcale). Takze po ICE reconnect, nowy stream moze nie byc poprawnie ustawiony w `participants` state bo `handleCall` dodaje nowego uczestnika zamiast aktualizowac istniejacego.
 
-#### 3. `video.load()` w retry niszczy bufor (WAZNY)
-Funkcja `handleRetry` (linia 1247) wywoluje `video.load()`, co kasuje CALY zbuforowany material i zaczyna ladowanie od nowa. Na wolnej sieci to powoduje jeszcze dluzsze buforowanie.
+**Rozwiazanie**:
+- Uzyc `participantsRef` w `reconnectToPeer` aby zawsze miec aktualne dane
+- W `handleCall` -> `call.on('stream')`: zawsze aktualizowac stream istniejacego uczestnika (juz jest na linii 701, ale upewnic sie ze nie duplicates)
+- Dodac `stream` track event listeners zeby wykryc gdy remote track sie konczy i zasygnalizowac reconnect
 
-#### 4. Brak `loadeddata` handlera w restricted mode
-`videoReady` (ktore kontroluje `opacity: 0/1`) jest ustawiane tylko w `handleCanPlay`. Jesli `canplay` nie zdazy sie wyemitowac (wolna siec), wideo jest ukryte (`opacity: 0`) w nieskonczonosc -- uzytkownik widzi pusty ekran ze spinnerem.
+### Problem 3: Ekran udostepniania nie zamyka sie automatycznie
+**Przyczyna**: Linia 851 `videoTrack.onended = () => { handleToggleScreenShare(); }` -- `handleToggleScreenShare` jest zdefiniowana jako zwykla funkcja (nie `useCallback`), wiec `onended` callback przechowuje stale referencje do `isScreenSharing`, `isMuted`, `localStreamRef` z momentu ustawienia handlera. Gdy uzytkownik klika "Stop sharing" w przegladarce, `onended` wywoluje stara wersje `handleToggleScreenShare` gdzie `isScreenSharing` moze byc `false` zamiast `true`.
 
-#### 5. Token refresh restartuje wideo
-Co 3.5 minuty token jest odswiezany (linia 304-322), co zmienia `signedUrl` i powoduje pelny reload elementu video -- utrata bufora i restart buforowania.
+**Rozwiazanie**:
+- Uzyc ref `isScreenSharingRef` synchronizowany z `isScreenSharing` state
+- W `onended` callback: sprawdzac `isScreenSharingRef.current` zamiast closure state
+- Wydzielic logike powrotu do kamery do osobnej funkcji `restoreCamera()` wywolywanej bezposrednio z `onended`
 
-#### 6. Timeout canplay z 800ms opoznieniem
-`handleCanPlay` opoznia wznowienie o 800ms (linia 792). W tym czasie moze przyjsc kolejny `waiting` event, co resetuje stan buforowania.
+### Problem 4: Brak auto-PiP przy udostepnianiu ekranu na desktop
+**Przyczyna**: PiP uruchamia sie tylko na `visibilitychange` (zmiana karty). Nie ma logiki ktora automatycznie wlacza PiP gdy uzytkownik zaczyna udostepniac ekran na desktop -- co jest naturalne zachowanie (uzytkownik widzi udostepniany ekran, a PiP pokazuje uczestnikow).
 
-### Plan naprawy
+**Rozwiazanie**:
+- Po rozpoczeciu screen share na desktop: automatycznie uruchomic PiP z video elementem pierwszego zdalnego uczestnika
+- Dodac warunek: tylko jesli `isPiPSupported` i jest przynajmniej 1 zdalny uczestnik
+- Przy zakonczeniu screen share: automatycznie zamknac PiP
 
-#### Zmiana 1: Naprawic petle buforowania w `handleCanPlay`
-- Natychmiastowe wznowienie odtwarzania w `handleCanPlay` bez 800ms opoznienia (przeniesc delay tylko na czyszczenie flagi UI `isBuffering`)
-- Dodac guard `isResuming` ref zeby uniknac podwojnego wznowienia
+---
 
-#### Zmiana 2: Debounce dla `handleStalled`
-- Zamiast natychmiastowego `setIsBuffering(true)`, dodac 2s timeout (podobnie jak w `handleWaiting`)
-- Jesli `canplay` przyjdzie w ciagu 2s, anulowac stalled
+### Szczegoly techniczne
 
-#### Zmiana 3: Naprawic `handleRetry` -- bez `video.load()`
-- Zamiast `video.load()` (ktore niszczy bufor): uzyc `video.currentTime = currentPos` + `video.play()`
-- Tylko w przypadku bledu sieciowego (error handler) uzywac pelnego `load()`
+**Plik: `src/components/meeting/VideoRoom.tsx`**
 
-#### Zmiana 4: Dodac `loadeddata` handler do ustawiania `videoReady`
-- W obu trybach (restricted i unrestricted) nasluchiwac na `loadeddata` i ustawiac `videoReady = true`
-- To zapobiegnie nieskonczonemu ukrywaniu wideo na wolnych sieciach
+#### Zmiana A: Dodac `participantsRef` (nowy ref)
+```typescript
+const participantsRef = useRef<RemoteParticipant[]>([]);
+// Sync ref z state:
+useEffect(() => { participantsRef.current = participants; }, [participants]);
+```
 
-#### Zmiana 5: Naprawic token refresh aby nie restartowac wideo
-- Zamiast zmieniac `signedUrl` (co triggeruje reload), uzyc `video.src` bezposrednio gdy wideo jest zapauzowane
-- Jesli wideo gra -- odlozyc refresh do nastepnej pauzy
+#### Zmiana B: Naprawic `reconnectToPeer` -- uzyc ref zamiast state
+Linia 766: zamienic `participants.find(...)` na `participantsRef.current.find(...)` i usunac `participants` z dependencies `useCallback`.
 
-#### Zmiana 6: Zredukowac falszywe buforowanie
-- W `handleWaiting`: jesli `video.readyState >= 3` (HAVE_FUTURE_DATA), zignorowac zdarzenie -- przegladarka ma wystarczajaco danych
-- Dodac minimum 500ms guard po `canplay` zanim kolejny `waiting` moze ustawic buforowanie
+#### Zmiana C: Dodac `isScreenSharingRef` i naprawic `onended`
+```typescript
+const isScreenSharingRef = useRef(false);
+useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
+```
+W `handleToggleScreenShare` linia 851: zamienic `onended` na:
+```typescript
+videoTrack.onended = () => {
+  if (isScreenSharingRef.current) {
+    restoreCamera();
+  }
+};
+```
+Wydzielic `restoreCamera()` jako osobna funkcje ktora zawsze pobiera aktualne wartosci z refs.
+
+#### Zmiana D: Auto-PiP przy screen share
+Po linii 845 (`setIsScreenSharing(true)`): dodac logike auto-PiP:
+```typescript
+// Auto-PiP on desktop when screen sharing starts
+if (isPiPSupported && participants.length > 0) {
+  setTimeout(async () => {
+    const videos = document.querySelectorAll('video');
+    const remoteVideo = Array.from(videos).find(
+      v => v.srcObject && v.videoWidth > 0 && !v.muted
+    );
+    if (remoteVideo && !document.pictureInPictureElement) {
+      try {
+        await remoteVideo.requestPictureInPicture();
+        setIsPiPActive(true);
+      } catch {}
+    }
+  }, 500);
+}
+```
+W `restoreCamera()`: zamknac PiP jesli jest aktywny.
+
+#### Zmiana E: Periodyczne czyszczenie widm z lokalnej listy
+Rozszerzyc istniejacy heartbeat (linia 340-358) o synchronizacje:
+Co 30s rownoczesnie z heartbeat: pobrac aktywnych z DB, porownac z lokalna lista, usunac widma z `participants` state i zamknac ich connections.
 
 ### Pliki do modyfikacji
-- `src/components/SecureMedia.tsx` -- wszystkie 6 zmian
-- `src/lib/videoBufferConfig.ts` -- dodanie nowych parametrow konfiguracyjnych (`stalledDebounceMs`, `canplayGuardMs`)
+- `src/components/meeting/VideoRoom.tsx` -- wszystkie zmiany A-E
 
-### Szacowany wplyw
-- Eliminacja nieskonczonej petli buforowania
-- Szybszy start odtwarzania (brak falszywego stalled)
-- Retry nie traci zbuforowanego materialu
-- Wideo zawsze widoczne (nie ukryte przez brak canplay)
-- Token refresh nie przerywa odtwarzania
-
+### Wplyw
+- Widma beda automatycznie usuwane co 30s
+- Reconnect po ICE failure zawsze uzywa aktualnych danych uczestnikow
+- Zakonczenie screen share (przycisk przegladarki) poprawnie wraca do kamery
+- PiP uruchamia sie automatycznie przy udostepnianiu ekranu na desktop
