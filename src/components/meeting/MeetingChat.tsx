@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Send, X, MessageCircleOff, Lock } from 'lucide-react';
 
@@ -18,6 +18,8 @@ interface ChatMessage {
   content: string;
   created_at: string;
   target_user_id?: string | null;
+  guest_token_id?: string | null;
+  _optimistic?: boolean;
 }
 
 interface Participant {
@@ -53,6 +55,15 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
   const [sendError, setSendError] = useState(false);
   const [targetUserId, setTargetUserId] = useState<string>('all');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Helper: check if a message belongs to the current user (authenticated or guest)
+  const isOwnMessage = useCallback((msg: ChatMessage) => {
+    if (guestTokenId) {
+      return msg.guest_token_id === guestTokenId || msg.user_id === userId;
+    }
+    return msg.user_id === userId;
+  }, [userId, guestTokenId]);
 
   // Load existing messages
   useEffect(() => {
@@ -71,35 +82,68 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
     load();
   }, [roomId]);
 
-  // Subscribe to new messages
+  // Subscribe to new messages with reconnect logic
   useEffect(() => {
-    const channel = supabase
-      .channel(`meeting-chat:${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'meeting_chat_messages',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload) => {
-          const msg = payload.new as ChatMessage;
-          setMessages((prev) => {
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-          if (msg.user_id !== userId) {
-            onNewMessage();
+    const setupChannel = () => {
+      if (channelRef.current) {
+        try { supabase.removeChannel(channelRef.current); } catch {}
+      }
+
+      const channel = supabase
+        .channel(`meeting-chat:${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'meeting_chat_messages',
+            filter: `room_id=eq.${roomId}`,
+          },
+          (payload) => {
+            const msg = payload.new as ChatMessage;
+            setMessages((prev) => {
+              // Deduplicate: replace optimistic message or skip if already exists
+              const existingIdx = prev.findIndex(m => m.id === msg.id);
+              if (existingIdx >= 0) return prev;
+              
+              // Replace optimistic message (match by content + user + approximate time)
+              const optimisticIdx = prev.findIndex(m => 
+                m._optimistic && 
+                m.content === msg.content && 
+                (m.user_id === msg.user_id || m.guest_token_id === msg.guest_token_id)
+              );
+              if (optimisticIdx >= 0) {
+                const updated = [...prev];
+                updated[optimisticIdx] = msg;
+                return updated;
+              }
+
+              return [...prev, msg];
+            });
+            if (!isOwnMessage(msg)) {
+              onNewMessage();
+            }
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (status === 'CHANNEL_ERROR') {
+            console.warn('[MeetingChat] Channel error, reconnecting in 3s...');
+            setTimeout(setupChannel, 3000);
+          }
+        });
+
+      channelRef.current = channel;
+    };
+
+    setupChannel();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [roomId, userId, onNewMessage]);
+  }, [roomId, userId, onNewMessage, isOwnMessage]);
 
   // Auto-scroll
   useEffect(() => {
@@ -114,6 +158,21 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
 
     const messageText = text;
     setInput('');
+
+    // Optimistic update
+    const optimisticId = `optimistic-${Date.now()}-${Math.random()}`;
+    const optimisticMsg: ChatMessage = {
+      id: optimisticId,
+      room_id: roomId,
+      user_id: guestTokenId ? '' : userId,
+      guest_token_id: guestTokenId || null,
+      display_name: displayName,
+      content: messageText,
+      created_at: new Date().toISOString(),
+      target_user_id: targetUserId !== 'all' ? targetUserId : null,
+      _optimistic: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
 
     const insertData: Record<string, string> = {
       room_id: roomId,
@@ -137,10 +196,13 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
       console.error('[MeetingChat] Send error:', error);
       if (retryCount < 2) {
         setTimeout(() => handleSend(retryCount + 1), 1000);
+        setSending(false);
         return;
       }
       setSendError(true);
       setInput(messageText);
+      // Remove optimistic message on final failure
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
     }
 
     setSending(false);
@@ -159,8 +221,12 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
   };
 
   // Filter messages: show public + private messages where user is sender or receiver
+  // Fixed for guest users: check guest_token_id as well
   const visibleMessages = messages.filter((msg) => {
     if (!msg.target_user_id) return true; // public
+    if (guestTokenId) {
+      return msg.guest_token_id === guestTokenId || msg.target_user_id === userId || msg.user_id === userId;
+    }
     return msg.user_id === userId || msg.target_user_id === userId;
   });
 
@@ -193,7 +259,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
             </p>
           )}
           {visibleMessages.map((msg) => {
-            const isOwn = msg.user_id === userId;
+            const isOwn = isOwnMessage(msg);
             const isPrivate = !!msg.target_user_id;
             return (
               <div
@@ -223,7 +289,7 @@ export const MeetingChat: React.FC<MeetingChatProps> = ({
                       : isOwn
                         ? 'bg-blue-600 text-white rounded-br-sm'
                         : 'bg-zinc-800 text-zinc-200 rounded-bl-sm'
-                  }`}
+                  } ${msg._optimistic ? 'opacity-60' : ''}`}
                 >
                   {msg.content}
                 </div>
