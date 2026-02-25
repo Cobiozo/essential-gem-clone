@@ -1,25 +1,32 @@
 
 
-## Zmiana cyklu animacji omega-coin-flip
+## Animacja omega-coin-flip: 3 obroty w 60 sekund
+
+Przycisk widgetu PLC Omega Base ma sie obracac **3 razy wokol osi Y** w ciagu **1 minuty zegarowej** -- wolno, plynnie, bez przerw.
 
 ### Parametry
-- Obrot: **200s**
-- Bezruch: **1000s**
-- Calkowity cykl: **1200s** (20 minut)
-
-Proporcje: 200s / 1200s = **16.6667%**
+- **3 pelne obroty** (3 x 360 = 1080 stopni)
+- **60 sekund** na cykl
+- Ciagle, bez zatrzymywania sie
+- Tempo liniowe (rownomierne)
 
 ### Zmiana w `tailwind.config.ts`
 
-1. **Keyframes** -- bez zmian (prog 16.6667% juz ustawiony poprawnie)
-
-2. **Czas animacji** -- zmiana z `120s` na `1200s`:
+**Keyframes:**
 ```text
-"omega-coin-flip": "omega-coin-flip 1200s ease-in-out infinite"
+"omega-coin-flip": {
+  "0%": { transform: "rotateY(0deg)" },
+  "100%": { transform: "rotateY(1080deg)" },
+}
 ```
 
-### Efekt
-- 0-200s: bardzo wolny, plynny obrot 360 stopni (3 minuty 20 sekund)
-- 200-1200s: calkowity bezruch (16 minut 40 sekund)
+**Animacja:**
+```text
+"omega-coin-flip": "omega-coin-flip 60s linear infinite"
+```
+
+### Efekt koncowy
+- Co 20 sekund -- jeden pelny obrot 360 stopni
+- Ruch plynny, wolny, nieprzerwany
 - Petla nieskonczona
 
