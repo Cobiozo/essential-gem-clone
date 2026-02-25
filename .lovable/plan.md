@@ -1,75 +1,100 @@
 
 
-## Naprawa 5 problemow w PLC Omega Base
+## Plan: Rozbudowa systemu rezerwacji spotkań indywidualnych
 
-### Problem 1: Wybrano 5 wynikow, otrzymano 9
-
-**Przyczyna**: Blad synchronizacji stanu (race condition). W `OmegaBasePage` efekt `useEffect` na liniach 77-100 wywoluje `setResultsCount(num)` i zaraz potem `sendMessage(q)`. Ale `sendMessage` jest `useCallback` ktory przechwytuje stara wartosc `resultsCount` (domyslnie 10) z zamkniecia (closure) - nowa wartosc jeszcze nie dotarla do stanu React.
-
-**Rozwiazanie**: Zmienic `sendMessage` w `useMedicalChatStream.ts` aby przyjmowalo opcjonalny parametr `overrideResultsCount`. Gdy wywolywane z URL params, przekazac wymagana liczbe bezposrednio:
-
-```text
-sendMessage(q, num)   // zamiast setResultsCount(num); sendMessage(q);
-```
-
-Zmiany w:
-- `src/hooks/useMedicalChatStream.ts` - dodac parametr `overrideResultsCount?: number` do `sendMessage`, uzyc go zamiast stanu gdy podany
-- `src/pages/OmegaBasePage.tsx` - przekazac resultsCount bezposrednio przy wywolaniu z URL params
-
-### Problem 2: Lista rozwijana z iloscia wynikow rozni sie miedzy widgetem a pelna strona
-
-**Przyczyna**: Widget (`MedicalChatWidget.tsx`) ma opcje `[5, 10, 15, 20, 25, 30]`, pelna strona (`OmegaBasePage.tsx`) ma `[1, 5, 10, 20, 30, 40, 50, Maks.]`.
-
-**Rozwiazanie**: Ujednolicic opcje w obu miejscach do tego samego zestawu: `[1, 5, 10, 20, 30, 40, 50, Maks.]`. Zmienic widget aby uzywac tych samych opcji co pelna strona.
-
-Zmiany w:
-- `src/components/MedicalChatWidget.tsx` - zaktualizowac opcje Select do `[1, 5, 10, 20, 30, 40, 50]` z dodatkowa opcja "Maks." (wartosc 0)
-
-### Problem 3: Historia wyszukiwania nie jest zapamietywana
-
-**Przyczyna**: Historia jest zapisywana w tabeli `medical_chat_history` i ladowana w `useMedicalChatStream` tylko przy montowaniu komponentu. Widget tworzy osobna instancje hooka wiec laduje historie poprawnie. Problem moze dotyczyc braku `Authorization` header w wywolaniu `sendMessage` - zapytanie do edge function `medical-assistant` nie ma headera Auth, wiec `saveChatHistory` w hooku uzywa `supabase.from('medical_chat_history').insert()` co wymaga zalogowanego uzytkownika.
-
-Sprawdzenie: RLS wymaga `auth.uid() = user_id`, insert policy nie ma `qual` (brak warunku WITH CHECK) - to moze byc problem. Dodam `WITH CHECK (auth.uid() = user_id)` do polityki INSERT.
-
-Dodatkowa zmiana: po udanym `saveChatHistory`, odswiezyc liste historii takze w widgecie (wywolac `loadChatHistory` po kazdym zapisie).
-
-Zmiany w:
-- SQL: dodac WITH CHECK do INSERT policy
-- `src/hooks/useMedicalChatStream.ts` - upewnic sie ze `loadChatHistory` jest wywolywane po zapisie (juz jest, linia 78)
-
-### Problem 4: Tytuly czesci odpowiedzi za male - potrzebna wieksza czcionka
-
-**Przyczyna**: Funkcja `renderMessageContent` w `OmegaBasePage.tsx` nie obsluguje nagłówków markdown (`##`). Konwertuje tylko `**bold**` na `<strong>` i `\n` na `<br>`. Naglowki typu `## 🔬 CZĘŚĆ 1: ANALIZA NAUKOWA` sa renderowane jako zwykly tekst.
-
-**Rozwiazanie**: Dodac parsowanie nagłówków `##` i `###` w `renderMessageContent` / w `renderBareUrls`, konwertujac je na elementy HTML z odpowiednimi rozmiarami czcionek:
-- `## heading` -> `<h2>` z wieksza czcionka (np. `text-lg font-bold text-[#D4AF37]`)  
-- `### heading` -> `<h3>` z lekko wieksza czcionka
-
-Zmiany w:
-- `src/pages/OmegaBasePage.tsx` - rozszerzyc logike renderowania o naglowki, dodajac parsowanie linii `## ` i `### ` przed pozostalym przetwarzaniem
-
-### Problem 5: PDF jasny i nieczytelny
-
-**Przyczyna**: Funkcja `generatePdfBody` (linia 336) ustawia `color:#333` (ciemnoszary) co w polaczeniu z renderowaniem html2canvas (rasteryzacja) moze dawac slaba jakosc. Ponadto `font-size:12px` na kontenerze (linia 346) jest za maly, a `font-size:11pt` w body daje rozbieznosc.
-
-**Rozwiazanie**:
-- Zmienic kolor tekstu na `#000000` (czarny) w `generatePdfBody`
-- Zwiekszyc `font-size` na kontenerze z `12px` na `14px`
-- Zwiekszyc `scale` w html2canvas z `2` na `3` dla lepszej jakosci
-- Ustawic jasne tlo i ciemny tekst explicite na kontenerze
-- Dodac `-webkit-font-smoothing: antialiased` do kontenera
-
-Zmiany w:
-- `src/pages/OmegaBasePage.tsx` - zaktualizowac `generatePdfBody` i `generatePdfFromHtml`
+Trzy główne zmiany:
+1. Po kliknięciu powiadomienia -- wyświetlenie podsumowania konkretnego spotkania
+2. Nowa zakładka "Zarezerwowane" obok "Historii" z pełnymi danymi spotkań
+3. Formularz przed potwierdzeniem rezerwacji -- wymagane dane prospekta (trójstronne) lub cel konsultacji
 
 ---
 
-### Podsumowanie zmian w plikach
+### 1. Podsumowanie spotkania po kliknięciu powiadomienia
 
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/useMedicalChatStream.ts` | Dodac `overrideResultsCount` parametr do `sendMessage` |
-| `src/pages/OmegaBasePage.tsx` | 1) Przekazac resultsCount z URL do sendMessage, 2) Dodac parsowanie nagłówków ## w renderMessageContent, 3) Poprawic PDF (ciemniejszy tekst, wieksza czcionka, lepszy scale) |
-| `src/components/MedicalChatWidget.tsx` | Ujednolicic opcje wynikow z pelna strona |
-| SQL | Dodac WITH CHECK do INSERT policy na `medical_chat_history` |
+**Obecny stan**: Powiadomienie zawiera `link: '/events/individual-meetings'` i `metadata: { event_id }`. Po kliknięciu otwiera się strona z zakładkami do rezerwacji, ale brak informacji o konkretnym spotkaniu.
+
+**Zmiana**: 
+- `IndividualMeetingsPage.tsx` -- odczytać parametr URL `?event=<event_id>` z `useSearchParams`
+- Jeśli parametr istnieje, wyświetlić kartę podsumowania spotkania (kto zarezerwował, z kim, kiedy, typ, link Zoom, notatki) zamiast standardowego widoku rezerwacji
+- Po zamknięciu podsumowania wrócić do normalnego widoku
+- Powiadomienia już przekazują `event_id` w metadata -- trzeba zmienić link na `/events/individual-meetings?event=<event_id>`
+
+**Pliki**:
+- `src/pages/IndividualMeetingsPage.tsx` -- dodać obsługę parametru `event` i komponent podsumowania
+- `src/components/events/PartnerMeetingBooking.tsx` -- zmienić linki w powiadomieniach (in-app i push) na zawierające `?event=${event.id}`
+
+### 2. Zakładka "Zarezerwowane" z pełnymi danymi
+
+**Obecny stan**: Strona `IndividualMeetingsPage` pokazuje tylko formularz rezerwacji. Historia spotkań jest dostępna w Panelu Lidera (UnifiedMeetingSettingsForm). Brak widoku aktualnie zarezerwowanych spotkań dla rezerwującego.
+
+**Zmiana**: Dodać trzy pod-zakładki na stronie IndividualMeetingsPage:
+- **Rezerwuj** (obecny widok z formularzem)
+- **Zarezerwowane** (nowa: przyszłe spotkania z pełnymi danymi)
+- **Historia** (przeszłe spotkania)
+
+**Nowy komponent `UpcomingMeetings.tsx`**:
+- Pobiera przyszłe spotkania z tabeli `events` gdzie użytkownik jest hostem LUB zarejestrowanym uczestnikiem
+- Wyświetla: typ spotkania, data/godzina, partner (host lub rezerwujący), link Zoom, dane prospekta i notatki (z pola `description` w events)
+- Możliwość anulowania spotkania (jeśli > 2h przed startem)
+
+**Pliki**:
+- `src/components/events/UpcomingMeetings.tsx` -- nowy komponent
+- `src/pages/IndividualMeetingsPage.tsx` -- dodać zakładki Rezerwuj/Zarezerwowane/Historia
+
+### 3. Formularz danych przed potwierdzeniem rezerwacji
+
+**Obecny stan**: Krok "Potwierdź rezerwację" (step = 'confirm') pokazuje podsumowanie (partner, data, godzina, Zoom) i przycisk "Potwierdź". Brak pól do wpisania informacji o prospekcie czy celu spotkania.
+
+**Zmiana**: Przed przyciskiem "Potwierdź rezerwację" dodać wymagane pola:
+
+Dla **spotkania trójstronnego**:
+- Imię prospekta (wymagane)
+- Nazwisko prospekta (wymagane)  
+- Telefon prospekta (opcjonalnie)
+- Dodatkowe informacje (pole tekstowe, opcjonalnie)
+
+Dla **konsultacji partnerskich**:
+- Cel konsultacji (wymagane, pole tekstowe)
+- Dodatkowe informacje (opcjonalnie)
+
+**Przechowywanie danych**: Dane prospekta i notatki będą zapisywane w polu `description` tabeli `events` (typ text, już istnieje) jako sformatowany tekst. To pozwala uniknąć migracji bazy danych.
+
+**Pliki**:
+- `src/components/events/PartnerMeetingBooking.tsx`:
+  - Dodać stany: `prospectName`, `prospectLastName`, `prospectPhone`, `bookingNotes`, `consultationPurpose`
+  - W kroku `confirm` dodać pola formularza
+  - Walidacja przed wysłaniem (wymagane pola)
+  - Przy tworzeniu eventu zapisać dane w polu `description`
+  - Uwzględnić dane prospekta w powiadomieniach (email, in-app, push)
+
+---
+
+### Szczegóły techniczne
+
+**Struktura danych w `description`** (JSON w polu text):
+```text
+{
+  "prospect_first_name": "Jan",
+  "prospect_last_name": "Kowalski",
+  "prospect_phone": "+48123456789",
+  "booking_notes": "Zainteresowany współpracą",
+  "consultation_purpose": "Strategia rozwoju"
+}
+```
+
+**Zmiana linków powiadomień** (4 miejsca w PartnerMeetingBooking + edge functions):
+```text
+link: `/events/individual-meetings?event=${event.id}`
+url: `/events/individual-meetings?event=${event.id}`
+```
+
+**Nowe pliki**:
+- `src/components/events/UpcomingMeetings.tsx`
+- `src/components/events/MeetingSummaryCard.tsx` (karta podsumowania po kliknięciu powiadomienia)
+
+**Edytowane pliki**:
+- `src/pages/IndividualMeetingsPage.tsx` -- nowa struktura z zakładkami i obsługą parametru URL
+- `src/components/events/PartnerMeetingBooking.tsx` -- formularz danych prospekta + zaktualizowane linki powiadomień
+- `supabase/functions/send-meeting-reminders/index.ts` -- link z event_id
+- `supabase/functions/cancel-individual-meeting/index.ts` -- link z event_id
 
