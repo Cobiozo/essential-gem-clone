@@ -1,84 +1,101 @@
 
+## Pelny audyt WebRTC i P2P -- wyniki
 
-## Naprawa nieskonczonego buforowania wideo na mobilnych urzadzeniach i PWA
+### Co dziala poprawnie
 
-### Zidentyfikowane przyczyny (5 problemow)
+1. **Architektura sygnalizacji**: Poprawne uzycie Supabase Realtime broadcast do sygnalizacji peer-joined/peer-left/settings-changed. Kanaly sa poprawnie czyszczone przy unmount.
 
-#### 1. `window.blur` agresywnie pauzuje wideo na mobile (KRYTYCZNY)
-**Linia 1293-1297**: Handler `handleWindowBlur` pauzuje wideo i ustawia `isTabHidden = true` za kazdym razem gdy okno traci focus. Na mobile blur moze sie wywolyc gdy:
-- Uzytkownik dotknie customowych kontrolek odtwarzacza
-- Pojawi sie powiadomienie systemowe
-- Uzytkownik przewinie strone
-- Klawiatura ekranowa sie pojawi
+2. **TURN/STUN**: Prawidlowa generacja ephemeral HMAC-SHA1 credentials dla ExpressTURN. Fallback do STUN-only gdy brak sekretu. Obsluga gosci przez X-Guest-Token header.
 
-Problem: **nie ma handlera `window.focus`** ktory by zdejmowel `isTabHidden`. Jedynym sposobem na reset jest `visibilitychange` z `!document.hidden`, ale `blur` czesto wystepuje BEZ zmiany visibility. Efekt: wideo zapauzowane na stale z overlayem "Wroc do karty".
+3. **Heartbeat i ghost cleanup**: Poprawna synchronizacja co 30s z baza danych, 90s stale threshold, usuwanie widm z lokalnej listy i zamykanie ich connections.
 
-#### 2. Smart buffering pauzuje wideo na mobile -> przeglądarka przestaje ladowac (KRYTYCZNY)
-**Linia 716-719**: Gdy `isSlowNetworkNow` jest true, wideo jest pauzowane aby "poczekac na bufor". Problem: **mobilne przegladarki (szczegolnie Safari) depriorytetyzuja ladowanie zapauzowanych wideo**. Zdarzenie `progress` przestaje sie emitowac, wiec warunek `bufferedAhead >= minBuffer` nigdy nie jest spelniony. Brak timeoutu oznacza nieskonczone buforowanie.
+4. **Screen share onended**: Poprawnie uzywa `isScreenSharingRef` i dedykowanej `restoreCamera()` -- naprawione w poprzedniej iteracji.
 
-#### 3. Brak timeoutu/recovery dla smart buffering
-Gdy smart buffering sie aktywuje (linia 719), nie ma zadnego maksymalnego czasu oczekiwania. Jedyne sposoby na wyjscie:
-- `canplay` event (moze nie przyjsc dla zapauzowanego wideo)
-- `progress` event z wystarczajacym buforem (moze nie przyjsc)
-- Reczny retry uzytkownika
+5. **Auto-PiP**: Dziala przy screen share (desktop) i przy zmianie karty (visibilitychange).
 
-Na mobile oba eventy moga przestac przychodzic = nieskonczone buforowanie.
+6. **Roles/permissions**: Host, co-host, guest -- poprawna logika uprawnien, broadcast zmian ustawien.
 
-#### 4. iOS Safari nie wspiera `navigator.connection` API
-**Linia 87-101**: `isSlowNetwork()` zawsze zwraca `false` na iOS bo Safari nie implementuje Connection API. `getNetworkQuality()` zwraca `'unknown'`. Oznacza to ze na iOS:
-- Konfiguracja adaptacyjna nigdy nie jest dostosowana do wolnej sieci
-- `minBufferSeconds` zostaje na 3s nawet na bardzo wolnym WiFi/LTE
-- Ale tez smart buffering nigdy nie pauzuje wideo (co ironicznie jest lepsze)
+7. **Czat**: Optymistyczne wstawianie, deduplikacja, wiadomosci prywatne, reconnect przy CHANNEL_ERROR.
 
-Problem polega na tym ze na Androidzie (ktory wspiera Connection API) smart buffering MOZE sie aktywowac i zablokować na stale.
+8. **Media fallback**: Prawidlowy fallback audio+video -> audio -> video przy inicjalizacji.
 
-#### 5. Token refresh + blur = restart wideo na mobile
-**Linia 318-327**: Deferred token refresh czeka na pause. Na mobile `blur` czesto wywoluje pause, wiec token refresh jest stosowany natychmiast po kazdym blur. Zmiana URL restartuje ladowanie wideo.
+9. **beforeunload**: Uzywanie sendBeacon + keepalive fetch jako fallback -- poprawne.
 
-### Plan naprawy
+10. **Track ended detection**: Listeners na remote tracks z automatycznym reconnect -- poprawne.
 
-#### Zmiana 1: Usunac `window.blur` na mobile, dodac `window.focus`
-**Plik: `src/components/SecureMedia.tsx`** (linie 1278-1324)
-- Wykryc mobile (`window.innerWidth < 768` lub `'ontouchstart' in window`)
-- Na mobile: NIE rejestrowac `handleWindowBlur` - zbyt agresywny
-- Na wszystkich urzadzeniach: dodac `handleWindowFocus` ktory ustawia `isTabHidden = false`
-- Zostawic `visibilitychange` i `pagehide` bez zmian (te dzialaja poprawnie)
+### Znalezione problemy
 
-#### Zmiana 2: Nigdy nie pauzowac wideo podczas smart buffering na mobile
-**Plik: `src/components/SecureMedia.tsx`** (linia 716)
-- Na mobile: zamiast `video.pause()`, pozwolic przegladarce na natywne buforowanie
-- Ustawic `isBuffering = true` i pokazac spinner, ale NIE pauzowac wideo
-- Mobilne przegladarki lepiej radza sobie z buforowaniem w tle gdy wideo jest "playing"
+#### Problem 1: `callPeer` nie jest `useCallback` -- stale closure w `visibilitychange` (SREDNI)
+**Linia 722**: `callPeer` jest zwykla funkcja, nie `useCallback`. Jest uzywana wewnatrz `handleVisibilityChange` (linia 472) ktory jest w `useEffect` z dependency `[roomId, user, guestTokenId]`. Jesli `localAvatarUrl` zmieni sie po montowaniu, `callPeer` w visibility handler dalej uzywa starego `localAvatarUrl`. To nie jest krytyczne, ale powoduje ze przy reconnect po zmianie karty, metadata moze nie zawierac aktualnego avatara.
 
-#### Zmiana 3: Dodac timeout recovery dla smart buffering (max 15s)
-**Plik: `src/components/SecureMedia.tsx`** (w `handleWaiting`, po aktywacji smart buffering)
-- Dodac `setTimeout` po 15s ktory:
-  - Wznawia wideo (`video.play()`)
-  - Czyści flagi buforowania
-  - Loguje ostrzezenie
-- Ref `smartBufferingTimeoutRef` do przechowywania timera
-- Czyszczenie w `handleCanPlay` i w cleanup
+**Naprawa**: Zamienic `callPeer` na `useCallback` z odpowiednimi zaleznosciami, lub uzyc ref.
 
-#### Zmiana 4: Dodac fallback dla braku Connection API (iOS)
-**Plik: `src/lib/videoBufferConfig.ts`**
-- Gdy `navigator.connection` jest niedostepny: estymowac jakosc sieci na podstawie czasu ladowania pierwszego chunka wideo
-- Dodac flage `connectionApiAvailable` do konfiguracji
-- Na iOS: uzyc bardziej konserwatywnych wartosci domyslnych (`minBufferSeconds: 2` zamiast 3)
+#### Problem 2: `handleCall` nie jest stabilna referencja -- potencjalny problem (NISKI)
+`handleCall` jest tez zwykla funkcja. Jest uzywana w `peer.on('call')` wewnatrz init `useEffect`. Poniewaz init useEffect ustawia handler tylko raz (przy montowaniu), to closure jest stale ale zawiera `stream` z momentu inicjalizacji -- co jest poprawne bo odpowiada na call z aktualnym stream. Ten problem jest niski bo `call.answer(stream)` uzywa lokalny `stream` z closure ktory jest aktualny w momencie init.
 
-#### Zmiana 5: Zablokowac deferred token refresh po blur na mobile
-**Plik: `src/components/SecureMedia.tsx`** (linia 1002-1010, handlePause)
-- Sprawdzic czy pauza nastapila z powodu blur (`isTabHidden`)
-- Jesli tak: NIE aplikowac deferred token refresh
-- Aplikowac refresh tylko gdy uzytkownik swiadomie zapauzowel (kliknal pause)
+#### Problem 3: Brak `isCameraOff` state w broadcast `media-state-changed` dla remote (SREDNI)
+**Linia 625-633**: Broadcast `media-state-changed` aktualizuje tylko `isMuted` w participants state. Nie aktualizuje `isCameraOff`. W `ParticipantsPanel` (linia 194-196) `isCameraOff` jest renderowane, ale nigdy aktualizowane po stronie remote -- zawsze pokazuje domyslna wartosc.
+
+**Naprawa**: Dodac `isCameraOff` do `media-state-changed` payload i do state update w `setParticipants`.
+
+#### Problem 4: `restoreCamera` nie odtwarza audio-only jesli kamera niedostepna (NISKI)
+**Linia 836**: `restoreCamera` wywoluje `getUserMedia({ video: true, audio: true })` bez fallbacku. Jesli kamera jest zajeta/niedostepna, cala funkcja sie nie powiedzie i screen share nie zostanie poprawnie zamkniete.
+
+**Naprawa**: Dodac fallback audio-only w catch, podobnie jak w init.
+
+#### Problem 5: `coHostUserIds` w closure settings-changed handler (SREDNI)
+**Linia 593**: `const isManager = !guestMode && (isHost || (user && coHostUserIds.includes(user.id)));` -- `coHostUserIds` jest z closure init useEffect ktory ustawia handlery. Jesli co-host zostanie dodany PÓZNIEJ, handler settings-changed dalej uzywa starego `coHostUserIds = []`, wiec nowy co-host zostanie potraktowany jako zwykly uczestnik i jego mikrofon/kamera moga zostac wymuszone.
+
+**Naprawa**: Uzyc ref `coHostUserIdsRef` synchronizowanego ze state.
+
+#### Problem 6: Brak cleanup dla `iceDisconnectTimersRef` przy unmount (NISKI)
+**Linia 82**: `iceDisconnectTimersRef` przechowuje timeouty ale nie sa czyszczone w cleanup. Moze powodowac memory leak i opoznione wywolania po unmount.
+
+**Naprawa**: Dodac czyszczenie timerow w cleanup.
+
+#### Problem 7: `handleNewChatMessage` closure problem z `isChatOpen` (NISKI)
+**Linia 1021-1023**: `useCallback` z dependency `[isChatOpen]`. Jesli `isChatOpen` zmieni sie, nowa instancja `handleNewChatMessage` jest tworzona, ale `MeetingChat` moze jeszcze uzywac starej referencji z powodu Realtime subscription closure. To jest mitygowane przez fakt ze MeetingChat tworzy nowa subscription gdy `onNewMessage` sie zmieni (jest w dependency array na linii 146 MeetingChat).
+
+#### Problem 8: `sendBeacon` w beforeunload uzywa PATCH ale beacon tylko wspiera POST (SREDNI)
+**Linia 321**: `navigator.sendBeacon(url, ...)` wysyla POST, ale endpoint REST Supabase wymaga PATCH do update. sendBeacon zawsze wysyla POST -- wiec to wywolanie nigdy nie zadziala. Na szczescie jest fallback z `fetch` + `keepalive: true` ponizej (linia 323-328), ale ten tez moze nie zadzialaC bo brakowalo `Authorization` headera.
+
+**Naprawa**: Usunac sendBeacon (nie dziala z PATCH), uzyc tylko `fetch` z keepalive i dodac Authorization header.
+
+---
+
+### Plan naprawy (6 zmian)
+
+#### Zmiana 1: Naprawic broadcast `media-state-changed` -- dodac `isCameraOff`
+- W `handleToggleCamera` (linia 886-888): juz wysyla `isCameraOff: newCameraOff` -- OK
+- W `setParticipants` handler dla `media-state-changed` (linia 627-631): dodac update `isCameraOff` z payload
+- Dodac `isCameraOff` do interfejsu `RemoteParticipant`
+
+#### Zmiana 2: Dodac `coHostUserIdsRef` i uzyc w settings-changed handler
+- Dodac `const coHostUserIdsRef = useRef(coHostUserIds)` + sync effect
+- W handler `settings-changed` (linia 593): uzyc `coHostUserIdsRef.current`
+
+#### Zmiana 3: Naprawic `restoreCamera` -- dodac fallback
+- W `restoreCamera` (linia 836): dodac try/catch z fallbackiem audio-only
+- Zawsze ustawic `setIsScreenSharing(false)` nawet jesli getUserMedia sie nie uda
+
+#### Zmiana 4: Naprawic `beforeunload` -- usunac sendBeacon, naprawic fetch
+- Usunac `navigator.sendBeacon()` (nie dziala z PATCH)
+- W `fetch` z `keepalive`: dodac `Authorization` header z sesji (lub uzyc service role jesli dostepny)
+- Alternatywnie: uzyc RPC/function call zamiast REST
+
+#### Zmiana 5: Dodac cleanup dla `iceDisconnectTimersRef`
+- W `cleanup` function (linia 300): dodac czyszczenie wszystkich timerow z `iceDisconnectTimersRef`
+
+#### Zmiana 6: Zamienic `callPeer` na `useCallback`
+- Uzyc `useCallback` z zaleznosciami `[displayName, user?.id, localAvatarUrl]`
+- Lub przelaczys na ref pattern dla `localAvatarUrl`
 
 ### Pliki do modyfikacji
-- `src/components/SecureMedia.tsx` -- zmiany 1, 2, 3, 5
-- `src/lib/videoBufferConfig.ts` -- zmiana 4
+- `src/components/meeting/VideoRoom.tsx` -- wszystkie 6 zmian
 
-### Szacowany wplyw
-- Eliminacja falszywych "tab hidden" na mobile (blur nie pauzuje wideo)
-- Smart buffering nie blokuje wideo w nieskonczonosc (max 15s timeout)
-- Mobilne przegladarki moga buforowac w tle (brak pauzy na mobile)
-- Token refresh nie restartuje wideo po kazdym blur
-- iOS dostaje odpowiednie wartosci buforowania mimo braku Connection API
+### Podsumowanie
+System WebRTC jest w dobrym stanie po poprzednich naprawach. Glowne problemy to:
+- **Srednie**: brak `isCameraOff` sync, stale `coHostUserIds` closure, niedzialajacy sendBeacon
+- **Niskie**: brak fallbacku w restoreCamera, brak cleanup timerow, callPeer closure
 
+Zadne z tych problemow nie powoduje krytycznych awarii, ale naprawienie ich poprawi niezawodnosc i poprawnosc UI.
