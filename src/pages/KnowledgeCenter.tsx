@@ -66,6 +66,7 @@ export default function KnowledgeCenter() {
   const [graphicsCategory, setGraphicsCategory] = useState<string>('all');
   const [selectedGraphic, setSelectedGraphic] = useState<KnowledgeResource | null>(null);
   const [graphicsSearchTerm, setGraphicsSearchTerm] = useState('');
+  const [graphicsSortBy, setGraphicsSortBy] = useState<string>('newest');
 
   useEffect(() => {
     fetchResources();
@@ -182,13 +183,23 @@ export default function KnowledgeCenter() {
     return matchesSearch && matchesCategory && matchesType && matchesTag && matchesLanguage;
   });
 
-  // Filter graphics
-  const filteredGraphics = graphicsResources.filter(r => {
-    const matchesSearch = r.title.toLowerCase().includes(graphicsSearchTerm.toLowerCase()) ||
-      r.description?.toLowerCase().includes(graphicsSearchTerm.toLowerCase());
-    const matchesCategory = graphicsCategory === 'all' || r.category === graphicsCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Filter and sort graphics
+  const filteredGraphics = graphicsResources
+    .filter(r => {
+      const matchesSearch = r.title.toLowerCase().includes(graphicsSearchTerm.toLowerCase()) ||
+        r.description?.toLowerCase().includes(graphicsSearchTerm.toLowerCase());
+      const matchesCategory = graphicsCategory === 'all' || r.category === graphicsCategory;
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      switch (graphicsSortBy) {
+        case 'newest': return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest': return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'alphabetical': return a.title.localeCompare(b.title);
+        case 'most_downloaded': return (b.download_count || 0) - (a.download_count || 0);
+        default: return 0;
+      }
+    });
 
   const featuredDocuments = filteredDocuments.filter(r => r.is_featured);
   const regularDocuments = filteredDocuments.filter(r => !r.is_featured);
@@ -633,13 +644,25 @@ export default function KnowledgeCenter() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {(graphicsSearchTerm || graphicsCategory !== 'all') && (
+                  <Select value={graphicsSortBy} onValueChange={setGraphicsSortBy}>
+                    <SelectTrigger className="w-full sm:w-[200px]">
+                      <SelectValue placeholder="Sortowanie" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="newest">Najnowsze</SelectItem>
+                      <SelectItem value="oldest">Najstarsze</SelectItem>
+                      <SelectItem value="alphabetical">Alfabetycznie</SelectItem>
+                      <SelectItem value="most_downloaded">Najpopularniejsze</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {(graphicsSearchTerm || graphicsCategory !== 'all' || graphicsSortBy !== 'newest') && (
                     <Button 
                       variant="ghost" 
                       size="icon" 
                       onClick={() => {
                         setGraphicsSearchTerm('');
                         setGraphicsCategory('all');
+                        setGraphicsSortBy('newest');
                       }}
                     >
                       <X className="h-4 w-4" />
@@ -661,17 +684,18 @@ export default function KnowledgeCenter() {
                   <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                   <h3 className="text-lg font-medium mb-2">Brak grafik</h3>
                   <p className="text-muted-foreground">
-                    {graphicsSearchTerm || graphicsCategory !== 'all'
+                    {graphicsSearchTerm || graphicsCategory !== 'all' || graphicsSortBy !== 'newest'
                       ? 'Nie znaleziono grafik pasujących do kryteriów wyszukiwania.' 
                       : 'Brak dostępnych grafik do udostępniania.'}
                   </p>
-                  {(graphicsSearchTerm || graphicsCategory !== 'all') && (
+                  {(graphicsSearchTerm || graphicsCategory !== 'all' || graphicsSortBy !== 'newest') && (
                     <Button 
                       variant="outline" 
                       onClick={() => {
                         setGraphicsSearchTerm('');
                         setGraphicsCategory('all');
-                      }} 
+                        setGraphicsSortBy('newest');
+                      }}
                       className="mt-4"
                     >
                       Wyczyść filtry

@@ -10,6 +10,8 @@ interface GraphicsCardProps {
 }
 
 export const GraphicsCard: React.FC<GraphicsCardProps> = ({ resource, onClick }) => {
+  const isNew = new Date(resource.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
   return (
     <Card 
       className="group cursor-pointer overflow-hidden hover:shadow-lg transition-all duration-300 hover:scale-[1.02]"
@@ -44,7 +46,7 @@ export const GraphicsCard: React.FC<GraphicsCardProps> = ({ resource, onClick })
 
           {/* Badges */}
           <div className="absolute top-2 right-2 flex flex-col gap-1">
-            {resource.is_new && (
+            {isNew && (
               <Badge className="bg-blue-500 text-white text-[10px] gap-1">
                 <Sparkles className="h-3 w-3" />
                 Nowa
