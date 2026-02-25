@@ -450,7 +450,7 @@ serve(async (req) => {
               source_module: 'meetings',
               title: `Przypomnienie: ${meeting.title || 'Spotkanie'}`,
               message: `Spotkanie z ${otherPartyName} — ${dateStr} o ${timeStr} (${reminderLabel})`,
-              link: '/meetings',
+              link: '/events/individual-meetings',
               metadata: { event_id: meeting.id, reminder_type: reminderType },
             });
             console.log(`[send-meeting-reminders] In-app notification sent to ${profile.email}`);
