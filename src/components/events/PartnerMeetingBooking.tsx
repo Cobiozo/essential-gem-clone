@@ -24,16 +24,7 @@ import {
   ExternalLink,
   FileText,
   Target,
-  Phone,
-  Mail
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
 import { format, addMinutes, parse, addDays, getDay, startOfDay, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { pl } from 'date-fns/locale';
@@ -50,7 +41,7 @@ interface AvailableSlot {
   slot_duration_minutes: number;
   leaderTime?: string;
   leaderTimezone?: string;
-  contactOnly?: boolean;
+  
 }
 
 interface WeeklyRange {
@@ -88,8 +79,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   const [bookingNotes, setBookingNotes] = useState('');
   const [consultationPurpose, setConsultationPurpose] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
-  const [contactDialogOpen, setContactDialogOpen] = useState(false);
-  const [partnerContactInfo, setPartnerContactInfo] = useState<{ email: string; phone: string | null } | null>(null);
   
   // Meeting settings from leader_meeting_settings
   const [meetingSettings, setMeetingSettings] = useState<{
@@ -437,6 +426,8 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           
           // Hide slots that already started (past)
           if (slotStartUTC <= now) return false;
+          // Hide slots less than 2h from now
+          if (slotStartUTC < twoHoursFromNow) return false;
           if (isSlotBlockedByExistingMeeting(slotTime)) return false;
           if (blockedByPlatform.has(slotTime)) return false;
           if (googleBusySlots.has(slotTime)) return false;
@@ -444,11 +435,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
         })
         .map(slotTime => {
           let displayTime = slotTime;
-          
-          // Check if slot is within 2-hour buffer (contactOnly)
-          const slotDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
-          const slotStartUTC = fromZonedTime(slotDateTime, partnerTimezone);
-          const isContactOnly = slotStartUTC < twoHoursFromNow;
           
           try {
             const leaderDateTime = parse(`${dateStr} ${slotTime}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -461,7 +447,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           return {
             date: dateStr,
             time: displayTime,
-            contactOnly: isContactOnly,
             slot_duration_minutes: slotDuration,
             leaderTime: slotTime,
             leaderTimezone: partnerTimezone,
@@ -535,15 +520,6 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
   };
 
   const handleSelectSlot = (slot: AvailableSlot) => {
-    if (slot.contactOnly) {
-      // Show contact dialog instead of proceeding to confirm
-      setPartnerContactInfo({
-        email: selectedPartner?.email || '',
-        phone: (selectedPartner as any)?.phone_number || null,
-      });
-      setContactDialogOpen(true);
-      return;
-    }
     setSelectedSlot(slot);
     setStep('confirm');
   };
@@ -1006,17 +982,12 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                     {availableSlots.map((slot, index) => (
                       <Button
                         key={index}
-                        variant={slot.contactOnly ? "ghost" : "outline"}
+                        variant="outline"
                         size="sm"
                         onClick={() => handleSelectSlot(slot)}
-                        className={cn(
-                          "h-10",
-                          slot.contactOnly && "opacity-60 border-dashed border text-muted-foreground"
-                        )}
-                        title={slot.contactOnly ? "Mniej niż 2h do spotkania — kliknij aby zobaczyć dane kontaktowe" : undefined}
+                        className="h-10"
                       >
                         {slot.time}
-                        {slot.contactOnly && <Phone className="h-3 w-3 ml-1" />}
                       </Button>
                     ))}
                   </div>
@@ -1217,43 +1188,5 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
     );
   }
 
-  return (
-    <>
-      {/* Contact Dialog for contactOnly slots */}
-      <Dialog open={contactDialogOpen} onOpenChange={setContactDialogOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5" />
-              Kontakt bezpośredni
-            </DialogTitle>
-            <DialogDescription>
-              Do tego terminu pozostało mniej niż 2 godziny. Skontaktuj się bezpośrednio z partnerem, aby zapytać o możliwość spotkania.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 pt-2">
-            {partnerContactInfo?.email && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                <a href={`mailto:${partnerContactInfo.email}`} className="text-sm text-primary underline break-all">
-                  {partnerContactInfo.email}
-                </a>
-              </div>
-            )}
-            {partnerContactInfo?.phone && (
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                <a href={`tel:${partnerContactInfo.phone}`} className="text-sm text-primary underline">
-                  {partnerContactInfo.phone}
-                </a>
-              </div>
-            )}
-            {!partnerContactInfo?.phone && (
-              <p className="text-xs text-muted-foreground">Partner nie udostępnił numeru telefonu.</p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
+  return null;
 };
