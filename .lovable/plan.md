@@ -1,100 +1,72 @@
 
 
-## Plan: Rozbudowa systemu rezerwacji spotkań indywidualnych
+## Naprawa widocznosci terminow + nowe funkcje spotkań
 
-Trzy główne zmiany:
-1. Po kliknięciu powiadomienia -- wyświetlenie podsumowania konkretnego spotkania
-2. Nowa zakładka "Zarezerwowane" obok "Historii" z pełnymi danymi spotkań
-3. Formularz przed potwierdzeniem rezerwacji -- wymagane dane prospekta (trójstronne) lub cel konsultacji
+### Problem 1: Dlaczego terminy Sebastiana Snopka sa niewidoczne
 
----
+**Przyczyna znaleziona**: W `PartnerMeetingBooking.tsx` (linie 292-296) zapytanie o "blokujące wydarzenia platformowe" (webinary, spotkania zespołu) **nie filtruje po host_user_id**. Pobiera WSZYSTKIE webinary z danego dnia i blokuje nimi sloty WSZYSTKICH liderów.
 
-### 1. Podsumowanie spotkania po kliknięciu powiadomienia
+Dzisiaj (25.02.2026) sa dwa webinary:
+- "Business Opportunity Meeting - English": 19:00-19:30 UTC = **20:00-20:30 CET**
+- "Business Opportunity Meeting - Italian": 20:00-20:30 UTC = **21:00-21:30 CET**
 
-**Obecny stan**: Powiadomienie zawiera `link: '/events/individual-meetings'` i `metadata: { event_id }`. Po kliknięciu otwiera się strona z zakładkami do rezerwacji, ale brak informacji o konkretnym spotkaniu.
+Sebastian ma tripartite slot 21:00-22:00 Europe/Prague (CET). Webinar Italian nakłada sie na 21:00-21:30 wiec slot 21:00 jest blokowany. A to jedyny slot tripartite na ten dzień -- stąd "Available slots: 0".
 
-**Zmiana**: 
-- `IndividualMeetingsPage.tsx` -- odczytać parametr URL `?event=<event_id>` z `useSearchParams`
-- Jeśli parametr istnieje, wyświetlić kartę podsumowania spotkania (kto zarezerwował, z kim, kiedy, typ, link Zoom, notatki) zamiast standardowego widoku rezerwacji
-- Po zamknięciu podsumowania wrócić do normalnego widoku
-- Powiadomienia już przekazują `event_id` w metadata -- trzeba zmienić link na `/events/individual-meetings?event=<event_id>`
+Dla konsultacji (10:00-15:00 CET) -- te sloty powinny byc widoczne, ale filtr na linie 417 `slotTime <= currentTime` porównuje czas lidera z czasem lokalnym użytkownika. Jeśli oba sa w CET i jest np. 12:00, to sloty 10:00 i 11:00 sa odfiltrowane, ale 12:00-14:00 powinny byc widoczne. Problemem jest brak logiki 2h bufora.
 
-**Pliki**:
-- `src/pages/IndividualMeetingsPage.tsx` -- dodać obsługę parametru `event` i komponent podsumowania
-- `src/components/events/PartnerMeetingBooking.tsx` -- zmienić linki w powiadomieniach (in-app i push) na zawierające `?event=${event.id}`
+**Naprawa**: Dodac `.eq('host_user_id', partnerId)` do zapytania o blokujace wydarzenia, aby webinary blokowaly sloty TYLKO ich hosta.
 
-### 2. Zakładka "Zarezerwowane" z pełnymi danymi
+### Problem 2: Reguła 2 godzin + dane kontaktowe
 
-**Obecny stan**: Strona `IndividualMeetingsPage` pokazuje tylko formularz rezerwacji. Historia spotkań jest dostępna w Panelu Lidera (UnifiedMeetingSettingsForm). Brak widoku aktualnie zarezerwowanych spotkań dla rezerwującego.
+**Wymaganie**: 
+- Termin jest dostępny do rezerwacji jeśli jest >= 2h od teraz
+- Termin < 2h od teraz NIE jest do rezerwacji, ale po kliknięciu pokazuje okienko z emailem i telefonem partnera prowadzącego, aby umożliwić bezpośredni kontakt
+- Terminy dzisiejsze mają być widoczne w kalendarzu (nie ukrywane)
 
-**Zmiana**: Dodać trzy pod-zakładki na stronie IndividualMeetingsPage:
-- **Rezerwuj** (obecny widok z formularzem)
-- **Zarezerwowane** (nowa: przyszłe spotkania z pełnymi danymi)
-- **Historia** (przeszłe spotkania)
-
-**Nowy komponent `UpcomingMeetings.tsx`**:
-- Pobiera przyszłe spotkania z tabeli `events` gdzie użytkownik jest hostem LUB zarejestrowanym uczestnikiem
-- Wyświetla: typ spotkania, data/godzina, partner (host lub rezerwujący), link Zoom, dane prospekta i notatki (z pola `description` w events)
-- Możliwość anulowania spotkania (jeśli > 2h przed startem)
-
-**Pliki**:
-- `src/components/events/UpcomingMeetings.tsx` -- nowy komponent
-- `src/pages/IndividualMeetingsPage.tsx` -- dodać zakładki Rezerwuj/Zarezerwowane/Historia
-
-### 3. Formularz danych przed potwierdzeniem rezerwacji
-
-**Obecny stan**: Krok "Potwierdź rezerwację" (step = 'confirm') pokazuje podsumowanie (partner, data, godzina, Zoom) i przycisk "Potwierdź". Brak pól do wpisania informacji o prospekcie czy celu spotkania.
-
-**Zmiana**: Przed przyciskiem "Potwierdź rezerwację" dodać wymagane pola:
-
-Dla **spotkania trójstronnego**:
-- Imię prospekta (wymagane)
-- Nazwisko prospekta (wymagane)  
-- Telefon prospekta (opcjonalnie)
-- Dodatkowe informacje (pole tekstowe, opcjonalnie)
-
-Dla **konsultacji partnerskich**:
-- Cel konsultacji (wymagane, pole tekstowe)
-- Dodatkowe informacje (opcjonalnie)
-
-**Przechowywanie danych**: Dane prospekta i notatki będą zapisywane w polu `description` tabeli `events` (typ text, już istnieje) jako sformatowany tekst. To pozwala uniknąć migracji bazy danych.
+**Implementacja**:
+- Zmienić filtr w `loadAvailableSlots` -- zamiast ukrywać sloty < currentTime, oznaczyć je jako `contactOnly: true` jeśli są < 2h od teraz
+- Dodać nowe pole do interfejsu `AvailableSlot`: `contactOnly?: boolean`
+- Sloty `contactOnly` wyświetlać z innym stylem (szary/przyciemniony) i po kliknięciu otwierać dialog z emailem i telefonem partnera zamiast przechodzić do kroku confirm
+- Sloty które już minęły (start_time < now) -- nadal ukrywać
 
 **Pliki**:
 - `src/components/events/PartnerMeetingBooking.tsx`:
-  - Dodać stany: `prospectName`, `prospectLastName`, `prospectPhone`, `bookingNotes`, `consultationPurpose`
-  - W kroku `confirm` dodać pola formularza
-  - Walidacja przed wysłaniem (wymagane pola)
-  - Przy tworzeniu eventu zapisać dane w polu `description`
-  - Uwzględnić dane prospekta w powiadomieniach (email, in-app, push)
+  - Linia 292: dodać `.eq('host_user_id', partnerId)` lub `.in('host_user_id', [partnerId])` do zapytania blocking events (ewentualnie filtrować tylko te gdzie partner jest uczestnikiem)
+  - Linie 415-421: zmienić logikę filtrowania -- sloty przeszłe ukrywać, sloty < 2h oznaczać jako contactOnly
+  - Dodać pole `contactOnly` do interfejsu `AvailableSlot`
+  - Dodać dialog z danymi kontaktowymi partnera (email, telefon) wyświetlany po kliknięciu slotu contactOnly
+  - Załadować `phone_number` partnera razem z profilem (linia 130)
+
+### Problem 3: Harmonogram spotkań w Panelu Lidera
+
+**Wymaganie**: W zakładce "Spotkania indywidualne" w Panelu Lidera dodać widok harmonogramu -- lista zarezerwowanych i anulowanych spotkań, pogrupowana po dniach, od najwcześniejszych do najpóźniejszych, z pełnymi danymi (kto zarezerwował, dane prospekta, notatki, typ, status).
+
+**Obecny stan**: Zakładka "Spotkania indywidualne" w LeaderPanel ma dwa pod-taby: "Ustawienia" i "Historia". Historia (IndividualMeetingsHistory) pokazuje tylko przeszłe spotkania z podstawowymi danymi (brak danych prospekta, brak opisu).
+
+**Implementacja**: Nowy komponent `LeaderMeetingSchedule.tsx` -- widok harmonogramu:
+- Pobiera WSZYSTKIE spotkania lidera (przyszłe i przeszłe) z tabeli `events` gdzie `host_user_id = user.id` i `event_type IN ('tripartite_meeting', 'partner_consultation')`
+- Grupuje je po dniach
+- Wyświetla chronologicznie od najwcześniejszych
+- Dla każdego spotkania pokazuje:
+  - Typ (trójstronne / konsultacje) z ikoną i badge
+  - Data i godzina
+  - Kto zarezerwował (imię, nazwisko, email)
+  - Dane prospekta / cel konsultacji (z pola description -- JSON)
+  - Notatki dodatkowe
+  - Link Zoom
+  - Status: aktywne / anulowane
+- Dodać trzecią pod-zakładkę "Harmonogram" w UnifiedMeetingSettingsForm (lub zamienić "Historia" na rozbudowany harmonogram)
+
+**Pliki**:
+- `src/components/events/LeaderMeetingSchedule.tsx` -- nowy komponent
+- `src/components/events/UnifiedMeetingSettingsForm.tsx` -- dodać zakładkę "Harmonogram" obok "Ustawienia" i "Historia"
 
 ---
 
-### Szczegóły techniczne
+### Podsumowanie zmian
 
-**Struktura danych w `description`** (JSON w polu text):
-```text
-{
-  "prospect_first_name": "Jan",
-  "prospect_last_name": "Kowalski",
-  "prospect_phone": "+48123456789",
-  "booking_notes": "Zainteresowany współpracą",
-  "consultation_purpose": "Strategia rozwoju"
-}
-```
-
-**Zmiana linków powiadomień** (4 miejsca w PartnerMeetingBooking + edge functions):
-```text
-link: `/events/individual-meetings?event=${event.id}`
-url: `/events/individual-meetings?event=${event.id}`
-```
-
-**Nowe pliki**:
-- `src/components/events/UpcomingMeetings.tsx`
-- `src/components/events/MeetingSummaryCard.tsx` (karta podsumowania po kliknięciu powiadomienia)
-
-**Edytowane pliki**:
-- `src/pages/IndividualMeetingsPage.tsx` -- nowa struktura z zakładkami i obsługą parametru URL
-- `src/components/events/PartnerMeetingBooking.tsx` -- formularz danych prospekta + zaktualizowane linki powiadomień
-- `supabase/functions/send-meeting-reminders/index.ts` -- link z event_id
-- `supabase/functions/cancel-individual-meeting/index.ts` -- link z event_id
-
+| Plik | Zmiana |
+|------|--------|
+| `src/components/events/PartnerMeetingBooking.tsx` | 1) Fix: dodać filtr host_user_id do blocking events query, 2) Reguła 2h: sloty < 2h oznaczać jako contactOnly zamiast ukrywać, 3) Dialog kontaktowy z emailem/telefonem partnera, 4) Pobrać phone_number partnera |
+| `src/components/events/LeaderMeetingSchedule.tsx` | Nowy komponent: harmonogram spotkań lidera pogrupowany po dniach z pełnymi danymi |
+| `src/components/events/UnifiedMeetingSettingsForm.tsx` | Dodać zakładkę "Harmonogram" |
