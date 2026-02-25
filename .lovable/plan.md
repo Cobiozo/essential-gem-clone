@@ -1,101 +1,80 @@
 
-## Pelny audyt WebRTC i P2P -- wyniki
+## Naprawa braku przycisku "Dołącz do spotkania" dla wewnetrznych spotkan
 
-### Co dziala poprawnie
+### Zidentyfikowany problem
 
-1. **Architektura sygnalizacji**: Poprawne uzycie Supabase Realtime broadcast do sygnalizacji peer-joined/peer-left/settings-changed. Kanaly sa poprawnie czyszczone przy unmount.
+W **CalendarWidget** (linia 171-182) i czesciowo w **MyMeetingsWidget** (linia 174-207) logika przyciskow dołączenia do spotkania sprawdza TYLKO `zoom_link`. Dla spotkan wewnetrznych (`use_internal_meeting: true`, `meeting_room_id` ustawiony, `zoom_link: null`):
 
-2. **TURN/STUN**: Prawidlowa generacja ephemeral HMAC-SHA1 credentials dla ExpressTURN. Fallback do STUN-only gdy brak sekretu. Obsluga gosci przez X-Guest-Token header.
+- **CalendarWidget**: Wyswietla jedynie badge "Trwa teraz" BEZ przycisku dolaczenia. Uzytkownik nie ma jak wejsc na spotkanie z poziomu kalendarza.
+- **MyMeetingsWidget**: Wyswietla przycisk "Wejdz" ktory otwiera dialog szczegolów -- ale w dialogu przycisk "Dolacz do spotkania" powinien byc widoczny (logika w EventDetailsDialog jest poprawna).
 
-3. **Heartbeat i ghost cleanup**: Poprawna synchronizacja co 30s z baza danych, 90s stale threshold, usuwanie widm z lokalnej listy i zamykanie ich connections.
+### Plan naprawy
 
-4. **Screen share onended**: Poprawnie uzywa `isScreenSharingRef` i dedykowanej `restoreCamera()` -- naprawione w poprzedniej iteracji.
+**Plik 1: `src/components/dashboard/widgets/CalendarWidget.tsx`** (linia 171-183)
 
-5. **Auto-PiP**: Dziala przy screen share (desktop) i przy zmianie karty (visibilitychange).
+Zmiana w `getRegistrationButton` -- dodac obsluge spotkan wewnetrznych:
 
-6. **Roles/permissions**: Host, co-host, guest -- poprawna logika uprawnien, broadcast zmian ustawien.
+```typescript
+// Mozna dolaczyc (15 min przed lub trwa)
+if (event.is_registered && isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
+  // Spotkanie wewnetrzne z meeting_room_id
+  if (event.use_internal_meeting && event.meeting_room_id) {
+    return (
+      <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
+        <a href={`/meeting-room/${event.meeting_room_id}`} target="_blank" rel="noopener noreferrer">
+          <Video className="h-3 w-3 mr-1" />
+          WEJDZ
+        </a>
+      </Button>
+    );
+  }
+  // Zoom link
+  if (event.zoom_link) {
+    return (
+      <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
+        <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
+          <ExternalLink className="h-3 w-3 mr-1" />
+          WEJDZ
+        </a>
+      </Button>
+    );
+  }
+  return <Badge className="text-xs bg-emerald-600">Trwa teraz</Badge>;
+}
+```
 
-7. **Czat**: Optymistyczne wstawianie, deduplikacja, wiadomosci prywatne, reconnect przy CHANNEL_ERROR.
+**Plik 2: `src/components/dashboard/widgets/MyMeetingsWidget.tsx`** (linia 174-207)
 
-8. **Media fallback**: Prawidlowy fallback audio+video -> audio -> video przy inicjalizacji.
+Zmiana w `getActionButton` -- dodac obsluge spotkan wewnetrznych PRZED sprawdzeniem zoomUrl:
 
-9. **beforeunload**: Uzywanie sendBeacon + keepalive fetch jako fallback -- poprawne.
-
-10. **Track ended detection**: Listeners na remote tracks z automatycznym reconnect -- poprawne.
-
-### Znalezione problemy
-
-#### Problem 1: `callPeer` nie jest `useCallback` -- stale closure w `visibilitychange` (SREDNI)
-**Linia 722**: `callPeer` jest zwykla funkcja, nie `useCallback`. Jest uzywana wewnatrz `handleVisibilityChange` (linia 472) ktory jest w `useEffect` z dependency `[roomId, user, guestTokenId]`. Jesli `localAvatarUrl` zmieni sie po montowaniu, `callPeer` w visibility handler dalej uzywa starego `localAvatarUrl`. To nie jest krytyczne, ale powoduje ze przy reconnect po zmianie karty, metadata moze nie zawierac aktualnego avatara.
-
-**Naprawa**: Zamienic `callPeer` na `useCallback` z odpowiednimi zaleznosciami, lub uzyc ref.
-
-#### Problem 2: `handleCall` nie jest stabilna referencja -- potencjalny problem (NISKI)
-`handleCall` jest tez zwykla funkcja. Jest uzywana w `peer.on('call')` wewnatrz init `useEffect`. Poniewaz init useEffect ustawia handler tylko raz (przy montowaniu), to closure jest stale ale zawiera `stream` z momentu inicjalizacji -- co jest poprawne bo odpowiada na call z aktualnym stream. Ten problem jest niski bo `call.answer(stream)` uzywa lokalny `stream` z closure ktory jest aktualny w momencie init.
-
-#### Problem 3: Brak `isCameraOff` state w broadcast `media-state-changed` dla remote (SREDNI)
-**Linia 625-633**: Broadcast `media-state-changed` aktualizuje tylko `isMuted` w participants state. Nie aktualizuje `isCameraOff`. W `ParticipantsPanel` (linia 194-196) `isCameraOff` jest renderowane, ale nigdy aktualizowane po stronie remote -- zawsze pokazuje domyslna wartosc.
-
-**Naprawa**: Dodac `isCameraOff` do `media-state-changed` payload i do state update w `setParticipants`.
-
-#### Problem 4: `restoreCamera` nie odtwarza audio-only jesli kamera niedostepna (NISKI)
-**Linia 836**: `restoreCamera` wywoluje `getUserMedia({ video: true, audio: true })` bez fallbacku. Jesli kamera jest zajeta/niedostepna, cala funkcja sie nie powiedzie i screen share nie zostanie poprawnie zamkniete.
-
-**Naprawa**: Dodac fallback audio-only w catch, podobnie jak w init.
-
-#### Problem 5: `coHostUserIds` w closure settings-changed handler (SREDNI)
-**Linia 593**: `const isManager = !guestMode && (isHost || (user && coHostUserIds.includes(user.id)));` -- `coHostUserIds` jest z closure init useEffect ktory ustawia handlery. Jesli co-host zostanie dodany PÓZNIEJ, handler settings-changed dalej uzywa starego `coHostUserIds = []`, wiec nowy co-host zostanie potraktowany jako zwykly uczestnik i jego mikrofon/kamera moga zostac wymuszone.
-
-**Naprawa**: Uzyc ref `coHostUserIdsRef` synchronizowanego ze state.
-
-#### Problem 6: Brak cleanup dla `iceDisconnectTimersRef` przy unmount (NISKI)
-**Linia 82**: `iceDisconnectTimersRef` przechowuje timeouty ale nie sa czyszczone w cleanup. Moze powodowac memory leak i opoznione wywolania po unmount.
-
-**Naprawa**: Dodac czyszczenie timerow w cleanup.
-
-#### Problem 7: `handleNewChatMessage` closure problem z `isChatOpen` (NISKI)
-**Linia 1021-1023**: `useCallback` z dependency `[isChatOpen]`. Jesli `isChatOpen` zmieni sie, nowa instancja `handleNewChatMessage` jest tworzona, ale `MeetingChat` moze jeszcze uzywac starej referencji z powodu Realtime subscription closure. To jest mitygowane przez fakt ze MeetingChat tworzy nowa subscription gdy `onNewMessage` sie zmieni (jest w dependency array na linii 146 MeetingChat).
-
-#### Problem 8: `sendBeacon` w beforeunload uzywa PATCH ale beacon tylko wspiera POST (SREDNI)
-**Linia 321**: `navigator.sendBeacon(url, ...)` wysyla POST, ale endpoint REST Supabase wymaga PATCH do update. sendBeacon zawsze wysyla POST -- wiec to wywolanie nigdy nie zadziala. Na szczescie jest fallback z `fetch` + `keepalive: true` ponizej (linia 323-328), ale ten tez moze nie zadzialaC bo brakowalo `Authorization` headera.
-
-**Naprawa**: Usunac sendBeacon (nie dziala z PATCH), uzyc tylko `fetch` z keepalive i dodac Authorization header.
-
----
-
-### Plan naprawy (6 zmian)
-
-#### Zmiana 1: Naprawic broadcast `media-state-changed` -- dodac `isCameraOff`
-- W `handleToggleCamera` (linia 886-888): juz wysyla `isCameraOff: newCameraOff` -- OK
-- W `setParticipants` handler dla `media-state-changed` (linia 627-631): dodac update `isCameraOff` z payload
-- Dodac `isCameraOff` do interfejsu `RemoteParticipant`
-
-#### Zmiana 2: Dodac `coHostUserIdsRef` i uzyc w settings-changed handler
-- Dodac `const coHostUserIdsRef = useRef(coHostUserIds)` + sync effect
-- W handler `settings-changed` (linia 593): uzyc `coHostUserIdsRef.current`
-
-#### Zmiana 3: Naprawic `restoreCamera` -- dodac fallback
-- W `restoreCamera` (linia 836): dodac try/catch z fallbackiem audio-only
-- Zawsze ustawic `setIsScreenSharing(false)` nawet jesli getUserMedia sie nie uda
-
-#### Zmiana 4: Naprawic `beforeunload` -- usunac sendBeacon, naprawic fetch
-- Usunac `navigator.sendBeacon()` (nie dziala z PATCH)
-- W `fetch` z `keepalive`: dodac `Authorization` header z sesji (lub uzyc service role jesli dostepny)
-- Alternatywnie: uzyc RPC/function call zamiast REST
-
-#### Zmiana 5: Dodac cleanup dla `iceDisconnectTimersRef`
-- W `cleanup` function (linia 300): dodac czyszczenie wszystkich timerow z `iceDisconnectTimersRef`
-
-#### Zmiana 6: Zamienic `callPeer` na `useCallback`
-- Uzyc `useCallback` z zaleznosciami `[displayName, user?.id, localAvatarUrl]`
-- Lub przelaczys na ref pattern dla `localAvatarUrl`
+```typescript
+if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
+  // Spotkanie wewnetrzne
+  if (event.use_internal_meeting && event.meeting_room_id) {
+    return (
+      <Button size="sm" className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium" asChild>
+        <a href={`/meeting-room/${event.meeting_room_id}`} target="_blank" rel="noopener noreferrer">
+          <span className="relative flex h-2 w-2 mr-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+          </span>
+          WEJDZ
+        </a>
+      </Button>
+    );
+  }
+  // Zoom URL
+  if (zoomUrl) { ... istniejacy kod ... }
+  // Brak linka - otwórz dialog
+  return ( ... istniejacy kod ... );
+}
+```
 
 ### Pliki do modyfikacji
-- `src/components/meeting/VideoRoom.tsx` -- wszystkie 6 zmian
+- `src/components/dashboard/widgets/CalendarWidget.tsx` -- dodac warunek `use_internal_meeting` w `getRegistrationButton`
+- `src/components/dashboard/widgets/MyMeetingsWidget.tsx` -- dodac warunek `use_internal_meeting` w `getActionButton`
 
-### Podsumowanie
-System WebRTC jest w dobrym stanie po poprzednich naprawach. Glowne problemy to:
-- **Srednie**: brak `isCameraOff` sync, stale `coHostUserIds` closure, niedzialajacy sendBeacon
-- **Niskie**: brak fallbacku w restoreCamera, brak cleanup timerow, callPeer closure
-
-Zadne z tych problemow nie powoduje krytycznych awarii, ale naprawienie ich poprawi niezawodnosc i poprawnosc UI.
+### Efekt
+- Przycisk "WEJDZ" z bezposrednim linkiem do `/meeting-room/{id}` pojawi sie zarowno w kalendarzu jak i w widgecie "Moje spotkania" dla spotkan wewnetrznych
+- Przycisk bedzie mial pulsujacy czerwony wskaznik (jak w obecnym designie MyMeetingsWidget)
+- Nie trzeba juz klikac "Szczegoly" zeby dostac sie do spotkania
