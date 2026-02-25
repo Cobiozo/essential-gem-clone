@@ -179,9 +179,12 @@ export const MedicalChatWidget: React.FC = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#1A1A1A] border-[#C5A059]/20">
-                  {[5, 10, 15, 20, 25, 30].map(n => (
+                  {[1, 5, 10, 20, 30, 40, 50].map(n => (
                     <SelectItem key={n} value={String(n)} className="text-[#F5F5F5] text-xs">{n}</SelectItem>
                   ))}
+                  <SelectItem value="0" className="text-[#F5F5F5] text-xs">
+                    {language === 'pl' ? 'Maks.' : language === 'de' ? 'Max.' : language === 'it' ? 'Max.' : 'Max.'}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>

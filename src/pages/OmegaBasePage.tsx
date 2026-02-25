@@ -95,7 +95,8 @@ const OmegaBasePage: React.FC = () => {
           }
         }
       } catch {}
-      sendMessage(q);
+      const effectiveResults = resultsParam ? Number(resultsParam) : undefined;
+      sendMessage(q, effectiveResults && !isNaN(effectiveResults) && effectiveResults > 0 ? effectiveResults : undefined);
     }
   }, [searchParams, initialQuerySent, isLoading, sendMessage, setResultsCount, setMessagesDirectly]);
 
@@ -333,7 +334,7 @@ const OmegaBasePage: React.FC = () => {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
   };
 
-  const generatePdfBody = (dc: DocumentContent) => `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:11pt;line-height:1.5;color:#333;width:100%"><h1 style="color:#005293;font-size:16pt;margin:0 0 5px">${dc.title}</h1><div style="color:#666;font-size:9pt;margin-bottom:12px">${dc.date}</div><hr style="border:none;border-top:1px solid #ccc;margin:10px 0"><h2 style="color:#005293;font-size:13pt;margin:12px 0 8px">${dc.summaryHeader}</h2><div style="text-align:justify;word-wrap:break-word">${dc.summaryHtml}</div><div style="color:#888;font-style:italic;font-size:8pt;margin-top:20px;padding-top:10px;border-top:1px solid #ccc">${dc.disclaimer}</div></div>`;
+  const generatePdfBody = (dc: DocumentContent) => `<div style="font-family:'Segoe UI',Arial,sans-serif;font-size:12pt;line-height:1.6;color:#000000;width:100%;-webkit-font-smoothing:antialiased"><h1 style="color:#005293;font-size:18pt;margin:0 0 5px">${dc.title}</h1><div style="color:#444;font-size:10pt;margin-bottom:12px">${dc.date}</div><hr style="border:none;border-top:1px solid #999;margin:10px 0"><h2 style="color:#005293;font-size:14pt;margin:12px 0 8px">${dc.summaryHeader}</h2><div style="text-align:justify;word-wrap:break-word;color:#000000">${dc.summaryHtml}</div><div style="color:#555;font-style:italic;font-size:9pt;margin-top:20px;padding-top:10px;border-top:1px solid #999">${dc.disclaimer}</div></div>`;
 
   const generatePdfFromHtml = async (dc: DocumentContent) => {
     const bodyContent = generatePdfBody(dc);
@@ -343,12 +344,12 @@ const OmegaBasePage: React.FC = () => {
     document.body.appendChild(overlay);
     const container = document.createElement('div');
     container.innerHTML = bodyContent;
-    container.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:white;padding:40px 60px;font-family:"Segoe UI",Arial,sans-serif;font-size:12px;line-height:1.5;z-index:999999';
+    container.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:white;padding:40px 60px;font-family:"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.6;color:#000000;z-index:999999;-webkit-font-smoothing:antialiased';
     document.body.appendChild(container);
     await new Promise(r => setTimeout(r, 500));
     try {
       const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
-      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', width: container.offsetWidth, height: container.offsetHeight });
+      const canvas = await html2canvas(container, { scale: 3, useCORS: true, logging: false, backgroundColor: '#ffffff', width: container.offsetWidth, height: container.offsetHeight });
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pw = 210, ph = 297, mx = 15, my = 15, cw = pw - 2 * mx, ch = ph - 2 * my;
       const iw = cw, sc = iw / canvas.width, phpx = ch / sc;
@@ -412,8 +413,17 @@ const OmegaBasePage: React.FC = () => {
     }
 
     return parts.length > 0 ? parts : (
-      <span dangerouslySetInnerHTML={{ __html: content.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>') }} />
+      <span dangerouslySetInnerHTML={{ __html: textToHtml(content) }} />
     );
+  };
+
+  // Convert plain text to HTML with markdown headings, bold, and line breaks
+  const textToHtml = (text: string): string => {
+    return text
+      .replace(/^### (.+)$/gm, '<h3 style="font-size:1.05rem;font-weight:700;color:#D4AF37;margin:12px 0 4px">$1</h3>')
+      .replace(/^## (.+)$/gm, '<h2 style="font-size:1.15rem;font-weight:700;color:#D4AF37;margin:16px 0 6px">$1</h2>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br/>');
   };
 
   // Convert bare URLs to clickable links
@@ -426,7 +436,7 @@ const OmegaBasePage: React.FC = () => {
       if (m.index > lastIdx) {
         parts.push(
           <span key={`${keyPrefix}-t-${lastIdx}`} dangerouslySetInnerHTML={{
-            __html: text.slice(lastIdx, m.index).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
+            __html: textToHtml(text.slice(lastIdx, m.index))
           }} />
         );
       }
@@ -443,7 +453,7 @@ const OmegaBasePage: React.FC = () => {
     if (lastIdx < text.length) {
       parts.push(
         <span key={`${keyPrefix}-t-${lastIdx}`} dangerouslySetInnerHTML={{
-          __html: text.slice(lastIdx).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br/>')
+          __html: textToHtml(text.slice(lastIdx))
         }} />
       );
     }
