@@ -1,80 +1,79 @@
 
-## Naprawa gubienia sygnalow w spotkaniach WebRTC
+Cel: zatrzymać „miganie” uczestników (pojawia się/znika prowadzący), losowe wyrzucanie osób z listy oraz nerwowe przełączanie aktywnego mówcy/widoku w trakcie webinaru.
 
-### Glowna przyczyna: Brak reconnect logic na kanale sygnalizacyjnym
+Diagnoza po przeglądzie kodu (najważniejsze):
+1) W `VideoRoom.tsx` logika heartbeat/ghost-cleanup jest zbyt agresywna i działa po stronie każdego klienta:
+- klient potrafi oznaczyć INNYCH uczestników jako `is_active=false` w tabeli `meeting_room_participants` (na podstawie lokalnej oceny „stale”),
+- po 3 nieudanych reconnectach klient także oznacza zdalnego peera jako nieaktywnego.
+To powoduje globalny efekt uboczny: jedna niestabilna przeglądarka potrafi „wyrzucić” prowadzącego dla wszystkich.
 
-**Plik: `src/components/meeting/VideoRoom.tsx`, linia 662-666**
+2) Heartbeat pomija aktualizację gdy karta jest ukryta (`document.hidden`), a próg stale to 90s — przy throttlingu mobilnym/desktopowym łatwo o fałszywe „zniknięcie”.
 
-Kanal `supabase.channel(`meeting:${roomId}`)` obsluguje WSZYSTKIE sygnaly P2P:
-- `peer-joined` / `peer-left`
-- `media-state-changed`
-- `settings-changed`
-- `mute-all` / `mute-peer` / `unmute-request`
-- `meeting-ended`
-- `co-host-assigned` / `co-host-removed`
+3) Heartbeat aktualizuje własny rekord z warunkiem `.eq('is_active', true)`, więc jeśli ktoś wcześniej ustawił rekord na `false`, klient może nie odzyskać obecności samym heartbeatem.
 
-Subskrypcja wygląda tak:
-```text
-channel.subscribe(async (status) => {
-  if (status === 'SUBSCRIBED' && !cancelled) {
-    await channel.send(...peer-joined...);
-  }
-});
-```
+4) Watchdog kanału sygnalizacyjnego usuwa kanał, ale nie zawsze natychmiast go odtwarza — to pogłębia niespójność sygnałów.
 
-**Problem**: Nie ma handlera dla `CHANNEL_ERROR` ani `TIMED_OUT`. Gdy kanal Realtime sie rozlaczy (zmiana sieci, timeout, problem serwerowy), wszystkie sygnaly sa CICHE gubione. Nowi uczestnicy nie sa widoczni, media state nie jest synchronizowany, mute/unmute nie dziala.
+5) W `VideoGrid.tsx` aktywny mówca przełącza się dość szybko (krótki debounce + niski próg), więc przy jitterze audio daje efekt „skaczącego” widoku.
 
-Dla porownania: `MeetingChat` (linia 128-131) MA reconnect logic:
-```text
-if (status === 'CHANNEL_ERROR') {
-  setTimeout(setupChannel, 3000);
-}
-```
+Zakres zmian:
+- Głównie `src/components/meeting/VideoRoom.tsx`
+- Dodatkowo `src/components/meeting/VideoGrid.tsx` (stabilizacja active speaker)
 
-### Dodatkowe problemy
+Plan implementacji:
 
-#### Problem 2: Brak re-announcement po reconnect
-Nawet gdyby kanal sie reconnectowel, nie ma ponownego wyslania `peer-joined`. Inni uczestnicy ktory dolaczyli podczas disconnectu nie beda wiedziec o istniejaych peerach.
+1) Usunąć klientowe „dezaktywowanie” innych uczestników
+- W heartbeat/visibility sync usunąć fragmenty, które robią `update is_active=false` dla innych peerów.
+- W `reconnectToPeer` po przekroczeniu limitu prób nie pisać do DB o zdalnym peerze; tylko lokalnie zamknąć połączenie i oznaczyć go jako „nieosiągalny” w UI.
+Efekt: pojedynczy klient nie będzie mógł „wyrzucić” prowadzącego globalnie.
 
-#### Problem 3: Brak okresowej synchronizacji kanalu
-Heartbeat (co 30s) synchronizuje DB, ale nie weryfikuje czy kanal broadcast jest aktywny. Moze byc sytuacja ze DB jest aktualne ale kanal jest martwy.
+2) Zmienić heartbeat na self-healing własnej obecności
+- Aktualizacja własnego rekordu ma ustawiać:
+  - `is_active=true`,
+  - `left_at=null`,
+  - `updated_at=now`,
+  - opcjonalnie `peer_id` = aktualny peer.
+- Usunąć warunek `.eq('is_active', true)` z własnej aktualizacji.
+Efekt: nawet jeśli rekord został błędnie oznaczony jako nieaktywny, klient sam go odtworzy.
 
-### Plan naprawy (1 plik)
+3) Ograniczyć fałszywe ghost-removale lokalnie
+- Zamiast natychmiastowego usuwania uczestnika z UI po pojedynczym „braku w active list”, wprowadzić lokalny licznik/bramkę (np. 2–3 kolejne cykle heartbeat) zanim participant zniknie.
+- Dodatkowo: jeśli istnieje żywe połączenie WebRTC (`connectionState/iceConnectionState` nie jest failed/closed), nie usuwać od razu z UI.
+Efekt: koniec „pojawia się i znika” przy chwilowych lagach DB/realtime.
 
-**Plik: `src/components/meeting/VideoRoom.tsx`**
+4) Poprawić watchdog kanału sygnalizacyjnego
+- Gdy heartbeat wykryje martwy kanał (`state` != joined/joining), uruchomić jawnie funkcję reconnect (a nie tylko remove i czekanie).
+- Utrzymać jeden aktywny timer reconnect i blokadę przed wielokrotnym równoległym `setupSignalingChannel`.
+Efekt: mniejsze okna utraty sygnałów i mniej niespójności.
 
-#### Zmiana 1: Dodac CHANNEL_ERROR handler z reconnect
+5) Uspokoić przełączanie aktywnego mówcy (UX)
+- W `VideoGrid.tsx` podnieść minimalny próg aktywności audio i wydłużyć „hold time” aktywnego mówcy (np. 2–3s zamiast szybkiego przełączania).
+- Przełączać tylko gdy nowy mówca ma wyraźnie wyższy poziom (histereza), nie przy drobnych fluktuacjach.
+Efekt: widok przestanie „przerzucać” mówcę co chwilę.
 
-W `channel.subscribe()` (linia 662):
-- Dodac obsluge statusow `CHANNEL_ERROR` i `TIMED_OUT`
-- Przy bledzie: usunac stary kanal, stworzyc nowy z wszystkimi handlerami
-- Wyekstrahowac setup kanalu do osobnej funkcji `setupSignalingChannel` (podobnie jak w MeetingChat)
-- Ref `channelReconnectAttemptsRef` z limitem 5 prob, reset przy sukcesie
+6) Twarde kryteria bezpieczeństwa stanu uczestników
+- Źródła „opuszczenia spotkania”:
+  - własny `beforeunload/leave`,
+  - `peer-left` broadcast,
+  - długotrwały brak sygnału + brak aktywnego połączenia (lokalnie, bez kasowania innych z DB).
+- DB nie powinna być używana przez każdego klienta do agresywnego „moderowania” aktywności innych.
 
-#### Zmiana 2: Re-announce po reconnect
+7) Plan testów po wdrożeniu
+- Test 2–3 klientów: prowadzący + uczestnik + opcjonalnie gość.
+- Symulacja słabego łącza/utrata sieci na jednym kliencie:
+  - prowadzący nie znika pozostałym,
+  - uczestnik nie „miga” na liście.
+- Test przełączania karty/background na mobile i desktop:
+  - brak masowego znikania po ~90s.
+- Test aktywnego mówcy:
+  - brak nerwowego skakania kafla.
+- Test end-to-end całego webinaru (dołączenie, chwilowe zerwanie, powrót, wyjście).
 
-Po udanym reconnect (`SUBSCRIBED`):
-- Wyslac ponownie `peer-joined` z aktualnymi danymi
-- Pobrac aktualnych uczestnikow z DB i nawiazac brakujace polaczenia (jak w `handleVisibilityChange`)
+Ryzyka i uwagi:
+- Po ograniczeniu agresywnego cleanupu mogą dłużej wisieć „martwe” wpisy — to celowy trade-off na rzecz stabilności live; można je sprzątać bezpiecznie po dłuższym czasie po stronie serwera (scheduled cleanup), nie przez każdego klienta.
+- Zmiany są kompatybilne z obecną architekturą PeerJS + Supabase Realtime i nie wymagają przebudowy całego flow.
 
-#### Zmiana 3: Dodac channel health check w heartbeat
-
-W heartbeat (linia 372-437):
-- Sprawdzic stan kanalu: `channelRef.current?.state`
-- Jesli kanal nie jest w stanie `joined`, wywolac reconnect
-- Logowac stan kanalu dla diagnostyki
-
-#### Zmiana 4: Dodac exponential backoff do reconnect
-
-- Pierwsza proba: 2s
-- Druga: 4s
-- Trzecia: 8s
-- Czwarta: 16s
-- Piata: 32s
-- Po 5 probach: toast z bledem i propozycja recznego odswiezenia
-
-### Szacowany wplyw
-- Kanal sygnalizacyjny bedzie sie automatycznie reconnectowac po utracie polaczenia
-- Uczestnicy beda re-announced po reconnect -- nie beda "niewidzialni"
-- Heartbeat bedzie dodatkowym watchdogiem dla kanalu
-- Exponential backoff zapobiega floodowaniu serwera przy dluzszych przerwach
+Kolejność wdrożenia:
+1. `VideoRoom.tsx`: usunięcie globalnych deaktywacji + self-healing heartbeat.
+2. `VideoRoom.tsx`: watchdog reconnect kanału + łagodniejszy local prune.
+3. `VideoGrid.tsx`: stabilizacja active speaker.
+4. Testy end-to-end i korekta progów.
