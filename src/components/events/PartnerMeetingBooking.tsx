@@ -274,7 +274,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       
       // 1. Parallel fetch: weekly ranges + booked meetings + blocking events + leader permissions
       // Note: We no longer check for Google token here - edge function will handle that with service role
-      const [weeklyResult, meetingsResult, blockingResult, permissionsResult] = await Promise.all([
+      const [weeklyResult, meetingsResult, blockingResult, registrationsResult, permissionsResult] = await Promise.all([
         supabase
           .from('leader_availability')
           .select('start_time, end_time, slot_duration_minutes, timezone, meeting_type')
@@ -292,12 +292,16 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
           .eq('is_active', true),
         supabase
           .from('events')
-          .select('start_time, end_time')
+          .select('id, start_time, end_time, host_user_id')
           .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
-          .eq('host_user_id', partnerId)
           .gte('end_time', `${dateStr}T00:00:00`)
           .lte('start_time', `${dateStr}T23:59:59`)
           .eq('is_active', true),
+        supabase
+          .from('event_registrations')
+          .select('event_id')
+          .eq('user_id', partnerId)
+          .eq('status', 'registered'),
         supabase
           .from('leader_permissions')
           .select('tripartite_slot_duration, consultation_slot_duration')
@@ -354,8 +358,14 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       };
 
       // 4. Calculate blocked times from platform events (webinars, team meetings, etc.)
+      // Only block if leader is HOST or REGISTERED for the event
+      const registeredEventIds = new Set(registrationsResult.data?.map(r => r.event_id) || []);
       const blockedByPlatform = new Set<string>();
       blockingResult.data?.forEach(event => {
+        // Skip events where leader is neither host nor registered
+        const isLeaderInvolved = event.host_user_id === partnerId || registeredEventIds.has(event.id);
+        if (!isLeaderInvolved) return;
+
         const eventStart = new Date(event.start_time);
         const eventEnd = new Date(event.end_time);
         
@@ -589,25 +599,40 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
       }
 
       // Check for conflicts with webinars and team trainings
-      // Use strict < and > to allow back-to-back meetings (event ends when slot starts = OK)
-      const { data: blockingEvent } = await supabase
+      // Only block if leader is host or registered for the event
+      const { data: blockingEvents } = await supabase
         .from('events')
-        .select('id, title')
+        .select('id, title, host_user_id')
         .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu', 'meeting_public'])
         .lt('start_time', endDateTime)
         .gt('end_time', startDateTime)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('is_active', true);
 
-      if (blockingEvent) {
-        toast({
-          title: 'Konflikt czasowy',
-          description: `W tym czasie odbywa się: ${blockingEvent.title}`,
-          variant: 'destructive',
-        });
-        setBooking(false);
-        loadAvailableSlots();
-        return;
+      if (blockingEvents && blockingEvents.length > 0) {
+        // Check leader's registrations for these events
+        const blockingIds = blockingEvents.map(e => e.id);
+        const { data: leaderRegs } = await supabase
+          .from('event_registrations')
+          .select('event_id')
+          .eq('user_id', selectedPartner.user_id)
+          .eq('status', 'registered')
+          .in('event_id', blockingIds);
+        
+        const regIds = new Set(leaderRegs?.map(r => r.event_id) || []);
+        const actualBlocking = blockingEvents.find(e => 
+          e.host_user_id === selectedPartner.user_id || regIds.has(e.id)
+        );
+
+        if (actualBlocking) {
+          toast({
+            title: 'Konflikt czasowy',
+            description: `W tym czasie odbywa się: ${actualBlocking.title}`,
+            variant: 'destructive',
+          });
+          setBooking(false);
+          loadAvailableSlots();
+          return;
+        }
       }
 
       // Create the event
