@@ -430,11 +430,11 @@ export const UnifiedMeetingSettingsForm: React.FC = () => {
       <TabsList>
         <TabsTrigger value="settings" className="flex items-center gap-2">
           <Settings className="h-4 w-4" />
-          Ustawienia
+          Ustawienia Twojej dostępności
         </TabsTrigger>
         <TabsTrigger value="schedule" className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4" />
-          Harmonogram
+          Najbliższe Twoje spotkania
         </TabsTrigger>
         <TabsTrigger value="history" className="flex items-center gap-2">
           <History className="h-4 w-4" />
