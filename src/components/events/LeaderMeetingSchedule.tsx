@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Loader2, Users, User, Video, Calendar, Clock, XCircle, CheckCircle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -43,9 +49,28 @@ export const LeaderMeetingSchedule: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState<MeetingEvent[]>([]);
 
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+
   useEffect(() => {
     if (user) loadMeetings();
   }, [user]);
+
+  const handleCancelMeeting = async (eventId: string) => {
+    setCancellingId(eventId);
+    try {
+      const { data, error } = await supabase.functions.invoke('cancel-individual-meeting', {
+        body: { event_id: eventId },
+      });
+      if (error) throw error;
+      toast.success('Spotkanie zostało anulowane');
+      loadMeetings();
+    } catch (err: any) {
+      console.error('Cancel meeting error:', err);
+      toast.error(err.message || 'Nie udało się anulować spotkania');
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const loadMeetings = async () => {
     if (!user) return;
@@ -221,6 +246,41 @@ export const LeaderMeetingSchedule: React.FC = () => {
                       </a>
                     </div>
                   )}
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="w-full mt-1 gap-1"
+                        disabled={cancellingId === meeting.id}
+                      >
+                        {cancellingId === meeting.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <XCircle className="h-3 w-3" />
+                        )}
+                        Anuluj spotkanie
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Anulować to spotkanie?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Spotkanie zostanie anulowane, a wszyscy uczestnicy zostaną powiadomieni.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Nie, zostaw</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleCancelMeeting(meeting.id)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Tak, anuluj
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               );
             })}
