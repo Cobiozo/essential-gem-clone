@@ -1,109 +1,62 @@
 
+## Filtrowanie slotow na podstawie rejestracji lidera na wydarzenia
 
-## Zmiana formularza prospekta i system powiadomien e-mail dla prospekta
+### Problem
+Obecna logika blokuje sloty tylko jesli lider jest **gospodarzem** (`host_user_id`) wydarzenia platformowego. Uzytkownik chce, aby sloty byly blokowane rowniez gdy lider jest **zarejestrowany** (`event_registrations`) na dane wydarzenie. Jednoczesnie: jesli lider NIE jest zarejestrowany na wydarzenie (np. "Opportunity Meeting -- Italian"), slot powinien pozostac dostepny.
 
-### 1. Zmiana formularza rezerwacji (PartnerMeetingBooking.tsx)
+### Rozwiazanie
 
-**Pola obowiazkowe:**
-- Imie (prospect_first_name) -- wymagane
-- Dodatkowe informacje (booking_notes) -- wymagane (zmiana z opcjonalnego)
+**Plik: `src/components/events/PartnerMeetingBooking.tsx`**
 
-**Pola opcjonalne:**
-- Nazwisko (prospect_last_name) -- opcjonalne
-- Telefon (prospect_phone) -- opcjonalne  
-- Email prospekta (prospect_email) -- NOWE pole, opcjonalne
+**Zmiana 1: Zapytanie o blokujace wydarzenia (linie 293-300)**
 
-**Ostrzezenie przy braku emaila:**
-Pod polem email wyswietlic komunikat: "Brak adresu e-mail oznacza, ze prospekt nie otrzyma wiadomosci przypominajacych o spotkaniu. Partner dołaczajacy musi samodzielnie zadbac o przekazanie danych do dolaczenia."
+Zamiast filtrowania po `host_user_id = partnerId`, nowe podejscie:
 
-**Wiadomosc motywacyjna:**
-Pod formularzem dodac adnotacje: "Niezaleznie od powiadomien systemowych, dbaj o profesjonalne podejscie do kazdego zaproszonego -- zadne systemy nie zastapia kontaktu bezposredniego z prospektem az do momentu odbycia spotkania."
+1. Pobrac wydarzenia platformowe w danym dniu (bez filtra na hosta)
+2. Pobrac rejestracje lidera na te wydarzenia z tabeli `event_registrations`
+3. Blokowac slot tylko jesli lider jest hostem LUB jest zarejestrowany na to wydarzenie
 
-**Walidacja:**
-- `prospectFirstName.trim()` i `bookingNotes.trim()` -- wymagane
-- Usuniecie wymogu `prospectLastName` z walidacji
+Konkretnie:
+- Zmiana zapytania `blockingResult` -- usuniecie filtra `.eq('host_user_id', partnerId)`, dodanie `.select('id, start_time, end_time')`
+- Dodanie nowego rownoleglego zapytania do `event_registrations` filtrujacego po `user_id = partnerId` i `status = 'registered'`
+- W sekcji filtrowania (linie 356-373): sprawdzenie czy event.id jest w zbiorze wydarzen na ktore lider jest zarejestrowany LUB czy lider jest hostem tego wydarzenia
 
-### 2. Zapis danych prospekta (description JSON)
+**Zmiana 2: Sprawdzenie konfliktu przy potwierdzaniu (linie 591-611)**
 
-Rozszerzenie obiektu JSON zapisywanego w polu `description` o `prospect_email`:
+Analogiczna zmiana -- zamiast blokowania wszystkich wydarzen platformowych, sprawdzic czy lider jest zarejestrowany na kolidujace wydarzenie lub jest jego hostem.
+
+### Szczegoly techniczne
+
+Zapytania rownolegle w `loadAvailableSlots`:
 
 ```text
-{
-  prospect_first_name: "...",
-  prospect_last_name: "...",   // opcjonalne
-  prospect_phone: "...",       // opcjonalne
-  prospect_email: "...",       // opcjonalne (NOWE)
-  booking_notes: "..."
-}
+// Zapytanie 1: Wydarzenia platformowe w danym dniu (BEZ filtra host_user_id)
+supabase
+  .from('events')
+  .select('id, start_time, end_time')
+  .in('event_type', ['webinar', 'spotkanie_zespolu', 'team_training', 'meeting_public'])
+  .gte('end_time', `${dateStr}T00:00:00`)
+  .lte('start_time', `${dateStr}T23:59:59`)
+  .eq('is_active', true)
+
+// Zapytanie 2: Rejestracje lidera
+supabase
+  .from('event_registrations')
+  .select('event_id')
+  .eq('user_id', partnerId)
+  .eq('status', 'registered')
 ```
 
-### 3. Nowy stan w komponencie
+Filtrowanie:
+```text
+const registeredEventIds = new Set(registrations.map(r => r.event_id));
 
-Dodanie `prospectEmail` state i reset po rezerwacji.
+// Blokuj slot tylko jesli lider jest zarejestrowany na to wydarzenie
+// LUB jest jego hostem (zachowanie dotychczasowe)
+platformEvents.forEach(event => {
+  if (!registeredEventIds.has(event.id)) return; // lider nie zapisany = slot dostepny
+  // ... istniejaca logika overlap checking
+});
+```
 
-### 4. Wyslanie e-maila do prospekta przy rezerwacji
-
-Po udanej rezerwacji, jesli `prospect_email` jest podany, wywolac nowa edge function `send-prospect-meeting-email` z danymi:
-- prospect_email, prospect_first_name
-- data/godzina spotkania
-- imie i nazwisko zapraszajacego partnera
-- event_id
-- typ: "booking_confirmation"
-
-### 5. Nowa Edge Function: `send-prospect-meeting-email`
-
-Funkcja wysylajaca e-maile do prospekta. Przyjmuje parametry:
-- `event_id`, `prospect_email`, `prospect_first_name`
-- `reminder_type`: "booking", "24h", "12h", "2h", "15min"
-- `inviter_name` (imie partnera zapraszajacego)
-- `meeting_date`, `meeting_time`
-- `zoom_link` (tylko dla 2h i 15min)
-
-Tresc e-maili:
-- **Rezerwacja**: Informacja ze spotkanie zainicjowane przez [imie partnera], termin i godzina. Bez linku.
-- **24h**: Ponowienie informacji o terminie i godzinie. Bez linku.
-- **12h**: Ponowienie + "2 godziny przed spotkaniem otrzymasz link do pokoju. Jesli nie otrzymasz -- skontaktuj sie z osoba zapraszajaca."
-- **2h**: Link do Zoom + mile slowa o nowym spojrzeniu na zdrowie i przyszlosc.
-- **15min**: Jak 2h ale z podkresleniem "juz za 15 minut, badz punktualnie!"
-
-Funkcja korzysta z SMTP (analogicznie do send-meeting-reminders).
-
-### 6. Rozszerzenie Edge Function: `send-meeting-reminders`
-
-Dodanie obslugi prospekta:
-- Przy kazdym spotkaniu trojstronnym odczytac `description` JSON i sprawdzic `prospect_email`
-- Jesli email istnieje, wyslac odpowiedni reminder do prospekta (24h, 12h, 2h, 15min)
-- Dodanie okna 12h (11h-13h przed spotkaniem) i 2h (110-130 min przed)
-- Logowanie dostarczenia w `meeting_reminders_sent` z user_id = null i dodatkowym polem lub specjalnym identyfikatorem
-
-### 7. Nowe szablony e-mail
-
-Utworzenie 5 szablonow w bazie (tabela `email_templates`):
-- `prospect_booking_confirmation` -- potwierdzenie rezerwacji
-- `prospect_reminder_24h` -- przypomnienie 24h
-- `prospect_reminder_12h` -- przypomnienie 12h z info o linku
-- `prospect_reminder_2h` -- link do spotkania + mile slowa
-- `prospect_reminder_15min` -- link + "za 15 minut"
-
-### 8. Wyswietlanie emaila prospekta w widokach
-
-Aktualizacja wyswietlania danych prospekta w:
-- `UpcomingMeetings.tsx` -- pokazac email prospekta jesli podany
-- `LeaderMeetingSchedule.tsx` -- pokazac email prospekta
-- `IndividualMeetingsHistory.tsx` -- pokazac email prospekta
-
-### Podsumowanie plikow do modyfikacji/utworzenia
-
-**Modyfikacja:**
-- `src/components/events/PartnerMeetingBooking.tsx` -- formularz, walidacja, zapis, wyslanie emaila
-- `supabase/functions/send-meeting-reminders/index.ts` -- nowe okna 12h/2h, obsluga prospect_email
-- `src/components/events/UpcomingMeetings.tsx` -- wyswietlanie emaila
-- `src/components/events/LeaderMeetingSchedule.tsx` -- wyswietlanie emaila
-- `src/components/events/IndividualMeetingsHistory.tsx` -- wyswietlanie emaila
-
-**Nowe:**
-- `supabase/functions/send-prospect-meeting-email/index.ts` -- edge function do emaili prospekta
-
-**Baza danych (SQL):**
-- Insert 5 nowych szablonow email do `email_templates`
-
+Dla sprawdzenia konfliktu przy potwierdzaniu (linia 591+): dodanie analogicznego zapytania o rejestracje i filtrowanie tylko wydarzen na ktore lider jest zapisany lub jest hostem.
