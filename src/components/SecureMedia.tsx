@@ -96,6 +96,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const stalledTimeoutRef = useRef<NodeJS.Timeout>(); // Debounce for stalled event
   const canplayGuardRef = useRef<boolean>(false); // Guard after canplay to ignore immediate waiting
   const pendingTokenRefreshRef = useRef<string | null>(null); // Deferred token refresh URL
+  const smartBufferingTimeoutRef = useRef<NodeJS.Timeout>(); // CHANGE 3: Timeout recovery for smart buffering
+  const isTabHiddenRef = useRef<boolean>(false); // CHANGE 5: Ref for blur-induced pause detection
   
   // NEW: Hide video until loadeddata fires to prevent showing wrong frame
   const [videoReady, setVideoReady] = useState(false);
@@ -713,11 +715,30 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         isBufferingRef.current = true;
         setIsBuffering(true);
         
+        const isMobileDevice = window.innerWidth < 768 || 'ontouchstart' in window;
+        
         if (isSlowNetworkNow && !video.paused) {
           wasPlayingBeforeBufferRef.current = true;
-          video.pause();
+          // CHANGE 2: On mobile, DON'T pause - mobile browsers deprioritize loading paused videos
+          if (!isMobileDevice) {
+            video.pause();
+          }
           setIsSmartBuffering(true);
-          console.log('[SecureMedia] Smart buffering activated (slow network)');
+          console.log('[SecureMedia] Smart buffering activated (slow network)', { mobile: isMobileDevice, paused: !isMobileDevice });
+          
+          // CHANGE 3: Recovery timeout - max 15s of smart buffering then force resume
+          if (smartBufferingTimeoutRef.current) clearTimeout(smartBufferingTimeoutRef.current);
+          smartBufferingTimeoutRef.current = setTimeout(() => {
+            console.warn('[SecureMedia] Smart buffering timeout (15s) - force resuming');
+            setIsSmartBuffering(false);
+            isBufferingRef.current = false;
+            setIsBuffering(false);
+            setShowBufferingSpinner(false);
+            wasPlayingBeforeBufferRef.current = false;
+            if (video && video.paused && !document.hidden) {
+              video.play().catch(console.error);
+            }
+          }, 15000);
         } else {
           console.log('[SecureMedia] Good network - not pausing, waiting for browser to catch up');
         }
@@ -766,6 +787,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       if (stalledTimeoutRef.current) {
         clearTimeout(stalledTimeoutRef.current);
         stalledTimeoutRef.current = undefined;
+      }
+      // CHANGE 3: Clear smart buffering recovery timeout
+      if (smartBufferingTimeoutRef.current) {
+        clearTimeout(smartBufferingTimeoutRef.current);
+        smartBufferingTimeoutRef.current = undefined;
       }
       setShowBufferingSpinner(false);
       
@@ -1000,13 +1026,16 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
       
       // CHANGE 5: Apply deferred token refresh URL on pause
-      if (pendingTokenRefreshRef.current) {
+      // BUT: Don't apply if pause was caused by blur on mobile (would restart video loading)
+      if (pendingTokenRefreshRef.current && !isTabHiddenRef.current) {
         console.log('[SecureMedia] Applying deferred token refresh on pause');
         const newUrl = pendingTokenRefreshRef.current;
         pendingTokenRefreshRef.current = null;
         lastValidTimeRef.current = video.currentTime;
         initialPositionSetRef.current = false;
         setSignedUrl(newUrl);
+      } else if (pendingTokenRefreshRef.current && isTabHiddenRef.current) {
+        console.log('[SecureMedia] Skipping deferred token refresh - pause caused by tab hidden/blur');
       }
     };
     
@@ -1063,6 +1092,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       if (stalledTimeoutRef.current) {
         clearTimeout(stalledTimeoutRef.current);
         stalledTimeoutRef.current = undefined;
+      }
+      // CHANGE 3: Clear smart buffering recovery timeout
+      if (smartBufferingTimeoutRef.current) {
+        clearTimeout(smartBufferingTimeoutRef.current);
+        smartBufferingTimeoutRef.current = undefined;
       }
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount]);
@@ -1192,8 +1226,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         onTimeUpdateRef.current?.(video.currentTime);
       }
       
-      // CHANGE 5: Apply deferred token refresh on pause
-      if (pendingTokenRefreshRef.current) {
+      // CHANGE 5: Apply deferred token refresh on pause (skip if blur-induced on mobile)
+      if (pendingTokenRefreshRef.current && !isTabHiddenRef.current) {
         console.log('[SecureMedia] Unrestricted: Applying deferred token refresh on pause');
         const newUrl = pendingTokenRefreshRef.current;
         pendingTokenRefreshRef.current = null;
@@ -1275,25 +1309,43 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType, disableInteraction, signedUrl, videoElement, retryCount, controlMode]);
 
+  // Sync isTabHidden ref
+  useEffect(() => { isTabHiddenRef.current = isTabHidden; }, [isTabHidden]);
+
   // Visibility API - pause video when tab is hidden (for ALL video types)
+  // CHANGE 1: Disable window.blur on mobile (too aggressive), add window.focus
   useEffect(() => {
     if (mediaType !== 'video') return;
+
+    const isMobileDevice = window.innerWidth < 768 || 'ontouchstart' in window;
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
         setIsTabHidden(true);
+        isTabHiddenRef.current = true;
         if (videoRef.current && !videoRef.current.paused) {
           videoRef.current.pause();
         }
       } else {
         setIsTabHidden(false);
+        isTabHiddenRef.current = false;
       }
     };
 
+    // CHANGE 1: Only register blur on desktop - on mobile blur fires too often
     const handleWindowBlur = () => {
       if (videoRef.current && !videoRef.current.paused) {
         videoRef.current.pause();
         setIsTabHidden(true);
+        isTabHiddenRef.current = true;
+      }
+    };
+
+    // CHANGE 1: Focus handler resets isTabHidden on ALL devices
+    const handleWindowFocus = () => {
+      if (!document.hidden) {
+        setIsTabHidden(false);
+        isTabHiddenRef.current = false;
       }
     };
 
@@ -1301,25 +1353,35 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       if (videoRef.current && !videoRef.current.paused) {
         videoRef.current.pause();
         setIsTabHidden(true);
+        isTabHiddenRef.current = true;
       }
     };
 
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
         setIsTabHidden(true);
+        isTabHiddenRef.current = true;
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus); // CHANGE 1: Always register focus
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow as EventListener);
     
+    // CHANGE 1: Only register blur on desktop
+    if (!isMobileDevice) {
+      window.addEventListener('blur', handleWindowBlur);
+    }
+    
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow as EventListener);
+      if (!isMobileDevice) {
+        window.removeEventListener('blur', handleWindowBlur);
+      }
     };
   }, [mediaType]);
 
