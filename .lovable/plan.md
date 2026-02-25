@@ -1,25 +1,22 @@
 
 
-## Zmiana reguly 2h -- ukrywanie terminow zamiast oznaczania jako contactOnly
-
-### Obecny stan
-Sloty < 2h od teraz sa oznaczane jako `contactOnly: true` i wyswietlane z innym stylem + dialog kontaktowy. Uzytkownik chce je calkowicie ukryc.
+## Dodanie przycisku anulowania spotkań w "Najbliższe Twoje spotkania"
 
 ### Zmiana
 
-**Plik: `src/components/events/PartnerMeetingBooking.tsx`**
+**Plik: `src/components/events/LeaderMeetingSchedule.tsx`**
 
-1. W filtrze slotow (linia 433-443) dodac warunek: jesli `slotStartUTC < twoHoursFromNow` to `return false` (ukryj slot)
-2. Usunac logike `contactOnly` z `.map()` (linie 448-451, 464) -- pole juz niepotrzebne
-3. Usunac dialog kontaktowy (komponent Dialog z emailem/telefonem) i powiazany stan (`showContactDialog`, `contactPartnerInfo`)
-4. Usunac obsluge klikniecia slotu contactOnly w `handleSelectSlot` -- teraz kazdy widoczny slot jest rezerwowalny
-5. Usunac warunkowe stylowanie slotow contactOnly (opacity, border-dashed, ikona telefonu, tooltip)
+1. Dodac importy: `Button`, `AlertDialog` (z komponentami), `toast` z sonner
+2. Dodac stan `cancellingId` do sledzenia ktore spotkanie jest anulowane (loading state)
+3. Dodac funkcje `handleCancelMeeting(eventId)`:
+   - Wywoluje edge function `cancel-individual-meeting` z `{ event_id: eventId }`
+   - Po sukcesie: toast sukcesu + odswiezenie listy (`loadMeetings()`)
+   - Przy bledzie: toast z bledem
+4. Przy kazdym spotkaniu dodac przycisk "Anuluj spotkanie" opakowany w `AlertDialog` z potwierdzeniem:
+   - Tytul: "Anulować to spotkanie?"
+   - Opis: informacja ze wszyscy uczestnicy zostana powiadomieni
+   - Przycisk potwierdzajacy wywoluje `handleCancelMeeting`
+   - Przycisk wyswietla loader gdy `cancellingId === meeting.id`
 
-**Plik: `src/components/events/PartnerMeetingBooking.tsx` -- interfejs AvailableSlot**
-
-Usunac pole `contactOnly?: boolean` z interfejsu.
-
-### Efekt
-
-Jesli jest 15:01, to sloty 15:00, 16:00 i 17:00 sa ukryte. Najblizszy widoczny termin to 18:00 (pierwszy slot >= 2h od teraz). Zadne sloty "do kontaktu" nie sa wyswietlane.
+Przycisk bedzie umieszczony na dole kazdej karty spotkania, z wariantem `destructive` i ikona `XCircle`, analogicznie do widoku na screenshocie uzytkownika.
 
