@@ -81,6 +81,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const reconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const iceDisconnectTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
+  // === Zmiana A: participantsRef synced with state ===
+  const participantsRef = useRef<RemoteParticipant[]>([]);
+  useEffect(() => { participantsRef.current = participants; }, [participants]);
+
+  // === Zmiana C: isScreenSharingRef synced with state ===
+  const isScreenSharingRef = useRef(false);
+  useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
+
+  // Refs for other state used in restoreCamera closure
+  const isMutedRef = useRef(isMuted);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+
   // Meeting settings & co-host state
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>(initialSettings || DEFAULT_SETTINGS);
   const [coHostUserIds, setCoHostUserIds] = useState<string[]>([]);
@@ -258,12 +270,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         await supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
-        // Update analytics
         await supabase.from('meeting_guest_analytics')
           .update({ left_at: new Date().toISOString() })
           .eq('guest_token_id', guestTokenId)
           .is('left_at', null);
-        // Calculate duration and send thank you email
         const { data: analyticsData } = await supabase
           .from('meeting_guest_analytics')
           .select('id, joined_at, left_at')
@@ -272,7 +282,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         if (analyticsData?.joined_at && analyticsData?.left_at) {
           const duration = Math.round((new Date(analyticsData.left_at).getTime() - new Date(analyticsData.joined_at).getTime()) / 1000);
           await supabase.from('meeting_guest_analytics').update({ duration_seconds: duration }).eq('id', analyticsData.id);
-          // Trigger thank you email
           if (duration >= 30) {
             supabase.functions.invoke('send-guest-thank-you-email', {
               body: { guest_token_id: guestTokenId },
@@ -296,7 +305,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     console.log('[VideoRoom] Cleanup complete');
   }, [roomId, user, guestMode, guestTokenId]);
 
-  // beforeunload handler - fixed sendBeacon with proper Supabase headers
+  // beforeunload handler
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (cleanupDoneRef.current) return;
@@ -310,7 +319,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
         navigator.sendBeacon(url, new Blob([body], { type: 'application/json; charset=utf-8' }));
-        // Also try with fetch keepalive as a more reliable fallback
         try {
           fetch(url, {
             method: 'PATCH',
@@ -336,12 +344,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [roomId, user, guestTokenId]);
 
-  // Heartbeat: update last_seen_at every 30s
+  // === Zmiana E: Heartbeat + periodic ghost cleanup ===
   useEffect(() => {
     if (!user && !guestTokenId) return;
     const heartbeat = async () => {
       if (document.hidden || cleanupDoneRef.current) return;
       try {
+        // 1. Update own heartbeat
         if (guestTokenId) {
           await supabase.from('meeting_room_participants')
             .update({ updated_at: new Date().toISOString() })
@@ -351,7 +360,53 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             .update({ updated_at: new Date().toISOString() })
             .eq('room_id', roomId).eq('user_id', user.id).eq('is_active', true);
         }
-      } catch (e) { console.warn('[VideoRoom] Heartbeat failed:', e); }
+
+        // 2. Sync participants from DB - remove ghosts
+        const { data: activeParticipants } = await supabase
+          .from('meeting_room_participants')
+          .select('peer_id, display_name, user_id, guest_token_id, updated_at')
+          .eq('room_id', roomId).eq('is_active', true);
+
+        if (activeParticipants) {
+          const now = Date.now();
+          const staleThreshold = 90000; // 90s
+          const activePeerIds = new Set<string>();
+
+          for (const p of activeParticipants) {
+            if (!p.peer_id) continue;
+            if (user && p.user_id === user.id) continue;
+            if (guestTokenId && p.guest_token_id === guestTokenId) continue;
+
+            const lastSeen = p.updated_at ? new Date(p.updated_at).getTime() : 0;
+            if (now - lastSeen > staleThreshold) {
+              // Mark stale in DB
+              if (p.user_id) {
+                supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('user_id', p.user_id).then(() => {});
+              } else if (p.guest_token_id) {
+                supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('guest_token_id', p.guest_token_id).then(() => {});
+              }
+              continue;
+            }
+            activePeerIds.add(p.peer_id);
+          }
+
+          // Remove ghosts from local participants and close their connections
+          const currentParticipants = participantsRef.current;
+          const ghostPeerIds = currentParticipants
+            .filter(p => !activePeerIds.has(p.peerId))
+            .map(p => p.peerId);
+
+          if (ghostPeerIds.length > 0) {
+            console.log('[VideoRoom] Removing ghost participants:', ghostPeerIds);
+            ghostPeerIds.forEach(peerId => {
+              const conn = connectionsRef.current.get(peerId);
+              if (conn) { try { conn.close(); } catch {} }
+              connectionsRef.current.delete(peerId);
+            });
+            setParticipants(prev => prev.filter(p => activePeerIds.has(p.peerId)));
+          }
+        }
+      } catch (e) { console.warn('[VideoRoom] Heartbeat/sync failed:', e); }
     };
     const interval = setInterval(heartbeat, 30000);
     return () => clearInterval(interval);
@@ -363,14 +418,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       if (document.hidden || cleanupDoneRef.current) return;
       console.log('[VideoRoom] Tab became visible, checking connections...');
       
-      // 1. Reconnect PeerJS if disconnected
       const peer = peerRef.current;
       if (peer && peer.disconnected && !peer.destroyed) {
         console.log('[VideoRoom] Peer disconnected, reconnecting...');
         try { peer.reconnect(); } catch (e) { console.warn('[VideoRoom] Peer reconnect failed:', e); }
       }
 
-      // 2. Check all existing connections for failed/closed ICE states
       const stream = localStreamRef.current;
       if (!stream) return;
       
@@ -385,7 +438,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         } catch {}
       });
 
-      // 3. Sync participant list from DB and connect to missing peers
       try {
         const { data: activeParticipants } = await supabase
           .from('meeting_room_participants')
@@ -395,19 +447,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         if (!activeParticipants) return;
 
         const now = Date.now();
-        const staleThreshold = 90000; // 90s without heartbeat = stale
-
-        // Remove ghosts from local list
+        const staleThreshold = 90000;
         const activePeerIds = new Set<string>();
+
         for (const p of activeParticipants) {
           if (!p.peer_id) continue;
-          // Skip self
           if (user && p.user_id === user.id) continue;
           if (guestTokenId && p.guest_token_id === guestTokenId) continue;
           
           const lastSeen = p.updated_at ? new Date(p.updated_at).getTime() : 0;
           if (now - lastSeen > staleThreshold) {
-            // Mark stale participant as inactive in DB
             if (p.user_id) {
               supabase.from('meeting_room_participants').update({ is_active: false }).eq('room_id', roomId).eq('user_id', p.user_id).then(() => {});
             } else if (p.guest_token_id) {
@@ -415,16 +464,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             }
             continue;
           }
+
           activePeerIds.add(p.peer_id);
 
-          // Connect to peers we don't have a connection to
           if (!connectionsRef.current.has(p.peer_id)) {
             console.log(`[VideoRoom] Reconnecting to missing peer: ${p.peer_id}`);
             callPeer(p.peer_id, p.display_name || 'Uczestnik', stream, undefined, p.user_id || undefined);
           }
         }
 
-        // Remove local participants not in active DB list
         setParticipants(prev => prev.filter(p => activePeerIds.has(p.peerId)));
       } catch (e) { console.warn('[VideoRoom] Visibility sync failed:', e); }
     };
@@ -478,7 +526,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               is_active: true,
               joined_at: joinedAt,
             });
-            // Update analytics with join info
             await supabase.from('meeting_guest_analytics')
               .update({
                 joined_at: joinedAt,
@@ -539,12 +586,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               toast({ title: 'Prośba o odciszenie', description: 'Prowadzący prosi o włączenie mikrofonu.' });
             }
           });
-          // Settings changed broadcast
           channel.on('broadcast', { event: 'settings-changed' }, ({ payload }) => {
             if (!cancelled && payload?.settings) {
               const newSettings = payload.settings as MeetingSettings;
               setMeetingSettings(newSettings);
-              // Force disable mic/camera when permissions revoked (guests always affected)
               const isManager = !guestMode && (isHost || (user && coHostUserIds.includes(user.id)));
               if (!isManager) {
                 if (!newSettings.allowMicrophone) {
@@ -559,7 +604,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               toast({ title: 'Ustawienia spotkania zmienione', description: 'Prowadzący zmienił ustawienia.' });
             }
           });
-          // Co-host broadcasts (only for authenticated users)
           if (!guestMode && user) {
             channel.on('broadcast', { event: 'co-host-assigned' }, ({ payload }) => {
               if (!cancelled && payload?.userId) {
@@ -578,7 +622,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               }
             });
           }
-          // Media state sync: listen for mute/camera changes from other participants
           channel.on('broadcast', { event: 'media-state-changed' }, ({ payload }) => {
             if (!cancelled && payload?.peerId) {
               setParticipants(prev => prev.map(p => 
@@ -603,7 +646,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
           if (existing && !cancelled) {
             for (const p of existing) {
-              // Skip self
               if (user && p.user_id === user.id) continue;
               if (guestTokenId && p.guest_token_id === guestTokenId) continue;
               if (p.peer_id) {
@@ -625,7 +667,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           let callerUserId: string | undefined = meta.userId;
           let callerAvatar: string | undefined = meta.avatarUrl;
 
-          // Fallback: lookup from DB if metadata missing
           if (!callerUserId) {
             const { data } = await supabase
               .from('meeting_room_participants')
@@ -701,6 +742,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         if (exists) return prev.map((p) => p.peerId === call.peer ? { ...p, stream: remoteStream } : p);
         return [...prev, { peerId: call.peer, displayName: name, stream: remoteStream, avatarUrl, userId }];
       });
+
+      // === Zmiana B (part): Track ended listeners for remote stream reconnect ===
+      remoteStream.getTracks().forEach(track => {
+        track.addEventListener('ended', () => {
+          console.log(`[VideoRoom] Remote track ended for ${call.peer}, kind: ${track.kind}`);
+          // If all tracks ended, trigger reconnect
+          const allEnded = remoteStream.getTracks().every(t => t.readyState === 'ended');
+          if (allEnded) {
+            console.log(`[VideoRoom] All remote tracks ended for ${call.peer}, reconnecting...`);
+            reconnectToPeer(call.peer);
+          }
+        });
+      });
     });
 
     call.on('close', () => { clearTimeout(timeout); removePeer(call.peer); });
@@ -714,7 +768,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           const state = pc.iceConnectionState;
           console.log(`[VideoRoom] ICE state for ${call.peer}: ${state}`);
 
-          // Clear any existing disconnect timer for this peer
           const existingTimer = iceDisconnectTimersRef.current.get(call.peer);
           if (existingTimer) {
             clearTimeout(existingTimer);
@@ -724,7 +777,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           if (state === 'connected' || state === 'completed') {
             reconnectAttemptsRef.current.delete(call.peer);
           } else if (state === 'disconnected') {
-            // Start 10s timer - if still disconnected, treat as failed
             const timer = setTimeout(() => {
               iceDisconnectTimersRef.current.delete(call.peer);
               if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
@@ -742,13 +794,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     } catch (e) { /* ignore */ }
   };
 
+  // === Zmiana B: reconnectToPeer uses participantsRef instead of participants ===
   const reconnectToPeer = useCallback(async (peerId: string) => {
     const attempts = reconnectAttemptsRef.current.get(peerId) || 0;
     if (attempts >= 3) {
       console.warn(`[VideoRoom] Max reconnect attempts (3) reached for ${peerId}, giving up`);
       reconnectAttemptsRef.current.delete(peerId);
       removePeer(peerId);
-      // Mark as inactive in DB
       supabase.from('meeting_room_participants')
         .update({ is_active: false })
         .eq('room_id', roomId).eq('peer_id', peerId).then(() => {});
@@ -762,20 +814,47 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     if (oldConn) { try { oldConn.close(); } catch {} }
     connectionsRef.current.delete(peerId);
 
-    // Get participant info before removing from state
-    const participant = participants.find(p => p.peerId === peerId);
+    // Use ref for fresh participant data
+    const participant = participantsRef.current.find(p => p.peerId === peerId);
 
     // Re-call after delay
     setTimeout(() => {
       if (cleanupDoneRef.current || !peerRef.current || !localStreamRef.current) return;
       callPeer(peerId, participant?.displayName || 'Uczestnik', localStreamRef.current!, participant?.avatarUrl, participant?.userId);
     }, 2000);
-  }, [roomId, participants]);
+  }, [roomId]); // removed 'participants' dependency
 
   const removePeer = (peerId: string) => {
     connectionsRef.current.delete(peerId);
     setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
   };
+
+  // === Zmiana C: restoreCamera function using refs ===
+  const restoreCamera = useCallback(async () => {
+    console.log('[VideoRoom] restoreCamera called, isScreenSharingRef:', isScreenSharingRef.current);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
+      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      setIsScreenSharing(false);
+
+      // Close PiP if active
+      if (document.pictureInPictureElement) {
+        try { await document.exitPictureInPicture(); } catch {}
+        setIsPiPActive(false);
+      }
+
+      const videoTrack = stream.getVideoTracks()[0];
+      connectionsRef.current.forEach((conn) => {
+        const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
+        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+      });
+    } catch (err) {
+      console.error('[VideoRoom] Failed to restore camera:', err);
+    }
+  }, []);
 
   // Controls
   const handleToggleMute = () => {
@@ -787,7 +866,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = isMuted));
       const newMuted = !isMuted;
       setIsMuted(newMuted);
-      // Broadcast media state
       if (channelRef.current && peerRef.current) {
         channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted: newMuted, isCameraOff } });
       }
@@ -805,13 +883,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       const newCameraOff = !isCameraOff;
       setIsCameraOff(newCameraOff);
       setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
-      // Broadcast media state
       if (channelRef.current && peerRef.current) {
         channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
       }
     }
   };
 
+  // === Zmiana C + D: handleToggleScreenShare with restoreCamera and auto-PiP ===
   const handleToggleScreenShare = async () => {
     if (document.pictureInPictureElement) {
       try { await document.exitPictureInPicture(); } catch {}
@@ -820,21 +898,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     screenSharePendingRef.current = true;
 
     if (isScreenSharing) {
+      // Turning off screen share - restore camera
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        stream.getAudioTracks().forEach(t => (t.enabled = !isMuted));
-        localStreamRef.current?.getTracks().forEach(t => t.stop());
-        localStreamRef.current = stream;
-        setLocalStream(stream);
-        setIsScreenSharing(false);
-        const videoTrack = stream.getVideoTracks()[0];
-        connectionsRef.current.forEach((conn) => {
-          const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
-          if (sender && videoTrack) sender.replaceTrack(videoTrack);
-        });
+        await restoreCamera();
       } catch (err) { console.error('[VideoRoom] Failed to restore camera:', err); }
       finally { screenSharePendingRef.current = false; }
     } else {
+      // Starting screen share
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const audioTrack = localStreamRef.current?.getAudioTracks()[0];
@@ -848,7 +918,30 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
           if (sender && videoTrack) sender.replaceTrack(videoTrack);
         });
-        videoTrack.onended = () => { handleToggleScreenShare(); };
+
+        // === Zmiana C: onended uses ref + restoreCamera ===
+        videoTrack.onended = () => {
+          if (isScreenSharingRef.current) {
+            restoreCamera();
+          }
+        };
+
+        // === Zmiana D: Auto-PiP on desktop when screen sharing starts ===
+        if (isPiPSupported && participantsRef.current.length > 0) {
+          setTimeout(async () => {
+            const videos = document.querySelectorAll('video');
+            const remoteVideo = Array.from(videos).find(
+              v => v.srcObject && v.videoWidth > 0 && !v.muted
+            );
+            if (remoteVideo && !document.pictureInPictureElement) {
+              try {
+                await remoteVideo.requestPictureInPicture();
+                setIsPiPActive(true);
+                remoteVideo.addEventListener('leavepictureinpicture', () => setIsPiPActive(false), { once: true });
+              } catch (e) { console.warn('[VideoRoom] Auto-PiP on screen share failed:', e); }
+            }
+          }, 500);
+        }
       } catch (err) { console.log('[VideoRoom] Screen sharing cancelled:', err); }
       finally { screenSharePendingRef.current = false; }
     }
@@ -952,14 +1045,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   const handleMuteParticipant = useCallback((peerId: string) => {
     if (!channelRef.current) return;
-    const participant = participants.find(p => p.peerId === peerId);
+    const participant = participantsRef.current.find(p => p.peerId === peerId);
     if (participant?.isMuted) {
       channelRef.current.send({ type: 'broadcast', event: 'unmute-request', payload: { targetPeerId: peerId } });
       toast({ title: 'Wysłano prośbę', description: 'Poproszono uczestnika o włączenie mikrofonu.' });
     } else {
       channelRef.current.send({ type: 'broadcast', event: 'mute-peer', payload: { targetPeerId: peerId } });
     }
-  }, [participants, toast]);
+  }, [toast]);
 
   const sidebarOpen = isChatOpen || isParticipantsOpen;
 
