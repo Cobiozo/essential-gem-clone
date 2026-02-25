@@ -215,12 +215,38 @@ const TrainingManagement = () => {
     });
   }, []);
   
+  const [languageFilter, setLanguageFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'position' | 'unlock_order'>('position');
+
   const { toast } = useToast();
   const { t } = useTranslations();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { generateCertificate } = useCertificateGeneration();
   const { deleteFile } = useLocalStorage();
+
+  // Available languages derived from modules
+  const availableLanguages = useMemo(() => {
+    const langs = new Set(modules.map(m => m.language_code || 'pl'));
+    return LANGUAGE_OPTIONS.filter(l => l.code === 'all' || langs.has(l.code));
+  }, [modules]);
+
+  // Filtered & sorted modules
+  const filteredModules = useMemo(() => {
+    let result = modules;
+    if (languageFilter !== 'all') {
+      result = result.filter(m => (m.language_code || 'pl') === languageFilter);
+    }
+    if (sortBy === 'unlock_order') {
+      result = [...result].sort((a, b) => {
+        if (a.unlock_order == null && b.unlock_order == null) return 0;
+        if (a.unlock_order == null) return 1;
+        if (b.unlock_order == null) return -1;
+        return a.unlock_order - b.unlock_order;
+      });
+    }
+    return result;
+  }, [modules, languageFilter, sortBy]);
 
   // Filter users by search query
   const filteredUserProgress = useMemo(() => {
@@ -1284,16 +1310,44 @@ const TrainingManagement = () => {
             </Card>
           )}
 
+          {/* Filter bar */}
+          <div className="flex flex-wrap items-center gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <Select value={languageFilter} onValueChange={setLanguageFilter}>
+                <SelectTrigger className="w-[180px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableLanguages.map(lang => (
+                    <SelectItem key={lang.code} value={lang.code}>
+                      {lang.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as 'position' | 'unlock_order')}>
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="position">Wg pozycji</SelectItem>
+                <SelectItem value="unlock_order">Wg odsłaniania</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Mobile: Card layout for modules */}
           <div className="space-y-3 md:hidden">
-            {modules.length === 0 ? (
+            {filteredModules.length === 0 ? (
               <Card>
                 <CardContent className="text-center text-muted-foreground py-8">
                   {t('admin.training.noModules') || 'Brak modułów szkoleniowych'}
                 </CardContent>
               </Card>
             ) : (
-              modules.map((module) => {
+              filteredModules.map((module) => {
                 const lessonCount = lessons.filter(l => l.module_id === module.id).length;
                 return (
                   <Card key={module.id} className={cn(!module.is_active && "opacity-60")}>
@@ -1383,14 +1437,14 @@ const TrainingManagement = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {modules.length === 0 ? (
+                {filteredModules.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                       {t('admin.training.noModules') || 'Brak modułów szkoleniowych'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  modules.map((module) => {
+                  filteredModules.map((module) => {
                     const lessonCount = lessons.filter(l => l.module_id === module.id).length;
                     
                     return (
