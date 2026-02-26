@@ -159,12 +159,12 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             {isPlaying ? (
               <>
                 <Pause className="h-4 w-4" />
-                Pauza
+                <span className="hidden sm:inline">Pauza</span>
               </>
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Odtwórz
+                <span className="hidden sm:inline">Odtwórz</span>
               </>
             )}
           </Button>

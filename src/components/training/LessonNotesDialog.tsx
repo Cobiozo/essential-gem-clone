@@ -160,7 +160,7 @@ export const LessonNotesDialog: React.FC<LessonNotesDialogProps> = ({
 
           {/* Notes list */}
           {notes.length > 0 ? (
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea className="max-h-[200px] sm:max-h-[300px]">
               <div className="space-y-2 pr-3">
                 {notes.map((note) => (
                   <div 

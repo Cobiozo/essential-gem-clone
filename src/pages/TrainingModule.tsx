@@ -1294,7 +1294,7 @@ const TrainingModule = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b bg-card sticky top-0 z-50">
+      <header className="border-b bg-card sticky top-[env(safe-area-inset-top)] z-50">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button 
             variant="ghost" 

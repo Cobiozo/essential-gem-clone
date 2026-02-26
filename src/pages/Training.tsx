@@ -610,29 +610,29 @@ const Training = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" style={{ overscrollBehavior: 'contain' }}>
       {/* Header with Navigation */}
-      <header className="border-b bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="border-b bg-card sticky top-[env(safe-area-inset-top)] z-50">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => navigate(homeUrl)}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 flex-shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />
-              {t('training.backToHome')}
+              <span className="hidden sm:inline">{t('training.backToHome')}</span>
             </Button>
-            <Separator orientation="vertical" className="h-6" />
-            <h1 className="text-xl font-semibold">{t('training.title')}</h1>
+            <Separator orientation="vertical" className="h-6 hidden sm:block" />
+            <h1 className="text-lg sm:text-xl font-semibold truncate">{t('training.title')}</h1>
           </div>
           <Button
             variant="outline"
             size="sm"
             onClick={refreshAcademy}
             disabled={refreshing}
-            className="gap-2"
+            className="gap-2 flex-shrink-0"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Odśwież akademię</span>
@@ -738,7 +738,7 @@ const Training = () => {
               </div>
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-semibold mb-1">Jak działa system szkoleń?</p>
-                <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
+                <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300 text-xs sm:text-sm">
                   <li>Szkolenia odsłaniają się kolejno — następne staje się dostępne po ukończeniu poprzedniego w 100%.</li>
                   <li>Jeśli masz rozpoczęte szkolenie z brakującymi lekcjami, uzupełnij je, aby móc przejść dalej.</li>
                   <li>Kolejność szkoleń jest ustalana przez administratora i obowiązuje wszystkich użytkowników.</li>
@@ -750,9 +750,9 @@ const Training = () => {
 
         {/* Info banner when viewing another language catalog */}
         {viewLanguage && viewLanguage !== trainingLanguage && (
-          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-start sm:items-center gap-3 min-w-0">
+              <Info className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5 sm:mt-0" />
               <p className="text-sm text-amber-800 dark:text-amber-200">
                 Przeglądasz szkolenia w języku <strong>{availableLanguages.find(l => l.code === viewLanguage)?.native_name || viewLanguage}</strong>. Te szkolenia nie wliczają się do Twojego postępu.
               </p>
@@ -761,7 +761,7 @@ const Training = () => {
               variant="outline"
               size="sm"
               onClick={() => setViewLanguage(trainingLanguage)}
-              className="flex-shrink-0 whitespace-nowrap"
+              className="flex-shrink-0 whitespace-nowrap w-full sm:w-auto"
             >
               Wróć do swojej ścieżki
             </Button>
@@ -862,11 +862,11 @@ const Training = () => {
                         if (!hasCertificate) {
                           // No certificate yet - show Generate button
                           return (
-                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <Award className="h-5 w-5 text-primary" />
-                                  <span className="text-sm font-medium">Certyfikat dostępny do wygenerowania</span>
+                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 overflow-hidden">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Award className="h-5 w-5 text-primary flex-shrink-0" />
+                                  <span className="text-sm font-medium break-words">Certyfikat dostępny do wygenerowania</span>
                                 </div>
                                 <Button
                                   size="sm"
@@ -887,7 +887,7 @@ const Training = () => {
 
                         // Certificate exists - show info message + regenerate option
                         return (
-                          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-3">
+                          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-3 overflow-hidden">
                             {/* Status info */}
                             <div className="flex items-start gap-2">
                               <CheckCircle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
