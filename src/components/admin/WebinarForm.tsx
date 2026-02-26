@@ -203,14 +203,11 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     setSaving(true);
     try {
       // Check for conflicts with other high-priority events
-      const { data: conflictingEvents } = await supabase
-        .from('events')
-        .select('id, title, event_type')
-        .neq('id', editingWebinar?.id || '')
-        .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-        .lt('start_time', form.end_time)
-        .gt('end_time', form.start_time)
-        .eq('is_active', true);
+      const { data: conflictingEvents } = await supabase.rpc('check_event_conflicts', {
+        p_start_time: form.start_time,
+        p_end_time: form.end_time,
+        p_exclude_event_id: editingWebinar?.id || null,
+      });
 
       const performSave = async () => {
         setSaving(true);

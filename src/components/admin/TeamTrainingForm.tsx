@@ -203,14 +203,11 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       }
 
       // Check for conflicts with other high-priority events using calculated times
-      const { data: conflictingEvents } = await supabase
-        .from('events')
-        .select('id, title, event_type')
-        .neq('id', editingTraining?.id || '')
-        .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-        .lt('start_time', endTime)
-        .gt('end_time', startTime)
-        .eq('is_active', true);
+      const { data: conflictingEvents } = await supabase.rpc('check_event_conflicts', {
+        p_start_time: startTime,
+        p_end_time: endTime,
+        p_exclude_event_id: editingTraining?.id || null,
+      });
 
       const performSave = async () => {
         setSaving(true);
