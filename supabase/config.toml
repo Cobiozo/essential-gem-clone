@@ -99,6 +99,9 @@ verify_jwt = false
 [functions.cleanup-training-media]
 verify_jwt = true
 
+[functions.cleanup-inactive-training]
+verify_jwt = false
+
 [functions.send-support-email]
 verify_jwt = false
 
