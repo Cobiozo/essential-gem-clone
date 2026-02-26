@@ -65,9 +65,9 @@ export const useTeamContacts = () => {
         query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,eq_id.ilike.%${filters.search}%`);
       }
       
-      // Admin can filter by user
-      if (isAdmin && filters.userId) {
-        query = query.eq('user_id', filters.userId);
+      // Admin domyślnie widzi swoje kontakty, może przełączyć na innego użytkownika
+      if (isAdmin) {
+        query = query.eq('user_id', filters.userId || user.id);
       }
 
       const { data, error } = await query;
