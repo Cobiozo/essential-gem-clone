@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -90,6 +94,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [remindersOpen, setRemindersOpen] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [conflictData, setConflictData] = useState<Array<{ id: string; title: string; event_type: string }> | null>(null);
+  const [pendingSaveCallback, setPendingSaveCallback] = useState<(() => Promise<void>) | null>(null);
   
   // Multi-occurrence state
   const [isMultiOccurrence, setIsMultiOccurrence] = useState(false);
@@ -206,74 +212,80 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         .gt('end_time', startTime)
         .eq('is_active', true);
 
+      const performSave = async () => {
+        setSaving(true);
+        try {
+          const buttonsJson = form.buttons.map(b => ({ 
+            label: b.label, 
+            url: b.url, 
+            style: b.style || 'primary' 
+          }));
+
+          const trainingData = {
+            title: form.title,
+            description: form.description || null,
+            event_type: 'team_training' as const,
+            start_time: startTime,
+            end_time: endTime,
+            location: form.location || null,
+            zoom_link: form.use_internal_meeting ? null : (form.zoom_link || null),
+            max_participants: form.max_participants,
+            requires_registration: form.requires_registration,
+            visible_to_partners: form.visible_to_partners,
+            visible_to_specjalista: form.visible_to_specjalista,
+            visible_to_clients: form.visible_to_clients,
+            visible_to_everyone: form.visible_to_everyone,
+            image_url: form.image_url || null,
+            buttons: buttonsJson,
+            webinar_type: form.training_type,
+            host_name: form.host_name || null,
+            duration_minutes: form.duration_minutes,
+            sms_reminder_enabled: form.sms_reminder_enabled,
+            email_reminder_enabled: form.email_reminder_enabled,
+            is_published: form.is_published,
+            occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
+            allow_invites: form.allow_invites || false,
+            publish_at: form.publish_at || null,
+            use_internal_meeting: form.use_internal_meeting || false,
+            meeting_room_id: form.use_internal_meeting ? (form.meeting_room_id || crypto.randomUUID()) : null,
+          };
+
+          let error;
+          if (editingTraining) {
+            ({ error } = await supabase
+              .from('events')
+              .update(trainingData)
+              .eq('id', editingTraining.id));
+          } else {
+            ({ error } = await supabase
+              .from('events')
+              .insert({ ...trainingData, created_by: user.id, host_user_id: user.id }));
+          }
+
+          if (error) {
+            toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+            return;
+          }
+
+          toast({ 
+            title: 'Sukces', 
+            description: editingTraining ? 'Szkolenie zostało zaktualizowane' : 'Szkolenie zostało dodane' 
+          });
+          onSave();
+        } finally {
+          setSaving(false);
+        }
+      };
+
       if (conflictingEvents && conflictingEvents.length > 0) {
-        toast({
-          title: 'Konflikt czasowy',
-          description: `W tym czasie istnieje już: ${conflictingEvents[0].title}`,
-          variant: 'destructive',
-        });
+        setConflictData(conflictingEvents);
+        setPendingSaveCallback(() => performSave);
         setSaving(false);
         return;
       }
 
-      const buttonsJson = form.buttons.map(b => ({ 
-        label: b.label, 
-        url: b.url, 
-        style: b.style || 'primary' 
-      }));
-
-      const trainingData = {
-        title: form.title,
-        description: form.description || null,
-        event_type: 'team_training' as const,
-        start_time: startTime,
-        end_time: endTime,
-        location: form.location || null,
-        zoom_link: form.use_internal_meeting ? null : (form.zoom_link || null),
-        max_participants: form.max_participants,
-        requires_registration: form.requires_registration,
-        visible_to_partners: form.visible_to_partners,
-        visible_to_specjalista: form.visible_to_specjalista,
-        visible_to_clients: form.visible_to_clients,
-        visible_to_everyone: form.visible_to_everyone,
-        image_url: form.image_url || null,
-        buttons: buttonsJson,
-        webinar_type: form.training_type, // Using webinar_type field for training_type
-        host_name: form.host_name || null,
-        duration_minutes: form.duration_minutes,
-        sms_reminder_enabled: form.sms_reminder_enabled,
-        email_reminder_enabled: form.email_reminder_enabled,
-        is_published: form.is_published,
-        occurrences: isMultiOccurrence ? JSON.parse(JSON.stringify(occurrences)) : null,
-        allow_invites: form.allow_invites || false,
-        publish_at: form.publish_at || null,
-        use_internal_meeting: form.use_internal_meeting || false,
-        meeting_room_id: form.use_internal_meeting ? (form.meeting_room_id || crypto.randomUUID()) : null,
-      };
-
-      let error;
-      if (editingTraining) {
-        ({ error } = await supabase
-          .from('events')
-          .update(trainingData)
-          .eq('id', editingTraining.id));
-      } else {
-        ({ error } = await supabase
-          .from('events')
-          .insert({ ...trainingData, created_by: user.id, host_user_id: user.id }));
-      }
-
-      if (error) {
-        toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
-        return;
-      }
-
-      toast({ 
-        title: 'Sukces', 
-        description: editingTraining ? 'Szkolenie zostało zaktualizowane' : 'Szkolenie zostało dodane' 
-      });
-      onSave();
-    } finally {
+      await performSave();
+    } catch (err) {
       setSaving(false);
     }
   };
@@ -291,6 +303,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   };
 
   return (
+    <>
     <Card className="border-muted">
       <CardHeader className="pb-4">
         <CardTitle className="text-lg flex items-center gap-2">
@@ -695,6 +708,28 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         </div>
       </CardContent>
     </Card>
+
+    <AlertDialog open={!!conflictData} onOpenChange={(open) => { if (!open) { setConflictData(null); setPendingSaveCallback(null); } }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Wykryto kolizję czasową</AlertDialogTitle>
+          <AlertDialogDescription>
+            W tym samym czasie odbywa się:{' '}
+            <strong>"{conflictData?.[0]?.title}"</strong>{' '}
+            ({conflictData?.[0]?.event_type === 'webinar' ? 'Webinar' : conflictData?.[0]?.event_type === 'team_training' ? 'Szkolenie' : 'Spotkanie'})
+            {(conflictData?.length ?? 0) > 1 && ` i ${(conflictData?.length ?? 0) - 1} inne`}.
+            Czy mimo to chcesz zapisać wydarzenie?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Anuluj</AlertDialogCancel>
+          <AlertDialogAction onClick={() => { setConflictData(null); pendingSaveCallback?.(); setPendingSaveCallback(null); }}>
+            Zapisz mimo kolizji
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 };
 
