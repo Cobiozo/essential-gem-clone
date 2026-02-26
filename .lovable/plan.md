@@ -1,81 +1,64 @@
 
+Cel: w dialogu kolizji zawsze pokazać:
+1) kto prowadzi,
+2) przedział czasu,
+3) ilu uczestników z Twojego zespołu jest zapisanych — także gdy to 0.
 
-## Rozszerzenie dialogu kolizji o dodatkowe informacje
+Co potwierdziłem w kodzie i danych:
+- `WebinarForm.tsx` i `TeamTrainingForm.tsx` już pobierają rozszerzone dane z RPC (`p_user_id` jest przekazywane).
+- Problem jest w renderowaniu dialogu:
+  - prowadzący jest pokazywany tylko warunkowo: `conflict.host_name && ...`
+  - liczba osób z zespołu jest pokazywana tylko gdy `team_registered_count > 0`
+- W bazie dla przykładowego konfliktu („Szkolenie Pure Calling”) RPC zwraca:
+  - `host_name = NULL`
+  - `team_registered_count = 0`
+  czyli backend działa, ale UI ukrywa te informacje.
+- Dodatkowo istnieją dwie przeciążone wersje `check_event_conflicts` (3-param i 4-param), co jest podatne na niejednoznaczności w przyszłości.
 
-### Problem
-Dialog kolizji pokazuje tylko tytul i typ wydarzenia. Brakuje:
-1. Kto prowadzi (host)
-2. Przedział czasowy kolidujacego wydarzenia
-3. Ilu czlonkow zespolu lidera jest zapisanych na to wydarzenie
+Plan wdrożenia:
 
-### Rozwiazanie
+1) Ujednolicenie i doprecyzowanie RPC `check_event_conflicts` (migracja SQL)
+- Zostawić jedną docelową wersję funkcji (4 parametry z `p_user_id`) i usunąć starą 3-parametrową sygnaturę, żeby uniknąć niejednoznaczności.
+- Uzupełnić `host_name` fallbackiem:
+  - najpierw `events.host_name`,
+  - jeśli puste/null, to imię+nazwisko z profilu `host_user_id`,
+  - jeśli dalej brak, to profil `created_by`,
+  - finalny fallback tekstowy: „Nie podano”.
+- `team_registered_count` zawsze zwracać jako `COALESCE(..., 0)` (już jest, zostanie utrzymane).
+- Zachować `SECURITY DEFINER` + `SET row_security = off` (zgodnie z obecną architekturą widoczności konfliktów).
 
-#### Zmiana 1: Rozszerzenie funkcji SQL `check_event_conflicts`
+2) Poprawa UI dialogu kolizji w `WebinarForm.tsx`
+- Zmienić render tak, aby:
+  - zawsze wyświetlać wiersz prowadzącego (`Prowadzący: ...`) — bez warunku ukrywającego,
+  - zawsze wyświetlać wiersz o zespole (`0 uczestników z Twojego zespołu zapisanych`, `1 uczestnik...`, `2+ uczestników...`).
+- Dodać bezpieczne mapowanie danych wejściowych z RPC (normalizacja):
+  - `host_name ?? 'Nie podano'`
+  - `Number(team_registered_count ?? 0)`
 
-Funkcja RPC zwraca obecnie `(id, title, event_type)`. Rozszerzymy ja o:
-- `host_name text` - nazwa prowadzacego
-- `conflict_start timestamptz` - start kolidujacego terminu
-- `conflict_end timestamptz` - koniec kolidujacego terminu
-- `team_registered_count bigint` - liczba zapisanych czlonkow zespolu
+3) Poprawa UI dialogu kolizji w `TeamTrainingForm.tsx`
+- Identyczne zmiany jak wyżej (ten sam wzorzec prezentacji i normalizacji), aby oba formularze zachowywały się spójnie.
 
-Dodajemy nowy parametr `p_user_id uuid DEFAULT NULL` - ID aktualnego uzytkownika, aby moc policzyc zapisanych czlonkow jego zespolu (uzytkownicy z tym samym `upline_eq_id` co `eq_id` lidera).
+4) Spójność tekstów i odmiany w języku polskim
+- Ujednolicić komunikat na:
+  - `0 uczestników z Twojego zespołu zapisanych`
+  - `1 uczestnik z Twojego zespołu zapisany`
+  - `2-4 uczestników z Twojego zespołu zapisanych`
+  - `5+ uczestników z Twojego zespołu zapisanych`
+- Dzięki temu użytkownik zawsze dostaje informację liczbową, nawet gdy wynik to zero.
 
-Logika liczenia zespolu:
-```text
-SELECT COUNT(*) FROM event_registrations er
-JOIN profiles p ON p.user_id = er.user_id
-WHERE er.event_id = e.id
-  AND er.status = 'registered'
-  AND p.upline_eq_id = (SELECT eq_id FROM profiles WHERE user_id = p_user_id)
-```
+5) Weryfikacja po wdrożeniu (E2E scenariusze)
+- Scenariusz A: konflikt z wydarzeniem bez wpisanego hosta → dialog pokazuje „Prowadzący: Nie podano”.
+- Scenariusz B: konflikt z wydarzeniem, gdzie host jest wpisany → dialog pokazuje konkretne imię/nazwisko.
+- Scenariusz C: brak osób z zespołu zapisanych → dialog pokazuje „0 uczestników...”.
+- Scenariusz D: są osoby z zespołu zapisane → poprawna liczba i odmiana.
+- Scenariusz E: nadal możliwe „Zapisz mimo kolizji” (warning, nie twarda blokada) — bez zmiany obecnej polityki działania.
 
-Dla czesci 1 (bez occurrences): `conflict_start = e.start_time`, `conflict_end = e.end_time`
-Dla czesci 2 (z occurrences): `conflict_start/end` obliczone z jsonb
+Zakres plików do zmiany:
+- `supabase/migrations/...` (nowa migracja porządkująca i rozszerzająca `check_event_conflicts`)
+- `src/components/admin/WebinarForm.tsx`
+- `src/components/admin/TeamTrainingForm.tsx`
 
-#### Zmiana 2: Aktualizacja UI dialogu kolizji
-
-W obu formularzach (`WebinarForm.tsx` i `TeamTrainingForm.tsx`) dialog kolizji wyswietli liste wszystkich kolidujacych wydarzen w formie kartek, kazda zawierajaca:
-- Tytul i typ wydarzenia (jak dotychczas)
-- Prowadzacy (host_name)
-- Przedzial czasowy (np. "17:00 - 18:30")
-- Liczba zapisanych czlonkow zespolu (np. "3 osoby z Twojego zespolu sa zapisane")
-
-#### Zmiana 3: Przekazanie user_id do RPC
-
-W wywolaniach `supabase.rpc('check_event_conflicts', ...)` dodanie parametru `p_user_id: user.id`.
-
-### Podsumowanie zmian
-
-| Element | Zmiana |
-|---------|--------|
-| Migracja SQL | Rozszerzenie `check_event_conflicts` o `host_name`, `conflict_start`, `conflict_end`, `team_registered_count`, nowy parametr `p_user_id` |
-| `WebinarForm.tsx` | Przekazanie `p_user_id`, rozbudowa dialogu kolizji |
-| `TeamTrainingForm.tsx` | Przekazanie `p_user_id`, rozbudowa dialogu kolizji |
-| `types.ts` | Automatyczna aktualizacja typow RPC |
-
-### Szczegoly techniczne SQL
-
-Nowa sygnatura:
-```sql
-RETURNS TABLE(
-  id uuid,
-  title text,
-  event_type text,
-  host_name text,
-  conflict_start timestamptz,
-  conflict_end timestamptz,
-  team_registered_count bigint
-)
-```
-
-Lateralne podzapytanie dla team_registered_count:
-```sql
-LEFT JOIN LATERAL (
-  SELECT COUNT(*) AS cnt
-  FROM event_registrations er
-  JOIN profiles p2 ON p2.user_id = er.user_id
-  WHERE er.event_id = e.id AND er.status = 'registered'
-    AND p2.upline_eq_id = (SELECT eq_id FROM profiles WHERE user_id = p_user_id)
-) team_count ON true
-```
-
+Efekt końcowy:
+- Nie znikają już kluczowe informacje w dialogu kolizji.
+- Widzisz prowadzącego (albo jasny fallback „Nie podano”).
+- Zawsze widzisz liczbę osób z Twojego zespołu, także gdy jest 0.
