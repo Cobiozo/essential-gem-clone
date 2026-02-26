@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface WebinarEmailRequest {
-  type: 'confirmation' | 'reminder_24h' | 'reminder_1h';
+  type: 'confirmation' | 'reminder_24h' | 'reminder_1h' | 'reminder_15min';
   email: string;
   firstName: string;
   eventTitle: string;
@@ -194,6 +194,8 @@ function getTemplateInternalName(type: WebinarEmailRequest['type']): string {
       return 'webinar_reminder_24h';
     case 'reminder_1h':
       return 'webinar_reminder_1h';
+    case 'reminder_15min':
+      return 'webinar_reminder_15min';
     default:
       return 'webinar_confirmation';
   }
@@ -208,6 +210,8 @@ function getEventTypeKey(type: WebinarEmailRequest['type']): string {
       return 'webinar_reminder_24h';
     case 'reminder_1h':
       return 'webinar_reminder_1h';
+    case 'reminder_15min':
+      return 'webinar_reminder_15min';
     default:
       return 'webinar_confirmation';
   }
