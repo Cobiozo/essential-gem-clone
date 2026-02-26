@@ -7,6 +7,14 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -19,8 +27,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Users, UsersRound, Pencil, Loader2, Shield } from 'lucide-react';
+import { Users, UsersRound, Pencil, Loader2, Shield, History, ChevronDown } from 'lucide-react';
 import { usePlatformTeams, PlatformTeam, TeamMember, SubTeam } from '@/hooks/usePlatformTeams';
+import { usePlatformTeamActions, TeamAction } from '@/hooks/usePlatformTeamActions';
+import { format } from 'date-fns';
+import { pl } from 'date-fns/locale';
 
 const getRoleBadgeVariant = (role: string) => {
   switch (role) {
@@ -175,8 +186,18 @@ const TeamCard: React.FC<{
   </AccordionItem>
 );
 
+const getActionLabel = (type: string) => {
+  switch (type) {
+    case 'rename_team': return 'Zmiana nazwy';
+    case 'toggle_independence': return 'Zmiana niezależności';
+    default: return type;
+  }
+};
+
 export const PlatformTeamsManagement: React.FC = () => {
   const { teams, loading, updateTeamName, toggleIndependence } = usePlatformTeams();
+  const { actions, loading: actionsLoading, hasMore, loadMore } = usePlatformTeamActions();
+
   const [editingTeam, setEditingTeam] = useState<PlatformTeam | null>(null);
   const [editName, setEditName] = useState('');
 
@@ -268,6 +289,80 @@ export const PlatformTeamsManagement: React.FC = () => {
           </Accordion>
         </Card>
       )}
+
+      {/* Action History */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <History className="h-4 w-4" />
+            Historia czynności
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {actionsLoading && actions.length === 0 ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : actions.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Brak zarejestrowanych czynności
+            </p>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Kto</TableHead>
+                      <TableHead>Akcja</TableHead>
+                      <TableHead>Zespół</TableHead>
+                      <TableHead>Stara wartość</TableHead>
+                      <TableHead>Nowa wartość</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {actions.map((action) => (
+                      <TableRow key={action.id}>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {format(new Date(action.createdAt), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                        </TableCell>
+                        <TableCell className="text-sm">{action.leaderName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {getActionLabel(action.actionType)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {action.targetLeaderName || '—'}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
+                          {action.oldValue || '—'}
+                        </TableCell>
+                        <TableCell className="text-xs max-w-[120px] truncate">
+                          {action.newValue || '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              {hasMore && (
+                <div className="flex justify-center mt-4">
+                  <Button variant="outline" size="sm" onClick={loadMore} disabled={actionsLoading}>
+                    {actionsLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 mr-1" />
+                    )}
+                    Załaduj więcej
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Edit name dialog */}
       <Dialog open={!!editingTeam} onOpenChange={(open) => !open && setEditingTeam(null)}>

@@ -4964,6 +4964,36 @@ export type Database = {
           },
         ]
       }
+      platform_team_actions: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          leader_user_id: string
+          new_value: string | null
+          old_value: string | null
+          target_team_leader_id: string | null
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          leader_user_id: string
+          new_value?: string | null
+          old_value?: string | null
+          target_team_leader_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          leader_user_id?: string
+          new_value?: string | null
+          old_value?: string | null
+          target_team_leader_id?: string | null
+        }
+        Relationships: []
+      }
       platform_teams: {
         Row: {
           created_at: string

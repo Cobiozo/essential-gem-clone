@@ -207,9 +207,11 @@ export function usePlatformTeams() {
       try {
         const { data: existing } = await supabase
           .from('platform_teams')
-          .select('id')
+          .select('id, custom_name')
           .eq('leader_user_id', leaderUserId)
           .maybeSingle();
+
+        const oldName = existing?.custom_name || null;
 
         if (existing) {
           await supabase
@@ -221,6 +223,15 @@ export function usePlatformTeams() {
             .from('platform_teams')
             .insert({ leader_user_id: leaderUserId, custom_name: newName || null });
         }
+
+        // Log action
+        await supabase.from('platform_team_actions').insert({
+          leader_user_id: (await supabase.auth.getUser()).data.user?.id,
+          action_type: 'rename_team',
+          target_team_leader_id: leaderUserId,
+          old_value: oldName,
+          new_value: newName,
+        });
 
         toast({ title: 'Zapisano', description: 'Nazwa zespołu została zaktualizowana' });
         await fetchTeams();
@@ -236,9 +247,11 @@ export function usePlatformTeams() {
       try {
         const { data: existing } = await supabase
           .from('platform_teams')
-          .select('id')
+          .select('id, is_independent')
           .eq('leader_user_id', leaderUserId)
           .maybeSingle();
+
+        const oldValue = existing?.is_independent || false;
 
         if (existing) {
           await supabase
@@ -250,6 +263,15 @@ export function usePlatformTeams() {
             .from('platform_teams')
             .insert({ leader_user_id: leaderUserId, is_independent: isIndependent });
         }
+
+        // Log action
+        await supabase.from('platform_team_actions').insert({
+          leader_user_id: (await supabase.auth.getUser()).data.user?.id,
+          action_type: 'toggle_independence',
+          target_team_leader_id: leaderUserId,
+          old_value: String(oldValue),
+          new_value: String(isIndependent),
+        });
 
         toast({
           title: 'Zapisano',

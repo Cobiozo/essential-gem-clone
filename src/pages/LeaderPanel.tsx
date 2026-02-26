@@ -1,15 +1,20 @@
-import React, { lazy, Suspense } from 'react';
+import React, { lazy, Suspense, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLeaderPermissions } from '@/hooks/useLeaderPermissions';
 import { useLeaderApprovals } from '@/hooks/useLeaderApprovals';
+import { useLeaderTeam } from '@/hooks/useLeaderTeam';
 import { useToast } from '@/hooks/use-toast';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
 import { TeamTrainingProgressView } from '@/components/training/TeamTrainingProgressView';
-import { CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound, TreePine, UserCheck } from 'lucide-react';
+import { CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound, TreePine, UserCheck, Users, Pencil } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
 import { LeaderApprovalView } from '@/components/leader/LeaderApprovalView';
@@ -29,9 +34,12 @@ const LeaderPanel: React.FC = () => {
     loading: permLoading,
   } = useLeaderPermissions();
   const { pendingCount } = useLeaderApprovals(hasApprovalPermission);
+  const { teamData, loading: teamLoading, defaultName, updateTeamName } = useLeaderTeam();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
 
   const urlParams = new URLSearchParams(location.search);
   const defaultTab = urlParams.get('tab') || '';
@@ -87,13 +95,66 @@ const LeaderPanel: React.FC = () => {
     <DashboardLayout>
       <div className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex items-center gap-3 mb-4">
           <Crown className="h-6 w-6 text-primary" />
           <div>
             <h1 className="text-2xl font-bold">Panel Lidera</h1>
             <p className="text-muted-foreground text-sm">Narzędzia i statystyki Twojej struktury</p>
           </div>
         </div>
+
+        {/* My Team Card */}
+        {teamData && (
+          <Card className="mb-6">
+            <CardContent className="py-4 flex items-center gap-4 flex-wrap">
+              <Users className="h-5 w-5 text-primary" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-sm">Mój zespół:</span>
+                  <span className="text-sm">{teamData.teamName}</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{teamData.memberCount} członków w strukturze</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditNameValue(teamData.customName || '');
+                  setEditNameOpen(true);
+                }}
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                Edytuj nazwę
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Edit team name dialog */}
+        <Dialog open={editNameOpen} onOpenChange={setEditNameOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edytuj nazwę zespołu</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <Input
+                placeholder={defaultName}
+                value={editNameValue}
+                onChange={(e) => setEditNameValue(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Zostaw puste, aby użyć domyślnej nazwy: {defaultName}
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditNameOpen(false)}>Anuluj</Button>
+              <Button onClick={async () => {
+                await updateTeamName(editNameValue.trim() || null);
+                setEditNameOpen(false);
+              }}>Zapisz</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {availableTabs.length === 1 ? (
           // Single tab — render content directly
