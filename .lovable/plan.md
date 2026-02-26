@@ -1,47 +1,29 @@
 
 
-## Zamiana przycisku UpLine na przycisk informacji o rejestracji na spotkanie
+## Naprawa wyświetlania surowych kluczy tłumaczeń w `ContactEventInfoButton`
 
-### Kontekst
+### Problem
 
-Ikona dłoni (`HandHelping`) to przycisk "Poproś UpLine o pomoc". Zostanie usunięty i zastąpiony przyciskiem informacyjnym pokazującym, czy dany kontakt prywatny zarejestrował się na spotkanie (webinar).
+Komponent używa wzorca `t('key') || 'fallback'`, który nie działa, ponieważ `t()` zwraca klucz (np. `"teamContacts.eventRegistrations"`) gdy brak tłumaczenia -- a to jest wartość "truthy", więc fallback nigdy się nie pojawia.
 
-### Dane w bazie
+### Rozwiązanie
 
-Tabela `guest_event_registrations` posiada kolumnę `team_contact_id` (powiązanie z kontaktem) oraz `status` (aktualnie tylko "registered"). Dane o wydarzeniach (tytuł, data) są w tabeli `events`.
+Zamienić wszystkie wystąpienia `t(key) || 'fallback'` na `tf(key, 'fallback')` w pliku `src/components/team-contacts/ContactEventInfoButton.tsx`.
 
-### Plan zmian
+Helper `tf()` jest już dostępny w `useLanguage()` i sprawdza, czy wynik `t()` różni się od klucza przed zwróceniem fallbacku.
 
-#### 1. Nowy komponent: `ContactEventInfoButton.tsx`
+### Zmiany w pliku `ContactEventInfoButton.tsx`
 
-Zastąpi `UplineHelpButton`. Komponent:
-- Pobierze z bazy rejestracje gościa powiązane z danym `contact.id` (`team_contact_id`)
-- Wyświetli ikonę `CalendarCheck` (jeśli ma rejestracje) lub `CalendarX2` (brak)
-- Po najechaniu (tooltip) pokaże podsumowanie: ile rejestracji, na jakie spotkania
-- Po kliknięciu otworzy popover/dialog z listą spotkań:
-  - Tytuł wydarzenia
-  - Data
-  - Status rejestracji (zarejestrowany / anulowany)
+1. Zmienić destrukturyzację z `const { t } = useLanguage()` na `const { t, tf } = useLanguage()`
 
-#### 2. Aktualizacja `TeamContactsTable.tsx`
+2. Zamienić wszystkie wywołania (7 miejsc):
+   - `t('common.loading') || 'Ładowanie...'` -> `tf('common.loading', 'Ładowanie...')`
+   - `t('teamContacts.registeredFor') || 'Zarejestrowany na'` -> `tf('teamContacts.registeredFor', 'Zarejestrowany na')`
+   - `t('teamContacts.meeting') || 'spotkanie'` -> `tf('teamContacts.meeting', 'spotkanie')`
+   - `t('teamContacts.meetings') || 'spotkań'` -> `tf('teamContacts.meetings', 'spotkań')`
+   - `t('teamContacts.noRegistrations') || 'Brak rejestracji na spotkania'` -> `tf('teamContacts.noRegistrations', 'Brak rejestracji na spotkania')`
+   - `t('teamContacts.registered') || 'Zarejestrowany'` -> `tf('teamContacts.registered', 'Zapisano')`
+   - `t('teamContacts.cancelled') || 'Anulowany'` -> `tf('teamContacts.cancelled', 'Anulowany')`
+   - `t('teamContacts.eventRegistrations') || 'Rejestracje na spotkania'` -> `tf('teamContacts.eventRegistrations', 'Rejestracje na spotkania')`
 
-- Usunięcie importu `UplineHelpButton`
-- Dodanie importu nowego `ContactEventInfoButton`
-- Zamiana `<UplineHelpButton contact={contact} />` na `<ContactEventInfoButton contact={contact} />`
-
-#### 3. Usunięcie pliku `UplineHelpButton.tsx`
-
-Plik `src/components/team-contacts/UplineHelpButton.tsx` zostanie usunięty (nie jest używany nigdzie indziej).
-
-### Wygląd nowego przycisku
-
-- Ikona: `CalendarCheck` (zielona) gdy kontakt ma rejestracje na spotkania, `Calendar` (szara) gdy brak
-- Tooltip: "Zarejestrowany na X spotkań" lub "Brak rejestracji na spotkania"
-- Kliknięcie: Popover z listą wydarzeń i statusami
-
-### Zakres
-
-- 1 nowy plik komponentu
-- 1 edycja (`TeamContactsTable.tsx`)
-- 1 usunięcie (`UplineHelpButton.tsx`)
-- Brak zmian w bazie danych
+Zakres: 1 plik, brak zmian w bazie.
