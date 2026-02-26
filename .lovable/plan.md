@@ -1,199 +1,141 @@
 
+## Plan: Sekwencyjna implementacja 13 widoków delegowanych Panelu Lidera
 
-## Plan: Kompletne delegowane uprawnienia administracyjne dla lidera
+### Podsumowanie sytuacji
 
-### Koncepcja
+Obecnie istnieje 13 komponentow-placeholderow w `src/components/leader/`. Kazdy musi zostac wypelniony logika operujaca na danych **wylacznie zespolu lidera** (lista user_id z `get_organization_tree`). Infrastruktura (baza danych, hook uprawnien, zakladki w LeaderPanel, admin toggles) jest juz gotowa.
 
-Rozszerzenie tabeli `leader_permissions` o maksymalny zestaw flag delegujacych dostep do wybranych funkcji CMS admina. Lider **nie** staje sie adminem -- pozostaje partnerem, ale w Panelu Lidera pojawiaja sie dodatkowe zakladki z ograniczonymi widokami tych samych narzedzi, dzialajacymi wylacznie w zakresie jego zespolu. O wlaczeniu kazdego uprawnienia decyduje admin w CMS (zakladka "Panel Lidera").
+### Wspolny wzorzec dla wszystkich widokow
 
----
+Kazdy widok lidera:
+1. Pobiera liste czlonkow zespolu przez `useOrganizationTree` (hook juz istnieje)
+2. Filtruje dane z tabel Supabase do zakresu `user_id IN team_member_ids`
+3. Loguje akcje do `platform_team_actions`
+4. NIE modyfikuje istniejacych komponentow admina
 
-### Istniejace uprawnienia (juz zaimplementowane)
-
-| Flaga w `leader_permissions` | Opis |
-|------------------------------|------|
-| `individual_meetings_enabled` | Spotkania indywidualne |
-| `tripartite_meeting_enabled` | Spotkania trojstronne |
-| `partner_consultation_enabled` | Konsultacje partnerskie |
-| `can_view_team_progress` | Podglad postepu szkolen |
-| `can_view_org_tree` | Moja struktura |
-| `can_approve_registrations` | Zatwierdzanie rejestracji |
-| `can_broadcast` | Nadawanie broadcast |
-| `can_host_private_meetings` | Hosting spotkan prywatnych |
-| Kalkulator Influencerow | Osobna tabela `calculator_user_access` |
-| Kalkulator Specjalistow | Osobna tabela `specialist_calculator_user_access` |
+### Kolejnosc implementacji (1 po 1, z audytem)
 
 ---
 
-### Nowe uprawnienia do dodania
+#### 1. LeaderEventsView -- Wydarzenia zespolu
+**Co robi:** Lider tworzy webinary/szkolenia dla swojego zespolu (reuse `WebinarForm` i `TeamTrainingForm`).
+- Formularz tworzenia z automatycznym `host_user_id = auth.uid()`
+- Lista wydarzen lidera (filtr: `host_user_id = user.id`)
+- Przyciski edycji i usuwania wlasnych wydarzen
+- Logowanie do `platform_team_actions` z `action_type = 'create_event'`
 
-Na podstawie analizy wszystkich modulow CMS admina, ponizej lista **wszystkich** mozliwych do delegowania uprawnien:
+#### 2. LeaderEventRegistrationsView -- Rejestracje
+**Co robi:** Podglad osob zarejestrowanych na wydarzenia lidera.
+- Selektor wydarzen (filtr: `host_user_id = user.id`)
+- Tabela rejestracji (uzytkownicy + goscie) z danymi kontaktowymi
+- Eksport do XLSX
 
-#### Grupa 1: Wydarzenia i spotkania
+#### 3. LeaderTrainingMgmtView -- Zarzadzanie szkoleniami
+**Co robi:** Przypisywanie modulow szkoleniowych i podglad postepu.
+- Lista czlonkow zespolu z postepem (reuse danych z `get_leader_team_training_progress`)
+- Przypisywanie/usuwanie modulow czlonkom
+- Reset postepu dla wybranego uzytkownika
 
-| Nowa flaga | Opis | Co odblokuje w Panelu Lidera |
-|------------|------|------------------------------|
-| `can_create_team_events` | Tworzenie webinarow/szkolen dla zespolu | Formularz WebinarForm/TeamTrainingForm -- lider jako host, zespol jako odbiorcy |
-| `can_manage_event_registrations` | Podglad rejestracji na swoje wydarzenia | Lista zarejestrowanych na wydarzenia lidera |
+#### 4. LeaderKnowledgeView -- Baza wiedzy
+**Co robi:** Podglad zasobow wiedzy dostepnych dla zespolu.
+- Lista zasobow z `knowledge_resources` (read-only widok)
+- Filtrowanie po kategorii i statusie
+- Brak tworzenia/edycji (tylko podglad)
 
-#### Grupa 2: Szkolenia i wiedza
+#### 5. LeaderNotificationsView -- Powiadomienia in-app
+**Co robi:** Wysylka powiadomien in-app do czlonkow zespolu.
+- Formularz: tytul, tresc, ikona, modul zrodlowy
+- Selektor odbiorcow (caly zespol lub wybrani)
+- Insert do `user_notifications` z `sender_id = auth.uid()`
+- Historia wyslanych powiadomien
 
-| Nowa flaga | Opis | Co odblokuje w Panelu Lidera |
-|------------|------|------------------------------|
-| `can_manage_team_training` | Zarzadzanie szkoleniami zespolu | Przypisywanie modulow szkoleniowych czlonkom, podglad i reset postepu |
-| `can_manage_knowledge_base` | Zarzadzanie baza wiedzy dla zespolu | Dodawanie/edycja zasobow wiedzy widocznych dla zespolu |
+#### 6. LeaderEmailView -- Emaile grupowe
+**Co robi:** Wysylka emaili do czlonkow zespolu.
+- Selektor szablonu email z `email_templates`
+- Selektor odbiorcow z zespolu
+- Wywolanie edge function `send-single-email` per odbiorca
+- Podglad historii w `email_logs`
 
-#### Grupa 3: Komunikacja i powiadomienia
+#### 7. LeaderPushView -- Push do zespolu
+**Co robi:** Wysylka push notification do czlonkow zespolu.
+- Formularz: tytul, tresc
+- Selektor odbiorcow
+- Wywolanie edge function `send-push-notification` per odbiorca
 
-| Nowa flaga | Opis | Co odblokuje w Panelu Lidera |
-|------------|------|------------------------------|
-| `can_send_team_notifications` | Wysylanie powiadomien do zespolu | Formularz wysylki powiadomien in-app do czlonkow zespolu |
-| `can_send_team_emails` | Wysylanie emaili do zespolu | Formularz wysylki emaili grupowych do czlonkow zespolu |
-| `can_send_team_push` | Wysylanie push do zespolu | Formularz push notification do czlonkow zespolu |
+#### 8. LeaderTeamContactsView -- Kontakty zespolu
+**Co robi:** Rozszerzony widok czlonkow z danymi kontaktowymi.
+- Tabela czlonkow z: imie, nazwisko, email, telefon, eq_id, rola
+- Wyszukiwanie i filtrowanie
+- Jesli `can_manage_team_contacts`: edycja notatek
+- Eksport do XLSX
 
-#### Grupa 4: Kontakty i dane zespolu
+#### 9. LeaderDailySignalView -- Sygnal Dnia
+**Co robi:** Tworzenie i edycja Sygnalu Dnia.
+- Lista istniejacych sygnalow z `daily_signals`
+- Formularz dodawania nowego sygnalu (main_message, explanation, tip)
+- Aktywacja/dezaktywacja sygnalow
+- Logowanie do `platform_team_actions`
 
-| Nowa flaga | Opis | Co odblokuje w Panelu Lidera |
-|------------|------|------------------------------|
-| `can_view_team_contacts` | Podglad kontaktow zespolu | Rozszerzony widok czlonkow z danymi kontaktowymi (email, telefon, eq_id) |
-| `can_manage_team_contacts` | Zarzadzanie kontaktami zespolu | Edycja danych kontaktowych, dodawanie notatek |
+#### 10. LeaderImportantInfoView -- Wazne informacje
+**Co robi:** Tworzenie waznych informacji (banerów).
+- Formularz tworzenia z wyborem widocznosci per rola
+- Lista istniejacych banerow lidera
+- Edycja i usuwanie wlasnych banerow
 
-#### Grupa 5: Narzedzia i tresc
+#### 11. LeaderReflinksView -- Reflinki zespolu
+**Co robi:** Podglad reflinków czlonkow zespolu.
+- Tabela z `user_reflinks` filtrowana po `creator_user_id IN team_ids`
+- Statystyki klikniec i rejestracji per czlonek
+- Read-only (bez edycji)
 
-| Nowa flaga | Opis | Co odblokuje w Panelu Lidera |
-|------------|------|------------------------------|
-| `can_manage_daily_signal` | Tworzenie Sygnalu Dnia | Formularz tworzenia/edycji Sygnalu Dnia (globalny, nie per zespol) |
-| `can_manage_important_info` | Zarzadzanie waznymi informacjami | Tworzenie waznych informacji widocznych dla zespolu lub globalnie |
-| `can_manage_team_reflinks` | Zarzadzanie reflinkami zespolu | Podglad i zarzadzanie reflinkami czlonkow zespolu |
+#### 12. LeaderReportsView -- Raporty i statystyki
+**Co robi:** Dashboard ze statystykami zespolu.
+- Karty podsumowujace: liczba czlonkow, aktywnych, z postepem szkoleniowym
+- Wykres postepow szkolen (recharts)
+- Tabela aktywnosci czlonkow
 
-#### Grupa 6: Certyfikaty i raporty
-
-| Nowa flaga | Opis | Co odblokuje w Panelu Lidera |
-|------------|------|------------------------------|
-| `can_view_team_reports` | Raporty i statystyki zespolu | Dashboard ze statystykami: aktywnosc, postepy, rejestracje czlonkow |
-| `can_manage_certificates` | Zarzadzanie certyfikatami zespolu | Podglad i reczne wydawanie certyfikatow czlonkom zespolu |
+#### 13. LeaderCertificatesView -- Certyfikaty
+**Co robi:** Podglad certyfikatow czlonkow zespolu.
+- Lista certyfikatow wydanych czlonkom (`user_certificates` filtr po team_ids)
+- Read-only widok z informacja o module i dacie wydania
 
 ---
 
-### Architektura -- nieinwazyjna
+### Szczegoly techniczne
 
+**Wspolny hook `useLeaderTeamMembers`** -- do stworzenia:
+- Pobiera liste user_id czlonkow zespolu z `get_organization_tree`
+- Cache'uje wynik na 2 minuty
+- Uzywany przez wszystkie widoki lidera
+
+**Logowanie akcji:**
 ```text
-Admin CMS (pelny dostep)           Panel Lidera (ograniczony do zespolu)
-+--------------------------+       +------------------------------+
-| EventsManagement         |       | LeaderEventsView             |
-| TrainingManagement       |       | LeaderTrainingMgmtView       |
-| TeamContactsManagement   |       | LeaderTeamContactsView       |
-| NotificationSystem       |       | LeaderNotificationsView      |
-| DailySignalManagement    |       | LeaderDailySignalView        |
-| ImportantInfoManagement  |       | LeaderImportantInfoView      |
-| KnowledgeResources       |       | LeaderKnowledgeView          |
-| EmailTemplates           |       | LeaderEmailView              |
-| PushNotifications        |       | LeaderPushView               |
-| ReflinksManagement       |       | LeaderReflinksView           |
-| CertificateEditor        |       | LeaderCertificatesView       |
-+--------------------------+       +------------------------------+
-           |                                    |
-           +-------> Te same tabele DB <--------+
-                     (RLS filtruje po user_id)
+INSERT INTO platform_team_actions (leader_user_id, action_type, old_value, new_value)
+VALUES (auth.uid(), 'create_event', NULL, event_title)
 ```
 
-**Kluczowa zasada**: Istniejace komponenty admina NIE sa modyfikowane. Tworzymy nowe, lekkie komponenty lidera ktore reuzuja istniejace formularze ale z ograniczeniami:
-- `host_user_id` / `created_by` = zawsze lider
-- Widzi tylko dane swojego zespolu (lista user_id z drzewa organizacji)
-- Nie moze zmieniac globalnych ustawien
+**Pliki do stworzenia:**
+- `src/hooks/useLeaderTeamMembers.ts` -- wspolny hook pobierajacy team IDs
+- 13 komponentow w `src/components/leader/` (nadpisanie placeholderow)
 
----
+**Pliki bez zmian:**
+- Wszystkie komponenty admina (EventsManagement, DailySignalManagement itd.)
+- LeaderPanel.tsx (juz zintegrowany)
+- LeaderPanelManagement.tsx (juz zintegrowany)
+- useLeaderPermissions.ts (juz zintegrowany)
 
-### Zmiany w bazie danych
+### Proces audytu kazdego modulu
 
-Migracja -- 14 nowych kolumn w `leader_permissions`:
+Po implementacji kazdego widoku:
+1. Sprawdzenie poprawnosci importow i TypeScript
+2. Weryfikacja filtrowania danych do zakresu zespolu
+3. Sprawdzenie logowania akcji do `platform_team_actions`
+4. Sprawdzenie ze istniejace komponenty admina nie sa modyfikowane
+5. Przeglad console logs pod katem bledow
 
-```text
-ALTER TABLE leader_permissions ADD COLUMN
-  can_create_team_events boolean DEFAULT false,
-  can_manage_event_registrations boolean DEFAULT false,
-  can_manage_team_training boolean DEFAULT false,
-  can_manage_knowledge_base boolean DEFAULT false,
-  can_send_team_notifications boolean DEFAULT false,
-  can_send_team_emails boolean DEFAULT false,
-  can_send_team_push boolean DEFAULT false,
-  can_view_team_contacts boolean DEFAULT false,
-  can_manage_team_contacts boolean DEFAULT false,
-  can_manage_daily_signal boolean DEFAULT false,
-  can_manage_important_info boolean DEFAULT false,
-  can_manage_team_reflinks boolean DEFAULT false,
-  can_view_team_reports boolean DEFAULT false,
-  can_manage_certificates boolean DEFAULT false;
-```
+### Raport koncowy
 
-Nowe RLS policies na tabelach `events`, `training_assignments`, `user_notifications` itp. -- pozwalajace liderom z odpowiednia flaga na ograniczone operacje CRUD.
-
-Logowanie kazdej akcji do `platform_team_actions` z nowymi `action_type`: `create_event`, `assign_training`, `send_notification`, `send_email`, `send_push`, `create_daily_signal`, `create_important_info`, `manage_reflink`, `issue_certificate`.
-
----
-
-### Nowe pliki -- komponenty Panelu Lidera
-
-| Plik | Uprawnienie | Opis |
-|------|-------------|------|
-| `src/components/leader/LeaderEventsView.tsx` | `can_create_team_events` | Tworzenie webinarow/szkolen z reuzyciem WebinarForm + TeamTrainingForm |
-| `src/components/leader/LeaderEventRegistrationsView.tsx` | `can_manage_event_registrations` | Lista zarejestrowanych na wydarzenia lidera |
-| `src/components/leader/LeaderTrainingMgmtView.tsx` | `can_manage_team_training` | Przypisywanie modulow, reset postepu |
-| `src/components/leader/LeaderKnowledgeView.tsx` | `can_manage_knowledge_base` | Dodawanie zasobow wiedzy |
-| `src/components/leader/LeaderNotificationsView.tsx` | `can_send_team_notifications` | Wysylka powiadomien in-app |
-| `src/components/leader/LeaderEmailView.tsx` | `can_send_team_emails` | Wysylka emaili grupowych |
-| `src/components/leader/LeaderPushView.tsx` | `can_send_team_push` | Wysylka push do zespolu |
-| `src/components/leader/LeaderTeamContactsView.tsx` | `can_view_team_contacts` + `can_manage_team_contacts` | Widok/edycja kontaktow |
-| `src/components/leader/LeaderDailySignalView.tsx` | `can_manage_daily_signal` | Tworzenie Sygnalu Dnia |
-| `src/components/leader/LeaderImportantInfoView.tsx` | `can_manage_important_info` | Tworzenie waznych informacji |
-| `src/components/leader/LeaderReflinksView.tsx` | `can_manage_team_reflinks` | Podglad reflinków zespolu |
-| `src/components/leader/LeaderReportsView.tsx` | `can_view_team_reports` | Dashboard statystyk |
-| `src/components/leader/LeaderCertificatesView.tsx` | `can_manage_certificates` | Podglad/wydawanie certyfikatow |
-
----
-
-### Modyfikowane pliki
-
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/useLeaderPermissions.ts` | Dodanie 14 nowych flag + rozszerzenie `isAnyLeaderFeatureEnabled` |
-| `src/pages/LeaderPanel.tsx` | 13 nowych warunkowych zakladek w tablicy `availableTabs` |
-| `src/components/admin/LeaderPanelManagement.tsx` | 14 nowych kolumn Switch w tabeli uprawnien admina |
-
----
-
-### Bezpieczenstwo
-
-- Lider pozostaje w roli `partner` -- zero zmian w systemie rol
-- Kazda operacja DB jest filtrowana po `user_id` lidera (RLS policies)
-- Np. `events`: lider moze INSERT/UPDATE/DELETE tylko gdzie `host_user_id = auth.uid()` AND posiada flage `can_create_team_events`
-- Lider widzi tylko dane czlonkow swojego zespolu (lista z `get_organization_tree`)
-- Kazda akcja logowana do `platform_team_actions`
-- Admin w dowolnym momencie moze wylaczac/wlaczac kazde uprawnienie per lider
-
----
-
-### Kolejnosc implementacji
-
-1. Migracja DB -- 14 nowych kolumn + RLS policies na tabelach docelowych
-2. `useLeaderPermissions.ts` -- rozszerzenie o nowe flagi
-3. `LeaderPanelManagement.tsx` -- 14 nowych Switchów w tabeli admina
-4. Komponenty liderskie (po 1-2 na iteracje):
-   - Wydarzenia (`LeaderEventsView` + `LeaderEventRegistrationsView`)
-   - Szkolenia (`LeaderTrainingMgmtView`)
-   - Komunikacja (`LeaderNotificationsView` + `LeaderEmailView` + `LeaderPushView`)
-   - Kontakty (`LeaderTeamContactsView`)
-   - Tresc (`LeaderDailySignalView` + `LeaderImportantInfoView`)
-   - Reflinki (`LeaderReflinksView`)
-   - Raporty (`LeaderReportsView`)
-   - Certyfikaty (`LeaderCertificatesView`)
-   - Wiedza (`LeaderKnowledgeView`)
-5. Integracja w `LeaderPanel.tsx` -- nowe zakladki
-6. Logowanie akcji do `platform_team_actions`
-
----
-
-### Podsumowanie
-
-Lacznie 14 nowych delegowanych uprawnien daje liderowi mozliwosc korzystania z prawie wszystkich narzedzi CMS admina, ale wylacznie w zakresie swojego zespolu. Admin kontroluje kazde uprawnienie indywidualnie per lider. Podejscie jest nieinwazyjne -- istniejace komponenty admina nie sa modyfikowane, tworzymy nowe widoki lidera ktore reuzuja formularze z ograniczeniami.
-
+Po ukonczeniu wszystkich 13 modulow -- podsumowanie:
+- Lista zaimplementowanych widokow
+- Status kazdego modulu
+- Ewentualne uwagi i ograniczenia
