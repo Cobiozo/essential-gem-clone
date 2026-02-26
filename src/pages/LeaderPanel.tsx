@@ -14,12 +14,37 @@ import { useLeaderTeam } from '@/hooks/useLeaderTeam';
 import { useToast } from '@/hooks/use-toast';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
 import { TeamTrainingProgressView } from '@/components/training/TeamTrainingProgressView';
-import { CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound, TreePine, UserCheck, Users, Pencil } from 'lucide-react';
+import {
+  CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound,
+  TreePine, UserCheck, Users, Pencil,
+  CalendarPlus, ClipboardList, BookOpenCheck, Library,
+  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award,
+} from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
 import { LeaderApprovalView } from '@/components/leader/LeaderApprovalView';
 
+// Lazy-loaded leader views
 const LeaderOrgTreeView = lazy(() => import('@/components/leader/LeaderOrgTreeView'));
+const LeaderEventsView = lazy(() => import('@/components/leader/LeaderEventsView'));
+const LeaderEventRegistrationsView = lazy(() => import('@/components/leader/LeaderEventRegistrationsView'));
+const LeaderTrainingMgmtView = lazy(() => import('@/components/leader/LeaderTrainingMgmtView'));
+const LeaderKnowledgeView = lazy(() => import('@/components/leader/LeaderKnowledgeView'));
+const LeaderNotificationsView = lazy(() => import('@/components/leader/LeaderNotificationsView'));
+const LeaderEmailView = lazy(() => import('@/components/leader/LeaderEmailView'));
+const LeaderPushView = lazy(() => import('@/components/leader/LeaderPushView'));
+const LeaderTeamContactsView = lazy(() => import('@/components/leader/LeaderTeamContactsView'));
+const LeaderDailySignalView = lazy(() => import('@/components/leader/LeaderDailySignalView'));
+const LeaderImportantInfoView = lazy(() => import('@/components/leader/LeaderImportantInfoView'));
+const LeaderReflinksView = lazy(() => import('@/components/leader/LeaderReflinksView'));
+const LeaderReportsView = lazy(() => import('@/components/leader/LeaderReportsView'));
+const LeaderCertificatesView = lazy(() => import('@/components/leader/LeaderCertificatesView'));
+
+const LazyFallback = () => (
+  <div className="flex justify-center h-40">
+    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+  </div>
+);
 
 const LeaderPanel: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -30,6 +55,20 @@ const LeaderPanel: React.FC = () => {
     hasSpecialistCalc,
     hasOrgTree,
     hasApprovalPermission,
+    hasTeamEvents,
+    hasEventRegistrations,
+    hasTeamTrainingMgmt,
+    hasKnowledgeBase,
+    hasTeamNotifications,
+    hasTeamEmails,
+    hasTeamPush,
+    hasTeamContacts,
+    hasTeamContactsMgmt,
+    hasDailySignal,
+    hasImportantInfo,
+    hasTeamReflinks,
+    hasTeamReports,
+    hasCertificates,
     isAnyLeaderFeatureEnabled,
     loading: permLoading,
   } = useLeaderPermissions();
@@ -79,17 +118,77 @@ const LeaderPanel: React.FC = () => {
     );
   }
 
-  // Build available tabs dynamically — ordered as requested
+  // Build available tabs dynamically
   const availableTabs = [
     ...(hasOrgTree ? [{ id: 'org-tree', label: 'Moja struktura', icon: TreePine, badge: 0 }] : []),
     ...(hasTeamProgress ? [{ id: 'training', label: 'Szkolenia zespołu', icon: GraduationCap, badge: 0 }] : []),
     ...(hasMeetings ? [{ id: 'meetings', label: 'Spotkania indywidualne', icon: CalendarDays, badge: 0 }] : []),
     ...(hasApprovalPermission ? [{ id: 'approvals', label: 'Zatwierdzenia', icon: UserCheck, badge: pendingCount }] : []),
-    ...(hasInfluencerCalc ? [{ id: 'calc-inf', label: 'Kalkulator Influencerów', icon: Calculator, badge: 0 }] : []),
-    ...(hasSpecialistCalc ? [{ id: 'calc-spec', label: 'Kalkulator Specjalistów', icon: UserRound, badge: 0 }] : []),
+    ...(hasInfluencerCalc ? [{ id: 'calc-inf', label: 'Kalk. Influencerów', icon: Calculator, badge: 0 }] : []),
+    ...(hasSpecialistCalc ? [{ id: 'calc-spec', label: 'Kalk. Specjalistów', icon: UserRound, badge: 0 }] : []),
+    // New delegated tabs
+    ...(hasTeamEvents ? [{ id: 'team-events', label: 'Wydarzenia', icon: CalendarPlus, badge: 0 }] : []),
+    ...(hasEventRegistrations ? [{ id: 'event-regs', label: 'Rejestracje', icon: ClipboardList, badge: 0 }] : []),
+    ...(hasTeamTrainingMgmt ? [{ id: 'training-mgmt', label: 'Zarz. szkoleniami', icon: BookOpenCheck, badge: 0 }] : []),
+    ...(hasKnowledgeBase ? [{ id: 'knowledge', label: 'Baza wiedzy', icon: Library, badge: 0 }] : []),
+    ...(hasTeamNotifications ? [{ id: 'notifications', label: 'Powiadomienia', icon: Bell, badge: 0 }] : []),
+    ...(hasTeamEmails ? [{ id: 'emails', label: 'Emaile', icon: Mail, badge: 0 }] : []),
+    ...(hasTeamPush ? [{ id: 'push', label: 'Push', icon: Smartphone, badge: 0 }] : []),
+    ...((hasTeamContacts || hasTeamContactsMgmt) ? [{ id: 'contacts', label: 'Kontakty', icon: Contact, badge: 0 }] : []),
+    ...(hasDailySignal ? [{ id: 'daily-signal', label: 'Sygnał Dnia', icon: Sun, badge: 0 }] : []),
+    ...(hasImportantInfo ? [{ id: 'important-info', label: 'Ważne info', icon: Info, badge: 0 }] : []),
+    ...(hasTeamReflinks ? [{ id: 'reflinks', label: 'Reflinki', icon: Link, badge: 0 }] : []),
+    ...(hasTeamReports ? [{ id: 'reports', label: 'Raporty', icon: BarChart3, badge: 0 }] : []),
+    ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0 }] : []),
   ];
 
   const resolvedDefaultTab = availableTabs.find(t => t.id === defaultTab)?.id ?? availableTabs[0]?.id ?? '';
+
+  // Tab content mapping for new delegated views
+  const renderTabContent = (tabId: string) => {
+    switch (tabId) {
+      case 'org-tree':
+        return <Suspense fallback={<LazyFallback />}><LeaderOrgTreeView /></Suspense>;
+      case 'training':
+        return <TeamTrainingProgressView />;
+      case 'meetings':
+        return <UnifiedMeetingSettingsForm />;
+      case 'approvals':
+        return <LeaderApprovalView />;
+      case 'calc-inf':
+        return <CommissionCalculator />;
+      case 'calc-spec':
+        return <SpecialistCalculator />;
+      case 'team-events':
+        return <Suspense fallback={<LazyFallback />}><LeaderEventsView /></Suspense>;
+      case 'event-regs':
+        return <Suspense fallback={<LazyFallback />}><LeaderEventRegistrationsView /></Suspense>;
+      case 'training-mgmt':
+        return <Suspense fallback={<LazyFallback />}><LeaderTrainingMgmtView /></Suspense>;
+      case 'knowledge':
+        return <Suspense fallback={<LazyFallback />}><LeaderKnowledgeView /></Suspense>;
+      case 'notifications':
+        return <Suspense fallback={<LazyFallback />}><LeaderNotificationsView /></Suspense>;
+      case 'emails':
+        return <Suspense fallback={<LazyFallback />}><LeaderEmailView /></Suspense>;
+      case 'push':
+        return <Suspense fallback={<LazyFallback />}><LeaderPushView /></Suspense>;
+      case 'contacts':
+        return <Suspense fallback={<LazyFallback />}><LeaderTeamContactsView /></Suspense>;
+      case 'daily-signal':
+        return <Suspense fallback={<LazyFallback />}><LeaderDailySignalView /></Suspense>;
+      case 'important-info':
+        return <Suspense fallback={<LazyFallback />}><LeaderImportantInfoView /></Suspense>;
+      case 'reflinks':
+        return <Suspense fallback={<LazyFallback />}><LeaderReflinksView /></Suspense>;
+      case 'reports':
+        return <Suspense fallback={<LazyFallback />}><LeaderReportsView /></Suspense>;
+      case 'certificates':
+        return <Suspense fallback={<LazyFallback />}><LeaderCertificatesView /></Suspense>;
+      default:
+        return null;
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -157,18 +256,7 @@ const LeaderPanel: React.FC = () => {
         </Dialog>
 
         {availableTabs.length === 1 ? (
-          // Single tab — render content directly
-          <>
-            {hasMeetings && <UnifiedMeetingSettingsForm />}
-            {hasTeamProgress && <TeamTrainingProgressView />}
-            {hasInfluencerCalc && <CommissionCalculator />}
-            {hasSpecialistCalc && <SpecialistCalculator />}
-            {hasOrgTree && (
-              <Suspense fallback={<div className="flex justify-center h-40"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                <LeaderOrgTreeView />
-              </Suspense>
-            )}
-          </>
+          renderTabContent(availableTabs[0].id)
         ) : (
           <Tabs defaultValue={resolvedDefaultTab}>
             <TabsList className="mb-6 flex-wrap h-auto gap-1">
@@ -185,43 +273,11 @@ const LeaderPanel: React.FC = () => {
               ))}
             </TabsList>
 
-            {hasOrgTree && (
-              <TabsContent value="org-tree">
-                <Suspense fallback={<div className="flex justify-center h-40"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-                  <LeaderOrgTreeView />
-                </Suspense>
+            {availableTabs.map(tab => (
+              <TabsContent key={tab.id} value={tab.id}>
+                {renderTabContent(tab.id)}
               </TabsContent>
-            )}
-
-            {hasTeamProgress && (
-              <TabsContent value="training">
-                <TeamTrainingProgressView />
-              </TabsContent>
-            )}
-
-            {hasMeetings && (
-              <TabsContent value="meetings">
-                <UnifiedMeetingSettingsForm />
-              </TabsContent>
-            )}
-
-            {hasApprovalPermission && (
-              <TabsContent value="approvals">
-                <LeaderApprovalView />
-              </TabsContent>
-            )}
-
-            {hasInfluencerCalc && (
-              <TabsContent value="calc-inf">
-                <CommissionCalculator />
-              </TabsContent>
-            )}
-
-            {hasSpecialistCalc && (
-              <TabsContent value="calc-spec">
-                <SpecialistCalculator />
-              </TabsContent>
-            )}
+            ))}
           </Tabs>
         )}
       </div>
