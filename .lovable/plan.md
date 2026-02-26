@@ -1,29 +1,46 @@
 
 
-## Naprawa wyświetlania surowych kluczy tłumaczeń w `ContactEventInfoButton`
+## Pozwolenie na spotkania back-to-back (np. 20:00-21:00, potem 21:00-22:00)
 
 ### Problem
 
-Komponent używa wzorca `t('key') || 'fallback'`, który nie działa, ponieważ `t()` zwraca klucz (np. `"teamContacts.eventRegistrations"`) gdy brak tłumaczenia -- a to jest wartość "truthy", więc fallback nigdy się nie pojawia.
+Walidacja konfliktow czasowych w formularzach wydarzen uzywa operatorow `lte` (<=) i `gte` (>=), co oznacza, ze dwa spotkania stykajace sie w czasie (np. koniec o 21:00, start o 21:00) sa traktowane jako konflikt. Uzytkownik musi wpisywac 21:01 zamiast 21:00.
 
-### Rozwiązanie
+### Rozwiazanie
 
-Zamienić wszystkie wystąpienia `t(key) || 'fallback'` na `tf(key, 'fallback')` w pliku `src/components/team-contacts/ContactEventInfoButton.tsx`.
+Zmienic operatory porownania z "mniejsze-lub-rowne / wieksze-lub-rowne" na "scisle mniejsze / scisle wieksze", co pozwoli na spotkania back-to-back.
 
-Helper `tf()` jest już dostępny w `useLanguage()` i sprawdza, czy wynik `t()` różni się od klucza przed zwróceniem fallbacku.
+### Zmiany w plikach
 
-### Zmiany w pliku `ContactEventInfoButton.tsx`
+#### 1. `src/components/admin/WebinarForm.tsx` (linia ~205-206)
 
-1. Zmienić destrukturyzację z `const { t } = useLanguage()` na `const { t, tf } = useLanguage()`
+Zmiana:
+```
+.lte('start_time', form.end_time)
+.gte('end_time', form.start_time)
+```
+Na:
+```
+.lt('start_time', form.end_time)
+.gt('end_time', form.start_time)
+```
 
-2. Zamienić wszystkie wywołania (7 miejsc):
-   - `t('common.loading') || 'Ładowanie...'` -> `tf('common.loading', 'Ładowanie...')`
-   - `t('teamContacts.registeredFor') || 'Zarejestrowany na'` -> `tf('teamContacts.registeredFor', 'Zarejestrowany na')`
-   - `t('teamContacts.meeting') || 'spotkanie'` -> `tf('teamContacts.meeting', 'spotkanie')`
-   - `t('teamContacts.meetings') || 'spotkań'` -> `tf('teamContacts.meetings', 'spotkań')`
-   - `t('teamContacts.noRegistrations') || 'Brak rejestracji na spotkania'` -> `tf('teamContacts.noRegistrations', 'Brak rejestracji na spotkania')`
-   - `t('teamContacts.registered') || 'Zarejestrowany'` -> `tf('teamContacts.registered', 'Zapisano')`
-   - `t('teamContacts.cancelled') || 'Anulowany'` -> `tf('teamContacts.cancelled', 'Anulowany')`
-   - `t('teamContacts.eventRegistrations') || 'Rejestracje na spotkania'` -> `tf('teamContacts.eventRegistrations', 'Rejestracje na spotkania')`
+#### 2. `src/components/admin/TeamTrainingForm.tsx` (linia ~205-206)
 
-Zakres: 1 plik, brak zmian w bazie.
+Analogiczna zmiana:
+```
+.lte('start_time', endTime)
+.gte('end_time', startTime)
+```
+Na:
+```
+.lt('start_time', endTime)
+.gt('end_time', startTime)
+```
+
+### Zakres
+
+- 2 pliki, po 2 linie w kazdym
+- Brak zmian w bazie danych
+- Logika: spotkanie konczace sie o 21:00 nie koliduje ze spotkaniem zaczynajacym sie o 21:00
+
