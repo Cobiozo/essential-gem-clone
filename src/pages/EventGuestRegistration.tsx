@@ -239,7 +239,16 @@ const EventGuestRegistration: React.FC = () => {
               )}
             </div>
             <p className="text-sm text-muted-foreground text-center">
-              Przypomnienie o webinarze otrzymasz 24 godziny przed jego rozpoczęciem.
+              {(() => {
+                const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+                if (hoursUntilEvent > 24) {
+                  return "Otrzymasz przypomnienia: 24 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                } else if (hoursUntilEvent > 1) {
+                  return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                } else {
+                  return "Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.";
+                }
+              })()}
             </p>
           </CardContent>
         </Card>

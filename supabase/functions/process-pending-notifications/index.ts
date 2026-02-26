@@ -82,6 +82,7 @@ serve(async (req) => {
     retries: { processed: 0, success: 0, failed: 0 },
     webinarReminders24h: { processed: 0, success: 0, failed: 0 },
     webinarReminders1h: { processed: 0, success: 0, failed: 0 },
+    webinarReminders15min: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
@@ -593,6 +594,137 @@ serve(async (req) => {
         }
       } else {
         console.log("[CRON] No webinars starting in next 50-70 minutes");
+      }
+    }
+
+    // 5c. Process webinar reminders (15min before event) - skip if stopped early
+    if (!results.stoppedEarly) {
+      console.log("[CRON] Finding webinars starting in next 10-20 minutes (15min reminders)...");
+      
+      const now15 = new Date();
+      const tenMinutesFromNow = new Date(now15.getTime() + 10 * 60 * 1000).toISOString();
+      const twentyMinutesFromNow = new Date(now15.getTime() + 20 * 60 * 1000).toISOString();
+      
+      const { data: webinars15min, error: webinar15minError } = await supabase
+        .from("events")
+        .select("id, title, start_time, zoom_link, host_name, location")
+        .gte("start_time", tenMinutesFromNow)
+        .lte("start_time", twentyMinutesFromNow)
+        .eq("is_active", true)
+        .eq("event_type", "webinar");
+
+      if (webinar15minError) {
+        console.error("[CRON] Error fetching upcoming webinars (15min):", webinar15minError);
+      } else if (webinars15min && webinars15min.length > 0) {
+        console.log(`[CRON] Found ${webinars15min.length} webinars starting in 10-20 minutes`);
+        
+        for (const webinar of webinars15min) {
+          if (isTimeoutApproaching()) {
+            console.log("[CRON] Approaching timeout limit, stopping webinar reminders 15min");
+            results.stoppedEarly = true;
+            break;
+          }
+          
+          const { data: guests15min, error: guest15minError } = await supabase
+            .from("guest_event_registrations")
+            .select("id, email, first_name, last_name")
+            .eq("event_id", webinar.id)
+            .eq("reminder_15min_sent", false)
+            .eq("status", "registered");
+
+          if (guest15minError) {
+            console.error(`[CRON] Error fetching guests for webinar 15min ${webinar.id}:`, guest15minError);
+            continue;
+          }
+
+          if (!guests15min || guests15min.length === 0) {
+            console.log(`[CRON] No guests to remind (15min) for webinar: ${webinar.title}`);
+            continue;
+          }
+
+          console.log(`[CRON] Found ${guests15min.length} guests to remind (15min) for webinar: ${webinar.title}`);
+
+          for (const guest of guests15min) {
+            if (isTimeoutApproaching()) {
+              results.stoppedEarly = true;
+              break;
+            }
+
+            if (results.webinarReminders15min.processed > 0) {
+              await delay(1000);
+            }
+
+            results.webinarReminders15min.processed++;
+            try {
+              const eventDate15 = new Date(webinar.start_time);
+              const formattedDate15 = eventDate15.toLocaleDateString('pl-PL', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+                timeZone: 'Europe/Warsaw'
+              });
+              const formattedTime15 = eventDate15.toLocaleTimeString('pl-PL', {
+                hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw'
+              }) + ' (Warsaw)';
+
+              const { error: sendError } = await supabase.functions.invoke("send-webinar-email", {
+                body: {
+                  type: "reminder_15min",
+                  email: guest.email,
+                  firstName: guest.first_name,
+                  eventTitle: webinar.title,
+                  eventDate: formattedDate15,
+                  eventTime: formattedTime15,
+                  zoomLink: webinar.zoom_link || webinar.location || '',
+                  hostName: webinar.host_name || 'Zespół Pure Life',
+                  eventId: webinar.id,
+                  registrationId: guest.id
+                }
+              });
+
+              if (sendError) {
+                console.error(`[CRON] Failed to send webinar reminder 15min to ${guest.email}:`, sendError);
+                results.webinarReminders15min.failed++;
+              } else {
+                console.log(`[CRON] Sent webinar reminder 15min to ${guest.email} for: ${webinar.title}`);
+                results.webinarReminders15min.success++;
+
+                try {
+                  const { data: userProfile } = await supabase
+                    .from("profiles")
+                    .select("user_id")
+                    .eq("email", guest.email)
+                    .maybeSingle();
+
+                  if (userProfile) {
+                    await supabase.functions.invoke("send-push-notification", {
+                      body: {
+                        userId: userProfile.user_id,
+                        title: `Webinar za 15 minut: ${webinar.title}`,
+                        body: `Rozpoczęcie o ${formattedTime15}. Dołącz teraz!`,
+                        url: "/events",
+                        tag: `webinar-15min-${webinar.id}`
+                      }
+                    });
+                  }
+                } catch (pushErr) {
+                  console.warn(`[CRON] Push failed for webinar 15min reminder (non-blocking):`, pushErr);
+                }
+
+                await supabase
+                  .from("guest_event_registrations")
+                  .update({ 
+                    reminder_15min_sent: true, 
+                    reminder_15min_sent_at: new Date().toISOString() 
+                  })
+                  .eq("id", guest.id);
+              }
+            } catch (err) {
+              console.error(`[CRON] Exception sending webinar reminder 15min to ${guest.email}:`, err);
+              results.webinarReminders15min.failed++;
+            }
+          }
+        }
+      } else {
+        console.log("[CRON] No webinars starting in next 10-20 minutes");
       }
     }
 
