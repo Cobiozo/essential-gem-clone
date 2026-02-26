@@ -264,7 +264,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
       } else {
         ({ error } = await supabase
           .from('events')
-          .insert({ ...webinarData, created_by: user.id }));
+          .insert({ ...webinarData, created_by: user.id, host_user_id: user.id }));
       }
 
       if (error) {
