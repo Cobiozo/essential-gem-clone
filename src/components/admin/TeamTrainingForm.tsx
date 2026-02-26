@@ -94,7 +94,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [remindersOpen, setRemindersOpen] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [conflictData, setConflictData] = useState<Array<{ id: string; title: string; event_type: string }> | null>(null);
+  const [conflictData, setConflictData] = useState<Array<{ id: string; title: string; event_type: string; host_name: string | null; conflict_start: string; conflict_end: string; team_registered_count: number }> | null>(null);
   const [pendingSaveCallback, setPendingSaveCallback] = useState<(() => Promise<void>) | null>(null);
   
   // Multi-occurrence state
@@ -203,7 +203,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       }
 
       // Check for conflicts across ALL occurrences (not just the first one)
-      let conflictingEvents: { id: string; title: string; event_type: string }[] = [];
+      let conflictingEvents: { id: string; title: string; event_type: string; host_name: string | null; conflict_start: string; conflict_end: string; team_registered_count: number }[] = [];
       
       if (isMultiOccurrence && occurrences.length > 0) {
         // Check each occurrence separately and collect all conflicts
@@ -217,6 +217,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             p_start_time: occStart.toISOString(),
             p_end_time: occEnd.toISOString(),
             p_exclude_event_id: editingTraining?.id || null,
+            p_user_id: user.id,
           });
           
           if (data?.length) {
@@ -236,6 +237,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
           p_start_time: startTime,
           p_end_time: endTime,
           p_exclude_event_id: editingTraining?.id || null,
+          p_user_id: user.id,
         });
         conflictingEvents = data || [];
       }
@@ -738,15 +740,37 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
     </Card>
 
     <AlertDialog open={!!conflictData} onOpenChange={(open) => { if (!open) { setConflictData(null); setPendingSaveCallback(null); } }}>
-      <AlertDialogContent>
+      <AlertDialogContent className="max-w-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>Wykryto kolizję czasową</AlertDialogTitle>
-          <AlertDialogDescription>
-            W tym samym czasie odbywa się:{' '}
-            <strong>"{conflictData?.[0]?.title}"</strong>{' '}
-            ({conflictData?.[0]?.event_type === 'webinar' ? 'Webinar' : conflictData?.[0]?.event_type === 'team_training' ? 'Szkolenie' : 'Spotkanie'})
-            {(conflictData?.length ?? 0) > 1 && ` i ${(conflictData?.length ?? 0) - 1} inne`}.
-            Czy mimo to chcesz zapisać wydarzenie?
+          <AlertDialogDescription asChild>
+            <div className="space-y-3">
+              <p>Znaleziono {conflictData?.length} kolidujące wydarzenie/a. Czy mimo to chcesz zapisać?</p>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {conflictData?.map((conflict) => {
+                  const startDate = new Date(conflict.conflict_start);
+                  const endDate = new Date(conflict.conflict_end);
+                  const timeRange = `${format(startDate, 'dd.MM HH:mm')} - ${format(endDate, 'HH:mm')}`;
+                  const typeLabel = conflict.event_type === 'webinar' ? 'Webinar' : conflict.event_type === 'team_training' ? 'Szkolenie' : 'Spotkanie';
+                  return (
+                    <div key={`${conflict.id}-${conflict.conflict_start}`} className="rounded-lg border p-3 bg-muted/30 text-left space-y-1">
+                      <div className="font-medium text-sm text-foreground">{conflict.title}</div>
+                      <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
+                        <span>{typeLabel}</span>
+                        <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{timeRange}</span>
+                        {conflict.host_name && <span>Prowadzący: {conflict.host_name}</span>}
+                      </div>
+                      {conflict.team_registered_count > 0 && (
+                        <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {conflict.team_registered_count} {conflict.team_registered_count === 1 ? 'osoba' : conflict.team_registered_count < 5 ? 'osoby' : 'osób'} z Twojego zespołu zapisane
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
