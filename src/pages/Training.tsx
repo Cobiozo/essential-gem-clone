@@ -41,6 +41,7 @@ interface TrainingModule {
   certificate_id?: string;
   certificate_url?: string;
   isLocked?: boolean;
+  has_new_lessons?: boolean;
 }
 
 const Training = () => {
@@ -414,18 +415,8 @@ const Training = () => {
             .eq('module_id', module.id)
             .eq('is_active', true);
 
-          // Calculate lessons count - exclude lessons created after certificate issuance
-          let relevantLessonsCount = lessonsData?.length || 0;
-          if (certIssuedAt && lessonsData) {
-            const certDate = new Date(certIssuedAt);
-            const filtered = lessonsData.filter(l => 
-              new Date(l.created_at) <= certDate
-            ).length;
-            // If filtering gives 0 but lessons exist, cert predates all content — use full count
-            if (filtered > 0) {
-              relevantLessonsCount = filtered;
-            }
-          }
+          // Always show ALL active lessons count (no cert date filtering)
+          const relevantLessonsCount = lessonsData?.length || 0;
 
           // Get user progress if logged in
           let completedLessons = 0;
@@ -442,18 +433,12 @@ const Training = () => {
               .eq('lesson.module_id', module.id)
               .eq('is_completed', true);
 
-            // Count completed lessons - exclude lessons created after certificate if user has one
-            if (certIssuedAt && progressData) {
-              const certDate = new Date(certIssuedAt);
-              const filteredCompleted = progressData.filter((p: any) => 
-                new Date(p.lesson.created_at) <= certDate
-              ).length;
-              // If filtering gives 0 but progress exists, cert predates all content — use full count
-              completedLessons = filteredCompleted > 0 ? filteredCompleted : (progressData?.length || 0);
-            } else {
-              completedLessons = progressData?.length || 0;
-            }
+            completedLessons = progressData?.length || 0;
           }
+
+          // Detect if admin added new lessons after user got certificate
+          const hasCertificate = !!certIssuedAt;
+          const hasNewLessons = hasCertificate && completedLessons < relevantLessonsCount;
 
           // Get total estimated time for module (prioritize video_duration_seconds)
           totalTime = lessonsData?.reduce((acc, lesson) => 
@@ -465,7 +450,8 @@ const Training = () => {
             completed_lessons: completedLessons,
             total_time_minutes: Math.ceil(totalTime / 60),
             certificate_id: certMap[module.id]?.id,
-            certificate_url: certMap[module.id]?.url
+            certificate_url: certMap[module.id]?.url,
+            has_new_lessons: hasNewLessons
           };
         })
       );
@@ -798,7 +784,9 @@ const Training = () => {
               const progress = getProgressPercentage(module.completed_lessons, module.lessons_count);
               const status = module.isLocked 
                 ? { text: 'Zablokowany', variant: 'secondary' as const }
-                : getModuleStatus(module.completed_lessons, module.lessons_count);
+                : module.has_new_lessons
+                  ? { text: 'Wymaga uzupełnienia', variant: 'warning' as const }
+                  : getModuleStatus(module.completed_lessons, module.lessons_count);
               const hasCertificate = !!certificates[module.id];
               const certDeleted = certificates[module.id]?.url === 'downloaded-and-deleted';
               
@@ -806,6 +794,11 @@ const Training = () => {
                 <Card key={module.id} className={`transition-shadow ${module.isLocked ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-lg'}`}>
                   <CardHeader>
                     <div className="flex items-center gap-3 mb-2">
+                      {module.unlock_order && (
+                        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center">
+                          {module.unlock_order}
+                        </span>
+                      )}
                       {module.isLocked ? (
                         <Lock className="h-6 w-6 text-muted-foreground" />
                       ) : (
@@ -820,6 +813,15 @@ const Training = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
+                      {/* New lessons warning */}
+                      {module.has_new_lessons && (
+                        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                          <p className="text-xs text-amber-800 dark:text-amber-200">
+                            Dodano nowe lekcje w tym szkoleniu. Wróć i uzupełnij brakujące lekcje, aby móc kontynuować dalszą ścieżkę.
+                          </p>
+                        </div>
+                      )}
                       {/* Progress */}
                       <div>
                         <div className="flex justify-between items-center mb-2">
