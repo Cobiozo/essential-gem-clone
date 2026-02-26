@@ -2,46 +2,72 @@
 
 ## Problem
 
-Tabela uprawnień ma 20 kolumn Switch w jednym wierszu, co powoduje obcinanie i konieczność scrollowania poziomego. Na screenshot widać, że część kolumn jest niewidoczna.
+1. **RLS blokuje zapis**: Polityka INSERT na tabeli `events` pozwala tylko adminom (`check_is_admin_for_events()`) lub na typy `tripartite_meeting`/`partner_consultation`. Lider probujacy dodac `webinar` lub `team_training` dostaje blad "new row violates row-level security policy".
 
-## Rozwiązanie: Rozwijane wiersze z pogrupowanymi uprawnieniami
+2. **Formularz jest uproszczony**: Obecny `LeaderEventsView` ma prosty formularz (tytul, opis, daty, zoom, lokalizacja), podczas gdy admin ma rozbudowane formularze `WebinarForm` i `TeamTrainingForm` z wieloma dodatkowymi polami (typ webinaru, czas trwania, widocznosc, obraz, przyciski, konfiguracja rejestracji, przypomnienia SMS/email itd.).
 
-Zamiast jednego długiego wiersza ze wszystkimi Switch-ami, każdy partner będzie miał:
-- **Wiersz główny**: Imię, email, liczba aktywnych uprawnień (badge), przycisk rozwijania
-- **Panel rozwijany**: Uprawnienia pogrupowane w sekcje (Podstawowe, Wydarzenia, Szkolenia, Komunikacja, Kontakty, Treść, Raporty, Kalkulatory) wyświetlane jako kompaktowa siatka 2-4 kolumnowa
+## Rozwiazanie
 
-```text
-+--------------------------------------------------+
-| Crown  Sebastian Snopek              [4/20] [v]  |
-|        sebastiansnopek@gmail.com                  |
-+--------------------------------------------------+
-|  Podstawowe          | Wydarzenia                 |
-|  [x] Spotkania       | [ ] Wydarzenia             |
-|  [x] Szkolenia       | [ ] Rejestracje            |
-|  [x] Struktura       |                            |
-|  [x] Zatwierdzanie   | Szkolenia i wiedza         |
-|                       | [ ] Zarz. szkoleniami      |
-|  Komunikacja          | [ ] Baza wiedzy            |
-|  [ ] Powiadomienia    |                            |
-|  [ ] Emaile           | ...                        |
-|  [ ] Push             |                            |
-+--------------------------------------------------+
-| Katarzyna Snopek                     [0/20] [v]  |
-+--------------------------------------------------+
+### Krok 1: Dodanie polityki RLS dla liderow
+
+Nowa polityka na tabeli `events` pozwalajaca liderom z uprawnieniem `has_team_events` na INSERT/UPDATE/DELETE wydarzen typu `webinar` i `team_training` gdzie sa hostem:
+
+```sql
+CREATE POLICY "leaders_manage_team_events"
+ON public.events
+FOR ALL
+TO authenticated
+USING (
+  auth.uid() = host_user_id
+  AND event_type IN ('webinar', 'team_training')
+  AND EXISTS (
+    SELECT 1 FROM public.leader_permissions
+    WHERE user_id = auth.uid()
+    AND has_team_events = true
+  )
+)
+WITH CHECK (
+  auth.uid() = host_user_id
+  AND event_type IN ('webinar', 'team_training')
+  AND EXISTS (
+    SELECT 1 FROM public.leader_permissions
+    WHERE user_id = auth.uid()
+    AND has_team_events = true
+  )
+);
 ```
 
-Dodatkowe ulepszenia:
-- Przycisk "Włącz wszystko" / "Wyłącz wszystko" per partner
-- Aktywne uprawnienia widoczne jako badge w wierszu głównym (np. "4/20")
-- Partnerzy z aktywnymi uprawnieniami wyróżnieni wizualnie (Crown + tło)
+### Krok 2: Przebudowa LeaderEventsView
 
-### Zmiany techniczne
+Zastapienie uproszczonego formularza reuzyciem istniejacych komponentow admina:
 
-**Modyfikowany plik**: `src/components/admin/LeaderPanelManagement.tsx`
+- Import `WebinarForm` i `TeamTrainingForm` z `src/components/admin/`
+- Widok glowny: lista wydarzen lidera (bez zmian)
+- Po kliknieciu "Nowe wydarzenie" -> wybor typu (webinar vs szkolenie) -> otwarcie odpowiedniego formularza admina
+- Formularze admina juz zawieraja pelna logike zapisu do Supabase z `host_user_id = user.id` i `created_by = user.id`
+- Dodanie logowania akcji do `platform_team_actions` po zapisie (w callbacku `onSave`)
 
-- Zamiana `Table` na listę kart z `Collapsible` (z Radix UI, już zainstalowany)
-- Grupowanie kolumn wg pola `group` (już zdefiniowane w tablicy `columns`)
-- Siatka uprawnień w panelu rozwijanym: `grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4`
-- Każde uprawnienie: ikona + label + Switch w jednym wierszu
-- Zachowanie istniejącej logiki `toggleLeaderPermission` i `toggleCalculatorAccess` bez zmian
+### Struktura UI
+
+```text
+LeaderEventsView
++-- Lista wydarzen lidera (jak dotychczas)
++-- Przycisk "Nowe wydarzenie"
+    +-- Dialog wyboru typu: [Webinar] [Szkolenie zespolowe]
+        +-- WebinarForm (pelny formularz admina)
+        +-- LUB TeamTrainingForm (pelny formularz admina)
++-- Edycja: klik Pencil -> odpowiedni formularz na podstawie event_type
+```
+
+### Zmiany w plikach
+
+**Modyfikowane pliki:**
+- `src/components/leader/LeaderEventsView.tsx` - przebudowa z reuzyciem `WebinarForm`/`TeamTrainingForm`
+
+**Bez zmian:**
+- `src/components/admin/WebinarForm.tsx`
+- `src/components/admin/TeamTrainingForm.tsx`
+
+**Baza danych:**
+- Nowa polityka RLS `leaders_manage_team_events` na tabeli `events`
 
