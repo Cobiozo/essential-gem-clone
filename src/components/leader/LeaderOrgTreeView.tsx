@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, TreePine, List, Users, UserRound, User } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, TreePine, List, Users, UserRound, User, Shield, Crown } from 'lucide-react';
 import { useOrganizationTree } from '@/hooks/useOrganizationTree';
+import { useSubTeamLeaders } from '@/hooks/useSubTeamLeaders';
 import { OrganizationChart, OrganizationList } from '@/components/team-contacts/organization';
 
 const LeaderOrgTreeView: React.FC = () => {
-  const { tree, upline, statistics, settings, loading, error } = useOrganizationTree();
-  const [viewMode, setViewMode] = useState<'graph' | 'list'>('graph');
+  const { tree, upline, treeData, statistics, settings, loading, error } = useOrganizationTree();
+  const { isLeader, getSubLeaderInfo, toggleIndependence, loading: subLoading } = useSubTeamLeaders();
+  const [viewMode, setViewMode] = useState<'graph' | 'list'>('list');
 
-  if (loading) {
+  if (loading || subLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -47,6 +50,20 @@ const LeaderOrgTreeView: React.FC = () => {
     visible_to_clients: false,
   };
 
+  // Find sub-leaders in tree data (level > 0)
+  const subLeadersInTree = treeData
+    .filter((m) => m.level > 0 && isLeader(m.id))
+    .map((m) => {
+      const info = getSubLeaderInfo(m.id);
+      return info ? { ...info, memberName: `${m.first_name || ''} ${m.last_name || ''}`.trim() } : null;
+    })
+    .filter(Boolean) as Array<{
+      userId: string;
+      teamName: string;
+      isIndependent: boolean;
+      memberName: string;
+    }>;
+
   return (
     <div className="space-y-4">
       {/* Stats */}
@@ -79,6 +96,46 @@ const LeaderOrgTreeView: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Sub-leaders panel */}
+      {subLeadersInTree.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Crown className="h-4 w-4" />
+              Liderzy w Twojej strukturze
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {subLeadersInTree.map((sl) => (
+              <div key={sl.userId} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{sl.memberName}</span>
+                    <Badge variant="secondary" className="text-xs">
+                      <Crown className="h-3 w-3 mr-1" />
+                      {sl.teamName}
+                    </Badge>
+                    {sl.isIndependent && (
+                      <Badge variant="outline" className="text-xs">
+                        <Shield className="h-3 w-3 mr-1" />
+                        Niezależny
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">Niezależny:</span>
+                  <Switch
+                    checked={sl.isIndependent}
+                    onCheckedChange={(v) => toggleIndependence(sl.userId, v)}
+                  />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* View mode toggle + chart */}
       <Card>
