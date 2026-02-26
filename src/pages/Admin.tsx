@@ -76,6 +76,7 @@ import { UserStatusLegend } from '@/components/admin/UserStatusLegend';
 import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
 import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
+import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4565,6 +4566,10 @@ const Admin = () => {
 
           <TabsContent value="leader-panel-management">
             <LeaderPanelManagement />
+          </TabsContent>
+
+          <TabsContent value="platform-teams">
+            <PlatformTeamsManagement />
           </TabsContent>
 
           <TabsContent value="specialist-calculator">

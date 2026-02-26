@@ -58,6 +58,7 @@ import {
   Ticket,
   Trash2,
   Crown,
+  UsersRound,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 
@@ -145,6 +146,7 @@ const navCategories: NavCategory[] = [
       { value: 'users', labelKey: 'users', icon: Users },
       { value: 'account', labelKey: 'account', icon: UserCircle },
       { value: 'leader-panel-management', labelKey: 'leaderPanel', icon: Crown },
+      { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound },
     ],
   },
   {
@@ -252,6 +254,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     meetingGuests: 'Goście spotkań',
     dataCleanup: 'Czyszczenie danych',
     leaderPanel: 'Panel Lidera',
+    platformTeams: 'Zespoły platformy',
   };
 
   const getLabel = (key: string): string => {
