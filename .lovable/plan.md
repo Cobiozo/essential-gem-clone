@@ -1,46 +1,144 @@
 
 
-## Pozwolenie na spotkania back-to-back (np. 20:00-21:00, potem 21:00-22:00)
+## Modul "Zespoly platformy PureLifeCenter" w panelu CMS admina
 
-### Problem
+### Opis
 
-Walidacja konfliktow czasowych w formularzach wydarzen uzywa operatorow `lte` (<=) i `gte` (>=), co oznacza, ze dwa spotkania stykajace sie w czasie (np. koniec o 21:00, start o 21:00) sa traktowane jako konflikt. Uzytkownik musi wpisywac 21:01 zamiast 21:00.
+Nowy modul w panelu admina pokazujacy zespoly tworzone automatycznie na podstawie hierarchii organizacji. Kazdy lider (osoba z `leader_permissions`) tworzy zespol skladajacy sie z niego i wszystkich osob ponizej w hierarchii (`upline_eq_id`). Admin widzi liste zespolow, ich sklad i statystyki.
 
-### Rozwiazanie
+### Logika tworzenia zespolow
 
-Zmienic operatory porownania z "mniejsze-lub-rowne / wieksze-lub-rowne" na "scisle mniejsze / scisle wieksze", co pozwoli na spotkania back-to-back.
+- Zespol = lider + wszyscy uzytkownicy rekurencyjnie ponizej niego w hierarchii (na podstawie `upline_eq_id` -> `eq_id`)
+- Nazwa domyslna: "Zespol-{inicjal_imienia}.{inicjal_nazwiska}." np. "Zespol-S.S." dla Sebastiana Snopka
+- Admin moze nadac wlasna nazwe zespolu (opcjonalnie)
+- Liderzy pobierani z tabeli `leader_permissions`
 
-### Zmiany w plikach
+### Hierarchia liderow i niezaleznosc zespolow
 
-#### 1. `src/components/admin/WebinarForm.tsx` (linia ~205-206)
+Jezeli lider B znajduje sie w strukturze (ponizej) lidera A, to:
+- Lider A widzi lidera B, nazwe jego zespolu oraz czlonkow zespolu lidera B
+- Zespol lidera B jest wyswietlany jako podzespol wewnatrz zespolu lidera A
+- Czlonkowie zespolu B sa wizualnie oznaczeni jako nalezacy do podzespolu
 
-Zmiana:
+**Status niezaleznosci**: Admin moze nadac zespolowi status "niezalezny" (`is_independent = true`), co oznacza:
+- Zespol niezalezny NIE jest widoczny jako podzespol lidera wyzej
+- Lider wyzej NIE widzi czlonkow niezaleznego zespolu w swoim widoku
+- Niezalezny zespol pojawia sie jako oddzielny, samodzielny zespol na liscie
+- W praktyce: czlonkowie niezaleznego zespolu sa odejmowani z licznika i listy zespolu lidera nadrzednego
+
+### Zmiany w bazie danych
+
+Nowa tabela `platform_teams`:
+
+```text
+platform_teams
+- id: uuid (PK, default gen_random_uuid())
+- leader_user_id: uuid (FK -> auth.users, UNIQUE, NOT NULL)
+- custom_name: text (nullable - jesli null, uzyj domyslnej nazwy "Zespol-X.Y.")
+- is_independent: boolean (default false) -- status niezaleznosci
+- created_at: timestamptz (default now())
+- updated_at: timestamptz (default now())
 ```
-.lte('start_time', form.end_time)
-.gte('end_time', form.start_time)
-```
-Na:
-```
-.lt('start_time', form.end_time)
-.gt('end_time', form.start_time)
+
+RLS: tylko admini maja dostep do odczytu i zapisu.
+
+### Nowe pliki
+
+#### 1. `src/hooks/usePlatformTeams.ts`
+
+Hook do pobierania i zarzadzania danymi zespolow:
+- Pobiera liderow z `leader_permissions` + `profiles` (eq_id, imie, nazwisko)
+- Dla kazdego lidera wywoluje RPC `get_organization_tree` (juz istnieje)
+- Pobiera custom nazwy i status niezaleznosci z `platform_teams`
+- Generuje domyslne nazwy "Zespol-X.Y."
+- Buduje hierarchie: wykrywa liderow-w-strukturze-innych-liderow
+- Filtruje: niezalezne zespoly sa wycinane z drzewa nadrzednego lidera
+- Zwraca posortowana liste zespolow ze statystykami i informacja o podzespolach
+- Obsluguje zapis/aktualizacje custom nazwy i statusu niezaleznosci
+
+#### 2. `src/components/admin/PlatformTeamsManagement.tsx`
+
+Glowny komponent modulu. Zawiera:
+
+**Statystyki ogolne** (gora):
+- Laczna liczba zespolow
+- Laczna liczba czlonkow
+- Srednia na zespol
+
+**Lista zespolow** (kazdy jako accordion):
+- Nazwa zespolu (domyslna lub custom) + badge "Niezalezny" jesli `is_independent`
+- Lider: imie, nazwisko, eq_id, avatar
+- Liczba czlonkow (bezposrednich + z podzespolow, z wylaczeniem niezaleznych)
+- Mozliwosc rozwijania -> lista czlonkow z rolami i poziomami
+- Jesli w zespole sa inni liderzy (podzespoly):
+  - Wyswietlane jako wyroznionyе sekcje wewnatrz
+  - Nazwa podzespolu + liczba czlonkow
+  - Mozliwosc rozwijania podzespolu
+
+**Akcje admina** (per zespol):
+- Edycja nazwy zespolu (inline edit lub dialog)
+- Przelacznik "Niezalezny" (switch) -- wylacza zespol spod nadzoru lidera wyzej
+
+### Przyklad wizualny
+
+```text
++-----------------------------------------------+
+| Zespoly platformy PureLifeCenter              |
+| [4 zespoly] [146 czlonkow] [sr. 36/zespol]   |
++-----------------------------------------------+
+|                                                |
+| v Zespol-S.S. (Sebastian Snopek)    [58 os.]  |
+|   Lider: Sebastian Snopek (EQ: 121118999)     |
+|   [Edytuj nazwe] [Niezalezny: wyl.]           |
+|                                                |
+|   Czlonkowie bezposredni:                      |
+|   +-- Partner: Jan Kowalski (EQ: ...)         |
+|   +-- Klient: Anna Nowak (EQ: ...)            |
+|                                                |
+|   Podzespol: Zespol-M.K. (Marek Kowal) [12os] |
+|     +-- Klient: Ewa Zak (EQ: ...)             |
+|     +-- Klient: Piotr Lis (EQ: ...)           |
+|                                                |
+| v Zespol-J.W. (Jaroslaw Wiglusz)    [18 os.]  |
+|   [Niezalezny: wyl.]                          |
+|   ...                                          |
+|                                                |
+| v Zespol-A.B. (Anna Baran)          [8 os.]   |
+|   [Niezalezny: WLACZONY] (badge)              |
+|   -- Ten zespol nie podlega liderowi wyzej --  |
+|   ...                                          |
++-----------------------------------------------+
 ```
 
-#### 2. `src/components/admin/TeamTrainingForm.tsx` (linia ~205-206)
+### Zmiany w istniejacych plikach
 
-Analogiczna zmiana:
-```
-.lte('start_time', endTime)
-.gte('end_time', startTime)
-```
-Na:
-```
-.lt('start_time', endTime)
-.gt('end_time', startTime)
-```
+#### 3. `src/components/admin/AdminSidebar.tsx`
 
-### Zakres
+- Dodanie nowego elementu w kategorii "users":
+  ```
+  { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound }
+  ```
+- Import ikony `UsersRound` z lucide-react
+- Dodanie klucza w `hardcodedLabels`: `platformTeams: 'Zespoly platformy'`
 
-- 2 pliki, po 2 linie w kazdym
-- Brak zmian w bazie danych
-- Logika: spotkanie konczace sie o 21:00 nie koliduje ze spotkaniem zaczynajacym sie o 21:00
+#### 4. `src/pages/Admin.tsx`
 
+- Import `PlatformTeamsManagement`
+- Dodanie renderowania w odpowiednim `TabsContent`:
+  ```
+  {activeTab === 'platform-teams' && <PlatformTeamsManagement />}
+  ```
+
+### Szczegoly techniczne
+
+- Wykorzystuje istniejaca funkcje RPC `get_organization_tree(p_root_eq_id, p_max_depth)` -- nie trzeba tworzyc nowej
+- Wykrywanie podzespolow: po pobraniu drzew wszystkich liderow, sprawdza sie czy eq_id lidera B wystepuje w drzewie lidera A
+- Niezaleznosc: jesli `is_independent = true`, czlonkowie tego zespolu (lacznie z liderem) sa odejmowani z drzewa nadrzednego
+- Tabela `platform_teams` jest opcjonalna -- jesli brak rekordu dla lidera, uzywane sa wartosci domyslne (nazwa automatyczna, niezaleznosc = false)
+
+### Kolejnosc implementacji
+
+1. Migracja DB: tabela `platform_teams` + RLS
+2. Hook `usePlatformTeams.ts`
+3. Komponent `PlatformTeamsManagement.tsx`
+4. Integracja w `AdminSidebar.tsx` i `Admin.tsx`
