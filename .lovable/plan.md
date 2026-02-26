@@ -1,144 +1,103 @@
 
+## Plan: Rozszerzenie Panelu Lidera o zarzadzanie zespolem + Historia czynnosci w CMS
 
-## Modul "Zespoly platformy PureLifeCenter" w panelu CMS admina
+### Zakres zmian
 
-### Opis
+Cztery glowne obszary:
+1. **Panel Lidera** - wyswietlenie nazwy zespolu lidera z mozliwoscia edycji
+2. **Panel Lidera (struktura)** - oznaczenie liderow-podzespolow w drzewie z opcja przelaczenia niezaleznosci
+3. **Tabela `platform_team_actions`** - historia czynnosci liderow w obszarze zespolow
+4. **CMS Admin** - widok historii czynnosci w zakladce "Zespoly platformy"
 
-Nowy modul w panelu admina pokazujacy zespoly tworzone automatycznie na podstawie hierarchii organizacji. Kazdy lider (osoba z `leader_permissions`) tworzy zespol skladajacy sie z niego i wszystkich osob ponizej w hierarchii (`upline_eq_id`). Admin widzi liste zespolow, ich sklad i statystyki.
+---
 
-### Logika tworzenia zespolow
+### 1. Baza danych - nowa tabela historii
 
-- Zespol = lider + wszyscy uzytkownicy rekurencyjnie ponizej niego w hierarchii (na podstawie `upline_eq_id` -> `eq_id`)
-- Nazwa domyslna: "Zespol-{inicjal_imienia}.{inicjal_nazwiska}." np. "Zespol-S.S." dla Sebastiana Snopka
-- Admin moze nadac wlasna nazwe zespolu (opcjonalnie)
-- Liderzy pobierani z tabeli `leader_permissions`
-
-### Hierarchia liderow i niezaleznosc zespolow
-
-Jezeli lider B znajduje sie w strukturze (ponizej) lidera A, to:
-- Lider A widzi lidera B, nazwe jego zespolu oraz czlonkow zespolu lidera B
-- Zespol lidera B jest wyswietlany jako podzespol wewnatrz zespolu lidera A
-- Czlonkowie zespolu B sa wizualnie oznaczeni jako nalezacy do podzespolu
-
-**Status niezaleznosci**: Admin moze nadac zespolowi status "niezalezny" (`is_independent = true`), co oznacza:
-- Zespol niezalezny NIE jest widoczny jako podzespol lidera wyzej
-- Lider wyzej NIE widzi czlonkow niezaleznego zespolu w swoim widoku
-- Niezalezny zespol pojawia sie jako oddzielny, samodzielny zespol na liscie
-- W praktyce: czlonkowie niezaleznego zespolu sa odejmowani z licznika i listy zespolu lidera nadrzednego
-
-### Zmiany w bazie danych
-
-Nowa tabela `platform_teams`:
+Nowa tabela `platform_team_actions` rejestrujaca kazda czynnosc lidera:
 
 ```text
-platform_teams
-- id: uuid (PK, default gen_random_uuid())
-- leader_user_id: uuid (FK -> auth.users, UNIQUE, NOT NULL)
-- custom_name: text (nullable - jesli null, uzyj domyslnej nazwy "Zespol-X.Y.")
-- is_independent: boolean (default false) -- status niezaleznosci
+platform_team_actions
+- id: uuid (PK)
+- leader_user_id: uuid (NOT NULL) -- kto wykonal akcje
+- action_type: text (NOT NULL) -- 'rename_team' | 'toggle_independence'
+- target_team_leader_id: uuid -- na czyim zespole wykonano (moze byc == leader_user_id)
+- old_value: text (nullable)
+- new_value: text (nullable)
 - created_at: timestamptz (default now())
-- updated_at: timestamptz (default now())
 ```
 
-RLS: tylko admini maja dostep do odczytu i zapisu.
+RLS: admini maja SELECT, liderzy maja INSERT (tylko swoje akcje) i SELECT (tylko swoje).
 
-### Nowe pliki
+---
 
-#### 1. `src/hooks/usePlatformTeams.ts`
+### 2. Panel Lidera - Sekcja "Moj zespol" w headerze
 
-Hook do pobierania i zarzadzania danymi zespolow:
-- Pobiera liderow z `leader_permissions` + `profiles` (eq_id, imie, nazwisko)
-- Dla kazdego lidera wywoluje RPC `get_organization_tree` (juz istnieje)
-- Pobiera custom nazwy i status niezaleznosci z `platform_teams`
-- Generuje domyslne nazwy "Zespol-X.Y."
-- Buduje hierarchie: wykrywa liderow-w-strukturze-innych-liderow
-- Filtruje: niezalezne zespoly sa wycinane z drzewa nadrzednego lidera
-- Zwraca posortowana liste zespolow ze statystykami i informacja o podzespolach
-- Obsluguje zapis/aktualizacje custom nazwy i statusu niezaleznosci
+W pliku `src/pages/LeaderPanel.tsx` dodanie pod naglowkiem "Panel Lidera" karty z:
+- Nazwa zespolu lidera (pobrana z `platform_teams` lub domyslna "Zespol-X.Y.")
+- Przycisk "Edytuj nazwe" otwierajacy dialog
+- Liczba czlonkow w zespole
 
-#### 2. `src/components/admin/PlatformTeamsManagement.tsx`
+Nowy hook `src/hooks/useLeaderTeam.ts`:
+- Pobiera dane zespolu biezacego lidera z `platform_teams`
+- Pobiera profil lidera (imie, nazwisko dla domyslnej nazwy)
+- Funkcja `updateMyTeamName(newName)` - zapisuje w `platform_teams` i loguje w `platform_team_actions`
 
-Glowny komponent modulu. Zawiera:
+---
 
-**Statystyki ogolne** (gora):
-- Laczna liczba zespolow
-- Laczna liczba czlonkow
-- Srednia na zespol
+### 3. Panel Lidera (struktura) - oznaczenie liderow-podzespolow
 
-**Lista zespolow** (kazdy jako accordion):
-- Nazwa zespolu (domyslna lub custom) + badge "Niezalezny" jesli `is_independent`
-- Lider: imie, nazwisko, eq_id, avatar
-- Liczba czlonkow (bezposrednich + z podzespolow, z wylaczeniem niezaleznych)
-- Mozliwosc rozwijania -> lista czlonkow z rolami i poziomami
-- Jesli w zespole sa inni liderzy (podzespoly):
-  - Wyswietlane jako wyroznionyе sekcje wewnatrz
-  - Nazwa podzespolu + liczba czlonkow
-  - Mozliwosc rozwijania podzespolu
+W `LeaderOrgTreeView.tsx` (lub w osobnym komponencie):
+- Przy wyswietlaniu drzewa, czlonkowie bedacy liderami (maja rekord w `leader_permissions`) sa oznaczeni badge "Lider" + nazwa ich zespolu
+- Lider widzi przelacznik "Niezaleznosc" przy kazdym podliderze w swojej strukturze
+- Zmiana niezaleznosci logowana do `platform_team_actions`
 
-**Akcje admina** (per zespol):
-- Edycja nazwy zespolu (inline edit lub dialog)
-- Przelacznik "Niezalezny" (switch) -- wylacza zespol spod nadzoru lidera wyzej
+Nowy hook `src/hooks/useSubTeamLeaders.ts`:
+- Pobiera liste user_id liderow z `leader_permissions`
+- Pobiera ich nazwy zespolow z `platform_teams`
+- Funkcja `toggleSubLeaderIndependence(subLeaderUserId, value)` - aktualizuje `platform_teams.is_independent` i loguje akcje
 
-### Przyklad wizualny
+---
 
-```text
-+-----------------------------------------------+
-| Zespoly platformy PureLifeCenter              |
-| [4 zespoly] [146 czlonkow] [sr. 36/zespol]   |
-+-----------------------------------------------+
-|                                                |
-| v Zespol-S.S. (Sebastian Snopek)    [58 os.]  |
-|   Lider: Sebastian Snopek (EQ: 121118999)     |
-|   [Edytuj nazwe] [Niezalezny: wyl.]           |
-|                                                |
-|   Czlonkowie bezposredni:                      |
-|   +-- Partner: Jan Kowalski (EQ: ...)         |
-|   +-- Klient: Anna Nowak (EQ: ...)            |
-|                                                |
-|   Podzespol: Zespol-M.K. (Marek Kowal) [12os] |
-|     +-- Klient: Ewa Zak (EQ: ...)             |
-|     +-- Klient: Piotr Lis (EQ: ...)           |
-|                                                |
-| v Zespol-J.W. (Jaroslaw Wiglusz)    [18 os.]  |
-|   [Niezalezny: wyl.]                          |
-|   ...                                          |
-|                                                |
-| v Zespol-A.B. (Anna Baran)          [8 os.]   |
-|   [Niezalezny: WLACZONY] (badge)              |
-|   -- Ten zespol nie podlega liderowi wyzej --  |
-|   ...                                          |
-+-----------------------------------------------+
-```
+### 4. CMS Admin - Historia czynnosci
 
-### Zmiany w istniejacych plikach
+Rozszerzenie `PlatformTeamsManagement.tsx` o nowa sekcje "Historia czynnosci":
+- Tabela/lista chronologiczna z `platform_team_actions`
+- Kolumny: Data, Lider (kto), Akcja (opis), Zespol (na jakim), Stara wartosc, Nowa wartosc
+- Filtrowanie po typie akcji i po liderze
+- Paginacja (ostatnie 50 wpisow)
 
-#### 3. `src/components/admin/AdminSidebar.tsx`
+Nowy hook `src/hooks/usePlatformTeamActions.ts`:
+- Pobiera dane z `platform_team_actions` z joinami na `profiles` (imiona liderow)
+- Obsluguje paginacje i filtry
 
-- Dodanie nowego elementu w kategorii "users":
-  ```
-  { value: 'platform-teams', labelKey: 'platformTeams', icon: UsersRound }
-  ```
-- Import ikony `UsersRound` z lucide-react
-- Dodanie klucza w `hardcodedLabels`: `platformTeams: 'Zespoly platformy'`
+---
 
-#### 4. `src/pages/Admin.tsx`
+### 5. Synchronizacja nazwy miedzy Panelem Lidera a CMS
 
-- Import `PlatformTeamsManagement`
-- Dodanie renderowania w odpowiednim `TabsContent`:
-  ```
-  {activeTab === 'platform-teams' && <PlatformTeamsManagement />}
-  ```
+Obie strony (lider i admin) operuja na tej samej tabeli `platform_teams`:
+- Lider zmienia nazwe -> widoczne natychmiast w CMS admina
+- Admin zmienia nazwe -> widoczne natychmiast w Panelu Lidera
+- Kazda zmiana logowana do `platform_team_actions` z informacja kto zmienil
 
-### Szczegoly techniczne
+---
 
-- Wykorzystuje istniejaca funkcje RPC `get_organization_tree(p_root_eq_id, p_max_depth)` -- nie trzeba tworzyc nowej
-- Wykrywanie podzespolow: po pobraniu drzew wszystkich liderow, sprawdza sie czy eq_id lidera B wystepuje w drzewie lidera A
-- Niezaleznosc: jesli `is_independent = true`, czlonkowie tego zespolu (lacznie z liderem) sa odejmowani z drzewa nadrzednego
-- Tabela `platform_teams` jest opcjonalna -- jesli brak rekordu dla lidera, uzywane sa wartosci domyslne (nazwa automatyczna, niezaleznosc = false)
+### Zmiany w plikach
+
+| Plik | Zmiana |
+|------|--------|
+| **Migracja SQL** | Nowa tabela `platform_team_actions` + RLS |
+| `src/hooks/useLeaderTeam.ts` | **NOWY** - dane zespolu lidera, edycja nazwy |
+| `src/hooks/useSubTeamLeaders.ts` | **NOWY** - lista podliderow, toggle niezaleznosci |
+| `src/hooks/usePlatformTeamActions.ts` | **NOWY** - historia czynnosci |
+| `src/hooks/usePlatformTeams.ts` | Dodanie logowania akcji przy updateTeamName i toggleIndependence |
+| `src/pages/LeaderPanel.tsx` | Sekcja "Moj zespol" z nazwa i edycja |
+| `src/components/leader/LeaderOrgTreeView.tsx` | Oznaczenie podliderow + toggle niezaleznosci |
+| `src/components/admin/PlatformTeamsManagement.tsx` | Sekcja "Historia czynnosci" |
 
 ### Kolejnosc implementacji
 
-1. Migracja DB: tabela `platform_teams` + RLS
-2. Hook `usePlatformTeams.ts`
-3. Komponent `PlatformTeamsManagement.tsx`
-4. Integracja w `AdminSidebar.tsx` i `Admin.tsx`
+1. Migracja DB (`platform_team_actions`)
+2. Hook `useLeaderTeam` + sekcja w `LeaderPanel`
+3. Hook `useSubTeamLeaders` + rozszerzenie `LeaderOrgTreeView`
+4. Hook `usePlatformTeamActions` + historia w CMS
+5. Logowanie akcji w istniejacym `usePlatformTeams`
