@@ -1,39 +1,47 @@
 
-Cel: naprawić sytuację, w której administrator po wejściu w „Pure – Kontakty” nadal nie widzi swoich kontaktów prywatnych i zaproszonych gości.
 
-Co już potwierdziłem podczas analizy:
-1) Dane są w bazie:
-- dla admina `629a2d9a-994a-4e6a-a9c4-8ae0b07e3770` istnieją kontakty (`private_active=2`, `team_active=1`),
-- zaproszeni goście mają poprawnie ustawione `invited_by_user_id` i `team_contact_id` w `guest_event_registrations`.
-2) Poprzednia poprawka w `useTeamContacts.ts` (domyślny filtr `user_id = user.id` dla admina) jest logicznie poprawna.
-3) Rzeczywista przyczyna jest w UI uprawnień:
-- `src/pages/MyAccount.tsx` ukrywa zakładkę `teamContacts` dla admina,
-- obecnie: `teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists)`,
-- przez to komponent `TeamContactsTab` w ogóle się nie renderuje dla „czystego” admina, mimo że sidebar prowadzi admina na `/my-account?tab=team-contacts...`.
+## Zamiana przycisku UpLine na przycisk informacji o rejestracji na spotkanie
 
-Plan wdrożenia:
+### Kontekst
 
-1. Ujednolicenie dostępu admina do zakładki „Pure – Kontakty”
-- Plik: `src/pages/MyAccount.tsx`
-- Zmienić warunek widoczności:
-  - z: `isPartner || isSpecjalista || (isClient && canSearchSpecialists)`
-  - na: `isUserAdmin || isPartner || isSpecjalista || (isClient && canSearchSpecialists)`
-- Efekt: tab trigger + `TabsContent` dla `team-contacts` będą renderowane także dla admina.
+Ikona dłoni (`HandHelping`) to przycisk "Poproś UpLine o pomoc". Zostanie usunięty i zastąpiony przyciskiem informacyjnym pokazującym, czy dany kontakt prywatny zarejestrował się na spotkanie (webinar).
 
-2. Spójność nawigacji (sidebar vs. My Account)
-- Zachować obecne `visibleFor: ['partner', 'specjalista', 'admin']` w sidebarze (już poprawne).
-- Po zmianie z kroku 1 nawigacja i ekran docelowy będą spójne (koniec sytuacji „link jest, ale treści brak”).
+### Dane w bazie
 
-3. Twarda weryfikacja po wdrożeniu
-- Wejść jako admin na: `/my-account?tab=team-contacts&subTab=private`.
-- Sprawdzić:
-  - czy zakładka „Pure – Kontakty” jest widoczna,
-  - czy w „Kontakty prywatne” pojawiają się rekordy admina (w tym goście zaproszeni przez link webinarowy),
-  - czy przełączanie `subTab=private/team` działa poprawnie.
-- Dodatkowo: wykonać test E2E zaproszenia gościa (rejestracja z linku admina → kontakt pojawia się w prywatnych kontaktach admina).
+Tabela `guest_event_registrations` posiada kolumnę `team_contact_id` (powiązanie z kontaktem) oraz `status` (aktualnie tylko "registered"). Dane o wydarzeniach (tytuł, data) są w tabeli `events`.
 
-Zakres zmian:
-- tylko frontend (`MyAccount.tsx`), bez migracji DB i bez zmian RLS.
+### Plan zmian
 
-Ryzyko:
-- niskie; zmiana dotyczy jedynie warunku widoczności zakładki i nie ingeruje w logikę zapisu danych.
+#### 1. Nowy komponent: `ContactEventInfoButton.tsx`
+
+Zastąpi `UplineHelpButton`. Komponent:
+- Pobierze z bazy rejestracje gościa powiązane z danym `contact.id` (`team_contact_id`)
+- Wyświetli ikonę `CalendarCheck` (jeśli ma rejestracje) lub `CalendarX2` (brak)
+- Po najechaniu (tooltip) pokaże podsumowanie: ile rejestracji, na jakie spotkania
+- Po kliknięciu otworzy popover/dialog z listą spotkań:
+  - Tytuł wydarzenia
+  - Data
+  - Status rejestracji (zarejestrowany / anulowany)
+
+#### 2. Aktualizacja `TeamContactsTable.tsx`
+
+- Usunięcie importu `UplineHelpButton`
+- Dodanie importu nowego `ContactEventInfoButton`
+- Zamiana `<UplineHelpButton contact={contact} />` na `<ContactEventInfoButton contact={contact} />`
+
+#### 3. Usunięcie pliku `UplineHelpButton.tsx`
+
+Plik `src/components/team-contacts/UplineHelpButton.tsx` zostanie usunięty (nie jest używany nigdzie indziej).
+
+### Wygląd nowego przycisku
+
+- Ikona: `CalendarCheck` (zielona) gdy kontakt ma rejestracje na spotkania, `Calendar` (szara) gdy brak
+- Tooltip: "Zarejestrowany na X spotkań" lub "Brak rejestracji na spotkania"
+- Kliknięcie: Popover z listą wydarzeń i statusami
+
+### Zakres
+
+- 1 nowy plik komponentu
+- 1 edycja (`TeamContactsTable.tsx`)
+- 1 usunięcie (`UplineHelpButton.tsx`)
+- Brak zmian w bazie danych
