@@ -233,7 +233,7 @@ const MyAccount = () => {
   // Visible tabs based on existing visibility settings
   const visibleTabs = useMemo(() => ({
     profile: true,
-    teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists),
+    teamContacts: isUserAdmin || isPartner || isSpecjalista || (isClient && canSearchSpecialists),
     communication: true, // Visible to all roles
     privateChats: false, // Replaced by communication
     correspondence: false,
