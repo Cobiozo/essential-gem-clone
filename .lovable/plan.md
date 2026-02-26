@@ -1,96 +1,77 @@
 
-## Audyt responsywności modulu Akademii -- Apple / iOS
+## Poprawa informacji po rejestracji na webinar + brakujace przypomnienie 15min
 
-### Podsumowanie
+### Wyniki audytu
 
-Modul Akademii jest **ogolnie dobrze przygotowany** pod urzadzenia mobilne. Zastosowano zwijane listy lekcji (Collapsible), `playsInline` + `webkit-playsinline` dla wideo iOS, sticky headery, responsywny grid i klasy `sm:` / `lg:`. Ponizej lista wykrytych problemow i rekomendacji.
+#### 1. Kontakty prywatne partnera -- DZIALA POPRAWNIE
+Funkcja `send-webinar-confirmation` (linia 182-240) poprawnie zapisuje gości do `team_contacts` jako kontakt prywatny (`contact_type: 'private'`) z notatką źródłową i statusem `observation`, gdy parametr `invited_by_user_id` jest obecny w rejestracji.
 
----
+#### 2. Przypomnienia email -- CZESCIOWO BRAKUJE
+- 24h przed -- DZIALA (`process-pending-notifications`, linie 313-453, szuka webinarów 24-30h przed)
+- 1h przed -- DZIALA (`process-pending-notifications`, linie 456-596, szuka webinarów 50-70 minut przed, wysyła email z linkiem Zoom)
+- 15 minut przed -- BRAK dla webinarów (istnieje tylko dla spotkań indywidualnych w `send-meeting-reminders`)
 
-### Problemy krytyczne
+#### 3. Komunikat po rejestracji -- NIEPELNY
+Linia 242 w `EventGuestRegistration.tsx` mówi tylko: *"Przypomnienie o webinarze otrzymasz 24 godziny przed jego rozpoczęciem."* -- nie informuje o przypomnieniach 1h i 15min z linkiem do spotkania.
 
-#### 1. Header Akademii -- przycinanie na malych ekranach iPhone SE/Mini (Training.tsx, linia 616)
-Naglowek zawiera przycisk "Powrot", separator, tytul i przycisk "Odswiez akademie" w jednej linii (`flex items-center justify-between`). Na iPhone SE (320px) elementy nakladaja sie lub przycinaja.
-
-**Rozwiazanie**: Zastosowac `flex-wrap` i zmniejszyc padding na malych ekranach. Rozwazyc przeniesienie przycisku odswiezania do nowej linii na mobile.
-
-#### 2. Banner "jezyk obcy" -- przycisk i tekst w jednej linii (linia 753)
-Banner z informacja o przegladaniu innego jezyka uzywa `flex items-center justify-between gap-4`. Na waskich ekranach przycisk "Wroc do swojej sciezki" moze sie nie miescic.
-
-**Rozwiazanie**: Zmienic na `flex-wrap` lub `flex-col` na mobile (`flex flex-col sm:flex-row`).
-
-#### 3. Sekcja certyfikatu -- overflow na mobile (linie 865-963)
-Dluga data (`"26 lutego 2026 o 14:30"`) + tekst informacyjny + przycisk regeneracji w kartach certyfikatu moga powodowac overflow horyzontalny.
-
-**Rozwiazanie**: Dodac `break-words` i `overflow-hidden` do kontenera certyfikatu.
+Dodatkowo, gdy do webinaru pozostało mniej niż 24h, informacja o przypomnieniu 24h jest myląca (bo go nie otrzyma).
 
 ---
 
-### Problemy srednie
+### Plan zmian
 
-#### 4. VideoControls -- zbyt wiele przyciskow w jednej linii (VideoControls.tsx, linia 150)
-Na iPhone kontrolki wideo (Play, -10s, pasek postepu, czas, Napraw, Pomoc, Fullscreen) moga sie tloczyc. `flex-wrap` jest obecny, ale `gap-2 sm:gap-4` moze byc niewystarczajacy.
+#### Zmiana 1: Dodanie przypomnienia 15 minut przed webinarem
 
-**Rozwiazanie**: Ukryc tekst "Napraw" i "Pomoc" na mobile (juz czesciowo zrobione), rozwazyc grupowanie ikon w drugi rzad.
+**Plik: `supabase/functions/send-webinar-email/index.ts`**
+- Rozszerzyć typ `WebinarEmailRequest['type']` o `'reminder_15min'`
+- Dodać mapowanie w `getTemplateInternalName` i `getEventTypeKey` na `'webinar_reminder_15min'`
 
-#### 5. SecureVideoControls -- podobny problem (SecureVideoControls.tsx, linia 97)
-Kontrolki: Play, -10s, +10s, czas, predkosc, Napraw, Fullscreen -- 7 elementow w jednym rzedzie.
+**Plik: `supabase/functions/process-pending-notifications/index.ts`**
+- Dodać sekcję 5c po sekcji 5b: "Process webinar reminders (15min before event)"
+- Szukać webinarów zaczynających się za 10-20 minut
+- Sprawdzać pole `reminder_15min_sent` (do dodania w migracji)
+- Wysyłać email typu `reminder_15min` z linkiem Zoom
+- Wysyłać push notification: "Webinar za 15 minut: {tytuł}"
+- Aktualizować `reminder_15min_sent` i `reminder_15min_sent_at`
+- Dodać licznik `webinarReminders15min` do `results`
 
-**Rozwiazanie**: Na mobile ukryc etykiety tekstowe (`hidden sm:inline` juz czesciowo zastosowane), zmniejszyc `min-w-[60px]` przycisku predkosci.
+**Migracja SQL:**
+- Dodać kolumny `reminder_15min_sent` (boolean, default false) i `reminder_15min_sent_at` (timestamptz) do tabeli `guest_event_registrations`
+- Dodać szablon email `webinar_reminder_15min` do `email_templates`
+- Dodać typ zdarzenia `webinar_reminder_15min` do `email_event_types`
+- Powiązać szablon z typem zdarzenia w `email_template_event_types`
 
-#### 6. Brak `safe-area-inset` w sticky headerach
-Sticky header (`sticky top-0`) nie uwzglednia notcha iPhone'a. Gdy uzytkownik jest w trybie PWA, tytul moze zachodzic pod Dynamic Island / notch.
+#### Zmiana 2: Lepszy komunikat po rejestracji (dynamiczny)
 
-**Rozwiazanie**: Dodac `pt-[env(safe-area-inset-top)]` do headerow sticky lub uzyc klasy `top-[env(safe-area-inset-top)]`.
+**Plik: `src/pages/EventGuestRegistration.tsx`** (linie 241-243)
 
-#### 7. Karty modulow -- grid 3 kolumny na tablecie
-`grid gap-6 md:grid-cols-2 lg:grid-cols-3` -- na iPad Mini (768px) wyswietla 2 kolumny co jest poprawne, ale na iPad Pro 11" (834px) tez 2 kolumny. Rozwazyc `md:grid-cols-2 xl:grid-cols-3` dla lepszego wykorzystania przestrzeni na tabletach.
+Zastąpić statyczny tekst dynamicznym komunikatem zależnym od czasu do webinaru:
 
----
+```text
+// Logika:
+const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
 
-### Problemy drobne
-
-#### 8. Baner informacyjny o systemie szkolen (linia 733)
-Tekst listy `<ul>` z dlugimi zdaniami moze byc trudny do czytania na 320px. Rozwazyc mniejszy font na mobile (`text-xs sm:text-sm`).
-
-#### 9. LessonNotesDialog -- scroll area na malym ekranie
-`max-h-[300px]` na ScrollArea moze byc za duze na iPhone SE w orientacji poziomej, pozostawiajac malo miejsca na formularz dodawania. Rozwazyc `max-h-[200px] sm:max-h-[300px]`.
-
-#### 10. Brak `overscroll-behavior-contain` na kontenerze lekcji
-Przy przewijaniu treści lekcji na iOS, gest moze propagowac do rodzica i powodowac "bounce" calej strony.
-
-**Rozwiazanie**: Dodac `overscroll-behavior: contain` do glownego kontenera treści.
-
----
-
-### Juz poprawnie zaimplementowane (bez zmian)
-
-- `playsInline` + `webkit-playsinline` na wszystkich elementach `<video>` -- kluczowe dla iOS
-- `touch-action: manipulation` na przyciskach (globalnie w CSS)
-- Collapsible lista lekcji na mobile z osobnym renderingiem (`lg:hidden` / `hidden lg:block`)
-- `word-break: break-word` na tytulach lekcji
-- Responsywne rozmiary wideo (`max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh]`)
-- Debounce na `visibilitychange` (AuthContext)
-- Preload `auto` dla VPS, `metadata` dla Supabase
-- localStorage backup postępu na `beforeunload`
-- Adaptive buffer config bazujacy na urzadzeniu/sieci
+// Gdy > 24h: "Otrzymasz przypomnienia: 24h, 1h i 15 minut przed webinarem 
+//             z linkiem do spotkania."
+// Gdy 1-24h: "Otrzymasz przypomnienia: 1h i 15 minut przed webinarem 
+//             z linkiem do spotkania."
+// Gdy < 1h: "Otrzymasz przypomnienie 15 minut przed webinarem 
+//            z linkiem do spotkania."
+```
 
 ---
 
-### Plan implementacji -- 4 zmiany
+### Podsumowanie zmian
 
-1. **Training.tsx -- fix headerow i banerow na mobile**
-   - Header: `flex-wrap` + responsive padding
-   - Banner jezyka: `flex-col sm:flex-row`
-   - Baner info: mniejszy font na mobile
-   - Kontener certyfikatu: `overflow-hidden break-words`
+| Plik | Zmiana |
+|------|--------|
+| `supabase/functions/send-webinar-email/index.ts` | Dodanie typu `reminder_15min` |
+| `supabase/functions/process-pending-notifications/index.ts` | Sekcja 5c: przypomnienie 15min przed webinarem |
+| `src/pages/EventGuestRegistration.tsx` | Dynamiczny komunikat o przypomnieniach |
+| Migracja SQL | Kolumny `reminder_15min_sent/at`, szablon email, typ zdarzenia |
 
-2. **Training.tsx + TrainingModule.tsx -- safe-area-inset dla sticky headerow**
-   - Dodac `top-[env(safe-area-inset-top)]` lub `pt-safe` do sticky headerow
-
-3. **VideoControls.tsx + SecureVideoControls.tsx -- lepsze grupowanie na mobile**
-   - Zmniejszenie min-width przyciskow
-   - Ukrycie dodatkowych etykiet
-
-4. **LessonNotesDialog.tsx -- responsive max-height**
-   - `max-h-[200px] sm:max-h-[300px]`
+### Co juz dziala poprawnie (bez zmian)
+- Zapis kontaktu do `team_contacts` partnera zapraszającego
+- Przypomnienie 24h z email i push
+- Przypomnienie 1h z email, linkiem Zoom i push
+- Potwierdzenie rejestracji (email natychmiast)
