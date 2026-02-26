@@ -1,92 +1,96 @@
 
-
-## Powiadomienie o nowych lekcjach i numer kolejności modułów
-
-### Problem
-
-1. Gdy admin dodaje nowe lekcje do ukończonego modułu, system filtruje lekcje po dacie certyfikatu -- pokazuje np. "2/2 Ukończony" zamiast "2/4" z informacją o nowych lekcjach.
-2. Brak numeru kolejności (unlock_order) przy module -- użytkownik nie wie w jakiej kolejności powinien realizować szkolenia.
-3. Brak monitu informującego użytkownika, że admin dodał nowe lekcje i musi je nadrobić.
-
-### Zmiany w pliku `src/pages/Training.tsx`
-
-#### 1. Zmiana liczenia lekcji -- pokazuj WSZYSTKIE lekcje, nie filtruj po dacie certyfikatu
-
-W `fetchTrainingModules` (linie ~418-428) zmienić logikę:
-- `lessons_count` = zawsze pełna liczba aktywnych lekcji (bez filtrowania po dacie certyfikatu)
-- `completed_lessons` = rzeczywista liczba ukończonych lekcji (bez filtrowania)
-- Dodać nowe pole `has_new_lessons: boolean` -- true gdy istnieje certyfikat ALE `completed_lessons < lessons_count`
-
-```text
-// Zamiast filtrowania po certDate:
-const relevantLessonsCount = lessonsData?.length || 0;
-// completed_lessons = progressData?.length || 0; (bez filtra po dacie)
-// has_new_lessons = hasCertificate && completedLessons < relevantLessonsCount
-```
-
-#### 2. Dodanie numeru kolejności przed ikoną książki
-
-W sekcji renderowania karty modułu (linie ~808-813), przed ikoną BookOpen/Lock dodać cyfrę z `unlock_order`:
-
-```text
-<div className="flex items-center gap-3 mb-2">
-  {module.unlock_order && (
-    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-primary/10 
-         text-primary text-sm font-bold flex items-center justify-center">
-      {module.unlock_order}
-    </span>
-  )}
-  {module.isLocked ? (
-    <Lock className="h-6 w-6 text-muted-foreground" />
-  ) : (
-    <BookOpen className="h-6 w-6 text-primary" />
-  )}
-  <Badge ...>{status.text}</Badge>
-</div>
-```
-
-#### 3. Monit o nowych lekcjach na karcie modułu
-
-Dodac nowy blok alertu w CardContent (przed sekcja Progress, linia ~823), widoczny gdy `has_new_lessons === true`:
-
-```text
-{module.has_new_lessons && (
-  <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 
-       dark:border-amber-800 rounded-lg flex items-start gap-2">
-    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
-    <p className="text-xs text-amber-800 dark:text-amber-200">
-      Dodano nowe lekcje w tym szkoleniu. Wróć i uzupełnij brakujące lekcje, 
-      aby móc kontynuować dalszą ścieżkę.
-    </p>
-  </div>
-)}
-```
-
-#### 4. Zmiana statusu -- nie pokazuj "Ukończony" gdy są nowe lekcje
-
-W `getModuleStatus` (linia 492) lub w miejscu wywolania: jesli modul ma certyfikat ale `completed < total`, status powinien byc "Wymaga uzupelnienia" (variant: "warning") zamiast "Ukończony".
-
-W renderowaniu (linia ~799-801):
-```text
-const status = module.isLocked 
-  ? { text: 'Zablokowany', variant: 'secondary' as const }
-  : module.has_new_lessons
-    ? { text: 'Wymaga uzupełnienia', variant: 'warning' as const }
-    : getModuleStatus(module.completed_lessons, module.lessons_count);
-```
-
-### Interfejs TrainingModule -- rozszerzenie
-
-Dodac pole do interfejsu (linia ~30):
-```text
-has_new_lessons?: boolean;
-```
+## Audyt responsywności modulu Akademii -- Apple / iOS
 
 ### Podsumowanie
 
-Wszystkie zmiany w jednym pliku (`src/pages/Training.tsx`):
-- Usunięcie filtrowania lekcji po dacie certyfikatu (pokazuj prawdziwy stan)
-- Numer kolejności (unlock_order) jako kółko z cyfrą przed ikoną książki
-- Monit z ikoną ostrzeżenia na karcie modułu gdy admin dodał nowe lekcje
-- Status "Wymaga uzupełnienia" zamiast "Ukończony" gdy brakuje nowych lekcji
+Modul Akademii jest **ogolnie dobrze przygotowany** pod urzadzenia mobilne. Zastosowano zwijane listy lekcji (Collapsible), `playsInline` + `webkit-playsinline` dla wideo iOS, sticky headery, responsywny grid i klasy `sm:` / `lg:`. Ponizej lista wykrytych problemow i rekomendacji.
 
+---
+
+### Problemy krytyczne
+
+#### 1. Header Akademii -- przycinanie na malych ekranach iPhone SE/Mini (Training.tsx, linia 616)
+Naglowek zawiera przycisk "Powrot", separator, tytul i przycisk "Odswiez akademie" w jednej linii (`flex items-center justify-between`). Na iPhone SE (320px) elementy nakladaja sie lub przycinaja.
+
+**Rozwiazanie**: Zastosowac `flex-wrap` i zmniejszyc padding na malych ekranach. Rozwazyc przeniesienie przycisku odswiezania do nowej linii na mobile.
+
+#### 2. Banner "jezyk obcy" -- przycisk i tekst w jednej linii (linia 753)
+Banner z informacja o przegladaniu innego jezyka uzywa `flex items-center justify-between gap-4`. Na waskich ekranach przycisk "Wroc do swojej sciezki" moze sie nie miescic.
+
+**Rozwiazanie**: Zmienic na `flex-wrap` lub `flex-col` na mobile (`flex flex-col sm:flex-row`).
+
+#### 3. Sekcja certyfikatu -- overflow na mobile (linie 865-963)
+Dluga data (`"26 lutego 2026 o 14:30"`) + tekst informacyjny + przycisk regeneracji w kartach certyfikatu moga powodowac overflow horyzontalny.
+
+**Rozwiazanie**: Dodac `break-words` i `overflow-hidden` do kontenera certyfikatu.
+
+---
+
+### Problemy srednie
+
+#### 4. VideoControls -- zbyt wiele przyciskow w jednej linii (VideoControls.tsx, linia 150)
+Na iPhone kontrolki wideo (Play, -10s, pasek postepu, czas, Napraw, Pomoc, Fullscreen) moga sie tloczyc. `flex-wrap` jest obecny, ale `gap-2 sm:gap-4` moze byc niewystarczajacy.
+
+**Rozwiazanie**: Ukryc tekst "Napraw" i "Pomoc" na mobile (juz czesciowo zrobione), rozwazyc grupowanie ikon w drugi rzad.
+
+#### 5. SecureVideoControls -- podobny problem (SecureVideoControls.tsx, linia 97)
+Kontrolki: Play, -10s, +10s, czas, predkosc, Napraw, Fullscreen -- 7 elementow w jednym rzedzie.
+
+**Rozwiazanie**: Na mobile ukryc etykiety tekstowe (`hidden sm:inline` juz czesciowo zastosowane), zmniejszyc `min-w-[60px]` przycisku predkosci.
+
+#### 6. Brak `safe-area-inset` w sticky headerach
+Sticky header (`sticky top-0`) nie uwzglednia notcha iPhone'a. Gdy uzytkownik jest w trybie PWA, tytul moze zachodzic pod Dynamic Island / notch.
+
+**Rozwiazanie**: Dodac `pt-[env(safe-area-inset-top)]` do headerow sticky lub uzyc klasy `top-[env(safe-area-inset-top)]`.
+
+#### 7. Karty modulow -- grid 3 kolumny na tablecie
+`grid gap-6 md:grid-cols-2 lg:grid-cols-3` -- na iPad Mini (768px) wyswietla 2 kolumny co jest poprawne, ale na iPad Pro 11" (834px) tez 2 kolumny. Rozwazyc `md:grid-cols-2 xl:grid-cols-3` dla lepszego wykorzystania przestrzeni na tabletach.
+
+---
+
+### Problemy drobne
+
+#### 8. Baner informacyjny o systemie szkolen (linia 733)
+Tekst listy `<ul>` z dlugimi zdaniami moze byc trudny do czytania na 320px. Rozwazyc mniejszy font na mobile (`text-xs sm:text-sm`).
+
+#### 9. LessonNotesDialog -- scroll area na malym ekranie
+`max-h-[300px]` na ScrollArea moze byc za duze na iPhone SE w orientacji poziomej, pozostawiajac malo miejsca na formularz dodawania. Rozwazyc `max-h-[200px] sm:max-h-[300px]`.
+
+#### 10. Brak `overscroll-behavior-contain` na kontenerze lekcji
+Przy przewijaniu treści lekcji na iOS, gest moze propagowac do rodzica i powodowac "bounce" calej strony.
+
+**Rozwiazanie**: Dodac `overscroll-behavior: contain` do glownego kontenera treści.
+
+---
+
+### Juz poprawnie zaimplementowane (bez zmian)
+
+- `playsInline` + `webkit-playsinline` na wszystkich elementach `<video>` -- kluczowe dla iOS
+- `touch-action: manipulation` na przyciskach (globalnie w CSS)
+- Collapsible lista lekcji na mobile z osobnym renderingiem (`lg:hidden` / `hidden lg:block`)
+- `word-break: break-word` na tytulach lekcji
+- Responsywne rozmiary wideo (`max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh]`)
+- Debounce na `visibilitychange` (AuthContext)
+- Preload `auto` dla VPS, `metadata` dla Supabase
+- localStorage backup postępu na `beforeunload`
+- Adaptive buffer config bazujacy na urzadzeniu/sieci
+
+---
+
+### Plan implementacji -- 4 zmiany
+
+1. **Training.tsx -- fix headerow i banerow na mobile**
+   - Header: `flex-wrap` + responsive padding
+   - Banner jezyka: `flex-col sm:flex-row`
+   - Baner info: mniejszy font na mobile
+   - Kontener certyfikatu: `overflow-hidden break-words`
+
+2. **Training.tsx + TrainingModule.tsx -- safe-area-inset dla sticky headerow**
+   - Dodac `top-[env(safe-area-inset-top)]` lub `pt-safe` do sticky headerow
+
+3. **VideoControls.tsx + SecureVideoControls.tsx -- lepsze grupowanie na mobile**
+   - Zmniejszenie min-width przyciskow
+   - Ukrycie dodatkowych etykiet
+
+4. **LessonNotesDialog.tsx -- responsive max-height**
+   - `max-h-[200px] sm:max-h-[300px]`
