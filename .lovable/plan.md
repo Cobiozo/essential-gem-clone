@@ -1,44 +1,39 @@
 
-## Problem: Administrator widzi kontakty wszystkich użytkowników zamiast swoich
+Cel: naprawić sytuację, w której administrator po wejściu w „Pure – Kontakty” nadal nie widzi swoich kontaktów prywatnych i zaproszonych gości.
 
-### Diagnoza
+Co już potwierdziłem podczas analizy:
+1) Dane są w bazie:
+- dla admina `629a2d9a-994a-4e6a-a9c4-8ae0b07e3770` istnieją kontakty (`private_active=2`, `team_active=1`),
+- zaproszeni goście mają poprawnie ustawione `invited_by_user_id` i `team_contact_id` w `guest_event_registrations`.
+2) Poprzednia poprawka w `useTeamContacts.ts` (domyślny filtr `user_id = user.id` dla admina) jest logicznie poprawna.
+3) Rzeczywista przyczyna jest w UI uprawnień:
+- `src/pages/MyAccount.tsx` ukrywa zakładkę `teamContacts` dla admina,
+- obecnie: `teamContacts: isPartner || isSpecjalista || (isClient && canSearchSpecialists)`,
+- przez to komponent `TeamContactsTab` w ogóle się nie renderuje dla „czystego” admina, mimo że sidebar prowadzi admina na `/my-account?tab=team-contacts...`.
 
-W `useTeamContacts.ts` (linia 68-71) zapytanie filtruje po `user_id` **tylko** gdy admin ręcznie wybierze użytkownika w filtrach. Domyślnie, ponieważ RLS pozwala adminowi widzieć WSZYSTKIE rekordy, admin widzi kontakty prywatne i członków zespołu **wszystkich użytkowników** pomieszane razem.
+Plan wdrożenia:
 
-Wynik: admin ma 2 kontakty prywatne, ale widzi 11 (wszystkich użytkowników). W członkach zespołu widzi 142 rekordów zamiast swoich.
+1. Ujednolicenie dostępu admina do zakładki „Pure – Kontakty”
+- Plik: `src/pages/MyAccount.tsx`
+- Zmienić warunek widoczności:
+  - z: `isPartner || isSpecjalista || (isClient && canSearchSpecialists)`
+  - na: `isUserAdmin || isPartner || isSpecjalista || (isClient && canSearchSpecialists)`
+- Efekt: tab trigger + `TabsContent` dla `team-contacts` będą renderowane także dla admina.
 
-### Plan naprawy
+2. Spójność nawigacji (sidebar vs. My Account)
+- Zachować obecne `visibleFor: ['partner', 'specjalista', 'admin']` w sidebarze (już poprawne).
+- Po zmianie z kroku 1 nawigacja i ekran docelowy będą spójne (koniec sytuacji „link jest, ale treści brak”).
 
-#### Zmiana 1: Domyślne filtrowanie po user_id dla admina
+3. Twarda weryfikacja po wdrożeniu
+- Wejść jako admin na: `/my-account?tab=team-contacts&subTab=private`.
+- Sprawdzić:
+  - czy zakładka „Pure – Kontakty” jest widoczna,
+  - czy w „Kontakty prywatne” pojawiają się rekordy admina (w tym goście zaproszeni przez link webinarowy),
+  - czy przełączanie `subTab=private/team` działa poprawnie.
+- Dodatkowo: wykonać test E2E zaproszenia gościa (rejestracja z linku admina → kontakt pojawia się w prywatnych kontaktach admina).
 
-**Plik: `src/hooks/useTeamContacts.ts`** (linia 68-71)
+Zakres zmian:
+- tylko frontend (`MyAccount.tsx`), bez migracji DB i bez zmian RLS.
 
-Zmienić logikę filtrowania:
-
-```text
-// PRZED (błędne):
-if (isAdmin && filters.userId) {
-  query = query.eq('user_id', filters.userId);
-}
-
-// PO (poprawne):
-if (isAdmin) {
-  // Admin domyślnie widzi swoje kontakty
-  // Może przełączyć na innego użytkownika przez filtr
-  query = query.eq('user_id', filters.userId || user.id);
-} 
-// Dla nie-adminów RLS już filtruje po user_id
-```
-
-Dzięki temu:
-- Admin domyślnie widzi **swoje** kontakty prywatne i członków zespołu
-- Admin może wybrać innego użytkownika w filtrach, aby zobaczyć jego kontakty
-- Zaproszeni goście na webinary (zapisani z `invited_by_user_id` = admin's ID) będą widoczni w kontaktach prywatnych admina
-
-### Weryfikacja
-
-Kontakty admina w bazie danych:
-- 1x team_member (Sebastian Snopek)
-- 2x private (Kinga Testujący2, katarzyna Snopek test)
-
-Po zmianie admin zobaczy dokładnie te rekordy domyślnie.
+Ryzyko:
+- niskie; zmiana dotyczy jedynie warunku widoczności zakładki i nie ingeruje w logikę zapisu danych.
