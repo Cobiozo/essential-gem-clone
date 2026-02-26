@@ -758,14 +758,18 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-1">
                         <span>{typeLabel}</span>
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{timeRange}</span>
-                        {conflict.host_name && <span>Prowadzący: {conflict.host_name}</span>}
+                        <span>Prowadzący: {conflict.host_name ?? 'Nie podano'}</span>
                       </div>
-                      {conflict.team_registered_count > 0 && (
-                        <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {conflict.team_registered_count} {conflict.team_registered_count === 1 ? 'osoba' : conflict.team_registered_count < 5 ? 'osoby' : 'osób'} z Twojego zespołu zapisane
-                        </div>
-                      )}
+                      <div className={`text-xs flex items-center gap-1 ${Number(conflict.team_registered_count ?? 0) > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'}`}>
+                        <Users className="h-3 w-3" />
+                        {(() => {
+                          const count = Number(conflict.team_registered_count ?? 0);
+                          if (count === 0) return '0 uczestników z Twojego zespołu zapisanych';
+                          if (count === 1) return '1 uczestnik z Twojego zespołu zapisany';
+                          if (count >= 2 && count <= 4) return `${count} uczestników z Twojego zespołu zapisanych`;
+                          return `${count} uczestników z Twojego zespołu zapisanych`;
+                        })()}
+                      </div>
                     </div>
                   );
                 })}
