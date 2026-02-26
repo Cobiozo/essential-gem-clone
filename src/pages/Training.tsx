@@ -743,6 +743,25 @@ const Training = () => {
           )}
         </div>
 
+        {/* Info banner about sequential unlocking system */}
+        {trainingLanguage && (
+          <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-800 flex items-center justify-center mt-0.5">
+                <Info className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="text-sm text-blue-800 dark:text-blue-200">
+                <p className="font-semibold mb-1">Jak działa system szkoleń?</p>
+                <ul className="list-disc list-inside space-y-1 text-blue-700 dark:text-blue-300">
+                  <li>Szkolenia odsłaniają się kolejno — następne staje się dostępne po ukończeniu poprzedniego w 100%.</li>
+                  <li>Jeśli masz rozpoczęte szkolenie z brakującymi lekcjami, uzupełnij je, aby móc przejść dalej.</li>
+                  <li>Kolejność szkoleń jest ustalana przez administratora i obowiązuje wszystkich użytkowników.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Info banner when viewing another language catalog */}
         {viewLanguage && viewLanguage !== trainingLanguage && (
           <div className="mb-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center justify-between gap-4">
