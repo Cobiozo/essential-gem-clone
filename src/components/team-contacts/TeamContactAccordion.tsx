@@ -16,7 +16,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import type { TeamContact, TeamContactHistory } from './types';
-import { UplineHelpButton } from './UplineHelpButton';
+import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -201,7 +201,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                 <div className="flex items-center gap-2">
                   {!readOnly && (
                     <>
-                      <UplineHelpButton contact={contact} />
+                      <ContactEventInfoButton contact={contact} />
                       <Button
                         variant="ghost"
                         size="icon"

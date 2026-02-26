@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit, Trash2, History, HelpCircle } from 'lucide-react';
 import type { TeamContact, TeamContactHistory } from './types';
-import { UplineHelpButton } from './UplineHelpButton';
+import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -148,7 +148,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    {!readOnly && <UplineHelpButton contact={contact} />}
+                    {!readOnly && <ContactEventInfoButton contact={contact} />}
                     <Button
                       variant="ghost"
                       size="icon"
