@@ -1,77 +1,44 @@
 
-## Poprawa informacji po rejestracji na webinar + brakujace przypomnienie 15min
+## Problem: Administrator widzi kontakty wszystkich użytkowników zamiast swoich
 
-### Wyniki audytu
+### Diagnoza
 
-#### 1. Kontakty prywatne partnera -- DZIALA POPRAWNIE
-Funkcja `send-webinar-confirmation` (linia 182-240) poprawnie zapisuje gości do `team_contacts` jako kontakt prywatny (`contact_type: 'private'`) z notatką źródłową i statusem `observation`, gdy parametr `invited_by_user_id` jest obecny w rejestracji.
+W `useTeamContacts.ts` (linia 68-71) zapytanie filtruje po `user_id` **tylko** gdy admin ręcznie wybierze użytkownika w filtrach. Domyślnie, ponieważ RLS pozwala adminowi widzieć WSZYSTKIE rekordy, admin widzi kontakty prywatne i członków zespołu **wszystkich użytkowników** pomieszane razem.
 
-#### 2. Przypomnienia email -- CZESCIOWO BRAKUJE
-- 24h przed -- DZIALA (`process-pending-notifications`, linie 313-453, szuka webinarów 24-30h przed)
-- 1h przed -- DZIALA (`process-pending-notifications`, linie 456-596, szuka webinarów 50-70 minut przed, wysyła email z linkiem Zoom)
-- 15 minut przed -- BRAK dla webinarów (istnieje tylko dla spotkań indywidualnych w `send-meeting-reminders`)
+Wynik: admin ma 2 kontakty prywatne, ale widzi 11 (wszystkich użytkowników). W członkach zespołu widzi 142 rekordów zamiast swoich.
 
-#### 3. Komunikat po rejestracji -- NIEPELNY
-Linia 242 w `EventGuestRegistration.tsx` mówi tylko: *"Przypomnienie o webinarze otrzymasz 24 godziny przed jego rozpoczęciem."* -- nie informuje o przypomnieniach 1h i 15min z linkiem do spotkania.
+### Plan naprawy
 
-Dodatkowo, gdy do webinaru pozostało mniej niż 24h, informacja o przypomnieniu 24h jest myląca (bo go nie otrzyma).
+#### Zmiana 1: Domyślne filtrowanie po user_id dla admina
 
----
+**Plik: `src/hooks/useTeamContacts.ts`** (linia 68-71)
 
-### Plan zmian
-
-#### Zmiana 1: Dodanie przypomnienia 15 minut przed webinarem
-
-**Plik: `supabase/functions/send-webinar-email/index.ts`**
-- Rozszerzyć typ `WebinarEmailRequest['type']` o `'reminder_15min'`
-- Dodać mapowanie w `getTemplateInternalName` i `getEventTypeKey` na `'webinar_reminder_15min'`
-
-**Plik: `supabase/functions/process-pending-notifications/index.ts`**
-- Dodać sekcję 5c po sekcji 5b: "Process webinar reminders (15min before event)"
-- Szukać webinarów zaczynających się za 10-20 minut
-- Sprawdzać pole `reminder_15min_sent` (do dodania w migracji)
-- Wysyłać email typu `reminder_15min` z linkiem Zoom
-- Wysyłać push notification: "Webinar za 15 minut: {tytuł}"
-- Aktualizować `reminder_15min_sent` i `reminder_15min_sent_at`
-- Dodać licznik `webinarReminders15min` do `results`
-
-**Migracja SQL:**
-- Dodać kolumny `reminder_15min_sent` (boolean, default false) i `reminder_15min_sent_at` (timestamptz) do tabeli `guest_event_registrations`
-- Dodać szablon email `webinar_reminder_15min` do `email_templates`
-- Dodać typ zdarzenia `webinar_reminder_15min` do `email_event_types`
-- Powiązać szablon z typem zdarzenia w `email_template_event_types`
-
-#### Zmiana 2: Lepszy komunikat po rejestracji (dynamiczny)
-
-**Plik: `src/pages/EventGuestRegistration.tsx`** (linie 241-243)
-
-Zastąpić statyczny tekst dynamicznym komunikatem zależnym od czasu do webinaru:
+Zmienić logikę filtrowania:
 
 ```text
-// Logika:
-const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+// PRZED (błędne):
+if (isAdmin && filters.userId) {
+  query = query.eq('user_id', filters.userId);
+}
 
-// Gdy > 24h: "Otrzymasz przypomnienia: 24h, 1h i 15 minut przed webinarem 
-//             z linkiem do spotkania."
-// Gdy 1-24h: "Otrzymasz przypomnienia: 1h i 15 minut przed webinarem 
-//             z linkiem do spotkania."
-// Gdy < 1h: "Otrzymasz przypomnienie 15 minut przed webinarem 
-//            z linkiem do spotkania."
+// PO (poprawne):
+if (isAdmin) {
+  // Admin domyślnie widzi swoje kontakty
+  // Może przełączyć na innego użytkownika przez filtr
+  query = query.eq('user_id', filters.userId || user.id);
+} 
+// Dla nie-adminów RLS już filtruje po user_id
 ```
 
----
+Dzięki temu:
+- Admin domyślnie widzi **swoje** kontakty prywatne i członków zespołu
+- Admin może wybrać innego użytkownika w filtrach, aby zobaczyć jego kontakty
+- Zaproszeni goście na webinary (zapisani z `invited_by_user_id` = admin's ID) będą widoczni w kontaktach prywatnych admina
 
-### Podsumowanie zmian
+### Weryfikacja
 
-| Plik | Zmiana |
-|------|--------|
-| `supabase/functions/send-webinar-email/index.ts` | Dodanie typu `reminder_15min` |
-| `supabase/functions/process-pending-notifications/index.ts` | Sekcja 5c: przypomnienie 15min przed webinarem |
-| `src/pages/EventGuestRegistration.tsx` | Dynamiczny komunikat o przypomnieniach |
-| Migracja SQL | Kolumny `reminder_15min_sent/at`, szablon email, typ zdarzenia |
+Kontakty admina w bazie danych:
+- 1x team_member (Sebastian Snopek)
+- 2x private (Kinga Testujący2, katarzyna Snopek test)
 
-### Co juz dziala poprawnie (bez zmian)
-- Zapis kontaktu do `team_contacts` partnera zapraszającego
-- Przypomnienie 24h z email i push
-- Przypomnienie 1h z email, linkiem Zoom i push
-- Potwierdzenie rejestracji (email natychmiast)
+Po zmianie admin zobaczy dokładnie te rekordy domyślnie.
