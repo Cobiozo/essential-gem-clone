@@ -1,65 +1,65 @@
 
+
 ## Problem
 
-Obecnie formularze `WebinarForm` i `TeamTrainingForm` blokuja zapis gdy wykryja kolizje czasowa z innym wydarzeniem. Lider nie moze dodac wydarzenia pomimo swiadomej decyzji. System powinien jedynie ostrzegac i pozwalac liderowi zdecydowac.
+Dwa bledy w panelu lidera:
 
-## Rozwiazanie: Ostrzezenie zamiast blokady
+1. **Usuwanie nie odswierza listy**: Zapytanie w `LeaderEventsView` nie filtruje po `is_active`, wiec "usuniete" wydarzenia nadal sa widoczne.
 
-Zmiana logiki walidacji konfliktow w obu formularzach z "blokuj zapis" na "pokaz ostrzezenie z mozliwoscia potwierdzenia".
+2. **Brak ostrzezenia o kolizji**: Zapytanie sprawdzajace kolizje dziala pod RLS. Polityka `events_select_for_users` wymaga `is_active = true` ORAZ warunkow widocznosci (np. `visible_to_partners`). Jesli kolidujace wydarzenie nie jest widoczne dla roli lidera, zapytanie zwraca pusty wynik i dialog kolizji sie nie pojawia.
 
-### Jak to bedzie dzialac
+## Rozwiazanie
 
-1. Lider tworzy wydarzenie (webinar/szkolenie) - system sprawdza kolizje jak dotychczas
-2. Jesli wykryje kolizje - wyswietla **Alert Dialog** z informacja:
-   - Tytul kolidujacego wydarzenia
-   - Typ wydarzenia
-   - Przyciski: "Anuluj" i "Zapisz mimo kolizji"
-3. Lider klika "Zapisz mimo kolizji" - wydarzenie zostaje zapisane normalnie
-4. Jesli brak kolizji - zapis bez dodatkowego dialogu
+### Zmiana 1: Filtr `is_active` w liscie wydarzen
 
-```text
-+------------------------------------------+
-|  Wykryto kolizje czasowa                  |
-|                                           |
-|  W tym samym czasie odbywa sie:           |
-|  "Webinar o produktach" (Webinar)         |
-|                                           |
-|  Czy mimo to chcesz zapisac wydarzenie?   |
-|                                           |
-|  [Anuluj]          [Zapisz mimo kolizji]  |
-+------------------------------------------+
+**Plik: `src/components/leader/LeaderEventsView.tsx`** (linia 33)
+
+Dodanie `.eq('is_active', true)` do zapytania pobierajacego wydarzenia lidera. Dzieki temu soft-deleted wydarzenia znikna natychmiast po invalidacji cache.
+
+### Zmiana 2: Funkcja RPC do sprawdzania kolizji (omija RLS)
+
+Utworzenie funkcji SQL `check_event_conflicts` ktora sprawdza kolizje po stronie serwera z uprawnieniami `SECURITY DEFINER` — widzi wszystkie aktywne wydarzenia niezaleznie od roli uzytkownika.
+
+```sql
+CREATE FUNCTION check_event_conflicts(
+  p_start_time timestamptz,
+  p_end_time timestamptz,
+  p_exclude_event_id uuid DEFAULT NULL
+)
+RETURNS TABLE(id uuid, title text, event_type text)
+AS $$
+  SELECT id, title, event_type
+  FROM events
+  WHERE is_active = true
+    AND event_type IN ('webinar', 'team_training', 'spotkanie_zespolu')
+    AND start_time < p_end_time
+    AND end_time > p_start_time
+    AND (p_exclude_event_id IS NULL OR id != p_exclude_event_id)
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 ```
 
-### Zmiany techniczne
+### Zmiana 3: Uzycie RPC w formularzach
 
-**Modyfikowane pliki:**
+**Pliki: `WebinarForm.tsx` i `TeamTrainingForm.tsx`**
 
-1. **`src/components/admin/WebinarForm.tsx`** (linie ~199-217)
-   - Zamiast `return` po wykryciu konfliktu, zapisz dane konfliktu w stanie
-   - Dodaj stan `conflictData` i `showConflictDialog`
-   - Dodaj `AlertDialog` z Radix UI (juz zainstalowany)
-   - Po potwierdzeniu przez uzytkownika - kontynuuj zapis
+Zamiana bezposredniego zapytania `.from('events').select(...)` na wywolanie RPC:
 
-2. **`src/components/admin/TeamTrainingForm.tsx`** (linie ~199-217)
-   - Identyczna zmiana jak w WebinarForm
-
-**Logika w obu plikach:**
-
-```
-// Nowe stany:
-const [conflictData, setConflictData] = useState(null);
-const [pendingSaveData, setPendingSaveData] = useState(null);
-
-// W handleSave:
-if (conflictingEvents?.length > 0) {
-  setConflictData(conflictingEvents);
-  setPendingSaveData(/* dane do zapisu */);
-  setSaving(false);
-  return; // Pokaz dialog zamiast blokowac
-}
-
-// Nowa funkcja confirmSaveWithConflict:
-// Kontynuuje zapis z pendingSaveData
+```typescript
+const { data: conflictingEvents } = await supabase.rpc('check_event_conflicts', {
+  p_start_time: startTime,
+  p_end_time: endTime,
+  p_exclude_event_id: editingEvent?.id || null,
+});
 ```
 
-**Bez zmian:** Logika RLS, zapytania do bazy, reszta formularzy.
+Dzieki temu lider zobaczy kolizje z KAZDYM aktywnym wydarzeniem na platformie, niezaleznie od ustawien widocznosci.
+
+### Podsumowanie zmian
+
+| Plik | Zmiana |
+|------|--------|
+| `LeaderEventsView.tsx` | Dodanie `.eq('is_active', true)` w zapytaniu |
+| Migracja SQL | Nowa funkcja `check_event_conflicts` (SECURITY DEFINER) |
+| `WebinarForm.tsx` | Zamiana zapytania kolizji na `supabase.rpc(...)` |
+| `TeamTrainingForm.tsx` | Zamiana zapytania kolizji na `supabase.rpc(...)` |
+
