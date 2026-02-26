@@ -193,7 +193,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       let endTime = form.end_time;
       
       if (isMultiOccurrence && occurrences.length > 0) {
-        // Use first occurrence as start/end time for validation and backwards compatibility
+        // Use first occurrence as primary start/end time for backwards compatibility
         const firstOcc = occurrences[0];
         const [year, month, day] = firstOcc.date.split('-').map(Number);
         const [hours, minutes] = firstOcc.time.split(':').map(Number);
@@ -202,12 +202,43 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         endTime = addMinutes(startDate, firstOcc.duration_minutes).toISOString();
       }
 
-      // Check for conflicts with other high-priority events using calculated times
-      const { data: conflictingEvents } = await supabase.rpc('check_event_conflicts', {
-        p_start_time: startTime,
-        p_end_time: endTime,
-        p_exclude_event_id: editingTraining?.id || null,
-      });
+      // Check for conflicts across ALL occurrences (not just the first one)
+      let conflictingEvents: { id: string; title: string; event_type: string }[] = [];
+      
+      if (isMultiOccurrence && occurrences.length > 0) {
+        // Check each occurrence separately and collect all conflicts
+        for (const occ of occurrences) {
+          const [y, m, d] = occ.date.split('-').map(Number);
+          const [h, min] = occ.time.split(':').map(Number);
+          const occStart = new Date(y, m - 1, d, h, min);
+          const occEnd = addMinutes(occStart, occ.duration_minutes);
+          
+          const { data } = await supabase.rpc('check_event_conflicts', {
+            p_start_time: occStart.toISOString(),
+            p_end_time: occEnd.toISOString(),
+            p_exclude_event_id: editingTraining?.id || null,
+          });
+          
+          if (data?.length) {
+            conflictingEvents.push(...data);
+          }
+        }
+        // Deduplicate by id
+        const seen = new Set<string>();
+        conflictingEvents = conflictingEvents.filter(e => {
+          if (seen.has(e.id)) return false;
+          seen.add(e.id);
+          return true;
+        });
+      } else {
+        // Single occurrence - check normally
+        const { data } = await supabase.rpc('check_event_conflicts', {
+          p_start_time: startTime,
+          p_end_time: endTime,
+          p_exclude_event_id: editingTraining?.id || null,
+        });
+        conflictingEvents = data || [];
+      }
 
       const performSave = async () => {
         setSaving(true);
