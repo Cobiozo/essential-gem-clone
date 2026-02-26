@@ -4964,6 +4964,33 @@ export type Database = {
           },
         ]
       }
+      platform_teams: {
+        Row: {
+          created_at: string
+          custom_name: string | null
+          id: string
+          is_independent: boolean
+          leader_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          custom_name?: string | null
+          id?: string
+          is_independent?: boolean
+          leader_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          custom_name?: string | null
+          id?: string
+          is_independent?: boolean
+          leader_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       private_chat_messages: {
         Row: {
           content: string
