@@ -17,8 +17,21 @@ import {
   Calculator,
   UserRound,
   TreePine,
-  Users,
   UserCheck,
+  CalendarPlus,
+  ClipboardList,
+  BookOpenCheck,
+  Library,
+  Bell,
+  Mail,
+  Smartphone,
+  Contact,
+  UserCog,
+  Sun,
+  Info,
+  Link,
+  BarChart3,
+  Award,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
@@ -31,11 +44,67 @@ interface PartnerLeaderData {
   can_view_team_progress: boolean;
   can_view_org_tree: boolean;
   can_approve_registrations: boolean;
+  // New delegated permissions
+  can_create_team_events: boolean;
+  can_manage_event_registrations: boolean;
+  can_manage_team_training: boolean;
+  can_manage_knowledge_base: boolean;
+  can_send_team_notifications: boolean;
+  can_send_team_emails: boolean;
+  can_send_team_push: boolean;
+  can_view_team_contacts: boolean;
+  can_manage_team_contacts: boolean;
+  can_manage_daily_signal: boolean;
+  can_manage_important_info: boolean;
+  can_manage_team_reflinks: boolean;
+  can_view_team_reports: boolean;
+  can_manage_certificates: boolean;
   permission_id?: string;
   // Calculator access
   has_influencer_calc: boolean;
   has_specialist_calc: boolean;
 }
+
+type LeaderPermField =
+  | 'individual_meetings_enabled'
+  | 'can_view_team_progress'
+  | 'can_view_org_tree'
+  | 'can_approve_registrations'
+  | 'can_create_team_events'
+  | 'can_manage_event_registrations'
+  | 'can_manage_team_training'
+  | 'can_manage_knowledge_base'
+  | 'can_send_team_notifications'
+  | 'can_send_team_emails'
+  | 'can_send_team_push'
+  | 'can_view_team_contacts'
+  | 'can_manage_team_contacts'
+  | 'can_manage_daily_signal'
+  | 'can_manage_important_info'
+  | 'can_manage_team_reflinks'
+  | 'can_view_team_reports'
+  | 'can_manage_certificates';
+
+const LEADER_PERM_FIELDS: LeaderPermField[] = [
+  'individual_meetings_enabled',
+  'can_view_team_progress',
+  'can_view_org_tree',
+  'can_approve_registrations',
+  'can_create_team_events',
+  'can_manage_event_registrations',
+  'can_manage_team_training',
+  'can_manage_knowledge_base',
+  'can_send_team_notifications',
+  'can_send_team_emails',
+  'can_send_team_push',
+  'can_view_team_contacts',
+  'can_manage_team_contacts',
+  'can_manage_daily_signal',
+  'can_manage_important_info',
+  'can_manage_team_reflinks',
+  'can_view_team_reports',
+  'can_manage_certificates',
+];
 
 export const LeaderPanelManagement: React.FC = () => {
   const { toast } = useToast();
@@ -53,7 +122,6 @@ export const LeaderPanelManagement: React.FC = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // Fetch all partner profiles
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -65,7 +133,6 @@ export const LeaderPanelManagement: React.FC = () => {
         return;
       }
 
-      // Fetch profiles, leader_permissions, and calculator access in parallel
       const [profilesResult, permissionsResult, calcAccessResult, specialistCalcResult] = await Promise.all([
         supabase
           .from('profiles')
@@ -74,7 +141,7 @@ export const LeaderPanelManagement: React.FC = () => {
           .order('last_name', { ascending: true }),
         supabase
           .from('leader_permissions')
-          .select('id, user_id, individual_meetings_enabled, can_view_team_progress, can_view_org_tree, can_approve_registrations')
+          .select('*')
           .in('user_id', partnerIds),
         supabase
           .from('calculator_user_access')
@@ -91,10 +158,11 @@ export const LeaderPanelManagement: React.FC = () => {
       const specCalcMap = new Map(specialistCalcResult.data?.map(c => [c.user_id, c]) || []);
 
       const combined: PartnerLeaderData[] = (profilesResult.data || []).map(profile => {
-        const perm = permMap.get(profile.user_id);
+        const perm = permMap.get(profile.user_id) as any;
         const calcAccess = calcMap.get(profile.user_id);
         const specAccess = specCalcMap.get(profile.user_id);
-        return {
+
+        const result: PartnerLeaderData = {
           user_id: profile.user_id,
           first_name: profile.first_name,
           last_name: profile.last_name,
@@ -102,11 +170,26 @@ export const LeaderPanelManagement: React.FC = () => {
           individual_meetings_enabled: perm?.individual_meetings_enabled || false,
           can_view_team_progress: perm?.can_view_team_progress || false,
           can_view_org_tree: perm?.can_view_org_tree || false,
-          can_approve_registrations: (perm as any)?.can_approve_registrations || false,
+          can_approve_registrations: perm?.can_approve_registrations || false,
+          can_create_team_events: perm?.can_create_team_events || false,
+          can_manage_event_registrations: perm?.can_manage_event_registrations || false,
+          can_manage_team_training: perm?.can_manage_team_training || false,
+          can_manage_knowledge_base: perm?.can_manage_knowledge_base || false,
+          can_send_team_notifications: perm?.can_send_team_notifications || false,
+          can_send_team_emails: perm?.can_send_team_emails || false,
+          can_send_team_push: perm?.can_send_team_push || false,
+          can_view_team_contacts: perm?.can_view_team_contacts || false,
+          can_manage_team_contacts: perm?.can_manage_team_contacts || false,
+          can_manage_daily_signal: perm?.can_manage_daily_signal || false,
+          can_manage_important_info: perm?.can_manage_important_info || false,
+          can_manage_team_reflinks: perm?.can_manage_team_reflinks || false,
+          can_view_team_reports: perm?.can_view_team_reports || false,
+          can_manage_certificates: perm?.can_manage_certificates || false,
           permission_id: perm?.id,
           has_influencer_calc: calcAccess?.has_access || false,
           has_specialist_calc: specAccess?.has_access || false,
         };
+        return result;
       });
 
       setPartners(combined);
@@ -122,7 +205,6 @@ export const LeaderPanelManagement: React.FC = () => {
     const partner = partners.find(p => p.user_id === userId);
     if (partner?.permission_id) return partner.permission_id;
 
-    // Create new permission record
     const { data, error } = await supabase
       .from('leader_permissions')
       .upsert({ user_id: userId }, { onConflict: 'user_id' })
@@ -133,11 +215,7 @@ export const LeaderPanelManagement: React.FC = () => {
     return data.id;
   };
 
-  const toggleLeaderPermission = async (
-    userId: string,
-    field: 'individual_meetings_enabled' | 'can_view_team_progress' | 'can_view_org_tree' | 'can_approve_registrations',
-    value: boolean
-  ) => {
+  const toggleLeaderPermission = async (userId: string, field: LeaderPermField, value: boolean) => {
     setSaving(`${userId}-${field}`);
     try {
       const permId = await ensureLeaderPermission(userId);
@@ -164,11 +242,7 @@ export const LeaderPanelManagement: React.FC = () => {
     }
   };
 
-  const toggleCalculatorAccess = async (
-    userId: string,
-    calcType: 'influencer' | 'specialist',
-    value: boolean
-  ) => {
+  const toggleCalculatorAccess = async (userId: string, calcType: 'influencer' | 'specialist', value: boolean) => {
     const key = `${userId}-calc-${calcType}`;
     setSaving(key);
     try {
@@ -213,20 +287,43 @@ export const LeaderPanelManagement: React.FC = () => {
   });
 
   const hasAnyFeature = (p: PartnerLeaderData) =>
-    p.individual_meetings_enabled ||
-    p.can_view_team_progress ||
-    p.can_view_org_tree ||
-    p.can_approve_registrations ||
-    p.has_influencer_calc ||
-    p.has_specialist_calc;
+    LEADER_PERM_FIELDS.some(f => p[f]) || p.has_influencer_calc || p.has_specialist_calc;
 
-  const columns = [
-    { key: 'individual_meetings_enabled', label: 'Spotkania', icon: CalendarDays, type: 'leader' as const },
-    { key: 'can_view_team_progress', label: 'Szkolenia', icon: GraduationCap, type: 'leader' as const },
-    { key: 'can_view_org_tree', label: 'Moja struktura', icon: TreePine, type: 'leader' as const },
-    { key: 'can_approve_registrations', label: 'Zatwierdzanie', icon: UserCheck, type: 'leader' as const },
-    { key: 'has_influencer_calc', label: 'Kalk. Influencer', icon: Calculator, type: 'calc_influencer' as const },
-    { key: 'has_specialist_calc', label: 'Kalk. Specjalista', icon: UserRound, type: 'calc_specialist' as const },
+  const columns: Array<{
+    key: string;
+    label: string;
+    icon: React.ElementType;
+    type: 'leader' | 'calc_influencer' | 'calc_specialist';
+    group: string;
+  }> = [
+    // Existing
+    { key: 'individual_meetings_enabled', label: 'Spotkania', icon: CalendarDays, type: 'leader', group: 'Podstawowe' },
+    { key: 'can_view_team_progress', label: 'Szkolenia', icon: GraduationCap, type: 'leader', group: 'Podstawowe' },
+    { key: 'can_view_org_tree', label: 'Struktura', icon: TreePine, type: 'leader', group: 'Podstawowe' },
+    { key: 'can_approve_registrations', label: 'Zatwierdzanie', icon: UserCheck, type: 'leader', group: 'Podstawowe' },
+    // New - Events
+    { key: 'can_create_team_events', label: 'Wydarzenia', icon: CalendarPlus, type: 'leader', group: 'Wydarzenia' },
+    { key: 'can_manage_event_registrations', label: 'Rejestracje', icon: ClipboardList, type: 'leader', group: 'Wydarzenia' },
+    // New - Training & Knowledge
+    { key: 'can_manage_team_training', label: 'Zarz. szkoleniami', icon: BookOpenCheck, type: 'leader', group: 'Szkolenia' },
+    { key: 'can_manage_knowledge_base', label: 'Baza wiedzy', icon: Library, type: 'leader', group: 'Szkolenia' },
+    // New - Communication
+    { key: 'can_send_team_notifications', label: 'Powiadomienia', icon: Bell, type: 'leader', group: 'Komunikacja' },
+    { key: 'can_send_team_emails', label: 'Emaile', icon: Mail, type: 'leader', group: 'Komunikacja' },
+    { key: 'can_send_team_push', label: 'Push', icon: Smartphone, type: 'leader', group: 'Komunikacja' },
+    // New - Contacts
+    { key: 'can_view_team_contacts', label: 'Kontakty', icon: Contact, type: 'leader', group: 'Kontakty' },
+    { key: 'can_manage_team_contacts', label: 'Edycja kontaktów', icon: UserCog, type: 'leader', group: 'Kontakty' },
+    // New - Content
+    { key: 'can_manage_daily_signal', label: 'Sygnał Dnia', icon: Sun, type: 'leader', group: 'Treść' },
+    { key: 'can_manage_important_info', label: 'Ważne info', icon: Info, type: 'leader', group: 'Treść' },
+    { key: 'can_manage_team_reflinks', label: 'Reflinki', icon: Link, type: 'leader', group: 'Treść' },
+    // New - Reports & Certificates
+    { key: 'can_view_team_reports', label: 'Raporty', icon: BarChart3, type: 'leader', group: 'Raporty' },
+    { key: 'can_manage_certificates', label: 'Certyfikaty', icon: Award, type: 'leader', group: 'Raporty' },
+    // Calculators
+    { key: 'has_influencer_calc', label: 'Kalk. Influencer', icon: Calculator, type: 'calc_influencer', group: 'Kalkulatory' },
+    { key: 'has_specialist_calc', label: 'Kalk. Specjalista', icon: UserRound, type: 'calc_specialist', group: 'Kalkulatory' },
   ];
 
   return (
@@ -267,12 +364,12 @@ export const LeaderPanelManagement: React.FC = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-[180px]">Partner</TableHead>
+                    <TableHead className="min-w-[180px] sticky left-0 bg-background z-10">Partner</TableHead>
                     {columns.map(col => (
-                      <TableHead key={col.key} className="text-center min-w-[110px]">
+                      <TableHead key={col.key} className="text-center min-w-[90px]">
                         <div className="flex flex-col items-center gap-1">
                           <col.icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-xs">{col.label}</span>
+                          <span className="text-[10px] leading-tight">{col.label}</span>
                         </div>
                       </TableHead>
                     ))}
@@ -281,14 +378,14 @@ export const LeaderPanelManagement: React.FC = () => {
                 <TableBody>
                   {filtered.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={columns.length + 1} className="text-center py-8 text-muted-foreground">
                         Brak partnerów
                       </TableCell>
                     </TableRow>
                   ) : (
                     filtered.map(partner => (
                       <TableRow key={partner.user_id} className={hasAnyFeature(partner) ? 'bg-primary/5' : ''}>
-                        <TableCell>
+                        <TableCell className="sticky left-0 bg-background z-10">
                           <div className="flex items-center gap-2">
                             {hasAnyFeature(partner) && <Crown className="h-3.5 w-3.5 text-primary flex-shrink-0" />}
                             <div>
@@ -300,71 +397,23 @@ export const LeaderPanelManagement: React.FC = () => {
                           </div>
                         </TableCell>
 
-                        {/* Spotkania */}
-                        <TableCell className="text-center">
-                          <Switch
-                            checked={partner.individual_meetings_enabled}
-                            disabled={saving === `${partner.user_id}-individual_meetings_enabled`}
-                            onCheckedChange={v =>
-                              toggleLeaderPermission(partner.user_id, 'individual_meetings_enabled', v)
-                            }
-                          />
-                        </TableCell>
-
-                        {/* Szkolenia */}
-                        <TableCell className="text-center">
-                          <Switch
-                            checked={partner.can_view_team_progress}
-                            disabled={saving === `${partner.user_id}-can_view_team_progress`}
-                            onCheckedChange={v =>
-                              toggleLeaderPermission(partner.user_id, 'can_view_team_progress', v)
-                            }
-                          />
-                        </TableCell>
-
-                        {/* Moja struktura */}
-                        <TableCell className="text-center">
-                          <Switch
-                            checked={partner.can_view_org_tree}
-                            disabled={saving === `${partner.user_id}-can_view_org_tree`}
-                            onCheckedChange={v =>
-                              toggleLeaderPermission(partner.user_id, 'can_view_org_tree', v)
-                            }
-                          />
-                        </TableCell>
-
-                        {/* Zatwierdzanie */}
-                        <TableCell className="text-center">
-                          <Switch
-                            checked={partner.can_approve_registrations}
-                            disabled={saving === `${partner.user_id}-can_approve_registrations`}
-                            onCheckedChange={v =>
-                              toggleLeaderPermission(partner.user_id, 'can_approve_registrations', v)
-                            }
-                          />
-                        </TableCell>
-
-                        {/* Kalkulator Influencer */}
-                        <TableCell className="text-center">
-                          <Switch
-                            checked={partner.has_influencer_calc}
-                            disabled={saving === `${partner.user_id}-calc-influencer`}
-                            onCheckedChange={v =>
-                              toggleCalculatorAccess(partner.user_id, 'influencer', v)
-                            }
-                          />
-                        </TableCell>
-
-                        {/* Kalkulator Specjalista */}
-                        <TableCell className="text-center">
-                          <Switch
-                            checked={partner.has_specialist_calc}
-                            disabled={saving === `${partner.user_id}-calc-specialist`}
-                            onCheckedChange={v =>
-                              toggleCalculatorAccess(partner.user_id, 'specialist', v)
-                            }
-                          />
-                        </TableCell>
+                        {columns.map(col => (
+                          <TableCell key={col.key} className="text-center">
+                            <Switch
+                              checked={(partner as any)[col.key]}
+                              disabled={saving === `${partner.user_id}-${col.key}` || saving === `${partner.user_id}-calc-${col.type === 'calc_influencer' ? 'influencer' : 'specialist'}`}
+                              onCheckedChange={v => {
+                                if (col.type === 'calc_influencer') {
+                                  toggleCalculatorAccess(partner.user_id, 'influencer', v);
+                                } else if (col.type === 'calc_specialist') {
+                                  toggleCalculatorAccess(partner.user_id, 'specialist', v);
+                                } else {
+                                  toggleLeaderPermission(partner.user_id, col.key as LeaderPermField, v);
+                                }
+                              }}
+                            />
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))
                   )}

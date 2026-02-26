@@ -3368,9 +3368,23 @@ export type Database = {
           activated_by: string | null
           can_approve_registrations: boolean | null
           can_broadcast: boolean | null
+          can_create_team_events: boolean | null
           can_host_private_meetings: boolean | null
+          can_manage_certificates: boolean | null
+          can_manage_daily_signal: boolean | null
+          can_manage_event_registrations: boolean | null
+          can_manage_important_info: boolean | null
+          can_manage_knowledge_base: boolean | null
+          can_manage_team_contacts: boolean | null
+          can_manage_team_reflinks: boolean | null
+          can_manage_team_training: boolean | null
+          can_send_team_emails: boolean | null
+          can_send_team_notifications: boolean | null
+          can_send_team_push: boolean | null
           can_view_org_tree: boolean | null
+          can_view_team_contacts: boolean | null
           can_view_team_progress: boolean | null
+          can_view_team_reports: boolean | null
           consultation_slot_duration: number | null
           created_at: string | null
           external_calendly_url: string | null
@@ -3390,9 +3404,23 @@ export type Database = {
           activated_by?: string | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
+          can_create_team_events?: boolean | null
           can_host_private_meetings?: boolean | null
+          can_manage_certificates?: boolean | null
+          can_manage_daily_signal?: boolean | null
+          can_manage_event_registrations?: boolean | null
+          can_manage_important_info?: boolean | null
+          can_manage_knowledge_base?: boolean | null
+          can_manage_team_contacts?: boolean | null
+          can_manage_team_reflinks?: boolean | null
+          can_manage_team_training?: boolean | null
+          can_send_team_emails?: boolean | null
+          can_send_team_notifications?: boolean | null
+          can_send_team_push?: boolean | null
           can_view_org_tree?: boolean | null
+          can_view_team_contacts?: boolean | null
           can_view_team_progress?: boolean | null
+          can_view_team_reports?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
           external_calendly_url?: string | null
@@ -3412,9 +3440,23 @@ export type Database = {
           activated_by?: string | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
+          can_create_team_events?: boolean | null
           can_host_private_meetings?: boolean | null
+          can_manage_certificates?: boolean | null
+          can_manage_daily_signal?: boolean | null
+          can_manage_event_registrations?: boolean | null
+          can_manage_important_info?: boolean | null
+          can_manage_knowledge_base?: boolean | null
+          can_manage_team_contacts?: boolean | null
+          can_manage_team_reflinks?: boolean | null
+          can_manage_team_training?: boolean | null
+          can_send_team_emails?: boolean | null
+          can_send_team_notifications?: boolean | null
+          can_send_team_push?: boolean | null
           can_view_org_tree?: boolean | null
+          can_view_team_contacts?: boolean | null
           can_view_team_progress?: boolean | null
+          can_view_team_reports?: boolean | null
           consultation_slot_duration?: number | null
           created_at?: string | null
           external_calendly_url?: string | null
