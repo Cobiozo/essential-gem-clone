@@ -2,64 +2,86 @@
 
 ## Problem
 
-Dwa bledy w panelu lidera:
+Funkcja `check_event_conflicts` sprawdza kolizje tylko po kolumnach `start_time`/`end_time`. Wydarzenia z wieloma terminami (`occurrences` jsonb) maja w `start_time` date pierwszego terminu, wiec kolizje z pozniejszymi terminami (np. 27.02) nie sa wykrywane.
 
-1. **Usuwanie nie odswierza listy**: Zapytanie w `LeaderEventsView` nie filtruje po `is_active`, wiec "usuniete" wydarzenia nadal sa widoczne.
-
-2. **Brak ostrzezenia o kolizji**: Zapytanie sprawdzajace kolizje dziala pod RLS. Polityka `events_select_for_users` wymaga `is_active = true` ORAZ warunkow widocznosci (np. `visible_to_partners`). Jesli kolidujace wydarzenie nie jest widoczne dla roli lidera, zapytanie zwraca pusty wynik i dialog kolizji sie nie pojawia.
+Dodatkowo, formularz `TeamTrainingForm` przy tworzeniu wydarzenia wieloterminowego sprawdza kolizje tylko dla **pierwszego** occurrence - nie dla wszystkich.
 
 ## Rozwiazanie
 
-### Zmiana 1: Filtr `is_active` w liscie wydarzen
+### Zmiana 1: Rozszerzenie funkcji SQL `check_event_conflicts`
 
-**Plik: `src/components/leader/LeaderEventsView.tsx`** (linia 33)
+Zaktualizowac funkcje RPC aby sprawdzala kolizje w trzech scenariuszach:
 
-Dodanie `.eq('is_active', true)` do zapytania pobierajacego wydarzenia lidera. Dzieki temu soft-deleted wydarzenia znikna natychmiast po invalidacji cache.
+1. **Nowe wydarzenie vs istniejace bez occurrences** - porownanie z `start_time`/`end_time` (jak dotychczas)
+2. **Nowe wydarzenie vs istniejace Z occurrences** - rozwiniecie `jsonb_array_elements` i obliczenie czasu startu/konca kazdego terminu, porownanie z zakresem nowego wydarzenia
 
-### Zmiana 2: Funkcja RPC do sprawdzania kolizji (omija RLS)
+Funkcja otrzyma te same parametry (`p_start_time`, `p_end_time`, `p_exclude_event_id`), wiec interfejs nie zmienia sie.
 
-Utworzenie funkcji SQL `check_event_conflicts` ktora sprawdza kolizje po stronie serwera z uprawnieniami `SECURITY DEFINER` — widzi wszystkie aktywne wydarzenia niezaleznie od roli uzytkownika.
+```text
+Logika SQL:
+  -- Czesc 1: wydarzenia BEZ occurrences (jak dotychczas)
+  SELECT ... FROM events
+  WHERE occurrences IS NULL
+    AND start_time < p_end_time AND end_time > p_start_time
 
-```sql
-CREATE FUNCTION check_event_conflicts(
-  p_start_time timestamptz,
-  p_end_time timestamptz,
-  p_exclude_event_id uuid DEFAULT NULL
-)
-RETURNS TABLE(id uuid, title text, event_type text)
-AS $$
-  SELECT id, title, event_type
-  FROM events
-  WHERE is_active = true
-    AND event_type IN ('webinar', 'team_training', 'spotkanie_zespolu')
-    AND start_time < p_end_time
-    AND end_time > p_start_time
-    AND (p_exclude_event_id IS NULL OR id != p_exclude_event_id)
-$$ LANGUAGE sql SECURITY DEFINER STABLE;
+  UNION
+
+  -- Czesc 2: wydarzenia Z occurrences (nowa logika)
+  SELECT DISTINCT ... FROM events,
+    jsonb_array_elements(occurrences) AS occ
+  WHERE occurrences IS NOT NULL
+    AND obliczony_start < p_end_time
+    AND obliczony_end > p_start_time
 ```
 
-### Zmiana 3: Uzycie RPC w formularzach
+Obliczenie czasu z occurrences:
+- `date` + `time` -> timestamp (np. "2026-02-27" + "17:00" -> timestamptz)
+- `+ duration_minutes * interval '1 minute'` -> koniec
 
-**Pliki: `WebinarForm.tsx` i `TeamTrainingForm.tsx`**
+### Zmiana 2: Sprawdzanie WSZYSTKICH occurrences w TeamTrainingForm
 
-Zamiana bezposredniego zapytania `.from('events').select(...)` na wywolanie RPC:
+Obecnie `TeamTrainingForm` sprawdza kolizje tylko dla pierwszego occurrence. Trzeba wywolac `check_event_conflicts` dla **kazdego** occurrence z listy i zebrac wszystkie konflikty.
 
-```typescript
-const { data: conflictingEvents } = await supabase.rpc('check_event_conflicts', {
-  p_start_time: startTime,
-  p_end_time: endTime,
-  p_exclude_event_id: editingEvent?.id || null,
-});
+**Plik: `src/components/admin/TeamTrainingForm.tsx`** (linie ~195-210)
+
+Zamiast:
+```
+const firstOcc = occurrences[0];
+// ... oblicz startTime/endTime tylko dla pierwszego
+const { data } = await supabase.rpc('check_event_conflicts', { p_start_time: startTime, p_end_time: endTime, ... });
 ```
 
-Dzieki temu lider zobaczy kolizje z KAZDYM aktywnym wydarzeniem na platformie, niezaleznie od ustawien widocznosci.
+Nowa logika:
+```
+// Dla kazdego occurrence sprawdz kolizje
+let allConflicts = [];
+for (const occ of occurrences) {
+  const { data } = await supabase.rpc('check_event_conflicts', {
+    p_start_time: occStart, p_end_time: occEnd, ...
+  });
+  if (data?.length) allConflicts.push(...data);
+}
+// Deduplikacja po id
+```
 
 ### Podsumowanie zmian
 
-| Plik | Zmiana |
-|------|--------|
-| `LeaderEventsView.tsx` | Dodanie `.eq('is_active', true)` w zapytaniu |
-| Migracja SQL | Nowa funkcja `check_event_conflicts` (SECURITY DEFINER) |
-| `WebinarForm.tsx` | Zamiana zapytania kolizji na `supabase.rpc(...)` |
-| `TeamTrainingForm.tsx` | Zamiana zapytania kolizji na `supabase.rpc(...)` |
+| Element | Zmiana |
+|---------|--------|
+| Migracja SQL | `DROP` + `CREATE` nowej wersji `check_event_conflicts` z obsluga `occurrences` jsonb |
+| `TeamTrainingForm.tsx` | Petla po wszystkich occurrences zamiast sprawdzania tylko pierwszego |
+| `WebinarForm.tsx` | Bez zmian (webinary nie maja wieloterminowosci) |
 
+### Szczegoly techniczne SQL
+
+Konwersja z occurrences jsonb na timestamp:
+```sql
+(occ->>'date')::date + (occ->>'time')::time  -- daje timestamp without tz
+-- Konwersja do timestamptz z timezone Warsaw:
+((occ->>'date') || ' ' || (occ->>'time'))::timestamp AT TIME ZONE 'Europe/Warsaw'
+```
+
+Czas konca:
+```sql
+start_ts + ((occ->>'duration_minutes')::int * interval '1 minute')
+```
