@@ -7330,6 +7330,18 @@ export type Database = {
         Args: { sender_role: string; target_role: string }
         Returns: boolean
       }
+      check_event_conflicts: {
+        Args: {
+          p_end_time: string
+          p_exclude_event_id?: string
+          p_start_time: string
+        }
+        Returns: {
+          event_type: string
+          id: string
+          title: string
+        }[]
+      }
       check_is_admin_for_events: { Args: never; Returns: boolean }
       cleanup_expired_media_tokens: { Args: never; Returns: number }
       cleanup_old_meeting_chat: { Args: never; Returns: number }

@@ -31,6 +31,7 @@ const LeaderEventsView: React.FC = () => {
         .select('*')
         .eq('host_user_id', user!.id)
         .in('event_type', ['webinar', 'team_training'])
+        .eq('is_active', true)
         .order('start_time', { ascending: false });
       if (error) throw error;
       return (data || []) as DbEvent[];
