@@ -36,11 +36,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
   const [libraryFiles, setLibraryFiles] = useState<Array<{name: string, url: string, type: string}>>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isUploadingRef = useRef(false);
+  const inputId = useRef(`media-upload-${Math.random().toString(36).slice(2)}`);
   const { toast } = useToast();
   const { uploadFile, deleteFile, uploadProgress, isUploading, listFiles } = useLocalStorage();
 
   const uploadMedia = async (file: File) => {
-    if (!file) return;
+    if (!file || isUploading) return;
 
     const isImage = file.type.startsWith('image/');
     const isVideo = file.type.startsWith('video/');
@@ -177,14 +179,23 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      uploadMedia(file).finally(() => {
-        // Reset inputa po uploadzie - zapobiega duplikatom przy ponownym wyborze tego samego pliku
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      });
+    if (!file) return;
+
+    // Natychmiast wyczyść input - zapobiega ponownemu triggerowi przy re-renderze
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
+
+    // Blokada na poziomie komponentu
+    if (isUploadingRef.current) {
+      console.warn('Upload already in progress, ignoring duplicate');
+      return;
+    }
+    isUploadingRef.current = true;
+
+    uploadMedia(file).finally(() => {
+      isUploadingRef.current = false;
+    });
   };
 
   const loadLibraryFiles = async () => {
@@ -370,7 +381,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
           <TabsContent value="upload" className={compact ? "space-y-1 mt-1" : "space-y-3"}>
             <Input
               ref={fileInputRef}
-              id="media-upload"
+              id={inputId.current}
               type="file"
               accept={getAcceptString()}
               onChange={handleFileSelect}

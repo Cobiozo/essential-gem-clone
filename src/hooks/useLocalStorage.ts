@@ -96,6 +96,7 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uploadLockRef = useRef(false);
+  const lastUploadRef = useRef<{ name: string; size: number; time: number } | null>(null);
 
   const uploadFile = useCallback(async (file: File, options?: UploadOptions): Promise<UploadResult> => {
     // Blokada równoległych uploadów - zapobiega duplikatom
@@ -103,6 +104,17 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       throw new Error('Upload już trwa, poczekaj na zakończenie poprzedniego.');
     }
     uploadLockRef.current = true;
+
+    // Detekcja duplikatów po nazwie+rozmiarze w oknie 10 sekund
+    const now = Date.now();
+    if (lastUploadRef.current &&
+        lastUploadRef.current.name === file.name &&
+        lastUploadRef.current.size === file.size &&
+        now - lastUploadRef.current.time < 10000) {
+      uploadLockRef.current = false;
+      throw new Error('Duplikat uploadu wykryty - ten sam plik został właśnie przesłany.');
+    }
+    lastUploadRef.current = { name: file.name, size: file.size, time: now };
 
     setIsUploading(true);
     setUploadProgress(0);
