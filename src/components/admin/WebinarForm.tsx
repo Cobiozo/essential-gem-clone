@@ -202,8 +202,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         .select('id, title, event_type')
         .neq('id', editingWebinar?.id || '')
         .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-        .lte('start_time', form.end_time)
-        .gte('end_time', form.start_time)
+        .lt('start_time', form.end_time)
+        .gt('end_time', form.start_time)
         .eq('is_active', true);
 
       if (conflictingEvents && conflictingEvents.length > 0) {

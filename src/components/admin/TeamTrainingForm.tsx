@@ -202,8 +202,8 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         .select('id, title, event_type')
         .neq('id', editingTraining?.id || '')
         .in('event_type', ['webinar', 'team_training', 'spotkanie_zespolu'])
-        .lte('start_time', endTime)
-        .gte('end_time', startTime)
+        .lt('start_time', endTime)
+        .gt('end_time', startTime)
         .eq('is_active', true);
 
       if (conflictingEvents && conflictingEvents.length > 0) {
