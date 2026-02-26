@@ -260,7 +260,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
       } else {
         ({ error } = await supabase
           .from('events')
-          .insert({ ...trainingData, created_by: user.id }));
+          .insert({ ...trainingData, created_by: user.id, host_user_id: user.id }));
       }
 
       if (error) {

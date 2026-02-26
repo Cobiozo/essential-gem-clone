@@ -1,238 +1,189 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CalendarPlus, Plus, Pencil, Trash2, Loader2, Calendar } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CalendarPlus, Plus, Pencil, Trash2, Loader2, Calendar, Video, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { WebinarForm } from '@/components/admin/WebinarForm';
+import { TeamTrainingForm } from '@/components/admin/TeamTrainingForm';
+import type { DbEvent } from '@/types/events';
 
-interface EventFormData {
-  title: string;
-  description: string;
-  event_type: string;
-  start_time: string;
-  end_time: string;
-  zoom_link: string;
-  location: string;
-}
-
-const emptyForm: EventFormData = {
-  title: '', description: '', event_type: 'webinar',
-  start_time: '', end_time: '', zoom_link: '', location: '',
-};
+type FormMode = 'list' | 'type-select' | 'webinar' | 'team_training';
 
 const LeaderEventsView: React.FC = () => {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<EventFormData>(emptyForm);
+  const [mode, setMode] = useState<FormMode>('list');
+  const [editingEvent, setEditingEvent] = useState<DbEvent | null>(null);
 
   const { data: events = [], isLoading } = useQuery({
     queryKey: ['leader-events', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, event_type, start_time, end_time, is_active, zoom_link, location, description')
+        .select('*')
         .eq('host_user_id', user!.id)
         .in('event_type', ['webinar', 'team_training'])
         .order('start_time', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as DbEvent[];
     },
     enabled: !!user,
   });
 
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const hostName = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ');
-      const payload = {
-        title: form.title,
-        description: form.description || null,
-        event_type: form.event_type,
-        start_time: form.start_time,
-        end_time: form.end_time,
-        zoom_link: form.zoom_link || null,
-        location: form.location || null,
-        host_user_id: user!.id,
-        host_name: hostName,
-        is_active: true,
-        is_published: true,
-        created_by: user!.id,
-      };
-
-      if (editingId) {
-        const { error } = await supabase.from('events').update(payload).eq('id', editingId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('events').insert(payload);
-        if (error) throw error;
-      }
-
-      // Log action
-      await supabase.from('platform_team_actions').insert({
-        leader_user_id: user!.id,
-        action_type: editingId ? 'edit_event' : 'create_event',
-        old_value: null,
-        new_value: form.title,
-      });
-    },
-    onSuccess: () => {
-      toast({ title: 'Zapisano', description: editingId ? 'Wydarzenie zaktualizowane' : 'Wydarzenie utworzone' });
-      queryClient.invalidateQueries({ queryKey: ['leader-events'] });
-      setFormOpen(false);
-      setEditingId(null);
-      setForm(emptyForm);
-    },
-    onError: (err: any) => {
-      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('events').update({ is_active: false }).eq('id', id);
-      if (error) throw error;
-      await supabase.from('platform_team_actions').insert({
-        leader_user_id: user!.id,
-        action_type: 'delete_event',
-        old_value: events.find(e => e.id === id)?.title || '',
-        new_value: null,
-      });
-    },
-    onSuccess: () => {
-      toast({ title: 'Usunięto wydarzenie' });
-      queryClient.invalidateQueries({ queryKey: ['leader-events'] });
-    },
-  });
-
-  const openEdit = (event: any) => {
-    setEditingId(event.id);
-    setForm({
-      title: event.title, description: event.description || '',
-      event_type: event.event_type, start_time: event.start_time?.slice(0, 16) || '',
-      end_time: event.end_time?.slice(0, 16) || '', zoom_link: event.zoom_link || '',
-      location: event.location || '',
+  const handleDelete = async (event: DbEvent) => {
+    const { error } = await supabase.from('events').update({ is_active: false }).eq('id', event.id);
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    await supabase.from('platform_team_actions').insert({
+      leader_user_id: user!.id,
+      action_type: 'delete_event',
+      old_value: event.title,
+      new_value: null,
     });
-    setFormOpen(true);
+    toast({ title: 'Usunięto wydarzenie' });
+    queryClient.invalidateQueries({ queryKey: ['leader-events'] });
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <CalendarPlus className="h-5 w-5 text-primary" />
-              Wydarzenia zespołu
-            </CardTitle>
-            <CardDescription>Twórz webinary i szkolenia dla swojego zespołu.</CardDescription>
-          </div>
-          <Button size="sm" onClick={() => { setEditingId(null); setForm(emptyForm); setFormOpen(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> Nowe wydarzenie
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-        ) : events.length === 0 ? (
-          <p className="text-center text-muted-foreground py-8 text-sm">Nie masz jeszcze żadnych wydarzeń</p>
-        ) : (
-          <div className="space-y-3">
-            {events.map(event => (
-              <div key={event.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="font-medium text-sm truncate">{event.title}</span>
-                    <Badge variant={event.is_active ? 'default' : 'secondary'} className="text-xs">
-                      {event.event_type === 'webinar' ? 'Webinar' : 'Szkolenie'}
-                    </Badge>
-                    {!event.is_active && <Badge variant="outline" className="text-xs">Nieaktywne</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {event.start_time ? format(new Date(event.start_time), 'dd MMM yyyy, HH:mm', { locale: pl }) : '—'}
-                  </p>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(event)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => deleteMutation.mutate(event.id)}
-                    disabled={deleteMutation.isPending}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
+  const handleSave = async () => {
+    // Log create/edit action
+    await supabase.from('platform_team_actions').insert({
+      leader_user_id: user!.id,
+      action_type: editingEvent ? 'edit_event' : 'create_event',
+      old_value: null,
+      new_value: editingEvent?.title || 'Nowe wydarzenie',
+    });
+    queryClient.invalidateQueries({ queryKey: ['leader-events'] });
+    setMode('list');
+    setEditingEvent(null);
+  };
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingId ? 'Edytuj wydarzenie' : 'Nowe wydarzenie'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
+  const handleCancel = () => {
+    setMode('list');
+    setEditingEvent(null);
+  };
+
+  const openEdit = (event: DbEvent) => {
+    setEditingEvent(event);
+    setMode(event.event_type === 'webinar' ? 'webinar' : 'team_training');
+  };
+
+  const openNew = (type: 'webinar' | 'team_training') => {
+    setEditingEvent(null);
+    setMode(type);
+  };
+
+  // Show form view
+  if (mode === 'webinar') {
+    return (
+      <WebinarForm
+        editingWebinar={editingEvent}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  if (mode === 'team_training') {
+    return (
+      <TeamTrainingForm
+        editingTraining={editingEvent}
+        onSave={handleSave}
+        onCancel={handleCancel}
+      />
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
             <div>
-              <Label>Typ</Label>
-              <Select value={form.event_type} onValueChange={v => setForm(f => ({ ...f, event_type: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="webinar">Webinar</SelectItem>
-                  <SelectItem value="team_training">Szkolenie zespołowe</SelectItem>
-                </SelectContent>
-              </Select>
+              <CardTitle className="flex items-center gap-2">
+                <CalendarPlus className="h-5 w-5 text-primary" />
+                Wydarzenia zespołu
+              </CardTitle>
+              <CardDescription>Twórz webinary i szkolenia dla swojego zespołu.</CardDescription>
             </div>
-            <div>
-              <Label>Tytuł</Label>
-              <Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Opis</Label>
-              <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Start</Label>
-                <Input type="datetime-local" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))} />
-              </div>
-              <div>
-                <Label>Koniec</Label>
-                <Input type="datetime-local" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))} />
-              </div>
-            </div>
-            <div>
-              <Label>Link Zoom (opcjonalnie)</Label>
-              <Input value={form.zoom_link} onChange={e => setForm(f => ({ ...f, zoom_link: e.target.value }))} />
-            </div>
-            <div>
-              <Label>Lokalizacja (opcjonalnie)</Label>
-              <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)}>Anuluj</Button>
-            <Button onClick={() => saveMutation.mutate()} disabled={!form.title || !form.start_time || !form.end_time || saveMutation.isPending}>
-              {saveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              {editingId ? 'Zapisz zmiany' : 'Utwórz'}
+            <Button size="sm" onClick={() => setMode('type-select')}>
+              <Plus className="h-4 w-4 mr-1" /> Nowe wydarzenie
             </Button>
-          </DialogFooter>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : events.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8 text-sm">Nie masz jeszcze żadnych wydarzeń</p>
+          ) : (
+            <div className="space-y-3">
+              {events.map(event => (
+                <div key={event.id} className="flex items-center justify-between p-3 rounded-lg border bg-card">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="font-medium text-sm truncate">{event.title}</span>
+                      <Badge variant={event.is_active ? 'default' : 'secondary'} className="text-xs">
+                        {event.event_type === 'webinar' ? 'Webinar' : 'Szkolenie'}
+                      </Badge>
+                      {!event.is_active && <Badge variant="outline" className="text-xs">Nieaktywne</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {event.start_time ? format(new Date(event.start_time), 'dd MMM yyyy, HH:mm', { locale: pl }) : '—'}
+                    </p>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" onClick={() => openEdit(event)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(event)}>
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Type selection dialog */}
+      <Dialog open={mode === 'type-select'} onOpenChange={(open) => !open && setMode('list')}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Wybierz typ wydarzenia</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4 pt-4">
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2"
+              onClick={() => openNew('webinar')}
+            >
+              <Video className="h-6 w-6 text-primary" />
+              <span>Webinar</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-24 flex flex-col gap-2"
+              onClick={() => openNew('team_training')}
+            >
+              <Users className="h-6 w-6 text-primary" />
+              <span>Szkolenie zespołowe</span>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
-    </Card>
+    </>
   );
 };
 
