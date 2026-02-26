@@ -153,7 +153,7 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
             <Button
               variant="outline"
               size="sm"
-              className="flex items-center gap-1 min-w-[60px]"
+              className="flex items-center gap-1 min-w-[48px] sm:min-w-[60px]"
               disabled={isBuffering}
             >
               <span className="text-xs">{currentSpeedLabel}</span>
