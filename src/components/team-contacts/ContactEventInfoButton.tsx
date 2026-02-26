@@ -29,7 +29,7 @@ interface ContactEventInfoButtonProps {
 }
 
 export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ contact }) => {
-  const { t } = useLanguage();
+  const { t, tf } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
   const [open, setOpen] = useState(false);
@@ -59,17 +59,17 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
   const hasRegistrations = registrations.length > 0;
 
   const tooltipText = loading
-    ? (t('common.loading') || 'Ładowanie...')
+    ? tf('common.loading', 'Ładowanie...')
     : hasRegistrations
-      ? `${t('teamContacts.registeredFor') || 'Zarejestrowany na'} ${registrations.length} ${registrations.length === 1 ? (t('teamContacts.meeting') || 'spotkanie') : (t('teamContacts.meetings') || 'spotkań')}`
-      : (t('teamContacts.noRegistrations') || 'Brak rejestracji na spotkania');
+      ? `${tf('teamContacts.registeredFor', 'Zarejestrowany na')} ${registrations.length} ${registrations.length === 1 ? tf('teamContacts.meeting', 'spotkanie') : tf('teamContacts.meetings', 'spotkań')}`
+      : tf('teamContacts.noRegistrations', 'Brak rejestracji na spotkania');
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'registered':
-        return <Badge className="bg-green-100 text-green-800 text-xs">{t('teamContacts.registered') || 'Zarejestrowany'}</Badge>;
+        return <Badge className="bg-green-100 text-green-800 text-xs">{tf('teamContacts.registered', 'Zapisano')}</Badge>;
       case 'cancelled':
-        return <Badge variant="destructive" className="text-xs">{t('teamContacts.cancelled') || 'Anulowany'}</Badge>;
+        return <Badge variant="destructive" className="text-xs">{tf('teamContacts.cancelled', 'Anulowany')}</Badge>;
       default:
         return <Badge variant="secondary" className="text-xs">{status}</Badge>;
     }
@@ -103,11 +103,11 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         <PopoverContent className="w-80" align="end">
           <div className="space-y-2">
             <h4 className="font-medium text-sm">
-              {t('teamContacts.eventRegistrations') || 'Rejestracje na spotkania'}
+              {tf('teamContacts.eventRegistrations', 'Rejestracje na spotkania')}
             </h4>
             {registrations.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {t('teamContacts.noRegistrations') || 'Brak rejestracji na spotkania'}
+                {tf('teamContacts.noRegistrations', 'Brak rejestracji na spotkania')}
               </p>
             ) : (
               <ul className="space-y-2">
