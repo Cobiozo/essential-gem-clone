@@ -1,87 +1,81 @@
 
 
-## Problem
+## Rozszerzenie dialogu kolizji o dodatkowe informacje
 
-Funkcja `check_event_conflicts` sprawdza kolizje tylko po kolumnach `start_time`/`end_time`. Wydarzenia z wieloma terminami (`occurrences` jsonb) maja w `start_time` date pierwszego terminu, wiec kolizje z pozniejszymi terminami (np. 27.02) nie sa wykrywane.
+### Problem
+Dialog kolizji pokazuje tylko tytul i typ wydarzenia. Brakuje:
+1. Kto prowadzi (host)
+2. Przedział czasowy kolidujacego wydarzenia
+3. Ilu czlonkow zespolu lidera jest zapisanych na to wydarzenie
 
-Dodatkowo, formularz `TeamTrainingForm` przy tworzeniu wydarzenia wieloterminowego sprawdza kolizje tylko dla **pierwszego** occurrence - nie dla wszystkich.
+### Rozwiazanie
 
-## Rozwiazanie
+#### Zmiana 1: Rozszerzenie funkcji SQL `check_event_conflicts`
 
-### Zmiana 1: Rozszerzenie funkcji SQL `check_event_conflicts`
+Funkcja RPC zwraca obecnie `(id, title, event_type)`. Rozszerzymy ja o:
+- `host_name text` - nazwa prowadzacego
+- `conflict_start timestamptz` - start kolidujacego terminu
+- `conflict_end timestamptz` - koniec kolidujacego terminu
+- `team_registered_count bigint` - liczba zapisanych czlonkow zespolu
 
-Zaktualizowac funkcje RPC aby sprawdzala kolizje w trzech scenariuszach:
+Dodajemy nowy parametr `p_user_id uuid DEFAULT NULL` - ID aktualnego uzytkownika, aby moc policzyc zapisanych czlonkow jego zespolu (uzytkownicy z tym samym `upline_eq_id` co `eq_id` lidera).
 
-1. **Nowe wydarzenie vs istniejace bez occurrences** - porownanie z `start_time`/`end_time` (jak dotychczas)
-2. **Nowe wydarzenie vs istniejace Z occurrences** - rozwiniecie `jsonb_array_elements` i obliczenie czasu startu/konca kazdego terminu, porownanie z zakresem nowego wydarzenia
-
-Funkcja otrzyma te same parametry (`p_start_time`, `p_end_time`, `p_exclude_event_id`), wiec interfejs nie zmienia sie.
-
+Logika liczenia zespolu:
 ```text
-Logika SQL:
-  -- Czesc 1: wydarzenia BEZ occurrences (jak dotychczas)
-  SELECT ... FROM events
-  WHERE occurrences IS NULL
-    AND start_time < p_end_time AND end_time > p_start_time
-
-  UNION
-
-  -- Czesc 2: wydarzenia Z occurrences (nowa logika)
-  SELECT DISTINCT ... FROM events,
-    jsonb_array_elements(occurrences) AS occ
-  WHERE occurrences IS NOT NULL
-    AND obliczony_start < p_end_time
-    AND obliczony_end > p_start_time
+SELECT COUNT(*) FROM event_registrations er
+JOIN profiles p ON p.user_id = er.user_id
+WHERE er.event_id = e.id
+  AND er.status = 'registered'
+  AND p.upline_eq_id = (SELECT eq_id FROM profiles WHERE user_id = p_user_id)
 ```
 
-Obliczenie czasu z occurrences:
-- `date` + `time` -> timestamp (np. "2026-02-27" + "17:00" -> timestamptz)
-- `+ duration_minutes * interval '1 minute'` -> koniec
+Dla czesci 1 (bez occurrences): `conflict_start = e.start_time`, `conflict_end = e.end_time`
+Dla czesci 2 (z occurrences): `conflict_start/end` obliczone z jsonb
 
-### Zmiana 2: Sprawdzanie WSZYSTKICH occurrences w TeamTrainingForm
+#### Zmiana 2: Aktualizacja UI dialogu kolizji
 
-Obecnie `TeamTrainingForm` sprawdza kolizje tylko dla pierwszego occurrence. Trzeba wywolac `check_event_conflicts` dla **kazdego** occurrence z listy i zebrac wszystkie konflikty.
+W obu formularzach (`WebinarForm.tsx` i `TeamTrainingForm.tsx`) dialog kolizji wyswietli liste wszystkich kolidujacych wydarzen w formie kartek, kazda zawierajaca:
+- Tytul i typ wydarzenia (jak dotychczas)
+- Prowadzacy (host_name)
+- Przedzial czasowy (np. "17:00 - 18:30")
+- Liczba zapisanych czlonkow zespolu (np. "3 osoby z Twojego zespolu sa zapisane")
 
-**Plik: `src/components/admin/TeamTrainingForm.tsx`** (linie ~195-210)
+#### Zmiana 3: Przekazanie user_id do RPC
 
-Zamiast:
-```
-const firstOcc = occurrences[0];
-// ... oblicz startTime/endTime tylko dla pierwszego
-const { data } = await supabase.rpc('check_event_conflicts', { p_start_time: startTime, p_end_time: endTime, ... });
-```
-
-Nowa logika:
-```
-// Dla kazdego occurrence sprawdz kolizje
-let allConflicts = [];
-for (const occ of occurrences) {
-  const { data } = await supabase.rpc('check_event_conflicts', {
-    p_start_time: occStart, p_end_time: occEnd, ...
-  });
-  if (data?.length) allConflicts.push(...data);
-}
-// Deduplikacja po id
-```
+W wywolaniach `supabase.rpc('check_event_conflicts', ...)` dodanie parametru `p_user_id: user.id`.
 
 ### Podsumowanie zmian
 
 | Element | Zmiana |
 |---------|--------|
-| Migracja SQL | `DROP` + `CREATE` nowej wersji `check_event_conflicts` z obsluga `occurrences` jsonb |
-| `TeamTrainingForm.tsx` | Petla po wszystkich occurrences zamiast sprawdzania tylko pierwszego |
-| `WebinarForm.tsx` | Bez zmian (webinary nie maja wieloterminowosci) |
+| Migracja SQL | Rozszerzenie `check_event_conflicts` o `host_name`, `conflict_start`, `conflict_end`, `team_registered_count`, nowy parametr `p_user_id` |
+| `WebinarForm.tsx` | Przekazanie `p_user_id`, rozbudowa dialogu kolizji |
+| `TeamTrainingForm.tsx` | Przekazanie `p_user_id`, rozbudowa dialogu kolizji |
+| `types.ts` | Automatyczna aktualizacja typow RPC |
 
 ### Szczegoly techniczne SQL
 
-Konwersja z occurrences jsonb na timestamp:
+Nowa sygnatura:
 ```sql
-(occ->>'date')::date + (occ->>'time')::time  -- daje timestamp without tz
--- Konwersja do timestamptz z timezone Warsaw:
-((occ->>'date') || ' ' || (occ->>'time'))::timestamp AT TIME ZONE 'Europe/Warsaw'
+RETURNS TABLE(
+  id uuid,
+  title text,
+  event_type text,
+  host_name text,
+  conflict_start timestamptz,
+  conflict_end timestamptz,
+  team_registered_count bigint
+)
 ```
 
-Czas konca:
+Lateralne podzapytanie dla team_registered_count:
 ```sql
-start_ts + ((occ->>'duration_minutes')::int * interval '1 minute')
+LEFT JOIN LATERAL (
+  SELECT COUNT(*) AS cnt
+  FROM event_registrations er
+  JOIN profiles p2 ON p2.user_id = er.user_id
+  WHERE er.event_id = e.id AND er.status = 'registered'
+    AND p2.upline_eq_id = (SELECT eq_id FROM profiles WHERE user_id = p_user_id)
+) team_count ON true
 ```
+
