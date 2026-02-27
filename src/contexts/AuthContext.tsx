@@ -123,6 +123,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = useCallback(async (userId: string): Promise<void> => {
     try {
+      const isJwtExpiredError = (err: any) =>
+        err?.code === 'PGRST303' ||
+        (typeof err?.message === 'string' && err.message.toLowerCase().includes('jwt expired'));
+
       // Fetch profile and role in parallel for speed
       const [profileResult, roleResult] = await Promise.all([
         supabase
@@ -138,6 +142,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .limit(1)
           .single()
       ]);
+
+      // Hard fail-safe: expired token should immediately clear stale auth state
+      if (isJwtExpiredError(profileResult.error) || isJwtExpiredError(roleResult.error)) {
+        console.warn('[Auth] JWT expired detected during profile fetch - clearing session');
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setProfile(null);
+        setUserRole(null);
+        setRolesReady(true);
+        return;
+      }
 
       if (profileResult.error) {
         console.error('Error fetching profile:', profileResult.error);

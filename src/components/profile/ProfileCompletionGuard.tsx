@@ -77,9 +77,8 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
   }
   
-  // Wait for profile and roles to load
-  // BUT: If profile was already loaded once, keep showing children (prevents flash on tab switch)
-  if (loading || !rolesReady || !profile) {
+  // Wait for loading phases
+  if (loading || !rolesReady) {
     // If we had a profile before, don't show spinner - just keep current content
     if (hadProfile) {
       return <>{children}</>;
@@ -90,6 +89,11 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  // Prevent infinite spinner when session exists but profile cannot be loaded
+  if (!profile) {
+    return <Navigate to="/auth" state={{ from: location.pathname }} replace />;
   }
   
   // Check approval status FIRST (before profile completion)
