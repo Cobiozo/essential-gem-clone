@@ -35,7 +35,6 @@ export function useMyTeamName(userId: string | undefined) {
         .from('platform_teams')
         .select('custom_name')
         .eq('leader_user_id', userId)
-        .eq('is_active', true)
         .maybeSingle();
 
       if (!profile) return null;

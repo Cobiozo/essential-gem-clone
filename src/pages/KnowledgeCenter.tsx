@@ -151,7 +151,7 @@ export default function KnowledgeCenter() {
     team_custom_name: string | null;
   }
 
-  const { data: teamResourceInfos = [] } = useQuery<TeamResourceInfo[]>({
+  const { data: teamResourceInfos = [], isError: isTeamError, error: teamError } = useQuery<TeamResourceInfo[]>({
     queryKey: ['team-knowledge-infos', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -160,7 +160,16 @@ export default function KnowledgeCenter() {
       return (data || []) as TeamResourceInfo[];
     },
     enabled: !!user?.id,
+    retry: 1,
   });
+
+  // Show toast when team resources RPC fails
+  useEffect(() => {
+    if (isTeamError && teamError) {
+      console.error('Team knowledge RPC error:', teamError);
+      toast.error('Nie udało się pobrać bazy wiedzy zespołu. Spróbuj odświeżyć stronę.');
+    }
+  }, [isTeamError, teamError]);
 
   const teamResourceIds = new Set(teamResourceInfos.map(t => t.resource_id));
 
