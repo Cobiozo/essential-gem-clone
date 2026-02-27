@@ -35,6 +35,8 @@ export interface KnowledgeResource {
   click_redirect_url: string | null;
   // Language support
   language_code: string | null; // 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt' or null (all languages)
+  // Team/leader ownership
+  created_by: string | null;
 }
 
 // Language configuration for documents

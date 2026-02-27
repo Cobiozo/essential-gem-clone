@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
+import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/Header';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import { toast } from 'sonner';
 import { 
   Search, Download, ExternalLink, Copy, FileText, File, 
   Archive, Link as LinkIcon, FileSpreadsheet, Star, Sparkles,
-  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag, Image
+  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag, Image, Users
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { 
@@ -25,6 +26,7 @@ import {
 import { SocialShareDialog, GraphicsCard } from '@/components/share';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useKnowledgeTranslations } from '@/hooks/useKnowledgeTranslations';
+import { generateTeamName } from '@/hooks/useTeamName';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5 text-red-500" />,
@@ -59,14 +61,15 @@ export default function KnowledgeCenter() {
   const [documentLanguage, setDocumentLanguage] = useState<string | 'all'>(language);
   const [siteLogo, setSiteLogo] = useState<string>(newPureLifeLogo);
   
-  // Main tab - documents or graphics
-  const [mainTab, setMainTab] = useState<'documents' | 'graphics'>('documents');
+  // Main tab - documents, graphics, or team
+  const [mainTab, setMainTab] = useState<'documents' | 'graphics' | 'team'>('documents');
   
   // Graphics specific state
   const [graphicsCategory, setGraphicsCategory] = useState<string>('all');
   const [selectedGraphic, setSelectedGraphic] = useState<KnowledgeResource | null>(null);
   const [graphicsSearchTerm, setGraphicsSearchTerm] = useState('');
   const [graphicsSortBy, setGraphicsSortBy] = useState<string>('newest');
+  const [teamSearchTerm, setTeamSearchTerm] = useState('');
 
   useEffect(() => {
     fetchResources();
@@ -126,6 +129,7 @@ export default function KnowledgeCenter() {
       .from('knowledge_resources')
       .select('*')
       .eq('status', 'active')
+      .is('created_by', null) // Only admin-created resources in main library
       .order('is_featured', { ascending: false })
       .order('position', { ascending: true });
     
@@ -137,6 +141,67 @@ export default function KnowledgeCenter() {
     }
     setLoading(false);
   };
+
+  // Fetch team resources (from user's leaders)
+  interface TeamResourceInfo {
+    resource_id: string;
+    leader_user_id: string;
+    leader_first_name: string;
+    leader_last_name: string;
+    team_custom_name: string | null;
+  }
+
+  const { data: teamResourceInfos = [] } = useQuery<TeamResourceInfo[]>({
+    queryKey: ['team-knowledge-infos', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await (supabase as any).rpc('get_team_knowledge_resources', { p_user_id: user.id });
+      if (error) throw error;
+      return (data || []) as TeamResourceInfo[];
+    },
+    enabled: !!user?.id,
+  });
+
+  const teamResourceIds = new Set(teamResourceInfos.map(t => t.resource_id));
+
+  const { data: teamResources = [] } = useQuery<KnowledgeResource[]>({
+    queryKey: ['team-knowledge-resources', Array.from(teamResourceIds)],
+    queryFn: async () => {
+      if (teamResourceIds.size === 0) return [];
+      const ids = Array.from(teamResourceIds);
+      const { data, error } = await (supabase as any)
+        .from('knowledge_resources')
+        .select('*')
+        .in('id', ids)
+        .eq('status', 'active');
+      if (error) throw error;
+      return (data || []) as KnowledgeResource[];
+    },
+    enabled: teamResourceIds.size > 0,
+  });
+
+  // Build team name map
+  const teamNameMap = new Map<string, string>();
+  teamResourceInfos.forEach(info => {
+    if (!teamNameMap.has(info.leader_user_id)) {
+      teamNameMap.set(
+        info.leader_user_id,
+        generateTeamName(info.leader_first_name, info.leader_last_name, info.team_custom_name)
+      );
+    }
+  });
+
+  // Group team resources by leader
+  const teamResourcesByLeader = new Map<string, KnowledgeResource[]>();
+  teamResources.forEach(r => {
+    const leaderId = r.created_by;
+    if (!leaderId) return;
+    if (!teamResourcesByLeader.has(leaderId)) teamResourcesByLeader.set(leaderId, []);
+    teamResourcesByLeader.get(leaderId)!.push(r);
+  });
+
+  const hasTeamResources = teamResources.length > 0;
+  const teamNames = Array.from(teamNameMap.values());
 
   // Split resources into documents and graphics (use translated)
   const documentResources = translatedResources.filter(r => r.resource_type !== 'image');
@@ -386,8 +451,8 @@ export default function KnowledgeCenter() {
         </div>
 
         {/* Main Tabs - Documents / Graphics */}
-        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'graphics')} className="w-full">
-          <TabsList className="mb-6 w-full sm:w-auto">
+        <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'graphics' | 'team')} className="w-full">
+          <TabsList className="mb-6 w-full sm:w-auto flex-wrap">
             <TabsTrigger value="documents" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
               Dokumenty edukacyjne
@@ -399,6 +464,15 @@ export default function KnowledgeCenter() {
                 <Badge variant="secondary" className="ml-1 text-xs">{graphicsResources.length}</Badge>
               )}
             </TabsTrigger>
+            {hasTeamResources && (
+              <TabsTrigger value="team" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                {teamNames.length === 1
+                  ? `Baza wiedzy ${teamNames[0]}`
+                  : 'Baza wiedzy zespołu'}
+                <Badge variant="secondary" className="ml-1 text-xs">{teamResources.length}</Badge>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Documents Tab */}
@@ -715,6 +789,43 @@ export default function KnowledgeCenter() {
               </div>
             )}
           </TabsContent>
+
+          {/* Team Knowledge Tab */}
+          {hasTeamResources && (
+            <TabsContent value="team" className="space-y-6">
+              <Card>
+                <CardContent className="pt-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj w zasobach zespołu..."
+                      value={teamSearchTerm}
+                      onChange={(e) => setTeamSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {Array.from(teamResourcesByLeader.entries()).map(([leaderId, leaderResources]) => {
+                const tName = teamNameMap.get(leaderId) || 'Zespół';
+                const filtered = leaderResources.filter(r =>
+                  r.title.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                  r.description?.toLowerCase().includes(teamSearchTerm.toLowerCase())
+                );
+                if (filtered.length === 0) return null;
+                return (
+                  <div key={leaderId} className="space-y-3">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Users className="h-5 w-5 text-primary" />
+                      {tName}
+                    </h2>
+                    {filtered.map(resource => renderResourceCard(resource))}
+                  </div>
+                );
+              })}
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Social Share Dialog for Graphics */}
