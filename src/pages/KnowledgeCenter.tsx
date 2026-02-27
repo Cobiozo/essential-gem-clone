@@ -16,9 +16,10 @@ import { toast } from 'sonner';
 import { 
   Search, Download, ExternalLink, Copy, FileText, File, 
   Archive, Link as LinkIcon, FileSpreadsheet, Star, Sparkles,
-  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag, Image, Users
+  RefreshCw, Filter, X, Share2, Clock, LayoutGrid, List, Tag, Image, Users, ChevronDown
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { 
   KnowledgeResource, ResourceType,
   RESOURCE_TYPE_LABELS, DOCUMENT_CATEGORIES, GRAPHICS_CATEGORIES 
@@ -27,6 +28,7 @@ import { SocialShareDialog, GraphicsCard } from '@/components/share';
 import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
 import { useKnowledgeTranslations } from '@/hooks/useKnowledgeTranslations';
 import { generateTeamName } from '@/hooks/useTeamName';
+import { TeamKnowledgeSection } from '@/components/knowledge/TeamKnowledgeSection';
 
 const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5 text-red-500" />,
@@ -39,7 +41,7 @@ const RESOURCE_ICONS: Record<ResourceType, React.ReactNode> = {
 };
 
 export default function KnowledgeCenter() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { language } = useLanguage();
   
   // Block right-click and other security measures
@@ -156,9 +158,15 @@ export default function KnowledgeCenter() {
   }
 
   const { data: teamResourceInfos = [], isError: isTeamError, error: teamError } = useQuery<TeamResourceInfo[]>({
-    queryKey: ['team-knowledge-infos', user?.id],
+    queryKey: ['team-knowledge-infos', user?.id, isAdmin],
     queryFn: async () => {
       if (!user?.id) return [];
+      if (isAdmin) {
+        // Admin sees ALL team resources from all leaders
+        const { data, error } = await (supabase as any).rpc('get_all_team_knowledge_resources');
+        if (error) throw error;
+        return (data || []) as TeamResourceInfo[];
+      }
       const { data, error } = await (supabase as any).rpc('get_team_knowledge_resources', { p_user_id: user.id });
       if (error) throw error;
       return (data || []) as TeamResourceInfo[];
@@ -481,11 +489,13 @@ export default function KnowledgeCenter() {
             </TabsList>
             {hasTeamResources && (
               <TabsList className="w-auto">
-                <TabsTrigger value="team" className="flex items-center gap-2">
+               <TabsTrigger value="team" className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
-                  {teamNames.length === 1
-                    ? `Baza wiedzy ${teamNames[0]}`
-                    : 'Baza wiedzy zespołu'}
+                  {isAdmin
+                    ? 'Zasoby zespołów'
+                    : teamNames.length === 1
+                      ? `Baza wiedzy ${teamNames[0]}`
+                      : 'Baza wiedzy zespołu'}
                   <Badge variant="secondary" className="ml-1 text-xs">{teamResources.length}</Badge>
                 </TabsTrigger>
               </TabsList>
@@ -810,163 +820,55 @@ export default function KnowledgeCenter() {
           {/* Team Knowledge Tab */}
           {hasTeamResources && (
             <TabsContent value="team" className="space-y-6">
-              {/* Internal sub-tabs: Documents / Graphics */}
-              {(() => {
-                // Split team resources
-                const allTeamDocs = teamResources.filter(r => r.resource_type !== 'image');
-                const allTeamGraphics = teamResources.filter(r => r.resource_type === 'image');
-
-                // Filter team documents
-                const filteredTeamDocs = allTeamDocs.filter(r => {
-                  const matchesSearch = r.title.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
-                    r.description?.toLowerCase().includes(teamSearchTerm.toLowerCase());
-                  const matchesCat = teamDocCategory === 'all' || r.category === teamDocCategory;
-                  return matchesSearch && matchesCat;
-                });
-
-                // Filter team graphics
-                const filteredTeamGraphics = allTeamGraphics.filter(r => {
-                  const matchesSearch = r.title.toLowerCase().includes(teamGraphicsSearchTerm.toLowerCase()) ||
-                    r.description?.toLowerCase().includes(teamGraphicsSearchTerm.toLowerCase());
-                  const matchesCat = teamGraphicsCategory === 'all' || r.category === teamGraphicsCategory;
-                  return matchesSearch && matchesCat;
-                });
-
-                return (
-                  <>
-                    <Tabs value={teamSubTab} onValueChange={(v) => setTeamSubTab(v as 'documents' | 'graphics')}>
-                      <TabsList>
-                        <TabsTrigger value="documents" className="flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Dokumenty
-                          {allTeamDocs.length > 0 && (
-                            <Badge variant="secondary" className="ml-1 text-xs">{allTeamDocs.length}</Badge>
-                          )}
-                        </TabsTrigger>
-                        <TabsTrigger value="graphics" className="flex items-center gap-2">
-                          <Image className="h-4 w-4" />
-                          Grafiki
-                          {allTeamGraphics.length > 0 && (
-                            <Badge variant="secondary" className="ml-1 text-xs">{allTeamGraphics.length}</Badge>
-                          )}
-                        </TabsTrigger>
-                      </TabsList>
-
-                      {/* Team Documents */}
-                      <TabsContent value="documents" className="space-y-4 mt-4">
-                        <Card>
-                          <CardContent className="pt-4">
-                            <div className="flex flex-col sm:flex-row gap-4">
-                              <div className="flex-1 relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                  placeholder="Szukaj dokumentów zespołu..."
-                                  value={teamSearchTerm}
-                                  onChange={(e) => setTeamSearchTerm(e.target.value)}
-                                  className="pl-10"
-                                />
-                              </div>
-                              <Select value={teamDocCategory} onValueChange={setTeamDocCategory}>
-                                <SelectTrigger className="w-full sm:w-[200px]">
-                                  <SelectValue placeholder="Kategoria" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">Wszystkie kategorie</SelectItem>
-                                  {DOCUMENT_CATEGORIES.map(cat => (
-                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {(teamSearchTerm || teamDocCategory !== 'all') && (
-                                <Button variant="ghost" size="icon" onClick={() => { setTeamSearchTerm(''); setTeamDocCategory('all'); }}>
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {filteredTeamDocs.length === 0 ? (
-                          <Card>
-                            <CardContent className="py-12 text-center">
-                              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                              <h3 className="text-lg font-medium mb-2">Brak dokumentów zespołu</h3>
-                              <p className="text-muted-foreground">
-                                {teamSearchTerm || teamDocCategory !== 'all'
-                                  ? 'Nie znaleziono dokumentów pasujących do kryteriów.'
-                                  : 'Lider nie dodał jeszcze dokumentów.'}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ) : (
-                          <div className="space-y-3">
-                            {filteredTeamDocs.map(resource => renderResourceCard(resource))}
+              {isAdmin ? (
+                /* ADMIN VIEW: Accordion per team */
+                <Accordion type="single" collapsible className="space-y-3">
+                  {Array.from(teamResourcesByLeader.entries()).map(([leaderId, leaderResources]) => {
+                    const tName = teamNameMap.get(leaderId) || 'Zespół';
+                    const docCount = leaderResources.filter(r => r.resource_type !== 'image').length;
+                    const gfxCount = leaderResources.filter(r => r.resource_type === 'image').length;
+                    return (
+                      <AccordionItem key={leaderId} value={leaderId} className="border rounded-lg px-4">
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex items-center gap-3">
+                            <Users className="h-5 w-5 text-muted-foreground" />
+                            <span className="font-semibold">{tName}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {leaderResources.length} {leaderResources.length === 1 ? 'zasób' : 'zasobów'}
+                            </Badge>
+                            {docCount > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                <FileText className="h-3 w-3 mr-1" />
+                                {docCount}
+                              </Badge>
+                            )}
+                            {gfxCount > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                <Image className="h-3 w-3 mr-1" />
+                                {gfxCount}
+                              </Badge>
+                            )}
                           </div>
-                        )}
-                      </TabsContent>
-
-                      {/* Team Graphics */}
-                      <TabsContent value="graphics" className="space-y-4 mt-4">
-                        <Card>
-                          <CardContent className="pt-4">
-                            <div className="flex flex-col sm:flex-row gap-4">
-                              <div className="flex-1 relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                  placeholder="Szukaj grafik zespołu..."
-                                  value={teamGraphicsSearchTerm}
-                                  onChange={(e) => setTeamGraphicsSearchTerm(e.target.value)}
-                                  className="pl-10"
-                                />
-                              </div>
-                              <Select value={teamGraphicsCategory} onValueChange={setTeamGraphicsCategory}>
-                                <SelectTrigger className="w-full sm:w-[200px]">
-                                  <SelectValue placeholder="Kategoria" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">Wszystkie kategorie</SelectItem>
-                                  {GRAPHICS_CATEGORIES.map(cat => (
-                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {(teamGraphicsSearchTerm || teamGraphicsCategory !== 'all') && (
-                                <Button variant="ghost" size="icon" onClick={() => { setTeamGraphicsSearchTerm(''); setTeamGraphicsCategory('all'); }}>
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-
-                        {filteredTeamGraphics.length === 0 ? (
-                          <Card>
-                            <CardContent className="py-12 text-center">
-                              <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                              <h3 className="text-lg font-medium mb-2">Brak grafik zespołu</h3>
-                              <p className="text-muted-foreground">
-                                {teamGraphicsSearchTerm || teamGraphicsCategory !== 'all'
-                                  ? 'Nie znaleziono grafik pasujących do kryteriów.'
-                                  : 'Lider nie dodał jeszcze grafik.'}
-                              </p>
-                            </CardContent>
-                          </Card>
-                        ) : (
-                          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                            {filteredTeamGraphics.map(graphic => (
-                              <GraphicsCard
-                                key={graphic.id}
-                                resource={graphic}
-                                onClick={() => setSelectedGraphic(graphic)}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </TabsContent>
-                    </Tabs>
-                  </>
-                );
-              })()}
+                        </AccordionTrigger>
+                        <AccordionContent className="pt-4">
+                          <TeamKnowledgeSection
+                            teamName={tName}
+                            resources={leaderResources}
+                            onSelectGraphic={setSelectedGraphic}
+                          />
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              ) : (
+                /* MEMBER VIEW: Single team with sub-tabs (existing behavior via component) */
+                <TeamKnowledgeSection
+                  teamName={teamNames[0] || 'Zespół'}
+                  resources={teamResources}
+                  onSelectGraphic={setSelectedGraphic}
+                />
+              )}
             </TabsContent>
           )}
         </Tabs>

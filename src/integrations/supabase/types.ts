@@ -7369,6 +7369,16 @@ export type Database = {
         Returns: string
       }
       generate_user_reflink_code: { Args: { p_eq_id: string }; Returns: string }
+      get_all_team_knowledge_resources: {
+        Args: never
+        Returns: {
+          leader_first_name: string
+          leader_last_name: string
+          leader_user_id: string
+          resource_id: string
+          team_custom_name: string
+        }[]
+      }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
