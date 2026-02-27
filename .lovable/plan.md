@@ -1,51 +1,103 @@
 
 
-## Przebudowa zakładki "Baza wiedzy Zespół-S.S." w Bibliotece
+## Widok administratora: Wszystkie zespoły w Bibliotece
 
-### Cel
-Zakładka zespołowa ma być wizualnie oddzielona od głównych zakładek (przesunięta na prawą stronę) i wewnętrznie podzielona na "Dokumenty" i "Grafiki" -- identycznie jak w Panelu Lidera.
+### Problem
+Administrator widzi zasoby zespołowe tak samo jak zwykły członek -- tylko jednego zespołu (swojego). Powinien widzieć **wszystkie zespoły osobno**, z mozliwoscia klikniecia w kazdy zespol i przegladania jego dokumentow i grafik.
 
-### Zmiany w pliku `src/pages/KnowledgeCenter.tsx`
+### Rozwiazanie
 
-#### 1. Rozdzielenie TabsList -- zakładka zespołowa po prawej
+#### 1. Nowa funkcja SQL: `get_all_team_knowledge_resources` (migracja)
 
-Zamiast jednego `TabsList` z trzema zakładkami obok siebie, layout zostanie zmieniony na:
+Dla administratorow -- zwraca **wszystkie** zasoby z `knowledge_resources` gdzie `created_by IS NOT NULL`, pogrupowane z informacja o liderze i nazwie zespolu.
 
-```text
-[Dokumenty edukacyjne] [Grafiki 179]     <--- przerwa --->     [Baza wiedzy Zespół-S.S. 1]
+```sql
+CREATE OR REPLACE FUNCTION public.get_all_team_knowledge_resources()
+RETURNS TABLE(
+  resource_id uuid,
+  leader_user_id uuid,
+  leader_first_name text,
+  leader_last_name text,
+  team_custom_name text
+)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path TO 'public'
+SET row_security TO off
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Access denied: admin only';
+  END IF;
+
+  RETURN QUERY
+  SELECT 
+    kr.id, kr.created_by,
+    p.first_name, p.last_name,
+    pt.custom_name
+  FROM knowledge_resources kr
+  INNER JOIN profiles p ON p.user_id = kr.created_by
+  LEFT JOIN platform_teams pt ON pt.leader_user_id = kr.created_by
+  WHERE kr.created_by IS NOT NULL AND kr.status = 'active'
+  ORDER BY kr.created_at DESC;
+END;
+$$;
 ```
 
-Technicznie: owinięcie TabsList w `flex justify-between`, gdzie lewa strona to dwie główne zakładki, a prawa to zakładka zespołowa.
+#### 2. Zmiana logiki w `KnowledgeCenter.tsx`
 
-#### 2. Podział wewnętrzny zakładki zespołowej na Dokumenty / Grafiki
+**Dla admina:**
+- Uzyc `get_all_team_knowledge_resources()` zamiast `get_team_knowledge_resources(user_id)`
+- W zakladce "team" zamiast jednej plaskiej listy, wyswietlic **liste zespolow** (karty/akordeony)
+- Kazdy zespol to rozwijana sekcja z nazwa "Baza wiedzy Zespol-I.N." i licznikiem zasobow
+- Po kliknieciu/rozwinieciu zespolu -- wewnetrzne pod-zakladki "Dokumenty" i "Grafiki" (identycznie jak dla zwyklego czlonka)
+- Zakladka glowna "Zasoby zespolow" (zamiast "Baza wiedzy Zespol-S.S.") z lacznym licznikiem
 
-Aktualnie zakładka "team" wyświetla wszystkie zasoby płasko (lista). Zostanie dodany wewnętrzny stan `teamSubTab` (`'documents' | 'graphics'`) z:
+**Dla zwyklego czlonka zespolu:**
+- Bez zmian -- jak dotychczas
 
-- **Dokumenty zespołu**: lista zasobów z `resource_type !== 'image'`, z wyszukiwarką i filtrami kategorii
-- **Grafiki zespołu**: siatka zasobów z `resource_type === 'image'`, z wyszukiwarką i filtrami kategorii, wyświetlane jako `GraphicsCard` z dialogiem udostępniania
+#### 3. Szczegoly implementacji UI (admin)
 
-Układ wewnętrzny będzie analogiczny do tego, co lider widzi w `LeaderKnowledgeView`:
-- Pod-zakładki "Dokumenty" / "Grafiki" z licznikami
-- Osobne wyszukiwarki i filtry kategorii dla każdej pod-zakładki
-- Grafiki w siatce z `GraphicsCard`, dokumenty jako karty listowe
+Struktura widoku admina w zakladce "team":
 
-#### 3. Nowe zmienne stanu
+```text
+[Dokumenty edukacyjne] [Grafiki 180]     <przerwa>     [Zasoby zespolow 15]
 
-- `teamSubTab: 'documents' | 'graphics'` -- pod-zakładka wewnątrz sekcji zespołowej
-- `teamGraphicsCategory: string` -- filtr kategorii grafik zespołowych
-- `teamGraphicsSearchTerm: string` -- wyszukiwarka grafik zespołowych
-- Istniejący `teamSearchTerm` zostanie użyty dla dokumentów zespołowych
+-- po kliknieciu --
 
-#### 4. Filtrowanie zasobów zespołowych
+Accordion/Card per team:
+  [v] Zespol-S.S. (8 zasobow)
+      [Dokumenty 3] [Grafiki 5]
+      ... wyszukiwarka, filtry, karty/siatka ...
 
-Zasoby zespołowe zostaną podzielone na:
-- `teamDocuments = teamResources.filter(r => r.resource_type !== 'image')`
-- `teamGraphics = teamResources.filter(r => r.resource_type === 'image')`
+  [>] Zespol-A.B. (7 zasobow)
+```
 
-Każda grupa będzie filtrowana osobno przez swoje wyszukiwarki i filtry kategorii.
+Kazdy rozwiniety zespol ma:
+- Wewnetrzne Tabs "Dokumenty" / "Grafiki" z licznikami
+- Wyszukiwarke i filtr kategorii (stan per-team -- uzycie lokalnego stanu w komponencie zespolu)
+- Dokumenty jako lista kart (`renderResourceCard`)
+- Grafiki jako siatka (`GraphicsCard`)
 
-### Podsumowanie zmian
-- Jeden plik: `src/pages/KnowledgeCenter.tsx`
-- Brak zmian w bazie danych ani w innych komponentach
-- Zachowana pełna kompatybilność z istniejącą logiką RPC i RLS
+#### 4. Wyodrebnienie komponentu `TeamKnowledgeSection`
+
+Aby uniknac rozdmuchania `KnowledgeCenter.tsx`, wyodrebniony zostanie komponent `TeamKnowledgeSection` przyjmujacy:
+- `teamName: string`
+- `resources: KnowledgeResource[]`
+- `onSelectGraphic: (r: KnowledgeResource) => void`
+
+Komponent sam zarzadza stanem pod-zakladek, wyszukiwarki i filtrow.
+
+### Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | Nowa funkcja `get_all_team_knowledge_resources` |
+| `src/pages/KnowledgeCenter.tsx` | Import `isAdmin` z AuthContext, warunkowe uzycie nowego RPC, widok admin vs member |
+| `src/components/knowledge/TeamKnowledgeSection.tsx` | **Nowy** -- wyodrebniony komponent sekcji zespolu (dokumenty+grafiki z filtrami) |
+
+### Sekwencja
+
+1. Migracja SQL (nowa funkcja)
+2. Utworzenie `TeamKnowledgeSection.tsx`
+3. Aktualizacja `KnowledgeCenter.tsx` -- logika admin vs member, Accordion z zespolami dla admina
 
