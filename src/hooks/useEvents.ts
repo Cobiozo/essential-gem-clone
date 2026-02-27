@@ -136,8 +136,8 @@ export const useEvents = () => {
         }));
 
         // Filter individual meetings - only show to host or registered participant
-        const filteredEvents = eventsWithRegistration.filter(event => {
-          // For webinars, team trainings, public meetings - show to everyone
+        let filteredEvents = eventsWithRegistration.filter(event => {
+          // For webinars, team trainings, public meetings - show to everyone (leader filtering below)
           if (!['tripartite_meeting', 'partner_consultation'].includes(event.event_type)) {
             return true;
           }
@@ -145,6 +145,24 @@ export const useEvents = () => {
           // For individual meetings - only show if user is host OR registered
           return event.host_user_id === user.id || event.is_registered;
         });
+
+        // Filter leader-created events (webinar/team_training with host_user_id)
+        // These should only be visible to the leader and their team (downline)
+        const leaderEventHostIds = filteredEvents
+          .filter(e => ['webinar', 'team_training'].includes(e.event_type) && e.host_user_id)
+          .map(e => e.host_user_id!);
+
+        if (leaderEventHostIds.length > 0) {
+          const { data: myLeaderIds } = await supabase.rpc('get_user_leader_ids', { p_user_id: user.id });
+          const myLeaderSet = new Set<string>(myLeaderIds || []);
+
+          filteredEvents = filteredEvents.filter(event => {
+            if (!['webinar', 'team_training'].includes(event.event_type)) return true;
+            if (!event.host_user_id) return true; // admin-created, no host = visible by roles
+            // Leader event: show only if I'm the host OR in their team
+            return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
+          });
+        }
 
         setEvents(filteredEvents);
       } else {
