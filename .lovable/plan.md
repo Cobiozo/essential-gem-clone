@@ -1,45 +1,74 @@
 
-## Problem
+### Diagnoza (potwierdzona)
 
-Zakladka "Baza wiedzy Zespol-S.S." nie pojawia sie w Bibliotece z dwoch powodow:
+Sprawdziłem dane i kod end-to-end. Problem **nie leży już w samej polityce RLS SELECT** — ta polityka zawiera warunki:
+- `created_by = auth.uid()`
+- `created_by IN (SELECT get_user_leader_ids(auth.uid()))`
 
-### 1. Brak zasobow liderskich w bazie
-Aktualnie w tabeli `knowledge_resources` nie ma zadnych rekordow z `created_by IS NOT NULL`. Lider mogl probowac dodac zasoby, ale nie udalo sie z powodu problemu nr 2.
+To jest poprawne.
 
-### 2. Polityka RLS SELECT blokuje dostep do zasobow liderskich (glowna przyczyna)
-Obecna polityka SELECT na tabeli `knowledge_resources` pozwala czytac TYLKO zasoby z flagami widocznosci (`visible_to_everyone`, `visible_to_partners`, itp.):
+Prawdziwa przyczyna: **RPC `get_team_knowledge_resources` wywala błąd SQL** i przez to frontend dostaje pusty zestaw danych dla zakładki zespołowej.
 
-```text
-WHERE status = 'active' 
-  AND (visible_to_everyone = true 
-    OR (visible_to_clients = true AND role = 'client') 
-    OR ...)
-```
+#### Dowody z projektu
+1. W tabeli `knowledge_resources` istnieje aktywny zasób zespołowy:
+   - `created_by = 60645dff-dfb2-40db-ae3b-d8f28507658e` (lider S.S.)
+2. Użytkownik `sebastiansnopek210587@gmail.com` ma `upline_eq_id = 121118999`.
+3. `get_user_leader_ids()` dla tego użytkownika zwraca lidera `60645dff-dfb2-40db-ae3b-d8f28507658e` (czyli S.S.) — relacja zespołowa działa.
+4. `get_team_knowledge_resources(...)` zwraca błąd:
+   - odwołanie do nieistniejącej kolumny `platform_teams.is_active`
+5. Ten sam błąd został zapisany w migracji, która tworzyła funkcję (`LEFT JOIN public.platform_teams ... AND pt.is_active = true`), a w rzeczywistym schemacie `platform_teams` **nie ma kolumny `is_active`**.
 
-Zasoby tworzone przez liderow maja `visible_to_everyone = false` i wszystkie inne flagi rowniez `false`. W efekcie:
-- Lider NIE MOZE odczytac swoich wlasnych zasobow po ich dodaniu
-- Czlonkowie zespolu NIE MOGA odczytac zasobow lidera
-- Zakladka zespolowa nigdy sie nie pojawi, bo zapytanie zawsze zwraca 0 wynikow
+### Co trzeba naprawić
 
-### Plan naprawy
+#### 1) Poprawić funkcję SQL `get_team_knowledge_resources` (priorytet krytyczny)
+- Usunąć warunek `pt.is_active = true` z JOIN do `platform_teams`.
+- Zostawić logikę:
+  - tylko `kr.created_by IS NOT NULL`
+  - tylko `kr.status = 'active'`
+  - tylko liderzy z `get_user_leader_ids(p_user_id)`
 
-#### 1. Aktualizacja polityki RLS SELECT (migracja SQL)
+Efekt: RPC zacznie zwracać rekordy zespołowe, więc `hasTeamResources` w `KnowledgeCenter.tsx` stanie się `true`, a zakładka pojawi się.
 
-Rozszerzyc istniejaca polityke SELECT o dwa dodatkowe warunki:
+#### 2) Uodpornić frontend (`KnowledgeCenter.tsx`) na błąd RPC
+Aktualnie jeśli RPC padnie, interfejs po prostu nie pokazuje zakładki (bo dane są puste). Dodać:
+- obsługę `isError` / `error` z React Query dla `teamResourceInfos`,
+- czytelny komunikat diagnostyczny (np. toast) zamiast „cichego” braku zakładki,
+- opcjonalnie fallback: pokazać placeholder „Baza wiedzy zespołu chwilowo niedostępna”.
 
-```text
-...istniejace warunki...
-OR (created_by = auth.uid())  -- lider widzi swoje zasoby
-OR (created_by IN (SELECT get_user_leader_ids(auth.uid())))  -- czlonkowie zespolu widza zasoby lidera
-```
+To skraca czas diagnozy przy kolejnych incydentach.
 
-To jedyna zmiana potrzebna -- w jednej migracji SQL. Kod frontendu (`KnowledgeCenter.tsx`, `LeaderKnowledgeView.tsx`) jest juz prawidlowo zaimplementowany i gotowy do dzialania po naprawie RLS.
+#### 3) Poprawić `useTeamName.ts` (spójność i brak ukrytego błędu)
+Hook też filtruje `platform_teams` po `is_active`, którego nie ma:
+- usunąć `.eq('is_active', true)` w `useMyTeamName`.
+- dzięki temu nazwa zespołu nie będzie zależna od błędnego filtra.
 
-#### 2. Pliki do zmiany
-- **Nowa migracja SQL**: DROP + CREATE polityki SELECT na `knowledge_resources` z rozszerzonymi warunkami
+To nie blokuje samej zakładki w Bibliotece, ale usuwa drugi błąd tego samego typu.
 
-#### 3. Weryfikacja
-Po naprawie:
-- Lider (S.S.) bedzie mogl dodawac zasoby w Panelu Lidera i je widziec
-- Uzytkownik `sebastiansnopek210587` (w zespole S.S.) zobaczy zakladke "Baza wiedzy Zespol-S.S." w Bibliotece
-- Zasoby administracyjne pozostana bez zmian
+---
+
+### Sekwencja wdrożenia
+
+1. Migracja SQL: `CREATE OR REPLACE FUNCTION get_team_knowledge_resources` (bez `pt.is_active`).
+2. Aktualizacja hooka `useTeamName.ts` (usunąć filtr po nieistniejącej kolumnie).
+3. Aktualizacja `KnowledgeCenter.tsx` o obsługę błędu RPC.
+4. Weryfikacja danych dla konta `sebastiansnopek210587`:
+   - `get_team_knowledge_resources(user_id)` zwraca zasób lidera S.S.,
+   - widoczna zakładka: **„Baza wiedzy Zespół-S.S.”**,
+   - po wejściu na zakładkę zasób jest widoczny.
+
+---
+
+### Kryteria akceptacji
+
+- Członek zespołu S.S. widzi trzecią zakładkę w `/knowledge`:
+  - **Baza wiedzy Zespół-S.S.**
+- Zakładka ma licznik > 0 gdy lider dodał materiały.
+- Lider nadal widzi wyłącznie swoje materiały w panelu lidera.
+- Brak błędów SQL związanych z `platform_teams.is_active` w RPC i hookach nazewnictwa.
+
+---
+
+### Ryzyka i uwagi
+
+- To regresja po migracji (funkcja oparta o nieaktualny schemat `platform_teams`).
+- RLS dla `knowledge_resources` jest już zgodny z wymaganym modelem widoczności; obecny bug jest głównie w warstwie funkcji SQL + odporności UI.
