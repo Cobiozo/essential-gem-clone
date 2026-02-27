@@ -7364,6 +7364,10 @@ export type Database = {
       }
       email_exists: { Args: { email_param: string }; Returns: boolean }
       eq_id_exists: { Args: { eq_id_param: string }; Returns: boolean }
+      filter_leader_user_ids: {
+        Args: { p_user_ids: string[] }
+        Returns: string[]
+      }
       find_nearest_leader_approver: {
         Args: { p_user_id: string }
         Returns: string

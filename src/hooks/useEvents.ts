@@ -147,21 +147,32 @@ export const useEvents = () => {
         });
 
         // Filter leader-created events (webinar/team_training with host_user_id)
-        // These should only be visible to the leader and their team (downline)
-        const leaderEventHostIds = filteredEvents
+        // Admin-hosted events should be globally visible (by role flags).
+        // Only true leader-hosted events are restricted to downline.
+        const allHostIds = filteredEvents
           .filter(e => ['webinar', 'team_training'].includes(e.event_type) && e.host_user_id)
           .map(e => e.host_user_id!);
 
-        if (leaderEventHostIds.length > 0) {
-          const { data: myLeaderIds } = await supabase.rpc('get_user_leader_ids', { p_user_id: user.id });
-          const myLeaderSet = new Set<string>(myLeaderIds || []);
+        if (allHostIds.length > 0) {
+          // Determine which hosts are actual leaders (exist in leader_permissions)
+          const uniqueHostIds = [...new Set(allHostIds)];
+          const { data: actualLeaderIds } = await supabase.rpc('filter_leader_user_ids', { p_user_ids: uniqueHostIds });
+          const actualLeaderSet = new Set<string>(actualLeaderIds || []);
 
-          filteredEvents = filteredEvents.filter(event => {
-            if (!['webinar', 'team_training'].includes(event.event_type)) return true;
-            if (!event.host_user_id) return true; // admin-created, no host = visible by roles
-            // Leader event: show only if I'm the host OR in their team
-            return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
-          });
+          // Only apply downline filtering for actual leader hosts
+          if (actualLeaderSet.size > 0) {
+            const { data: myLeaderIds } = await supabase.rpc('get_user_leader_ids', { p_user_id: user.id });
+            const myLeaderSet = new Set<string>(myLeaderIds || []);
+
+            filteredEvents = filteredEvents.filter(event => {
+              if (!['webinar', 'team_training'].includes(event.event_type)) return true;
+              if (!event.host_user_id) return true;
+              // If host is NOT a leader (e.g. admin), treat as global event (visible by role flags)
+              if (!actualLeaderSet.has(event.host_user_id)) return true;
+              // Leader event: show only if I'm the host OR in their team
+              return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
+            });
+          }
         }
 
         setEvents(filteredEvents);
