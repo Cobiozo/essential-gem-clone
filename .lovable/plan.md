@@ -1,96 +1,45 @@
 
-## Baza wiedzy zespolu -- pelna implementacja
+## Problem
 
-### Opis problemu
-Obecnie `knowledge_resources` nie ma kolumny `created_by`, wiec nie mozna powiazac zasobow z konkretnym liderem. Liderzy nie maja mozliwosci wrzucania plikow dla swojego zespolu. Zasoby z `visible_to_everyone = false` sa widoczne dla wszystkich liderow, a nie tylko dla konkretnego zespolu.
+Zakladka "Baza wiedzy Zespol-S.S." nie pojawia sie w Bibliotece z dwoch powodow:
 
-### Plan rozwiazania
+### 1. Brak zasobow liderskich w bazie
+Aktualnie w tabeli `knowledge_resources` nie ma zadnych rekordow z `created_by IS NOT NULL`. Lider mogl probowac dodac zasoby, ale nie udalo sie z powodu problemu nr 2.
 
-#### 1. Migracja SQL -- dodanie kolumny `created_by`
+### 2. Polityka RLS SELECT blokuje dostep do zasobow liderskich (glowna przyczyna)
+Obecna polityka SELECT na tabeli `knowledge_resources` pozwala czytac TYLKO zasoby z flagami widocznosci (`visible_to_everyone`, `visible_to_partners`, itp.):
 
-Dodac kolumne `created_by UUID REFERENCES auth.users(id)` do tabeli `knowledge_resources`. Istniejace rekordy (admina) pozostana z `created_by = NULL`.
-
-```sql
-ALTER TABLE knowledge_resources ADD COLUMN created_by UUID REFERENCES auth.users(id);
+```text
+WHERE status = 'active' 
+  AND (visible_to_everyone = true 
+    OR (visible_to_clients = true AND role = 'client') 
+    OR ...)
 ```
 
-Zaktualizowac RLS, aby liderzy z `can_manage_knowledge_base` mogli INSERT/UPDATE/DELETE swoich zasobow (gdzie `created_by = auth.uid()`).
+Zasoby tworzone przez liderow maja `visible_to_everyone = false` i wszystkie inne flagi rowniez `false`. W efekcie:
+- Lider NIE MOZE odczytac swoich wlasnych zasobow po ich dodaniu
+- Czlonkowie zespolu NIE MOGA odczytac zasobow lidera
+- Zakladka zespolowa nigdy sie nie pojawi, bo zapytanie zawsze zwraca 0 wynikow
 
-#### 2. Zmiana logiki widocznosci zasobow
+### Plan naprawy
 
-Nowa zasada:
-- **Admin-created** (`created_by IS NULL`): widoczne wg istniejacych flag (`visible_to_everyone`, `visible_to_partners`, itd.) -- to jest obecna Biblioteka
-- **Leader-created** (`created_by IS NOT NULL`): widoczne TYLKO dla lidera i jego downline (zespolu)
+#### 1. Aktualizacja polityki RLS SELECT (migracja SQL)
 
-#### 3. Leader Panel -- dodanie mozliwosci zarzadzania zasobami
+Rozszerzyc istniejaca polityke SELECT o dwa dodatkowe warunki:
 
-W `LeaderKnowledgeView.tsx` dodac:
-- Przycisk "Dodaj zasob" (dialog z formularzem: tytul, opis, typ, kategoria, plik/link, flagi akcji)
-- Upload plikow do Supabase Storage (bucket `knowledge-files`)
-- Zapis do `knowledge_resources` z `created_by = auth.uid()`, `visible_to_everyone = false`
-- Mozliwosc edycji i usuwania swoich zasobow
-- Filtrowanie: lider widzi TYLKO zasoby gdzie `created_by = auth.uid()`
+```text
+...istniejace warunki...
+OR (created_by = auth.uid())  -- lider widzi swoje zasoby
+OR (created_by IN (SELECT get_user_leader_ids(auth.uid())))  -- czlonkowie zespolu widza zasoby lidera
+```
 
-#### 4. Biblioteka glowna -- dodatkowa zakladka zespolowa
+To jedyna zmiana potrzebna -- w jednej migracji SQL. Kod frontendu (`KnowledgeCenter.tsx`, `LeaderKnowledgeView.tsx`) jest juz prawidlowo zaimplementowany i gotowy do dzialania po naprawie RLS.
 
-W `KnowledgeCenter.tsx` dodac trzecia zakladke po "Dokumenty edukacyjne" i "Grafiki":
-- **"Baza wiedzy Zespol-S.S."** -- dynamiczna nazwa z inicjalami lidera
-- Logika:
-  1. Pobrac liste liderow uzytkownika przez RPC `get_user_leader_ids`
-  2. Dla kazdego lidera, pobrac jego zasoby z `knowledge_resources` WHERE `created_by = leader_user_id`
-  3. Pobrac nazwe zespolu z `platform_teams.custom_name` lub wygenerowac "Zespol-I.N." z inicjalow
-  4. Wyswietlic zasoby pogrupowane per zespol (jesli user ma wiele liderow)
-- Zakladka widoczna tylko gdy istnieja zasoby zespolowe
+#### 2. Pliki do zmiany
+- **Nowa migracja SQL**: DROP + CREATE polityki SELECT na `knowledge_resources` z rozszerzonymi warunkami
 
-#### 5. Nazewnictwo zespolow
-
-Funkcja pomocnicza do generowania nazwy zespolu:
-- Jesli `platform_teams.custom_name` istnieje -- uzyj jej
-- W przeciwnym razie: "Zespol-{pierwsza litera imienia}.{pierwsza litera nazwiska}." np. "Zespol-S.S." dla Sebastian Snopek
-
-Ta sama logika nazewnictwa powinna byc stosowana wszedzie, gdzie pojawia sie odniesienie do zespolu (wydarzenia, baza wiedzy, itp.).
-
-#### 6. Wydarzenia -- dodanie nazwy zespolu
-
-W widoku kalendarza/wydarzen, przy wydarzeniach typu `team_training`/`webinar` z `host_user_id`, wyswietlac badge "Zespol-S.S." zamiast ogolnego "Spotkanie zespolu".
-
-### Szczegoly techniczne
-
-**Pliki do zmiany/utworzenia:**
-
-1. **Nowa migracja SQL**: 
-   - `ALTER TABLE knowledge_resources ADD COLUMN created_by UUID`
-   - Polityki RLS dla liderow (INSERT/UPDATE/DELETE WHERE created_by = auth.uid())
-   - Utworzenie lub aktualizacja polityki SELECT (leader-created resources widoczne dla downline)
-
-2. **Nowy hook `src/hooks/useTeamName.ts`**:
-   - Pobiera nazwe zespolu lidera (custom_name lub generuje z inicjalow)
-   - Reuse'owalny w calej aplikacji
-
-3. **`src/components/leader/LeaderKnowledgeView.tsx`** (duza przebudowa):
-   - Dodanie formularza dodawania/edycji zasobow
-   - Upload plikow do Storage
-   - CRUD zasobow z `created_by` = current user
-   - Filtr: tylko zasoby `created_by = auth.uid()`
-
-4. **`src/pages/KnowledgeCenter.tsx`** (rozszerzenie):
-   - Nowa zakladka "Baza wiedzy Zespol-X.Y." 
-   - Pobranie zasobow liderow z upline
-   - Wyswietlenie z tym samym ukladem co Dokumenty/Grafiki
-
-5. **`src/types/knowledge.ts`** (rozszerzenie):
-   - Dodanie `created_by` do interfejsu `KnowledgeResource`
-
-6. **`src/integrations/supabase/types.ts`** (auto-update po migracji)
-
-7. **Komponenty wydarzen** (opcjonalnie w tej iteracji):
-   - Dodanie badge "Zespol-S.S." do kart wydarzen zespolowych
-
-### Kolejnosc implementacji
-
-1. Migracja SQL (kolumna + RLS)
-2. Hook `useTeamName`
-3. Aktualizacja typow
-4. LeaderKnowledgeView -- CRUD zasobow
-5. KnowledgeCenter -- zakladka zespolowa
-6. Badge nazwy zespolu w wydarzeniach
+#### 3. Weryfikacja
+Po naprawie:
+- Lider (S.S.) bedzie mogl dodawac zasoby w Panelu Lidera i je widziec
+- Uzytkownik `sebastiansnopek210587` (w zespole S.S.) zobaczy zakladke "Baza wiedzy Zespol-S.S." w Bibliotece
+- Zasoby administracyjne pozostana bez zmian
