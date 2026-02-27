@@ -503,6 +503,9 @@ app.get('/sw-push.js', (req, res) => {
 // Handle client-side routing (SPA)
 // All routes should return index.html to let React Router handle routing
 app.get('*', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
