@@ -70,6 +70,10 @@ export default function KnowledgeCenter() {
   const [graphicsSearchTerm, setGraphicsSearchTerm] = useState('');
   const [graphicsSortBy, setGraphicsSortBy] = useState<string>('newest');
   const [teamSearchTerm, setTeamSearchTerm] = useState('');
+  const [teamSubTab, setTeamSubTab] = useState<'documents' | 'graphics'>('documents');
+  const [teamGraphicsCategory, setTeamGraphicsCategory] = useState<string>('all');
+  const [teamGraphicsSearchTerm, setTeamGraphicsSearchTerm] = useState('');
+  const [teamDocCategory, setTeamDocCategory] = useState<string>('all');
 
   useEffect(() => {
     fetchResources();
@@ -461,28 +465,32 @@ export default function KnowledgeCenter() {
 
         {/* Main Tabs - Documents / Graphics */}
         <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'documents' | 'graphics' | 'team')} className="w-full">
-          <TabsList className="mb-6 w-full sm:w-auto flex-wrap">
-            <TabsTrigger value="documents" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Dokumenty edukacyjne
-            </TabsTrigger>
-            <TabsTrigger value="graphics" className="flex items-center gap-2">
-              <Image className="h-4 w-4" />
-              Grafiki
-              {graphicsResources.length > 0 && (
-                <Badge variant="secondary" className="ml-1 text-xs">{graphicsResources.length}</Badge>
-              )}
-            </TabsTrigger>
-            {hasTeamResources && (
-              <TabsTrigger value="team" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                {teamNames.length === 1
-                  ? `Baza wiedzy ${teamNames[0]}`
-                  : 'Baza wiedzy zespołu'}
-                <Badge variant="secondary" className="ml-1 text-xs">{teamResources.length}</Badge>
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <TabsList className="w-auto flex-wrap">
+              <TabsTrigger value="documents" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Dokumenty edukacyjne
               </TabsTrigger>
+              <TabsTrigger value="graphics" className="flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Grafiki
+                {graphicsResources.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">{graphicsResources.length}</Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+            {hasTeamResources && (
+              <TabsList className="w-auto">
+                <TabsTrigger value="team" className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  {teamNames.length === 1
+                    ? `Baza wiedzy ${teamNames[0]}`
+                    : 'Baza wiedzy zespołu'}
+                  <Badge variant="secondary" className="ml-1 text-xs">{teamResources.length}</Badge>
+                </TabsTrigger>
+              </TabsList>
             )}
-          </TabsList>
+          </div>
 
           {/* Documents Tab */}
           <TabsContent value="documents" className="space-y-6">
@@ -802,37 +810,163 @@ export default function KnowledgeCenter() {
           {/* Team Knowledge Tab */}
           {hasTeamResources && (
             <TabsContent value="team" className="space-y-6">
-              <Card>
-                <CardContent className="pt-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Szukaj w zasobach zespołu..."
-                      value={teamSearchTerm}
-                      onChange={(e) => setTeamSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Internal sub-tabs: Documents / Graphics */}
+              {(() => {
+                // Split team resources
+                const allTeamDocs = teamResources.filter(r => r.resource_type !== 'image');
+                const allTeamGraphics = teamResources.filter(r => r.resource_type === 'image');
 
-              {Array.from(teamResourcesByLeader.entries()).map(([leaderId, leaderResources]) => {
-                const tName = teamNameMap.get(leaderId) || 'Zespół';
-                const filtered = leaderResources.filter(r =>
-                  r.title.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
-                  r.description?.toLowerCase().includes(teamSearchTerm.toLowerCase())
-                );
-                if (filtered.length === 0) return null;
+                // Filter team documents
+                const filteredTeamDocs = allTeamDocs.filter(r => {
+                  const matchesSearch = r.title.toLowerCase().includes(teamSearchTerm.toLowerCase()) ||
+                    r.description?.toLowerCase().includes(teamSearchTerm.toLowerCase());
+                  const matchesCat = teamDocCategory === 'all' || r.category === teamDocCategory;
+                  return matchesSearch && matchesCat;
+                });
+
+                // Filter team graphics
+                const filteredTeamGraphics = allTeamGraphics.filter(r => {
+                  const matchesSearch = r.title.toLowerCase().includes(teamGraphicsSearchTerm.toLowerCase()) ||
+                    r.description?.toLowerCase().includes(teamGraphicsSearchTerm.toLowerCase());
+                  const matchesCat = teamGraphicsCategory === 'all' || r.category === teamGraphicsCategory;
+                  return matchesSearch && matchesCat;
+                });
+
                 return (
-                  <div key={leaderId} className="space-y-3">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Users className="h-5 w-5 text-primary" />
-                      {tName}
-                    </h2>
-                    {filtered.map(resource => renderResourceCard(resource))}
-                  </div>
+                  <>
+                    <Tabs value={teamSubTab} onValueChange={(v) => setTeamSubTab(v as 'documents' | 'graphics')}>
+                      <TabsList>
+                        <TabsTrigger value="documents" className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          Dokumenty
+                          {allTeamDocs.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 text-xs">{allTeamDocs.length}</Badge>
+                          )}
+                        </TabsTrigger>
+                        <TabsTrigger value="graphics" className="flex items-center gap-2">
+                          <Image className="h-4 w-4" />
+                          Grafiki
+                          {allTeamGraphics.length > 0 && (
+                            <Badge variant="secondary" className="ml-1 text-xs">{allTeamGraphics.length}</Badge>
+                          )}
+                        </TabsTrigger>
+                      </TabsList>
+
+                      {/* Team Documents */}
+                      <TabsContent value="documents" className="space-y-4 mt-4">
+                        <Card>
+                          <CardContent className="pt-4">
+                            <div className="flex flex-col sm:flex-row gap-4">
+                              <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                  placeholder="Szukaj dokumentów zespołu..."
+                                  value={teamSearchTerm}
+                                  onChange={(e) => setTeamSearchTerm(e.target.value)}
+                                  className="pl-10"
+                                />
+                              </div>
+                              <Select value={teamDocCategory} onValueChange={setTeamDocCategory}>
+                                <SelectTrigger className="w-full sm:w-[200px]">
+                                  <SelectValue placeholder="Kategoria" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Wszystkie kategorie</SelectItem>
+                                  {DOCUMENT_CATEGORIES.map(cat => (
+                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {(teamSearchTerm || teamDocCategory !== 'all') && (
+                                <Button variant="ghost" size="icon" onClick={() => { setTeamSearchTerm(''); setTeamDocCategory('all'); }}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {filteredTeamDocs.length === 0 ? (
+                          <Card>
+                            <CardContent className="py-12 text-center">
+                              <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                              <h3 className="text-lg font-medium mb-2">Brak dokumentów zespołu</h3>
+                              <p className="text-muted-foreground">
+                                {teamSearchTerm || teamDocCategory !== 'all'
+                                  ? 'Nie znaleziono dokumentów pasujących do kryteriów.'
+                                  : 'Lider nie dodał jeszcze dokumentów.'}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <div className="space-y-3">
+                            {filteredTeamDocs.map(resource => renderResourceCard(resource))}
+                          </div>
+                        )}
+                      </TabsContent>
+
+                      {/* Team Graphics */}
+                      <TabsContent value="graphics" className="space-y-4 mt-4">
+                        <Card>
+                          <CardContent className="pt-4">
+                            <div className="flex flex-col sm:flex-row gap-4">
+                              <div className="flex-1 relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                  placeholder="Szukaj grafik zespołu..."
+                                  value={teamGraphicsSearchTerm}
+                                  onChange={(e) => setTeamGraphicsSearchTerm(e.target.value)}
+                                  className="pl-10"
+                                />
+                              </div>
+                              <Select value={teamGraphicsCategory} onValueChange={setTeamGraphicsCategory}>
+                                <SelectTrigger className="w-full sm:w-[200px]">
+                                  <SelectValue placeholder="Kategoria" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">Wszystkie kategorie</SelectItem>
+                                  {GRAPHICS_CATEGORIES.map(cat => (
+                                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {(teamGraphicsSearchTerm || teamGraphicsCategory !== 'all') && (
+                                <Button variant="ghost" size="icon" onClick={() => { setTeamGraphicsSearchTerm(''); setTeamGraphicsCategory('all'); }}>
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+
+                        {filteredTeamGraphics.length === 0 ? (
+                          <Card>
+                            <CardContent className="py-12 text-center">
+                              <Image className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                              <h3 className="text-lg font-medium mb-2">Brak grafik zespołu</h3>
+                              <p className="text-muted-foreground">
+                                {teamGraphicsSearchTerm || teamGraphicsCategory !== 'all'
+                                  ? 'Nie znaleziono grafik pasujących do kryteriów.'
+                                  : 'Lider nie dodał jeszcze grafik.'}
+                              </p>
+                            </CardContent>
+                          </Card>
+                        ) : (
+                          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            {filteredTeamGraphics.map(graphic => (
+                              <GraphicsCard
+                                key={graphic.id}
+                                resource={graphic}
+                                onClick={() => setSelectedGraphic(graphic)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
+                  </>
                 );
-              })}
+              })()}
             </TabsContent>
           )}
         </Tabs>
