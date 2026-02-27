@@ -1,74 +1,51 @@
 
-### Diagnoza (potwierdzona)
 
-Sprawdziłem dane i kod end-to-end. Problem **nie leży już w samej polityce RLS SELECT** — ta polityka zawiera warunki:
-- `created_by = auth.uid()`
-- `created_by IN (SELECT get_user_leader_ids(auth.uid()))`
+## Przebudowa zakładki "Baza wiedzy Zespół-S.S." w Bibliotece
 
-To jest poprawne.
+### Cel
+Zakładka zespołowa ma być wizualnie oddzielona od głównych zakładek (przesunięta na prawą stronę) i wewnętrznie podzielona na "Dokumenty" i "Grafiki" -- identycznie jak w Panelu Lidera.
 
-Prawdziwa przyczyna: **RPC `get_team_knowledge_resources` wywala błąd SQL** i przez to frontend dostaje pusty zestaw danych dla zakładki zespołowej.
+### Zmiany w pliku `src/pages/KnowledgeCenter.tsx`
 
-#### Dowody z projektu
-1. W tabeli `knowledge_resources` istnieje aktywny zasób zespołowy:
-   - `created_by = 60645dff-dfb2-40db-ae3b-d8f28507658e` (lider S.S.)
-2. Użytkownik `sebastiansnopek210587@gmail.com` ma `upline_eq_id = 121118999`.
-3. `get_user_leader_ids()` dla tego użytkownika zwraca lidera `60645dff-dfb2-40db-ae3b-d8f28507658e` (czyli S.S.) — relacja zespołowa działa.
-4. `get_team_knowledge_resources(...)` zwraca błąd:
-   - odwołanie do nieistniejącej kolumny `platform_teams.is_active`
-5. Ten sam błąd został zapisany w migracji, która tworzyła funkcję (`LEFT JOIN public.platform_teams ... AND pt.is_active = true`), a w rzeczywistym schemacie `platform_teams` **nie ma kolumny `is_active`**.
+#### 1. Rozdzielenie TabsList -- zakładka zespołowa po prawej
 
-### Co trzeba naprawić
+Zamiast jednego `TabsList` z trzema zakładkami obok siebie, layout zostanie zmieniony na:
 
-#### 1) Poprawić funkcję SQL `get_team_knowledge_resources` (priorytet krytyczny)
-- Usunąć warunek `pt.is_active = true` z JOIN do `platform_teams`.
-- Zostawić logikę:
-  - tylko `kr.created_by IS NOT NULL`
-  - tylko `kr.status = 'active'`
-  - tylko liderzy z `get_user_leader_ids(p_user_id)`
+```text
+[Dokumenty edukacyjne] [Grafiki 179]     <--- przerwa --->     [Baza wiedzy Zespół-S.S. 1]
+```
 
-Efekt: RPC zacznie zwracać rekordy zespołowe, więc `hasTeamResources` w `KnowledgeCenter.tsx` stanie się `true`, a zakładka pojawi się.
+Technicznie: owinięcie TabsList w `flex justify-between`, gdzie lewa strona to dwie główne zakładki, a prawa to zakładka zespołowa.
 
-#### 2) Uodpornić frontend (`KnowledgeCenter.tsx`) na błąd RPC
-Aktualnie jeśli RPC padnie, interfejs po prostu nie pokazuje zakładki (bo dane są puste). Dodać:
-- obsługę `isError` / `error` z React Query dla `teamResourceInfos`,
-- czytelny komunikat diagnostyczny (np. toast) zamiast „cichego” braku zakładki,
-- opcjonalnie fallback: pokazać placeholder „Baza wiedzy zespołu chwilowo niedostępna”.
+#### 2. Podział wewnętrzny zakładki zespołowej na Dokumenty / Grafiki
 
-To skraca czas diagnozy przy kolejnych incydentach.
+Aktualnie zakładka "team" wyświetla wszystkie zasoby płasko (lista). Zostanie dodany wewnętrzny stan `teamSubTab` (`'documents' | 'graphics'`) z:
 
-#### 3) Poprawić `useTeamName.ts` (spójność i brak ukrytego błędu)
-Hook też filtruje `platform_teams` po `is_active`, którego nie ma:
-- usunąć `.eq('is_active', true)` w `useMyTeamName`.
-- dzięki temu nazwa zespołu nie będzie zależna od błędnego filtra.
+- **Dokumenty zespołu**: lista zasobów z `resource_type !== 'image'`, z wyszukiwarką i filtrami kategorii
+- **Grafiki zespołu**: siatka zasobów z `resource_type === 'image'`, z wyszukiwarką i filtrami kategorii, wyświetlane jako `GraphicsCard` z dialogiem udostępniania
 
-To nie blokuje samej zakładki w Bibliotece, ale usuwa drugi błąd tego samego typu.
+Układ wewnętrzny będzie analogiczny do tego, co lider widzi w `LeaderKnowledgeView`:
+- Pod-zakładki "Dokumenty" / "Grafiki" z licznikami
+- Osobne wyszukiwarki i filtry kategorii dla każdej pod-zakładki
+- Grafiki w siatce z `GraphicsCard`, dokumenty jako karty listowe
 
----
+#### 3. Nowe zmienne stanu
 
-### Sekwencja wdrożenia
+- `teamSubTab: 'documents' | 'graphics'` -- pod-zakładka wewnątrz sekcji zespołowej
+- `teamGraphicsCategory: string` -- filtr kategorii grafik zespołowych
+- `teamGraphicsSearchTerm: string` -- wyszukiwarka grafik zespołowych
+- Istniejący `teamSearchTerm` zostanie użyty dla dokumentów zespołowych
 
-1. Migracja SQL: `CREATE OR REPLACE FUNCTION get_team_knowledge_resources` (bez `pt.is_active`).
-2. Aktualizacja hooka `useTeamName.ts` (usunąć filtr po nieistniejącej kolumnie).
-3. Aktualizacja `KnowledgeCenter.tsx` o obsługę błędu RPC.
-4. Weryfikacja danych dla konta `sebastiansnopek210587`:
-   - `get_team_knowledge_resources(user_id)` zwraca zasób lidera S.S.,
-   - widoczna zakładka: **„Baza wiedzy Zespół-S.S.”**,
-   - po wejściu na zakładkę zasób jest widoczny.
+#### 4. Filtrowanie zasobów zespołowych
 
----
+Zasoby zespołowe zostaną podzielone na:
+- `teamDocuments = teamResources.filter(r => r.resource_type !== 'image')`
+- `teamGraphics = teamResources.filter(r => r.resource_type === 'image')`
 
-### Kryteria akceptacji
+Każda grupa będzie filtrowana osobno przez swoje wyszukiwarki i filtry kategorii.
 
-- Członek zespołu S.S. widzi trzecią zakładkę w `/knowledge`:
-  - **Baza wiedzy Zespół-S.S.**
-- Zakładka ma licznik > 0 gdy lider dodał materiały.
-- Lider nadal widzi wyłącznie swoje materiały w panelu lidera.
-- Brak błędów SQL związanych z `platform_teams.is_active` w RPC i hookach nazewnictwa.
+### Podsumowanie zmian
+- Jeden plik: `src/pages/KnowledgeCenter.tsx`
+- Brak zmian w bazie danych ani w innych komponentach
+- Zachowana pełna kompatybilność z istniejącą logiką RPC i RLS
 
----
-
-### Ryzyka i uwagi
-
-- To regresja po migracji (funkcja oparta o nieaktualny schemat `platform_teams`).
-- RLS dla `knowledge_resources` jest już zgodny z wymaganym modelem widoczności; obecny bug jest głównie w warstwie funkcji SQL + odporności UI.
