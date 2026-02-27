@@ -1,103 +1,105 @@
 
 
-## Widok administratora: Wszystkie zespoły w Bibliotece
+## Audyt: Dlaczego blad wystepuje na przegladarce Edge
 
-### Problem
-Administrator widzi zasoby zespołowe tak samo jak zwykły członek -- tylko jednego zespołu (swojego). Powinien widzieć **wszystkie zespoły osobno**, z mozliwoscia klikniecia w kazdy zespol i przegladania jego dokumentow i grafik.
+### Znaleziona przyczyna
 
-### Rozwiazanie
+Problem lezy w pliku `server.js` - konkretnie w **SPA fallback route** (linia 505-506):
 
-#### 1. Nowa funkcja SQL: `get_all_team_knowledge_resources` (migracja)
-
-Dla administratorow -- zwraca **wszystkie** zasoby z `knowledge_resources` gdzie `created_by IS NOT NULL`, pogrupowane z informacja o liderze i nazwie zespolu.
-
-```sql
-CREATE OR REPLACE FUNCTION public.get_all_team_knowledge_resources()
-RETURNS TABLE(
-  resource_id uuid,
-  leader_user_id uuid,
-  leader_first_name text,
-  leader_last_name text,
-  team_custom_name text
-)
-LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path TO 'public'
-SET row_security TO off
-AS $$
-BEGIN
-  IF NOT public.is_admin() THEN
-    RAISE EXCEPTION 'Access denied: admin only';
-  END IF;
-
-  RETURN QUERY
-  SELECT 
-    kr.id, kr.created_by,
-    p.first_name, p.last_name,
-    pt.custom_name
-  FROM knowledge_resources kr
-  INNER JOIN profiles p ON p.user_id = kr.created_by
-  LEFT JOIN platform_teams pt ON pt.leader_user_id = kr.created_by
-  WHERE kr.created_by IS NOT NULL AND kr.status = 'active'
-  ORDER BY kr.created_at DESC;
-END;
-$$;
+```javascript
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 ```
 
-#### 2. Zmiana logiki w `KnowledgeCenter.tsx`
+Ta trasa **nie ustawia zadnych naglowkow Cache-Control**. Porownaj z `express.static` (linia 231-234), ktory poprawnie ustawia `no-cache` dla plikow `.html`:
 
-**Dla admina:**
-- Uzyc `get_all_team_knowledge_resources()` zamiast `get_team_knowledge_resources(user_id)`
-- W zakladce "team" zamiast jednej plaskiej listy, wyswietlic **liste zespolow** (karty/akordeony)
-- Kazdy zespol to rozwijana sekcja z nazwa "Baza wiedzy Zespol-I.N." i licznikiem zasobow
-- Po kliknieciu/rozwinieciu zespolu -- wewnetrzne pod-zakladki "Dokumenty" i "Grafiki" (identycznie jak dla zwyklego czlonka)
-- Zakladka glowna "Zasoby zespolow" (zamiast "Baza wiedzy Zespol-S.S.") z lacznym licznikiem
+```javascript
+if (filePath.endsWith('.html')) {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+}
+```
 
-**Dla zwyklego czlonka zespolu:**
-- Bez zmian -- jak dotychczas
+### Dlaczego Edge jest bardziej podatny
 
-#### 3. Szczegoly implementacji UI (admin)
+1. **`express.static` obsluguje tylko bezposrednie zadania plikow** (np. `/index.html`). Ale uzytkownik wchodzi na `/dashboard`, `/knowledge` itp. -- te trasy NIE trafiaja do `express.static`, tylko do SPA fallback `app.get('*')`.
+2. SPA fallback serwuje `index.html` **bez naglowkow `Cache-Control`** -- przegladarka moze cachowac odpowiedz.
+3. Edge (Chromium) ma bardziej agresywne cachowanie odpowiedzi HTTP niz Chrome w niektorych scenariuszach -- szczegolnie na urzadzeniach z wlaczonym "Efficiency Mode" lub "Sleeping Tabs".
+4. Meta tagi `<meta http-equiv="Cache-Control">` w HTML sa **ignorowane** przez nowoczesne przegladarki -- tylko prawdziwe naglowki HTTP kontroluja cache.
 
-Struktura widoku admina w zakladce "team":
+### Lancuch zdarzen prowadzacy do bledu
 
 ```text
-[Dokumenty edukacyjne] [Grafiki 180]     <przerwa>     [Zasoby zespolow 15]
-
--- po kliknieciu --
-
-Accordion/Card per team:
-  [v] Zespol-S.S. (8 zasobow)
-      [Dokumenty 3] [Grafiki 5]
-      ... wyszukiwarka, filtry, karty/siatka ...
-
-  [>] Zespol-A.B. (7 zasobow)
+1. Uzytkownik wchodzi na /dashboard
+2. SPA fallback serwuje index.html BEZ naglowkow no-cache
+3. Edge cachuje ta odpowiedz HTML
+4. Wdrazana jest nowa wersja (nowe hashe chunkow JS)
+5. Uzytkownik wraca na strone
+6. Edge serwuje STARY HTML z cache (odnosi sie do starych chunkow)
+7. Stare chunki nie istnieja na serwerze → 404
+8. lazyWithRetry probuje 4 razy → wszystkie 404
+9. ErrorBoundary wyswietla "Cos poszlo nie tak"
+10. Auto-reload laduje ponownie stary HTML z cache → petla
 ```
 
-Kazdy rozwiniety zespol ma:
-- Wewnetrzne Tabs "Dokumenty" / "Grafiki" z licznikami
-- Wyszukiwarke i filtr kategorii (stan per-team -- uzycie lokalnego stanu w komponencie zespolu)
-- Dokumenty jako lista kart (`renderResourceCard`)
-- Grafiki jako siatka (`GraphicsCard`)
+### Dodatkowy problem: Service Worker wzmacnia efekt
 
-#### 4. Wyodrebnienie komponentu `TeamKnowledgeSection`
+Service Worker w `sw-push.js` (linia 80-84) cachuje `/assets/` z strategia **cache-first bez TTL**:
 
-Aby uniknac rozdmuchania `KnowledgeCenter.tsx`, wyodrebniony zostanie komponent `TeamKnowledgeSection` przyjmujacy:
-- `teamName: string`
-- `resources: KnowledgeResource[]`
-- `onSelectGraphic: (r: KnowledgeResource) => void`
+```javascript
+if (url.pathname.startsWith('/assets/') && /\.[a-f0-9]{8,}\./.test(url.pathname)) {
+  event.respondWith(cacheFirst(event.request, CACHE_ASSETS));
+  // brak maxAge = cache na zawsze
+}
+```
 
-Komponent sam zarzadza stanem pod-zakladek, wyszukiwarki i filtrow.
+Choc nowe chunki maja nowe hashe (wiec nie beda w cache SW), to stary `index.html` (z cache Edge) moze odwolywac sie do chunkow, ktore nigdy nie istnialy na nowym serwerze.
 
-### Pliki do zmiany
+### Plan naprawy
 
-| Plik | Zmiana |
-|------|--------|
-| Migracja SQL | Nowa funkcja `get_all_team_knowledge_resources` |
-| `src/pages/KnowledgeCenter.tsx` | Import `isAdmin` z AuthContext, warunkowe uzycie nowego RPC, widok admin vs member |
-| `src/components/knowledge/TeamKnowledgeSection.tsx` | **Nowy** -- wyodrebniony komponent sekcji zespolu (dokumenty+grafiki z filtrami) |
+#### 1. Dodac naglowki Cache-Control do SPA fallback (`server.js`, linia 505-506)
 
-### Sekwencja
+Zmiana:
+```javascript
+app.get('*', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+```
 
-1. Migracja SQL (nowa funkcja)
-2. Utworzenie `TeamKnowledgeSection.tsx`
-3. Aktualizacja `KnowledgeCenter.tsx` -- logika admin vs member, Accordion z zespolami dla admina
+To jest **krytyczna poprawka** -- gwarantuje, ze przegladarka (w tym Edge) zawsze pobierze swiezy `index.html` z serwera.
+
+#### 2. Dodac globalny middleware dla nawigacji (opcjonalnie, dodatkowe zabezpieczenie)
+
+Przed SPA fallback dodac middleware, ktory dla kazdego zadania typu `text/html` (nawigacja) ustawia naglowki no-cache:
+
+```javascript
+app.use((req, res, next) => {
+  if (req.accepts('html')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+```
+
+### Podsumowanie
+
+| Element | Status | Problem |
+|---------|--------|---------|
+| `express.static` dla `.html` | OK | Poprawne naglowki `no-cache` |
+| SPA fallback `app.get('*')` | BUG | **Brak naglowkow cache** |
+| SW cache-first dla assets | OK | Nowe hashe = nowe pliki, brak konfliktu |
+| Meta tagi w HTML | Bezuzyteczne | Ignorowane przez przegladarki |
+
+### Plik do zmiany
+
+- `server.js` -- linia 505-506: dodanie naglowkow `Cache-Control` do SPA fallback
+
+### Dlaczego to dziala na Chrome a nie na Edge
+
+Chrome czesciej wykonuje tzw. "heuristic revalidation" nawet bez jawnych naglowkow cache. Edge w trybie oszczedzania energii (Efficiency Mode) i z wlaczonymi Sleeping Tabs agresywniej cachuje odpowiedzi bez jawnych naglowkow -- uznaje je za "mozliwe do cache'owania" na dluzej. Dodanie jawnych naglowkow `no-cache` eliminuje te roznice miedzy przegladarkami.
 
