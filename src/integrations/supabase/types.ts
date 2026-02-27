@@ -3132,6 +3132,7 @@ export type Database = {
           click_redirect_url: string | null
           context_of_use: string | null
           created_at: string
+          created_by: string | null
           description: string | null
           download_count: number
           file_name: string | null
@@ -3165,6 +3166,7 @@ export type Database = {
           click_redirect_url?: string | null
           context_of_use?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           download_count?: number
           file_name?: string | null
@@ -3198,6 +3200,7 @@ export type Database = {
           click_redirect_url?: string | null
           context_of_use?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string | null
           download_count?: number
           file_name?: string | null
@@ -7445,6 +7448,16 @@ export type Database = {
         }[]
       }
       get_role_level: { Args: { role_name: string }; Returns: number }
+      get_team_knowledge_resources: {
+        Args: { p_user_id: string }
+        Returns: {
+          leader_first_name: string
+          leader_last_name: string
+          leader_user_id: string
+          resource_id: string
+          team_custom_name: string
+        }[]
+      }
       get_training_assignments_without_notification: {
         Args: never
         Returns: {
