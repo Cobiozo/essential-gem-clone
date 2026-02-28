@@ -58,8 +58,8 @@ const BLUR_PROFILES: Record<string, BlurProfile> = {
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.65,
-    personThresholdLow: 0.35,
+    personThresholdHigh: 0.75,   // tighter: keep more person pixels
+    personThresholdLow: 0.50,    // tighter: replace background more aggressively
   },
 };
 
@@ -431,13 +431,20 @@ export class VideoBackgroundProcessor {
    * Produces crystal-clear edges with no flickering.
    */
   private refineMask(mask: Float32Array, width: number, height: number) {
-    // Step 1: Pre-blur contrast — push values toward 0/1
-    contrastMask(mask, 7);
+    const isImageMode = this.mode === 'image';
+
+    // Step 1: Pre-blur contrast — push values toward 0/1 (stronger for image mode)
+    contrastMask(mask, isImageMode ? 10 : 7);
 
     // Step 2: Single erode/dilate pass — removes thin halo artifacts
     this.erodeDilateMask(mask, width, height);
 
-    // Step 3: Spatial smoothing via canvas blur (3px)
+    // Step 2b: Extra erode pass for image mode — tightens edges to cut furniture bleed
+    if (isImageMode) {
+      this.erodeMaskOnly(mask, width, height);
+    }
+
+    // Step 3: Spatial smoothing via canvas blur (smaller for image mode to keep edges sharp)
     if (this.maskCtx && this.maskCanvas) {
       if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
         this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
@@ -454,7 +461,7 @@ export class VideoBackgroundProcessor {
       this.maskCtx.filter = 'none';
       this.maskCtx.putImageData(imgData, 0, 0);
 
-      this.maskCtx.filter = 'blur(3px)';
+      this.maskCtx.filter = isImageMode ? 'blur(1.5px)' : 'blur(3px)';
       this.maskCtx.drawImage(this.maskCanvas, 0, 0);
       this.maskCtx.filter = 'none';
 
@@ -464,8 +471,8 @@ export class VideoBackgroundProcessor {
       }
     }
 
-    // Step 4: Post-blur contrast — restore sharp edges after blur softened them
-    contrastMask(mask, 5);
+    // Step 4: Post-blur contrast — restore sharp edges (stronger for image mode)
+    contrastMask(mask, isImageMode ? 8 : 5);
 
     // Step 5: Temporal smoothing — blend with previous frame (30/70) for smooth edges without motion lag
     if (!this.previousMask || this.previousMask.length !== mask.length) {
@@ -519,6 +526,28 @@ export class VideoBackgroundProcessor {
     }
   }
   private _morphBuffer: Float32Array | null = null;
+  private _erodeBuffer: Float32Array | null = null;
+
+  /** Extra erode-only pass for image mode — shrinks person mask slightly to cut edge bleed */
+  private erodeMaskOnly(mask: Float32Array, width: number, height: number) {
+    const len = mask.length;
+    if (!this._erodeBuffer || this._erodeBuffer.length !== len) {
+      this._erodeBuffer = new Float32Array(len);
+    }
+    const tmp = this._erodeBuffer;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        let minVal = mask[idx];
+        if (x > 0) minVal = Math.min(minVal, mask[idx - 1]);
+        if (x < width - 1) minVal = Math.min(minVal, mask[idx + 1]);
+        if (y > 0) minVal = Math.min(minVal, mask[idx - width]);
+        if (y < height - 1) minVal = Math.min(minVal, mask[idx + width]);
+        tmp[idx] = minVal;
+      }
+    }
+    mask.set(tmp);
+  }
 
   private applyBlur(frame: ImageData, mask: Float32Array, width: number, height: number) {
     const profile = BLUR_PROFILES[this.mode] || BLUR_PROFILES['blur-light'];

@@ -19,40 +19,58 @@ export function useCustomBackgrounds() {
 
   const listBackgrounds = useCallback(async () => {
     console.log('[useCustomBackgrounds] listBackgrounds called, user:', user?.id ?? 'null');
-    if (!user) return;
+    if (!user) {
+      setCustomImages([]);
+      return;
+    }
     setIsLoading(true);
     try {
       const { data, error } = await supabase.storage.from(BUCKET).list(user.id, {
         limit: 100,
-        sortBy: { column: 'created_at', order: 'asc' },
       });
-      if (error) throw error;
-      const urls = (data || [])
-        .filter(f => f.name && !f.name.startsWith('.'))
-        .map(f => getPublicUrl(`${user.id}/${f.name}`));
+      if (error) {
+        console.error('[useCustomBackgrounds] List error details:', error.message);
+        if (error.message?.includes('Bucket not found')) {
+          throw new Error('Bucket "meeting-backgrounds" nie istnieje.');
+        }
+        if (error.message?.includes('row-level security') || error.message?.includes('Unauthorized')) {
+          throw new Error('Brak uprawnień do odczytu teł.');
+        }
+        throw error;
+      }
+      const files = (data || []).filter(f => f.name && !f.name.startsWith('.'));
+      // Sort by name (timestamp-based filenames) on client side
+      files.sort((a, b) => a.name.localeCompare(b.name));
+      const urls = files.map(f => getPublicUrl(`${user.id}/${f.name}`));
       console.log('[useCustomBackgrounds] Found', urls.length, 'backgrounds');
       setCustomImages(urls);
     } catch (err) {
       console.error('[useCustomBackgrounds] List failed:', err);
+      throw err;
     } finally {
       setIsLoading(false);
     }
   }, [user, getPublicUrl]);
 
   useEffect(() => {
-    listBackgrounds();
+    listBackgrounds().catch(() => {});
   }, [listBackgrounds]);
 
   const uploadImage = useCallback(async (file: File) => {
     if (!user) throw new Error('Not authenticated');
-    if (customImages.length >= MAX_BACKGROUNDS) {
-      throw new Error(`Maksymalnie ${MAX_BACKGROUNDS} własnych teł. Usuń jedno, aby dodać nowe.`);
-    }
     if (!file.type.startsWith('image/')) {
       throw new Error('Tylko pliki graficzne są dozwolone.');
     }
     if (file.size > MAX_FILE_SIZE) {
       throw new Error('Plik jest za duży (max 5MB).');
+    }
+
+    // Server-side limit validation
+    const { data: existing, error: listErr } = await supabase.storage.from(BUCKET).list(user.id, { limit: 100 });
+    if (listErr) throw listErr;
+    const existingCount = (existing || []).filter(f => f.name && !f.name.startsWith('.')).length;
+    if (existingCount >= MAX_BACKGROUNDS) {
+      throw new Error(`Maksymalnie ${MAX_BACKGROUNDS} własnych teł. Usuń jedno, aby dodać nowe.`);
     }
 
     setIsUploading(true);
@@ -76,16 +94,16 @@ export function useCustomBackgrounds() {
         throw error;
       }
 
+      // Refresh list — propagate errors so caller knows if refresh failed
       await listBackgrounds();
       return getPublicUrl(path);
     } finally {
       setIsUploading(false);
     }
-  }, [user, customImages.length, listBackgrounds, getPublicUrl]);
+  }, [user, listBackgrounds, getPublicUrl]);
 
   const deleteImage = useCallback(async (url: string) => {
     if (!user) return;
-    // Extract path from public URL
     const bucketPath = url.split(`/storage/v1/object/public/${BUCKET}/`)[1];
     if (!bucketPath) return;
 
