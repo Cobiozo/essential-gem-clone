@@ -32,7 +32,7 @@ const MOBILE_PROFILE: PerformanceProfile = {
 };
 
 const DESKTOP_PROFILE: PerformanceProfile = {
-  maxProcessWidth: 720,
+  maxProcessWidth: 960,
   segmentationIntervalMs: 66,
   outputFps: 24,
   overloadThresholdMs: 250,
@@ -48,18 +48,18 @@ interface BlurProfile {
 const BLUR_PROFILES: Record<string, BlurProfile> = {
   'blur-light': {
     blurRadius: 6,
-    personThresholdHigh: 0.70,
-    personThresholdLow: 0.45,
+    personThresholdHigh: 0.75,
+    personThresholdLow: 0.50,
   },
   'blur-heavy': {
     blurRadius: 20,
-    personThresholdHigh: 0.65,
-    personThresholdLow: 0.40,
+    personThresholdHigh: 0.70,
+    personThresholdLow: 0.45,
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.70,
-    personThresholdLow: 0.45,
+    personThresholdHigh: 0.75,
+    personThresholdLow: 0.50,
   },
 };
 
@@ -432,10 +432,10 @@ export class VideoBackgroundProcessor {
    */
   private refineMask(mask: Float32Array, width: number, height: number) {
     // Step 1: Pre-blur contrast — aggressively push values toward 0/1
-    contrastMask(mask, 8);
+    contrastMask(mask, 10);
 
-    // Step 2: Erode (shrink person mask 1px) then Dilate (grow back 1px)
-    // This removes thin "halo" artifacts at edges
+    // Step 2: Double erode then double dilate for stronger halo removal (2-3px wide)
+    this.erodeDilateMask(mask, width, height);
     this.erodeDilateMask(mask, width, height);
 
     // Step 3: Spatial smoothing via canvas blur (3px)
@@ -455,7 +455,7 @@ export class VideoBackgroundProcessor {
       this.maskCtx.filter = 'none';
       this.maskCtx.putImageData(imgData, 0, 0);
 
-      this.maskCtx.filter = 'blur(3px)';
+      this.maskCtx.filter = 'blur(2px)';
       this.maskCtx.drawImage(this.maskCanvas, 0, 0);
       this.maskCtx.filter = 'none';
 
@@ -466,15 +466,15 @@ export class VideoBackgroundProcessor {
     }
 
     // Step 4: Post-blur contrast — restore sharp edges after blur softened them
-    contrastMask(mask, 6);
+    contrastMask(mask, 8);
 
-    // Step 5: Temporal smoothing — blend with previous frame (35/65) to eliminate flickering
+    // Step 5: Temporal smoothing — blend with previous frame (40/60) to eliminate flickering
     if (!this.previousMask || this.previousMask.length !== mask.length) {
       this.previousMask = new Float32Array(mask.length);
       this.previousMask.set(mask);
     } else {
       for (let i = 0; i < mask.length; i++) {
-        mask[i] = this.previousMask[i] * 0.35 + mask[i] * 0.65;
+        mask[i] = this.previousMask[i] * 0.40 + mask[i] * 0.60;
         this.previousMask[i] = mask[i];
       }
     }
@@ -679,13 +679,13 @@ export class VideoBackgroundProcessor {
       this.profile.segmentationIntervalMs = count >= 2 ? 150 : 100;
     } else {
       if (count >= 4) {
-        this.profile.maxProcessWidth = 320;
+        this.profile.maxProcessWidth = 480;
         this.profile.segmentationIntervalMs = 120;
       } else if (count >= 2) {
-        this.profile.maxProcessWidth = 480;
+        this.profile.maxProcessWidth = 640;
         this.profile.segmentationIntervalMs = 100;
       } else {
-        this.profile.maxProcessWidth = 720;
+        this.profile.maxProcessWidth = 960;
         this.profile.segmentationIntervalMs = 66;
       }
     }

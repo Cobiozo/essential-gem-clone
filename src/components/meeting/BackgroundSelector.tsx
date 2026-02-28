@@ -51,6 +51,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild disabled={isLoading}>
         {trigger}
@@ -138,7 +139,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
             ))}
             {customImages.length < maxCustom && (
               <DropdownMenuItem
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setTimeout(() => fileInputRef.current?.click(), 50)}
                 className="flex items-center gap-2 cursor-pointer text-zinc-300"
                 disabled={isUploading}
               >
@@ -146,13 +147,6 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
                 {isUploading ? 'Przesyłanie...' : 'Dodaj tło'}
               </DropdownMenuItem>
             )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileChange}
-            />
           </>
         )}
 
@@ -164,5 +158,15 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={handleFileChange}
+    />
+    </>
   );
 };
+
+
