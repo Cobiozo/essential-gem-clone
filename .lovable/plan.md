@@ -1,79 +1,72 @@
 
-
-## Naprawa: automatyczne przywracanie sesji po odswiezeniu strony
+## Naprawa: badge nieprzeczytanych wiadomosci czatu w webinarze
 
 ### Problem
 
-Po odswiezeniu strony (F5 / pull-to-refresh) stan `status` zaczyna od `'loading'`, weryfikacja ustawia go na `'lobby'` i uzytkownik musi ponownie kliknac "Dolacz do spotkania". Nie ma zadnego mechanizmu zapamietywania, ze uzytkownik byl juz w pokoju.
+Komponent `MeetingChat` jest renderowany tylko gdy `isChatOpen === true` (linia 1753 w VideoRoom.tsx):
+
+```text
+{isChatOpen && (user || guestMode) && (
+  <MeetingChat ... onNewMessage={handleNewChatMessage} />
+)}
+```
+
+Subskrypcja realtime na nowe wiadomosci (`supabase.channel`) zyje wewnatrz `MeetingChat`. Gdy czat jest zamkniety, komponent nie istnieje, subskrypcja nie istnieje, `onNewMessage` nigdy nie jest wywolywane -- badge zawsze pokazuje 0.
 
 ### Rozwiazanie
 
-Uzyc `sessionStorage` do zapamietania stanu "joined" oraz ustawien audio/video. Po odswiezeniu, jesli sesja istnieje i uzytkownik ma dostep, automatycznie pominac lobby i przejsc bezposrednio do `VideoRoom`.
+Wyniesc subskrypcje realtime z `MeetingChat` do `VideoRoom.tsx`, aby dzialala niezaleznie od tego czy panel czatu jest otwarty.
 
 ### Zmiany
 
-**Plik: `src/pages/MeetingRoom.tsx`**
+**Plik: `src/components/meeting/VideoRoom.tsx`**
 
-1. **Zapisywanie sesji przy dolaczeniu** -- w `handleJoin` zapisac do `sessionStorage` informacje o aktywnej sesji:
+1. Dodac nowy `useEffect` z subskrypcja na `meeting_chat_messages` (INSERT, filter `room_id`), ktory:
+   - Sprawdza czy wiadomosc nie jest od biezacego uzytkownika (porownanie `user_id` / `guest_token_id`)
+   - Jesli czat jest zamkniety (`isChatOpenRef`), inkrementuje `unreadChatCount`
+   - Uzyc `useRef` dla `isChatOpen` aby uniknac problemu stale closure w callbacku subskrypcji
+
+2. Dodac `isChatOpenRef = useRef(isChatOpen)` synchronizowany przez `useEffect`:
    ```text
-   sessionStorage.setItem(`meeting_session_${roomId}`, JSON.stringify({
-     audioEnabled: audio,
-     videoEnabled: video,
-     settings: settings || null,
-     joinedAt: Date.now()
-   }));
+   const isChatOpenRef = useRef(isChatOpen);
+   useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
    ```
 
-2. **Usuwanie sesji przy wyjsciu** -- w `handleLeave` usunac wpis:
+3. Nowy useEffect subskrypcji (obok istniejacego kodu):
    ```text
-   sessionStorage.removeItem(`meeting_session_${roomId}`);
+   useEffect(() => {
+     const channel = supabase
+       .channel(`meeting-chat-unread:${roomId}`)
+       .on('postgres_changes', {
+         event: 'INSERT',
+         schema: 'public',
+         table: 'meeting_chat_messages',
+         filter: `room_id=eq.${roomId}`,
+       }, (payload) => {
+         const msg = payload.new;
+         const isOwn = guestTokenId
+           ? msg.guest_token_id === guestTokenId
+           : msg.user_id === user?.id;
+         if (!isOwn && !isChatOpenRef.current) {
+           setUnreadChatCount(prev => prev + 1);
+         }
+       })
+       .subscribe();
+     return () => { supabase.removeChannel(channel); };
+   }, [roomId, user?.id, guestTokenId]);
    ```
 
-3. **Auto-rejoin po weryfikacji dostepu** -- w obu useEffect-ach (authenticated i guest), po pomyslnej weryfikacji sprawdzic czy istnieje zapisana sesja w `sessionStorage`. Jesli tak (i nie starsza niz 5 minut):
-   - Zamiast ustawiac `status = 'lobby'`, od razu wywolac logike dolaczania (ustawic `audioEnabled`, `videoEnabled`, `initialSettings` z zapisanych danych i ustawic `status = 'joined'`)
-   - Dla hosta: odtworzyc rowniez `meetingSettings`
-   - Lobby stream nie bedzie dostepny (bo strona sie odswiezyla), wiec `VideoRoom` sam pobierze nowy strumien z kamery/mikrofonu (to juz dziala -- fallback w `init` gdy `initialStream` jest null)
+4. W `handleToggleChat` -- logika zerowania juz istnieje (linia 1592), wiec wystarczy zachowac obecne zachowanie.
 
-4. **Walidacja wieku sesji** -- jesli `joinedAt` jest starsze niz 5 minut, zignorowac zapisana sesje i pokazac lobby normalnie. Zapobiega to auto-rejoin do dawno zakonczonych spotkan.
+**Plik: `src/components/meeting/MeetingChat.tsx`**
 
-5. **Obsluga password-gate** -- jesli spotkanie wymaga hasla, a uzytkownik ma zapisana sesje (wczesniej juz podal haslo), pominac bramke hasla i przejsc do joined.
+Bez zmian -- `onNewMessage` moze zostac jako dodatkowe zabezpieczenie (gdy czat jest otwarty i wiadomosc przyjdzie zanim subskrypcja z VideoRoom ja przetworzy), ale glowna logika nieprzeczytanych bedzie w VideoRoom.
 
-### Diagram przeplywu
-
-```text
-Odswiezenie strony
-      |
-  status = 'loading'
-      |
-  Weryfikacja dostepu (istniejacy useEffect)
-      |
-  Dostep OK?
-      |
-  +---+---+
-  |       |
- TAK     NIE -> unauthorized/error (bez zmian)
-  |
-  Czy sessionStorage ma meeting_session_{roomId}?
-  |
-  +---+---+
-  |       |
- TAK     NIE -> status = 'lobby' (bez zmian)
-  |
-  Czy joinedAt < 5 min temu?
-  |
-  +---+---+
-  |       |
- TAK     NIE -> usun stara sesje, status = 'lobby'
-  |
-  Przywroc audio/video/settings
-  status = 'joined' (pomija lobby)
-```
-
-### Pliki do modyfikacji
+### Podsumowanie
 
 | Plik | Zmiana |
 |------|--------|
-| `src/pages/MeetingRoom.tsx` | Zapis sesji w handleJoin, usuwanie w handleLeave, auto-rejoin w useEffect weryfikacji |
+| `VideoRoom.tsx` | Nowy useEffect z subskrypcja realtime na nowe wiadomosci czatu |
+| `VideoRoom.tsx` | Nowy ref `isChatOpenRef` do sledzenia stanu panelu |
 
-Jedna zmiana w jednym pliku -- minimalne ryzyko regresji. `VideoRoom` nie wymaga zmian, bo juz obsluguje brak `initialStream` (pobiera nowy strumien w `init`).
-
+Jedna zmiana w jednym pliku, minimalne ryzyko regresji. Subskrypcja zyje przez caly czas trwania spotkania niezaleznie od widocznosci panelu czatu.
