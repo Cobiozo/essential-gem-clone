@@ -1748,14 +1748,38 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // Background change handler
   const handleBackgroundChange = useCallback(async (newMode: BackgroundMode, imageSrc?: string) => {
+    // Guard: camera must be on for background effects
+    if (newMode !== 'none' && isCameraOff) {
+      toast({ title: 'Włącz kamerę', description: 'Aby użyć efektów tła, najpierw włącz kamerę.', variant: 'destructive' });
+      return;
+    }
+
     const stream = localStreamRef.current;
     if (!stream) return;
+
+    // Check if stream is dead — reacquire if needed
+    const currentVideoTrack = stream.getVideoTracks()[0];
+    if (newMode !== 'none' && (!currentVideoTrack || currentVideoTrack.readyState === 'ended')) {
+      toast({ title: 'Odzyskiwanie kamery...', description: 'Strumień wideo wygasł, próbuję ponownie.' });
+      try {
+        const freshStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        localStreamRef.current = freshStream;
+        setLocalStream(freshStream);
+        updateRawStream(freshStream);
+      } catch (e) {
+        console.error('[VideoRoom] Failed to reacquire stream:', e);
+        toast({ title: 'Błąd kamery', description: 'Nie udało się odzyskać strumienia wideo.', variant: 'destructive' });
+        return;
+      }
+    }
+
     try {
       // Ensure raw stream is up-to-date before applying new effect
-      if (!(stream as any).__bgProcessed) {
-        updateRawStream(stream);
+      const activeStream = localStreamRef.current!;
+      if (!(activeStream as any).__bgProcessed) {
+        updateRawStream(activeStream);
       }
-      const processedStream = await applyBackground(stream, newMode, imageSrc);
+      const processedStream = await applyBackground(activeStream, newMode, imageSrc);
       // Always update local stream and tracks at peers
       localStreamRef.current = processedStream;
       setLocalStream(processedStream);
@@ -1768,8 +1792,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }
     } catch (err) {
       console.error('[VideoRoom] Background change failed:', err);
+      toast({ title: 'Błąd efektu tła', description: 'Nie udało się zastosować efektu. Spróbuj ponownie.', variant: 'destructive' });
     }
-  }, [applyBackground, updateRawStream]);
+  }, [applyBackground, updateRawStream, isCameraOff, toast]);
 
   // Persist viewMode to sessionStorage
   useEffect(() => {

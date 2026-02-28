@@ -131,11 +131,11 @@ export class VideoBackgroundProcessor {
     this.initPromise = (async () => {
       try {
         const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
         );
         const modelOptions = {
           baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite',
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
             delegate: 'GPU' as const,
           },
           runningMode: 'VIDEO' as const,
@@ -179,7 +179,15 @@ export class VideoBackgroundProcessor {
     await this.initialize();
 
     const videoTrack = inputStream.getVideoTracks()[0];
-    if (!videoTrack) return inputStream;
+    if (!videoTrack || videoTrack.readyState === 'ended') {
+      console.warn('[BackgroundProcessor] No live video track available, returning input stream');
+      return inputStream;
+    }
+    // Temporarily enable track if disabled (needed for canvas capture)
+    const wasDisabled = !videoTrack.enabled;
+    if (wasDisabled) {
+      videoTrack.enabled = true;
+    }
 
     const settings = videoTrack.getSettings();
     const srcWidth = settings.width || 640;
@@ -565,6 +573,10 @@ export class VideoBackgroundProcessor {
       }
     }
     console.log(`[BackgroundProcessor] Participant count: ${count}, maxProcessWidth: ${this.profile.maxProcessWidth}, segInterval: ${this.profile.segmentationIntervalMs}ms`);
+  }
+
+  isReady(): boolean {
+    return this.segmenter !== null && this.isRunning;
   }
 
   getMode(): BackgroundMode {
