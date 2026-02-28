@@ -36,6 +36,7 @@ interface VideoRoomProps {
   initialSettings?: MeetingSettings;
   guestMode?: boolean;
   guestTokenId?: string;
+  initialStream?: MediaStream | null;
 }
 
 const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
@@ -64,6 +65,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   initialSettings,
   guestMode = false,
   guestTokenId,
+  initialStream = null,
 }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -680,21 +682,28 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     const init = async () => {
       try {
         let stream: MediaStream;
-        try {
-          const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-          const videoConstraints: MediaTrackConstraints = isMob
-            ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-            : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
-        } catch {
+        // Try to reuse the lobby stream (preserves user gesture context)
+        const lobbyStreamAlive = initialStream?.getTracks().some(t => t.readyState === 'live');
+        if (initialStream && lobbyStreamAlive) {
+          console.log('[VideoRoom] Reusing lobby stream');
+          stream = initialStream;
+        } else {
           try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-          } catch {
-            const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-            const videoConstraints2: MediaTrackConstraints = isMob2
+            const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            const videoConstraints: MediaTrackConstraints = isMob
               ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
               : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-            stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
+          } catch {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
+            } catch {
+              const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+              const videoConstraints2: MediaTrackConstraints = isMob2
+                ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+                : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+              stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
+            }
           }
         }
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
