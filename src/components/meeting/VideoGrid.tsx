@@ -89,10 +89,44 @@ const VideoTile: React.FC<{
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoRef.current && participant.stream) {
-      videoRef.current.srcObject = participant.stream;
-      playVideoSafe(videoRef.current, !!participant.isLocal, onAudioBlocked);
-    }
+    const video = videoRef.current;
+    if (!video || !participant.stream) return;
+    video.srcObject = participant.stream;
+    playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+
+    // Retry play when metadata loads (stream may not be ready immediately)
+    const handleLoaded = () => {
+      if (video.paused && video.srcObject) {
+        playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+      }
+    };
+    video.addEventListener('loadedmetadata', handleLoaded);
+    video.addEventListener('loadeddata', handleLoaded);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoaded);
+      video.removeEventListener('loadeddata', handleLoaded);
+    };
+  }, [participant.stream, onAudioBlocked]);
+
+  // Observe track changes within existing stream (reconnect scenarios)
+  useEffect(() => {
+    const stream = participant.stream;
+    const video = videoRef.current;
+    if (!stream || !video) return;
+
+    const handleTrackChange = () => {
+      if (video.srcObject !== stream) video.srcObject = stream;
+      playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+    };
+
+    stream.addEventListener('addtrack', handleTrackChange);
+    stream.addEventListener('removetrack', handleTrackChange);
+
+    return () => {
+      stream.removeEventListener('addtrack', handleTrackChange);
+      stream.removeEventListener('removetrack', handleTrackChange);
+    };
   }, [participant.stream, onAudioBlocked]);
 
   useEffect(() => {
@@ -163,10 +197,23 @@ const ThumbnailTile: React.FC<{
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoRef.current && participant.stream) {
-      videoRef.current.srcObject = participant.stream;
-      playVideoSafe(videoRef.current, !!participant.isLocal);
-    }
+    const video = videoRef.current;
+    if (!video || !participant.stream) return;
+    video.srcObject = participant.stream;
+    playVideoSafe(video, !!participant.isLocal);
+
+    const handleLoaded = () => {
+      if (video.paused && video.srcObject) {
+        playVideoSafe(video, !!participant.isLocal);
+      }
+    };
+    video.addEventListener('loadedmetadata', handleLoaded);
+    video.addEventListener('loadeddata', handleLoaded);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoaded);
+      video.removeEventListener('loadeddata', handleLoaded);
+    };
   }, [participant.stream]);
 
   const showVideo = participant.isLocal
@@ -409,10 +456,23 @@ const MultiSpeakerLayout: React.FC<{
 const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean }> = ({ participant, isCameraOff }) => {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    if (ref.current && participant.stream) {
-      ref.current.srcObject = participant.stream;
-      playVideoSafe(ref.current, !!participant.isLocal);
-    }
+    const video = ref.current;
+    if (!video || !participant.stream) return;
+    video.srcObject = participant.stream;
+    playVideoSafe(video, !!participant.isLocal);
+
+    const handleLoaded = () => {
+      if (video.paused && video.srcObject) {
+        playVideoSafe(video, !!participant.isLocal);
+      }
+    };
+    video.addEventListener('loadedmetadata', handleLoaded);
+    video.addEventListener('loadeddata', handleLoaded);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoaded);
+      video.removeEventListener('loadeddata', handleLoaded);
+    };
   }, [participant.stream]);
 
   const showVideo = participant.isLocal
