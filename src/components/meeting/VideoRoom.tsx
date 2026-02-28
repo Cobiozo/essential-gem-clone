@@ -109,12 +109,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     applyBackground,
     stopBackground,
     updateRawStream,
+    setParticipantCount: setBgParticipantCount,
     backgroundImages,
   } = useVideoBackground();
 
   // === Zmiana A: participantsRef synced with state ===
   const participantsRef = useRef<RemoteParticipant[]>([]);
   useEffect(() => { participantsRef.current = participants; }, [participants]);
+
+  // Sync participant count to background processor for adaptive quality
+  useEffect(() => { setBgParticipantCount(participants.length); }, [participants.length, setBgParticipantCount]);
 
   // === Zmiana C: isScreenSharingRef synced with state ===
   const isScreenSharingRef = useRef(false);
@@ -736,6 +740,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         stream.getVideoTracks().forEach(t => (t.enabled = initialVideo));
         localStreamRef.current = stream;
         setLocalStream(stream);
+        updateRawStream(stream);
 
         // Track ended listeners for auto re-acquire on mobile
         stream.getTracks().forEach(track => {
@@ -1241,6 +1246,27 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
         if (sender && videoTrack) sender.replaceTrack(videoTrack);
       });
+
+      // Re-apply background effect if it was active
+      updateRawStream(stream);
+      if (bgMode !== 'none') {
+        try {
+          const processedStream = await applyBackground(stream, bgMode, bgSelectedImage);
+          if (processedStream !== stream) {
+            localStreamRef.current = processedStream;
+            setLocalStream(processedStream);
+            const processedVideoTrack = processedStream.getVideoTracks()[0];
+            if (processedVideoTrack) {
+              connectionsRef.current.forEach((conn) => {
+                const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
+                if (sender) sender.replaceTrack(processedVideoTrack);
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('[VideoRoom] Failed to re-apply bg after restoreCamera:', e);
+        }
+      }
     } catch (err) {
       console.error('[VideoRoom] Failed to restore camera:', err);
       // Zmiana 3: fallback to audio-only if camera unavailable

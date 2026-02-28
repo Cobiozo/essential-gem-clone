@@ -103,6 +103,12 @@ export function useVideoBackground() {
     // Don't clear rawStreamRef - camera is still alive
   }, []);
 
+  const setParticipantCount = useCallback((count: number) => {
+    if (processorRef.current) {
+      processorRef.current.setParticipantCount(count);
+    }
+  }, []);
+
   return {
     mode,
     selectedImage,
@@ -111,6 +117,7 @@ export function useVideoBackground() {
     applyBackground,
     stopBackground,
     updateRawStream,
+    setParticipantCount,
     backgroundImages: BACKGROUND_IMAGES,
   };
 }
