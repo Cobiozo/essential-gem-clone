@@ -1,57 +1,75 @@
 
 
-## Naprawa dzwieku podczas udostepniania ekranu
+## Naprawa echa: "slyszę siebie" podczas udostepniania ekranu
 
-### Zidentyfikowane problemy
+### Przyczyna
 
-1. **Screen share video jest hardcoded `muted`**: W `ScreenShareLayout` (VideoGrid.tsx, linia 674) element `<video>` ma atrybut `muted` na stale. Jesli ktos udostepnia karte przegladarki z dzwiekiem, ten dzwiek nigdy nie bedzie odtwarzany.
+Ostatnia poprawka audio dodala do `playVideoSafe` logike:
+```
+if (userHasInteracted) video.muted = false;
+```
 
-2. **Autoplay policy blokuje dzwiek cichaco**: Gdy `playVideoSafe` napotka blokade autoplay, ustawia `video.muted = true` i gra wideo bez dzwieku. To samo robi `AudioElement`. Baner "Dotknij aby wlaczyc dzwiek" pojawia sie, ale:
-   - Jest latwo przeoczalny (maly, na gorze ekranu)
-   - Nowe elementy video dodane po kliknieciu banera (np. nowy uczestnik, nowy screen share) moga znowu byc muted
-   - Unlock nie obsluguje elementow dodanych dynamicznie po pierwszym uzyciu
-
-3. **Brak trwalego odblokowania audio**: Po pierwszym kliknieciu/dotknieciu w dowolnym miejscu okna (nie tylko banera), system powinien zapamietac ze uzytkownik juz wchodzil w interakcje i nie wyciszac nowych elementow.
+To **nadpisuje** celowe wyciszenie kafelkow wideo w trybach Speaker i Multi-Speaker. W tych trybach audio jest odtwarzane przez oddzielne ukryte elementy `<video>` (AudioElement), a kafelki sa celowo wyciszane dla poprawnego dzialania AEC (echo cancellation). Gdy `playVideoSafe` wymusza `muted=false`, audio gra zarowno z kafelka, jak i z AudioElement — co powoduje echo (uzytkownik slyszy siebie).
 
 ### Rozwiazanie
 
-**Plik 1: `src/components/meeting/VideoGrid.tsx`**
+Zmienic `playVideoSafe` tak, aby **nie nadpisywalo** stanu `muted` ustawionego wczesniej przez komponent. Logika "sprobuj z dzwiekiem jesli uzytkownik juz kliknal" powinna dzialac **tylko** dla elementow, ktore nie zostaly celowo wyciszone.
 
-1. **`ScreenShareLayout`** — usunac hardcoded `muted` z video ekranu. Zamiast tego uzyc dynamicznego `muted` opartego na flagi interakcji uzytkownika:
-   - Dodac prop `isAudioUnlocked` do ScreenShareLayout
-   - Video bedzie `muted={!isAudioUnlocked}`, co pozwoli odtwarzac audio z udostepnianego ekranu po interakcji uzytkownika
+### Zmiany
 
-2. **`playVideoSafe`** — dodac sprawdzanie globalnej flagi `userHasInteracted`:
-   - Jesli uzytkownik juz kliknal/dotknal strone, probowac `play()` z `muted=false` bezposrednio
-   - Jesli blad — dopiero wtedy fallback do muted + baner
+**Plik: `src/components/meeting/VideoGrid.tsx`**
 
-3. **`AudioElement`** — analogiczna zmiana: jesli `userHasInteracted` jest true, nie wyciszac
+1. **`playVideoSafe`** — nie ustawiac `video.muted = false` bezwarunkowo. Zamiast tego: jesli video jest juz `muted` (ustawione przez komponent, np. `video.muted = !playAudio`), nie zmieniac tego. Flaga `userHasInteracted` powinna wplywac tylko na elementy, ktore nie maja jawnego wyciszenia:
 
-4. **Dodac globalny tracker interakcji** (na poziomie modulu):
-   ```text
-   let userHasInteracted = false;
-   const markInteracted = () => { userHasInteracted = true; };
-   // ustawiane przez click/touchstart/keydown na document
-   ```
+```
+const playVideoSafe = async (
+  video: HTMLVideoElement, 
+  isLocal: boolean, 
+  onAudioBlocked?: () => void
+) => {
+  if (isLocal) {
+    video.play().catch(() => {});
+    return;
+  }
+  // Respect the muted state already set by the component.
+  // Only try unmuted play for elements that weren't explicitly muted.
+  try {
+    await video.play();
+  } catch {
+    video.muted = true;
+    try {
+      await video.play();
+      console.warn('[VideoGrid] Autoplay blocked — playing muted');
+      onAudioBlocked?.();
+    } catch (e2) {
+      console.error('[VideoGrid] Even muted play() failed:', e2);
+    }
+  }
+};
+```
 
-**Plik 2: `src/components/meeting/VideoRoom.tsx`**
+2. **`AudioElement`** — analogicznie: usunac nadpisywanie `el.muted = false`. AudioElement i tak powinien grac z dzwiekiem (nie jest celowo wyciszany), wiec wystarczy nie ustawiac `muted = true` na start:
 
-1. **Rozszerzyc handler unlockAudio** aby:
-   - Ustawic globalna flage `userHasInteracted = true`
-   - Unmutowac WSZYSTKIE elementy video (lacznie z nowo dodanymi)
-   - Automatycznie ukryc baner
+```
+// Zamiast: if (userHasInteracted) el.muted = false;
+// Po prostu: nie ustawiac muted na poczatku (domyslnie false)
+el.play().catch(() => {
+  el.muted = true;
+  el.play().then(() => {
+    onAudioBlocked?.();
+  }).catch(() => {});
+});
+```
 
-2. **Dodac listener na `click` i `touchstart`** na poziomie calego komponentu (juz istnieje, ale trzeba go rozszerzyc o ustawienie flagi globalnej)
+3. **`ScreenShareLayout`** — bez zmian. Video ekranu ma juz `muted={!shouldUnmute}` kontrolowane przez `isAudioUnlocked`/`userHasInteracted`, co jest poprawne (screen share nie jest czescia AEC pipeline).
 
-3. **Przekazac flage `isAudioUnlocked`** do `VideoGrid` aby `ScreenShareLayout` mogl ja wykorzystac
-
-### Pliki do modyfikacji
+### Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoGrid.tsx` | Globalna flaga interakcji, dynamiczny muted na screen share, lepszy playVideoSafe |
-| `src/components/meeting/VideoRoom.tsx` | Ustawienie flagi interakcji, przekazanie isAudioUnlocked |
+| `src/components/meeting/VideoGrid.tsx` | Usunac nadpisywanie `muted` w `playVideoSafe` i `AudioElement` — respektowac stan ustawiony przez komponent |
 
 ### Ryzyko
 
-Niskie. Zmiany sa addytywne — dodaja tracking interakcji uzytkownika. Jedyny potencjalny problem: na niektorych przegladarkach mobilnych nawet po interakcji `play()` z dzwiekiem moze byc blokowane jesli element video zostal stworzony dynamicznie. W takim przypadku fallback do muted + baner pozostaje jako zabezpieczenie.
+Niskie. Przywracamy oryginalne zachowanie `playVideoSafe` z jednym ulepszeniem: screen share video nadal korzysta z dynamicznego `muted` (co jest poprawne). Kafelki w Speaker/Multi-Speaker beda znow poprawnie wyciszane, eliminujac echo.
+
