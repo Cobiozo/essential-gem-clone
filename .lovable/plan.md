@@ -1,111 +1,72 @@
 
-Cel: naprawić realny problem „nie mogę dodać własnego tła” tak, żeby działało stabilnie nawet przy chwilowych problemach sesji, oraz żeby UI nie sugerował uploadu, gdy użytkownik nie ma uprawnień (gość / niezalogowany).
 
-## Co ustaliłem z kodu i danych
+# Poprawa jakości konturu — analiza tekstu vs aktualny kod i plan naprawy
 
-1. Upload do bucketu **faktycznie działa** (w `storage.objects` są nowe pliki użytkownika, obecnie 16).
-2. Bucket i polityki RLS dla `meeting-backgrounds` są poprawnie ustawione dla `authenticated` (SELECT/INSERT/DELETE po prefiksie `auth.uid()`).
-3. Problem jest po stronie frontendu:
-   - `useCustomBackgrounds` przy błędzie `list()` ustawia `customImages=[]` i użytkownik widzi `0/3`, mimo że pliki istnieją.
-   - Auto-cleanup opiera się na `list()`, więc gdy listowanie pada, limit nie jest egzekwowany i liczba plików rośnie.
-   - W `MeetingControls` upload własnych teł jest podawany także w trybie guest (i praktycznie przy braku usera), więc użytkownik może klikać „Dodaj tło”, ale backend odrzuci jako niezalogowany.
-4. Dodatkowo znalazłem wyścig autoryzacji w `MeetingRoom.tsx`: logika potrafi przejść do `unauthorized` zanim `AuthContext` zakończy `loading`, co daje efekt „jestem zalogowany, ale system traktuje mnie jak niezalogowanego”.
+## Analiza sugestii z tekstu
 
-## Plan naprawy (do wdrożenia)
+### 1. "Użyj modelu complex, nie lite" — TO JEST KLUCZ
+**Aktualny stan**: Kod używa `selfie_multiclass_256x256` — model który **zawsze** generuje maskę 256x256 pikseli, niezależnie od rozdzielczości wejścia. Przy przetwarzaniu 800px to oznacza **3x upscale** maski. Każdy piksel błędu na krawędzi staje się 3-pikselowym artefaktem. Żadna ilość erozji, kontrastów i clampów tego nie naprawi — bo dane wejściowe maski są zbyt niskiej rozdzielczości.
 
-### 1) Ustabilizowanie autoryzacji w wejściu do meetingu
-Plik: `src/pages/MeetingRoom.tsx`
+**Rozwiązanie**: Przełączyć na model `selfie_segmenter` (landscape) — ten model generuje maskę **w rozdzielczości wejścia** (np. 640x480 → maska 640x480). Jest już w kodzie jako FALLBACK, ale nigdy nie jest użyty jako primary. To da ~6x więcej pikseli na krawędzi.
 
-- Rozszerzyć `useAuth()` o `loading`.
-- W `verify access` nie wykonywać ścieżki `unauthorized`, dopóki `loading === true`.
-- Dopiero po zakończonym ładowaniu auth i braku usera przechodzić do `unauthorized`.
-- To usuwa sytuacje, gdzie użytkownik „na chwilę” ma `user=null` i przez to traci możliwość uploadu.
+Zmiana: Dla trybu `image` używać `selfie_segmenter` jako primary model (lepsza rozdzielczość krawędzi), a `multiclass` zostawić jako fallback.
 
-Efekt: mniej fałszywych stanów „niezalogowany”.
+### 2. "Temporal smoothing" — JUŻ JEST, ale do poprawy
+Aktualny kod ma temporal smoothing (krok 5 w `refineMask`, waga 0.25). To jest OK, ale z lepszym modelem potrzebuje dostrojenia:
+- Z maską full-res temporal smoothing może być delikatniejszy (0.15-0.20) bo same dane wejściowe są stabilniejsze.
 
----
+### 3. "Edge feathering via WebGL shader" — PRAGMATYCZNE PODEJŚCIE
+WebGL shader byłby idealny ale:
+- Wymaga kompletnej przebudowy renderera (teraz wszystko jest Canvas2D + `getImageData` pixel-by-pixel)
+- Ryzyko regresji na urządzeniach bez dobrego WebGL
+- Czas implementacji: 3-5x więcej
 
-### 2) Twarde ograniczenie uploadu własnych teł do zalogowanych (bez guest)
-Pliki:
-- `src/components/meeting/VideoRoom.tsx`
-- `src/components/meeting/MeetingControls.tsx`
-- opcjonalnie `src/components/meeting/BackgroundSelector.tsx` (komunikat UX)
+**Zamiast tego**: Z maską full-res (punkt 1) wystarczy delikatne Gaussian blur (2px) na krawędziach — obecne podejście Canvas2D będzie działać znacznie lepiej, bo będzie operować na danych o wyższej rozdzielczości. Nie trzeba przepisywać na WebGL.
 
-Zmiany:
-- W `VideoRoom` przekazywać `onUploadBackground` i `onDeleteBackground` **tylko gdy** `user && !guestMode`.
-- Dodać jasny toast, gdy ktoś spróbuje uploadu bez sesji („Musisz być zalogowany, aby dodać własne tło”).
-- W `MeetingControls`/`BackgroundSelector` ukryć sekcję „Twoje tła” dla guesta (lub pokazać informację zamiast przycisku upload).
+### 4. "requestAnimationFrame + akceleracja sprzętowa" — JUŻ JEST
+Kod już używa `requestAnimationFrame` (linia 425) i próbuje GPU delegate dla MediaPipe (linia 172). Tu nie ma co zmieniać.
 
-Efekt: UI nie obiecuje funkcji, której aktualnie nie da się wykonać.
+## Główna przyczyna problemu
 
----
+**Model `selfie_multiclass_256x256` generuje maskę 256x256 — to jest "lite" odpowiednik**. Cały pipeline post-processingu (erozja, kontrast, clamp) to łatanie objawów, nie przyczyny. Po przełączeniu na `selfie_segmenter` (full-res output) większość obecnych "poprawek" stanie się zbędna lub nawet szkodliwa (erodeMaskRadius2 będzie obcinać włosy przy masce full-res).
 
-### 3) Odporność `useCustomBackgrounds` na błędy listowania
-Plik: `src/hooks/useCustomBackgrounds.ts`
+## Plan implementacji
 
-Kluczowe poprawki:
-1. **Optimistic update po udanym uploadzie**
-   - po `upload(path, file)` natychmiast dodać URL do `customImages` lokalnie (z limitem 3),
-   - nie czekać wyłącznie na `listBackgrounds()`.
+### Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
 
-2. **Lokalny cache ścieżek** (per user, np. `meeting_custom_backgrounds_${user.id}` w `localStorage`)
-   - po udanym uploadzie dopisać nową ścieżkę do cache,
-   - po udanym `list()` zsynchronizować cache z realną listą,
-   - gdy `list()` zwróci błąd: fallback do cache i nadal pokazać użytkownikowi dostępne tła.
+**A) Zmiana primary modelu:**
+- PRIMARY: `selfie_segmenter` (full-res output, lepsze krawędzie)
+- FALLBACK: `selfie_multiclass_256x256` (jak dotychczas)
+- Zachować flagę `isMulticlassModel` żeby pipeline wiedział jak interpretować wynik
+- Logika parsowania maski się nie zmienia: `selfie_segmenter` zwraca pojedynczą confidence mask (person), multiclass zwraca wiele klas
 
-3. **Lepsze czyszczenie limitu**
-   - przy uploadzie utrzymywać max 3 na podstawie najlepiej dostępnego źródła:
-     - najpierw wynik `list()`,
-     - jeśli listowanie padło: cache.
-   - usuwać najstarsze i logować wynik `remove()` z pełnym błędem.
+**B) Uproszczenie `refineMask` dla trybu image z modelem full-res:**
+- Usunąć `erodeMaskRadius2` (zbędne z maską full-res — obcinało włosy i drobne detale)
+- Zmniejszyć pre-blur kontrast z 14 → 8 (maska full-res nie potrzebuje tak agresywnego spychania)
+- Zmniejszyć post-blur kontrast z 12 → 6
+- Zachować `erodeDilateMask` (1px erode+dilate) — to nadal pomaga przy cienkich artefaktach
+- Zmienić spatial blur z `1px` → `2px` dla image mode — delikatne feathering krawędzi zamiast twardego cięcia
+- Zmienić hard clamp z (0.15/0.85) → (0.08/0.92) — szerszy zakres dozwolonych wartości = gładsze przejścia
+- Zmienić temporal smoothing z 0.25 → 0.18 — maska full-res jest stabilniejsza, mniej wygładzania potrzebne
 
-4. **Silniejsze logowanie diagnostyczne**
-   - logować kod/status/bucket/user/path dla `list/upload/remove`,
-   - dzięki temu kolejny incydent da się jednoznacznie przypisać do auth, RLS, czy API.
+**C) Zachowanie kompatybilności wstecznej:**
+- Tryby `blur-light` i `blur-heavy` — BEZ ZMIAN (tam 256x256 wystarczy, bo blur maskuje niedoskonałości)
+- Jeśli `selfie_segmenter` nie załaduje się (stare urządzenia) → fallback na multiclass, a `refineMask` wykryje flagę `isMulticlassModel` i użyje agresywniejszych parametrów jak dotychczas
+- Profile mobilne — BEZ ZMIAN
+- Visibility handler, passthrough, overload detection — BEZ ZMIAN
 
-Efekt: użytkownik po uploadzie widzi swoje tło od razu, nawet jeśli chwilowo `list()` nie odpowie poprawnie.
+**D) Progi alfa-mieszania dla image mode:**
+- `personThresholdHigh: 0.85 → 0.75` (z maską full-res nie trzeba tak agresywnie filtrować)
+- `personThresholdLow: 0.60 → 0.40` (szerszy gradient = płynniejsze przejście osoba/tło)
 
----
+### Zachowane bez zmian:
+- Flip tła (linia 619-622) — działa poprawnie
+- `applyBlur` — bez zmian
+- `applyImageBackground` — bez zmian (tylko progi z BLUR_PROFILES się zmienią)
+- Cały flow `start()`, `stop()`, `destroy()`
+- `setParticipantCount` — bez zmian
+- `useVideoBackground.ts` — bez zmian
 
-### 4) Drobna poprawa UX błędów
-Plik: `src/components/meeting/VideoRoom.tsx`
+## Podsumowanie
 
-- W `catch` przy uploadzie mapować komunikaty na czytelne teksty:
-  - brak sesji,
-  - limit/rozmiar pliku,
-  - brak uprawnień.
-- Pokazywać komunikat akcyjny („Odśwież spotkanie po zalogowaniu”).
-
-Efekt: użytkownik wie dokładnie co zrobić, zamiast ogólnego „Błąd”.
-
-## Dlaczego to rozwiąże problem „ciągle nie mogę dodać tła”
-
-- Obecnie pliki się zapisują, ale UI gubi je przy błędach listowania lub chwilowym `user=null`.
-- Po zmianach:
-  - upload będzie natychmiast widoczny lokalnie,
-  - fallback cache utrzyma widoczność teł mimo potknięć API,
-  - guest/bez sesji nie będzie mógł wejść w martwą ścieżkę uploadu,
-  - wyścig auth w `MeetingRoom` przestanie losowo „wylogowywać” logikę.
-
-## Walidacja po wdrożeniu (checklista)
-
-1. Zalogowany użytkownik:
-   - dodać tło → pojawia się od razu w „Twoje tła”.
-2. Dodać 4–5 teł:
-   - w UI finalnie max 3, najstarsze usuwane.
-3. Odświeżyć stronę i wrócić do meetingu:
-   - tła nadal widoczne (z listy lub fallback cache).
-4. Tryb guest:
-   - brak możliwości uploadu własnych teł (jasny komunikat).
-5. Sytuacja słabej sesji/odświeżenia tokenu:
-   - brak fałszywego przejścia do `unauthorized` zanim auth się zainicjalizuje.
-
-## Zakres plików do modyfikacji
-
-- `src/pages/MeetingRoom.tsx`
-- `src/components/meeting/VideoRoom.tsx`
-- `src/components/meeting/MeetingControls.tsx`
-- `src/components/meeting/BackgroundSelector.tsx` (jeśli potrzebny komunikat UX)
-- `src/hooks/useCustomBackgrounds.ts`
-
-Bez zmian w bazie danych i bez nowych polityk RLS (na ten moment niepotrzebne — backend wygląda poprawnie, problem jest w flow klienta).
+Jedna zmiana — przełączenie modelu z 256x256 na full-res — rozwiąże 80% problemu z konturem. Reszta to dostrojenie parametrów post-processingu do nowej, lepszej maski. Bez naruszania blur mode, mobilnych profili ani żadnej innej funkcjonalności.
