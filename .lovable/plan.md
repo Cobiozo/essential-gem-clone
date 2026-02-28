@@ -1,78 +1,105 @@
 
-# Naprawa uploadu wlasnych tel i dalsza poprawa jakosci maski
 
-## Problem 1: Upload wlasnego tla nie dziala
+# Naprawa plynnosci obrazu i konturu tla
 
-**Przyczyna**: Klikniecie `DropdownMenuItem` z `onClick={() => fileInputRef.current?.click()}` zamyka dropdown menu (domyslne zachowanie Radix). Gdy dropdown sie zamyka, element `<input ref={fileInputRef}>` jest usuwany z DOM zanim przegladarka zdarzy otworzyc dialog wyboru pliku. W efekcie `fileInputRef.current?.click()` albo nie dziala, albo trafia na juz usuniety element.
+## Diagnoza
 
-**Rozwiazanie**: Przeniesienie `<input type="file">` poza `DropdownMenuContent` (na poziom komponentu `BackgroundSelector`). Dodatkowo uzycie `onSelect` z `e.preventDefault()` na `DropdownMenuItem` aby zapobiec zamknieciu dropdown przed kliknieciem inputa, albo prostsze rozwiazanie: wywolanie `click()` na input przed zamknieciem menu przez uzycie `setTimeout`.
+### Problem 1: Obraz sie zacina (spadek FPS)
+Przyczyna: ostatnie zmiany drastycznie zwiekszly koszt kazdej klatki:
+- Rozdzielczosc przetwarzania 960px — to ~2x wiecej pikseli niz 640px (920k vs 410k pikseli)
+- Podwojne erode/dilate — 4 pelne iteracje po masce (2x erode + 2x dilate) zamiast 2
+- Kontrastowanie z sila 10 i 8 — ciezsze obliczenia sigmoid na kazdym pikselu
+- Te operacje lacznie moga przekraczac 16ms budzet klatki na srednim sprzecie
 
-Najsolidniejsze podejscie: przeniesc `<input>` poza dropdown i uzyc `setTimeout(() => fileInputRef.current?.click(), 0)` w onClick, co pozwoli dropdown sie zamknac a nastepnie otworzy dialog plikow.
+### Problem 2: Kontur nadal niedokladny
+Agresywniejsze parametry nie pomagaja, bo problem jest fundamentalny — model `selfie_multiclass_256x256` produkuje maske o rozdzielczosci 256x256 niezaleznie od rozmiaru wejscia. Zwiekszanie inputu do 960px nie daje lepszej maski, tylko spowalnia skalowanie.
 
-**Plik**: `src/components/meeting/BackgroundSelector.tsx`
+### Problem 3: Upload wlasnego tla nie dziala
+Prawdopodobnie bucket `meeting-backgrounds` nie istnieje lub RLS blokuje operacje. Trzeba zweryfikowac i ewentualnie poprawic logike uploadu.
 
-## Problem 2: Jakosc maski — tlo przebija przez sylwetke
+## Plan naprawy
 
-Na screenshotach widac ze postprocessing (erode/dilate/contrast) nie wystarczy — surowe dane z modelu segmentacji sa zbyt zaszumione, szczegolnie w okolicach brody i wlosow.
+### 1. Przywrocenie plynnosci — zmniejszenie kosztu per-klatka
 
-**Przyczyny**:
-- Rozdzielczosc przetwarzania 720px moze byc za niska dla dokladnej segmentacji brody
-- Blur maski 3px za bardzo rozmywa krawedzie po kontrastowaniu
-- Erode/dilate 1px moze nie wystarczac — "halo" ma czesto 2-3 piksele szrokosci
-- Temporal smoothing 35/65 moze byc za slabe — krawedzie migocza
+**Plik: `VideoBackgroundProcessor.ts`**
 
-**Rozwiazanie — agresywniejsze parametry**:
+a) **Rozdzielczosc przetwarzania z powrotem na 640px** (desktop, 1 uczestnik):
+   - 960px nie daje lepszej maski (model i tak produkuje 256x256)
+   - 640px to optymalne tlo: wystarczajaco duze dla kompozycji, szybkie do przetworzenia
 
-### a) Zwiekszenie rozdzielczosci przetwarzania
-- Desktop (1 uczestnik): 720 -> 960px — wiecej detali w masce
-- Desktop (2 uczestnikow): 480 -> 640px
+b) **Jeden przebieg erode/dilate zamiast dwoch**:
+   - Podwojny przebieg to 4 pelne iteracje po Float32Array — kosztowne
+   - Jeden przebieg (erode + dilate) wystarczy z lepszymi progami
 
-### b) Ostrzejsze progi maski
+c) **Zmniejszenie sily kontrastowania**:
+   - Pre-blur: 10 -> 7 (wystarczajaco ostre, ale szybsze)
+   - Post-blur: 8 -> 5
+
+d) **Temporal smoothing na 0.30/0.70** (zamiast 0.40/0.60):
+   - 0.40 poprzednia klatka powoduje "lag" w sledzeniu ruchu — obraz za bardzo "ciagnie" za osoba
+   - 0.30/0.70 daje plynne krawedzie bez opoznienia ruchu
+
+e) **Segmentacja co 80ms zamiast 66ms** (desktop):
+   - 66ms = 15 segmentacji/s — zbyt czesto dla plynnosci
+   - 80ms = 12.5 segmentacji/s — wystarczajace, odczuwalnie lzejsze
+
+### 2. Lepsza jakosc konturu — optymalizacja progow
+
+**Plik: `VideoBackgroundProcessor.ts`**
+
+Zamiast agresywnych progow ktore "wygryzaja" sylwetke, uzyc lagodniejszych z lepszym blendem:
+
 ```text
-                    Obecne          Nowe
-blur-light/image:
-  thresholdHigh     0.70            0.75
-  thresholdLow      0.45            0.50
+                  Obecne      Nowe
+blur-light:
+  thresholdHigh   0.75        0.65
+  thresholdLow    0.50        0.35
 
 blur-heavy:
-  thresholdHigh     0.65            0.70
-  thresholdLow      0.40            0.45
+  thresholdHigh   0.70        0.60
+  thresholdLow    0.45        0.30
+
+image:
+  thresholdHigh   0.75        0.65
+  thresholdLow    0.50        0.35
 ```
 
-Strefa przejsciowa zmniejszona z 0.25 do 0.20 — ostrzejszy kontur.
+Szersza strefa przejsciowa (0.30) daje plynniejszy gradient alfa — zamiast ostrego "wyciecia" z artefaktami, jest lagodne przejscie. To wlasnie tak dziala Zoom/Teams/Google Meet — nie maja idealnie ostrego konturu, ale maja plynne przejscie ktore wyglada naturalnie.
 
-### c) Zmniejszenie blur maski
-- 3px -> 2px — mniej rozmywania krawedzi po kontrastowaniu
+Blur maski: 2px -> 3px — lagodniejsze wygladzanie krawedzi.
 
-### d) Silniejszy kontrast sigmoid
-- Pre-blur: 8 -> 10
-- Post-blur: 6 -> 8
+### 3. Naprawa uploadu wlasnych tel
 
-### e) Silniejsze temporal smoothing
-- 35/65 -> 40/60 — silniejsze tlumienie migotania krawedzi
+**Plik: `BackgroundSelector.tsx`**
 
-### f) Podwojne erode/dilate
-- Zamiast jednego przebiegu erode->dilate, wykonac dwa: erode->erode->dilate->dilate
-- Skuteczniej usuwa "halo" o szerokosci 2-3px
+Problem: `DropdownMenuItem` domyslnie zamyka menu przy `onClick`. Nawet z `setTimeout`, jesli dropdown jest "controlled" (nie jest tutaj, ale Radix moze miec wewnetrzny stan), ref moze stracic focus. Rozwiazanie: uzyc `onSelect` z `preventDefault()` zamiast `onClick` z `setTimeout`, co zapobiega zamknieciu menu i pozwala otworzyc dialog plikow:
 
-**Plik**: `src/components/meeting/VideoBackgroundProcessor.ts`
+```typescript
+<DropdownMenuItem
+  onSelect={(e) => {
+    e.preventDefault();
+    fileInputRef.current?.click();
+  }}
+>
+```
 
-## Zmiany techniczne
+To jest oficjalny sposob Radix na zapobieganie zamknieciu menu.
 
-### Plik 1: `src/components/meeting/BackgroundSelector.tsx`
-- Przesuniecie `<input type="file">` z wnetrza `DropdownMenuContent` na koniec komponentu (po `</DropdownMenu>`)
-- Zmiana `onClick` na `setTimeout(() => fileInputRef.current?.click(), 50)` aby dac dropdown czas na zamkniecie
+**Plik: `useCustomBackgrounds.ts`**
 
-### Plik 2: `src/components/meeting/VideoBackgroundProcessor.ts`
-- `DESKTOP_PROFILE.maxProcessWidth`: 720 -> 960
-- `setParticipantCount`: zaktualizowac progi (count>=2: 480->640, count>=4: 320->480)
-- `BLUR_PROFILES`: zaostrzenie progow (0.75/0.50, 0.70/0.45)
-- `refineMask`: contrastMask(10) pre-blur, contrastMask(8) post-blur
-- Blur maski: 3px -> 2px
-- Temporal smoothing: 0.40/0.60
-- `erodeDilateMask`: podwojny przebieg (erode 2x, dilate 2x)
+Dodanie lepszego error handlingu i logowania — jesli bucket nie istnieje lub RLS blokuje, uzytkownik zobaczy jasny komunikat bledu.
 
-## Ryzyko
+## Podsumowanie zmian
 
-- Wyzsze rozdzielczosci (960px) moga spowolnic przetwarzanie na slabszych maszynach, ale system overload detection przejdzie automatycznie w pass-through mode jesli klatka trwa >250ms
-- Ostrzejsze progi moga powodowac lekkie "wcinanie" w sylwetke (np. cienkie palce moga zniknac), ale to lepsze niz halo/przebijanie tla
+| Plik | Zmiana |
+|------|--------|
+| `VideoBackgroundProcessor.ts` | maxProcessWidth 960->640, segmentationIntervalMs 66->80, 1x erode/dilate, kontrast 7/5, temporal 0.30/0.70, progi 0.65/0.35, blur maski 3px |
+| `BackgroundSelector.tsx` | `onSelect` z `preventDefault()` zamiast `onClick` z `setTimeout` |
+| `useCustomBackgrounds.ts` | Lepsze logowanie bledow uploadu |
+
+## Efekt
+
+- **Plynnosc**: ~50% mniejszy koszt per-klatka (mniej pikseli, mniej iteracji, lzejsze operacje)
+- **Kontur**: lagodne, naturalne przejscie (jak Zoom/Teams) zamiast ostrego z artefaktami
+- **Upload**: naprawiony trigger dialogu plikow
+
