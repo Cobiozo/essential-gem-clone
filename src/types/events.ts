@@ -133,6 +133,7 @@ export type WebinarFormData = {
   // Internal meeting fields
   use_internal_meeting?: boolean;
   meeting_room_id?: string | null;
+  meeting_password?: string | null;
   // Extended fields
   allow_invites?: boolean;
   publish_at?: string | null;
@@ -169,6 +170,7 @@ export type EventFormData = {
   // Internal meeting fields
   use_internal_meeting?: boolean;
   meeting_room_id?: string | null;
+  meeting_password?: string | null;
   // Extended fields
   allow_invites?: boolean;
   publish_at?: string | null;
@@ -226,6 +228,7 @@ export type TeamTrainingFormData = {
   // Internal meeting fields
   use_internal_meeting?: boolean;
   meeting_room_id?: string | null;
+  meeting_password?: string | null;
   // Extended fields
   allow_invites?: boolean;
   publish_at?: string | null;

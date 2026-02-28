@@ -2155,6 +2155,7 @@ export type Database = {
           is_published: boolean | null
           location: string | null
           max_participants: number | null
+          meeting_password: string | null
           meeting_room_id: string | null
           meeting_topic_id: string | null
           occurrences: Json | null
@@ -2201,6 +2202,7 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
+          meeting_password?: string | null
           meeting_room_id?: string | null
           meeting_topic_id?: string | null
           occurrences?: Json | null
@@ -2247,6 +2249,7 @@ export type Database = {
           is_published?: boolean | null
           location?: string | null
           max_participants?: number | null
+          meeting_password?: string | null
           meeting_room_id?: string | null
           meeting_topic_id?: string | null
           occurrences?: Json | null
