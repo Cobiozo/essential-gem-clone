@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Video, VideoOff, Mic, MicOff, LogIn, Settings, MessageCircle, Monitor } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, LogIn, Settings, MessageCircle, Monitor, AlertCircle } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import type { MeetingSettings } from './MeetingSettingsDialog';
@@ -29,6 +29,11 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
+  const [mediaError, setMediaError] = useState<string | null>(null);
+  const [micLevel, setMicLevel] = useState(0);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafIdRef = useRef<number>(0);
 
   // Host settings
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>({
@@ -52,6 +57,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
           } catch (err) {
             console.warn('[Lobby] Camera/mic access denied:', err);
+            setMediaError('Nie można uzyskać dostępu do kamery lub mikrofonu. Sprawdź uprawnienia przeglądarki.');
             return;
           }
         }
@@ -68,11 +74,64 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     };
   }, []);
 
+  // Attach stream to video element and call play()
   useEffect(() => {
     if (videoRef.current && previewStream) {
       videoRef.current.srcObject = previewStream;
+      videoRef.current.play().catch((err) => {
+        console.warn('[Lobby] Video play() failed:', err);
+      });
     }
   }, [previewStream]);
+
+  // Mic level indicator via AudioContext + AnalyserNode
+  useEffect(() => {
+    if (!previewStream || !audioEnabled) {
+      setMicLevel(0);
+      return;
+    }
+
+    const audioTracks = previewStream.getAudioTracks();
+    if (audioTracks.length === 0) {
+      setMicLevel(0);
+      return;
+    }
+
+    try {
+      const ctx = new AudioContext();
+      const source = ctx.createMediaStreamSource(previewStream);
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.5;
+      source.connect(analyser);
+
+      audioContextRef.current = ctx;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+        const avg = sum / dataArray.length;
+        setMicLevel(Math.min(avg / 128, 1)); // normalize 0-1
+        rafIdRef.current = requestAnimationFrame(tick);
+      };
+      rafIdRef.current = requestAnimationFrame(tick);
+    } catch (err) {
+      console.warn('[Lobby] AudioContext error:', err);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafIdRef.current);
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close().catch(() => {});
+      }
+      audioContextRef.current = null;
+      analyserRef.current = null;
+    };
+  }, [previewStream, audioEnabled]);
 
   useEffect(() => {
     if (previewStream) {
@@ -102,6 +161,14 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Media error */}
+          {mediaError && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{mediaError}</span>
+            </div>
+          )}
+
           {/* Video preview */}
           <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
             {videoEnabled && previewStream ? (
@@ -123,12 +190,28 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
 
           {/* Toggles */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {audioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-destructive" />}
-                <Label>Mikrofon</Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {audioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4 text-destructive" />}
+                  <Label>Mikrofon</Label>
+                </div>
+                <Switch checked={audioEnabled} onCheckedChange={setAudioEnabled} />
               </div>
-              <Switch checked={audioEnabled} onCheckedChange={setAudioEnabled} />
+              {/* Mic level indicator */}
+              {audioEnabled && previewStream && (
+                <div className="flex items-center gap-2 pl-6">
+                  <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all duration-75"
+                      style={{ width: `${Math.max(micLevel * 100, 2)}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground w-8 text-right">
+                    {Math.round(micLevel * 100)}%
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

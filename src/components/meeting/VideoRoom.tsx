@@ -1844,7 +1844,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         .eq('is_active', true);
     } catch (e) { console.warn('[VideoRoom] Failed to deactivate all participants:', e); }
 
-    // 3. Expire guest tokens for this room's event
+    // 3. Update end_time in events table so widgets stop showing this meeting
+    try {
+      await supabase.from('events')
+        .update({ end_time: new Date().toISOString() })
+        .eq('meeting_room_id', roomId);
+    } catch (e) { console.warn('[VideoRoom] Failed to update event end_time:', e); }
+
+    // 4. Expire guest tokens for this room's event
     try {
       const { data: event } = await supabase
         .from('events')
@@ -1859,13 +1866,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }
     } catch (e) { console.warn('[VideoRoom] Failed to expire guest tokens:', e); }
 
-    // 4. Fill missing left_at in guest analytics
+    // 5. Fill missing left_at in guest analytics
     try {
       await supabase.from('meeting_guest_analytics')
         .update({ left_at: new Date().toISOString() })
         .eq('room_id', roomId)
         .is('left_at', null);
     } catch (e) { console.warn('[VideoRoom] Failed to update guest analytics:', e); }
+
+    // 6. Notify widgets to refresh
+    window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
 
     await handleLeave();
   };
