@@ -1,85 +1,57 @@
 
-Cel: naprawić sytuację, w której po włączeniu efektu tła obraz tylko się „zmniejsza”, a rozmycie/wirtualne tło realnie się nie nakłada.
 
-Diagnoza (na podstawie aktualnego kodu):
-1) W `VideoBackgroundProcessor.processFrame()` efekt nakłada się tylko, gdy:
-   - `maskData` istnieje oraz
-   - `maskData.length === processWidth * processHeight`.
-2) Segmentacja jest liczona na `this.videoElement` (`segmentForVideo(this.videoElement, ...)`), a render na canvas jest liczony na przeskalowanych wymiarach `processWidth/processHeight`.
-3) Dla kamer HD (np. 1280x720) maska często ma rozmiar źródła, a canvas ma mniejszy rozmiar (np. 640x360), więc warunek długości maski nie przechodzi.
-4) Skutek: pipeline zwraca strumień z canvas (często o mniejszej rozdzielczości / innym odczuwalnym rozmiarze), ale bez realnego efektu tła — dokładnie objaw zgłoszony przez Ciebie.
-5) Dodatkowo w `start()` rozdzielczość jest wyliczana z `track.getSettings()` przed pełną gotowością video; gdy settings są niepełne, fallback 640x480 może dawać efekt „zmniejszenia”.
+## Naprawa dzwieku podczas udostepniania ekranu
 
-Plan implementacji:
+### Zidentyfikowane problemy
 
-1. Ujednolicenie wymiarów wejścia segmentacji i renderu (kluczowa poprawka)
-- Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
-- Działania:
-  - Dodać dedykowany canvas wejściowy do segmentacji (np. `inputCanvas/inputCtx`) w rozdzielczości przetwarzania.
-  - W każdej klatce:
-    - najpierw rysować `videoElement` -> `inputCanvas` w `processWidth/processHeight`,
-    - uruchamiać `segmentForVideo(inputCanvas, timestamp)` zamiast `videoElement`.
-  - Dzięki temu maska i frame będą zawsze w tym samym rozmiarze i warunek dopasowania przestanie blokować nakładanie efektu.
+1. **Screen share video jest hardcoded `muted`**: W `ScreenShareLayout` (VideoGrid.tsx, linia 674) element `<video>` ma atrybut `muted` na stale. Jesli ktos udostepnia karte przegladarki z dzwiekiem, ten dzwiek nigdy nie bedzie odtwarzany.
 
-2. Stabilne wyznaczanie rozdzielczości po załadowaniu metadanych video
-- Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
-- Działania:
-  - Przenieść finalne wyliczenie `srcWidth/srcHeight` na moment po `loadeddata/play` (użyć `videoElement.videoWidth/videoHeight` jako źródła prawdy; settings tylko jako fallback).
-  - Potem dopiero inicjalizować `canvas`, `blurredCanvas`, `maskCanvas`, `inputCanvas`.
-- Efekt:
-  - brak przypadkowego przejścia na 4:3 fallback,
-  - mniej sytuacji „video się zmniejsza” po aktywacji efektu.
+2. **Autoplay policy blokuje dzwiek cichaco**: Gdy `playVideoSafe` napotka blokade autoplay, ustawia `video.muted = true` i gra wideo bez dzwieku. To samo robi `AudioElement`. Baner "Dotknij aby wlaczyc dzwiek" pojawia sie, ale:
+   - Jest latwo przeoczalny (maly, na gorze ekranu)
+   - Nowe elementy video dodane po kliknieciu banera (np. nowy uczestnik, nowy screen share) moga znowu byc muted
+   - Unlock nie obsluguje elementow dodanych dynamicznie po pierwszym uzyciu
 
-3. Nakładanie blur/image z tego samego źródła klatki
-- Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
-- Działania:
-  - W `applyBlur()` i `applyImageBackground()` używać wejścia klatki z canvasu przetwarzania (nie bezpośrednio `videoElement`), aby cały pipeline był spójny rozmiarowo.
-- Efekt:
-  - brak dryfu między maską a pikselami obrazu.
+3. **Brak trwalego odblokowania audio**: Po pierwszym kliknieciu/dotknieciu w dowolnym miejscu okna (nie tylko banera), system powinien zapamietac ze uzytkownik juz wchodzil w interakcje i nie wyciszac nowych elementow.
 
-4. Twarde zabezpieczenie na niedopasowanie maski (awaryjnie)
-- Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
-- Działania:
-  - Dodać licznik kolejnych klatek bez prawidłowej maski.
-  - Jeśli np. >30 klatek bez poprawnej maski: log ostrzegawczy + fallback kontrolowany (bez wywoływania błędu dla użytkownika), ale z informacją diagnostyczną.
-  - Opcjonalnie: jednokrotna próba reinicjalizacji segmentera po progu błędów.
-- Efekt:
-  - brak „cichego” stanu, gdzie użytkownik nie wie co się stało.
+### Rozwiazanie
 
-5. Lepsza informacja zwrotna dla użytkownika (bez zmiany UX flow)
-- Pliki:
-  - `src/hooks/useVideoBackground.ts`
-  - `src/components/meeting/VideoRoom.tsx`
-- Działania:
-  - Utrzymać obecne toasty błędu, ale doprecyzować komunikat dla sytuacji „segmentacja nie zwróciła maski / efekt niedostępny chwilowo”.
-  - Logować konkretną przyczynę (`mask dimension mismatch`, `no mask frames`) dla szybkiej diagnostyki.
-- Efekt:
-  - przy kolejnych incydentach łatwiejsza analiza bez zgadywania.
+**Plik 1: `src/components/meeting/VideoGrid.tsx`**
 
-Kolejność wdrożenia:
-1) `VideoBackgroundProcessor`: wejściowy canvas + segmentacja na canvasie + rozdzielczość po metadata.
-2) `VideoBackgroundProcessor`: spójne źródło dla blur/image + fallback licznik.
-3) `useVideoBackground` i `VideoRoom`: doprecyzowanie komunikatów/logów.
-4) Testy manualne E2E.
+1. **`ScreenShareLayout`** — usunac hardcoded `muted` z video ekranu. Zamiast tego uzyc dynamicznego `muted` opartego na flagi interakcji uzytkownika:
+   - Dodac prop `isAudioUnlocked` do ScreenShareLayout
+   - Video bedzie `muted={!isAudioUnlocked}`, co pozwoli odtwarzac audio z udostepnianego ekranu po interakcji uzytkownika
 
-Plan testów po wdrożeniu:
-1) Host, tryb speaker:
-- włącz kolejno: lekkie rozmycie, mocne rozmycie, tło 1/2/3;
-- potwierdź, że obraz nie „kurczy się”, tylko efekt faktycznie działa.
-2) Host, tryby gallery i multi-speaker:
-- powtórzyć wszystkie 5 efektów.
-3) Uczestnik (druga karta/przeglądarka):
-- sprawdzić te same tryby i efekty.
-4) Przełączanie efektów „w locie”:
-- blur-light -> blur-heavy -> image -> none.
-5) Reacquire scenariusz:
-- wyłącz/włącz kamerę, potem ponownie ustaw efekty.
-6) Kontrola regresji:
-- audio/video i screen share nadal działają poprawnie.
+2. **`playVideoSafe`** — dodac sprawdzanie globalnej flagi `userHasInteracted`:
+   - Jesli uzytkownik juz kliknal/dotknal strone, probowac `play()` z `muted=false` bezposrednio
+   - Jesli blad — dopiero wtedy fallback do muted + baner
 
-Ryzyko i wpływ:
-- Ryzyko: niskie/średnie (dotyczy głównie jednego modułu przetwarzania).
-- Wpływ pozytywny:
-  - efekty tła zaczną działać rzeczywiście,
-  - zniknie objaw „tylko zmniejsza video”,
-  - większa przewidywalność we wszystkich trybach widoku i dla hosta/uczestników.
+3. **`AudioElement`** — analogiczna zmiana: jesli `userHasInteracted` jest true, nie wyciszac
+
+4. **Dodac globalny tracker interakcji** (na poziomie modulu):
+   ```text
+   let userHasInteracted = false;
+   const markInteracted = () => { userHasInteracted = true; };
+   // ustawiane przez click/touchstart/keydown na document
+   ```
+
+**Plik 2: `src/components/meeting/VideoRoom.tsx`**
+
+1. **Rozszerzyc handler unlockAudio** aby:
+   - Ustawic globalna flage `userHasInteracted = true`
+   - Unmutowac WSZYSTKIE elementy video (lacznie z nowo dodanymi)
+   - Automatycznie ukryc baner
+
+2. **Dodac listener na `click` i `touchstart`** na poziomie calego komponentu (juz istnieje, ale trzeba go rozszerzyc o ustawienie flagi globalnej)
+
+3. **Przekazac flage `isAudioUnlocked`** do `VideoGrid` aby `ScreenShareLayout` mogl ja wykorzystac
+
+### Pliki do modyfikacji
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/meeting/VideoGrid.tsx` | Globalna flaga interakcji, dynamiczny muted na screen share, lepszy playVideoSafe |
+| `src/components/meeting/VideoRoom.tsx` | Ustawienie flagi interakcji, przekazanie isAudioUnlocked |
+
+### Ryzyko
+
+Niskie. Zmiany sa addytywne — dodaja tracking interakcji uzytkownika. Jedyny potencjalny problem: na niektorych przegladarkach mobilnych nawet po interakcji `play()` z dzwiekiem moze byc blokowane jesli element video zostal stworzony dynamicznie. W takim przypadku fallback do muted + baner pozostaje jako zabezpieczenie.
