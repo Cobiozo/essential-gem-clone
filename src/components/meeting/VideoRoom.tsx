@@ -38,6 +38,12 @@ interface VideoRoomProps {
   guestTokenId?: string;
 }
 
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+};
+
 const DEFAULT_SETTINGS: MeetingSettings = {
   allowChat: true,
   allowMicrophone: true,
@@ -618,8 +624,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         try { peer.reconnect(); } catch (e) { console.warn('[VideoRoom] Peer reconnect failed:', e); }
       }
 
-      const stream = localStreamRef.current;
-      if (!stream) return;
+      let stream = localStreamRef.current;
+      const tracksAlive = stream?.getTracks().some(t => t.readyState === 'live');
+      if (!stream || !tracksAlive) {
+        console.log('[VideoRoom] Stream dead after visibility change, re-acquiring...');
+        const freshStream = await reacquireLocalStream();
+        if (!freshStream) return;
+        stream = freshStream;
+      }
       
       connectionsRef.current.forEach((conn, peerId) => {
         try {
@@ -668,10 +680,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       try {
         let stream: MediaStream;
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true });
         } catch {
           try {
-            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
           } catch {
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
           }
@@ -1123,7 +1135,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const restoreCamera = useCallback(async () => {
     console.log('[VideoRoom] restoreCamera called, isScreenSharingRef:', isScreenSharingRef.current);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: AUDIO_CONSTRAINTS });
       stream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
       localStreamRef.current?.getTracks().forEach(t => t.stop());
       localStreamRef.current = stream;
@@ -1145,7 +1157,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       console.error('[VideoRoom] Failed to restore camera:', err);
       // Zmiana 3: fallback to audio-only if camera unavailable
       try {
-        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
         audioOnlyStream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
         localStreamRef.current = audioOnlyStream;
         setLocalStream(audioOnlyStream);
@@ -1165,10 +1177,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     try {
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true });
       } catch {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
         } catch {
           try {
             stream = await navigator.mediaDevices.getUserMedia({ video: true });

@@ -42,10 +42,10 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
 
     const initPreview = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       } catch {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
         } catch {
           try {
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
