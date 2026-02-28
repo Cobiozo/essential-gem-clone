@@ -1,52 +1,51 @@
 
 
-## Naprawa: Uczestnicy nie slysza sie nawzajem
+## Naprawa PiP: pokazuje lokalne video zamiast zdalnego mowcy
 
 ### Przyczyna
 
-W `VideoRoom.tsx`, handler `peer.on('call')` (linia 979-1021) odpowiada na przychodzace polaczenia uzywajac zmiennej `stream` z domkniecia (closure) funkcji `init()`. Ta zmienna wskazuje na strumien MediaStream utworzony przy pierwszym wejsciu do pokoju.
+W `handleTogglePiP` i auto-PiP (`handleVisibility`), logika najpierw sprawdza `activeVideoRef.current`. Ten ref jest ustawiany przez VideoGrid na aktywnego mowce -- ale gdy uzytkownik jest sam lub jest "aktywny" (np. w speaker mode z indeksem 0), ref wskazuje na LOKALNE video. Warunek `!pipVideo?.srcObject || !pipVideo.videoWidth` NIE sprawdza czy to lokalne video, wiec przechodzi bezposrednio do `requestPictureInPicture()` z lokalnym obrazem.
 
-Problem: gdy strumien lokalny zostanie zastapiony (np. przelaczenie kamery, reacquireLocalStream po powrocie z tla, visibilitychange), zmienna `stream` w closure nadal wskazuje na STARY, potencjalnie martwy strumien. Nowe przychodzace polaczenia sa wiec odpowiadane martwym strumieniem -- drugi uczestnik nie slysza i nie widzi nic.
-
-To samo dotyczy `callPeer` wywolywanego z closure (linia 973) -- przekazuje stary `stream` zamiast aktualnego.
+Filtr `data-local-video !== 'true'` istnieje tylko w fallbacku (gdy activeVideoRef jest stale), ale nigdy nie jest stosowany do samego `activeVideoRef.current`.
 
 ### Rozwiazanie
 
 **Plik: `src/components/meeting/VideoRoom.tsx`**
 
-1. **`peer.on('call')` handler (linia 1019)**: Zmienic `call.answer(stream)` na `call.answer(localStreamRef.current || stream)`. Dzieki temu zawsze odpowiadamy aktualnym strumieniem z refa, a oryginalny `stream` jest jedynie fallbackiem.
+Zmienic warunek sprawdzajacy `activeVideoRef.current` -- dodac weryfikacje czy to nie jest lokalne video (chyba ze nie ma zadnych zdalnych uczestnikow):
 
-2. **Subskrypcja Realtime INSERT (linia 973)**: Zmienic `callPeer(...)` aby uzywalo `localStreamRef.current || stream` zamiast `stream` z closure.
-
-3. **`callPeer` (linia 1061-1067)**: Zmienic aby domyslnie uzywalo `localStreamRef.current` gdy nie przekazano strumienia jawnie. Zmiana sygnatury lub uzycie refa wewnatrz.
-
-### Szczegoly techniczne
-
+**handleTogglePiP (linia 1426-1434):**
 ```text
-// Linia 1019 - zmiana:
-call.answer(localStreamRef.current || stream);
+let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
 
-// Linia 973 - zmiana:
-callPeer(p.peer_id, p.display_name || 'Uczestnik', localStreamRef.current || stream, avatarUrl, p.user_id || undefined);
+// Odrzuc activeVideoRef jesli to lokalne video (chyba ze jestesmy sami)
+const hasRemoteParticipants = remoteParticipants.length > 0;
+if (pipVideo?.getAttribute('data-local-video') === 'true' && hasRemoteParticipants) {
+  pipVideo = null; // wymus fallback do zdalnego video
+}
 
-// callPeer (linia 1061-1067) - zmiana:
-const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
-  if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
-  const activeStream = localStreamRef.current || stream;
-  const call = peerRef.current.call(remotePeerId, activeStream, {
-    metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrlRef.current },
-  });
-  if (call) handleCall(call, name, avatarUrl, userId);
-}, [displayName, user?.id]);
+if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
+  const allVideos = document.querySelectorAll('video');
+  pipVideo = Array.from(allVideos).find(
+    v => v.srcObject && v.videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
+  ) || (hasRemoteParticipants ? null : Array.from(allVideos).find(
+    v => v.srcObject && v.videoWidth > 0 && !v.paused
+  )) || null;
+}
 ```
 
-### Pliki do zmiany
+**Auto-PiP handleVisibility (linia 1459-1467):**
+Identyczna zmiana -- odrzucic lokalne video z activeVideoRef gdy sa zdalni uczestnicy, i w fallbacku nie wracac do lokalnego video jesli sa zdalni.
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/meeting/VideoRoom.tsx` | 3 miejsca: answer(), callPeer wewnatrz init, callPeer callback -- uzycie localStreamRef.current zamiast starego stream z closure |
+### Dokladne zmiany
 
-### Dlaczego to naprawi problem
+| Miejsce | Zmiana |
+|---------|--------|
+| handleTogglePiP (linia 1426) | Dodac sprawdzenie `data-local-video` na activeVideoRef + `remoteParticipants.length` |
+| handleVisibility (linia 1459) | Analogiczna zmiana |
+| Fallback w obu miejscach | Usunac ostatni fallback (ktory lapie dowolne video) gdy sa zdalni uczestnicy |
 
-Kazde polaczenie PeerJS (przychodzace i wychodzace) bedzie uzywac aktualnego, zywego strumienia z `localStreamRef.current`. Nie ma znaczenia czy strumien byl wymieniony po wejsciu do pokoju -- ref zawsze wskazuje na najnowsza wersje.
+### Potrzebna zmienna
+
+Zmienna `remoteParticipants` jest juz dostepna w komponencie (linia ~220-230 lub stan). Nalezy zweryfikowac jej dokladna nazwe w kodzie.
 
