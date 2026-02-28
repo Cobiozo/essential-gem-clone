@@ -60,6 +60,7 @@ const ControlButton: React.FC<{
 }> = ({ icon, label, onClick, active, danger, badge, highlighted, disabled, disabledTooltip }) => {
   const button = (
     <button
+      type="button"
       onClick={disabled ? undefined : onClick}
       className={`flex flex-col items-center gap-1 min-w-[48px] ${disabled ? 'opacity-40 cursor-not-allowed' : ''}`}
     >
