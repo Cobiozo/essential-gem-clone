@@ -1,86 +1,97 @@
 
 
-## Naprawa: PiP pokazuje lokalne video + efekty tla nie dzialaja na desktop
+## Naprawa: zamrozone wideo na mobile po powrocie z innej karty
 
-### Problem 1: PiP pokazuje "mnie" zamiast uczestnika
+### Przyczyna
 
-**Przyczyna:** W `GalleryLayout` (VideoGrid.tsx linia 391), `onActiveVideoRef` jest przekazywane ZAWSZE do uczestnika `i === 0`. Ale `allParticipants[0]` to ZAWSZE uczestnik lokalny (linia 506-508: local jest wstawiany jako pierwszy). Wiec `activeVideoRef` wskazuje na lokalne video.
+Na urzadzeniach mobilnych (iOS/Android) przelaczenie na inna karte powoduje, ze przegladarka czesto **zamraza** sciezki kamery, ale NIE zmienia ich `readyState` na `'ended'` -- pozostaja jako `'live'`. 
 
-Logika fallbacku w `handleTogglePiP` (linia 1437-1443) probuje znalezc zdalne video przez `querySelectorAll`, ale filtr wymaga `videoWidth > 0 && !v.paused` -- zdalne video moze jeszcze nie byc w pełni załadowane.
+Obecna logika w `handleVisibilityChange` (linia 638-639) sprawdza:
+```text
+const tracksAlive = stream?.getTracks().some(t => t.readyState === 'live');
+if (!stream || !tracksAlive) { reacquireLocalStream(); }
+```
 
-Dodatkowo, auto-PiP (linia 1470) uzywa `participants.length` zamknietego w stale closure (useEffect zalezy tylko od `[isPiPSupported]`), wiec `hasRemote` moze byc `false` mimo obecnosci uczestnikow.
+Gdy sciezki sa zamrozone ale technicznie "live", warunek jest spelniony i `reacquireLocalStream()` NIE jest wywolywane. Wideo pozostaje zamrozone.
 
-**Naprawa w VideoGrid.tsx** - `GalleryLayout`: Przekazac `onActiveVideoRef` do pierwszego ZDALNEGO uczestnika zamiast zawsze do `i === 0`:
+Drugi problem: nawet gdy re-acquire sie uda, element `<video>` moze nie wznowic odtwarzania automatycznie na mobile (Safari wymaga gestu uzytkownika lub jawnego `play()`).
+
+### Rozwiazanie
+
+Trzy zmiany w `VideoRoom.tsx` i jedna w `VideoGrid.tsx`:
+
+**Zmiana 1: Wymusze re-acquire na mobile niezaleznie od readyState (VideoRoom.tsx, handleVisibilityChange)**
+
+Na urzadzeniach mobilnych zawsze wywolac `reacquireLocalStream()` po powrocie na karte, bo nie mozna polegac na `readyState`. Na desktopie zachowac obecna logike (sprawdzenie readyState).
 
 ```text
-// PRZED (linia 391):
-videoRefCallback={i === 0 ? onActiveVideoRef : undefined}
+// PRZED (linia 637-644):
+let stream = localStreamRef.current;
+const tracksAlive = stream?.getTracks().some(t => t.readyState === 'live');
+if (!stream || !tracksAlive) {
+  const freshStream = await reacquireLocalStream();
+  ...
+}
 
 // PO:
-videoRefCallback={
-  i === participants.findIndex(p => !p.isLocal) 
-    ? onActiveVideoRef 
-    : (i === 0 && !participants.some(p => !p.isLocal) ? onActiveVideoRef : undefined)
+let stream = localStreamRef.current;
+const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const tracksAlive = stream?.getTracks().some(t => t.readyState === 'live');
+
+if (!stream || !tracksAlive || isMobile) {
+  console.log('[VideoRoom] Re-acquiring stream (mobile=' + isMobile + ', alive=' + tracksAlive + ')');
+  if (isMobile && stream) {
+    // Na mobile: zatrzymaj stare sciezki przed ponownym pobraniem
+    stream.getTracks().forEach(t => t.stop());
+  }
+  const freshStream = await reacquireLocalStream();
+  if (!freshStream) return;
+  stream = freshStream;
 }
 ```
 
-Analogicznie w `MultiSpeakerLayout` (linia 434).
+**Zmiana 2: Dodac debounce 200ms dla mobile visibilitychange (VideoRoom.tsx)**
 
-**Naprawa w VideoRoom.tsx** - participantsCountRef + zamykanie PiP:
+Mobile Safari czesto emituje wielokrotne zdarzenia `visibilitychange` w krotkim czasie. Dodac krotki debounce aby uniknac wielokrotnego re-acquire.
 
-1. Dodac ref synchronizowany z `participants.length`:
 ```text
-const participantsCountRef = useRef(participants.length);
-participantsCountRef.current = participants.length;
+const handleVisibilityChange = async () => {
+  if (document.hidden || cleanupDoneRef.current) return;
+  // Debounce na mobile - poczekaj 200ms zeby upewnic sie ze karta jest naprawde widoczna
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (isMobile) {
+    await new Promise(r => setTimeout(r, 200));
+    if (document.hidden) return; // Karta znow ukryta
+  }
+  // ... reszta logiki
+};
 ```
 
-2. W `handleVisibility` (linia 1470) zamienic `participants.length` na `participantsCountRef.current`
+**Zmiana 3: Wymusic play() na elemencie video po zmianie strumienia (VideoGrid.tsx, VideoTile)**
 
-3. Zamykac PiP przy powrocie na karte BEZ warunku `autoPiPRef.current` (linia 1499):
-```text
-// PRZED:
-if (document.pictureInPictureElement && autoPiPRef.current) {
-// PO:
-if (document.pictureInPictureElement) {
-```
-
-### Problem 2: Efekty rozmycia/tla nie dzialaja na desktop
-
-**Przyczyna:** Dwie brakujace kontrole `isTabHidden` w `processFrame` powoduja, ze w trybie tla (PiP) rAF jest wywolywane rownoczesnie z setInterval, co tworzy podwojny loop i moze powodowac bledy segmentatora (podwojne wywolania z tymi samymi timestampami). Po kilkudziesieciu bledach system wchodzi w pass-through i efekt znika.
-
-Linia 254 (wczesne wyjscie gdy videoWidth=0):
-```text
-this.animationFrameId = requestAnimationFrame(this.processFrame);
-// Brak sprawdzenia isTabHidden!
-```
-
-Linia 269 (pass-through recovery):
-```text
-this.animationFrameId = requestAnimationFrame(this.processFrame);
-// Brak sprawdzenia isTabHidden!
-```
-
-**Naprawa w VideoBackgroundProcessor.ts** - dodac kontrole `isTabHidden` we WSZYSTKICH sciezkach wyjscia `processFrame`:
+Dodac listener na `visibilitychange` w `VideoTile` ktory wymusza `play()` po powrocie na karte:
 
 ```text
-// Linia 254 - early return gdy video nie gotowe:
-if (!this.isTabHidden) {
-  this.animationFrameId = requestAnimationFrame(this.processFrame);
-}
-return;
-
-// Linia 269 - pass-through mode:
-if (!this.isTabHidden) {
-  this.animationFrameId = requestAnimationFrame(this.processFrame);
-}
-return;
+// Nowy useEffect w VideoTile (po istniejacych):
+useEffect(() => {
+  const handleVisibility = () => {
+    if (!document.hidden && videoRef.current && participant.stream) {
+      // Force re-play on tab return (mobile Safari fix)
+      const video = videoRef.current;
+      if (video.paused || video.ended) {
+        playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+      }
+    }
+  };
+  document.addEventListener('visibilitychange', handleVisibility);
+  return () => document.removeEventListener('visibilitychange', handleVisibility);
+}, [participant.stream, participant.isLocal, onAudioBlocked]);
 ```
 
 ### Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `VideoGrid.tsx` | GalleryLayout/MultiSpeakerLayout: activeVideoRef na pierwszego zdalnego uczestnika |
-| `VideoRoom.tsx` | Nowy `participantsCountRef`; uzycie w handleVisibility; usuniecie warunku `autoPiPRef` przy zamykaniu PiP |
-| `VideoBackgroundProcessor.ts` | Dodanie kontroli `isTabHidden` w dwoch brakujacych sciezkach processFrame |
+| `VideoRoom.tsx` | Wymusze re-acquire na mobile niezaleznie od readyState + debounce 200ms |
+| `VideoGrid.tsx` | Nowy useEffect w VideoTile: force play() po powrocie na karte |
 
