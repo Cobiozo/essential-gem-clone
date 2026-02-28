@@ -1,61 +1,107 @@
 
-## Naprawa efektow tla na desktopie
 
-### Problem
+## Naprawa: Opoznienie video z desktop dla innych uczestnikow przy wlaczonym PiP
 
-Efekty rozmycia i wirtualnego tla dzialaja na mobile ale nie na desktopie. Przyczyna: `DESKTOP_PROFILE` w `VideoBackgroundProcessor.ts` ma zbyt agresywne ustawienia -- przetwarza obraz w rozdzielczosci 960px (4x wiecej pikseli niz mobile 480px), ale daje tylko 60ms na klatke zanim uzna za "przeciazenie" (mobile ma 120ms).
+### Przyczyna
 
-Pipeline przetwarzania jednej klatki:
-1. `getImageData` na ~518 400 pikseli (960x540)
-2. `smoothMask` - zapis maski jako obraz, blur CSS, odczyt
-3. Petla per-piksel blendujaca tlo
-4. `putImageData`
+`VideoBackgroundProcessor` uzywa `requestAnimationFrame` (rAF) do petli renderowania klatek na canvas. Gdy uzytkownik wlaczy PiP i przejdzie na inna karte (co jest typowym scenariuszem PiP), przegladarka **drastycznie throttluje rAF** w kartach w tle -- czesto do 0-1 klatek/s lub calkowicie wstrzymuje.
 
-Na wiekszosci komputerow ten pipeline trwa >60ms. Po 15 kolejnych klatkach przekraczajacych prog, system przechodzi w tryb pass-through (rysuje surowe video bez efektu). Uzytkownik widzi ze "efekt nie dziala".
+Poniewaz strumien wysylany do innych uczestnikow pochodzi z `canvas.captureStream()`, zamrozenie canvasa = zamrozenie/opoznienie video u pozostalych uczestnikow.
 
-Mobile dziala, bo: 480x270 = 130K pikseli (4x mniej) + prog 120ms (2x wyzszy).
+**Dlaczego przycisk PiP dziala dobrze:** Bo uzytkownik pozostaje na karcie -- rAF dziala normalnie.
+
+**Dlaczego auto-PiP (zmiana karty) powoduje lag:** Bo karta jest w tle -- rAF jest throttlowany.
 
 ### Rozwiazanie
 
+W `VideoBackgroundProcessor.ts` dodac detekcje `visibilitychange`. Gdy karta jest w tle, przelaczac petle renderowania z `requestAnimationFrame` na `setTimeout` (ktory jest throttlowany do ~1s, ale NIE do 0 jak rAF). Dodatkowo uzyc nizszej czestotliwosci (np. 10fps) w tle, co daje plynny obraz u innych uczestnikow przy minimalnym zuzyciu zasobow.
+
+### Zmiany techniczne
+
 **Plik: `src/components/meeting/VideoBackgroundProcessor.ts`**
 
-Zmiana `DESKTOP_PROFILE` na realistyczne wartosci:
+1. **Nowe pola klasy:**
+   - `private isTabHidden = false` -- sledzi stan widocznosci karty
+   - `private backgroundIntervalId: number | null = null` -- ID intervalu dla trybu tla
+   - `private visibilityHandler: (() => void) | null = null` -- referencja do handlera
+
+2. **Nowa metoda `setupVisibilityHandler()`** -- wywolana w `start()`:
+   - Na `document.hidden = true`: anuluje biezacy `requestAnimationFrame`, uruchamia `setInterval` z opoznieniem ~100ms (10fps)
+   - Na `document.hidden = false`: czysci interval, wznawia `requestAnimationFrame`
+
+3. **Modyfikacja `processFrame`:**
+   - Gdy `isTabHidden`, nie wywoluje `requestAnimationFrame` na koncu (bo interval juz steruje petla)
+   - Reszta logiki bez zmian
+
+4. **Modyfikacja `stop()`:**
+   - Czysci interval i usuwa listener `visibilitychange`
+
+### Szkic implementacji
 
 ```text
-// PRZED:
-const DESKTOP_PROFILE: PerformanceProfile = {
-  maxProcessWidth: 960,
-  segmentationIntervalMs: 50,
-  outputFps: 24,
-  overloadThresholdMs: 60,
-};
+// Nowe pola klasy:
+private isTabHidden = false;
+private backgroundIntervalId: ReturnType<typeof setInterval> | null = null;
+private visibilityHandler: (() => void) | null = null;
 
-// PO:
-const DESKTOP_PROFILE: PerformanceProfile = {
-  maxProcessWidth: 640,
-  segmentationIntervalMs: 66,
-  outputFps: 24,
-  overloadThresholdMs: 150,
-};
+// Nowa metoda:
+private setupVisibilityHandler() {
+  this.visibilityHandler = () => {
+    if (document.hidden) {
+      this.isTabHidden = true;
+      // Anuluj rAF
+      if (this.animationFrameId) {
+        cancelAnimationFrame(this.animationFrameId);
+        this.animationFrameId = null;
+      }
+      // Uruchom setTimeout-based loop (~10fps)
+      if (!this.backgroundIntervalId) {
+        this.backgroundIntervalId = setInterval(() => {
+          if (this.isRunning) this.processFrame(performance.now());
+        }, 100);
+      }
+    } else {
+      this.isTabHidden = false;
+      // Zatrzymaj interval
+      if (this.backgroundIntervalId) {
+        clearInterval(this.backgroundIntervalId);
+        this.backgroundIntervalId = null;
+      }
+      // Wznow rAF
+      if (this.isRunning && !this.animationFrameId) {
+        this.animationFrameId = requestAnimationFrame(this.processFrame);
+      }
+    }
+  };
+  document.addEventListener('visibilitychange', this.visibilityHandler);
+}
+
+// Modyfikacja processFrame (koniec metody):
+// Zamiast bezwarunkowego:
+//   this.animationFrameId = requestAnimationFrame(this.processFrame);
+// Uzyc:
+if (!this.isTabHidden) {
+  this.animationFrameId = requestAnimationFrame(this.processFrame);
+}
+
+// Modyfikacja stop():
+if (this.backgroundIntervalId) {
+  clearInterval(this.backgroundIntervalId);
+  this.backgroundIntervalId = null;
+}
+if (this.visibilityHandler) {
+  document.removeEventListener('visibilitychange', this.visibilityHandler);
+  this.visibilityHandler = null;
+}
 ```
 
-Zmiany:
-- `maxProcessWidth`: 960 -> 640 -- zmniejszenie rozdzielczosci przetwarzania o ~56% pikseli (640x360 = 230K vs 960x540 = 518K). Jakosc segmentacji nie spada znaczaco, bo model i tak operuje na mniejszej siatce wewnetrznie
-- `segmentationIntervalMs`: 50 -> 66 -- ~15 segmentacji/s zamiast 20, daleko powyzej percepcji ludzkiego oka
-- `overloadThresholdMs`: 60 -> 150 -- realistyczny prog; nawet jesli klatka trwa 100ms, efekt nadal jest widoczny i plynny. Pas-through wlacza sie dopiero przy prawdziwym przeciazeniu
+### Podsumowanie
 
-Dodatkowo, podniesc prog overload counter z 15 do 30, aby system byl bardziej odporny na sporadyczne skoki:
+| Zmiana | Opis |
+|--------|------|
+| Nowe pola klasy | `isTabHidden`, `backgroundIntervalId`, `visibilityHandler` |
+| `setupVisibilityHandler()` | Przelacza rAF <-> setInterval przy zmianie widocznosci |
+| `processFrame` koniec | Warunkowe wywolanie rAF (tylko gdy karta widoczna) |
+| `start()` | Wywolanie `setupVisibilityHandler()` |
+| `stop()` | Czyszczenie intervalu i listenera |
 
-```text
-// PRZED (linia ~305):
-if (this.overloadCounter > 15) {
-
-// PO:
-if (this.overloadCounter > 30) {
-```
-
-### Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/meeting/VideoBackgroundProcessor.ts` | DESKTOP_PROFILE: maxProcessWidth 960->640, segmentationIntervalMs 50->66, overloadThresholdMs 60->150; overload counter 15->30 |
