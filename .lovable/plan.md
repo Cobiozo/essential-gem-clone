@@ -1,93 +1,111 @@
 
+Cel: naprawić realny problem „nie mogę dodać własnego tła” tak, żeby działało stabilnie nawet przy chwilowych problemach sesji, oraz żeby UI nie sugerował uploadu, gdy użytkownik nie ma uprawnień (gość / niezalogowany).
 
-# Naprawa odbicia lustrzanego tla i jakosci konturu
+## Co ustaliłem z kodu i danych
 
-## Problem 1: Tlo jest odbiciem lustrzanym
+1. Upload do bucketu **faktycznie działa** (w `storage.objects` są nowe pliki użytkownika, obecnie 16).
+2. Bucket i polityki RLS dla `meeting-backgrounds` są poprawnie ustawione dla `authenticated` (SELECT/INSERT/DELETE po prefiksie `auth.uid()`).
+3. Problem jest po stronie frontendu:
+   - `useCustomBackgrounds` przy błędzie `list()` ustawia `customImages=[]` i użytkownik widzi `0/3`, mimo że pliki istnieją.
+   - Auto-cleanup opiera się na `list()`, więc gdy listowanie pada, limit nie jest egzekwowany i liczba plików rośnie.
+   - W `MeetingControls` upload własnych teł jest podawany także w trybie guest (i praktycznie przy braku usera), więc użytkownik może klikać „Dodaj tło”, ale backend odrzuci jako niezalogowany.
+4. Dodatkowo znalazłem wyścig autoryzacji w `MeetingRoom.tsx`: logika potrafi przejść do `unauthorized` zanim `AuthContext` zakończy `loading`, co daje efekt „jestem zalogowany, ale system traktuje mnie jak niezalogowanego”.
 
-### Przyczyna
-Lokalne wideo ma CSS `scale-x-[-1]` (plik VideoGrid.tsx linia 213), ktory odbija caly canvas — wlacznie z narysowanym tlem. Tlo jest rysowane normalnie na canvas, ale CSS flip powoduje ze wyglada jak w lustrze (widac "EO.OLOGY" od prawej do lewej na screenshocie).
+## Plan naprawy (do wdrożenia)
 
-### Rozwiazanie
-W metodzie `applyImageBackground` rysowac tlo **odwrocone poziomo** na canvas, tak zeby po nalozeniu CSS `scaleX(-1)` wyswietlalo sie poprawnie. Uzyc `ctx.scale(-1, 1)` + przesuniecie przy rysowaniu tla na blurredCanvas.
+### 1) Ustabilizowanie autoryzacji w wejściu do meetingu
+Plik: `src/pages/MeetingRoom.tsx`
 
-## Problem 2: Zla jakosc konturu (meble przebijaja)
+- Rozszerzyć `useAuth()` o `loading`.
+- W `verify access` nie wykonywać ścieżki `unauthorized`, dopóki `loading === true`.
+- Dopiero po zakończonym ładowaniu auth i braku usera przechodzić do `unauthorized`.
+- To usuwa sytuacje, gdzie użytkownik „na chwilę” ma `user=null` i przez to traci możliwość uploadu.
 
-### Przyczyna
-Obecna metoda: wielokrotne 1px erozje + sigmoid contrast to za malo. Model generuje maske 256x256, a po upscale do 640-800px kazdy piksel bledu jest widoczny. Kluczowe problemy:
+Efekt: mniej fałszywych stanów „niezalogowany”.
 
-1. **Erozja 1px jest za mala** — nawet 3 pasy nie wystarczaja przy upscale 3x
-2. **Brak edge-aware refinement** — erozja jest slepna, obcina rowno osobe jak i tlo
-3. **Temporal smoothing 40% to za duzo** — rozmywa krawedzie w czasie zamiast je ostrzyc
-4. **Progi (0.75/0.50) sa za szerokie** — strefa mieszania jest za duza
+---
 
-### Rozwiazanie — kompletna przebudowa refineMask dla trybu image
+### 2) Twarde ograniczenie uploadu własnych teł do zalogowanych (bez guest)
+Pliki:
+- `src/components/meeting/VideoRoom.tsx`
+- `src/components/meeting/MeetingControls.tsx`
+- opcjonalnie `src/components/meeting/BackgroundSelector.tsx` (komunikat UX)
 
-**a) Mocniejsza erozja z wiekszym promieniem (radius=2):**
-- Zamiast 3 osobnych erozji 1px, zrobic jedna erozje z promieniem 2px (sprawdzac 8-connected neighbors w odleglosci 2)
-- To daje rownowartosc ~3px erozji ale w jednym przejsciu — szybciej i bardziej rownomiernie
+Zmiany:
+- W `VideoRoom` przekazywać `onUploadBackground` i `onDeleteBackground` **tylko gdy** `user && !guestMode`.
+- Dodać jasny toast, gdy ktoś spróbuje uploadu bez sesji („Musisz być zalogowany, aby dodać własne tło”).
+- W `MeetingControls`/`BackgroundSelector` ukryć sekcję „Twoje tła” dla guesta (lub pokazać informację zamiast przycisku upload).
 
-**b) Ostrzejsze progi alfa-mieszania:**
-- `personThresholdHigh: 0.75 -> 0.85` — wiecej pikseli musi byc "pewna osoba" zeby przejsc
-- `personThresholdLow: 0.50 -> 0.60` — wezszy zakres mieszania (0.60-0.85 zamiast 0.50-0.75)
-- Efekt: ostrzejsza granica, mniej "ducha" mebli
+Efekt: UI nie obiecuje funkcji, której aktualnie nie da się wykonać.
 
-**c) Silniejszy kontrast sigmoid:**
-- Pre-blur: `12 -> 14` (bardziej agresywne spychanie do 0/1)
-- Post-blur: `10 -> 12`
+---
 
-**d) Lzejszy temporal smoothing:**
-- `0.40 -> 0.25` wagi poprzedniej klatki dla image mode
-- Szybsza reakcja na ruch = mniej ghostingu krawedzi
+### 3) Odporność `useCustomBackgrounds` na błędy listowania
+Plik: `src/hooks/useCustomBackgrounds.ts`
 
-**e) Hard clamp na koncu:**
-- Po calym pipeline, zastosowac hard clamp: jesli mask < 0.15 -> 0, jesli mask > 0.85 -> 1
-- To eliminuje resztkowe wartosci posrednie ktore powoduja polprzezroczyste artefakty
+Kluczowe poprawki:
+1. **Optimistic update po udanym uploadzie**
+   - po `upload(path, file)` natychmiast dodać URL do `customImages` lokalnie (z limitem 3),
+   - nie czekać wyłącznie na `listBackgrounds()`.
 
-## Pliki do zmiany
+2. **Lokalny cache ścieżek** (per user, np. `meeting_custom_backgrounds_${user.id}` w `localStorage`)
+   - po udanym uploadzie dopisać nową ścieżkę do cache,
+   - po udanym `list()` zsynchronizować cache z realną listą,
+   - gdy `list()` zwróci błąd: fallback do cache i nadal pokazać użytkownikowi dostępne tła.
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/meeting/VideoBackgroundProcessor.ts` | (1) Flip tla w `applyImageBackground` — rysowac tlo odwrocone; (2) Nowa erozja radius-2; (3) Ostrzejsze progi image mode; (4) Silniejszy kontrast; (5) Lzejszy temporal smoothing; (6) Hard clamp |
+3. **Lepsze czyszczenie limitu**
+   - przy uploadzie utrzymywać max 3 na podstawie najlepiej dostępnego źródła:
+     - najpierw wynik `list()`,
+     - jeśli listowanie padło: cache.
+   - usuwać najstarsze i logować wynik `remove()` z pełnym błędem.
 
-## Szczegoly techniczne
+4. **Silniejsze logowanie diagnostyczne**
+   - logować kod/status/bucket/user/path dla `list/upload/remove`,
+   - dzięki temu kolejny incydent da się jednoznacznie przypisać do auth, RLS, czy API.
 
-### Flip tla (applyImageBackground)
+Efekt: użytkownik po uploadzie widzi swoje tło od razu, nawet jeśli chwilowo `list()` nie odpowie poprawnie.
 
-```text
-// Przed rysowaniem tla na blurredCanvas:
-this.blurredCtx.save();
-this.blurredCtx.scale(-1, 1);
-this.blurredCtx.drawImage(bgImg, sx, sy, sw, sh, -width, 0, width, height);
-this.blurredCtx.restore();
-```
+---
 
-### Erozja radius-2 (nowa metoda)
+### 4) Drobna poprawa UX błędów
+Plik: `src/components/meeting/VideoRoom.tsx`
 
-```text
-erodeMaskRadius2(mask, width, height):
-  for each pixel (x, y):
-    minVal = mask[y*w+x]
-    // check all pixels within Manhattan distance 2
-    for dy = -2 to 2:
-      for dx = -2 to 2:
-        if |dx|+|dy| <= 2 and in bounds:
-          minVal = min(minVal, mask[(y+dy)*w+(x+dx)])
-    tmp[y*w+x] = minVal
-  mask.set(tmp)
-```
+- W `catch` przy uploadzie mapować komunikaty na czytelne teksty:
+  - brak sesji,
+  - limit/rozmiar pliku,
+  - brak uprawnień.
+- Pokazywać komunikat akcyjny („Odśwież spotkanie po zalogowaniu”).
 
-### Hard clamp
+Efekt: użytkownik wie dokładnie co zrobić, zamiast ogólnego „Błąd”.
 
-```text
-for i in mask:
-  if mask[i] < 0.15: mask[i] = 0
-  if mask[i] > 0.85: mask[i] = 1
-```
+## Dlaczego to rozwiąże problem „ciągle nie mogę dodać tła”
 
-## Efekt koncowy
+- Obecnie pliki się zapisują, ale UI gubi je przy błędach listowania lub chwilowym `user=null`.
+- Po zmianach:
+  - upload będzie natychmiast widoczny lokalnie,
+  - fallback cache utrzyma widoczność teł mimo potknięć API,
+  - guest/bez sesji nie będzie mógł wejść w martwą ścieżkę uploadu,
+  - wyścig auth w `MeetingRoom` przestanie losowo „wylogowywać” logikę.
 
-- Tlo wyswietla sie poprawnie (bez odbicia lustrzanego)
-- Kontur osoby jest ostry — meble i polki nie przebijaja
-- Wlosy i obrys glowy sa czyste bez "aury"
-- Ruch jest plynny bez ghostingu krawedzi
+## Walidacja po wdrożeniu (checklista)
 
+1. Zalogowany użytkownik:
+   - dodać tło → pojawia się od razu w „Twoje tła”.
+2. Dodać 4–5 teł:
+   - w UI finalnie max 3, najstarsze usuwane.
+3. Odświeżyć stronę i wrócić do meetingu:
+   - tła nadal widoczne (z listy lub fallback cache).
+4. Tryb guest:
+   - brak możliwości uploadu własnych teł (jasny komunikat).
+5. Sytuacja słabej sesji/odświeżenia tokenu:
+   - brak fałszywego przejścia do `unauthorized` zanim auth się zainicjalizuje.
+
+## Zakres plików do modyfikacji
+
+- `src/pages/MeetingRoom.tsx`
+- `src/components/meeting/VideoRoom.tsx`
+- `src/components/meeting/MeetingControls.tsx`
+- `src/components/meeting/BackgroundSelector.tsx` (jeśli potrzebny komunikat UX)
+- `src/hooks/useCustomBackgrounds.ts`
+
+Bez zmian w bazie danych i bez nowych polityk RLS (na ten moment niepotrzebne — backend wygląda poprawnie, problem jest w flow klienta).
