@@ -6,6 +6,7 @@ import { MeetingLobby } from '@/components/meeting/MeetingLobby';
 import { GuestAccessForm } from '@/components/meeting/GuestAccessForm';
 import { VideoRoom } from '@/components/meeting/VideoRoom';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 
@@ -29,7 +30,7 @@ const MeetingRoomPage: React.FC = () => {
   const userRef = useRef(user);
   if (user) userRef.current = user;
 
-  const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized' | 'guest-form'>('loading');
+  const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized' | 'guest-form' | 'password-gate'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
   const [audioEnabled, setAudioEnabled] = useState(true);
@@ -40,6 +41,9 @@ const MeetingRoomPage: React.FC = () => {
   const [endTime, setEndTime] = useState<string | null>(null);
   const [initialSettings, setInitialSettings] = useState<import('@/components/meeting/MeetingSettingsDialog').MeetingSettings | undefined>();
   const [guestData, setGuestData] = useState<GuestData | null>(null);
+  const [meetingPassword, setMeetingPassword] = useState<string | null>(null);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
   const statusRef = useRef(status);
   statusRef.current = status;
 
@@ -102,7 +106,7 @@ const MeetingRoomPage: React.FC = () => {
       try {
         const { data: event, error } = await supabase
           .from('events')
-          .select('id, title, use_internal_meeting, created_by, end_time, host_user_id')
+          .select('id, title, use_internal_meeting, created_by, end_time, host_user_id, meeting_password')
           .eq('meeting_room_id', roomId)
           .eq('use_internal_meeting', true)
           .maybeSingle();
@@ -115,6 +119,8 @@ const MeetingRoomPage: React.FC = () => {
 
         setMeetingTitle(event.title || 'Spotkanie');
         setEndTime(event.end_time || null);
+        const eventPassword = (event as any).meeting_password || null;
+        setMeetingPassword(eventPassword);
 
         const eventHostId = event.host_user_id || event.created_by;
         setHostUserId(eventHostId);
@@ -129,7 +135,8 @@ const MeetingRoomPage: React.FC = () => {
           .eq('role', 'admin');
         const isAdmin = roles && roles.length > 0;
 
-        if (isCreator || isAdmin) {
+        // Host/admin/creator bypass password
+        if (isCreator || isAdmin || userIsHost) {
           setStatus('lobby');
           return;
         }
@@ -143,7 +150,8 @@ const MeetingRoomPage: React.FC = () => {
           .maybeSingle();
 
         if (reg) {
-          setStatus('lobby');
+          // If password set, show gate; otherwise go to lobby
+          setStatus(eventPassword ? 'password-gate' : 'lobby');
         } else {
           setStatus('unauthorized');
           setErrorMessage('Nie masz dostępu do tego spotkania. Musisz być zapisany/a na wydarzenie.');
@@ -198,6 +206,51 @@ const MeetingRoomPage: React.FC = () => {
         inviterId={inviterId}
         onSuccess={handleGuestSuccess}
       />
+    );
+  }
+
+  if (status === 'password-gate') {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-6 text-center">
+          <div>
+            <h1 className="text-xl font-bold">Spotkanie chronione hasłem</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              Podaj hasło, aby dołączyć do spotkania
+            </p>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (passwordInput === meetingPassword) {
+                setPasswordError(false);
+                setStatus('lobby');
+              } else {
+                setPasswordError(true);
+              }
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+                placeholder="Hasło spotkania"
+                autoFocus
+                className={passwordError ? 'border-destructive' : ''}
+              />
+              {passwordError && (
+                <p className="text-sm text-destructive">Nieprawidłowe hasło</p>
+              )}
+            </div>
+            <Button type="submit" className="w-full">Dołącz</Button>
+            <Button type="button" variant="outline" className="w-full" onClick={() => navigate(-1)}>
+              Wróć
+            </Button>
+          </form>
+        </div>
+      </div>
     );
   }
 

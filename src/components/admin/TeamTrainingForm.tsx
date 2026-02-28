@@ -134,6 +134,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
         publish_at: editingTraining.publish_at || null,
         use_internal_meeting: editingTraining.use_internal_meeting ?? false,
         meeting_room_id: editingTraining.meeting_room_id || null,
+        meeting_password: (editingTraining as any).meeting_password || null,
       });
       setImageUrlInput(editingTraining.image_url || '');
       
@@ -278,6 +279,7 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             publish_at: form.publish_at || null,
             use_internal_meeting: form.use_internal_meeting || false,
             meeting_room_id: form.use_internal_meeting ? (form.meeting_room_id || crypto.randomUUID()) : null,
+            meeting_password: form.use_internal_meeting && form.meeting_password ? form.meeting_password : null,
           };
 
           let error;
@@ -513,6 +515,9 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
               if (checked) {
                 newForm.zoom_link = '';
               }
+              if (!checked) {
+                newForm.meeting_password = null;
+              }
               setForm(newForm);
             }}
           />
@@ -524,6 +529,50 @@ export const TeamTrainingForm: React.FC<TeamTrainingFormProps> = ({
             </p>
           </div>
         </div>
+
+        {/* Meeting Password (only when internal meeting is ON) */}
+        {form.use_internal_meeting && (
+          <div className="ml-6 p-3 rounded-lg border border-dashed bg-muted/20 space-y-3">
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={!!form.meeting_password}
+                onCheckedChange={(checked) => {
+                  setForm({ ...form, meeting_password: checked ? '' : null });
+                }}
+              />
+              <div>
+                <Label className="text-sm font-medium">Zabezpiecz hasłem</Label>
+                <p className="text-xs text-muted-foreground">
+                  Uczestnicy muszą podać hasło przed dołączeniem
+                </p>
+              </div>
+            </div>
+            {form.meeting_password !== null && form.meeting_password !== undefined && (
+              <div className="flex gap-2">
+                <Input
+                  value={form.meeting_password}
+                  onChange={(e) => setForm({ ...form, meeting_password: e.target.value })}
+                  placeholder="Wpisz hasło dostępu..."
+                  className="h-9 flex-1"
+                  maxLength={50}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+                    let pwd = '';
+                    for (let i = 0; i < 6; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
+                    setForm({ ...form, meeting_password: pwd });
+                  }}
+                >
+                  Generuj
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Meeting Link - only show when internal meeting is OFF */}
         {!form.use_internal_meeting && (
