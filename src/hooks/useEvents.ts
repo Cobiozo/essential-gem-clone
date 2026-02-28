@@ -32,14 +32,13 @@ export const useEvents = () => {
     try {
       setLoading(true);
       const now = new Date().toISOString();
-      // Fetch events where:
-      // - end_time >= now (future single events) OR
-      // - occurrences is not null (multi-occurrence events - filtered client-side)
+      // Include events that ended up to 3h ago (for overtime detection)
+      const recentCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
       const { data, error } = await supabase
         .from('events')
         .select('*')
         .eq('is_active', true)
-        .or(`end_time.gte.${now},occurrences.not.is.null`)
+        .or(`end_time.gte.${recentCutoff},occurrences.not.is.null`)
         .order('start_time', { ascending: true });
 
       if (error) throw error;
