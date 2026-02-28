@@ -48,18 +48,18 @@ interface BlurProfile {
 const BLUR_PROFILES: Record<string, BlurProfile> = {
   'blur-light': {
     blurRadius: 6,
-    personThresholdHigh: 0.65,
-    personThresholdLow: 0.40,
+    personThresholdHigh: 0.70,
+    personThresholdLow: 0.45,
   },
   'blur-heavy': {
     blurRadius: 20,
-    personThresholdHigh: 0.60,
-    personThresholdLow: 0.35,
+    personThresholdHigh: 0.65,
+    personThresholdLow: 0.40,
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.65,
-    personThresholdLow: 0.40,
+    personThresholdHigh: 0.70,
+    personThresholdLow: 0.45,
   },
 };
 
@@ -431,10 +431,14 @@ export class VideoBackgroundProcessor {
    * Produces crystal-clear edges with no flickering.
    */
   private refineMask(mask: Float32Array, width: number, height: number) {
-    // Step 1: Pre-blur contrast — push values toward 0/1
-    contrastMask(mask, 6);
+    // Step 1: Pre-blur contrast — aggressively push values toward 0/1
+    contrastMask(mask, 8);
 
-    // Step 2: Spatial smoothing via canvas blur (3px)
+    // Step 2: Erode (shrink person mask 1px) then Dilate (grow back 1px)
+    // This removes thin "halo" artifacts at edges
+    this.erodeDilateMask(mask, width, height);
+
+    // Step 3: Spatial smoothing via canvas blur (3px)
     if (this.maskCtx && this.maskCanvas) {
       if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
         this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
@@ -461,20 +465,61 @@ export class VideoBackgroundProcessor {
       }
     }
 
-    // Step 3: Post-blur contrast — restore sharp edges after blur softened them
-    contrastMask(mask, 5);
+    // Step 4: Post-blur contrast — restore sharp edges after blur softened them
+    contrastMask(mask, 6);
 
-    // Step 4: Temporal smoothing — blend with previous frame to eliminate flickering
+    // Step 5: Temporal smoothing — blend with previous frame (35/65) to eliminate flickering
     if (!this.previousMask || this.previousMask.length !== mask.length) {
       this.previousMask = new Float32Array(mask.length);
       this.previousMask.set(mask);
     } else {
       for (let i = 0; i < mask.length; i++) {
-        mask[i] = this.previousMask[i] * 0.3 + mask[i] * 0.7;
+        mask[i] = this.previousMask[i] * 0.35 + mask[i] * 0.65;
         this.previousMask[i] = mask[i];
       }
     }
   }
+
+  /**
+   * Morphological erode (1px) then dilate (1px) on the mask.
+   * Erode removes thin halo artifacts at person edges.
+   * Dilate restores the silhouette size after erosion.
+   */
+  private erodeDilateMask(mask: Float32Array, width: number, height: number) {
+    const len = mask.length;
+    // Reuse a temporary buffer
+    if (!this._morphBuffer || this._morphBuffer.length !== len) {
+      this._morphBuffer = new Float32Array(len);
+    }
+    const tmp = this._morphBuffer;
+
+    // Erode: each pixel = min of itself and 4-connected neighbors
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        let minVal = mask[idx];
+        if (x > 0) minVal = Math.min(minVal, mask[idx - 1]);
+        if (x < width - 1) minVal = Math.min(minVal, mask[idx + 1]);
+        if (y > 0) minVal = Math.min(minVal, mask[idx - width]);
+        if (y < height - 1) minVal = Math.min(minVal, mask[idx + width]);
+        tmp[idx] = minVal;
+      }
+    }
+
+    // Dilate: each pixel = max of itself and 4-connected neighbors
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        let maxVal = tmp[idx];
+        if (x > 0) maxVal = Math.max(maxVal, tmp[idx - 1]);
+        if (x < width - 1) maxVal = Math.max(maxVal, tmp[idx + 1]);
+        if (y > 0) maxVal = Math.max(maxVal, tmp[idx - width]);
+        if (y < height - 1) maxVal = Math.max(maxVal, tmp[idx + width]);
+        mask[idx] = maxVal;
+      }
+    }
+  }
+  private _morphBuffer: Float32Array | null = null;
 
   private applyBlur(frame: ImageData, mask: Float32Array, width: number, height: number) {
     const profile = BLUR_PROFILES[this.mode] || BLUR_PROFILES['blur-light'];

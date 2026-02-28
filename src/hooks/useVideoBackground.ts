@@ -7,9 +7,35 @@ const BACKGROUND_IMAGES = [
   '/backgrounds/bg-abstract.jpg',
 ];
 
+const LS_KEY_MODE = 'meeting_bg_mode';
+const LS_KEY_IMAGE = 'meeting_bg_image';
+
+function loadSavedMode(): BackgroundMode {
+  try {
+    const v = localStorage.getItem(LS_KEY_MODE);
+    if (v === 'blur-light' || v === 'blur-heavy' || v === 'image') return v;
+  } catch {}
+  return 'none';
+}
+
+function loadSavedImage(): string | null {
+  try {
+    return localStorage.getItem(LS_KEY_IMAGE) || null;
+  } catch {}
+  return null;
+}
+
+function persistChoice(mode: BackgroundMode, image: string | null) {
+  try {
+    localStorage.setItem(LS_KEY_MODE, mode);
+    if (image) localStorage.setItem(LS_KEY_IMAGE, image);
+    else localStorage.removeItem(LS_KEY_IMAGE);
+  } catch {}
+}
+
 export function useVideoBackground() {
-  const [mode, setMode] = useState<BackgroundMode>('none');
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [mode, setMode] = useState<BackgroundMode>(loadSavedMode);
+  const [selectedImage, setSelectedImage] = useState<string | null>(loadSavedImage);
   const [isLoading, setIsLoading] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
   const processorRef = useRef<VideoBackgroundProcessor | null>(null);
@@ -58,12 +84,11 @@ export function useVideoBackground() {
     newMode: BackgroundMode,
     imageSrc?: string | null,
   ): Promise<MediaStream> => {
-    // Save raw stream on first use or if previous one died
     if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
-      // Guard: never use a processed stream as raw source (feedback loop prevention)
       if ((inputStream as any).__bgProcessed) {
         console.warn('[useVideoBackground] Cannot use processed stream as raw source, skipping effect');
         setMode('none');
+        persistChoice('none', null);
         return inputStream;
       }
       rawStreamRef.current = inputStream;
@@ -74,14 +99,15 @@ export function useVideoBackground() {
       processorRef.current?.stop();
       setMode('none');
       setSelectedImage(null);
-      return sourceStream; // Return RAW stream, not processed
+      persistChoice('none', null);
+      return sourceStream;
     }
 
-    // Validate source stream has a live video track
     const videoTrack = sourceStream.getVideoTracks()[0];
     if (!videoTrack || videoTrack.readyState === 'ended') {
       console.warn('[useVideoBackground] Source stream has no live video track, cannot apply background');
       setMode('none');
+      persistChoice('none', null);
       return sourceStream;
     }
 
@@ -96,19 +122,20 @@ export function useVideoBackground() {
       }
 
       processor.setOptions({ mode: newMode, backgroundImage: bgImage });
-      const outputStream = await processor.start(sourceStream); // Always use RAW stream
-      // Mark output so it's never mistaken for a raw camera stream
+      const outputStream = await processor.start(sourceStream);
       (outputStream as any).__bgProcessed = true;
 
       setMode(newMode);
       setSelectedImage(imageSrc || null);
+      persistChoice(newMode, imageSrc || null);
       setIsLoading(false);
       return outputStream;
     } catch (err) {
       console.error('[useVideoBackground] Failed to apply background:', err);
       setIsLoading(false);
       setMode('none');
-      throw err; // Re-throw so caller can show toast
+      persistChoice('none', null);
+      throw err;
     }
   }, [getProcessor, loadImage]);
 
@@ -116,13 +143,18 @@ export function useVideoBackground() {
     processorRef.current?.stop();
     setMode('none');
     setSelectedImage(null);
-    // Don't clear rawStreamRef - camera is still alive
+    // Don't clear localStorage — background persists between meetings
   }, []);
 
   const setParticipantCount = useCallback((count: number) => {
     if (processorRef.current) {
       processorRef.current.setParticipantCount(count);
     }
+  }, []);
+
+  /** Returns saved background settings for auto-apply on reconnect */
+  const getSavedBackground = useCallback((): { mode: BackgroundMode; image: string | null } => {
+    return { mode: loadSavedMode(), image: loadSavedImage() };
   }, []);
 
   return {
@@ -134,6 +166,7 @@ export function useVideoBackground() {
     stopBackground,
     updateRawStream,
     setParticipantCount,
+    getSavedBackground,
     backgroundImages: BACKGROUND_IMAGES,
   };
 }
