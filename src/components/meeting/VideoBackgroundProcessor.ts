@@ -49,15 +49,26 @@ export class VideoBackgroundProcessor {
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
         );
-        this.segmenter = await ImageSegmenter.createFromOptions(vision, {
+      const modelOptions = {
           baseOptions: {
             modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite',
-            delegate: 'GPU',
+            delegate: 'GPU' as const,
           },
-          runningMode: 'VIDEO',
-          outputCategoryMask: true,
-          outputConfidenceMasks: false,
-        });
+          runningMode: 'VIDEO' as const,
+          outputCategoryMask: false,
+          outputConfidenceMasks: true,
+        };
+        try {
+          this.segmenter = await ImageSegmenter.createFromOptions(vision, modelOptions);
+          console.log('[BackgroundProcessor] Model loaded with GPU delegate');
+        } catch (gpuErr) {
+          console.warn('[BackgroundProcessor] GPU delegate failed, falling back to CPU:', gpuErr);
+          this.segmenter = await ImageSegmenter.createFromOptions(vision, {
+            ...modelOptions,
+            baseOptions: { ...modelOptions.baseOptions, delegate: 'CPU' as const },
+          });
+          console.log('[BackgroundProcessor] Model loaded with CPU delegate');
+        }
         console.log('[BackgroundProcessor] Model loaded successfully');
       } catch (err) {
         console.error('[BackgroundProcessor] Failed to initialize:', err);
@@ -158,17 +169,18 @@ export class VideoBackgroundProcessor {
       }
 
       const result = this.segmenter.segmentForVideo(this.videoElement, timestamp);
-      const mask = result.categoryMask;
+      const masks = result.confidenceMasks;
 
-      if (mask) {
+      if (masks && masks.length > 0) {
+        const personMask = masks[0]; // selfie segmenter: index 0 = person confidence
         const { width, height } = this.canvas;
 
         // Draw original video frame
         this.ctx.drawImage(this.videoElement, 0, 0, width, height);
         const frame = this.ctx.getImageData(0, 0, width, height);
 
-        // Get mask data
-        const maskData = mask.getAsUint8Array();
+        // Get confidence mask data (float32: 0.0=background, 1.0=person)
+        const maskData = personMask.getAsFloat32Array();
 
         if (this.mode === 'blur-light' || this.mode === 'blur-heavy') {
           this.applyBlur(frame, maskData, width, height);
@@ -177,7 +189,7 @@ export class VideoBackgroundProcessor {
         }
 
         this.ctx.putImageData(frame, 0, 0);
-        mask.close();
+        personMask.close();
       } else {
         // No mask — draw raw frame
         this.ctx.drawImage(this.videoElement, 0, 0, this.canvas.width, this.canvas.height);
@@ -201,8 +213,9 @@ export class VideoBackgroundProcessor {
     this.animationFrameId = requestAnimationFrame(this.processFrame);
   };
 
-  private applyBlur(frame: ImageData, mask: Uint8Array, width: number, height: number) {
+  private applyBlur(frame: ImageData, mask: Float32Array, width: number, height: number) {
     const blurRadius = this.mode === 'blur-light' ? 10 : 20;
+    const THRESHOLD = 0.5;
 
     // Reuse pre-created blur canvas
     if (this.blurredCtx && this.blurredCanvas) {
@@ -212,7 +225,7 @@ export class VideoBackgroundProcessor {
 
       // Composite: person pixels from original, background from blurred
       for (let i = 0; i < mask.length; i++) {
-        if (mask[i] === 0) {
+        if (mask[i] < THRESHOLD) {
           const idx = i * 4;
           frame.data[idx] = blurred.data[idx];
           frame.data[idx + 1] = blurred.data[idx + 1];
@@ -222,12 +235,13 @@ export class VideoBackgroundProcessor {
     }
   }
 
-  private applyImageBackground(frame: ImageData, mask: Uint8Array, width: number, height: number) {
+  private applyImageBackground(frame: ImageData, mask: Float32Array, width: number, height: number) {
     if (!this.backgroundImage) return;
 
     // Reuse blur canvas for background image rendering
     if (!this.blurredCtx || !this.blurredCanvas) return;
 
+    const THRESHOLD = 0.5;
     const imgRatio = this.backgroundImage.width / this.backgroundImage.height;
     const canvasRatio = width / height;
     let sx = 0, sy = 0, sw = this.backgroundImage.width, sh = this.backgroundImage.height;
@@ -243,7 +257,7 @@ export class VideoBackgroundProcessor {
     const bgData = this.blurredCtx.getImageData(0, 0, width, height);
 
     for (let i = 0; i < mask.length; i++) {
-      if (mask[i] === 0) {
+      if (mask[i] < THRESHOLD) {
         const idx = i * 4;
         frame.data[idx] = bgData.data[idx];
         frame.data[idx + 1] = bgData.data[idx + 1];
