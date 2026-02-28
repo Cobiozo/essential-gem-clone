@@ -118,10 +118,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.zoom-create-meeting]
-verify_jwt = true
+verify_jwt = false
 
 [functions.zoom-check-status]
-verify_jwt = true
+verify_jwt = false
 
 [functions.send-webinar-confirmation]
 verify_jwt = false
