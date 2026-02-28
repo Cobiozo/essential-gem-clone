@@ -1,115 +1,63 @@
 
-Cel: usunąć „tragiczny” kontur bez psucia obecnych funkcji spotkań (PiP, screen share, uploady teł, guest flow, mirroring lokalnego podglądu).
 
-## Co realnie jest nie tak (po analizie kodu + Twojego tekstu + screenshotu)
+# Plan naprawy: spotkanie widoczne po zakończeniu + brak podglądu kamery w lobby
 
-1. Problem dotyczy głównie `src/components/meeting/VideoBackgroundProcessor.ts` (pipeline maski), nie warstwy uploadu teł.
-2. W kodzie jest już:
-   - temporal smoothing,
-   - feathering przez blur,
-   - requestAnimationFrame,
-   - próba GPU delegate.
-3. Mimo tego efekt dalej słaby, bo obecny pipeline jest nadal „threshold-heavy” i ma widoczne artefakty na krawędziach przy ruchu:
-   - segmentacja jest throttlowana (70–150ms),
-   - postprocessing nadal mocno „przycina”/„dociska” alfę,
-   - profil wydajności obniża rozdzielczość maski przy większej liczbie uczestników.
-4. Dodatkowo: wcześniejsze założenie „selfie_segmenter = full-res model” jest zbyt optymistyczne. Z dokumentacji MediaPipe wynika, że modele selfie działają na małych wejściach (np. 256x256 / 144x256), więc samo przełączenie modelu nie gwarantuje idealnej granicy.
+## Problem 1: Spotkanie nadal widoczne w widzetach po kliknieciu "Zakoncz spotkanie"
 
-### Do I know what the issue is?
-Tak — główny problem to nie brak jednej „magicznej” opcji modelu, tylko kombinacja:
-- zbyt rzadkiej aktualizacji maski,
-- agresywnych progów/clampów,
-- oraz globalnego (nie edge-aware) wygładzania, które daje albo „halo”, albo „poszarpanie”.
+### Przyczyna
+`handleEndMeeting` w `VideoRoom.tsx` ustawia tylko `is_active: false` na uczestnikach, ale **nie aktualizuje `end_time` w tabeli `events`**. Widgety dashboardu filtruja tak:
 
-## Ocena tekstu, który podałeś (czy to dobre rozwiązanie?)
+- **MyMeetingsWidget** (linia 90): `new Date(e.end_time) > new Date()` -- jesli oryginalny `end_time` jest w przyszlosci, spotkanie nadal sie wyswietla
+- **CalendarWidget**: uzywa `useMeetingRoomStatus` (sprawdza `is_active` uczestnikow) -- ten widget powinien reagowac poprawnie po `handleEndMeeting`, ale MyMeetingsWidget nie
 
-Twoje założenia są kierunkowo dobre, ale wymagają korekty:
+### Rozwiazanie
+1. **VideoRoom.tsx** -- w `handleEndMeeting` dodac aktualizacje `end_time` w tabeli `events` na aktualny czas:
+```
+await supabase.from('events')
+  .update({ end_time: new Date().toISOString() })
+  .eq('meeting_room_id', roomId);
+```
+2. **VideoRoom.tsx** -- po zakonczeniu wyslac `window.dispatchEvent(new CustomEvent('eventRegistrationChange'))` zeby widgety odswiezyly dane (ten mechanizm juz istnieje w MyMeetingsWidget).
+3. **MyMeetingsWidget** -- dodac subskrypcje `useMeetingRoomStatus` analogicznie do CalendarWidget, zeby wykrywac zmiane statusu uczestnikow w czasie rzeczywistym (bez czekania na refetch eventow).
 
-1. **„Model complex, nie lite”**  
-   - Dobre jako intencja (więcej jakości).
-   - W praktyce w tym stacku MediaPipe nie ma prostego przełącznika „complex” jak np. w innych modułach. Trzeba dobrać pipeline i profile, nie tylko URL modelu.
-2. **Temporal smoothing**  
-   - Bardzo dobre i potrzebne, ale musi być adaptacyjne (mocniejsze w bezruchu, słabsze przy szybkim ruchu ręki/głowy), inaczej daje smużenie.
-3. **Edge feathering / anti-aliasing**  
-   - Słuszny kierunek.  
-   - WebGL shader byłby najlepszy, ale duże ryzyko regresji. Da się osiągnąć bardzo dobrą jakość edge-aware featheringiem w Canvas2D bez przebudowy całego renderera.
-4. **Synchronizacja / rAF / akceleracja**  
-   - rAF i próba GPU już są; brak jest bardziej „quality-first” parametrów dla trybu `image`.
+---
 
-Wniosek: Twoja propozycja jest dobra koncepcyjnie, ale trzeba ją wdrożyć jako zmianę pipeline’u jakości, nie tylko zamianę modelu.
+## Problem 2: Brak podgladu kamery i testu mikrofonu w lobby
 
-## Plan wdrożenia (bez naruszenia istniejącej funkcjonalności)
+### Przyczyna
+Zrzut ekranu pokazuje szary prostokat mimo wlaczonego przelacznika kamery. Kod lobby (`MeetingLobby.tsx`) ma:
+- `getUserMedia` w `useEffect` (linia 41-69) -- jesli sie nie powiedzie, failuje cicho
+- Brak jawnego wywolania `video.play()` po ustawieniu `srcObject` -- w niektorych przegladarkach wymagane
+- Brak jakiegokolwiek wskaznika poziomu mikrofonu
 
-## 1) Quality-first profil tylko dla trybu `image`
-Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
+### Rozwiazanie
+1. **MeetingLobby.tsx** -- dodac jawne `videoRef.current.play().catch(...)` po ustawieniu `srcObject` (linia 72-74)
+2. **MeetingLobby.tsx** -- dodac wizualny wskaznik poziomu mikrofonu (AudioContext + AnalyserNode):
+   - Pasek poziomu glosnosci pod przelacznikiem mikrofonu
+   - Aktualizowany w petli `requestAnimationFrame`
+   - Zatrzymywany przy wylaczeniu mikrofonu lub opuszczeniu lobby
+3. **MeetingLobby.tsx** -- dodac komunikat bledu jesli `getUserMedia` sie nie powiedzie (np. "Nie mozna uzyskac dostepu do kamery")
 
-- Dodać osobne ustawienia dla `image`:
-  - wyższy minimalny `maxProcessWidth` (np. nie schodzić poniżej 640 dla image mode),
-  - krótszy `segmentationIntervalMs` (np. 33–50ms dla image mode, zamiast 70–150ms).
-- Zostawić obecne profile dla `blur-light` i `blur-heavy` bez zmian.
+---
 
-Dlaczego: poprawa stabilności konturu przy ruchu bez ruszania trybów blur.
+## Szczegoly techniczne
 
-## 2) Adaptacyjne temporal smoothing (motion-aware)
-Plik: `VideoBackgroundProcessor.ts` (`refineMask`)
+### Plik: `src/components/meeting/VideoRoom.tsx`
+- W `handleEndMeeting` (linia 1833): dodac `supabase.from('events').update({ end_time: now }).eq('meeting_room_id', roomId)` przed `handleLeave()`
+- Dodac `window.dispatchEvent(new CustomEvent('eventRegistrationChange'))` po zakonczeniu
 
-- Zamiast stałej wagi:
-  - wykrywać prosty poziom ruchu (np. średnia różnica maski klatka-do-klatki),
-  - przy dużym ruchu zmniejszać wagę poprzedniej klatki,
-  - przy małym ruchu zwiększać wagę dla stabilności.
-- Efekt: mniej „rwania” i mniej „ciągnięcia” konturu.
+### Plik: `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+- Zaimportowac i uzyc `useMeetingRoomStatus` (jak CalendarWidget)
+- Rozszerzyc filtrowanie `upcomingEvents` o logike "overtime" -- jesli `end_time` minal i `is_active` jest false, nie pokazywac
 
-## 3) Edge-aware feathering zamiast globalnego rozmycia maski
-Plik: `VideoBackgroundProcessor.ts`
+### Plik: `src/components/meeting/MeetingLobby.tsx`
+- Dodac `play()` po `srcObject` assignment
+- Dodac komponent wskaznika poziomu mikrofonu (AudioContext AnalyserNode)
+- Dodac stan bledu kamery z komunikatem UX
 
-- Zbudować narrow edge band (obszar przejściowy maski).
-- Rozmywać i wygładzać tylko ten pas krawędzi, nie całą maskę.
-- Zastosować `smoothstep` w strefie przejściowej zamiast agresywnego hard-clampa na dużym zakresie.
+### Pliki bez zmian
+- `useMeetingRoomStatus.ts` -- dziala poprawnie, subskrybuje Realtime
+- `CalendarWidget.tsx` -- juz poprawnie uzywa `useMeetingRoomStatus`
+- `VideoBackgroundProcessor.ts` -- bez zmian
+- `useVideoBackground.ts` -- bez zmian
 
-Dlaczego: usuwa schodki i halo jednocześnie, lepiej zachowuje włosy i okulary.
-
-## 4) Dwuetapowe mieszanie alfa (core + transition)
-Plik: `VideoBackgroundProcessor.ts` (`applyImageBackground`)
-
-- Podział na:
-  - **core foreground** (kopiowany 1:1),
-  - **core background** (podmiana 1:1),
-  - **transition band** (miękkie blendowanie).
-- Progi dobierane dla „zero bleed first”, ale z zachowaniem przejścia na obrzeżu.
-- Obecny fix lustrzanego tła zostaje bez zmian.
-
-## 5) Bezpieczna kompatybilność wsteczna
-- Nie zmieniać:
-  - `useVideoBackground.ts` API,
-  - logiki spotkań w `VideoRoom.tsx`,
-  - screen share / PiP / guest mode / upload custom backgrounds.
-- Jeśli urządzenie nie wyrabia:
-  - automatyczny fallback do obecnych „lighter” parametrów (bez wyłączania całej funkcji).
-
-## 6) Telemetria debugowa (krótkoterminowo)
-Plik: `VideoBackgroundProcessor.ts`
-
-- Dodać debug logi quality path:
-  - jaki model finalnie załadowany,
-  - realny processing size,
-  - realny segmentation interval,
-  - motion score.
-- To pozwoli szybko odróżnić „problem modelu” od „problemów parametrów”.
-
-## Kryteria akceptacji (żeby mieć pewność, że jest „raz a porządnie”)
-
-1. Kontur przy ruchu ręką nie „odrywa się” od sylwetki.
-2. Mniej przebijania półek/mebli przez obrzeże barków i dłoni.
-3. Włosy/zarost nie są brutalnie obcięte.
-4. Tło nadal nie jest lustrzane.
-5. Brak regresji:
-   - blur-light / blur-heavy działają jak wcześniej,
-   - screen share i PiP bez zmian,
-   - upload/usuwanie własnych teł bez zmian.
-
-## Zakres plików do modyfikacji
-
-- Główny: `src/components/meeting/VideoBackgroundProcessor.ts`
-- Bez koniecznych zmian w innych plikach (chyba że opcjonalny przełącznik „Jakość konturu: standard/precyzyjna” w UI — wtedy osobny, mały krok po potwierdzeniu).
-
-To jest najbezpieczniejsza ścieżka: maksymalna poprawa konturu przy minimalnym ryzyku naruszenia obecnej funkcjonalności.
