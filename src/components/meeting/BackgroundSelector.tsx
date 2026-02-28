@@ -24,6 +24,7 @@ interface BackgroundSelectorProps {
   isUploading?: boolean;
   onUpload?: (file: File) => void;
   onDelete?: (url: string) => void;
+  onRefresh?: () => void;
 }
 
 export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
@@ -39,6 +40,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
   isUploading = false,
   onUpload,
   onDelete,
+  onRefresh,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,7 +54,7 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
 
   return (
     <>
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={(open) => { if (open) onRefresh?.(); }}>
       <DropdownMenuTrigger asChild disabled={isLoading}>
         {trigger}
       </DropdownMenuTrigger>

@@ -18,17 +18,19 @@ export function useCustomBackgrounds() {
   }, []);
 
   const listBackgrounds = useCallback(async () => {
+    console.log('[useCustomBackgrounds] listBackgrounds called, user:', user?.id ?? 'null');
     if (!user) return;
     setIsLoading(true);
     try {
       const { data, error } = await supabase.storage.from(BUCKET).list(user.id, {
-        limit: MAX_BACKGROUNDS,
+        limit: 100,
         sortBy: { column: 'created_at', order: 'asc' },
       });
       if (error) throw error;
       const urls = (data || [])
         .filter(f => f.name && !f.name.startsWith('.'))
         .map(f => getPublicUrl(`${user.id}/${f.name}`));
+      console.log('[useCustomBackgrounds] Found', urls.length, 'backgrounds');
       setCustomImages(urls);
     } catch (err) {
       console.error('[useCustomBackgrounds] List failed:', err);
@@ -101,6 +103,7 @@ export function useCustomBackgrounds() {
     isLoading,
     uploadImage,
     deleteImage,
+    refetch: listBackgrounds,
     maxBackgrounds: MAX_BACKGROUNDS,
   };
 }

@@ -52,6 +52,7 @@ interface MeetingControlsProps {
   isUploadingBackground?: boolean;
   onUploadBackground?: (file: File) => void;
   onDeleteBackground?: (url: string) => void;
+  onRefreshBackgrounds?: () => void;
 }
 
 const ControlButton: React.FC<{
@@ -154,6 +155,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   isUploadingBackground = false,
   onUploadBackground,
   onDeleteBackground,
+  onRefreshBackgrounds,
 }) => {
   const canManage = isHost || isCoHost;
   const disabledTip = 'Prowadzący wyłączył tę funkcję';
@@ -257,6 +259,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
           isUploading={isUploadingBackground}
           onUpload={onUploadBackground}
           onDelete={onDeleteBackground}
+          onRefresh={onRefreshBackgrounds}
           trigger={
             <button className="flex flex-col items-center gap-1 min-w-[48px]">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${

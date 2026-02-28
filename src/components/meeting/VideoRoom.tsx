@@ -130,6 +130,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     isUploading: isUploadingBackground,
     uploadImage: uploadBackgroundImage,
     deleteImage: deleteBackgroundImage,
+    refetch: refetchBackgrounds,
     maxBackgrounds: maxCustomBackgrounds,
   } = useCustomBackgrounds();
 
@@ -2038,6 +2039,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
           }
         }}
+        onRefreshBackgrounds={refetchBackgrounds}
         onDeleteBackground={async (url) => {
           try {
             // If currently using this background, switch to none
