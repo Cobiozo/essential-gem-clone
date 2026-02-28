@@ -17,6 +17,7 @@ import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { expandEventsForCalendar } from '@/hooks/useOccurrences';
+import { useMeetingRoomStatus } from '@/hooks/useMeetingRoomStatus';
 
 interface MyMeetingsWidgetProps {
   events?: EventWithRegistration[];
@@ -86,10 +87,28 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   };
 
 
-  // Filter to show only upcoming events
-  const upcomingEvents = userEvents.filter(
-    e => new Date(e.end_time) > new Date()
-  );
+  // Collect meeting room IDs for real-time status tracking
+  const meetingRoomIds = useMemo(() => {
+    return userEvents
+      .filter(e => (e as any).meeting_room_id)
+      .map(e => (e as any).meeting_room_id as string);
+  }, [userEvents]);
+
+  const activeRoomIds = useMeetingRoomStatus(meetingRoomIds);
+
+  // Filter to show only upcoming events, excluding ended internal meetings
+  const upcomingEvents = userEvents.filter(e => {
+    const now = new Date();
+    const endTime = new Date(e.end_time);
+    // If end_time already passed, skip
+    if (endTime <= now) return false;
+    // If it's an internal meeting and the room is no longer active, hide it
+    const roomId = (e as any).meeting_room_id;
+    if (roomId && !activeRoomIds.has(roomId) && new Date(e.start_time) <= now) {
+      return false;
+    }
+    return true;
+  });
 
   // Group events by type
   const groupedEvents = upcomingEvents.reduce((acc, event) => {
