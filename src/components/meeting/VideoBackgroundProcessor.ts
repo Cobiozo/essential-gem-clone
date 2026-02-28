@@ -58,8 +58,8 @@ const BLUR_PROFILES: Record<string, BlurProfile> = {
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.75,   // tighter: keep more person pixels
-    personThresholdLow: 0.50,    // tighter: replace background more aggressively
+    personThresholdHigh: 0.85,   // tight: only confident person pixels pass
+    personThresholdLow: 0.60,    // narrow blend zone for sharp edges
   },
 };
 
@@ -434,15 +434,14 @@ export class VideoBackgroundProcessor {
     const isImageMode = this.mode === 'image';
 
     // Step 1: Pre-blur contrast — push values toward 0/1 (stronger for image mode)
-    contrastMask(mask, isImageMode ? 12 : 7);
+    contrastMask(mask, isImageMode ? 14 : 7);
 
     // Step 2: Single erode/dilate pass — removes thin halo artifacts
     this.erodeDilateMask(mask, width, height);
 
-    // Step 2b: Extra erode passes for image mode — tightens edges to cut furniture bleed
+    // Step 2b: Aggressive radius-2 erosion for image mode — cuts furniture bleed at edges
     if (isImageMode) {
-      this.erodeMaskOnly(mask, width, height);
-      this.erodeMaskOnly(mask, width, height); // second pass for 2px total extra erosion
+      this.erodeMaskRadius2(mask, width, height);
     }
 
     // Step 3: Spatial smoothing via canvas blur (smaller for image mode to keep edges sharp)
@@ -473,17 +472,25 @@ export class VideoBackgroundProcessor {
     }
 
     // Step 4: Post-blur contrast — restore sharp edges (stronger for image mode)
-    contrastMask(mask, isImageMode ? 10 : 5);
+    contrastMask(mask, isImageMode ? 12 : 5);
 
-    // Step 5: Temporal smoothing — blend with previous frame (30/70) for smooth edges without motion lag
+    // Step 5: Temporal smoothing — blend with previous frame
     if (!this.previousMask || this.previousMask.length !== mask.length) {
       this.previousMask = new Float32Array(mask.length);
       this.previousMask.set(mask);
     } else {
-      const weight = isImageMode ? 0.40 : 0.30;
+      const weight = isImageMode ? 0.25 : 0.30; // lighter for image mode = less ghosting
       for (let i = 0; i < mask.length; i++) {
         mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
         this.previousMask[i] = mask[i];
+      }
+    }
+
+    // Step 6: Hard clamp — eliminate semi-transparent residuals (image mode only)
+    if (isImageMode) {
+      for (let i = 0; i < mask.length; i++) {
+        if (mask[i] < 0.15) mask[i] = 0;
+        else if (mask[i] > 0.85) mask[i] = 1;
       }
     }
   }
@@ -530,8 +537,8 @@ export class VideoBackgroundProcessor {
   private _morphBuffer: Float32Array | null = null;
   private _erodeBuffer: Float32Array | null = null;
 
-  /** Extra erode-only pass for image mode — shrinks person mask slightly to cut edge bleed */
-  private erodeMaskOnly(mask: Float32Array, width: number, height: number) {
+  /** Radius-2 erosion — checks all pixels within Manhattan distance 2 for aggressive edge cleanup */
+  private erodeMaskRadius2(mask: Float32Array, width: number, height: number) {
     const len = mask.length;
     if (!this._erodeBuffer || this._erodeBuffer.length !== len) {
       this._erodeBuffer = new Float32Array(len);
@@ -541,10 +548,16 @@ export class VideoBackgroundProcessor {
       for (let x = 0; x < width; x++) {
         const idx = y * width + x;
         let minVal = mask[idx];
-        if (x > 0) minVal = Math.min(minVal, mask[idx - 1]);
-        if (x < width - 1) minVal = Math.min(minVal, mask[idx + 1]);
-        if (y > 0) minVal = Math.min(minVal, mask[idx - width]);
-        if (y < height - 1) minVal = Math.min(minVal, mask[idx + width]);
+        for (let dy = -2; dy <= 2; dy++) {
+          const ny = y + dy;
+          if (ny < 0 || ny >= height) continue;
+          for (let dx = -2; dx <= 2; dx++) {
+            if (Math.abs(dx) + Math.abs(dy) > 2) continue;
+            const nx = x + dx;
+            if (nx < 0 || nx >= width) continue;
+            minVal = Math.min(minVal, mask[ny * width + nx]);
+          }
+        }
         tmp[idx] = minVal;
       }
     }
@@ -601,8 +614,12 @@ export class VideoBackgroundProcessor {
       sh = this.backgroundImage.width / canvasRatio;
       sy = (this.backgroundImage.height - sh) / 2;
     }
+    // Draw background flipped horizontally so it appears correct after CSS scaleX(-1)
     this.blurredCtx.filter = 'none';
-    this.blurredCtx.drawImage(this.backgroundImage, sx, sy, sw, sh, 0, 0, width, height);
+    this.blurredCtx.save();
+    this.blurredCtx.scale(-1, 1);
+    this.blurredCtx.drawImage(this.backgroundImage, sx, sy, sw, sh, -width, 0, width, height);
+    this.blurredCtx.restore();
     if (!this.cachedBgData || this.cachedBgData.width !== width || this.cachedBgData.height !== height) {
       this.cachedBgData = this.blurredCtx.getImageData(0, 0, width, height);
     } else {
