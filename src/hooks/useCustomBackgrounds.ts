@@ -63,7 +63,16 @@ export function useCustomBackgrounds() {
         contentType: file.type,
         upsert: false,
       });
-      if (error) throw error;
+      if (error) {
+        console.error('[useCustomBackgrounds] Upload failed:', error.message, error);
+        if (error.message?.includes('Bucket not found')) {
+          throw new Error('Bucket "meeting-backgrounds" nie istnieje. Skontaktuj się z administratorem.');
+        }
+        if (error.message?.includes('row-level security') || error.message?.includes('Unauthorized')) {
+          throw new Error('Brak uprawnień do przesyłania plików. Sprawdź czy jesteś zalogowany.');
+        }
+        throw error;
+      }
 
       await listBackgrounds();
       return getPublicUrl(path);

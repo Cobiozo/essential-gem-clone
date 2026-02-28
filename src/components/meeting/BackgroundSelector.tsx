@@ -139,7 +139,10 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
             ))}
             {customImages.length < maxCustom && (
               <DropdownMenuItem
-                onClick={() => setTimeout(() => fileInputRef.current?.click(), 50)}
+                onSelect={(e) => {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }}
                 className="flex items-center gap-2 cursor-pointer text-zinc-300"
                 disabled={isUploading}
               >
