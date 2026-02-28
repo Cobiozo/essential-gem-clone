@@ -1,68 +1,100 @@
 
+Cel: usunąć opóźnienia/zamrażanie obrazu z telefonu oraz naprawić jakość maski rozmycia (żeby nie rozmywało twarzy/sylwetki).
 
-## Naprawa dwoch problemow: brak odznaki nieprzeczytanych + udostepnianie ekranu na mobile
+## Co wykazała analiza
 
-### Problem 1: Brak liczby nieprzeczytanych wiadomosci przy ikonce Czatu
+1. Pipeline tła na mobile jest zbyt ciężki:
+- przetwarzanie idzie na pełnej rozdzielczości kamery (`width/height` z tracka, często 1080p),
+- każda klatka robi segmentację + `getImageData`/`putImageData` + dodatkowy odczyt rozmytego bufora,
+- output jest wymuszony na `captureStream(30)`,
+- to powoduje przeciążenie CPU/GPU na telefonie i efekt „freeze”/dużego laga lokalnie i zdalnie.
 
-**Przyczyna**: Funkcja `fetchUnreadCounts` w `useUnifiedChat.ts` liczy tylko wiadomosci broadcastowe (po `sender_role`). Wiadomosci bezposrednie (DM) -- gdzie `recipient_id` jest konkretnym uzytkownikiem -- sa calkowicie pomijane. Dlatego `totalUnread` jest zawsze 0, jesli uzytkownik ma tylko nieprzeczytane DM-y.
+2. Rozmycie „lekkie/mocne” jest zbyt agresywne dla sylwetki:
+- obecne progi blendowania (`EDGE_LOW=0.3`, `EDGE_HIGH=0.7`) dopuszczają częściowe rozmycie pikseli osoby,
+- przy cięższych warunkach mobilnych maska jest mniej stabilna, więc twarz i kontur są nadpisywane.
 
-**Naprawa** w `src/hooks/useUnifiedChat.ts` -- rozszerzenie `fetchUnreadCounts`:
+3. Jest niespójność w logice odzyskiwania streamu:
+- `reacquireLocalStream()` po ponownym nałożeniu tła ustawia `localStreamRef.current` na stream przetworzony, ale zwraca surowy `stream`,
+- to grozi rozjazdem stanu przy kolejnych operacjach i może pogłębiać problemy po reconnectach.
 
-Dodac drugie zapytanie do `role_chat_messages` liczace nieprzeczytane wiadomosci bezposrednie:
+## Plan zmian (implementacja)
 
-```text
-// Existing: broadcast unread
-const { data: broadcastData } = await supabase
-  .from('role_chat_messages')
-  .select('sender_role')
-  .eq('recipient_role', currentRole)
-  .eq('is_read', false)
-  .or(`recipient_id.eq.${user.id},recipient_id.is.null`);
+### 1) Adaptacyjna wydajność VideoBackgroundProcessor (najważniejsze)
+Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
 
-// NEW: direct message unread
-const { data: dmData } = await supabase
-  .from('role_chat_messages')
-  .select('sender_id')
-  .eq('recipient_id', user.id)
-  .eq('is_read', false)
-  .not('sender_id', 'is', null);
-```
+- Dodać profil wydajności zależny od urządzenia:
+  - mobile: niższa rozdzielczość przetwarzania (np. max 640px szerokości), output FPS 12–15,
+  - desktop: wyższa (np. 960px), output FPS 24.
+- Rozdzielić:
+  - rozdzielczość wejścia/segmentacji (niższa),
+  - rozdzielczość wyjścia do tracka (utrzymana proporcja, ale bez pełnego 1080p na słabszych urządzeniach).
+- Dodać throttling segmentacji:
+  - segmentacja np. co 66–100 ms na mobile,
+  - między segmentacjami używać ostatniej maski (bez ponownego wywołania modelu każdej klatki).
+- Dodać zabezpieczenie przeciążenia:
+  - gdy czas renderu klatki regularnie przekracza budżet, automatycznie obniżyć jakość (FPS/procesing scale), a w skrajnym przypadku przejść chwilowo na pass-through.
 
-Polaczyc wyniki w jednej mapie `counts`:
-- Broadcast: klucze `incoming-{role}` (jak dotychczas)
-- DM: klucze `dm-{sender_id}` (nowe)
+Efekt: znacznie mniejsze opóźnienie i brak zamrażania local preview na telefonie.
 
-Dzieki temu `totalUnread` zsumuje zarowno broadcast jak i DM.
+### 2) Korekta jakości maski i agresywności blur
+Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
 
-### Problem 2: Przycisk udostepniania ekranu nieaktywny na mobile
+- Ujednolicić interpretację maski:
+  - traktować `confidenceMasks[0]` jako background confidence (zgodnie z modelem selfie segmenter),
+  - dodać jawny helper i usunąć mylące komentarze.
+- Zaostrzyć ochronę osoby:
+  - podnieść progi blendowania (np. `EDGE_LOW ~ 0.55-0.65`, `EDGE_HIGH ~ 0.8-0.9`),
+  - dodać „foreground lock” (piksele o niskiej pewności tła zawsze zostają oryginalne).
+- Rozdzielić profile blur:
+  - lekkie: subtelne rozmycie + najbardziej konserwatywne progi,
+  - mocne: większy radius, ale nadal z ochroną osoby (żeby mocne nie rozmywało twarzy).
 
-**Przyczyna**: `getDisplayMedia` API nie jest dostepne na iOS Safari (calkowicie brak wsparcia) i na wiekszosci przegladarek mobilnych. Warunek `isScreenShareSupported` poprawnie wykrywa brak, ale przycisk jest po prostu wyszarzony bez wyjasnienia.
+Efekt: lekkie rozmywa tło delikatnie, mocne rozmywa tło mocno, ale uczestnik pozostaje ostry.
 
-**Naprawa** w `src/components/meeting/MeetingControls.tsx`:
+### 3) Naprawa spójności reconnect/reacquire streamów
+Plik: `src/components/meeting/VideoRoom.tsx`
 
-Dodac dedykowany tooltip dla mobilnych urzadzen, ktory wyjasni dlaczego przycisk jest nieaktywny:
+- W `reacquireLocalStream()`:
+  - po `applyBackground(...)` zwracać finalnie aktywny stream (przetworzony, jeśli został użyty), nie surowy.
+  - ujednolicić replaceTrack tak, by zawsze brał finalny track z `localStreamRef.current`.
+- Dodać ten sam mechanizm po `restoreCamera()` (po zakończeniu share ekranu), aby efekt tła był odtwarzany spójnie i bez regresji.
 
-```text
-disabled={!canScreenShare && !canManage || !isScreenShareSupported}
-disabledTooltip={!isScreenShareSupported 
-  ? "Udostępnianie ekranu nie jest obsługiwane na tym urządzeniu" 
-  : disabledTip}
-```
+Efekt: po reconnectach i przejściach kamera↔ekran strumień nie „rozjeżdża się”, audio/video wracają stabilniej.
 
-Trzeba przekazac `isScreenShareSupported` do `MeetingControls` jako nowy prop.
+### 4) Ograniczenie kosztu na etapie getUserMedia (mobile-first)
+Plik: `src/components/meeting/VideoRoom.tsx`
 
-Zmiany w `src/components/meeting/VideoRoom.tsx`:
-- Przekazac `isScreenShareSupported` do `MeetingControls`
+- Zamiast `video: true` dodać jawne `VIDEO_CONSTRAINTS`:
+  - mobile: niższa rozdzielczość + niższy frameRate,
+  - desktop: umiarkowane wartości (nie maksymalne).
+- Użyć tych samych constraints w:
+  - inicjalizacji,
+  - `reacquireLocalStream`,
+  - `restoreCamera`.
 
-Zmiany w `src/components/meeting/MeetingControls.tsx`:
-- Dodac prop `isScreenShareSupported`
-- Zmienic logike `disabled` i `disabledTooltip` dla przycisku ekranu
+Efekt: mniej przeciążeń jeszcze zanim pipeline tła zacznie działać.
 
-### Pliki do zmiany
+## Kolejność wdrożenia
 
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/useUnifiedChat.ts` | Rozszerzyc `fetchUnreadCounts` o liczenie nieprzeczytanych DM |
-| `src/components/meeting/MeetingControls.tsx` | Dodac prop `isScreenShareSupported`, pokazac tooltip "nie obslugiwane na tym urzadzeniu" |
-| `src/components/meeting/VideoRoom.tsx` | Przekazac `isScreenShareSupported` do MeetingControls |
+1. `VideoBackgroundProcessor` – profil wydajności + throttling + cache maski.  
+2. `VideoBackgroundProcessor` – nowe progi i foreground lock dla blur.  
+3. `VideoRoom` – fix zwracanego streamu i spójność replaceTrack.  
+4. `VideoRoom` – jednolite mobile constraints dla wszystkich getUserMedia.  
+5. Krótka walidacja manualna scenariuszy (mobile↔desktop, light/heavy blur, reconnect).
 
+## Kryteria akceptacji
+
+- Mobile local preview nie zamraża się i nie ma dużego laga.
+- Strumień z mobile widoczny na desktopie ma płynność akceptowalną (bez wielosekundowego opóźnienia).
+- „Lekkie rozmycie” rozmywa tło, nie twarz.
+- „Mocne rozmycie” nie rozmywa sylwetki/twarzy (poza naturalnym feather na krawędzi).
+- Po utracie i odzyskaniu mediów obraz+dźwięk wracają bez ręcznych obejść.
+
+## Sekcja techniczna (ryzyka i zabezpieczenia)
+
+- Ryzyko: zbyt mocne obniżenie quality na mobile pogorszy estetykę.  
+  Mitigacja: adaptacyjne profile i stopniowe obniżanie jakości zamiast twardego fallbacku.
+- Ryzyko: różnice między przeglądarkami mobilnymi.  
+  Mitigacja: heurystyka mobile + defensywne fallbacki CPU/pass-through + czytelne logi.
+- Ryzyko: regresja po screen share.  
+  Mitigacja: wspólna ścieżka „final stream selection” dla reacquire i restoreCamera.
