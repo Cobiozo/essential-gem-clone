@@ -35,7 +35,7 @@ const DESKTOP_PROFILE: PerformanceProfile = {
   maxProcessWidth: 640,
   segmentationIntervalMs: 66, // ~15 seg/s
   outputFps: 24,
-  overloadThresholdMs: 150,
+  overloadThresholdMs: 250,
 };
 
 // --- Blur profiles (foreground-safe thresholds) ---
@@ -262,8 +262,8 @@ export class VideoBackgroundProcessor {
       // Overload pass-through: just draw raw frame
       if (this.isPassThrough) {
         this.ctx.drawImage(this.videoElement, 0, 0, width, height);
-        // Try to recover every 2 seconds
-        if (frameStart - this.lastSegmentationTime > 2000) {
+        // Try to recover every 3 seconds
+        if (frameStart - this.lastSegmentationTime > 3000) {
           this.isPassThrough = false;
           this.overloadCounter = 0;
           console.log('[BackgroundProcessor] Attempting to exit pass-through mode');
@@ -321,8 +321,8 @@ export class VideoBackgroundProcessor {
       const frameDuration = performance.now() - frameStart;
       if (frameDuration > this.profile.overloadThresholdMs) {
         this.overloadCounter++;
-        if (this.overloadCounter > 30) {
-          console.warn(`[BackgroundProcessor] Overload detected (${frameDuration.toFixed(0)}ms avg), switching to pass-through`);
+        if (this.overloadCounter > 60) {
+          console.warn(`[BackgroundProcessor] Overload detected (${frameDuration.toFixed(0)}ms), switching to pass-through`);
           this.isPassThrough = true;
           this.lastSegmentationTime = performance.now();
         }
@@ -508,6 +508,31 @@ export class VideoBackgroundProcessor {
       this.segmenter = null;
     }
     this.initPromise = null;
+  }
+
+  /**
+   * Adjust processing resolution based on participant count.
+   * More participants = lower processing resolution to reduce CPU/GPU load.
+   */
+  setParticipantCount(count: number) {
+    const isMobile = detectMobile();
+    if (isMobile) {
+      // Mobile already low, only adjust slightly
+      this.profile.maxProcessWidth = count >= 2 ? 320 : 480;
+      this.profile.segmentationIntervalMs = count >= 2 ? 150 : 100;
+    } else {
+      if (count >= 4) {
+        this.profile.maxProcessWidth = 320;
+        this.profile.segmentationIntervalMs = 120;
+      } else if (count >= 2) {
+        this.profile.maxProcessWidth = 480;
+        this.profile.segmentationIntervalMs = 100;
+      } else {
+        this.profile.maxProcessWidth = 640;
+        this.profile.segmentationIntervalMs = 66;
+      }
+    }
+    console.log(`[BackgroundProcessor] Participant count: ${count}, maxProcessWidth: ${this.profile.maxProcessWidth}, segInterval: ${this.profile.segmentationIntervalMs}ms`);
   }
 
   getMode(): BackgroundMode {
