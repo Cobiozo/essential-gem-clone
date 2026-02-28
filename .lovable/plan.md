@@ -1,133 +1,52 @@
 
 
-## Naprawa: Brak video po ponownym wejściu w webinar na mobile
+## Naprawa: Uczestnicy nie slysza sie nawzajem
 
-### Zidentyfikowane przyczyny
+### Przyczyna
 
-**Przyczyna 1: Audio unlock działa tylko raz**
+W `VideoRoom.tsx`, handler `peer.on('call')` (linia 979-1021) odpowiada na przychodzace polaczenia uzywajac zmiennej `stream` z domkniecia (closure) funkcji `init()`. Ta zmienna wskazuje na strumien MediaStream utworzony przy pierwszym wejsciu do pokoju.
 
-W `VideoRoom.tsx` (linia 162-188), listenery `touchstart`/`click` mają `{ once: true }`. Oznacza to, że handler `unlockAudio` uruchamia się przy PIERWSZYM dotknięciu po zamontowaniu VideoRoom. Problem: zdalne strumienie WebRTC docierają PÓŹNIEJ (po negocjacji ICE), więc w momencie odpalenia unlock nie ma jeszcze żadnych zdalnych `<video>` do odblokowania. Po tym handler znika, a kolejne strumienie przechodzą przez `playVideoSafe`, które nie ma kontekstu gestu użytkownika -- `video.play()` jest blokowane przez przeglądarkę mobilną.
+Problem: gdy strumien lokalny zostanie zastapiony (np. przelaczenie kamery, reacquireLocalStream po powrocie z tla, visibilitychange), zmienna `stream` w closure nadal wskazuje na STARY, potencjalnie martwy strumien. Nowe przychodzace polaczenia sa wiec odpowiadane martwym strumieniem -- drugi uczestnik nie slysza i nie widzi nic.
 
-**Przyczyna 2: VideoTile nie ponawia play() po początkowej porażce**
+To samo dotyczy `callPeer` wywolywanego z closure (linia 973) -- przekazuje stary `stream` zamiast aktualnego.
 
-W `VideoTile` (linia 91-96), `useEffect` wywołuje `playVideoSafe` raz przy zmianie `participant.stream`. Jeśli `play()` nie powiedzie się (autoplay blocked), video pozostaje wstrzymane na zawsze. Nie ma mechanizmu ponowienia próby po interakcji użytkownika ani po załadowaniu metadanych strumienia.
+### Rozwiazanie
 
-**Przyczyna 3: srcObject zmieniony ale play() nie wywołane ponownie**
-
-Gdy zdalna ścieżka video kończy się i zostaje zastąpiona nową (reconnect), `participant.stream` obiekt może pozostać ten sam (ten sam MediaStream z nowym trackiem), więc useEffect w VideoTile się nie odpala (referencja `stream` nie zmieniła się), a video element nie wie o nowym tracku.
-
-### Rozwiązanie
-
-#### 1. Persistent audio/video unlock w VideoRoom
 **Plik: `src/components/meeting/VideoRoom.tsx`**
 
-Usunąć `{ once: true }` z listenerów `touchstart`/`click`. Dodać flagę `unlocked` jako ref, aby unikać wielokrotnego uruchamiania kosztownej logiki AudioContext. Handler powinien ZAWSZE próbować odblokować wstrzymane zdalne video (nie tylko za pierwszym razem):
+1. **`peer.on('call')` handler (linia 1019)**: Zmienic `call.answer(stream)` na `call.answer(localStreamRef.current || stream)`. Dzieki temu zawsze odpowiadamy aktualnym strumieniem z refa, a oryginalny `stream` jest jedynie fallbackiem.
+
+2. **Subskrypcja Realtime INSERT (linia 973)**: Zmienic `callPeer(...)` aby uzywalo `localStreamRef.current || stream` zamiast `stream` z closure.
+
+3. **`callPeer` (linia 1061-1067)**: Zmienic aby domyslnie uzywalo `localStreamRef.current` gdy nie przekazano strumienia jawnie. Zmiana sygnatury lub uzycie refa wewnatrz.
+
+### Szczegoly techniczne
 
 ```text
-const audioUnlockedRef = useRef(false);
+// Linia 1019 - zmiana:
+call.answer(localStreamRef.current || stream);
 
-useEffect(() => {
-  const unlockAudio = () => {
-    // AudioContext resume - tylko raz
-    if (!audioUnlockedRef.current) {
-      audioUnlockedRef.current = true;
-      try {
-        const ctx = new AudioContext();
-        ctx.resume().then(() => ctx.close()).catch(() => {});
-      } catch {}
-    }
-    // Zawsze: próbuj odblokować wstrzymane zdalne video
-    document.querySelectorAll('video').forEach((v) => {
-      const video = v as HTMLVideoElement;
-      if (video.paused && video.srcObject && !video.dataset.localVideo) {
-        video.muted = false;
-        video.play().catch(() => {});
-      }
-    });
-    setAudioBlocked(false);
-  };
-  document.addEventListener('touchstart', unlockAudio);  // BEZ { once: true }
-  document.addEventListener('click', unlockAudio);
-  return () => {
-    document.removeEventListener('touchstart', unlockAudio);
-    document.removeEventListener('click', unlockAudio);
-  };
-}, []);
+// Linia 973 - zmiana:
+callPeer(p.peer_id, p.display_name || 'Uczestnik', localStreamRef.current || stream, avatarUrl, p.user_id || undefined);
+
+// callPeer (linia 1061-1067) - zmiana:
+const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
+  if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
+  const activeStream = localStreamRef.current || stream;
+  const call = peerRef.current.call(remotePeerId, activeStream, {
+    metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrlRef.current },
+  });
+  if (call) handleCall(call, name, avatarUrl, userId);
+}, [displayName, user?.id]);
 ```
-
-#### 2. VideoTile: retry play() z onloadedmetadata + obserwacja paused
-**Plik: `src/components/meeting/VideoGrid.tsx`**
-
-W komponencie `VideoTile`, dodać:
-- Listener `loadedmetadata` na elemencie video, który ponownie wywołuje `playVideoSafe`
-- Listener `onloadeddata` jako dodatkowy trigger
-- Retry `play()` gdy komponent re-renderuje się ze stream który ma paused video
-
-```text
-useEffect(() => {
-  const video = videoRef.current;
-  if (!video || !participant.stream) return;
-  video.srcObject = participant.stream;
-  playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
-  
-  // Retry play gdy metadane się załadują (stream może nie być gotowy od razu)
-  const handleLoaded = () => {
-    if (video.paused && video.srcObject) {
-      playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
-    }
-  };
-  video.addEventListener('loadedmetadata', handleLoaded);
-  video.addEventListener('loadeddata', handleLoaded);
-  
-  return () => {
-    video.removeEventListener('loadedmetadata', handleLoaded);
-    video.removeEventListener('loadeddata', handleLoaded);
-  };
-}, [participant.stream, onAudioBlocked]);
-```
-
-#### 3. VideoTile: obserwacja nowych ścieżek w istniejącym strumieniu
-**Plik: `src/components/meeting/VideoGrid.tsx`**
-
-Dodać nasłuchiwanie na zdarzenia `addtrack`/`removetrack` na MediaStream, aby wychwycić sytuację gdy ścieżki zostały zastąpione bez zmiany referencji strumienia:
-
-```text
-useEffect(() => {
-  const stream = participant.stream;
-  const video = videoRef.current;
-  if (!stream || !video) return;
-  
-  const handleTrackChange = () => {
-    if (video.srcObject !== stream) video.srcObject = stream;
-    playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
-  };
-  
-  stream.addEventListener('addtrack', handleTrackChange);
-  stream.addEventListener('removetrack', handleTrackChange);
-  
-  return () => {
-    stream.removeEventListener('addtrack', handleTrackChange);
-    stream.removeEventListener('removetrack', handleTrackChange);
-  };
-}, [participant.stream, onAudioBlocked]);
-```
-
-#### 4. ThumbnailTile i MiniVideo: te same poprawki play retry
-**Plik: `src/components/meeting/VideoGrid.tsx`**
-
-Dodać `loadedmetadata` handler w ThumbnailTile (linia 165-170) i MiniVideo (linia 411-416) analogicznie do VideoTile.
 
 ### Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoRoom.tsx` | Persistent audio unlock (usunięcie `{ once: true }`, zawsze retry paused videos) |
-| `src/components/meeting/VideoGrid.tsx` | VideoTile: loadedmetadata + addtrack retry; ThumbnailTile/MiniVideo: analogiczne poprawki |
+| `src/components/meeting/VideoRoom.tsx` | 3 miejsca: answer(), callPeer wewnatrz init, callPeer callback -- uzycie localStreamRef.current zamiast starego stream z closure |
 
 ### Dlaczego to naprawi problem
 
-1. **Persistent unlock**: Każde dotknięcie ekranu przez użytkownika odblokuje WSZYSTKIE wstrzymane zdalne video, nawet te które pojawiły się po pierwszym dotknięciu
-2. **loadedmetadata retry**: Gdy strumień WebRTC dotrze i metadane się załadują, video automatycznie zacznie grać bez czekania na gest użytkownika (bo muted autoplay jest dozwolone)
-3. **addtrack observer**: Gdy ścieżka video zostanie wymieniona w istniejącym strumieniu (reconnect), video element automatycznie zacznie odtwarzać nową ścieżkę
-4. **Fallback chain**: playVideoSafe nadal działa jako siatka bezpieczeństwa - unmuted play() -> muted play() -> audio blocked banner -> user tap -> persistent unlock
+Kazde polaczenie PeerJS (przychodzace i wychodzace) bedzie uzywac aktualnego, zywego strumienia z `localStreamRef.current`. Nie ma znaczenia czy strumien byl wymieniony po wejsciu do pokoju -- ref zawsze wskazuje na najnowsza wersje.
 
