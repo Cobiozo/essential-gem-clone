@@ -30,10 +30,12 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
+  const [needsManualGrant, setNeedsManualGrant] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number>(0);
+  const cleanupStreamRef = useRef<MediaStream | null>(null);
 
   // Host settings
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>({
@@ -43,45 +45,60 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     allowScreenShare: 'host_only',
   });
 
-  useEffect(() => {
+  const acquireStream = useCallback(async () => {
+    setMediaError(null);
+    setNeedsManualGrant(false);
     let stream: MediaStream | null = null;
-
-    const initPreview = async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    } catch {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       } catch {
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-        } catch {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          } catch (err) {
-            console.warn('[Lobby] Camera/mic access denied:', err);
-            setMediaError('Nie można uzyskać dostępu do kamery lub mikrofonu. Sprawdź uprawnienia przeglądarki.');
-            return;
-          }
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (err) {
+          console.warn('[Lobby] Camera/mic access denied:', err);
+          setMediaError('Nie można uzyskać dostępu do kamery lub mikrofonu. Sprawdź uprawnienia przeglądarki.');
+          setNeedsManualGrant(true);
+          return null;
         }
       }
-      setPreviewStream(stream);
-    };
+    }
+    // Stop previous stream if any
+    if (cleanupStreamRef.current && cleanupStreamRef.current !== stream) {
+      cleanupStreamRef.current.getTracks().forEach(t => t.stop());
+    }
+    cleanupStreamRef.current = stream;
+    setPreviewStream(stream);
+    return stream;
+  }, []);
 
-    initPreview();
-
+  // Auto-attempt on mount (may fail on some browsers without user gesture)
+  useEffect(() => {
+    acquireStream();
     return () => {
-      if (!streamPassedRef.current) {
-        stream?.getTracks().forEach((t) => t.stop());
+      if (!streamPassedRef.current && cleanupStreamRef.current) {
+        cleanupStreamRef.current.getTracks().forEach((t) => t.stop());
       }
     };
   }, []);
 
   // Attach stream to video element and call play()
   useEffect(() => {
-    if (videoRef.current && previewStream) {
-      videoRef.current.srcObject = previewStream;
-      videoRef.current.play().catch((err) => {
-        console.warn('[Lobby] Video play() failed:', err);
-      });
-    }
+    const video = videoRef.current;
+    if (!video || !previewStream) return;
+    video.srcObject = previewStream;
+    video.play().catch((err) => {
+      console.warn('[Lobby] Video play() failed:', err);
+    });
+    const handleLoaded = () => {
+      if (video.paused && video.srcObject) {
+        video.play().catch(() => {});
+      }
+    };
+    video.addEventListener('loadeddata', handleLoaded);
+    return () => video.removeEventListener('loadeddata', handleLoaded);
   }, [previewStream]);
 
   // Mic level indicator via AudioContext + AnalyserNode
@@ -169,24 +186,39 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
             </div>
           )}
 
-          {/* Video preview */}
+          {/* Video preview - video always in DOM for ref stability */}
           <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
-            {videoEnabled && previewStream ? (
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-full object-cover mirror"
-                style={{ transform: 'scaleX(-1)' }}
-              />
-            ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              className={
+                videoEnabled && previewStream
+                  ? 'w-full h-full object-cover'
+                  : 'hidden'
+              }
+              style={{ transform: 'scaleX(-1)' }}
+            />
+            {(!videoEnabled || !previewStream) && (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <VideoOff className="h-12 w-12" />
                 <span className="text-sm">Kamera wyłączona</span>
               </div>
             )}
           </div>
+
+          {/* Manual grant button when auto-acquire failed */}
+          {needsManualGrant && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => acquireStream()}
+            >
+              <Video className="h-4 w-4 mr-2" />
+              Zezwól na dostęp do kamery i mikrofonu
+            </Button>
+          )}
 
           {/* Toggles */}
           <div className="space-y-4">
