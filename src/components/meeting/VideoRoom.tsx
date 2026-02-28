@@ -1332,9 +1332,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }
 
       const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
       connectionsRef.current.forEach((conn) => {
-        const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
-        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+        const senders = (conn as any).peerConnection?.getSenders();
+        if (senders) {
+          const videoSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
+          if (videoSender && videoTrack) videoSender.replaceTrack(videoTrack);
+          const audioSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
+          if (audioSender && audioTrack) audioSender.replaceTrack(audioTrack);
+        }
       });
 
       // Re-apply background effect if it was active
@@ -1346,10 +1352,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             localStreamRef.current = processedStream;
             setLocalStream(processedStream);
             const processedVideoTrack = processedStream.getVideoTracks()[0];
-            if (processedVideoTrack) {
+            const processedAudioTrack = processedStream.getAudioTracks()[0];
+            if (processedVideoTrack || processedAudioTrack) {
               connectionsRef.current.forEach((conn) => {
-                const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
-                if (sender) sender.replaceTrack(processedVideoTrack);
+                const senders = (conn as any).peerConnection?.getSenders();
+                if (senders) {
+                  if (processedVideoTrack) {
+                    const vs = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
+                    if (vs) vs.replaceTrack(processedVideoTrack);
+                  }
+                  if (processedAudioTrack) {
+                    const as_ = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
+                    if (as_) as_.replaceTrack(processedAudioTrack);
+                  }
+                }
               });
             }
           }
