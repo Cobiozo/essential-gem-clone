@@ -1,106 +1,50 @@
 
-## Naprawa: status "Zakonczone" dla trwajacych webinarow + informacja o przedluzeniu
+
+## Naprawa: auto-rejoin po odswiezeniu strony + pominiecie hasla
 
 ### Problem
 
-W kalendarzu i w dialogu szczegolow, status wydarzenia jest okreslany wylacznie na podstawie zaplanowanego `end_time`:
-- `isAfter(now, eventEnd)` -> "Zakonczone"
+1. **Sesja wygasa po 5 minutach** — `SESSION_MAX_AGE_MS = 5 * 60 * 1000`. Webinary trwaja znacznie dluzej. Po odswiezeniu strony po 5+ minutach sesja jest usuwana i uzytkownik trafia do lobby zamiast wrocic do pokoju.
 
-Jesli webinar z wewnetrzna integracja WebRTC trwa dluzej niz zaplanowano, system pokazuje "Zakonczone" mimo ze spotkanie nadal trwa (uczestnicy sa w pokoju). Brakuje tez informacji o tym, ze webinar przedluzyl sie i o ile.
+2. **Haslo wymagane ponownie** — nawet jesli uzytkownik juz podal poprawne haslo, po odswiezeniu (gdy sesja wygasla) trafia na ekran `password-gate` zamiast do lobby/pokoju.
 
 ### Rozwiazanie
 
-Dla wydarzen z wewnetrzna integracja (`use_internal_meeting = true`), sprawdzac czy w pokoju (`meeting_room_id`) sa aktywni uczestnicy (`meeting_room_participants.is_active = true`). Jesli tak -- wydarzenie "Trwa" mimo przekroczenia `end_time`, z informacja o czasie przedluzenia.
+**Plik: `src/pages/MeetingRoom.tsx`**
 
-### Zmiany
+1. **Zwiekszyc `SESSION_MAX_AGE_MS`** z 5 minut do 4 godzin (typowy czas webinaru):
+   ```text
+   const SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
+   ```
 
-**Plik: `src/hooks/useMeetingRoomStatus.ts` (NOWY)**
+2. **Zapisywac fakt podania hasla w sessionStorage** — w `handleJoin` i w obsludze hasla (`password-gate` submit), zapisac flage `meeting_password_passed_${roomId}`:
+   ```text
+   sessionStorage.setItem(`meeting_password_passed_${roomId}`, 'true');
+   ```
 
-Custom hook ktory dla listy `meeting_room_id` sprawdza czy sa aktywni uczestnicy:
+3. **Sprawdzac flage hasla w `verifyAccess`** — na linii 182, zamiast bezwarunkowo `setStatus('password-gate')`, sprawdzic czy haslo bylo juz podane:
+   ```text
+   if (!tryAutoRejoin()) {
+     const passwordAlreadyPassed = sessionStorage.getItem(`meeting_password_passed_${roomId}`) === 'true';
+     setStatus(eventPassword && !passwordAlreadyPassed ? 'password-gate' : 'lobby');
+   }
+   ```
 
-```text
-useMeetingRoomStatus(roomIds: string[])
--> activeRoomIds: Set<string>
-```
+4. **Czyscic flage hasla przy wyjsciu** — w `handleLeave` usunac takze flage hasla:
+   ```text
+   sessionStorage.removeItem(`meeting_password_passed_${roomId}`);
+   ```
 
-- Pojedyncze zapytanie do `meeting_room_participants` z filtrem `is_active = true` i `room_id.in.(roomIds)`
-- Subskrypcja Realtime na zmiany w tych pokojach (INSERT/UPDATE)
-- Zwraca `Set<string>` z ID pokojow ktore maja aktywnych uczestnikow
-
-**Plik: `src/components/dashboard/widgets/CalendarWidget.tsx`**
-
-1. Uzyc `useMeetingRoomStatus` z listaa `meeting_room_id` ze wszystkich wydarzen z `use_internal_meeting = true`
-2. W `getRegistrationButton` (linia 166): zmiana warunku "Zakonczone":
-   - Jesli `use_internal_meeting` i pokoj jest aktywny -> NIE pokazuj "Zakonczone"
-   - Zamiast tego pokaz "Trwa dluzej (+X min)" z informacja o czasie przedluzenia
-   - Przycisk "WEJDZ" pozostaje aktywny
-3. Jesli pokoj nie jest aktywny a `end_time` minal -> "Zakonczone" (bez zmian)
-
-**Plik: `src/components/events/EventDetailsDialog.tsx`**
-
-1. Przyjac nowy opcjonalny prop `activeRoomIds?: Set<string>`
-2. Zmodyfikowac logike `isEnded` (linia 88):
-   - Jesli `use_internal_meeting` i `meeting_room_id` jest w `activeRoomIds` -> `isEnded = false`
-3. Dodac sekcje informacyjna gdy webinar trwa dluzej niz zaplanowano:
-   - Badge "Trwa dluzej" zamiast "Zakonczone"
-   - Tekst: "Wydarzenie przedluza sie o X minut" (roznica miedzy `now` a `end_time`)
-4. Przycisk "Dolacz do spotkania" pozostaje aktywny w trybie overtime
-
-### Logika overtime
-
-```text
-const scheduledEnd = new Date(event.end_time);
-const now = new Date();
-const isOvertime = now > scheduledEnd;
-const isRoomActive = activeRoomIds.has(event.meeting_room_id);
-const isStillRunning = event.use_internal_meeting && isRoomActive;
-
-// Status:
-if (isOvertime && isStillRunning) -> "Trwa dluzej (+Xmin)"
-if (isOvertime && !isStillRunning) -> "Zakonczone"  
-if (!isOvertime && isLive) -> "Trwa teraz"
-```
-
-### Obliczenie czasu przedluzenia
-
-```text
-const overtimeMinutes = Math.round((now.getTime() - scheduledEnd.getTime()) / (1000 * 60));
-// Wyswietlenie: "+15 min" / "+1h 20min"
-```
-
-### Diagram
-
-```text
-end_time minal?
-    |
-  +---+---+
-  |       |
- TAK     NIE -> normalna logika (Trwa teraz / Nadchodzace)
-  |
-  use_internal_meeting?
-  |
-  +---+---+
-  |       |
- TAK     NIE -> "Zakonczone" (bez zmian)
-  |
-  Aktywni uczestnicy w pokoju?
-  |
-  +---+---+
-  |       |
- TAK     NIE -> "Zakonczone"
-  |
-  "Trwa dluzej (+Xmin)"
-  Przycisk WEJDZ aktywny
-```
-
-### Pliki do modyfikacji
+### Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useMeetingRoomStatus.ts` | NOWY - hook sprawdzajacy aktywne pokoje |
-| `src/components/dashboard/widgets/CalendarWidget.tsx` | Uzycie hooka + logika overtime w getRegistrationButton |
-| `src/components/events/EventDetailsDialog.tsx` | Nowy prop activeRoomIds + logika overtime w statusie i badge |
+| `MeetingRoom.tsx` | `SESSION_MAX_AGE_MS` z 5 min na 4h |
+| `MeetingRoom.tsx` | Flaga `meeting_password_passed_${roomId}` w sessionStorage |
+| `MeetingRoom.tsx` | Sprawdzanie flagi hasla zamiast ponownego pytania |
+| `MeetingRoom.tsx` | Czyszczenie flagi przy wyjsciu |
 
 ### Ryzyko
 
-Niskie. Hook wykonuje jedno zapytanie + subskrypcje Realtime. Logika overtime jest addytywna (dodaje nowy stan, nie zmienia istniejacych). Dla wydarzen bez wewnetrznej integracji zachowanie jest identyczne.
+Minimalne. sessionStorage jest per-tab i czysci sie przy zamknieciu przegladarki. Flaga hasla nie stanowi zagrozenia bezpieczenstwa bo dotyczy tylko biezacej sesji przegladarki.
+
