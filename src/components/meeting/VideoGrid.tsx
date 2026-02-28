@@ -133,6 +133,20 @@ const VideoTile: React.FC<{
     if (videoRefCallback) videoRefCallback(videoRef.current);
   }, [videoRefCallback]);
 
+  // Force re-play on tab return (mobile Safari fix)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden && videoRef.current && participant.stream) {
+        const video = videoRef.current;
+        if (video.paused || video.ended) {
+          playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [participant.stream, participant.isLocal, onAudioBlocked]);
+
   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
