@@ -1,64 +1,69 @@
 
-Cel: jednocześnie naprawić 2 problemy zgłoszone przez Ciebie:
-1) nadal przebija stare tło (szczególnie po prawej stronie sylwetki),
-2) po uploadzie dostajesz komunikat sukcesu, ale własne tła nie są widoczne.
 
-Co ustaliłem po analizie kodu i danych:
-- Obiekty w bucket `meeting-backgrounds` faktycznie istnieją (widziałem wiele plików dla user-id w Storage).
-- UI może pokazywać sukces uploadu nawet gdy odświeżenie listy teł się nie powiedzie, bo `listBackgrounds()` łapie błąd i go nie propaguje.
-- W `useCustomBackgrounds.ts` listowanie używa `sortBy: { column: 'created_at' }`, co jest potencjalnie nieobsługiwane przez Storage list API i może powodować cichy fail.
-- W pipeline maski obecny profil jest “płynny”, ale za miękki dla trybu `image`, przez co zostają “wyspy” starego tła przy krawędzi osoby (to widać na Twoich screenshotach przy prawym barku/meblach).
+# Naprawa wlasnych tel i dodanie tel Zoom z biblioteki grafik
 
-Zakres wdrożenia (konkretnie po plikach):
+## Problem 1: Wlasne tla nie sa widoczne i upload daje blad RLS
 
-1) `src/hooks/useCustomBackgrounds.ts` — twarda naprawa widoczności własnych teł
-- Zmienić listowanie na bezpieczne sortowanie wspierane przez API (np. `name`) albo bez `sortBy`, a kolejność zrobić po stronie klienta.
-- Przerobić `listBackgrounds()` tak, aby:
-  - zwracało listę URL-i,
-  - na błędzie rzucało wyjątek (nie tylko `console.error`),
-  - czyściło `customImages` gdy `user` jest `null` (żeby nie było fałszywego stanu).
-- W `uploadImage()`:
-  - przed uploadem wykonać realny odczyt z serwera i walidować limit na podstawie danych serwerowych (nie tylko lokalnego stanu),
-  - po uploadzie wywołać `listBackgrounds()` i jeśli odświeżenie listy padnie — propagować błąd (żeby nie było toastu “sukces”, gdy lista nie odświeżona).
-- Dodać bardziej czytelne komunikaty dla błędów listowania (RLS/bucket/API).
+### Diagnoza
+- W buckecie `meeting-backgrounds` jest juz **14 plikow** uzytkownika (z wielokrotnych prob uploadu)
+- UI pokazuje "Twoje tla (0/3)" — lista nie zwraca wynikow albo blad jest polykany
+- Blad RLS na screenshocie moze pochodzic z proby uploadu (INSERT) po nieudanym listowaniu
+- Polityki RLS na storage.objects wygladaja poprawnie, ale problem moze byc w tym, ze Supabase API `list()` wewnetrznie uzywa innego schematu niz oczekiwany
 
-2) `src/components/meeting/BackgroundSelector.tsx` + `MeetingControls.tsx` + `VideoRoom.tsx` — pewne odświeżanie UI
-- Utrzymać `onOpenChange` i odświeżanie przy otwarciu menu, ale:
-  - obsłużyć callback jako async (`Promise<void> | void`),
-  - dodać bezpieczne `catch` (brak “silent fail”),
-  - pokazać użytkownikowi komunikat o błędzie odświeżenia.
-- Dzięki temu po każdym otwarciu dropdownu lista będzie spójna ze Storage.
+### Rozwiazanie
 
-3) `src/components/meeting/VideoBackgroundProcessor.ts` — uszczelnienie krawędzi bez utraty płynności
-- Zostawić profil wydajnościowy (640 px, 80 ms, smoothing 0.30/0.70), żeby nie wróciły przycięcia.
-- Wprowadzić rozdzielenie jakości per tryb:
-  - dla `blur-light` / `blur-heavy` zostawić miększy kontur (naturalny wygląd),
-  - dla `image` zaostrzyć compositing (wyższe progi i mocniejszy bias na podmianę tła w strefie przejściowej).
-- Dodać lekkie “edge tighten” tylko dla trybu `image` (jedna dodatkowa, tania operacja erozji na masce w cyklu segmentacji, nie na każdej klatce renderu), aby wycinać meble “przyklejone” do barku.
-- Ustawić osobny blur maski dla `image` (mniejszy niż dla blur), żeby ograniczyć przenikanie starego tła.
-- Efekt: mniej przebijania mebli po prawej stronie, bez ponownego zabicia FPS.
+**a) Wyczyscenie nadmiarowych plikow (SQL migracja):**
+- Usunac 11 najstarszych plikow z bucketu, zostawiajac 3 najnowsze
+- To pozwoli uzytkownikowi ponownie uploadowac po naprawie
 
-4) Walidacja po wdrożeniu (obowiązkowa)
-- Test E2E uploadu:
-  - dodać nowe tło,
-  - zamknąć/otworzyć menu tła,
-  - potwierdzić, że miniatura jest widoczna i da się ją wybrać.
-- Test E2E segmentacji:
-  - włączyć tryb `image`,
-  - poruszać barkiem i głową przy krawędzi kadru,
-  - sprawdzić czy meble po prawej przestały przebijać.
-- Test płynności:
-  - szybki ruch ręką/głową przez 20–30 s,
-  - brak zacięć i brak “ciągnięcia” konturu.
-- Kontrola konsoli/network:
-  - brak błędów listowania Storage,
-  - brak cichych błędów przy refetch.
+**b) Naprawa `useCustomBackgrounds.ts`:**
+- Dodac `try/catch` wokol kazdego wywolania `list()` z pelnym logowaniem
+- Zamiast rzucac bledy z listowania, ustawic `customImages = []` i zalogowac blad (zeby UI nadal dzialalo)
+- W `uploadImage()`: jesli `list()` padnie, pokazac jasny komunikat zamiast probowac upload
+- Dodac timeout/retry dla poczatkowego fetchowania (race condition z auth)
 
-Ryzyka i zabezpieczenia:
-- „Idealna” maska piksel-w-piksel nie istnieje przy modelu 256x256, ale tym planem maksymalizujemy efekt praktyczny: brak widocznego przebijania mebli + utrzymana płynność.
-- Jeżeli po uszczelnieniu konturu znikną cienkie detale (np. skraj włosów), dostroimy tylko parametry trybu `image`, bez ruszania wydajności globalnej.
+## Problem 2: Tla Zoom z biblioteki grafik dla wszystkich zalogowanych
 
-Kolejność wdrożenia:
-1. Najpierw naprawa listowania i propagacji błędów (żeby własne tła były niezawodnie widoczne).
-2. Potem tuning maski wyłącznie dla `image` (żeby usunąć przebijanie po prawej).
-3. Na końcu testy E2E i finalny fine-tuning progów.
+### Diagnoza
+- W tabeli `knowledge_resources` jest **15 grafik** z kategoria "Tlo Zoom" i typem "image"
+- Maja publiczne URL-e w buckecie `cms-images` (dostepne bez autoryzacji)
+- Obecny kod uzywa 3 statycznych plikow z `/backgrounds/` (hardcoded w `useVideoBackground.ts`)
+
+### Rozwiazanie
+
+**a) Nowy hook `useZoomBackgrounds.ts`:**
+- Pobiera z Supabase: `knowledge_resources WHERE category = 'Tlo Zoom' AND resource_type = 'image'`
+- Cachuje wyniki w stanie (nie zmienia sie czesto)
+- Zwraca tablice URL-i (`source_url`)
+
+**b) Zmiana w `useVideoBackground.ts`:**
+- Usunac hardcoded `BACKGROUND_IMAGES`
+- Eksportowac stan dynamicznych tel z nowego hooka
+
+**c) Zmiana w `VideoRoom.tsx`:**
+- Uzyc nowego hooka `useZoomBackgrounds` do pobrania listy tel
+- Przekazac dynamiczna liste do `MeetingControls` zamiast statycznej
+
+### Efekt w UI
+- Sekcja "Wirtualne tlo" w dropdown pokaze wszystkie 15 tel Zoom z biblioteki grafik
+- Kazdy zalogowany uzytkownik bedzie mial dostep do tych samych tel
+- Admin moze zarzadzac lista tel przez panel Knowledge Center (dodawac/usuwac grafiki z kategoria "Tlo Zoom")
+
+## Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| SQL migracja | Usunac 11 nadmiarowych plikow z bucketu |
+| `src/hooks/useZoomBackgrounds.ts` | Nowy hook — fetch z knowledge_resources |
+| `src/hooks/useVideoBackground.ts` | Usunac hardcoded BACKGROUND_IMAGES, eksportowac dynamicznie |
+| `src/hooks/useCustomBackgrounds.ts` | Lepsze error handling, nie polykac bledow listowania |
+| `src/components/meeting/VideoRoom.tsx` | Uzyc useZoomBackgrounds, przekazac do MeetingControls |
+
+## Kolejnosc implementacji
+
+1. SQL: wyczyscic nadmiarowe pliki z bucketu
+2. Nowy hook `useZoomBackgrounds` — dynamiczne pobieranie tel Zoom
+3. Aktualizacja `useVideoBackground` — usunac statyczne tla
+4. Naprawa `useCustomBackgrounds` — lepsze error handling
+5. Aktualizacja `VideoRoom.tsx` — polaczenie nowego hooka z UI
+
