@@ -680,12 +680,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       try {
         let stream: MediaStream;
         try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true });
+          const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+          const videoConstraints: MediaTrackConstraints = isMob
+            ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+            : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
         } catch {
           try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
           } catch {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+            const videoConstraints2: MediaTrackConstraints = isMob2
+              ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+              : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+            stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
           }
         }
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
@@ -1135,7 +1143,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const restoreCamera = useCallback(async () => {
     console.log('[VideoRoom] restoreCamera called, isScreenSharingRef:', isScreenSharingRef.current);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: AUDIO_CONSTRAINTS });
+      const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const videoConstraints: MediaTrackConstraints = isMob
+        ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+        : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: AUDIO_CONSTRAINTS });
       stream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
       localStreamRef.current?.getTracks().forEach(t => t.stop());
       localStreamRef.current = stream;
@@ -1177,7 +1189,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     try {
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: true });
+        const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+        const videoConstraints: MediaTrackConstraints = isMob
+          ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+        stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
       } catch {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
@@ -1247,7 +1263,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       console.log('[VideoRoom] Stream re-acquired successfully');
       toast({ title: 'Multimedia przywrócone' });
-      return stream;
+      // Return the final active stream (processed if background was applied)
+      return localStreamRef.current || stream;
     } catch (err) {
       console.error('[VideoRoom] reacquireLocalStream failed:', err);
       return null;
