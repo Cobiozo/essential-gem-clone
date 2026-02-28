@@ -77,6 +77,14 @@ export function useVideoBackground() {
       return sourceStream; // Return RAW stream, not processed
     }
 
+    // Validate source stream has a live video track
+    const videoTrack = sourceStream.getVideoTracks()[0];
+    if (!videoTrack || videoTrack.readyState === 'ended') {
+      console.warn('[useVideoBackground] Source stream has no live video track, cannot apply background');
+      setMode('none');
+      return sourceStream;
+    }
+
     setIsLoading(true);
     try {
       const processor = getProcessor();
@@ -100,7 +108,7 @@ export function useVideoBackground() {
       console.error('[useVideoBackground] Failed to apply background:', err);
       setIsLoading(false);
       setMode('none');
-      return sourceStream;
+      throw err; // Re-throw so caller can show toast
     }
   }, [getProcessor, loadImage]);
 
