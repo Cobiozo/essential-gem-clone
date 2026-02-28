@@ -1,75 +1,97 @@
 
-## Naprawa: echo w trybach speaker/multi-speaker
 
-### Problem
+## Naprawa dwoch problemow: echo w speaker/multi-speaker + powrot do lobby po odswiezeniu
 
-W trybach speaker/multi-speaker ten sam MediaStream (z trackami audio + video) jest przypisany jednoczesnie do:
-1. Elementu `<video>` (muted via `forceAudioMuted`) 
-2. Elementu `<audio>` (unmuted, z `AudioOnlyStreams`)
+### Problem 1: Echo w trybie speaker/multi-speaker
 
-Przegladarki (szczegolnie Chrome) maja problemy z AEC (echo cancellation) gdy ten sam stream jest na dwoch elementach DOM jednoczesnie. Nawet muted `<video>` przetwarza track audio wewnetrznie, co "myli" algorytm AEC i powoduje echo.
+**Przyczyna**: Komponent `AudioElement` uzywa elementu `<audio>` do odtwarzania dzwieku zdalnych uczestnikow. Przegladarki (szczegolnie Chrome) maja slabsze wsparcie AEC (echo cancellation) dla elementow `<audio>` niz `<video>`. W trybie galerii dzwiek gra przez elementy `<video>` i AEC dziala poprawnie — stad brak echa w galerii.
 
-W galerii kazdy stream jest na JEDNYM elemencie `<video>` -- AEC dziala poprawnie -- brak echa.
+**Rozwiazanie**: Zamienic element `<audio>` na ukryty `<video>` w komponencie `AudioElement`. Przegladarki lepiej obsluguja AEC dla `<video>`, nawet gdy element jest ukryty.
 
-### Rozwiazanie: rozdzielenie tracków
+### Problem 2: Odswiezenie wraca do lobby
 
-Zamiast przypisywac pelny stream do obu elementow, rozdzielic tracki:
-- `<video>` dostaje nowy MediaStream TYLKO z video tracks
-- `<audio>` dostaje pelny stream (lub tylko audio tracks)
+**Przyczyna**: Mechanizm `tryAutoRejoin` jest wolany wewnatrz asynchronicznej funkcji `verifyAccess`, ktora zalezy od `user?.id` w dependency array useEffect. Jezeli obiekt `user` zmieni sie podczas inicjalizacji auth (np. token refresh), efekt moze sie uruchomic wielokrotnie lub w nieoczekiwanej kolejnosci. Ponadto guard `statusRef.current !== 'loading'` moze zablokowac ponowne uruchomienie po bledzie.
 
-### Zmiany w `src/components/meeting/VideoGrid.tsx`
+**Rozwiazanie**: Uzyc lazy initializer w `useState` aby synchronicznie sprawdzic `sessionStorage` PRZED jakimkolwiek efektem. Jezeli istnieja dane sesji, ustawic `status='joined'` od pierwszego renderowania — bez czekania na async verifyAccess.
 
-**1. VideoTile -- gdy `forceAudioMuted`, przypisac stream bez audio tracków**
+---
 
-W useEffect ktory ustawia `video.srcObject` (linia ~122-140), gdy `forceAudioMuted` jest true, stworzyc nowy MediaStream tylko z video trackami:
+### Zmiany w plikach
 
+**Plik 1: `src/components/meeting/VideoGrid.tsx`**
+
+Zmiana w komponencie `AudioElement` (linia 79-94):
+
+Zamienic `<audio>` na ukryty `<video>`:
+- `useRef<HTMLAudioElement>` → `useRef<HTMLVideoElement>`
+- Element `<audio ref={ref} autoPlay />` → `<video ref={ref} autoPlay playsInline style={{ display: 'none' }} />`
+- Dodac `playsInline` dla kompatybilnosci z iOS
+
+**Plik 2: `src/pages/MeetingRoom.tsx`**
+
+Zmiana 1: Lazy initializer dla `status` (linia 33):
+
+Zamiast:
 ```text
-useEffect(() => {
-  const video = videoRef.current;
-  if (!video || !participant.stream) return;
-  
-  // When forceAudioMuted, create video-only stream to avoid AEC confusion
-  if (forceAudioMuted) {
-    const videoTracks = participant.stream.getVideoTracks();
-    if (videoTracks.length > 0) {
-      const videoOnlyStream = new MediaStream(videoTracks);
-      video.srcObject = videoOnlyStream;
-    } else {
-      video.srcObject = participant.stream;
-    }
-  } else {
-    video.srcObject = participant.stream;
-  }
-  
-  playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
-  // ... reszta handlerow loadedmetadata/loadeddata bez zmian
-}, [participant.stream, forceAudioMuted, onAudioBlocked]);
+const [status, setStatus] = useState<...>('loading');
 ```
 
-**2. Analogiczna zmiana w obsludze `addtrack`/`removetrack` (linia ~142-160)**
+Uzyc:
+```text
+const [status, setStatus] = useState<...>(() => {
+  // Synchroniczne sprawdzenie sessionStorage na auto-rejoin
+  if (roomId && !isGuestMode) {
+    const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+    if (raw) {
+      try {
+        const saved = JSON.parse(raw);
+        if (Date.now() - saved.joinedAt <= 4 * 60 * 60 * 1000) {
+          return 'joined';
+        }
+      } catch {}
+    }
+  }
+  return 'loading';
+});
+```
 
-Przy reconnect (handleTrackChange) rowniez tworzyc video-only stream gdy forceAudioMuted.
+Zmiana 2: Rowniez odtworzyc `audioEnabled`, `videoEnabled`, `initialSettings` z sessionStorage synchronicznie (linie 36-42):
 
-### Diagram
+Uzyc lazy initializers dla tych stanow, czytajac dane z tego samego klucza `meeting_session_${roomId}`.
+
+Zmiana 3: W efekcie `verifyAccess` (linia 116), zmienic guard aby pozwolic na ponowna weryfikacje z 'joined' (na wypadek cofniecia dostepu):
 
 ```text
-PRZED (problem z AEC):
-  <video muted> srcObject = stream(audio+video)  -- audio track przetwarzany
-  <audio>        srcObject = stream(audio+video)  -- audio gra
-  = dwa elementy z tym samym audio trackiem -> AEC confused -> echo
+if (statusRef.current !== 'loading' && statusRef.current !== 'joined') return;
+```
 
-PO (naprawione):
-  <video>  srcObject = new MediaStream(videoTracks)  -- brak audio tracku
-  <audio>  srcObject = stream(audio+video)           -- audio gra
-  = kazdy element ma osobne tracki -> AEC dziala poprawnie -> brak echa
+I dodac w verifyAccess sprawdzenie: jesli juz jestesmy 'joined' (z auto-rejoin), nie nadpisywac statusu na 'lobby' — tylko na bledy ('error', 'unauthorized').
+
+---
+
+### Diagram dzialania po zmianach
+
+```text
+Odswiezenie strony:
+  1. useState(() => ...) synchronicznie sprawdza sessionStorage
+  2. Jesli dane istnieja -> status = 'joined' od razu (VideoRoom renderuje sie natychmiast)
+  3. verifyAccess biegnie w tle i waliduje dostep
+  4. Jesli dostep cofniety -> status zmienia sie na 'unauthorized'
+  
+Echo:
+  PRZED: <audio> element -> slabe AEC -> echo
+  PO:    <video hidden> element -> dobre AEC -> brak echa
 ```
 
 ### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoGrid.tsx` | VideoTile: gdy forceAudioMuted, tworzyc video-only MediaStream dla elementu video |
+| `src/components/meeting/VideoGrid.tsx` | AudioElement: zamiana `<audio>` na ukryty `<video>` |
+| `src/pages/MeetingRoom.tsx` | Lazy initializer dla status + audioEnabled/videoEnabled/settings |
+| `src/pages/MeetingRoom.tsx` | Guard w verifyAccess: pozwolic na re-weryfikacje z 'joined' |
 
 ### Ryzyko
 
-Niskie. Tworzenie nowego MediaStream z istniejacymi trackami jest lekkie (tracki sa wspoldzielone, nie kopiowane). Galeria nie jest modyfikowana. Zmiana dotyczy tylko routingu tracków w speaker/multi-speaker.
+Niskie. Ukryty `<video>` zachowuje sie identycznie jak `<audio>` pod wzgledem odtwarzania, ale z lepszym AEC. Lazy initializer jest standardowym wzorcem React i nie wplywa na inne efekty.
+
