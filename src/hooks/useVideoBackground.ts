@@ -60,6 +60,12 @@ export function useVideoBackground() {
   ): Promise<MediaStream> => {
     // Save raw stream on first use or if previous one died
     if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
+      // Guard: never use a processed stream as raw source (feedback loop prevention)
+      if ((inputStream as any).__bgProcessed) {
+        console.warn('[useVideoBackground] Cannot use processed stream as raw source, skipping effect');
+        setMode('none');
+        return inputStream;
+      }
       rawStreamRef.current = inputStream;
     }
     const sourceStream = rawStreamRef.current;
@@ -83,6 +89,8 @@ export function useVideoBackground() {
 
       processor.setOptions({ mode: newMode, backgroundImage: bgImage });
       const outputStream = await processor.start(sourceStream); // Always use RAW stream
+      // Mark output so it's never mistaken for a raw camera stream
+      (outputStream as any).__bgProcessed = true;
 
       setMode(newMode);
       setSelectedImage(imageSrc || null);
