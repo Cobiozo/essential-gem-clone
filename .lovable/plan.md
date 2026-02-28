@@ -1,69 +1,84 @@
 
 
-# Naprawa wlasnych tel i dodanie tel Zoom z biblioteki grafik
+# Naprawa wlasnych tel i poprawienie jakosci konturu maski
 
-## Problem 1: Wlasne tla nie sa widoczne i upload daje blad RLS
+## Diagnoza
 
-### Diagnoza
-- W buckecie `meeting-backgrounds` jest juz **14 plikow** uzytkownika (z wielokrotnych prob uploadu)
-- UI pokazuje "Twoje tla (0/3)" — lista nie zwraca wynikow albo blad jest polykany
-- Blad RLS na screenshocie moze pochodzic z proby uploadu (INSERT) po nieudanym listowaniu
-- Polityki RLS na storage.objects wygladaja poprawnie, ale problem moze byc w tym, ze Supabase API `list()` wewnetrznie uzywa innego schematu niz oczekiwany
+### Problem 1: Wlasne tla niewidoczne (0/3)
+W buckecie `meeting-backgrounds` jest **14 plikow** uzytkownika (wiele prob uploadu), ale UI ciagle pokazuje "0/3". Polityki RLS wygladaja poprawnie (SELECT, INSERT, DELETE z `storage.foldername(name)[1] = auth.uid()`). Bucket jest publiczny.
 
-### Rozwiazanie
+Najbardziej prawdopodobna przyczyna: `supabase.storage.list()` zwraca blad ktory jest cichoutylany (linia 32-34 w useCustomBackgrounds.ts ustawia `customImages = []` i robi `return` bez propagacji). Blad moze pochodzic od konfliktu z innymi politkami SELECT na `storage.objects` lub z wewnetrznego limitu Supabase Storage API przy 14 plikach w jednym folderze.
 
-**a) Wyczyscenie nadmiarowych plikow (SQL migracja):**
-- Usunac 11 najstarszych plikow z bucketu, zostawiajac 3 najnowsze
-- To pozwoli uzytkownikowi ponownie uploadowac po naprawie
+### Problem 2: Zla jakosz konturu (furniture bleed)
+Na screenshocie widac polke z ksiazkami "przebijajaca" przez tlo po prawej stronie glowy. Obecna erozja maski (1 px) jest za mala zeby wyciac takie artefakty przy rozdzielczosci przetwarzania 640px. Model `selfie_multiclass_256x256` generuje maske 256x256 co daje ~2.5x upscale do procesu, wiec kazdy piksel blednego konturu robi sie widoczny.
 
-**b) Naprawa `useCustomBackgrounds.ts`:**
-- Dodac `try/catch` wokol kazdego wywolania `list()` z pelnym logowaniem
-- Zamiast rzucac bledy z listowania, ustawic `customImages = []` i zalogowac blad (zeby UI nadal dzialalo)
-- W `uploadImage()`: jesli `list()` padnie, pokazac jasny komunikat zamiast probowac upload
-- Dodac timeout/retry dla poczatkowego fetchowania (race condition z auth)
+## Plan naprawy
 
-## Problem 2: Tla Zoom z biblioteki grafik dla wszystkich zalogowanych
+### Krok 1: SQL — wyczyscic nadmiarowe pliki z bucketa
 
-### Diagnoza
-- W tabeli `knowledge_resources` jest **15 grafik** z kategoria "Tlo Zoom" i typem "image"
-- Maja publiczne URL-e w buckecie `cms-images` (dostepne bez autoryzacji)
-- Obecny kod uzywa 3 statycznych plikow z `/backgrounds/` (hardcoded w `useVideoBackground.ts`)
+Usunac 11 najstarszych plikow uzytkownika `629a2d9a-994a-4e6a-a9c4-8ae0b07e3770`, zostawiajac 3 najnowsze. To przywroci stan do limitu i zmniejszy szanse na bledy przy `list()`.
 
-### Rozwiazanie
+```text
+DELETE FROM storage.objects
+WHERE bucket_id = 'meeting-backgrounds'
+  AND name LIKE '629a2d9a-994a-4e6a-a9c4-8ae0b07e3770/%'
+  AND id NOT IN (
+    SELECT id FROM storage.objects
+    WHERE bucket_id = 'meeting-backgrounds'
+      AND name LIKE '629a2d9a-994a-4e6a-a9c4-8ae0b07e3770/%'
+    ORDER BY created_at DESC
+    LIMIT 3
+  );
+```
 
-**a) Nowy hook `useZoomBackgrounds.ts`:**
-- Pobiera z Supabase: `knowledge_resources WHERE category = 'Tlo Zoom' AND resource_type = 'image'`
-- Cachuje wyniki w stanie (nie zmienia sie czesto)
-- Zwraca tablice URL-i (`source_url`)
+### Krok 2: `useCustomBackgrounds.ts` — naprawa listowania
 
-**b) Zmiana w `useVideoBackground.ts`:**
-- Usunac hardcoded `BACKGROUND_IMAGES`
-- Eksportowac stan dynamicznych tel z nowego hooka
+Glowne zmiany:
+- **Pelen log odpowiedzi z list()**: logowac `data` i `error` z pelnymi szczegolami, nie tylko `JSON.stringify(error)`
+- **Fallback na getPublicUrl**: jesli `list()` zwraca blad, sprobowac bezposrednio zbudowac URL-e z znanych sciezek (np. ostatniego uploadu)
+- **Retry z opoznieniem**: dodac jednorazowy retry po 1s jesli pierwsze wywolanie zwroci blad (race condition z auth)
+- **Lepsze bledy przy upload**: jesli `list()` padnie przed uploadem, pokazac jasny toast zamiast rzucac generyczny blad
+- **Auto-delete agresywniejszy**: przed uploadem, jesli jest >= MAX plikow, usunac WSZYSTKIE najstarsze (nie tylko 1), zostawiajac miejsce na nowy
 
-**c) Zmiana w `VideoRoom.tsx`:**
-- Uzyc nowego hooka `useZoomBackgrounds` do pobrania listy tel
-- Przekazac dynamiczna liste do `MeetingControls` zamiast statycznej
+### Krok 3: `VideoBackgroundProcessor.ts` — ostrzejsza maska dla trybu image
 
-### Efekt w UI
-- Sekcja "Wirtualne tlo" w dropdown pokaze wszystkie 15 tel Zoom z biblioteki grafik
-- Kazdy zalogowany uzytkownik bedzie mial dostep do tych samych tel
-- Admin moze zarzadzac lista tel przez panel Knowledge Center (dodawac/usuwac grafiki z kategoria "Tlo Zoom")
+Zmiany tylko w profilu `image` (blur-light/blur-heavy bez zmian):
+
+**a) Agresywniejsza erozja:**
+- Zamiast 1 extra erozji, dodac **2 pasy erozji** (kazdy 1px = lacznie 3px z poczatkowym erode/dilate) — to wytnie meble przy konturze
+- Alternatywnie: zmienic `erodeMaskOnly` zeby robila 2px erozje w jednym przejsciu (sprawdzac sasiadow o 2 piksele)
+
+**b) Ostrzejszy kontrast:**
+- Pre-blur contrast: `10 -> 12` dla image mode
+- Post-blur contrast: `8 -> 10` dla image mode
+- To bardziej agresywnie zepchnfe wartosci maski do 0 lub 1
+
+**c) Mniejszy blur maski:**
+- `blur(1.5px) -> blur(1px)` dla image mode — ostrzejsza krawedz
+
+**d) Ciezszy temporal smoothing dla image:**
+- Zmienic proporcje z 0.30/0.70 na 0.40/0.60 dla image mode — wiecej wagi na poprzednich klatkach = mniej migotania krawedzi
+
+**e) Wyzsza rozdzielczosc przetwarzania (solo meeting):**
+- Gdy jest tylko 1 uczestnik, uzyc `maxProcessWidth: 800` zamiast 640 — wieksza precyzja maski
+
+### Krok 4: Walidacja
+
+Po wdrozeniu:
+1. Otworzyc spotkanie, kliknac "Tlo", sprawdzic czy wlasne tla sa widoczne
+2. Wybrac tlo "image", sprawdzic czy polka/meble po prawej stronie nie przebijaja
+3. Dodac nowe tlo, zamknac/otworzyc menu — sprawdzic czy miniatura pojawia sie natychmiast
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| SQL migracja | Usunac 11 nadmiarowych plikow z bucketu |
-| `src/hooks/useZoomBackgrounds.ts` | Nowy hook — fetch z knowledge_resources |
-| `src/hooks/useVideoBackground.ts` | Usunac hardcoded BACKGROUND_IMAGES, eksportowac dynamicznie |
-| `src/hooks/useCustomBackgrounds.ts` | Lepsze error handling, nie polykac bledow listowania |
-| `src/components/meeting/VideoRoom.tsx` | Uzyc useZoomBackgrounds, przekazac do MeetingControls |
+| SQL migracja | Usunac 11 najstarszych plikow z bucketu |
+| `src/hooks/useCustomBackgrounds.ts` | Retry logika, pelne logowanie, lepszy auto-delete |
+| `src/components/meeting/VideoBackgroundProcessor.ts` | Ostrzejsza erozja (2-3px), wyzszy kontrast, mniejszy blur dla image mode |
 
-## Kolejnosc implementacji
+## Ryzyka
 
-1. SQL: wyczyscic nadmiarowe pliki z bucketu
-2. Nowy hook `useZoomBackgrounds` — dynamiczne pobieranie tel Zoom
-3. Aktualizacja `useVideoBackground` — usunac statyczne tla
-4. Naprawa `useCustomBackgrounds` — lepsze error handling
-5. Aktualizacja `VideoRoom.tsx` — polaczenie nowego hooka z UI
+- Agresywniejsza erozja moze obcinac cienkie detale (np. wlosy, palce) — jesli tak, mozna zmniejszyc do 2px erozji
+- Jesli `list()` nadal nie dziala po naprawie, bedzie trzeba sprawdzic czy inne polityki RLS na `storage.objects` nie koliduja (mozliwe ze polityka z innego bucketu blokuje SELECT)
 
