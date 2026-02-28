@@ -96,16 +96,6 @@ const AudioElement: React.FC<{ stream: MediaStream; onAudioBlocked?: () => void 
   return <video ref={ref} autoPlay playsInline data-audio-only="true" style={{ display: 'none' }} />;
 };
 
-// ─── Hidden audio streams for speaker/multi-speaker modes ───
-const AudioOnlyStreams: React.FC<{ participants: VideoParticipant[]; onAudioBlocked?: () => void }> = ({ participants, onAudioBlocked }) => (
-  <>
-    {participants
-      .filter(p => !p.isLocal && p.stream)
-      .map(p => (
-        <AudioElement key={p.peerId} stream={p.stream!} onAudioBlocked={onAudioBlocked} />
-      ))}
-  </>
-);
 
 // ─── Video Tile ───
 const VideoTile: React.FC<{
@@ -115,23 +105,16 @@ const VideoTile: React.FC<{
   audioLevel?: number;
   className?: string;
   showOverlay?: boolean;
-  forceAudioMuted?: boolean;
   videoRefCallback?: (el: HTMLVideoElement | null) => void;
   onAudioBlocked?: () => void;
-}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, forceAudioMuted, videoRefCallback, onAudioBlocked }) => {
+}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, videoRefCallback, onAudioBlocked }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !participant.stream) return;
 
-    // When forceAudioMuted, create video-only stream to avoid AEC echo
-    if (forceAudioMuted) {
-      const videoTracks = participant.stream.getVideoTracks();
-      video.srcObject = videoTracks.length > 0 ? new MediaStream(videoTracks) : participant.stream;
-    } else {
-      video.srcObject = participant.stream;
-    }
+    video.srcObject = participant.stream;
 
     playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
 
@@ -147,7 +130,7 @@ const VideoTile: React.FC<{
       video.removeEventListener('loadedmetadata', handleLoaded);
       video.removeEventListener('loadeddata', handleLoaded);
     };
-  }, [participant.stream, forceAudioMuted, onAudioBlocked]);
+  }, [participant.stream, onAudioBlocked]);
 
   // Observe track changes within existing stream (reconnect scenarios)
   useEffect(() => {
@@ -156,12 +139,7 @@ const VideoTile: React.FC<{
     if (!stream || !video) return;
 
     const handleTrackChange = () => {
-      if (forceAudioMuted) {
-        const videoTracks = stream.getVideoTracks();
-        video.srcObject = videoTracks.length > 0 ? new MediaStream(videoTracks) : stream;
-      } else {
-        if (video.srcObject !== stream) video.srcObject = stream;
-      }
+      if (video.srcObject !== stream) video.srcObject = stream;
       playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
     };
 
@@ -206,7 +184,7 @@ const VideoTile: React.FC<{
         playsInline
         // @ts-ignore
         webkit-playsinline=""
-        muted={participant.isLocal || !!forceAudioMuted}
+        muted={!!participant.isLocal}
         data-local-video={participant.isLocal ? 'true' : undefined}
         className={showVideo
           ? `max-w-full max-h-full object-contain ${participant.isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''}`
@@ -260,6 +238,7 @@ const ThumbnailTile: React.FC<{
     const video = videoRef.current;
     if (!video || !participant.stream) return;
     video.srcObject = participant.stream;
+    video.muted = !playAudio;
     playVideoSafe(video, !!participant.isLocal);
 
     const handleLoaded = () => {
@@ -275,6 +254,11 @@ const ThumbnailTile: React.FC<{
       video.removeEventListener('loadeddata', handleLoaded);
     };
   }, [participant.stream]);
+
+  // Imperative muted sync — React's muted prop is unreliable on re-renders
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = !playAudio;
+  }, [playAudio]);
 
   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
@@ -529,6 +513,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
     const video = ref.current;
     if (!video || !participant.stream) return;
     video.srcObject = participant.stream;
+    video.muted = !playAudio;
     playVideoSafe(video, !!participant.isLocal);
 
     const handleLoaded = () => {
@@ -544,6 +529,11 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
       video.removeEventListener('loadeddata', handleLoaded);
     };
   }, [participant.stream]);
+
+  // Imperative muted sync — React's muted prop is unreliable on re-renders
+  useEffect(() => {
+    if (ref.current) ref.current.muted = !playAudio;
+  }, [playAudio]);
 
   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
