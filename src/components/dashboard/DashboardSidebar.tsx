@@ -61,6 +61,8 @@ import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+import { useUnifiedChat } from '@/hooks/useUnifiedChat';
+import { Badge } from '@/components/ui/badge';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -189,6 +191,7 @@ export const DashboardSidebar: React.FC = () => {
   // Chat sidebar visibility
   const { data: chatVisibility } = useChatSidebarVisibility();
   const { data: paidEventsVisibility } = usePaidEventsVisibility();
+  const { totalUnread } = useUnifiedChat({ enableRealtime: false });
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
@@ -739,6 +742,11 @@ export const DashboardSidebar: React.FC = () => {
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{getLabel(item.labelKey)}</span>
+                  {item.id === 'chat' && totalUnread > 0 && (
+                    <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs ml-auto">
+                      {totalUnread > 99 ? '99+' : totalUnread}
+                    </Badge>
+                  )}
                 </SidebarMenuButton>
               ) : (
                 // On desktop - use Tooltip with delay
@@ -751,6 +759,11 @@ export const DashboardSidebar: React.FC = () => {
                     >
                       <item.icon className="h-4 w-4" />
                       <span>{getLabel(item.labelKey)}</span>
+                      {item.id === 'chat' && totalUnread > 0 && (
+                        <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs ml-auto">
+                          {totalUnread > 99 ? '99+' : totalUnread}
+                        </Badge>
+                      )}
                     </SidebarMenuButton>
                   </TooltipTrigger>
                   {menuTooltipDescriptions[item.id] && (
