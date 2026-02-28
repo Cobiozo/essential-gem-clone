@@ -434,14 +434,15 @@ export class VideoBackgroundProcessor {
     const isImageMode = this.mode === 'image';
 
     // Step 1: Pre-blur contrast — push values toward 0/1 (stronger for image mode)
-    contrastMask(mask, isImageMode ? 10 : 7);
+    contrastMask(mask, isImageMode ? 12 : 7);
 
     // Step 2: Single erode/dilate pass — removes thin halo artifacts
     this.erodeDilateMask(mask, width, height);
 
-    // Step 2b: Extra erode pass for image mode — tightens edges to cut furniture bleed
+    // Step 2b: Extra erode passes for image mode — tightens edges to cut furniture bleed
     if (isImageMode) {
       this.erodeMaskOnly(mask, width, height);
+      this.erodeMaskOnly(mask, width, height); // second pass for 2px total extra erosion
     }
 
     // Step 3: Spatial smoothing via canvas blur (smaller for image mode to keep edges sharp)
@@ -461,7 +462,7 @@ export class VideoBackgroundProcessor {
       this.maskCtx.filter = 'none';
       this.maskCtx.putImageData(imgData, 0, 0);
 
-      this.maskCtx.filter = isImageMode ? 'blur(1.5px)' : 'blur(3px)';
+      this.maskCtx.filter = isImageMode ? 'blur(1px)' : 'blur(3px)';
       this.maskCtx.drawImage(this.maskCanvas, 0, 0);
       this.maskCtx.filter = 'none';
 
@@ -472,15 +473,16 @@ export class VideoBackgroundProcessor {
     }
 
     // Step 4: Post-blur contrast — restore sharp edges (stronger for image mode)
-    contrastMask(mask, isImageMode ? 8 : 5);
+    contrastMask(mask, isImageMode ? 10 : 5);
 
     // Step 5: Temporal smoothing — blend with previous frame (30/70) for smooth edges without motion lag
     if (!this.previousMask || this.previousMask.length !== mask.length) {
       this.previousMask = new Float32Array(mask.length);
       this.previousMask.set(mask);
     } else {
+      const weight = isImageMode ? 0.40 : 0.30;
       for (let i = 0; i < mask.length; i++) {
-        mask[i] = this.previousMask[i] * 0.30 + mask[i] * 0.70;
+        mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
         this.previousMask[i] = mask[i];
       }
     }
@@ -713,8 +715,8 @@ export class VideoBackgroundProcessor {
         this.profile.maxProcessWidth = 480;
         this.profile.segmentationIntervalMs = 100;
       } else {
-        this.profile.maxProcessWidth = 640;
-        this.profile.segmentationIntervalMs = 80;
+        this.profile.maxProcessWidth = 800;
+        this.profile.segmentationIntervalMs = 70;
       }
     }
     console.log(`[BackgroundProcessor] Participant count: ${count}, maxProcessWidth: ${this.profile.maxProcessWidth}, segInterval: ${this.profile.segmentationIntervalMs}ms`);
