@@ -106,8 +106,8 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
           </>
         )}
 
-        {/* Custom user backgrounds */}
-        {onUpload && (
+        {/* Custom user backgrounds — only shown when upload handler exists (logged-in, non-guest) */}
+        {onUpload ? (
           <>
             <DropdownMenuSeparator className="bg-zinc-700" />
             <DropdownMenuLabel className="text-zinc-400 text-xs">
@@ -152,6 +152,13 @@ export const BackgroundSelector: React.FC<BackgroundSelectorProps> = ({
                 {isUploading ? 'Przesyłanie...' : 'Dodaj tło'}
               </DropdownMenuItem>
             )}
+          </>
+        ) : (
+          <>
+            <DropdownMenuSeparator className="bg-zinc-700" />
+            <div className="px-2 py-1.5 text-xs text-zinc-500">
+              Zaloguj się, aby dodać własne tła
+            </div>
           </>
         )}
 

@@ -2033,18 +2033,22 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         customBackgroundImages={customBackgroundImages}
         maxCustomBackgrounds={maxCustomBackgrounds}
         isUploadingBackground={isUploadingBackground}
-        onUploadBackground={async (file) => {
+        onUploadBackground={user && !guestMode ? async (file) => {
           try {
             await uploadBackgroundImage(file);
             toast({ title: 'Tło przesłane' });
           } catch (err: any) {
-            toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+            const msg = err.message?.includes('zalogowany')
+              ? 'Musisz być zalogowany, aby dodać własne tło.'
+              : err.message?.includes('za duży')
+              ? 'Plik jest za duży (max 5MB).'
+              : err.message || 'Nie udało się przesłać tła.';
+            toast({ title: 'Błąd przesyłania', description: msg, variant: 'destructive' });
           }
-        }}
-        onRefreshBackgrounds={refetchBackgrounds}
-        onDeleteBackground={async (url) => {
+        } : undefined}
+        onRefreshBackgrounds={user && !guestMode ? refetchBackgrounds : undefined}
+        onDeleteBackground={user && !guestMode ? async (url) => {
           try {
-            // If currently using this background, switch to none
             if (bgSelectedImage === url) {
               await handleBackgroundChange('none');
             }
@@ -2053,7 +2057,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           } catch (err: any) {
             toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
           }
-        }}
+        } : undefined}
       />
     </div>
   );
