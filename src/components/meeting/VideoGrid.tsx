@@ -26,13 +26,37 @@ interface VideoGridProps {
   remoteScreenShareStream?: MediaStream | null;
   remoteScreenSharerName?: string;
   remoteScreenSharerPeerId?: string;
+  isAudioUnlocked?: boolean;
 }
+
+// ─── Global user interaction tracker ───
+// Once the user clicks/touches/presses a key, we remember it so new media elements
+// can start unmuted without triggering autoplay blocks.
+let userHasInteracted = false;
+const markUserInteracted = () => { userHasInteracted = true; };
+
+// Register listeners once at module level
+if (typeof document !== 'undefined') {
+  const opts = { capture: true, passive: true, once: false } as const;
+  const handler = () => markUserInteracted();
+  document.addEventListener('click', handler, opts);
+  document.addEventListener('touchstart', handler, opts);
+  document.addEventListener('keydown', handler, opts);
+}
+
+/** Expose setter for external code (e.g. VideoRoom unlock handler) */
+export const setUserHasInteracted = () => { userHasInteracted = true; };
+export const getUserHasInteracted = () => userHasInteracted;
 
 // Helper: play video with muted fallback for mobile autoplay policy
 const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioBlocked?: () => void) => {
   if (isLocal) {
     video.play().catch(() => {});
     return;
+  }
+  // If user already interacted, try playing unmuted first
+  if (userHasInteracted) {
+    video.muted = false;
   }
   try {
     await video.play();
@@ -85,6 +109,10 @@ const AudioElement: React.FC<{ stream: MediaStream; onAudioBlocked?: () => void 
     const el = ref.current;
     if (!el || !stream) return;
     el.srcObject = stream;
+    // If user already interacted, try unmuted directly
+    if (userHasInteracted) {
+      el.muted = false;
+    }
     el.play().catch(() => {
       el.muted = true;
       el.play().then(() => {
@@ -654,15 +682,24 @@ const ScreenShareLayout: React.FC<{
   isCameraOff: boolean;
   audioLevels: Map<string, number>;
   onAudioBlocked?: () => void;
-}> = ({ screenStream, sharerName, sharerParticipant, allParticipants, isCameraOff, audioLevels, onAudioBlocked }) => {
+  isAudioUnlocked?: boolean;
+}> = ({ screenStream, sharerName, sharerParticipant, allParticipants, isCameraOff, audioLevels, onAudioBlocked, isAudioUnlocked }) => {
   const screenVideoRef = useRef<HTMLVideoElement>(null);
+  const shouldUnmute = isAudioUnlocked || userHasInteracted;
 
   useEffect(() => {
     const video = screenVideoRef.current;
     if (!video || !screenStream) return;
     video.srcObject = screenStream;
+    video.muted = !shouldUnmute;
     playVideoSafe(video, false, onAudioBlocked);
-  }, [screenStream, onAudioBlocked]);
+  }, [screenStream, onAudioBlocked, shouldUnmute]);
+
+  // Sync muted state when unlock changes
+  useEffect(() => {
+    const video = screenVideoRef.current;
+    if (video) video.muted = !shouldUnmute;
+  }, [shouldUnmute]);
 
   return (
     <div className="flex-1 flex flex-col bg-black relative">
@@ -671,7 +708,7 @@ const ScreenShareLayout: React.FC<{
           ref={screenVideoRef}
           autoPlay
           playsInline
-          muted
+          muted={!shouldUnmute}
           className="max-w-full max-h-full object-contain"
         />
         <div className="absolute top-2 left-2 bg-red-600/80 text-white text-xs px-2 py-1 rounded-md font-medium">
@@ -719,6 +756,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   remoteScreenShareStream,
   remoteScreenSharerName,
   remoteScreenSharerPeerId,
+  isAudioUnlocked,
 }) => {
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
   const manualTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -772,6 +810,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
         isCameraOff={isCameraOff}
         audioLevels={audioLevels}
         onAudioBlocked={onAudioBlocked}
+        isAudioUnlocked={isAudioUnlocked}
       />
     );
   }
