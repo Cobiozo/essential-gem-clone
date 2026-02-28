@@ -174,9 +174,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       // Always: try to unlock paused remote videos on every user gesture
       document.querySelectorAll('video').forEach((v) => {
         const video = v as HTMLVideoElement;
-        if (video.paused && video.srcObject && video.getAttribute('data-local-video') !== 'true') {
-          video.muted = false;
-          video.play().catch(() => {});
+        if (video.srcObject && video.getAttribute('data-local-video') !== 'true') {
+          if (video.paused) {
+            video.muted = false;
+            video.play().catch(() => {});
+          } else if (video.muted) {
+            // Video gra wyciszone (autoplay fallback) - odblokuj dzwiek
+            video.muted = false;
+          }
         }
       });
       setAudioBlocked(false);
