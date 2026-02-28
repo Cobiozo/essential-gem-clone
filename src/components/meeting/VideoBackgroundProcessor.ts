@@ -3,8 +3,8 @@
  * Uses MediaPipe ImageSegmenter for real-time person/background separation.
  * Pipeline: Camera -> InputCanvas (downscale) -> Segmentation -> Canvas (blur/image) -> MediaStream
  * 
- * Key fix: segmentation runs on a downscaled inputCanvas (not raw videoElement),
- * so the mask always matches processWidth×processHeight — no dimension mismatch.
+ * v2: Multi-pass mask refinement (contrast→blur→contrast), temporal smoothing,
+ * tighter alpha thresholds, upgraded model (selfie_multiclass).
  */
 
 import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -32,13 +32,13 @@ const MOBILE_PROFILE: PerformanceProfile = {
 };
 
 const DESKTOP_PROFILE: PerformanceProfile = {
-  maxProcessWidth: 640,
+  maxProcessWidth: 720,
   segmentationIntervalMs: 66,
   outputFps: 24,
   overloadThresholdMs: 250,
 };
 
-// --- Blur profiles ---
+// --- Blur profiles (tightened thresholds for cleaner edges) ---
 interface BlurProfile {
   blurRadius: number;
   personThresholdHigh: number;
@@ -48,26 +48,42 @@ interface BlurProfile {
 const BLUR_PROFILES: Record<string, BlurProfile> = {
   'blur-light': {
     blurRadius: 6,
-    personThresholdHigh: 0.55,
-    personThresholdLow: 0.15,
+    personThresholdHigh: 0.65,
+    personThresholdLow: 0.40,
   },
   'blur-heavy': {
     blurRadius: 20,
-    personThresholdHigh: 0.55,
-    personThresholdLow: 0.10,
+    personThresholdHigh: 0.60,
+    personThresholdLow: 0.35,
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.55,
-    personThresholdLow: 0.10,
+    personThresholdHigh: 0.65,
+    personThresholdLow: 0.40,
   },
 };
+
+// --- Mask refinement helpers ---
+
+/** Sigmoid-like contrast curve: pushes values toward 0 or 1 */
+function contrastMask(mask: Float32Array, strength: number = 5) {
+  for (let i = 0; i < mask.length; i++) {
+    // Sigmoid centered at 0.5
+    const x = mask[i];
+    mask[i] = 1 / (1 + Math.exp(-strength * (x - 0.5)));
+  }
+}
 
 function detectMobile(): boolean {
   if (typeof navigator === 'undefined') return false;
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
     ('ontouchstart' in window && window.innerWidth < 1024);
 }
+
+// Primary model (multiclass, better hair/body separation)
+const PRIMARY_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float16/latest/selfie_multiclass_256x256.tflite';
+// Fallback model
+const FALLBACK_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
 
 export class VideoBackgroundProcessor {
   private segmenter: ImageSegmenter | null = null;
@@ -82,6 +98,7 @@ export class VideoBackgroundProcessor {
   private initPromise: Promise<void> | null = null;
   private lastTimestamp = 0;
   private frameErrorCount = 0;
+  private isMulticlassModel = false;
 
   // Dedicated input canvas for segmentation (always processWidth×processHeight)
   private inputCanvas: HTMLCanvasElement;
@@ -102,6 +119,7 @@ export class VideoBackgroundProcessor {
   private profile: PerformanceProfile;
   private lastSegmentationTime = 0;
   private cachedMask: Float32Array | null = null;
+  private previousMask: Float32Array | null = null; // temporal smoothing
   private overloadCounter = 0;
   private isPassThrough = false;
   private processWidth = 0;
@@ -139,25 +157,38 @@ export class VideoBackgroundProcessor {
         const vision = await FilesetResolver.forVisionTasks(
           'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm'
         );
-        const modelOptions = {
-          baseOptions: {
-            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite',
-            delegate: 'GPU' as const,
-          },
-          runningMode: 'VIDEO' as const,
-          outputCategoryMask: false,
-          outputConfidenceMasks: true,
-        };
-        try {
-          this.segmenter = await ImageSegmenter.createFromOptions(vision, modelOptions);
-          console.log('[BackgroundProcessor] Model loaded with GPU delegate');
-        } catch (gpuErr) {
-          console.warn('[BackgroundProcessor] GPU delegate failed, falling back to CPU:', gpuErr);
-          this.segmenter = await ImageSegmenter.createFromOptions(vision, {
-            ...modelOptions,
-            baseOptions: { ...modelOptions.baseOptions, delegate: 'CPU' as const },
+
+        const createSegmenter = async (modelUrl: string, delegate: 'GPU' | 'CPU') => {
+          return ImageSegmenter.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: modelUrl, delegate },
+            runningMode: 'VIDEO' as const,
+            outputCategoryMask: false,
+            outputConfidenceMasks: true,
           });
-          console.log('[BackgroundProcessor] Model loaded with CPU delegate');
+        };
+
+        // Try primary multiclass model with GPU
+        try {
+          this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'GPU');
+          this.isMulticlassModel = true;
+          console.log('[BackgroundProcessor] Multiclass model loaded (GPU)');
+        } catch (e1) {
+          console.warn('[BackgroundProcessor] Multiclass GPU failed, trying CPU:', e1);
+          try {
+            this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'CPU');
+            this.isMulticlassModel = true;
+            console.log('[BackgroundProcessor] Multiclass model loaded (CPU)');
+          } catch (e2) {
+            console.warn('[BackgroundProcessor] Multiclass failed, falling back to basic model:', e2);
+            // Fallback to basic selfie_segmenter
+            try {
+              this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'GPU');
+              console.log('[BackgroundProcessor] Basic model loaded (GPU)');
+            } catch (e3) {
+              this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'CPU');
+              console.log('[BackgroundProcessor] Basic model loaded (CPU)');
+            }
+          }
         }
       } catch (err) {
         console.error('[BackgroundProcessor] Failed to initialize:', err);
@@ -206,21 +237,17 @@ export class VideoBackgroundProcessor {
     }
     try { await this.videoElement.play(); } catch {}
 
-    // Use videoElement.videoWidth/Height as source of truth (after metadata loaded)
     const srcWidth = this.videoElement.videoWidth || videoTrack.getSettings().width || 640;
     const srcHeight = this.videoElement.videoHeight || videoTrack.getSettings().height || 480;
 
-    // Calculate processing resolution (downscaled for performance)
     const scale = Math.min(1, this.profile.maxProcessWidth / srcWidth);
     this.processWidth = Math.round(srcWidth * scale) & ~1;
     this.processHeight = Math.round(srcHeight * scale) & ~1;
 
-    console.log(`[BackgroundProcessor] Source: ${srcWidth}x${srcHeight}, Process: ${this.processWidth}x${this.processHeight}`);
+    console.log(`[BackgroundProcessor] Source: ${srcWidth}x${srcHeight}, Process: ${this.processWidth}x${this.processHeight}, multiclass=${this.isMulticlassModel}`);
 
-    // Set all canvases to processing resolution
     this.canvas.width = this.processWidth;
     this.canvas.height = this.processHeight;
-
     this.inputCanvas.width = this.processWidth;
     this.inputCanvas.height = this.processHeight;
 
@@ -239,11 +266,11 @@ export class VideoBackgroundProcessor {
     this.frameErrorCount = 0;
     this.lastSegmentationTime = 0;
     this.cachedMask = null;
+    this.previousMask = null;
     this.overloadCounter = 0;
     this.isPassThrough = false;
     this.noMaskFrameCount = 0;
 
-    // Invalidate cached ImageData (dimensions changed)
     this.cachedFrameData = null;
     this.cachedBlurredData = null;
     this.cachedBgData = null;
@@ -251,7 +278,6 @@ export class VideoBackgroundProcessor {
 
     this.outputStream = this.canvas.captureStream(this.profile.outputFps);
 
-    // Carry over audio tracks
     inputStream.getAudioTracks().forEach(track => {
       this.outputStream!.addTrack(track);
     });
@@ -269,7 +295,6 @@ export class VideoBackgroundProcessor {
 
     const frameStart = performance.now();
 
-    // Ensure monotonically increasing timestamps
     const now = performance.now();
     const timestamp = now > this.lastTimestamp ? now : this.lastTimestamp + 1;
     this.lastTimestamp = timestamp;
@@ -284,7 +309,6 @@ export class VideoBackgroundProcessor {
 
       const { processWidth: width, processHeight: height } = this;
 
-      // Overload pass-through: just draw raw frame
       if (this.isPassThrough) {
         this.ctx.drawImage(this.videoElement, 0, 0, width, height);
         if (frameStart - this.lastSegmentationTime > 3000) {
@@ -298,7 +322,7 @@ export class VideoBackgroundProcessor {
         return;
       }
 
-      // Draw video to inputCanvas at processing resolution FIRST
+      // Draw video to inputCanvas at processing resolution
       this.inputCtx.drawImage(this.videoElement, 0, 0, width, height);
 
       // Throttled segmentation
@@ -306,30 +330,43 @@ export class VideoBackgroundProcessor {
       let maskData = this.cachedMask;
 
       if (timeSinceLastSeg >= this.profile.segmentationIntervalMs) {
-        // Run segmentation on inputCanvas (same size as processWidth×processHeight)
         const result = this.segmenter.segmentForVideo(this.inputCanvas, timestamp);
         const masks = result.confidenceMasks;
 
         if (masks && masks.length > 0) {
-          const personMask = masks[0];
-          const rawMask = personMask.getAsFloat32Array();
+          // For multiclass model, combine person-related classes (skip background class 0)
+          let rawMask: Float32Array;
+
+          if (this.isMulticlassModel && masks.length > 1) {
+            // Multiclass: classes are [background, hair, body-skin, face-skin, clothes, others...]
+            // Combine all non-background classes into one person mask
+            const bgMask = masks[0].getAsFloat32Array();
+            rawMask = new Float32Array(bgMask.length);
+            for (let i = 0; i < bgMask.length; i++) {
+              rawMask[i] = 1.0 - bgMask[i]; // person = 1 - background
+            }
+            masks.forEach(m => m.close());
+          } else {
+            // Basic model: single confidence mask
+            const personMask = masks[0];
+            rawMask = personMask.getAsFloat32Array();
+            personMask.close();
+          }
 
           if (rawMask.length === width * height) {
             if (!this.cachedMask || this.cachedMask.length !== rawMask.length) {
               this.cachedMask = new Float32Array(rawMask.length);
             }
             this.cachedMask.set(rawMask);
-            this.smoothMask(this.cachedMask, width, height);
+            this.refineMask(this.cachedMask, width, height);
             maskData = this.cachedMask;
             this.noMaskFrameCount = 0;
           } else {
-            // Dimension mismatch — log once, increment counter
             this.noMaskFrameCount++;
             if (this.noMaskFrameCount === 1 || this.noMaskFrameCount % 30 === 0) {
               console.warn(`[BackgroundProcessor] Mask dimension mismatch: mask=${rawMask.length}, expected=${width * height} (frame #${this.noMaskFrameCount})`);
             }
           }
-          personMask.close();
         }
         this.lastSegmentationTime = frameStart;
       }
@@ -338,7 +375,6 @@ export class VideoBackgroundProcessor {
       this.ctx.drawImage(this.inputCanvas, 0, 0);
 
       if (maskData && maskData.length === width * height) {
-        // Get frame pixels from output canvas
         if (!this.cachedFrameData || this.cachedFrameData.width !== width || this.cachedFrameData.height !== height) {
           this.cachedFrameData = this.ctx.getImageData(0, 0, width, height);
         } else {
@@ -356,7 +392,6 @@ export class VideoBackgroundProcessor {
         this.ctx.putImageData(frame, 0, 0);
         this.noMaskFrameCount = 0;
       } else {
-        // No valid mask — track consecutive failures
         this.noMaskFrameCount++;
         if (this.noMaskFrameCount === VideoBackgroundProcessor.NO_MASK_WARN_THRESHOLD) {
           console.warn(`[BackgroundProcessor] ${this.noMaskFrameCount} frames without valid mask, effect may not be visible`);
@@ -365,7 +400,6 @@ export class VideoBackgroundProcessor {
 
       this.frameErrorCount = 0;
 
-      // Overload detection
       const frameDuration = performance.now() - frameStart;
       if (frameDuration > this.profile.overloadThresholdMs) {
         this.overloadCounter++;
@@ -392,31 +426,53 @@ export class VideoBackgroundProcessor {
     }
   };
 
-  private smoothMask(mask: Float32Array, width: number, height: number) {
-    if (!this.maskCtx || !this.maskCanvas) return;
+  /**
+   * Multi-pass mask refinement: contrast → blur → contrast → temporal blend
+   * Produces crystal-clear edges with no flickering.
+   */
+  private refineMask(mask: Float32Array, width: number, height: number) {
+    // Step 1: Pre-blur contrast — push values toward 0/1
+    contrastMask(mask, 6);
 
-    if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
-      this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
+    // Step 2: Spatial smoothing via canvas blur (3px)
+    if (this.maskCtx && this.maskCanvas) {
+      if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
+        this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
+      }
+      const imgData = this.cachedMaskImgData;
+      for (let i = 0; i < mask.length; i++) {
+        const v = Math.round(mask[i] * 255);
+        const idx = i * 4;
+        imgData.data[idx] = v;
+        imgData.data[idx + 1] = v;
+        imgData.data[idx + 2] = v;
+        imgData.data[idx + 3] = 255;
+      }
+      this.maskCtx.filter = 'none';
+      this.maskCtx.putImageData(imgData, 0, 0);
+
+      this.maskCtx.filter = 'blur(3px)';
+      this.maskCtx.drawImage(this.maskCanvas, 0, 0);
+      this.maskCtx.filter = 'none';
+
+      const smoothed = this.maskCtx.getImageData(0, 0, width, height);
+      for (let i = 0; i < mask.length; i++) {
+        mask[i] = smoothed.data[i * 4] / 255;
+      }
     }
-    const imgData = this.cachedMaskImgData;
-    for (let i = 0; i < mask.length; i++) {
-      const v = Math.round(mask[i] * 255);
-      const idx = i * 4;
-      imgData.data[idx] = v;
-      imgData.data[idx + 1] = v;
-      imgData.data[idx + 2] = v;
-      imgData.data[idx + 3] = 255;
-    }
-    this.maskCtx.filter = 'none';
-    this.maskCtx.putImageData(imgData, 0, 0);
 
-    this.maskCtx.filter = 'blur(4px)';
-    this.maskCtx.drawImage(this.maskCanvas, 0, 0);
-    this.maskCtx.filter = 'none';
+    // Step 3: Post-blur contrast — restore sharp edges after blur softened them
+    contrastMask(mask, 5);
 
-    const smoothed = this.maskCtx.getImageData(0, 0, width, height);
-    for (let i = 0; i < mask.length; i++) {
-      mask[i] = smoothed.data[i * 4] / 255;
+    // Step 4: Temporal smoothing — blend with previous frame to eliminate flickering
+    if (!this.previousMask || this.previousMask.length !== mask.length) {
+      this.previousMask = new Float32Array(mask.length);
+      this.previousMask.set(mask);
+    } else {
+      for (let i = 0; i < mask.length; i++) {
+        mask[i] = this.previousMask[i] * 0.3 + mask[i] * 0.7;
+        this.previousMask[i] = mask[i];
+      }
     }
   }
 
@@ -425,7 +481,6 @@ export class VideoBackgroundProcessor {
 
     if (!this.blurredCtx || !this.blurredCanvas) return;
 
-    // Draw from inputCanvas (same resolution) instead of videoElement
     this.blurredCtx.filter = `blur(${profile.blurRadius}px)`;
     this.blurredCtx.drawImage(this.inputCanvas, 0, 0);
     if (!this.cachedBlurredData || this.cachedBlurredData.width !== width || this.cachedBlurredData.height !== height) {
@@ -553,6 +608,7 @@ export class VideoBackgroundProcessor {
     this.maskCanvas = null;
     this.maskCtx = null;
     this.cachedMask = null;
+    this.previousMask = null;
     this.cachedFrameData = null;
     this.cachedBlurredData = null;
     this.cachedBgData = null;
@@ -584,7 +640,7 @@ export class VideoBackgroundProcessor {
         this.profile.maxProcessWidth = 480;
         this.profile.segmentationIntervalMs = 100;
       } else {
-        this.profile.maxProcessWidth = 640;
+        this.profile.maxProcessWidth = 720;
         this.profile.segmentationIntervalMs = 66;
       }
     }
