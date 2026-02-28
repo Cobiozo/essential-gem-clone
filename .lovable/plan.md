@@ -1,100 +1,101 @@
 
 
-## Naprawa: Sebastian Snopek pojawia sie i znika w webinarze
+## Naprawa: efekty tla/rozmycia nie dzialaja w widoku galerii z uczestnikami
 
-### Przyczyna glowna
+### Zidentyfikowane przyczyny
 
-W `reconnectToPeer` (linia 1178-1181) kolejnosc operacji jest bledna:
+**Przyczyna 1: Brak `updateRawStream` w inicjalizacji**
 
+W init flow (linia 737-738) strumien kamery jest ustawiany:
 ```text
-// OBECNA KOLEJNOSC (bledna):
-const oldConn = connectionsRef.current.get(peerId);
-if (oldConn) { try { oldConn.close(); } catch {} }  // 1. Zamyka polaczenie
-connectionsRef.current.delete(peerId);                // 2. Dopiero potem usuwa z mapy
+localStreamRef.current = stream;
+setLocalStream(stream);
 ```
+Ale `updateRawStream(stream)` NIE jest wywolywane. Przez to `rawStreamRef.current` w `useVideoBackground` jest `null` az do pierwszego wywolania `applyBackground`. Jesli uzytkownik przelacza kamere lub cos innego zmieni strumien przed zastosowaniem efektu, `rawStreamRef` moze wskazywac na zly strumien (przetworzony zamiast surowego).
 
-Gdy `oldConn.close()` jest wywolane, PeerJS emituje zdarzenie `close` synchronicznie lub niemal natychmiast. Handler `close` (linia 1117-1121) sprawdza:
+**Przyczyna 2: Procesor wpada w pass-through przez przeciazenie**
 
-```text
-call.on('close', () => {
-  if (connectionsRef.current.get(call.peer) === call) {
-    removePeer(call.peer);  // Usuwa uczestnika z UI!
-  }
-});
-```
+Gdy dolaczaja uczestnicy, WebRTC dekodowanie/enkodowanie zuzywa GPU/CPU. Segmentacja MediaPipe zaczyna przekraczac 150ms na klatke. Po 30 kolejnych przekroczeniach procesor wchodzi w tryb pass-through (brak efektow). Proba wyjscia co 2 sekundy konczy sie natychmiastowym powrotem do pass-through jesli system jest ciagle przeciazony.
 
-Poniewaz `connectionsRef.current.delete(peerId)` nastepuje PO `close()`, guard `connectionsRef.current.get(call.peer) === call` jest PRAWDZIWY i `removePeer` jest wywolywane -- uczestnik znika z UI.
+**Przyczyna 3: `restoreCamera` nie przywraca efektu tla**
 
-Po 2 sekundach `callPeer` tworzy nowe polaczenie, stream dociera i uczestnik pojawia sie ponownie. Jesli siec jest niestabilna, ten cykl powtarza sie wielokrotnie:
-
-```text
-ICE disconnected/failed -> reconnectToPeer -> close() -> removePeer (ZNIKA)
-  -> 2s delay -> callPeer -> stream -> addParticipant (POJAWIA SIE)
-  -> ICE znow niestabilne -> reconnectToPeer -> ... (cykl)
-```
-
-### Dodatkowy problem: heartbeat pruning podczas reconnectu
-
-Heartbeat co 15s sprawdza czy peer jest w DB i ma aktywne WebRTC. Podczas 2-sekundowego okna miedzy `close()` a nowym `callPeer`, nie ma zadnego polaczenia w `connectionsRef`. Jesli heartbeat trafi w to okno i peer nie jest w DB (np. jego heartbeat tez sie opoznil), miss counter rosnie -- po 3 misach uczestnik jest trwale usuwany.
+Po zakonczeniu udostepniania ekranu, `restoreCamera` (linia 1218-1260) ustawia surowy strumien bez ponownego zastosowania efektu tla. Efekt znika trwale.
 
 ### Rozwiazanie
 
-**Zmiana 1: Odwrocic kolejnosc w `reconnectToPeer` (VideoRoom.tsx, linia 1178-1181)**
+**Zmiana 1: Dodac `updateRawStream` w init (VideoRoom.tsx)**
 
-Usunac z mapy PRZED zamknieciem, aby handler `close` NIE wywolywal `removePeer`:
-
+Po linii 738 dodac:
 ```text
-// NOWA KOLEJNOSC:
-const oldConn = connectionsRef.current.get(peerId);
-connectionsRef.current.delete(peerId);                // 1. Najpierw usun z mapy
-if (oldConn) { try { oldConn.close(); } catch {} }   // 2. Potem zamknij (handler close juz nie zadziala)
+updateRawStream(stream);
+```
+To zapewnia, ze `rawStreamRef` jest zawsze zsynchronizowany z surowym strumieniem kamery od samego poczatku.
+
+**Zmiana 2: Dynamiczne dostosowanie rozdzielczosci przetwarzania (VideoBackgroundProcessor.ts)**
+
+Dodac metode `setParticipantCount(count)` ktora obniza rozdzielczosc przetwarzania gdy sa uczestnicy:
+- 0-1 uczestnikow: maxProcessWidth = 640 (desktop default)
+- 2+ uczestnikow: maxProcessWidth = 480
+- 4+ uczestnikow: maxProcessWidth = 320
+
+Oraz zwiekszyc progi przeciazenia i spowolnic segmentacje:
+- overloadThresholdMs: 150 -> 250ms
+- segmentationIntervalMs: 66 -> 100ms (przy 2+ uczestnikach)
+- overloadCounter limit: 30 -> 60 (mniej agresywne wchodzenie w pass-through)
+
+**Zmiana 3: Przekazywanie liczby uczestnikow do procesora (VideoRoom.tsx + useVideoBackground.ts)**
+
+W `handleBackgroundChange` i przy zmianach `participants.length`, wywolac metode procesora aktualizujaca profil wydajnosci.
+
+Dodac `useEffect` w VideoRoom:
+```text
+useEffect(() => {
+  // Inform processor about participant count for adaptive quality
+  processorRef... setParticipantCount(participants.length);
+}, [participants.length]);
 ```
 
-**Zmiana 2: Dodac set reconnectingPeersRef (VideoRoom.tsx)**
+Wymaga dodania metody `setParticipantCount` do useVideoBackground hook i VideoBackgroundProcessor.
 
-Nowy ref `reconnectingPeersRef = useRef<Set<string>>(new Set())` sledzacy peery w trakcie reconnektu. W `reconnectToPeer` dodac peerId do setu na poczatku i usunac po pomyslnym polaczeniu lub po 3 nieudanych probach.
+**Zmiana 4: Re-apply background w `restoreCamera` (VideoRoom.tsx)**
 
-**Zmiana 3: Nie usuwac uczestnika z UI podczas reconnektu**
-
-W `removePeer` dodac guard: jesli peer jest w `reconnectingPeersRef`, nie usuwac z `participants` state (zachowac w UI z `stream: null`):
-
+Na koncu `restoreCamera`, po ustawieniu nowego strumienia, sprawdzic czy efekt tla byl aktywny i zastosowac go ponownie:
 ```text
-const removePeer = (peerId: string) => {
-  connectionsRef.current.delete(peerId);
-  if (reconnectingPeersRef.current.has(peerId)) {
-    // Peer w trakcie reconnektu - zachowaj w UI, wyczysc stream
-    setParticipants(prev => prev.map(p => 
-      p.peerId === peerId ? { ...p, stream: null } : p
-    ));
-    return;
-  }
-  setParticipants(prev => prev.filter(p => p.peerId !== peerId));
-};
-```
-
-**Zmiana 4: Heartbeat nie pruninguje peerow w trakcie reconnektu**
-
-W logice heartbeat pruning (linia 492-518), dodac sprawdzenie `reconnectingPeersRef`:
-
-```text
-if (reconnectingPeersRef.current.has(p.peerId)) {
-  peerMissCountRef.current.delete(p.peerId);
-  continue; // Nie licz miss-ow podczas reconnektu
+// Po linii 1243 (replaceTrack):
+updateRawStream(stream);
+if (bgMode !== 'none') {
+  try {
+    const processedStream = await applyBackground(stream, bgMode, bgSelectedImage);
+    if (processedStream !== stream) {
+      localStreamRef.current = processedStream;
+      setLocalStream(processedStream);
+      const processedVideoTrack = processedStream.getVideoTracks()[0];
+      if (processedVideoTrack) {
+        connectionsRef.current.forEach((conn) => {
+          const sender = (conn as any).peerConnection?.getSenders()?.find(s => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(processedVideoTrack);
+        });
+      }
+    }
+  } catch (e) { console.warn('[VideoRoom] Failed to re-apply bg after restoreCamera:', e); }
 }
 ```
 
-**Zmiana 5: Czyszczenie reconnecting flagi po sukcesie/porazce**
+**Zmiana 5: Mniej agresywne wchodzenie w pass-through (VideoBackgroundProcessor.ts)**
 
-W `handleCall` -> `call.on('stream')`: usunac peerId z `reconnectingPeersRef` (reconnekt sie udal).
-W `reconnectToPeer` -> po 3 nieudanych probach: usunac z setu przed wywolaniem `removePeer`.
+Zmiany w `processFrame`:
+- Zwiekszyc `overloadCounter` limit z 30 na 60
+- W trybie pass-through, proba wyjscia co 3s zamiast 2s
+- Dodac log przy wejsciu/wyjsciu z pass-through aby ulatwic debugowanie
 
 ### Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `VideoRoom.tsx` | Odwrocic kolejnosc delete/close w reconnectToPeer |
-| `VideoRoom.tsx` | Nowy ref `reconnectingPeersRef` |
-| `VideoRoom.tsx` | removePeer: nie usuwac z UI podczas reconnektu (ustawic stream=null) |
-| `VideoRoom.tsx` | Heartbeat: pomijac pruning dla reconnecting peers |
-| `VideoRoom.tsx` | handleCall stream: czyscic reconnecting flage po sukcesie |
+| `VideoRoom.tsx` | Dodac `updateRawStream(stream)` w init |
+| `VideoRoom.tsx` | Re-apply bg w `restoreCamera` |
+| `VideoRoom.tsx` | useEffect synchronizujacy participant count z procesorem |
+| `useVideoBackground.ts` | Nowa metoda `setParticipantCount` przekazujaca do procesora |
+| `VideoBackgroundProcessor.ts` | Nowa metoda `setParticipantCount` z adaptacyjna rozdzielczoscia |
+| `VideoBackgroundProcessor.ts` | Mniej agresywne progi pass-through (60 klatek, 250ms threshold) |
 
