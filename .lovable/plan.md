@@ -1,100 +1,144 @@
 
-Cel: usunąć opóźnienia/zamrażanie obrazu z telefonu oraz naprawić jakość maski rozmycia (żeby nie rozmywało twarzy/sylwetki).
 
-## Co wykazała analiza
+## Naprawa 4 problemow: ukrycie ekranu na mobile, zamrazanie przy zmianie tla, PiP re-entry
 
-1. Pipeline tła na mobile jest zbyt ciężki:
-- przetwarzanie idzie na pełnej rozdzielczości kamery (`width/height` z tracka, często 1080p),
-- każda klatka robi segmentację + `getImageData`/`putImageData` + dodatkowy odczyt rozmytego bufora,
-- output jest wymuszony na `captureStream(30)`,
-- to powoduje przeciążenie CPU/GPU na telefonie i efekt „freeze”/dużego laga lokalnie i zdalnie.
+### Problem 1: Przycisk udostepniania ekranu na mobile
+Przycisk jest nieaktywny z tooltipem, ale tooltip nie dziala dobrze na urzadzeniach dotykowych. Rozwiazanie: calkowicie ukryc przycisk gdy `isScreenShareSupported === false`.
 
-2. Rozmycie „lekkie/mocne” jest zbyt agresywne dla sylwetki:
-- obecne progi blendowania (`EDGE_LOW=0.3`, `EDGE_HIGH=0.7`) dopuszczają częściowe rozmycie pikseli osoby,
-- przy cięższych warunkach mobilnych maska jest mniej stabilna, więc twarz i kontur są nadpisywane.
+**Plik**: `src/components/meeting/MeetingControls.tsx`
+- Zmienic warunek renderowania przycisku "Ekran" z `{!guestMode && (...)}` na `{!guestMode && isScreenShareSupported && (...)}`.
 
-3. Jest niespójność w logice odzyskiwania streamu:
-- `reacquireLocalStream()` po ponownym nałożeniu tła ustawia `localStreamRef.current` na stream przetworzony, ale zwraca surowy `stream`,
-- to grozi rozjazdem stanu przy kolejnych operacjach i może pogłębiać problemy po reconnectach.
+### Problem 2: Zamrazanie video przy zmianie/wylaczaniu tla
 
-## Plan zmian (implementacja)
+**Przyczyna**: `handleBackgroundChange` przekazuje do `applyBackground` aktualny `localStreamRef.current`, ktory jest PRZETWORZONYM strumieniem (z `captureStream()`). Gdy `processor.stop()` jest wywolywany (przy zmianie trybu lub powrocie na "brak efektu"), stary output stream umiera. Nastepnie `processor.start()` probuje uzyc tracka z martwego strumienia -- efekt: zawieszenie lub utrata video.
 
-### 1) Adaptacyjna wydajność VideoBackgroundProcessor (najważniejsze)
-Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
+**Rozwiazanie**: Przechowywac referencje do ORYGINALNEGO strumienia z kamery (`rawStreamRef`) w `useVideoBackground`. Przy kazdym przelaczeniu trybu uzywac tego surowego strumienia zamiast przetworzonego.
 
-- Dodać profil wydajności zależny od urządzenia:
-  - mobile: niższa rozdzielczość przetwarzania (np. max 640px szerokości), output FPS 12–15,
-  - desktop: wyższa (np. 960px), output FPS 24.
-- Rozdzielić:
-  - rozdzielczość wejścia/segmentacji (niższa),
-  - rozdzielczość wyjścia do tracka (utrzymana proporcja, ale bez pełnego 1080p na słabszych urządzeniach).
-- Dodać throttling segmentacji:
-  - segmentacja np. co 66–100 ms na mobile,
-  - między segmentacjami używać ostatniej maski (bez ponownego wywołania modelu każdej klatki).
-- Dodać zabezpieczenie przeciążenia:
-  - gdy czas renderu klatki regularnie przekracza budżet, automatycznie obniżyć jakość (FPS/procesing scale), a w skrajnym przypadku przejść chwilowo na pass-through.
+**Plik**: `src/hooks/useVideoBackground.ts`
+- Dodac `rawStreamRef = useRef<MediaStream | null>(null)`.
+- W `applyBackground`: przy pierwszym uzyciu zapisac `inputStream` do `rawStreamRef`. Przy kolejnych przelaczeniach zawsze uzywac `rawStreamRef.current` jako input.
+- W `stopBackground`: NIE czysc `rawStreamRef` (kamera nadal zyje).
+- Dodac `setRawStream` do aktualizacji ref gdy strumien kamery sie zmieni (np. po reacquire).
 
-Efekt: znacznie mniejsze opóźnienie i brak zamrażania local preview na telefonie.
+**Plik**: `src/components/meeting/VideoRoom.tsx`
+- W `handleBackgroundChange`: gdy `newMode === 'none'`, po `applyBackground` przywrocic `localStreamRef.current` na surowy strumien (rawStream) i zaktualizowac track u peerow.
+- W `reacquireLocalStream`: po uzyskaniu nowego strumienia, zaktualizowac rawStream w hooku.
 
-### 2) Korekta jakości maski i agresywności blur
-Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
+### Problem 3: PiP na mobile -- nie mozna ponownie uruchomic
 
-- Ujednolicić interpretację maski:
-  - traktować `confidenceMasks[0]` jako background confidence (zgodnie z modelem selfie segmenter),
-  - dodać jawny helper i usunąć mylące komentarze.
-- Zaostrzyć ochronę osoby:
-  - podnieść progi blendowania (np. `EDGE_LOW ~ 0.55-0.65`, `EDGE_HIGH ~ 0.8-0.9`),
-  - dodać „foreground lock” (piksele o niskiej pewności tła zawsze zostają oryginalne).
-- Rozdzielić profile blur:
-  - lekkie: subtelne rozmycie + najbardziej konserwatywne progi,
-  - mocne: większy radius, ale nadal z ochroną osoby (żeby mocne nie rozmywało twarzy).
+**Przyczyna**: `activeVideoRef.current` moze wskazywac na nieaktualny element `<video>` po przebudowaniu VideoGrid (np. po zmianie uczestnikow). Gdy element jest nieaktualny lub nie ma `srcObject`, `requestPictureInPicture()` fails silently.
 
-Efekt: lekkie rozmywa tło delikatnie, mocne rozmywa tło mocno, ale uczestnik pozostaje ostry.
+**Rozwiazanie**: W `handleTogglePiP`, jesli `activeVideoRef.current` jest null lub nie ma srcObject, wyszukac aktywne video z DOM jako fallback (tak jak robi to auto-PiP).
 
-### 3) Naprawa spójności reconnect/reacquire streamów
-Plik: `src/components/meeting/VideoRoom.tsx`
+**Plik**: `src/components/meeting/VideoRoom.tsx`
+- W `handleTogglePiP`: dodac fallback szukajacy video z `srcObject` i `videoWidth > 0` jesli `activeVideoRef.current` jest niedostepny.
 
-- W `reacquireLocalStream()`:
-  - po `applyBackground(...)` zwracać finalnie aktywny stream (przetworzony, jeśli został użyty), nie surowy.
-  - ujednolicić replaceTrack tak, by zawsze brał finalny track z `localStreamRef.current`.
-- Dodać ten sam mechanizm po `restoreCamera()` (po zakończeniu share ekranu), aby efekt tła był odtwarzany spójnie i bez regresji.
+### Problem 4: Desktop auto-PiP -- po powrocie nie wchodzi ponownie
 
-Efekt: po reconnectach i przejściach kamera↔ekran strumień nie „rozjeżdża się”, audio/video wracają stabilniej.
+**Przyczyna**: `autoPiPRef` jest zwyklym obiektem `{ current: false }` tworzonym w useEffect. Przy wyjsciu z PiP przez przycisk uzytkownika (nie przez auto), `autoPiPRef.current` pozostaje `true`, ale `document.exitPictureInPicture()` nie jest wolany. Nastepnie przy kolejnym ukryciu karty, warunek `if (document.pictureInPictureElement) return` blokuje ponowne wejscie.
 
-### 4) Ograniczenie kosztu na etapie getUserMedia (mobile-first)
-Plik: `src/components/meeting/VideoRoom.tsx`
+Takze: `leavepictureinpicture` listener dodawany z `{ once: true }` w recznym toggle (linia 1383) nie jest sprzezony z `autoPiPRef`, co moze zostawic `autoPiPRef.current === true` nawet po recznym wyjsciu.
 
-- Zamiast `video: true` dodać jawne `VIDEO_CONSTRAINTS`:
-  - mobile: niższa rozdzielczość + niższy frameRate,
-  - desktop: umiarkowane wartości (nie maksymalne).
-- Użyć tych samych constraints w:
-  - inicjalizacji,
-  - `reacquireLocalStream`,
-  - `restoreCamera`.
+**Rozwiazanie**:
+- Uzyc `useRef` dla `autoPiPRef` zeby przetrwal re-rendery.
+- Dodac globalny listener `leavepictureinpicture` ktory zawsze resetuje stan (zamiast `{ once: true }`).
+- W handleTogglePiP rowniez resetowac `autoPiPRef`.
 
-Efekt: mniej przeciążeń jeszcze zanim pipeline tła zacznie działać.
+**Plik**: `src/components/meeting/VideoRoom.tsx`
+- Zamienic lokalne `autoPiPRef` na `useRef`.
+- W `handleTogglePiP`: przy wyjsciu z PiP ustawic `autoPiPRef.current = false`.
+- W auto-PiP useEffect: sluchac na `leavepictureinpicture` na `document` aby zawsze resetowac stan.
 
-## Kolejność wdrożenia
+### Pliki do zmiany
 
-1. `VideoBackgroundProcessor` – profil wydajności + throttling + cache maski.  
-2. `VideoBackgroundProcessor` – nowe progi i foreground lock dla blur.  
-3. `VideoRoom` – fix zwracanego streamu i spójność replaceTrack.  
-4. `VideoRoom` – jednolite mobile constraints dla wszystkich getUserMedia.  
-5. Krótka walidacja manualna scenariuszy (mobile↔desktop, light/heavy blur, reconnect).
+| Plik | Zmiana |
+|------|--------|
+| `src/components/meeting/MeetingControls.tsx` | Ukryc przycisk ekranu gdy `!isScreenShareSupported` |
+| `src/hooks/useVideoBackground.ts` | Dodac `rawStreamRef`, uzywac go przy przelaczaniu trybow |
+| `src/components/meeting/VideoRoom.tsx` | Fix handleBackgroundChange (rawStream), PiP fallback, autoPiP ref |
 
-## Kryteria akceptacji
+### Szczegoly techniczne
 
-- Mobile local preview nie zamraża się i nie ma dużego laga.
-- Strumień z mobile widoczny na desktopie ma płynność akceptowalną (bez wielosekundowego opóźnienia).
-- „Lekkie rozmycie” rozmywa tło, nie twarz.
-- „Mocne rozmycie” nie rozmywa sylwetki/twarzy (poza naturalnym feather na krawędzi).
-- Po utracie i odzyskaniu mediów obraz+dźwięk wracają bez ręcznych obejść.
+**useVideoBackground.ts -- rawStreamRef**:
+```text
+const rawStreamRef = useRef<MediaStream | null>(null);
 
-## Sekcja techniczna (ryzyka i zabezpieczenia)
+const applyBackground = async (inputStream, newMode, imageSrc) => {
+  // Zapisz oryg. stream przy pierwszym uzyciu lub jesli sie zmienil
+  if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
+    rawStreamRef.current = inputStream;
+  }
+  const sourceStream = rawStreamRef.current;
 
-- Ryzyko: zbyt mocne obniżenie quality na mobile pogorszy estetykę.  
-  Mitigacja: adaptacyjne profile i stopniowe obniżanie jakości zamiast twardego fallbacku.
-- Ryzyko: różnice między przeglądarkami mobilnymi.  
-  Mitigacja: heurystyka mobile + defensywne fallbacki CPU/pass-through + czytelne logi.
-- Ryzyko: regresja po screen share.  
-  Mitigacja: wspólna ścieżka „final stream selection” dla reacquire i restoreCamera.
+  if (newMode === 'none') {
+    processor.stop();
+    setMode('none');
+    return sourceStream; // zwroc SUROWY stream, nie przetworzony
+  }
+
+  processor.stop(); // bezpiecznie zatrzymaj stary pipeline
+  processor.setOptions({ mode: newMode, backgroundImage: bgImage });
+  const output = await processor.start(sourceStream); // uzyj SUROWEGO
+  return output;
+};
+
+// Eksportuj setter do aktualizacji raw stream po reacquire
+const updateRawStream = (stream: MediaStream) => {
+  rawStreamRef.current = stream;
+};
+```
+
+**VideoRoom.tsx -- handleBackgroundChange fix**:
+```text
+const handleBackgroundChange = async (newMode, imageSrc) => {
+  const stream = localStreamRef.current;
+  if (!stream) return;
+  const processedStream = await applyBackground(stream, newMode, imageSrc);
+  // Zawsze aktualizuj local stream i tracki u peerow
+  localStreamRef.current = processedStream;
+  setLocalStream(processedStream);
+  const videoTrack = processedStream.getVideoTracks()[0];
+  if (videoTrack) {
+    connectionsRef.current.forEach(conn => {
+      const sender = conn.peerConnection?.getSenders()?.find(s => s.track?.kind === 'video');
+      if (sender) sender.replaceTrack(videoTrack);
+    });
+  }
+};
+```
+
+**VideoRoom.tsx -- PiP fallback**:
+```text
+const handleTogglePiP = async () => {
+  if (document.pictureInPictureElement) {
+    await document.exitPictureInPicture();
+    setIsPiPActive(false);
+    autoPiPRef.current = false;
+    return;
+  }
+  // Fallback: szukaj aktywnego video
+  let pipVideo = activeVideoRef.current;
+  if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
+    const allVideos = document.querySelectorAll('video');
+    pipVideo = Array.from(allVideos).find(v => v.srcObject && v.videoWidth > 0 && !v.paused) || null;
+  }
+  if (pipVideo) {
+    await pipVideo.requestPictureInPicture();
+    setIsPiPActive(true);
+  }
+};
+```
+
+**VideoRoom.tsx -- autoPiP useRef**:
+```text
+const autoPiPRef = useRef(false); // na poziomie komponentu, nie wewnatrz useEffect
+
+// W auto-PiP useEffect:
+// Dodac listener na document ktory resetuje stan
+const handleLeavePiP = () => {
+  autoPiPRef.current = false;
+  setIsPiPActive(false);
+};
+document.addEventListener('leavepictureinpicture', handleLeavePiP);
+return () => document.removeEventListener('leavepictureinpicture', handleLeavePiP);
+```
