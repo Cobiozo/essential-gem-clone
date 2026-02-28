@@ -761,7 +761,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     const init = async () => {
       try {
-        let stream: MediaStream;
+        let stream: MediaStream | null = null;
         // Try to reuse the lobby stream (preserves user gesture context)
         const lobbyStreamAlive = initialStream?.getTracks().some(t => t.readyState === 'live');
         if (initialStream && lobbyStreamAlive) {
@@ -778,11 +778,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             try {
               stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
             } catch {
-              const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-              const videoConstraints2: MediaTrackConstraints = isMob2
-                ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-                : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-              stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
+              try {
+                const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+                const videoConstraints2: MediaTrackConstraints = isMob2
+                  ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+                  : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+                stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
+              } catch (mediaErr) {
+                console.warn('[VideoRoom] All getUserMedia attempts failed:', mediaErr);
+                // Allow joining without media — create empty stream
+                stream = new MediaStream();
+                setIsMuted(true);
+                setIsCameraOff(true);
+                toast({ title: 'Brak dostępu do kamery/mikrofonu', description: 'Dołączasz bez kamery. Kliknij ikonę kamery, aby spróbować ponownie.', variant: 'destructive' });
+              }
             }
           }
         }
