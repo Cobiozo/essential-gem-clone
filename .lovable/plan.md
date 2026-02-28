@@ -1,104 +1,78 @@
 
+# Naprawa uploadu wlasnych tel i dalsza poprawa jakosci maski
 
-# Poprawa jakosci teł, persistencja wyboru i wlasne tla uzytkownika
+## Problem 1: Upload wlasnego tla nie dziala
 
-## Trzy problemy do rozwiazania
+**Przyczyna**: Klikniecie `DropdownMenuItem` z `onClick={() => fileInputRef.current?.click()}` zamyka dropdown menu (domyslne zachowanie Radix). Gdy dropdown sie zamyka, element `<input ref={fileInputRef}>` jest usuwany z DOM zanim przegladarka zdarzy otworzyc dialog wyboru pliku. W efekcie `fileInputRef.current?.click()` albo nie dziala, albo trafia na juz usuniety element.
 
-### 1. Kontur miedzy tlem a osoba nadal niewystarczajacy
+**Rozwiazanie**: Przeniesienie `<input type="file">` poza `DropdownMenuContent` (na poziom komponentu `BackgroundSelector`). Dodatkowo uzycie `onSelect` z `e.preventDefault()` na `DropdownMenuItem` aby zapobiec zamknieciu dropdown przed kliknieciem inputa, albo prostsze rozwiazanie: wywolanie `click()` na input przed zamknieciem menu przez uzycie `setTimeout`.
 
-Na screenshocie widac: tlo przebija przez ramiona i wlosy, krawedzie sa nieostrze. Obecne parametry `contrastMask` (strength 6 i 5) i progi (0.65/0.40) sa zbyt lagodne.
+Najsolidniejsze podejscie: przeniesc `<input>` poza dropdown i uzyc `setTimeout(() => fileInputRef.current?.click(), 0)` w onClick, co pozwoli dropdown sie zamknac a nastepnie otworzy dialog plikow.
 
-**Rozwiazanie**: Agresywniejsze parametry maski:
-- Zwiekszyc sile kontrastu sigmoid z 6/5 na 8/6
-- Zaostrzenie progow: `thresholdHigh: 0.70`, `thresholdLow: 0.45` (strefa przejscia 0.25 -> 0.20 zamiast 0.25)
-- Dodac **erode/dilate** na masce: lekkie zmniejszenie maski (erode 1px) eliminuje "halo" na krawedziach, potem lekkie powiekszenie (dilate 1px) przywraca wielkosc sylwetki
-- Zwiekszyc sile temporal smoothing z 0.3/0.7 na 0.35/0.65 — silniejsze tlumienie migotania
+**Plik**: `src/components/meeting/BackgroundSelector.tsx`
+
+## Problem 2: Jakosc maski — tlo przebija przez sylwetke
+
+Na screenshotach widac ze postprocessing (erode/dilate/contrast) nie wystarczy — surowe dane z modelu segmentacji sa zbyt zaszumione, szczegolnie w okolicach brody i wlosow.
+
+**Przyczyny**:
+- Rozdzielczosc przetwarzania 720px moze byc za niska dla dokladnej segmentacji brody
+- Blur maski 3px za bardzo rozmywa krawedzie po kontrastowaniu
+- Erode/dilate 1px moze nie wystarczac — "halo" ma czesto 2-3 piksele szrokosci
+- Temporal smoothing 35/65 moze byc za slabe — krawedzie migocza
+
+**Rozwiazanie — agresywniejsze parametry**:
+
+### a) Zwiekszenie rozdzielczosci przetwarzania
+- Desktop (1 uczestnik): 720 -> 960px — wiecej detali w masce
+- Desktop (2 uczestnikow): 480 -> 640px
+
+### b) Ostrzejsze progi maski
+```text
+                    Obecne          Nowe
+blur-light/image:
+  thresholdHigh     0.70            0.75
+  thresholdLow      0.45            0.50
+
+blur-heavy:
+  thresholdHigh     0.65            0.70
+  thresholdLow      0.40            0.45
+```
+
+Strefa przejsciowa zmniejszona z 0.25 do 0.20 — ostrzejszy kontur.
+
+### c) Zmniejszenie blur maski
+- 3px -> 2px — mniej rozmywania krawedzi po kontrastowaniu
+
+### d) Silniejszy kontrast sigmoid
+- Pre-blur: 8 -> 10
+- Post-blur: 6 -> 8
+
+### e) Silniejsze temporal smoothing
+- 35/65 -> 40/60 — silniejsze tlumienie migotania krawedzi
+
+### f) Podwojne erode/dilate
+- Zamiast jednego przebiegu erode->dilate, wykonac dwa: erode->erode->dilate->dilate
+- Skuteczniej usuwa "halo" o szerokosci 2-3px
 
 **Plik**: `src/components/meeting/VideoBackgroundProcessor.ts`
 
-### 2. Wybor tla nie jest zapamietywany po odswiezeniu/reconnect
-
-Obecnie `bgMode` i `bgSelectedImage` zyja tylko w React state (`useVideoBackground` hook). Po odswiezeniu strony znikaja.
-
-**Rozwiazanie**: Persistencja w `localStorage`:
-- W `useVideoBackground` — zapisywac `mode` i `selectedImage` do `localStorage` przy kazdej zmianie
-- Inicjalizowac stan z `localStorage` zamiast defaultow (`'none'`, `null`)
-- W `VideoRoom.tsx` — po zdobyciu strumienia kamery, automatycznie zastosowac zapisane tlo (juz istnieje logika `bgModeRef.current !== 'none'` w `reacquireLocalStream` — trzeba ja rozszerzyc o inicjalizacje z localStorage)
-- Przy `handleLeave` NIE czyscic localStorage (tlo ma byc zapamietane miedzy spotkaniami)
-
-**Pliki**: `src/hooks/useVideoBackground.ts`, `src/components/meeting/VideoRoom.tsx`
-
-### 3. Mozliwosc przeslania wlasnych tel (max 3 na uzytkownika)
-
-Uzytkownik moze przeslac max 3 obrazy jako wlasne tla. Sa zapamietane i dostepne we wszystkich przyszlych spotkaniach. Aby dodac nowy — musi usunac istniejacy.
-
-**Rozwiazanie**:
-
-**a) Supabase Storage — bucket `meeting-backgrounds`**
-- Nowa migracja SQL: bucket `meeting-backgrounds` (public), z RLS policies:
-  - INSERT: authenticated, path starts with `{user_id}/`
-  - SELECT: authenticated, path starts with `{user_id}/`
-  - DELETE: authenticated, path starts with `{user_id}/`
-- Limit 3 plikow per user — wymuszony w kodzie klienta
-
-**b) Nowy hook `useCustomBackgrounds`**
-- Lista custom backgrounds z Supabase Storage (list files w katalogu `{userId}/`)
-- Upload nowego obrazu (max 3, walidacja po stronie klienta)
-- Usuwanie istniejacego
-- Zwraca: `customImages: string[]`, `uploadImage(file: File)`, `deleteImage(url: string)`, `isUploading`
-
-**c) Rozszerzenie BackgroundSelector**
-- Nowa sekcja "Twoje tla" z miniaturami przeslanych obrazow
-- Przycisk "Dodaj tlo" (upload) — aktywny tylko gdy < 3 obrazow
-- Przycisk usuwania na kazdym wlasnym tle (ikona kosza)
-- Miniaturki obrazow zamiast tekstu "Tlo 1/2/3"
-
-**d) Przepływ danych**
-- `useCustomBackgrounds` zwraca publiczne URL obrazow
-- `BackgroundSelector` laczy domyslne tla (`BACKGROUND_IMAGES`) z custom tla uzytkownika
-- `handleBackgroundChange` w VideoRoom dziala identycznie — URL obrazu jest URL-em
-
 ## Zmiany techniczne
 
-### Plik 1: `src/components/meeting/VideoBackgroundProcessor.ts`
-- `BLUR_PROFILES`: zaostrzenie progow (0.70/0.45 dla blur-light i image, 0.65/0.40 dla blur-heavy)
-- `contrastMask` wywolania: strength 8 (pre-blur) i 6 (post-blur)
-- Nowa funkcja `erodeDilateMask()` — operacja morfologiczna na masce (erode 1px -> dilate 1px) pomiedzy krokami kontrastowania
-- Temporal smoothing: 0.35/0.65
+### Plik 1: `src/components/meeting/BackgroundSelector.tsx`
+- Przesuniecie `<input type="file">` z wnetrza `DropdownMenuContent` na koniec komponentu (po `</DropdownMenu>`)
+- Zmiana `onClick` na `setTimeout(() => fileInputRef.current?.click(), 50)` aby dac dropdown czas na zamkniecie
 
-### Plik 2: `src/hooks/useVideoBackground.ts`
-- Inicjalizacja `mode` i `selectedImage` z `localStorage`
-- Zapis do `localStorage` w `applyBackground` i `stopBackground`
-- Eksport zapisanego stanu dla auto-apply przy starcie
+### Plik 2: `src/components/meeting/VideoBackgroundProcessor.ts`
+- `DESKTOP_PROFILE.maxProcessWidth`: 720 -> 960
+- `setParticipantCount`: zaktualizowac progi (count>=2: 480->640, count>=4: 320->480)
+- `BLUR_PROFILES`: zaostrzenie progow (0.75/0.50, 0.70/0.45)
+- `refineMask`: contrastMask(10) pre-blur, contrastMask(8) post-blur
+- Blur maski: 3px -> 2px
+- Temporal smoothing: 0.40/0.60
+- `erodeDilateMask`: podwojny przebieg (erode 2x, dilate 2x)
 
-### Plik 3: `src/hooks/useCustomBackgrounds.ts` (NOWY)
-- Hook do zarzadzania wlasnymi tlami w Supabase Storage
-- `listBackgrounds()`, `uploadBackground(file)`, `deleteBackground(path)`
-- Limit 3 plikow, walidacja mime type (image/*)
+## Ryzyko
 
-### Plik 4: `src/components/meeting/BackgroundSelector.tsx`
-- Dodanie sekcji "Twoje tla" z miniaturami
-- Input file dla uploadu (ukryty, triggerowany przyciskiem)
-- Przycisk usuwania na custom tlach
-- Prop `customImages` i `onUpload`/`onDelete` callbacki
-
-### Plik 5: `src/components/meeting/VideoRoom.tsx`
-- Integracja `useCustomBackgrounds` hook
-- Przekazanie custom images do MeetingControls/BackgroundSelector
-- Auto-apply tla z localStorage po uzyskaniu strumienia kamery
-
-### Plik 6: `src/components/meeting/MeetingControls.tsx`
-- Nowe props: `customBackgroundImages`, `onUploadBackground`, `onDeleteBackground`
-- Przekazanie do BackgroundSelector
-
-### Plik 7: Migracja SQL
-- Bucket `meeting-backgrounds`, RLS policies dla upload/select/delete per user
-
-## Kolejnosc implementacji
-
-1. Migracja SQL (bucket + policies)
-2. Poprawa maski alfa (VideoBackgroundProcessor.ts)
-3. Persistencja wyboru tla (useVideoBackground.ts + VideoRoom.tsx)
-4. Hook useCustomBackgrounds
-5. UI uploadu/usuwania (BackgroundSelector + MeetingControls + VideoRoom)
-
+- Wyzsze rozdzielczosci (960px) moga spowolnic przetwarzanie na slabszych maszynach, ale system overload detection przejdzie automatycznie w pass-through mode jesli klatka trwa >250ms
+- Ostrzejsze progi moga powodowac lekkie "wcinanie" w sylwetke (np. cienkie palce moga zniknac), ale to lepsze niz halo/przebijanie tla
