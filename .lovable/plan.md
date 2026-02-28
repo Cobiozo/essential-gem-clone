@@ -1,92 +1,97 @@
 
-## Naprawa: Wydarzenia tworzone przez admina nie sa widoczne dla wszystkich
+## Audyt systemu spotkan wewnetrznych + brakujace funkcje
 
-### Znaleziony blad
+### 1. Problem: Uczestnicy nie widoczni natychmiast po dolaczeniu
 
-W plikach `WebinarForm.tsx` (linia 264) i `TeamTrainingForm.tsx` (linia 292), gdy admin tworzy nowe wydarzenie, ustawiany jest `host_user_id: user.id`:
+**Przyczyna**: Gdy nowy uczestnik dolaczy, flow jest nastepujacy:
+1. Nowy peer rejestruje sie w `meeting_room_participants` (INSERT/UPSERT)
+2. Kanai Supabase Realtime subskrybuje sie (`channel.subscribe`)
+3. Dopiero PO subskrypcji (`SUBSCRIBED`) nastepuje broadcast `peer-joined`
+4. Jednoczesnie nowy peer odpytuje DB o istniejacych uczestnikow i dzwoni do nich (`callPeer`)
 
-```javascript
-.insert({ ...webinarData, created_by: user.id, host_user_id: user.id });
-```
+Problem polega na **race condition**: miedzy momentem INSERT do bazy a momentem SUBSCRIBED moze uplynac 1-3 sekundy. W tym czasie:
+- Istniejacy uczestnicy NIE widza nowego (bo broadcast jeszcze nie wyslany)
+- Nowy uczestnik moze juz widziec istniejacych (bo odpytuje DB)
 
-Natomiast w `useEvents.ts` (linie 149-165) istnieje filtr widocznosci:
+Dodatkowo, heartbeat (sync z baza) odbywa sie co **30 sekund** -- wiec jesli broadcast `peer-joined` zostanie stracony (np. chwilowy problem z kanalem), uczestnik pojawi sie dopiero po nastepnym heartbeat (do 30s).
 
-```javascript
-if (!event.host_user_id) return true; // admin-created, no host = visible by roles
-return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
-```
+**Naprawa**:
+- Dodac obsluge zdarzenia Postgres Realtime (INSERT na `meeting_room_participants`) jako **drugi kanal sygnalizacji** -- gdy pojawi sie nowy wiersz w bazie, natychmiast sprobuj polaczyc sie z tym peerem (jesli jeszcze nie polaczony). To dziala niezaleznie od broadcast i eliminuje race condition.
+- Zmniejszyc interwał heartbeat z 30s do 15s jako dodatkowe zabezpieczenie.
 
-Komentarz w kodzie jasno mowi: "admin-created, no host = visible by roles". Ale poniewaz admin USTAWIA `host_user_id`, jego wydarzenia sa traktowane jak **wydarzenia lidera** -- widoczne TYLKO dla admina i jego downline, zamiast dla wszystkich zgodnie z flagami widocznosci (visible_to_partners, visible_to_clients itd.).
+### 2. Brak funkcji: Rozmycie tla / Wirtualne tlo
 
-Ten sam problem dotyczy `usePublicEvents.ts`, ktory nie filtruje po `host_user_id`, wiec strony publiczne (webinary, szkolenia) dzialaja poprawnie. Natomiast **kalendarz** (useEvents) blednie ukrywa te wydarzenia.
+**Stan obecny**: W kodzie NIE istnieje zadna implementacja rozmycia tla ani wirtualnych teł. Nie ma tez zadnych importow bibliotek do przetwarzania wideo (np. TensorFlow.js, MediaPipe).
 
-### Rozwiazanie
+**Plan implementacji**:
 
-Zmienic logike filtrowania w `useEvents.ts` tak, aby wydarzenia z `host_user_id` nalezacym do admina byly traktowane jak globalne (widoczne wg flag ról), a nie jak wydarzenia lidera.
+Rozmycie tla i wirtualne tla wymagaja przetwarzania kazdej klatki wideo w czasie rzeczywistym -- segmentacja osoby od tla za pomoca modelu ML i zastosowanie efektu (blur lub zamiana tla).
 
-Konkretnie, w bloku filtrowania (linia 161) dodac warunek: jesli host jest adminem, nie filtruj -- pokaz wszystkim zgodnie z rolami.
+#### Technologia
+- **@mediapipe/selfie_segmentation** lub **@mediapipe/tasks-vision** -- lekki model ML do segmentacji osoby/tla dzialajacy w przegladarce (WebAssembly + GPU)
+- **OffscreenCanvas / Canvas 2D** -- rendering przetworzonego wideo
+- **captureStream()** -- przechwycenie strumienia z canvas i przekazanie go do WebRTC zamiast oryginalnego
 
-### Zmiana w pliku
+#### Architektura
+1. Nowy komponent `VideoBackgroundProcessor` -- obsluguje pipeline: kamera -> segmentacja -> canvas (blur/obraz) -> MediaStream
+2. Nowy hook `useVideoBackground` -- zarzadza stanem (off / blur / image), inicjalizacja modelu, cleanup
+3. Modyfikacja `MeetingLobby.tsx` -- dodanie przycisku wyboru tla w lobby (podglad efektu przed dolaczeniem)
+4. Modyfikacja `VideoRoom.tsx` -- integracja z procesorem, zamiana localStream na przetworzony stream
+5. Modyfikacja `MeetingControls.tsx` -- dodanie przycisku "Tlo" z menu (Brak / Rozmycie / Obraz 1-3)
 
-**`src/hooks/useEvents.ts`** (linia ~159-164):
+#### Wazne uwagi
+- Wymaga zainstalowania pakietu `@mediapipe/tasks-vision` (~4MB model WASM)
+- Zuzywa znacznie wiecej CPU/GPU -- nalezy dodac ostrzezenie dla slabszych urzadzen
+- Model trzeba zaladowac asynchronicznie (pierwsze uzycie ~2-3s)
+- Na urzadzeniach mobilnych moze byc zbyt wolne -- nalezy wykrywac i ew. wylaczac opcje
 
-Przed:
-```javascript
-filteredEvents = filteredEvents.filter(event => {
-  if (!['webinar', 'team_training'].includes(event.event_type)) return true;
-  if (!event.host_user_id) return true;
-  return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
-});
-```
+### 3. Podsumowanie audytu -- co juz dziala
 
-Po:
-```javascript
-// Determine which host IDs belong to admins (their events = global visibility)
-const { data: adminHostIds } = await supabase.rpc('get_admin_host_ids', { p_host_ids: leaderEventHostIds });
-const adminHostSet = new Set<string>(adminHostIds || []);
+| Funkcja | Status |
+|---------|--------|
+| Dolaczanie/opuszczanie pokoju | Dziala |
+| WebRTC peer-to-peer video/audio | Dziala |
+| Heartbeat + self-healing | Dziala (30s) |
+| Wykrywanie aktywnego mowcy | Dziala (hystereza 2.5s) |
+| Udostepnianie ekranu | Dziala |
+| Czat w spotkaniu | Dziala |
+| Panel uczestnikow | Dziala |
+| Role (Host/Co-Host) | Dziala |
+| Ustawienia spotkania (chat/mic/cam/screen) | Dziala |
+| PiP (Picture-in-Picture) | Dziala |
+| Tryb widoku (Speaker/Gallery/Multi-speaker) | Dziala |
+| Tryb goscia | Dziala |
+| TURN/STUN serwery | Dziala |
+| Reconnect ICE/Peer | Dziala (max 3 proby) |
+| Kanal reconnect (exponential backoff) | Dziala |
+| **Natychmiastowe widzenie uczestnikow** | **BUG -- race condition** |
+| **Rozmycie tla** | **BRAK** |
+| **Wirtualne tlo** | **BRAK** |
 
-filteredEvents = filteredEvents.filter(event => {
-  if (!['webinar', 'team_training'].includes(event.event_type)) return true;
-  if (!event.host_user_id) return true;
-  // Admin-hosted events are global (visible by role flags)
-  if (adminHostSet.has(event.host_user_id)) return true;
-  return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
-});
-```
+### 4. Plan implementacji (kolejnosc)
 
-Alternatywne, prostsze rozwiazanie -- sprawdzac role hosta po stronie klienta bez dodatkowego RPC. Poniewaz juz mamy liste `leaderEventHostIds`, mozemy odwrocic logike: filtr dotyczy TYLKO hostow ktory sa w tabeli `leader_permissions`. Admin NIE jest w `leader_permissions`, wiec jego wydarzenia automatycznie przejda.
+#### Faza 1: Naprawa widocznosci uczestnikow
+- **`VideoRoom.tsx`**: Dodac subskrypcje Postgres Realtime na tabele `meeting_room_participants` (INSERT z `is_active=true`). Gdy pojawi sie nowy wiersz z `peer_id` roznym od lokalnego, natychmiast wywolac `callPeer`. To eliminuje zaleznosc od broadcast i rozwiazuje race condition.
+- **`VideoRoom.tsx`**: Zmniejszyc interwał heartbeat z 30000ms do 15000ms.
 
-**Prostsze rozwiazanie (preferowane):**
+#### Faza 2: Rozmycie tla i wirtualne tla
+- Zainstalowac `@mediapipe/tasks-vision`
+- Utworzyc `src/components/meeting/VideoBackgroundProcessor.ts` -- klasa obslugujaca pipeline segmentacji
+- Utworzyc `src/hooks/useVideoBackground.ts` -- hook React do zarzadzania efektami tla
+- Utworzyc `src/components/meeting/BackgroundSelector.tsx` -- UI menu wyboru tla (Brak / Lekkie rozmycie / Mocne rozmycie / Obraz 1-3)
+- Zmodyfikowac `MeetingLobby.tsx` -- dodac przycisk wyboru tla z podgladem
+- Zmodyfikowac `VideoRoom.tsx` -- zastapic surowy localStream przetworzonym streamem
+- Zmodyfikowac `MeetingControls.tsx` -- dodac przycisk "Tlo" w pasku kontrolnym
+- Dodac 3-4 domyslne obrazy teł w `public/backgrounds/`
 
-Zamiast dodawac nowe RPC, zmienic filtr tak aby ograniczal widocznosc tylko do hostow z `leader_permissions`. Funkcja `get_user_leader_ids` zwraca TYLKO user_id ktore sa w `leader_permissions` -- admin tam nie jest. Wiec wystarczy zmiana warunku:
+### Pliki do zmiany/utworzenia
 
-```javascript
-filteredEvents = filteredEvents.filter(event => {
-  if (!['webinar', 'team_training'].includes(event.event_type)) return true;
-  if (!event.host_user_id) return true;
-  // If host is NOT a known leader (e.g. admin), treat as global event
-  if (!leaderEventHostIds.includes(event.host_user_id)) return true;
-  return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
-});
-```
-
-Ale tu jest problem -- `leaderEventHostIds` to po prostu wszystkie `host_user_id` z events, wlacznie z adminem. Potrzebujemy wiedziec ktore z nich to prawdziwi liderzy.
-
-**Ostateczne, najczystsze rozwiazanie:**
-
-Wykorzystac istniejacy RPC `get_user_leader_ids`. Ten RPC sprawdza tabele `leader_permissions`. Admin NIE jest tam wpisany (nie jest liderem). Wiec `myLeaderSet` nigdy nie zawiera admin-host-id, ALE admin-host-id rowniez nie jest `user.id` dla zwyklego uzytkownika -- efekt: wydarzenie admina jest ukrywane.
-
-Rozwiazanie: Pobrac oddzielnie liste "prawdziwych liderow" sposrod hostow, i filtrowac TYLKO te. Reszta (w tym admin) = globalna widocznosc.
-
-### Ostateczny plan implementacji
-
-1. **Nowa funkcja SQL** `filter_leader_user_ids(p_user_ids uuid[])` -- zwraca tylko te user_id z podanej listy, ktore istnieja w `leader_permissions`. Prosta, szybka, SECURITY DEFINER.
-
-2. **Zmiana `useEvents.ts`** -- po pobraniu `leaderEventHostIds`, wywolac nowe RPC aby dowiedziec sie ktore z nich to prawdziwi liderzy. Tylko te filtrowac jako "leader events". Reszta (admin) = widoczna dla wszystkich wg flag.
-
-### Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| Migracja SQL | Nowa funkcja `filter_leader_user_ids(uuid[])` |
-| `src/hooks/useEvents.ts` | Wywolanie nowego RPC + zmieniona logika filtrowania |
+| Plik | Operacja | Opis |
+|------|----------|------|
+| `src/components/meeting/VideoRoom.tsx` | Edycja | Postgres Realtime subscription + heartbeat 15s + integracja background |
+| `src/components/meeting/VideoBackgroundProcessor.ts` | Nowy | Pipeline ML segmentacji + canvas rendering |
+| `src/hooks/useVideoBackground.ts` | Nowy | Hook zarzadzania efektami tla |
+| `src/components/meeting/BackgroundSelector.tsx` | Nowy | UI wyboru tla |
+| `src/components/meeting/MeetingLobby.tsx` | Edycja | Przycisk tla w lobby |
+| `src/components/meeting/MeetingControls.tsx` | Edycja | Przycisk tla w kontrolkach |
+| `public/backgrounds/` | Nowy | 3-4 domyslne obrazy teł |
