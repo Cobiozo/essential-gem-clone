@@ -1,145 +1,97 @@
 
+## Naprawa: Brak video/audio przy pierwszym wejsciu w webinar
 
-## Zachowanie timera + czyszczenie danych po zakonczeniu webinaru
+### Przyczyna
 
-### Problem 1: Timer i automatyczne konczenie
+Lobby w `MeetingLobby.tsx` **zatrzymuje** strumien kamery/mikrofonu (`stream.getTracks().forEach(t => t.stop())`) w momencie klikniecia "Dolacz". Nastepnie po 500ms opoznienia (setTimeout w MeetingRoom.tsx) i renderowaniu React, `VideoRoom` montuje sie i probuje ponownie wywolac `getUserMedia` wewnatrz `useEffect`. Problem: przegladarki (szczegolnie Safari i Chrome mobile) wymagaja, aby `getUserMedia` bylo wywolane **bezposrednio** w kontekscie gestu uzytkownika (klikniecia). Po 500ms + re-renderze ten kontekst jest utracony, wiec przeglądarka blokuje dostep do kamery/mikrofonu.
 
-Po analizie kodu -- timer (`MeetingTimer`) jest juz **czysto informacyjny**. Nie wymusza zakonczenia spotkania. Po uplywie czasu pokazuje "overtime" (np. +2:30) i powiadamia hosta o kolizjach. Uczestnicy moga byc aktywni tak dlugo, az prowadzacy recznie kliknie "Zakoncz spotkanie". **Tu nie ma bledu -- zachowanie jest poprawne.**
+Dopiero reczne klikniecie "wylacz/wlacz kamere" w VideoRoom przywraca dostep, bo to klikniecie jest nowym gestem uzytkownika.
 
-Jedyny problem: po uplywie czasu uczestnicy nie dostaja zadnego komunikatu, ze czas spotkania minal. Warto dodac powiadomienie toast dla wszystkich uczestnikow (nie tylko hosta), gdy czas sie skonczy.
+### Rozwiazanie
 
-### Problem 2: Zbedne dane w bazie po zakonczeniu webinaru
+Zamiast zatrzymywac strumien w lobby i ponownie go zdobywac w VideoRoom, **przekaz istniejacy strumien z lobby do VideoRoom**:
 
-Gdy prowadzacy konczy spotkanie (`handleEndMeeting`):
-- Broadcast `meeting-ended` -> kazdy uczestnik wywoluje `handleLeave` -> `cleanup()` oznacza swojego uczestnika jako `is_active: false`
-- **ALE**: jesli uczestnik zamknie przegladarke zanim cleanup sie wykona, jego rekord zostaje `is_active: true`
-- Wiadomosci czatu (`meeting_chat_messages`) zostaja w bazie na 30 dni (CRON)
-- Tokeny gosci (`meeting_guest_tokens`) nigdy nie sa czyszczone
-- Analityka gosci (`meeting_guest_analytics`) z brakujacym `left_at` nigdy nie jest korygowana
+1. **MeetingLobby.tsx** -- nie zatrzymuj strumienia, przekaz go dalej:
+   - Zmien sygnature `onJoin` na `(audio, video, settings?, stream?)` 
+   - W `handleJoin`: zamiast `previewStream.getTracks().forEach(t => t.stop())`, przekaz `previewStream` jako argument `onJoin`
 
-**Rozwiazanie**: Dodac logike czyszczenia pokoju gdy host konczy spotkanie.
+2. **MeetingRoom.tsx** -- przechowaj strumien i przekaz do VideoRoom:
+   - Dodaj state `lobbyStream` przechowujacy strumien z lobby
+   - W `handleJoin`: zapisz strumien do `lobbyStream`
+   - Przekaz `lobbyStream` jako nowy prop `initialStream` do VideoRoom
 
-### Plan zmian
-
-#### 1. Powiadomienie wszystkich uczestnikow o uplywie czasu
-**Plik**: `src/components/meeting/MeetingTimer.tsx`
-- Dodac nowy ref `notifiedEndRef` i toast dla WSZYSTKICH uczestnikow (nie tylko host/co-host) gdy `timeRemaining` przejdzie przez 0 (z pozytywnego na ujemny)
-- Tresc: "Planowany czas spotkania minal. Spotkanie trwa do momentu zakonczenia przez prowadzacego."
-
-#### 2. Czyszczenie danych pokoju przez hosta przy "Zakoncz spotkanie"
-**Plik**: `src/components/meeting/VideoRoom.tsx`
-- W `handleEndMeeting`, po broadcastie `meeting-ended`, dodac:
-  1. Oznaczenie WSZYSTKICH uczestnikow pokoju jako `is_active: false, left_at: NOW()` (nie tylko swojego)
-  2. Dezaktywacja tokenow gosci dla tego pokoju (`meeting_guest_tokens` -> `is_active: false`)
-  3. Aktualizacja brakujacych `left_at` w `meeting_guest_analytics` dla tego pokoju
-
-#### 3. Cleanup nieaktywnych tokenow gosci (CRON)
-Dodac nowa funkcje DB `cleanup_expired_guest_tokens()` i zadanie CRON (np. co godzine) ktore:
-- Dezaktywuje tokeny gosci starsze niz 24h ktore sa nadal aktywne
-- Uzupelnia brakujace `left_at` w `meeting_guest_analytics` dla spotkań zakonczonych
+3. **VideoRoom.tsx** -- uzyj przekazanego strumienia zamiast ponownego `getUserMedia`:
+   - Dodaj opcjonalny prop `initialStream?: MediaStream`
+   - W `init()`: jesli `initialStream` jest dostepny i ma zywe tracki, uzyj go zamiast wolac `getUserMedia`
+   - Zastosuj odpowiednie ustawienia audio/video (enabled/disabled) na przekazanym strumieniu
+   - Dodaj listenery `ended` tak samo jak przy nowym strumieniu
 
 ### Szczegoly techniczne
 
-**MeetingTimer.tsx -- powiadomienie o koncu czasu**:
+**MeetingLobby.tsx -- handleJoin:**
 ```text
-const notifiedEndRef = useRef(false);
-
-// W useEffect timera:
-if (timeRemaining <= 0 && !notifiedEndRef.current) {
-  notifiedEndRef.current = true;
-  toast({
-    title: 'Czas spotkania minal',
-    description: 'Spotkanie trwa do momentu zakonczenia przez prowadzacego.',
-  });
-}
-```
-
-**VideoRoom.tsx -- handleEndMeeting rozszerzony**:
-```text
-const handleEndMeeting = async () => {
-  // 1. Broadcast zakonczenia
-  if (channelRef.current) {
-    try { await channelRef.current.send({ type: 'broadcast', event: 'meeting-ended', payload: {} }); } catch (e) {}
-  }
-
-  // 2. Oznacz wszystkich uczestnikow pokoju jako nieaktywnych
-  try {
-    await supabase.from('meeting_room_participants')
-      .update({ is_active: false, left_at: new Date().toISOString() })
-      .eq('room_id', roomId)
-      .eq('is_active', true);
-  } catch (e) { console.warn('[VideoRoom] Failed to deactivate all participants:', e); }
-
-  // 3. Dezaktywuj tokeny gosci dla tego pokoju
-  try {
-    const { data: event } = await supabase
-      .from('events')
-      .select('id')
-      .eq('meeting_room_id', roomId)
-      .maybeSingle();
-    if (event) {
-      await supabase.from('meeting_guest_tokens')
-        .update({ is_active: false })
-        .eq('event_id', event.id)
-        .eq('is_active', true);
-    }
-  } catch (e) { console.warn('[VideoRoom] Failed to deactivate guest tokens:', e); }
-
-  // 4. Uzupelnij brakujace left_at w analityce gosci
-  try {
-    await supabase.from('meeting_guest_analytics')
-      .update({ left_at: new Date().toISOString() })
-      .eq('room_id', roomId)
-      .is('left_at', null);
-  } catch (e) { console.warn('[VideoRoom] Failed to update guest analytics:', e); }
-
-  await handleLeave();
+const handleJoin = () => {
+  // NIE zatrzymuj strumienia - przekaz go dalej
+  onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined, previewStream || undefined);
 };
 ```
 
-**Nowa migracja SQL -- CRON cleanup tokenow gosci**:
+Sygnatura `onJoin` zmienia sie na:
 ```text
-CREATE OR REPLACE FUNCTION public.cleanup_expired_guest_tokens()
-RETURNS integer
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE cleaned integer;
-BEGIN
-  UPDATE meeting_guest_tokens
-  SET is_active = false
-  WHERE is_active = true
-    AND created_at < NOW() - INTERVAL '24 hours';
-  GET DIAGNOSTICS cleaned = ROW_COUNT;
+onJoin: (audio: boolean, video: boolean, settings?: MeetingSettings, stream?: MediaStream) => void;
+```
 
-  UPDATE meeting_guest_analytics
-  SET left_at = NOW()
-  WHERE left_at IS NULL
-    AND joined_at < NOW() - INTERVAL '24 hours';
+**MeetingRoom.tsx -- handleJoin + lobbyStream:**
+```text
+const [lobbyStream, setLobbyStream] = useState<MediaStream | null>(null);
 
-  RETURN cleaned;
-END;
-$$;
+const handleJoin = (audio, video, settings, stream) => {
+  setAudioEnabled(audio);
+  setVideoEnabled(video);
+  if (settings) setInitialSettings(settings);
+  if (stream) setLobbyStream(stream);
+  setIsConnecting(true);
+  setTimeout(() => {
+    setStatus('joined');
+    setIsConnecting(false);
+  }, 500);
+};
 
-SELECT cron.schedule(
-  'cleanup-expired-guest-tokens',
-  '0 */6 * * *',
-  $$SELECT public.cleanup_expired_guest_tokens()$$
-);
+// W renderze VideoRoom:
+<VideoRoom ... initialStream={lobbyStream} />
+```
+
+**VideoRoom.tsx -- init() z initialStream:**
+```text
+// Nowy prop:
+initialStream?: MediaStream;
+
+// W init():
+let stream: MediaStream;
+const lobbyStreamAlive = initialStream?.getTracks().some(t => t.readyState === 'live');
+
+if (initialStream && lobbyStreamAlive) {
+  // Uzyj strumienia z lobby - nie wywoluj getUserMedia
+  stream = initialStream;
+} else {
+  // Fallback: zdobadz nowy strumien (np. jesli lobby nie mial streamu)
+  stream = await navigator.mediaDevices.getUserMedia({ ... });
+}
+
+stream.getAudioTracks().forEach(t => (t.enabled = initialAudio));
+stream.getVideoTracks().forEach(t => (t.enabled = initialVideo));
 ```
 
 ### Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/MeetingTimer.tsx` | Toast dla wszystkich uczestnikow gdy czas minie |
-| `src/components/meeting/VideoRoom.tsx` | Rozszerzenie `handleEndMeeting` o czyszczenie pokoju |
-| Migracja SQL | Funkcja `cleanup_expired_guest_tokens` + CRON co 6h |
+| `src/components/meeting/MeetingLobby.tsx` | Nie zatrzymuj strumienia, przekaz go w `onJoin` |
+| `src/pages/MeetingRoom.tsx` | Przechowaj `lobbyStream`, przekaz jako prop do VideoRoom |
+| `src/components/meeting/VideoRoom.tsx` | Dodaj prop `initialStream`, uzyj go w `init()` zamiast `getUserMedia` |
 
-### Kryteria akceptacji
+### Wazne
 
-- Webinar NIE konczy sie automatycznie po uplywie czasu (juz dziala poprawnie)
-- Wszyscy uczestnicy dostaja powiadomienie gdy czas minie
-- Po zakonczeniu przez prowadzacego: wszyscy uczestnicy oznaczeni jako nieaktywni, tokeny gosci dezaktywowane, analityka uzupelniona
-- CRON co 6h czyści osierocone tokeny gosci i brakujace left_at w analityce
-
+- Cleanup strumienia lobby jest teraz odpowiedzialnoscia VideoRoom (przy `cleanup()` wszystkie tracki sa zatrzymywane)
+- Fallback na `getUserMedia` nadal istnieje jesli strumien z lobby jest niedostepny (np. guest bez kamery)
+- Ta zmiana eliminuje problem na WSZYSTKICH przegladarkach, nie tylko mobile
