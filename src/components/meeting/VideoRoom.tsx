@@ -976,6 +976,21 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
         peer.on('call', async (call) => {
           if (cancelled) return;
+
+          // Deduplikacja: sprawdź czy już mamy żywe połączenie do tego peera
+          const existingConn = connectionsRef.current.get(call.peer);
+          if (existingConn) {
+            const pc = (existingConn as any).peerConnection as RTCPeerConnection | undefined;
+            const iceState = pc?.iceConnectionState;
+            if (iceState === 'connected' || iceState === 'completed' || iceState === 'checking' || iceState === 'new') {
+              console.log(`[VideoRoom] Already have active connection to ${call.peer} (ICE: ${iceState}), skipping incoming call`);
+              return;
+            }
+            // Stare połączenie jest martwe - zamknij i przyjmij nowe
+            try { existingConn.close(); } catch {}
+            connectionsRef.current.delete(call.peer);
+          }
+
           const meta = call.metadata || {};
           let name = meta.displayName || 'Uczestnik';
           let callerUserId: string | undefined = meta.userId;
@@ -1052,7 +1067,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const handleCall = (call: MediaConnection, name: string, avatarUrl?: string, userId?: string) => {
     connectionsRef.current.set(call.peer, call);
     const timeout = setTimeout(() => {
-      if (!connectionsRef.current.has(call.peer)) return;
+      // Only act if this is still the active connection for this peer
+      if (connectionsRef.current.get(call.peer) !== call) return;
       console.warn('[VideoRoom] Connection timeout for peer:', call.peer);
       connectionsRef.current.delete(call.peer);
     }, 15000);
@@ -1079,8 +1095,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       });
     });
 
-    call.on('close', () => { clearTimeout(timeout); removePeer(call.peer); });
-    call.on('error', (err) => { clearTimeout(timeout); console.error('[VideoRoom] Call error:', call.peer, err); removePeer(call.peer); });
+    call.on('close', () => {
+      clearTimeout(timeout);
+      if (connectionsRef.current.get(call.peer) === call) {
+        removePeer(call.peer);
+      }
+    });
+    call.on('error', (err) => {
+      clearTimeout(timeout);
+      console.error('[VideoRoom] Call error:', call.peer, err);
+      if (connectionsRef.current.get(call.peer) === call) {
+        removePeer(call.peer);
+      }
+    });
 
     // Monitor ICE connection state with reconnection logic
     try {
