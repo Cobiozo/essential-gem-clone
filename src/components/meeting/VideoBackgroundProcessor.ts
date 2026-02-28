@@ -3,8 +3,9 @@
  * Uses MediaPipe ImageSegmenter for real-time person/background separation.
  * Pipeline: Camera -> InputCanvas (downscale) -> Segmentation -> Canvas (blur/image) -> MediaStream
  * 
- * v2: Multi-pass mask refinement (contrast→blur→contrast), temporal smoothing,
- * tighter alpha thresholds, upgraded model (selfie_multiclass).
+ * v3: Quality-first image mode with adaptive temporal smoothing,
+ * edge-aware feathering (smoothstep), and two-stage alpha blending.
+ * Blur modes are untouched for backward compatibility.
  */
 
 import { ImageSegmenter, FilesetResolver } from '@mediapipe/tasks-vision';
@@ -38,7 +39,15 @@ const DESKTOP_PROFILE: PerformanceProfile = {
   overloadThresholdMs: 250,
 };
 
-// --- Blur profiles (tightened thresholds for cleaner edges) ---
+// Quality-first overrides for image mode (applied on top of base profile)
+const IMAGE_MODE_OVERRIDES = {
+  minProcessWidth: 640,        // never go below 640 for image backgrounds
+  segmentationIntervalMs: 40,  // ~25fps segmentation for responsive edges
+  mobileMinProcessWidth: 480,
+  mobileSegmentationIntervalMs: 60,
+};
+
+// --- Blur profiles ---
 interface BlurProfile {
   blurRadius: number;
   personThresholdHigh: number;
@@ -58,8 +67,8 @@ const BLUR_PROFILES: Record<string, BlurProfile> = {
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.75,   // full-res model: wider gradient for smoother person/bg transition
-    personThresholdLow: 0.40,    // broader blend zone = feathered edges
+    personThresholdHigh: 0.70,
+    personThresholdLow: 0.30,
   },
 };
 
@@ -68,10 +77,15 @@ const BLUR_PROFILES: Record<string, BlurProfile> = {
 /** Sigmoid-like contrast curve: pushes values toward 0 or 1 */
 function contrastMask(mask: Float32Array, strength: number = 5) {
   for (let i = 0; i < mask.length; i++) {
-    // Sigmoid centered at 0.5
     const x = mask[i];
     mask[i] = 1 / (1 + Math.exp(-strength * (x - 0.5)));
   }
+}
+
+/** Hermite smoothstep: smooth transition in [edge0, edge1] */
+function smoothstep(edge0: number, edge1: number, x: number): number {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
 }
 
 function detectMobile(): boolean {
@@ -80,9 +94,9 @@ function detectMobile(): boolean {
     ('ontouchstart' in window && window.innerWidth < 1024);
 }
 
-// Primary model: selfie_segmenter (full-res output — mask matches input resolution, much better edges)
+// Primary model: selfie_segmenter (full-res output — mask matches input resolution)
 const PRIMARY_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
-// Fallback model: multiclass 256x256 (lower quality edges but works on older devices)
+// Fallback model: multiclass 256x256
 const FALLBACK_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float16/latest/selfie_multiclass_256x256.tflite';
 
 export class VideoBackgroundProcessor {
@@ -100,7 +114,7 @@ export class VideoBackgroundProcessor {
   private frameErrorCount = 0;
   private isMulticlassModel = false;
 
-  // Dedicated input canvas for segmentation (always processWidth×processHeight)
+  // Dedicated input canvas for segmentation
   private inputCanvas: HTMLCanvasElement;
   private inputCtx: CanvasRenderingContext2D;
 
@@ -117,13 +131,17 @@ export class VideoBackgroundProcessor {
 
   // Adaptive performance
   private profile: PerformanceProfile;
+  private baseProfile: PerformanceProfile; // original profile before image-mode overrides
   private lastSegmentationTime = 0;
   private cachedMask: Float32Array | null = null;
-  private previousMask: Float32Array | null = null; // temporal smoothing
+  private previousMask: Float32Array | null = null;
   private overloadCounter = 0;
   private isPassThrough = false;
   private processWidth = 0;
   private processHeight = 0;
+
+  // Motion detection for adaptive temporal smoothing
+  private motionScore = 0;
 
   // Mask mismatch recovery
   private noMaskFrameCount = 0;
@@ -145,7 +163,9 @@ export class VideoBackgroundProcessor {
     this.videoElement.muted = true;
     // @ts-ignore webkit
     this.videoElement.setAttribute('webkit-playsinline', '');
-    this.profile = detectMobile() ? MOBILE_PROFILE : DESKTOP_PROFILE;
+    const base = detectMobile() ? MOBILE_PROFILE : DESKTOP_PROFILE;
+    this.baseProfile = { ...base };
+    this.profile = { ...base };
   }
 
   async initialize(): Promise<void> {
@@ -171,24 +191,23 @@ export class VideoBackgroundProcessor {
         try {
           this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'GPU');
           this.isMulticlassModel = false;
-          console.log('[BackgroundProcessor] Full-res selfie_segmenter loaded (GPU)');
+          console.log('[BackgroundProcessor] ✅ Full-res selfie_segmenter loaded (GPU)');
         } catch (e1) {
           console.warn('[BackgroundProcessor] Full-res GPU failed, trying CPU:', e1);
           try {
             this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'CPU');
             this.isMulticlassModel = false;
-            console.log('[BackgroundProcessor] Full-res selfie_segmenter loaded (CPU)');
+            console.log('[BackgroundProcessor] ✅ Full-res selfie_segmenter loaded (CPU)');
           } catch (e2) {
             console.warn('[BackgroundProcessor] Full-res model failed, falling back to multiclass 256x256:', e2);
-            // Fallback to multiclass (lower resolution but widely compatible)
             try {
               this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'GPU');
               this.isMulticlassModel = true;
-              console.log('[BackgroundProcessor] Multiclass 256x256 fallback loaded (GPU)');
+              console.log('[BackgroundProcessor] ⚠️ Multiclass 256x256 fallback loaded (GPU)');
             } catch (e3) {
               this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'CPU');
               this.isMulticlassModel = true;
-              console.log('[BackgroundProcessor] Multiclass 256x256 fallback loaded (CPU)');
+              console.log('[BackgroundProcessor] ⚠️ Multiclass 256x256 fallback loaded (CPU)');
             }
           }
         }
@@ -205,6 +224,25 @@ export class VideoBackgroundProcessor {
   setOptions(options: ProcessorOptions) {
     this.mode = options.mode;
     this.backgroundImage = options.backgroundImage || null;
+    this.applyImageModeOverrides();
+  }
+
+  /** Apply quality-first overrides when in image mode */
+  private applyImageModeOverrides() {
+    if (this.mode === 'image') {
+      const isMobile = detectMobile();
+      const minW = isMobile ? IMAGE_MODE_OVERRIDES.mobileMinProcessWidth : IMAGE_MODE_OVERRIDES.minProcessWidth;
+      const segMs = isMobile ? IMAGE_MODE_OVERRIDES.mobileSegmentationIntervalMs : IMAGE_MODE_OVERRIDES.segmentationIntervalMs;
+      
+      this.profile.maxProcessWidth = Math.max(this.baseProfile.maxProcessWidth, minW);
+      this.profile.segmentationIntervalMs = Math.min(this.baseProfile.segmentationIntervalMs, segMs);
+      
+      console.log(`[BackgroundProcessor] 🎯 Image mode quality overrides: processWidth≥${minW}, segInterval=${this.profile.segmentationIntervalMs}ms`);
+    } else {
+      // Restore base profile for blur modes
+      this.profile.maxProcessWidth = this.baseProfile.maxProcessWidth;
+      this.profile.segmentationIntervalMs = this.baseProfile.segmentationIntervalMs;
+    }
   }
 
   async start(inputStream: MediaStream): Promise<MediaStream> {
@@ -226,7 +264,6 @@ export class VideoBackgroundProcessor {
 
     this.videoElement.srcObject = new MediaStream([videoTrack]);
 
-    // Wait for video metadata to get true dimensions
     if (this.videoElement.readyState < 2) {
       await new Promise<void>((resolve, reject) => {
         const timeout = setTimeout(() => {
@@ -242,11 +279,14 @@ export class VideoBackgroundProcessor {
     const srcWidth = this.videoElement.videoWidth || videoTrack.getSettings().width || 640;
     const srcHeight = this.videoElement.videoHeight || videoTrack.getSettings().height || 480;
 
+    // Apply image mode overrides before computing scale
+    this.applyImageModeOverrides();
+
     const scale = Math.min(1, this.profile.maxProcessWidth / srcWidth);
     this.processWidth = Math.round(srcWidth * scale) & ~1;
     this.processHeight = Math.round(srcHeight * scale) & ~1;
 
-    console.log(`[BackgroundProcessor] Source: ${srcWidth}x${srcHeight}, Process: ${this.processWidth}x${this.processHeight}, fullResModel=${!this.isMulticlassModel}`);
+    console.log(`[BackgroundProcessor] 📐 Source: ${srcWidth}x${srcHeight}, Process: ${this.processWidth}x${this.processHeight}, model=${this.isMulticlassModel ? 'multiclass-256' : 'selfie-fullres'}, mode=${this.mode}, segInterval=${this.profile.segmentationIntervalMs}ms`);
 
     this.canvas.width = this.processWidth;
     this.canvas.height = this.processHeight;
@@ -272,6 +312,7 @@ export class VideoBackgroundProcessor {
     this.overloadCounter = 0;
     this.isPassThrough = false;
     this.noMaskFrameCount = 0;
+    this.motionScore = 0;
 
     this.cachedFrameData = null;
     this.cachedBlurredData = null;
@@ -336,20 +377,16 @@ export class VideoBackgroundProcessor {
         const masks = result.confidenceMasks;
 
         if (masks && masks.length > 0) {
-          // For multiclass model, combine person-related classes (skip background class 0)
           let rawMask: Float32Array;
 
           if (this.isMulticlassModel && masks.length > 1) {
-            // Multiclass: classes are [background, hair, body-skin, face-skin, clothes, others...]
-            // Combine all non-background classes into one person mask
             const bgMask = masks[0].getAsFloat32Array();
             rawMask = new Float32Array(bgMask.length);
             for (let i = 0; i < bgMask.length; i++) {
-              rawMask[i] = 1.0 - bgMask[i]; // person = 1 - background
+              rawMask[i] = 1.0 - bgMask[i];
             }
             masks.forEach(m => m.close());
           } else {
-            // Basic model: single confidence mask
             const personMask = masks[0];
             rawMask = personMask.getAsFloat32Array();
             personMask.close();
@@ -429,28 +466,33 @@ export class VideoBackgroundProcessor {
   };
 
   /**
-   * Multi-pass mask refinement: contrast → blur → contrast → temporal blend
-   * Produces crystal-clear edges with no flickering.
+   * Multi-pass mask refinement with adaptive temporal smoothing and edge-aware feathering.
+   * 
+   * For image mode: gentle contrast → erode/dilate → spatial blur → edge-aware smoothstep → adaptive temporal blend
+   * For blur modes: original aggressive pipeline (unchanged)
    */
   private refineMask(mask: Float32Array, width: number, height: number) {
     const isImageMode = this.mode === 'image';
     const isFullResModel = !this.isMulticlassModel;
 
-    // Step 1: Pre-blur contrast — push values toward 0/1
-    // Full-res model has cleaner data, needs less aggressive contrast
-    contrastMask(mask, isImageMode ? (isFullResModel ? 8 : 14) : 7);
+    // Step 1: Pre-blur contrast
+    // Image mode with full-res model: very gentle — preserve natural gradients from high-res mask
+    // Multiclass fallback: aggressive to compensate for low-res artifacts
+    if (isImageMode) {
+      contrastMask(mask, isFullResModel ? 5 : 14);
+    } else {
+      contrastMask(mask, 7);
+    }
 
-    // Step 2: Single erode/dilate pass — removes thin halo artifacts
+    // Step 2: Morphological erode/dilate (1px) — removes thin halo artifacts
     this.erodeDilateMask(mask, width, height);
 
     // Step 2b: Aggressive radius-2 erosion ONLY for multiclass fallback in image mode
-    // (full-res model doesn't need this — it would chop hair/fine details)
     if (isImageMode && !isFullResModel) {
       this.erodeMaskRadius2(mask, width, height);
     }
 
     // Step 3: Spatial smoothing via canvas blur
-    // Full-res image mode: 2px feathering for smooth edges; multiclass: 1px (less blur on already-low-res data)
     if (this.maskCtx && this.maskCanvas) {
       if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
         this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
@@ -467,7 +509,9 @@ export class VideoBackgroundProcessor {
       this.maskCtx.filter = 'none';
       this.maskCtx.putImageData(imgData, 0, 0);
 
-      this.maskCtx.filter = isImageMode ? (isFullResModel ? 'blur(2px)' : 'blur(1px)') : 'blur(3px)';
+      // Image mode: wider blur for edge feathering; blur modes: standard
+      const blurPx = isImageMode ? (isFullResModel ? 3 : 1) : 3;
+      this.maskCtx.filter = `blur(${blurPx}px)`;
       this.maskCtx.drawImage(this.maskCanvas, 0, 0);
       this.maskCtx.filter = 'none';
 
@@ -477,43 +521,88 @@ export class VideoBackgroundProcessor {
       }
     }
 
-    // Step 4: Post-blur contrast — restore sharp edges
-    // Full-res model: gentler contrast to preserve natural feathering
-    contrastMask(mask, isImageMode ? (isFullResModel ? 6 : 12) : 5);
+    // Step 4: Post-blur processing
+    if (isImageMode && isFullResModel) {
+      // Edge-aware smoothstep instead of hard contrast + clamp
+      // This creates a natural feathered edge without halo or chopping
+      this.applyEdgeAwareSmoothstep(mask);
+    } else {
+      // Blur modes & multiclass fallback: original contrast pipeline
+      contrastMask(mask, isImageMode ? 12 : 5);
+    }
 
-    // Step 5: Temporal smoothing — blend with previous frame
-    // Full-res model outputs more stable masks, so less temporal smoothing needed
+    // Step 5: Adaptive temporal smoothing
     if (!this.previousMask || this.previousMask.length !== mask.length) {
       this.previousMask = new Float32Array(mask.length);
       this.previousMask.set(mask);
     } else {
-      const weight = isImageMode ? (isFullResModel ? 0.18 : 0.25) : 0.30;
-      for (let i = 0; i < mask.length; i++) {
-        mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
-        this.previousMask[i] = mask[i];
+      if (isImageMode) {
+        // Motion-aware: compute motion score from mask difference
+        this.motionScore = this.computeMotionScore(mask, this.previousMask);
+        
+        // High motion → low weight (follow movement closely)
+        // Low motion → higher weight (stability)
+        const weight = this.motionScore > 0.05 ? 0.08 : this.motionScore > 0.02 ? 0.15 : 0.25;
+        
+        for (let i = 0; i < mask.length; i++) {
+          mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
+          this.previousMask[i] = mask[i];
+        }
+      } else {
+        // Blur modes: static temporal smoothing (unchanged)
+        const weight = 0.30;
+        for (let i = 0; i < mask.length; i++) {
+          mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
+          this.previousMask[i] = mask[i];
+        }
       }
     }
 
-    // Step 6: Hard clamp — eliminate semi-transparent residuals (image mode only)
-    // Full-res model: wider range to preserve smooth gradients at edges
-    if (isImageMode) {
-      const clampLow = isFullResModel ? 0.08 : 0.15;
-      const clampHigh = isFullResModel ? 0.92 : 0.85;
+    // Step 6: Final clamp for image mode (only multiclass fallback uses hard clamp)
+    if (isImageMode && !isFullResModel) {
       for (let i = 0; i < mask.length; i++) {
-        if (mask[i] < clampLow) mask[i] = 0;
-        else if (mask[i] > clampHigh) mask[i] = 1;
+        if (mask[i] < 0.15) mask[i] = 0;
+        else if (mask[i] > 0.85) mask[i] = 1;
       }
+    }
+    // Full-res image mode: NO hard clamp — smoothstep already handles transitions
+  }
+
+  /**
+   * Edge-aware smoothstep: replaces hard contrast + clamp.
+   * Creates a narrow, natural transition band at edges without halo or chopping.
+   * Core person (>0.65) → 1.0, core background (<0.25) → 0.0,
+   * transition zone → smooth Hermite interpolation.
+   */
+  private applyEdgeAwareSmoothstep(mask: Float32Array) {
+    const edgeLow = 0.20;   // below this → definitely background
+    const edgeHigh = 0.65;  // above this → definitely person
+    
+    for (let i = 0; i < mask.length; i++) {
+      mask[i] = smoothstep(edgeLow, edgeHigh, mask[i]);
     }
   }
 
   /**
+   * Compute average absolute difference between current and previous mask.
+   * Returns 0..1 where 0 = no motion, 1 = complete change.
+   */
+  private computeMotionScore(current: Float32Array, previous: Float32Array): number {
+    const sampleStep = 4; // sample every 4th pixel for performance
+    let totalDiff = 0;
+    let count = 0;
+    for (let i = 0; i < current.length; i += sampleStep) {
+      totalDiff += Math.abs(current[i] - previous[i]);
+      count++;
+    }
+    return count > 0 ? totalDiff / count : 0;
+  }
+
+  /**
    * Morphological erode (1px) then dilate (1px) on the mask.
-   * Erode removes thin halo artifacts at person edges.
-   * Dilate restores the silhouette size after erosion.
    */
   private erodeDilateMask(mask: Float32Array, width: number, height: number) {
     const len = mask.length;
-    // Reuse a temporary buffer
     if (!this._morphBuffer || this._morphBuffer.length !== len) {
       this._morphBuffer = new Float32Array(len);
     }
@@ -548,7 +637,7 @@ export class VideoBackgroundProcessor {
   private _morphBuffer: Float32Array | null = null;
   private _erodeBuffer: Float32Array | null = null;
 
-  /** Radius-2 erosion — checks all pixels within Manhattan distance 2 for aggressive edge cleanup */
+  /** Radius-2 erosion — only used for multiclass fallback */
   private erodeMaskRadius2(mask: Float32Array, width: number, height: number) {
     const len = mask.length;
     if (!this._erodeBuffer || this._erodeBuffer.length !== len) {
@@ -611,6 +700,12 @@ export class VideoBackgroundProcessor {
     }
   }
 
+  /**
+   * Two-stage alpha blending for image backgrounds:
+   * - Core person (mask ≥ high threshold): keep original pixel 1:1
+   * - Core background (mask ≤ low threshold): replace with bg 1:1
+   * - Transition band: smoothstep-based soft blend
+   */
   private applyImageBackground(frame: ImageData, mask: Float32Array, width: number, height: number) {
     if (!this.backgroundImage || !this.blurredCtx || !this.blurredCanvas) return;
 
@@ -639,23 +734,29 @@ export class VideoBackgroundProcessor {
     }
     const bgData = this.cachedBgData;
 
-    for (let i = 0; i < mask.length; i++) {
-      const personConf = mask[i];
+    const thHigh = profile.personThresholdHigh;
+    const thLow = profile.personThresholdLow;
 
-      if (personConf >= profile.personThresholdHigh) {
+    for (let i = 0; i < mask.length; i++) {
+      const m = mask[i];
+
+      if (m >= thHigh) {
+        // Core person — keep original pixel untouched
         continue;
-      } else if (personConf <= profile.personThresholdLow) {
+      } else if (m <= thLow) {
+        // Core background — replace 1:1
         const idx = i * 4;
         frame.data[idx] = bgData.data[idx];
         frame.data[idx + 1] = bgData.data[idx + 1];
         frame.data[idx + 2] = bgData.data[idx + 2];
       } else {
-        const range = profile.personThresholdHigh - profile.personThresholdLow;
-        const bgAlpha = 1 - (personConf - profile.personThresholdLow) / range;
+        // Transition band — smoothstep blend for natural feathering
+        const t = smoothstep(thLow, thHigh, m); // 0 at thLow, 1 at thHigh
+        const bgAlpha = 1 - t;
         const idx = i * 4;
-        frame.data[idx] = frame.data[idx] * (1 - bgAlpha) + bgData.data[idx] * bgAlpha;
-        frame.data[idx + 1] = frame.data[idx + 1] * (1 - bgAlpha) + bgData.data[idx + 1] * bgAlpha;
-        frame.data[idx + 2] = frame.data[idx + 2] * (1 - bgAlpha) + bgData.data[idx + 2] * bgAlpha;
+        frame.data[idx] = frame.data[idx] * t + bgData.data[idx] * bgAlpha;
+        frame.data[idx + 1] = frame.data[idx + 1] * t + bgData.data[idx + 1] * bgAlpha;
+        frame.data[idx + 2] = frame.data[idx + 2] * t + bgData.data[idx + 2] * bgAlpha;
       }
     }
   }
@@ -719,6 +820,7 @@ export class VideoBackgroundProcessor {
     this.isPassThrough = false;
     this.overloadCounter = 0;
     this.noMaskFrameCount = 0;
+    this.motionScore = 0;
   }
 
   destroy() {
@@ -733,20 +835,22 @@ export class VideoBackgroundProcessor {
   setParticipantCount(count: number) {
     const isMobile = detectMobile();
     if (isMobile) {
-      this.profile.maxProcessWidth = count >= 2 ? 320 : 480;
-      this.profile.segmentationIntervalMs = count >= 2 ? 150 : 100;
+      this.baseProfile.maxProcessWidth = count >= 2 ? 320 : 480;
+      this.baseProfile.segmentationIntervalMs = count >= 2 ? 150 : 100;
     } else {
       if (count >= 4) {
-        this.profile.maxProcessWidth = 320;
-        this.profile.segmentationIntervalMs = 120;
+        this.baseProfile.maxProcessWidth = 320;
+        this.baseProfile.segmentationIntervalMs = 120;
       } else if (count >= 2) {
-        this.profile.maxProcessWidth = 480;
-        this.profile.segmentationIntervalMs = 100;
+        this.baseProfile.maxProcessWidth = 480;
+        this.baseProfile.segmentationIntervalMs = 100;
       } else {
-        this.profile.maxProcessWidth = 800;
-        this.profile.segmentationIntervalMs = 70;
+        this.baseProfile.maxProcessWidth = 800;
+        this.baseProfile.segmentationIntervalMs = 70;
       }
     }
+    // Re-apply image mode overrides if active
+    this.applyImageModeOverrides();
     console.log(`[BackgroundProcessor] Participant count: ${count}, maxProcessWidth: ${this.profile.maxProcessWidth}, segInterval: ${this.profile.segmentationIntervalMs}ms`);
   }
 
