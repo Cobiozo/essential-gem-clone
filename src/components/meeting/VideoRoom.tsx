@@ -134,7 +134,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const isScreenSharingRef = useRef(false);
   useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
 
-  // Refs for state used in restoreCamera/reacquire closures
+  // Refs for state used in reacquire closures
   const isMutedRef = useRef(isMuted);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
@@ -965,8 +965,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               if (!cancelled) {
                 console.log('[VideoRoom] Screen share stopped by', payload?.peerId);
                 setRemoteScreenShare(null);
-                // Close screen share connections
-                screenShareConnectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
+                // Don't close connections explicitly - let host close them
+                // to avoid PeerJS interference with main camera connections
                 screenShareConnectionsRef.current.clear();
               }
             });
@@ -1385,86 +1385,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => { supabase.removeChannel(channel); };
   }, [roomId]);
 
-  // === Zmiana C: restoreCamera function using refs ===
-  const restoreCamera = useCallback(async () => {
-    console.log('[VideoRoom] restoreCamera called, isScreenSharingRef:', isScreenSharingRef.current);
-    try {
-      const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      const videoConstraints: MediaTrackConstraints = isMob
-        ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-        : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-      const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: AUDIO_CONSTRAINTS });
-      stream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
-      localStreamRef.current?.getTracks().forEach(t => t.stop());
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      setIsScreenSharing(false);
-
-      // Close PiP if active
-      if (document.pictureInPictureElement) {
-        try { await document.exitPictureInPicture(); } catch {}
-        setIsPiPActive(false);
-      }
-
-      const videoTrack = stream.getVideoTracks()[0];
-      const audioTrack = stream.getAudioTracks()[0];
-      connectionsRef.current.forEach((conn) => {
-        const senders = (conn as any).peerConnection?.getSenders();
-        if (senders) {
-          const videoSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
-          if (videoSender && videoTrack) videoSender.replaceTrack(videoTrack);
-          const audioSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
-          if (audioSender && audioTrack) audioSender.replaceTrack(audioTrack);
-        }
-      });
-
-      // Re-apply background effect if it was active
-      updateRawStream(stream);
-      if (bgModeRef.current !== 'none') {
-        try {
-          const processedStream = await applyBackground(stream, bgModeRef.current, bgSelectedImageRef.current);
-          if (processedStream !== stream) {
-            localStreamRef.current = processedStream;
-            setLocalStream(processedStream);
-            const processedVideoTrack = processedStream.getVideoTracks()[0];
-            const processedAudioTrack = processedStream.getAudioTracks()[0];
-            if (processedVideoTrack || processedAudioTrack) {
-              connectionsRef.current.forEach((conn) => {
-                const senders = (conn as any).peerConnection?.getSenders();
-                if (senders) {
-                  if (processedVideoTrack) {
-                    const vs = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
-                    if (vs) vs.replaceTrack(processedVideoTrack);
-                  }
-                  if (processedAudioTrack) {
-                    const as_ = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
-                    if (as_) as_.replaceTrack(processedAudioTrack);
-                  }
-                }
-              });
-            }
-          }
-        } catch (e) {
-          console.warn('[VideoRoom] Failed to re-apply bg after restoreCamera:', e);
-        }
-      }
-    } catch (err) {
-      console.error('[VideoRoom] Failed to restore camera:', err);
-      // Zmiana 3: fallback to audio-only if camera unavailable
-      try {
-        const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-        audioOnlyStream.getAudioTracks().forEach(t => (t.enabled = !isMutedRef.current));
-        localStreamRef.current = audioOnlyStream;
-        setLocalStream(audioOnlyStream);
-        console.log('[VideoRoom] restoreCamera fallback: audio-only stream');
-      } catch (audioErr) {
-        console.error('[VideoRoom] restoreCamera fallback also failed:', audioErr);
-      }
-    } finally {
-      // Always clear screen sharing state even if getUserMedia fails
-      setIsScreenSharing(false);
-    }
-  }, []);
 
   // === reacquireLocalStream: re-acquire media when stream is lost (mobile bg, etc.) ===
   const reacquireLocalStream = useCallback(async (): Promise<MediaStream | null> => {
