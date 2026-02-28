@@ -25,6 +25,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   guestMode = false,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamPassedRef = useRef(false);
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -61,7 +62,9 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     initPreview();
 
     return () => {
-      stream?.getTracks().forEach((t) => t.stop());
+      if (!streamPassedRef.current) {
+        stream?.getTracks().forEach((t) => t.stop());
+      }
     };
   }, []);
 
@@ -84,7 +87,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   }, [audioEnabled, previewStream]);
 
   const handleJoin = () => {
-    // Pass the existing stream to VideoRoom instead of stopping it
+    streamPassedRef.current = true;
     onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined, previewStream || undefined);
   };
 
