@@ -1,60 +1,61 @@
 
+## Naprawa efektow tla na desktopie
 
-## Naprawa: Mobile nie słyszy desktop (jednokierunkowy problem audio)
+### Problem
 
-### Przyczyna
+Efekty rozmycia i wirtualnego tla dzialaja na mobile ale nie na desktopie. Przyczyna: `DESKTOP_PROFILE` w `VideoBackgroundProcessor.ts` ma zbyt agresywne ustawienia -- przetwarza obraz w rozdzielczosci 960px (4x wiecej pikseli niz mobile 480px), ale daje tylko 60ms na klatke zanim uzna za "przeciazenie" (mobile ma 120ms).
 
-W `VideoRoom.tsx` linia 177, handler `unlockAudio` sprawdza warunek:
-```
-if (video.paused && video.srcObject && ...)
-```
+Pipeline przetwarzania jednej klatki:
+1. `getImageData` na ~518 400 pikseli (960x540)
+2. `smoothMask` - zapis maski jako obraz, blur CSS, odczyt
+3. Petla per-piksel blendujaca tlo
+4. `putImageData`
 
-Problem: gdy `playVideoSafe` nie moze odtworzyc z dzwiekiem (autoplay policy na mobile), ustawia `video.muted = true` i odtwarza wyciszone. Video NIE jest `paused` (gra, ale muted). Handler `unlockAudio` szuka tylko `paused` video, wiec pomija wyciszone -- video pozostaje muted na zawsze.
+Na wiekszosci komputerow ten pipeline trwa >60ms. Po 15 kolejnych klatkach przekraczajacych prog, system przechodzi w tryb pass-through (rysuje surowe video bez efektu). Uzytkownik widzi ze "efekt nie dziala".
 
-Desktop nie ma tego problemu, bo autoplay z dzwiekiem jest dozwolone na desktopie.
+Mobile dziala, bo: 480x270 = 130K pikseli (4x mniej) + prog 120ms (2x wyzszy).
 
 ### Rozwiazanie
 
-**Plik: `src/components/meeting/VideoRoom.tsx`** (linia 175-181)
+**Plik: `src/components/meeting/VideoBackgroundProcessor.ts`**
 
-Zmienic warunek w unlockAudio, aby odblokwywac takze video ktore gra ale jest wyciszone (muted):
+Zmiana `DESKTOP_PROFILE` na realistyczne wartosci:
 
 ```text
-// PRZED (blad):
-document.querySelectorAll('video').forEach((v) => {
-  const video = v as HTMLVideoElement;
-  if (video.paused && video.srcObject && video.getAttribute('data-local-video') !== 'true') {
-    video.muted = false;
-    video.play().catch(() => {});
-  }
-});
+// PRZED:
+const DESKTOP_PROFILE: PerformanceProfile = {
+  maxProcessWidth: 960,
+  segmentationIntervalMs: 50,
+  outputFps: 24,
+  overloadThresholdMs: 60,
+};
 
-// PO (poprawka):
-document.querySelectorAll('video').forEach((v) => {
-  const video = v as HTMLVideoElement;
-  if (video.srcObject && video.getAttribute('data-local-video') !== 'true') {
-    if (video.paused) {
-      video.muted = false;
-      video.play().catch(() => {});
-    } else if (video.muted) {
-      // Video gra wyciszone (autoplay fallback) - odblokuj dzwiek
-      video.muted = false;
-    }
-  }
-});
+// PO:
+const DESKTOP_PROFILE: PerformanceProfile = {
+  maxProcessWidth: 640,
+  segmentationIntervalMs: 66,
+  outputFps: 24,
+  overloadThresholdMs: 150,
+};
 ```
 
-### Dlaczego to naprawi problem
+Zmiany:
+- `maxProcessWidth`: 960 -> 640 -- zmniejszenie rozdzielczosci przetwarzania o ~56% pikseli (640x360 = 230K vs 960x540 = 518K). Jakosc segmentacji nie spada znaczaco, bo model i tak operuje na mniejszej siatce wewnetrznie
+- `segmentationIntervalMs`: 50 -> 66 -- ~15 segmentacji/s zamiast 20, daleko powyzej percepcji ludzkiego oka
+- `overloadThresholdMs`: 60 -> 150 -- realistyczny prog; nawet jesli klatka trwa 100ms, efekt nadal jest widoczny i plynny. Pas-through wlacza sie dopiero przy prawdziwym przeciazeniu
 
-Kazde dotknięcie ekranu na mobile teraz:
-1. Odblokuje wstrzymane (paused) zdalne video -- jak wczesniej
-2. NOWE: Odblokuje wyciszone (muted) ale grajace zdalne video -- naprawa glownego bugu
+Dodatkowo, podniesc prog overload counter z 15 do 30, aby system byl bardziej odporny na sporadyczne skoki:
 
-Desktop nie jest dotkniety ta zmiana, bo tam autoplay dziala bez wyciszenia.
+```text
+// PRZED (linia ~305):
+if (this.overloadCounter > 15) {
 
-### Plik do zmiany
+// PO:
+if (this.overloadCounter > 30) {
+```
+
+### Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoRoom.tsx` | Linia 175-181: rozszerzyc warunek unlockAudio o muted (nie tylko paused) video |
-
+| `src/components/meeting/VideoBackgroundProcessor.ts` | DESKTOP_PROFILE: maxProcessWidth 960->640, segmentationIntervalMs 50->66, overloadThresholdMs 60->150; overload counter 15->30 |
