@@ -105,6 +105,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     isSupported: bgIsSupported,
     applyBackground,
     stopBackground,
+    updateRawStream,
     backgroundImages,
   } = useVideoBackground();
 
@@ -1210,6 +1211,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       localStreamRef.current = stream;
       setLocalStream(stream);
+      updateRawStream(stream);
 
       // Add track ended listeners to new stream
       stream.getTracks().forEach(track => {
@@ -1269,7 +1271,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       console.error('[VideoRoom] reacquireLocalStream failed:', err);
       return null;
     }
-  }, [toast, bgMode, bgSelectedImage, applyBackground]);
+  }, [toast, bgMode, bgSelectedImage, applyBackground, updateRawStream]);
 
   // Controls
   const handleToggleMute = async () => {
@@ -1371,16 +1373,26 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   };
 
   // PiP
+  const autoPiPRef = useRef(false);
+
   const handleTogglePiP = async () => {
     if (!isPiPSupported) return;
     try {
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
         setIsPiPActive(false);
-      } else if (activeVideoRef.current) {
-        await activeVideoRef.current.requestPictureInPicture();
-        setIsPiPActive(true);
-        activeVideoRef.current.addEventListener('leavepictureinpicture', () => setIsPiPActive(false), { once: true });
+        autoPiPRef.current = false;
+      } else {
+        // Fallback: find active video if activeVideoRef is stale
+        let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
+        if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
+          const allVideos = document.querySelectorAll('video');
+          pipVideo = Array.from(allVideos).find(v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused) as HTMLVideoElement || null;
+        }
+        if (pipVideo) {
+          await pipVideo.requestPictureInPicture();
+          setIsPiPActive(true);
+        }
       }
     } catch (err) { console.error('[VideoRoom] PiP error:', err); }
   };
@@ -1388,7 +1400,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Auto PiP on tab switch
   useEffect(() => {
     if (!isPiPSupported) return;
-    const autoPiPRef = { current: false };
+
+    // Global leavepictureinpicture listener to always reset state
+    const handleLeavePiP = () => {
+      autoPiPRef.current = false;
+      setIsPiPActive(false);
+    };
+    document.addEventListener('leavepictureinpicture', handleLeavePiP);
 
     const handleVisibility = async () => {
       if (screenSharePendingRef.current) return;
@@ -1398,7 +1416,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
           if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
             const allVideos = document.querySelectorAll('video');
-            pipVideo = Array.from(allVideos).find(v => v.srcObject && v.videoWidth > 0 && !v.paused) || null;
+            pipVideo = Array.from(allVideos).find(v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused) as HTMLVideoElement || null;
           }
           if (pipVideo) {
             try {
@@ -1427,7 +1445,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('leavepictureinpicture', handleLeavePiP);
+    };
   }, [isPiPSupported]);
 
   // Chat / Participants toggles
@@ -1451,17 +1472,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     if (!stream) return;
     try {
       const processedStream = await applyBackground(stream, newMode, imageSrc);
-      if (processedStream !== stream) {
-        // Replace video track in all peer connections
-        const videoTrack = processedStream.getVideoTracks()[0];
-        if (videoTrack) {
-          connectionsRef.current.forEach((conn) => {
-            const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
-            if (sender) sender.replaceTrack(videoTrack);
-          });
-        }
-        localStreamRef.current = processedStream;
-        setLocalStream(processedStream);
+      // Always update local stream and tracks at peers
+      localStreamRef.current = processedStream;
+      setLocalStream(processedStream);
+      const videoTrack = processedStream.getVideoTracks()[0];
+      if (videoTrack) {
+        connectionsRef.current.forEach((conn) => {
+          const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(videoTrack);
+        });
       }
     } catch (err) {
       console.error('[VideoRoom] Background change failed:', err);

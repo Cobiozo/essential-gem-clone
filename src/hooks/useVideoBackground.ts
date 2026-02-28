@@ -14,9 +14,9 @@ export function useVideoBackground() {
   const [isSupported, setIsSupported] = useState(true);
   const processorRef = useRef<VideoBackgroundProcessor | null>(null);
   const loadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
+  const rawStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    // Check basic support (WebGL/GPU required)
     try {
       const canvas = document.createElement('canvas');
       const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
@@ -49,16 +49,26 @@ export function useVideoBackground() {
     return processorRef.current;
   }, []);
 
+  const updateRawStream = useCallback((stream: MediaStream) => {
+    rawStreamRef.current = stream;
+  }, []);
+
   const applyBackground = useCallback(async (
     inputStream: MediaStream,
     newMode: BackgroundMode,
     imageSrc?: string | null,
   ): Promise<MediaStream> => {
+    // Save raw stream on first use or if previous one died
+    if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
+      rawStreamRef.current = inputStream;
+    }
+    const sourceStream = rawStreamRef.current;
+
     if (newMode === 'none') {
       processorRef.current?.stop();
       setMode('none');
       setSelectedImage(null);
-      return inputStream;
+      return sourceStream; // Return RAW stream, not processed
     }
 
     setIsLoading(true);
@@ -72,7 +82,7 @@ export function useVideoBackground() {
       }
 
       processor.setOptions({ mode: newMode, backgroundImage: bgImage });
-      const outputStream = await processor.start(inputStream);
+      const outputStream = await processor.start(sourceStream); // Always use RAW stream
 
       setMode(newMode);
       setSelectedImage(imageSrc || null);
@@ -82,7 +92,7 @@ export function useVideoBackground() {
       console.error('[useVideoBackground] Failed to apply background:', err);
       setIsLoading(false);
       setMode('none');
-      return inputStream;
+      return sourceStream;
     }
   }, [getProcessor, loadImage]);
 
@@ -90,6 +100,7 @@ export function useVideoBackground() {
     processorRef.current?.stop();
     setMode('none');
     setSelectedImage(null);
+    // Don't clear rawStreamRef - camera is still alive
   }, []);
 
   return {
@@ -99,6 +110,7 @@ export function useVideoBackground() {
     isSupported,
     applyBackground,
     stopBackground,
+    updateRawStream,
     backgroundImages: BACKGROUND_IMAGES,
   };
 }
