@@ -54,6 +54,29 @@ const MeetingRoomPage: React.FC = () => {
       ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Uczestnik'
       : 'Uczestnik';
 
+  const SESSION_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
+  const tryAutoRejoin = (): boolean => {
+    if (!roomId) return false;
+    const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+    if (!raw) return false;
+    try {
+      const saved = JSON.parse(raw) as { audioEnabled: boolean; videoEnabled: boolean; settings: any; joinedAt: number };
+      if (Date.now() - saved.joinedAt > SESSION_MAX_AGE_MS) {
+        sessionStorage.removeItem(`meeting_session_${roomId}`);
+        return false;
+      }
+      setAudioEnabled(saved.audioEnabled);
+      setVideoEnabled(saved.videoEnabled);
+      if (saved.settings) setInitialSettings(saved.settings);
+      setStatus('joined');
+      return true;
+    } catch {
+      sessionStorage.removeItem(`meeting_session_${roomId}`);
+      return false;
+    }
+  };
+
   // Try to restore guest session from sessionStorage
   useEffect(() => {
     if (!roomId || !isGuestMode) return;
@@ -67,7 +90,9 @@ const MeetingRoomPage: React.FC = () => {
         }).then(({ data }) => {
           if (data?.valid) {
             setGuestData(parsed);
-            setStatus('lobby');
+            if (!tryAutoRejoin()) {
+              setStatus('lobby');
+            }
           } else {
             sessionStorage.removeItem(`guest_token_${roomId}`);
             setStatus('guest-form');
@@ -138,7 +163,9 @@ const MeetingRoomPage: React.FC = () => {
 
         // Host/admin/creator bypass password
         if (isCreator || isAdmin || userIsHost) {
-          setStatus('lobby');
+          if (!tryAutoRejoin()) {
+            setStatus('lobby');
+          }
           return;
         }
 
@@ -151,8 +178,10 @@ const MeetingRoomPage: React.FC = () => {
           .maybeSingle();
 
         if (reg) {
-          // If password set, show gate; otherwise go to lobby
-          setStatus(eventPassword ? 'password-gate' : 'lobby');
+          // Auto-rejoin bypasses password gate (user already passed it before refresh)
+          if (!tryAutoRejoin()) {
+            setStatus(eventPassword ? 'password-gate' : 'lobby');
+          }
         } else {
           setStatus('unauthorized');
           setErrorMessage('Nie masz dostępu do tego spotkania. Musisz być zapisany/a na wydarzenie.');
@@ -183,6 +212,15 @@ const MeetingRoomPage: React.FC = () => {
     setVideoEnabled(video);
     if (settings) setInitialSettings(settings);
     if (stream) setLobbyStream(stream);
+    // Save session for auto-rejoin after refresh
+    if (roomId) {
+      sessionStorage.setItem(`meeting_session_${roomId}`, JSON.stringify({
+        audioEnabled: audio,
+        videoEnabled: video,
+        settings: settings || null,
+        joinedAt: Date.now(),
+      }));
+    }
     setIsConnecting(true);
     setTimeout(() => {
       setStatus('joined');
@@ -191,6 +229,9 @@ const MeetingRoomPage: React.FC = () => {
   };
 
   const handleLeave = () => {
+    if (roomId) {
+      sessionStorage.removeItem(`meeting_session_${roomId}`);
+    }
     if (guestData && roomId) {
       sessionStorage.removeItem(`guest_token_${roomId}`);
     }
