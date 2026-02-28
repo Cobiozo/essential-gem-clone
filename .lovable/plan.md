@@ -1,63 +1,53 @@
 
+# Naprawa braku obrazu z kamery w lobby i pokoju spotkania
 
-# Plan naprawy: spotkanie widoczne po zakończeniu + brak podglądu kamery w lobby
+## Diagnoza
 
-## Problem 1: Spotkanie nadal widoczne w widzetach po kliknieciu "Zakoncz spotkanie"
+### Problem 1: Brak podgladu kamery w lobby (szary prostokat)
+**Przyczyna**: `getUserMedia` jest wywolywane w `useEffect` (linia 46-68 w MeetingLobby.tsx). Nowoczesne przegladarki (szczegolnie mobilne) blokuja dostep do kamery/mikrofonu jesli nie jest wywolany bezposrednio z gestu uzytkownika (klikniecie/dotyk). Zgodnie z polityka autoplay/permissions: `getUserMedia` w `useEffect` moze zwrocic `NotAllowedError` lub po cichu nie dzialac.
 
-### Przyczyna
-`handleEndMeeting` w `VideoRoom.tsx` ustawia tylko `is_active: false` na uczestnikach, ale **nie aktualizuje `end_time` w tabeli `events`**. Widgety dashboardu filtruja tak:
+Dodatkowo: nawet jesli strumien sie uruchomi, element `<video>` jest renderowany warunkowo (`videoEnabled && previewStream`) — jesli React przerenderuje komponent, referencja `videoRef` moze sie rozjechac.
 
-- **MyMeetingsWidget** (linia 90): `new Date(e.end_time) > new Date()` -- jesli oryginalny `end_time` jest w przyszlosci, spotkanie nadal sie wyswietla
-- **CalendarWidget**: uzywa `useMeetingRoomStatus` (sprawdza `is_active` uczestnikow) -- ten widget powinien reagowac poprawnie po `handleEndMeeting`, ale MyMeetingsWidget nie
+### Problem 2: Brak obrazu uczestnikow w pokoju spotkania
+**Przyczyna**: VideoRoom reuzywuje strumien z lobby (`initialStream`). Jesli lobby nie uzyskal strumienia (problem 1), `initialStream` jest `null`. Wtedy VideoRoom probuje `getUserMedia` w swoim `useEffect` (linia 776) — ale to tez jest poza gestem uzytkownika, wiec tez moze byc zablokowane.
 
-### Rozwiazanie
-1. **VideoRoom.tsx** -- w `handleEndMeeting` dodac aktualizacje `end_time` w tabeli `events` na aktualny czas:
-```
-await supabase.from('events')
-  .update({ end_time: new Date().toISOString() })
-  .eq('meeting_room_id', roomId);
-```
-2. **VideoRoom.tsx** -- po zakonczeniu wyslac `window.dispatchEvent(new CustomEvent('eventRegistrationChange'))` zeby widgety odswiezyly dane (ten mechanizm juz istnieje w MyMeetingsWidget).
-3. **MyMeetingsWidget** -- dodac subskrypcje `useMeetingRoomStatus` analogicznie do CalendarWidget, zeby wykrywac zmiane statusu uczestnikow w czasie rzeczywistym (bez czekania na refetch eventow).
+Dla zdalnych uczestnikow: `showVideo` w VideoGrid (linia 198) sprawdza `stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live')`. Jesli zdalny uczestnik nie mial strumienia, warunek jest `false` i pokazuje sie avatar.
 
----
-
-## Problem 2: Brak podgladu kamery i testu mikrofonu w lobby
-
-### Przyczyna
-Zrzut ekranu pokazuje szary prostokat mimo wlaczonego przelacznika kamery. Kod lobby (`MeetingLobby.tsx`) ma:
-- `getUserMedia` w `useEffect` (linia 41-69) -- jesli sie nie powiedzie, failuje cicho
-- Brak jawnego wywolania `video.play()` po ustawieniu `srcObject` -- w niektorych przegladarkach wymagane
-- Brak jakiegokolwiek wskaznika poziomu mikrofonu
-
-### Rozwiazanie
-1. **MeetingLobby.tsx** -- dodac jawne `videoRef.current.play().catch(...)` po ustawieniu `srcObject` (linia 72-74)
-2. **MeetingLobby.tsx** -- dodac wizualny wskaznik poziomu mikrofonu (AudioContext + AnalyserNode):
-   - Pasek poziomu glosnosci pod przelacznikiem mikrofonu
-   - Aktualizowany w petli `requestAnimationFrame`
-   - Zatrzymywany przy wylaczeniu mikrofonu lub opuszczeniu lobby
-3. **MeetingLobby.tsx** -- dodac komunikat bledu jesli `getUserMedia` sie nie powiedzie (np. "Nie mozna uzyskac dostepu do kamery")
-
----
-
-## Szczegoly techniczne
-
-### Plik: `src/components/meeting/VideoRoom.tsx`
-- W `handleEndMeeting` (linia 1833): dodac `supabase.from('events').update({ end_time: now }).eq('meeting_room_id', roomId)` przed `handleLeave()`
-- Dodac `window.dispatchEvent(new CustomEvent('eventRegistrationChange'))` po zakonczeniu
-
-### Plik: `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
-- Zaimportowac i uzyc `useMeetingRoomStatus` (jak CalendarWidget)
-- Rozszerzyc filtrowanie `upcomingEvents` o logike "overtime" -- jesli `end_time` minal i `is_active` jest false, nie pokazywac
+## Plan naprawy
 
 ### Plik: `src/components/meeting/MeetingLobby.tsx`
-- Dodac `play()` po `srcObject` assignment
-- Dodac komponent wskaznika poziomu mikrofonu (AudioContext AnalyserNode)
-- Dodac stan bledu kamery z komunikatem UX
 
-### Pliki bez zmian
-- `useMeetingRoomStatus.ts` -- dziala poprawnie, subskrybuje Realtime
-- `CalendarWidget.tsx` -- juz poprawnie uzywa `useMeetingRoomStatus`
-- `VideoBackgroundProcessor.ts` -- bez zmian
-- `useVideoBackground.ts` -- bez zmian
+**A) Przesuniecie `getUserMedia` do gestu uzytkownika:**
+- Zamiast wywoływac `getUserMedia` w `useEffect` automatycznie, dodac przycisk "Wlacz kamere i mikrofon" ktory uruchamia strumien z klikniecia.
+- Jako fallback: nadal probowac w `useEffect`, ale z jasnym komunikatem bledu jesli sie nie uda.
+- Gdy `getUserMedia` sie nie powiedzie w useEffect, wyswietlic przycisk "Zezwol na dostep do kamery" ktory wywola `getUserMedia` z gestu.
 
+**B) Utrzymanie video ref stabilnosci:**
+- Element `<video>` zawsze renderowac w DOM (z `hidden` class gdy kamera wylaczona), zeby `ref` sie nie gubil.
+- Przenosimy warunek widocznosci z renderowania warunkowego na CSS (`className="hidden"`).
+
+**C) Retry po odmowie uprawnien:**
+- Jesli `getUserMedia` rzuci `NotAllowedError`, wyswietlic przycisk "Sprobuj ponownie" ktory wywola `getUserMedia` z kontekstu klikniecia.
+
+### Plik: `src/components/meeting/VideoRoom.tsx`
+
+**D) Zabezpieczenie inicjalizacji strumienia:**
+- Jesli `initialStream` z lobby jest null/dead I `getUserMedia` w useEffect tez nie zadziala — wyswietlic toast z przyciskiem "Wlacz kamere" ktory manualnie wywola `reacquireLocalStream`.
+- Dodac fallback: jesli strumien jest null po init, ustawic `isCameraOff=true` i `isMuted=true` zamiast calkowicie blokowac uczestnictwo — uzytkownik moze dolaczac bez kamery.
+
+### Plik: `src/components/meeting/VideoGrid.tsx`
+
+**E) Stabilnosc elementu video:**
+- Upewnic sie ze `<video>` jest ZAWSZE w DOM (linia 204-216 juz to robi z `hidden` class). To jest OK.
+- Dodac `video.play()` retry po `loadeddata` event, zeby odrobic ewentualny autoplay block.
+
+## Pliki do modyfikacji
+1. `src/components/meeting/MeetingLobby.tsx` — glowna zmiana (getUserMedia z gestu + fallback UI)
+2. `src/components/meeting/VideoRoom.tsx` — fallback jesli strumien nie istnieje po init
+3. `src/components/meeting/VideoGrid.tsx` — drobna poprawka retry play
+
+## Bez zmian
+- `VideoBackgroundProcessor.ts` — nie jest przyczyna braku obrazu
+- `useVideoBackground.ts` — bez zmian
+- `ParticipantsPanel.tsx` — bez zmian
+- Caly flow PeerJS/sygnalizacja — bez zmian
