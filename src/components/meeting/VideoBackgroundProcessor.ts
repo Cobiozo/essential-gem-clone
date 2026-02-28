@@ -58,8 +58,8 @@ const BLUR_PROFILES: Record<string, BlurProfile> = {
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.85,   // tight: only confident person pixels pass
-    personThresholdLow: 0.60,    // narrow blend zone for sharp edges
+    personThresholdHigh: 0.75,   // full-res model: wider gradient for smoother person/bg transition
+    personThresholdLow: 0.40,    // broader blend zone = feathered edges
   },
 };
 
@@ -80,10 +80,10 @@ function detectMobile(): boolean {
     ('ontouchstart' in window && window.innerWidth < 1024);
 }
 
-// Primary model (multiclass, better hair/body separation)
-const PRIMARY_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float16/latest/selfie_multiclass_256x256.tflite';
-// Fallback model
-const FALLBACK_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
+// Primary model: selfie_segmenter (full-res output — mask matches input resolution, much better edges)
+const PRIMARY_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
+// Fallback model: multiclass 256x256 (lower quality edges but works on older devices)
+const FALLBACK_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float16/latest/selfie_multiclass_256x256.tflite';
 
 export class VideoBackgroundProcessor {
   private segmenter: ImageSegmenter | null = null;
@@ -167,26 +167,28 @@ export class VideoBackgroundProcessor {
           });
         };
 
-        // Try primary multiclass model with GPU
+        // Try primary full-res selfie_segmenter with GPU
         try {
           this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'GPU');
-          this.isMulticlassModel = true;
-          console.log('[BackgroundProcessor] Multiclass model loaded (GPU)');
+          this.isMulticlassModel = false;
+          console.log('[BackgroundProcessor] Full-res selfie_segmenter loaded (GPU)');
         } catch (e1) {
-          console.warn('[BackgroundProcessor] Multiclass GPU failed, trying CPU:', e1);
+          console.warn('[BackgroundProcessor] Full-res GPU failed, trying CPU:', e1);
           try {
             this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'CPU');
-            this.isMulticlassModel = true;
-            console.log('[BackgroundProcessor] Multiclass model loaded (CPU)');
+            this.isMulticlassModel = false;
+            console.log('[BackgroundProcessor] Full-res selfie_segmenter loaded (CPU)');
           } catch (e2) {
-            console.warn('[BackgroundProcessor] Multiclass failed, falling back to basic model:', e2);
-            // Fallback to basic selfie_segmenter
+            console.warn('[BackgroundProcessor] Full-res model failed, falling back to multiclass 256x256:', e2);
+            // Fallback to multiclass (lower resolution but widely compatible)
             try {
               this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'GPU');
-              console.log('[BackgroundProcessor] Basic model loaded (GPU)');
+              this.isMulticlassModel = true;
+              console.log('[BackgroundProcessor] Multiclass 256x256 fallback loaded (GPU)');
             } catch (e3) {
               this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'CPU');
-              console.log('[BackgroundProcessor] Basic model loaded (CPU)');
+              this.isMulticlassModel = true;
+              console.log('[BackgroundProcessor] Multiclass 256x256 fallback loaded (CPU)');
             }
           }
         }
@@ -244,7 +246,7 @@ export class VideoBackgroundProcessor {
     this.processWidth = Math.round(srcWidth * scale) & ~1;
     this.processHeight = Math.round(srcHeight * scale) & ~1;
 
-    console.log(`[BackgroundProcessor] Source: ${srcWidth}x${srcHeight}, Process: ${this.processWidth}x${this.processHeight}, multiclass=${this.isMulticlassModel}`);
+    console.log(`[BackgroundProcessor] Source: ${srcWidth}x${srcHeight}, Process: ${this.processWidth}x${this.processHeight}, fullResModel=${!this.isMulticlassModel}`);
 
     this.canvas.width = this.processWidth;
     this.canvas.height = this.processHeight;
@@ -432,19 +434,23 @@ export class VideoBackgroundProcessor {
    */
   private refineMask(mask: Float32Array, width: number, height: number) {
     const isImageMode = this.mode === 'image';
+    const isFullResModel = !this.isMulticlassModel;
 
-    // Step 1: Pre-blur contrast — push values toward 0/1 (stronger for image mode)
-    contrastMask(mask, isImageMode ? 14 : 7);
+    // Step 1: Pre-blur contrast — push values toward 0/1
+    // Full-res model has cleaner data, needs less aggressive contrast
+    contrastMask(mask, isImageMode ? (isFullResModel ? 8 : 14) : 7);
 
     // Step 2: Single erode/dilate pass — removes thin halo artifacts
     this.erodeDilateMask(mask, width, height);
 
-    // Step 2b: Aggressive radius-2 erosion for image mode — cuts furniture bleed at edges
-    if (isImageMode) {
+    // Step 2b: Aggressive radius-2 erosion ONLY for multiclass fallback in image mode
+    // (full-res model doesn't need this — it would chop hair/fine details)
+    if (isImageMode && !isFullResModel) {
       this.erodeMaskRadius2(mask, width, height);
     }
 
-    // Step 3: Spatial smoothing via canvas blur (smaller for image mode to keep edges sharp)
+    // Step 3: Spatial smoothing via canvas blur
+    // Full-res image mode: 2px feathering for smooth edges; multiclass: 1px (less blur on already-low-res data)
     if (this.maskCtx && this.maskCanvas) {
       if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
         this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
@@ -461,7 +467,7 @@ export class VideoBackgroundProcessor {
       this.maskCtx.filter = 'none';
       this.maskCtx.putImageData(imgData, 0, 0);
 
-      this.maskCtx.filter = isImageMode ? 'blur(1px)' : 'blur(3px)';
+      this.maskCtx.filter = isImageMode ? (isFullResModel ? 'blur(2px)' : 'blur(1px)') : 'blur(3px)';
       this.maskCtx.drawImage(this.maskCanvas, 0, 0);
       this.maskCtx.filter = 'none';
 
@@ -471,15 +477,17 @@ export class VideoBackgroundProcessor {
       }
     }
 
-    // Step 4: Post-blur contrast — restore sharp edges (stronger for image mode)
-    contrastMask(mask, isImageMode ? 12 : 5);
+    // Step 4: Post-blur contrast — restore sharp edges
+    // Full-res model: gentler contrast to preserve natural feathering
+    contrastMask(mask, isImageMode ? (isFullResModel ? 6 : 12) : 5);
 
     // Step 5: Temporal smoothing — blend with previous frame
+    // Full-res model outputs more stable masks, so less temporal smoothing needed
     if (!this.previousMask || this.previousMask.length !== mask.length) {
       this.previousMask = new Float32Array(mask.length);
       this.previousMask.set(mask);
     } else {
-      const weight = isImageMode ? 0.25 : 0.30; // lighter for image mode = less ghosting
+      const weight = isImageMode ? (isFullResModel ? 0.18 : 0.25) : 0.30;
       for (let i = 0; i < mask.length; i++) {
         mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
         this.previousMask[i] = mask[i];
@@ -487,10 +495,13 @@ export class VideoBackgroundProcessor {
     }
 
     // Step 6: Hard clamp — eliminate semi-transparent residuals (image mode only)
+    // Full-res model: wider range to preserve smooth gradients at edges
     if (isImageMode) {
+      const clampLow = isFullResModel ? 0.08 : 0.15;
+      const clampHigh = isFullResModel ? 0.92 : 0.85;
       for (let i = 0; i < mask.length; i++) {
-        if (mask[i] < 0.15) mask[i] = 0;
-        else if (mask[i] > 0.85) mask[i] = 1;
+        if (mask[i] < clampLow) mask[i] = 0;
+        else if (mask[i] > clampHigh) mask[i] = 1;
       }
     }
   }
