@@ -626,6 +626,14 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.hidden || cleanupDoneRef.current) return;
+
+      // Debounce on mobile — wait 200ms to confirm tab is truly visible
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      if (isMobile) {
+        await new Promise(r => setTimeout(r, 200));
+        if (document.hidden) return;
+      }
+
       console.log('[VideoRoom] Tab became visible, checking connections...');
       
       const peer = peerRef.current;
@@ -636,8 +644,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       let stream = localStreamRef.current;
       const tracksAlive = stream?.getTracks().some(t => t.readyState === 'live');
-      if (!stream || !tracksAlive) {
-        console.log('[VideoRoom] Stream dead after visibility change, re-acquiring...');
+      if (!stream || !tracksAlive || isMobile) {
+        console.log('[VideoRoom] Re-acquiring stream (mobile=' + isMobile + ', alive=' + tracksAlive + ')');
+        if (isMobile && stream) {
+          stream.getTracks().forEach(t => t.stop());
+        }
         const freshStream = await reacquireLocalStream();
         if (!freshStream) return;
         stream = freshStream;
