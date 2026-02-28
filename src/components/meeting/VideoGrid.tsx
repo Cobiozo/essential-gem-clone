@@ -54,18 +54,15 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
     video.play().catch(() => {});
     return;
   }
-  // If user already interacted, try playing unmuted first
-  if (userHasInteracted) {
-    video.muted = false;
-  }
+  // Respect the muted state already set by the component (e.g. for AEC in Speaker mode).
+  // Do NOT override video.muted here — just try to play as-is.
   try {
     await video.play();
   } catch {
-    // Autoplay with audio blocked — mute and retry
     video.muted = true;
     try {
       await video.play();
-      console.warn('[VideoGrid] Autoplay blocked — playing muted, notifying user');
+      console.warn('[VideoGrid] Autoplay blocked — playing muted');
       onAudioBlocked?.();
     } catch (e2) {
       console.error('[VideoGrid] Even muted play() failed:', e2);
@@ -109,10 +106,8 @@ const AudioElement: React.FC<{ stream: MediaStream; onAudioBlocked?: () => void 
     const el = ref.current;
     if (!el || !stream) return;
     el.srcObject = stream;
-    // If user already interacted, try unmuted directly
-    if (userHasInteracted) {
-      el.muted = false;
-    }
+    // AudioElement is never explicitly muted by design — it carries the AEC-safe audio.
+    // Just try to play; fall back to muted only if autoplay is blocked.
     el.play().catch(() => {
       el.muted = true;
       el.play().then(() => {
