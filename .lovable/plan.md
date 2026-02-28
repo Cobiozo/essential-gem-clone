@@ -1,123 +1,72 @@
 
 
-## Naprawa: Uczestnicy nie widzą i nie słyszą siebie nawzajem
+## Naprawa 3 problemow: pikselowate kontury, PiP pokazuje siebie, echo dzwiekowe
 
-### Zidentyfikowane przyczyny
+### Problem 1: Pikselowate/ostre kontury wokol uzytkownika
 
-**Przyczyna 1: Lobby zabija strumień mimo przekazania do VideoRoom**
+**Przyczyna:** Maska segmentacji jest nakładana piksel po pikselu bez jakiegokolwiek wygladzania. Przejscie miedzy osoba a tlem odbywa sie na granicy 2-3 pikseli (strefa personThresholdLow - personThresholdHigh), co przy niskiej rozdzielczosci przetwarzania (480px mobile, 960px desktop) daje ostre, pikselowate krawedzie.
 
-W `MeetingLobby.tsx` (linia 63-65), useEffect cleanup nadal wywołuje `stream?.getTracks().forEach(t => t.stop())` przy odmontowaniu komponentu. Mimo że `handleJoin` przekazuje `previewStream` do VideoRoom, cleanup uruchamia się gdy lobby jest odmontowywane i niszczy ten sam obiekt MediaStream. VideoRoom otrzymuje martwy strumień, fallbackuje na `getUserMedia`, ale to nie gwarantuje sukcesu i powoduje opóźnienia.
+**Rozwiazanie:** Dodac rozmycie Gaussa na samej masce segmentacji przed jej zastosowaniem. Zamiast rozmywac maske jako oddzielny obraz (kosztowne), poszerzyc strefe przejscia (soft blend zone) i zastosowac wygladzanie na maskach poprzez:
 
-**Przyczyna 2 (KRYTYCZNA): Wyścig połączeń PeerJS - podwójne callPeer**
+1. Zwiekszenie strefy przejscia w profilach rozmycia (wieksza roznica miedzy personThresholdLow a personThresholdHigh)
+2. Dodanie pre-blur maski na osobnym ukladzie canvas -- rysujemy maske jako obraz w skali szarosci, aplikujemy CSS blur na canvas, odczytujemy wygladzona maske
 
-Gdy użytkownik A dołącza, a B jest już w pokoju:
-1. B otrzymuje INSERT z Postgres Realtime -> wywołuje `callPeer(A)` (outgoing B->A)
-2. A pobiera listę uczestników z DB -> wywołuje `callPeer(B)` (outgoing A->B)  
-3. A odpowiada na incoming call od B -> `handleCall` -> `connectionsRef.set(B.peerId, incomingCall)` **NADPISUJE** outgoing call A->B
-4. Nadpisane outgoing call A->B w pewnym momencie generuje event `close`
-5. `call.on('close')` wywołuje `removePeer(B.peerId)` -> **USUWA uczestnika B ze stanu i z connectionsRef**
-6. Wynik: incoming connection jest zgubiona, peer jest usunięty z listy
+**Plik: `src/components/meeting/VideoBackgroundProcessor.ts`**
 
-To samo dzieje się w drugą stronę. Efekt: oba strony tracą połączenie z drugim uczestnikiem.
+- Dodac nowy prywatny canvas `maskCanvas` + `maskCtx` do wygladzania maski
+- W `start()`: utworzyc maskCanvas o wymiarach processWidth x processHeight
+- Nowa metoda `smoothMask(mask, width, height)`: 
+  - Rysuje maske jako obraz szarosci na maskCanvas
+  - Aplikuje `ctx.filter = 'blur(3px)'` na maskCanvas
+  - Odczytuje wygladzone piksele z powrotem do Float32Array
+- Wywolywac `smoothMask()` po kazdej nowej segmentacji (przed cache'owaniem)
+- Poszerzyc strefe przejscia w BLUR_PROFILES:
+  - blur-light: personThresholdHigh 0.45->0.55, personThresholdLow 0.25->0.15
+  - blur-heavy: personThresholdHigh 0.40->0.55, personThresholdLow 0.20->0.10
+  - image: personThresholdHigh 0.40->0.55, personThresholdLow 0.20->0.10
 
-### Plan naprawy
+### Problem 2: PiP pokazuje lokalnego uzytkownika zamiast mowcy
 
-#### 1. MeetingLobby - nie niszcz strumienia przy odmontowaniu
-**Plik**: `src/components/meeting/MeetingLobby.tsx`
+**Przyczyna:** W `handleTogglePiP` (linia 1414) i auto-PiP (linia 1447), fallback szuka "dowolnego video z srcObject i videoWidth > 0". Na wielu urzadzeniach pierwsze takie video to wlasnie lokalne (jest zawsze aktywne). Warunek `!v.muted` nie pomaga bo lokalne video moze nie miec atrybutu muted na elemencie DOM jezeli jest obslugiwane inaczej.
 
-Dodac ref `streamPassedRef` ktory jest ustawiany na `true` w `handleJoin`. W useEffect cleanup, sprawdzic ref -- jesli stream byl przekazany, nie zatrzymywac go:
+**Rozwiazanie:** Uzyc atrybutu `data-local-video` ktory juz istnieje na VideoTile (linia 117: `data-local-video={participant.isLocal ? 'true' : undefined}`) do filtrowania. Szukac video ktore NIE ma `data-local-video="true"`.
 
+**Plik: `src/components/meeting/VideoRoom.tsx`**
+
+W `handleTogglePiP` i w auto-PiP `handleVisibility`, zmienic logike fallback:
 ```text
-const streamPassedRef = useRef(false);
+// Zamiast:
+pipVideo = Array.from(allVideos).find(v => v.srcObject && v.videoWidth > 0 && !v.paused);
 
-const handleJoin = () => {
-  streamPassedRef.current = true;  // stream przejety przez VideoRoom
-  onJoin(audioEnabled, videoEnabled, ...);
-};
-
-// W useEffect cleanup:
-return () => {
-  if (!streamPassedRef.current) {
-    stream?.getTracks().forEach((t) => t.stop());
-  }
-};
+// Na:
+pipVideo = Array.from(allVideos).find(
+  v => v.srcObject && v.videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
+) || Array.from(allVideos).find(v => v.srcObject && v.videoWidth > 0 && !v.paused);
 ```
 
-#### 2. handleCall - zabezpieczenie przed usunieciem peera przez nadpisane polaczenie
-**Plik**: `src/components/meeting/VideoRoom.tsx`
+To samo w auto-PiP na screen share (linia 1391-1404).
 
-W `handleCall` (linia 1052), zmiana eventow `close`, `error` i `timeout` tak, aby sprawdzaly czy dana instancja call jest nadal ta sama co w connectionsRef:
+### Problem 3: Echo dzwiekowe (slychac siebie)
 
-```text
-const handleCall = (call: MediaConnection, name: string, avatarUrl?: string, userId?: string) => {
-  connectionsRef.current.set(call.peer, call);
-  
-  const timeout = setTimeout(() => {
-    // TYLKO jezeli to nadal ta sama instancja polaczenia
-    if (connectionsRef.current.get(call.peer) !== call) return;
-    connectionsRef.current.delete(call.peer);
-  }, 15000);
+**Przyczyna:** W trybie Speaker i Multi-speaker, zdalne strumienie sa podlaczone do dwoch elementow `<video>` jednoczesnie:
+1. Glowny kafelek VideoTile - `muted={participant.isLocal}` (poprawne - zdalny NIE wyciszony)
+2. Miniaturka ThumbnailTile (linia 192) - `muted={participant.isLocal}` (BUG - zdalny NIE wyciszony = podwojny dzwiek)
+3. MiniVideo (linia 425) - `muted={participant.isLocal}` (BUG - to samo)
 
-  call.on('stream', (remoteStream) => { ... /* bez zmian */ });
+Podwojne odtwarzanie tego samego strumienia audio z dwoch elementow video sprawia, ze echo cancellation przegladarki nie dziala prawidlowo.
 
-  call.on('close', () => { 
-    clearTimeout(timeout); 
-    // Nie usuwaj peera jezeli polaczenie zostalo nadpisane nowszym
-    if (connectionsRef.current.get(call.peer) === call) {
-      removePeer(call.peer); 
-    }
-  });
-  
-  call.on('error', (err) => { 
-    clearTimeout(timeout); 
-    if (connectionsRef.current.get(call.peer) === call) {
-      removePeer(call.peer);
-    }
-  });
-  
-  // ICE monitoring - bez zmian
-};
-```
+**Rozwiazanie:** Wyciszyc WSZYSTKIE miniaturki bezwarunkowo. Audio powinno byc odtwarzane tylko z jednego elementu video na uczestnika.
 
-#### 3. peer.on('call') - deduplikacja polaczen przychodzacych
-**Plik**: `src/components/meeting/VideoRoom.tsx`
+**Plik: `src/components/meeting/VideoGrid.tsx`**
 
-W `peer.on('call')` (linia 977), jezeli juz mamy aktywne polaczenie do tego peera z zywym ICE, nie odpowiadaj na drugie polaczenie:
+- ThumbnailTile (linia 192): zmiana `muted={participant.isLocal}` na `muted`
+- MiniVideo (linia 425): zmiana `muted={participant.isLocal}` na `muted`
 
-```text
-peer.on('call', async (call) => {
-  if (cancelled) return;
-  
-  // Sprawdz czy juz mamy zywe polaczenie do tego peera
-  const existingConn = connectionsRef.current.get(call.peer);
-  if (existingConn) {
-    const pc = (existingConn as any).peerConnection as RTCPeerConnection | undefined;
-    const iceState = pc?.iceConnectionState;
-    if (iceState === 'connected' || iceState === 'completed' || iceState === 'checking' || iceState === 'new') {
-      // Polaczenie zyje lub jest w trakcie nawiazywania - ignoruj duplikat
-      console.log(`[VideoRoom] Already have active connection to ${call.peer}, skipping incoming call`);
-      return;
-    }
-    // Stare polaczenie jest martwe - zamknij i przyjmij nowe
-    try { existingConn.close(); } catch {}
-    connectionsRef.current.delete(call.peer);
-  }
-  
-  // ... reszta handlera bez zmian (answer, handleCall) ...
-});
-```
-
-### Pliki do zmiany
+### Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/MeetingLobby.tsx` | Ref `streamPassedRef` - nie zatrzymuj strumienia gdy przekazany do VideoRoom |
-| `src/components/meeting/VideoRoom.tsx` | handleCall: zabezpieczenie close/error/timeout przed nadpisanym polaczeniem |
-| `src/components/meeting/VideoRoom.tsx` | peer.on('call'): deduplikacja polaczen przychodzacych |
+| `src/components/meeting/VideoBackgroundProcessor.ts` | Dodanie wygladzania maski (mask blur) + szersze strefy przejscia |
+| `src/components/meeting/VideoGrid.tsx` | Wymuszenie muted na ThumbnailTile i MiniVideo |
+| `src/components/meeting/VideoRoom.tsx` | Filtrowanie lokalnego video w PiP (data-local-video) |
 
-### Kryteria akceptacji
-
-- Prowadzacy i uczestnik widza i slysza siebie nawzajem po dolaczeniu
-- Nie wystepuje podwojne polaczenie PeerJS (brak race condition)
-- Strumien z lobby jest prawidlowo przekazywany do VideoRoom (brak fallbacku na getUserMedia)
-- Nadpisane polaczenia nie usuwaja aktywnych peerow ze stanu
