@@ -1425,7 +1425,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stream.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
     const newCameraOff = !isCameraOff;
     setIsCameraOff(newCameraOff);
-    setLocalStream(new MediaStream(stream.getTracks()));
+    const wrappedStream = new MediaStream(stream.getTracks());
+    if ((stream as any).__bgProcessed) {
+      (wrappedStream as any).__bgProcessed = true;
+    }
+    localStreamRef.current = wrappedStream;
+    setLocalStream(wrappedStream);
     if (channelRef.current && peerRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
     }
@@ -1448,6 +1453,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     } else {
       // Starting screen share
       try {
+        stopBackground(); // Stop background processor to free resources during screen share
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
         const audioTrack = localStreamRef.current?.getAudioTracks()[0];
         if (audioTrack) screenStream.addTrack(audioTrack);
@@ -1632,6 +1638,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     const stream = localStreamRef.current;
     if (!stream) return;
     try {
+      // Ensure raw stream is up-to-date before applying new effect
+      if (!(stream as any).__bgProcessed) {
+        updateRawStream(stream);
+      }
       const processedStream = await applyBackground(stream, newMode, imageSrc);
       // Always update local stream and tracks at peers
       localStreamRef.current = processedStream;
@@ -1646,7 +1656,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     } catch (err) {
       console.error('[VideoRoom] Background change failed:', err);
     }
-  }, [applyBackground]);
+  }, [applyBackground, updateRawStream]);
 
   const handleLeave = async () => {
     try {
