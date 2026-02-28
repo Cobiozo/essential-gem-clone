@@ -24,6 +24,7 @@ export const MeetingTimer: React.FC<MeetingTimerProps> = ({
   const [collisionEvent, setCollisionEvent] = useState<string | null>(null);
   const notified15Ref = useRef(false);
   const notified5Ref = useRef(false);
+  const notifiedEndRef = useRef(false);
   const collisionCheckRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Timer tick
@@ -42,6 +43,19 @@ export const MeetingTimer: React.FC<MeetingTimerProps> = ({
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [endTime]);
+
+  // Notification for ALL participants when time expires
+  useEffect(() => {
+    if (timeRemaining === null) return;
+
+    if (timeRemaining <= 0 && !notifiedEndRef.current) {
+      notifiedEndRef.current = true;
+      toast({
+        title: '⏱️ Czas spotkania minął',
+        description: 'Spotkanie trwa do momentu zakończenia przez prowadzącego.',
+      });
+    }
+  }, [timeRemaining, toast]);
 
   // Notifications for host/co-host
   useEffect(() => {
