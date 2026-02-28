@@ -30,16 +30,34 @@ const MeetingRoomPage: React.FC = () => {
   const userRef = useRef(user);
   if (user) userRef.current = user;
 
-  const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized' | 'guest-form' | 'password-gate'>('loading');
+  // Helper to read saved session synchronously
+  const getSavedSession = () => {
+    if (!roomId || isGuestMode) return null;
+    const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+    if (!raw) return null;
+    try {
+      const saved = JSON.parse(raw) as { audioEnabled: boolean; videoEnabled: boolean; settings: any; joinedAt: number };
+      if (Date.now() - saved.joinedAt <= 4 * 60 * 60 * 1000) return saved;
+    } catch {}
+    return null;
+  };
+
+  const savedSession = getSavedSession();
+
+  const [status, setStatus] = useState<'loading' | 'lobby' | 'joined' | 'error' | 'unauthorized' | 'guest-form' | 'password-gate'>(
+    () => savedSession ? 'joined' : 'loading'
+  );
   const [errorMessage, setErrorMessage] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
-  const [audioEnabled, setAudioEnabled] = useState(true);
-  const [videoEnabled, setVideoEnabled] = useState(true);
+  const [audioEnabled, setAudioEnabled] = useState(() => savedSession?.audioEnabled ?? true);
+  const [videoEnabled, setVideoEnabled] = useState(() => savedSession?.videoEnabled ?? true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [hostUserId, setHostUserId] = useState('');
   const [endTime, setEndTime] = useState<string | null>(null);
-  const [initialSettings, setInitialSettings] = useState<import('@/components/meeting/MeetingSettingsDialog').MeetingSettings | undefined>();
+  const [initialSettings, setInitialSettings] = useState<import('@/components/meeting/MeetingSettingsDialog').MeetingSettings | undefined>(
+    () => savedSession?.settings || undefined
+  );
   const [guestData, setGuestData] = useState<GuestData | null>(null);
   const [meetingPassword, setMeetingPassword] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
@@ -113,7 +131,7 @@ const MeetingRoomPage: React.FC = () => {
   // Verify access for authenticated users
   useEffect(() => {
     if (isGuestMode) return; // Guest mode handled separately
-    if (statusRef.current !== 'loading') return;
+    if (statusRef.current !== 'loading' && statusRef.current !== 'joined') return;
 
     if (!roomId) {
       setStatus('error');
@@ -163,8 +181,10 @@ const MeetingRoomPage: React.FC = () => {
 
         // Host/admin/creator bypass password
         if (isCreator || isAdmin || userIsHost) {
-          if (!tryAutoRejoin()) {
-            setStatus('lobby');
+          if (statusRef.current !== 'joined') {
+            if (!tryAutoRejoin()) {
+              setStatus('lobby');
+            }
           }
           return;
         }
@@ -178,10 +198,11 @@ const MeetingRoomPage: React.FC = () => {
           .maybeSingle();
 
         if (reg) {
-          // Auto-rejoin bypasses password gate (user already passed it before refresh)
-          if (!tryAutoRejoin()) {
-            const passwordAlreadyPassed = sessionStorage.getItem(`meeting_password_passed_${roomId}`) === 'true';
-            setStatus(eventPassword && !passwordAlreadyPassed ? 'password-gate' : 'lobby');
+          if (statusRef.current !== 'joined') {
+            if (!tryAutoRejoin()) {
+              const passwordAlreadyPassed = sessionStorage.getItem(`meeting_password_passed_${roomId}`) === 'true';
+              setStatus(eventPassword && !passwordAlreadyPassed ? 'password-gate' : 'lobby');
+            }
           }
         } else {
           setStatus('unauthorized');
