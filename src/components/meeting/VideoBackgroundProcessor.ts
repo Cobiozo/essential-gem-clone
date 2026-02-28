@@ -101,6 +101,11 @@ export class VideoBackgroundProcessor {
   private processWidth = 0;
   private processHeight = 0;
 
+  // Background tab handling (PiP fix)
+  private isTabHidden = false;
+  private backgroundIntervalId: ReturnType<typeof setInterval> | null = null;
+  private visibilityHandler: (() => void) | null = null;
+
   constructor() {
     this.canvas = document.createElement('canvas');
     this.ctx = this.canvas.getContext('2d', { willReadFrequently: true })!;
@@ -227,6 +232,7 @@ export class VideoBackgroundProcessor {
     });
 
     this.isRunning = true;
+    this.setupVisibilityHandler();
     console.log(`[BackgroundProcessor] Started: ${this.processWidth}x${this.processHeight} @ ${this.profile.outputFps}fps, mobile=${detectMobile()}`);
     this.processFrame();
 
@@ -329,7 +335,9 @@ export class VideoBackgroundProcessor {
       }
     }
 
-    this.animationFrameId = requestAnimationFrame(this.processFrame);
+    if (!this.isTabHidden) {
+      this.animationFrameId = requestAnimationFrame(this.processFrame);
+    }
   };
 
   private smoothMask(mask: Float32Array, width: number, height: number) {
@@ -434,12 +442,50 @@ export class VideoBackgroundProcessor {
     }
   }
 
+  private setupVisibilityHandler() {
+    this.visibilityHandler = () => {
+      if (document.hidden) {
+        this.isTabHidden = true;
+        if (this.animationFrameId !== null) {
+          cancelAnimationFrame(this.animationFrameId);
+          this.animationFrameId = null;
+        }
+        if (!this.backgroundIntervalId) {
+          this.backgroundIntervalId = setInterval(() => {
+            if (this.isRunning) this.processFrame();
+          }, 100); // ~10fps in background
+          console.log('[BackgroundProcessor] Tab hidden → setInterval fallback (10fps)');
+        }
+      } else {
+        this.isTabHidden = false;
+        if (this.backgroundIntervalId) {
+          clearInterval(this.backgroundIntervalId);
+          this.backgroundIntervalId = null;
+        }
+        if (this.isRunning && this.animationFrameId === null) {
+          this.animationFrameId = requestAnimationFrame(this.processFrame);
+          console.log('[BackgroundProcessor] Tab visible → rAF resumed');
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
   stop() {
     this.isRunning = false;
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    if (this.backgroundIntervalId) {
+      clearInterval(this.backgroundIntervalId);
+      this.backgroundIntervalId = null;
+    }
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
+    this.isTabHidden = false;
     this.videoElement.srcObject = null;
     this.outputStream = null;
     this.blurredCanvas = null;
