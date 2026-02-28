@@ -77,20 +77,20 @@ const AudioIndicator: React.FC<{ audioLevel: number; isMuted?: boolean; size?: '
 
 // ─── Audio-only element for decoupled audio playback ───
 const AudioElement: React.FC<{ stream: MediaStream; onAudioBlocked?: () => void }> = ({ stream, onAudioBlocked }) => {
-  const ref = useRef<HTMLAudioElement>(null);
+  const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
-    const audio = ref.current;
-    if (!audio || !stream) return;
-    audio.srcObject = stream;
-    audio.play().catch(() => {
-      audio.muted = true;
-      audio.play().then(() => {
+    const el = ref.current;
+    if (!el || !stream) return;
+    el.srcObject = stream;
+    el.play().catch(() => {
+      el.muted = true;
+      el.play().then(() => {
         console.warn('[AudioElement] Autoplay blocked — playing muted');
         onAudioBlocked?.();
       }).catch(() => {});
     });
   }, [stream, onAudioBlocked]);
-  return <audio ref={ref} autoPlay />;
+  return <video ref={ref} autoPlay playsInline style={{ display: 'none' }} />;
 };
 
 // ─── Hidden audio streams for speaker/multi-speaker modes ───
