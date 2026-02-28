@@ -124,9 +124,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const isScreenSharingRef = useRef(false);
   useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
 
-  // Refs for other state used in restoreCamera closure
+  // Refs for state used in restoreCamera/reacquire closures
   const isMutedRef = useRef(isMuted);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
+
+  const bgModeRef = useRef(bgMode);
+  useEffect(() => { bgModeRef.current = bgMode; }, [bgMode]);
+  const bgSelectedImageRef = useRef(bgSelectedImage);
+  useEffect(() => { bgSelectedImageRef.current = bgSelectedImage; }, [bgSelectedImage]);
+
+  // Guard against reacquireLocalStream infinite loops
+  const reacquireCooldownRef = useRef(0);
 
   // Meeting settings & co-host state
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>(initialSettings || DEFAULT_SETTINGS);
@@ -1249,9 +1257,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       // Re-apply background effect if it was active
       updateRawStream(stream);
-      if (bgMode !== 'none') {
+      if (bgModeRef.current !== 'none') {
         try {
-          const processedStream = await applyBackground(stream, bgMode, bgSelectedImage);
+          const processedStream = await applyBackground(stream, bgModeRef.current, bgSelectedImageRef.current);
           if (processedStream !== stream) {
             localStreamRef.current = processedStream;
             setLocalStream(processedStream);
@@ -1287,6 +1295,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // === reacquireLocalStream: re-acquire media when stream is lost (mobile bg, etc.) ===
   const reacquireLocalStream = useCallback(async (): Promise<MediaStream | null> => {
+    // Guard against rapid re-acquisition loops
+    const now = Date.now();
+    if (now - reacquireCooldownRef.current < 3000) {
+      console.warn('[VideoRoom] reacquireLocalStream: cooldown active, skipping');
+      return localStreamRef.current;
+    }
+    reacquireCooldownRef.current = now;
     console.log('[VideoRoom] Attempting to re-acquire local stream...');
     try {
       let stream: MediaStream;
@@ -1340,9 +1355,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       });
 
       // Re-apply background effect if active
-      if (bgMode !== 'none') {
+      if (bgModeRef.current !== 'none') {
         try {
-          const processedStream = await applyBackground(stream, bgMode, bgSelectedImage);
+          const processedStream = await applyBackground(stream, bgModeRef.current, bgSelectedImageRef.current);
           if (processedStream !== stream) {
             localStreamRef.current = processedStream;
             setLocalStream(processedStream);
@@ -1372,7 +1387,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       console.error('[VideoRoom] reacquireLocalStream failed:', err);
       return null;
     }
-  }, [toast, bgMode, bgSelectedImage, applyBackground, updateRawStream]);
+  }, [toast, applyBackground, updateRawStream]);
 
   // Controls
   const handleToggleMute = async () => {

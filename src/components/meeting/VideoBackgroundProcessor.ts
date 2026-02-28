@@ -90,6 +90,12 @@ export class VideoBackgroundProcessor {
   private maskCanvas: HTMLCanvasElement | null = null;
   private maskCtx: CanvasRenderingContext2D | null = null;
 
+  // Reusable ImageData to reduce GC pressure
+  private cachedFrameData: ImageData | null = null;
+  private cachedBlurredData: ImageData | null = null;
+  private cachedBgData: ImageData | null = null;
+  private cachedMaskImgData: ImageData | null = null;
+
   // Adaptive performance
   private profile: PerformanceProfile;
   private lastSegmentationTime = 0;
@@ -303,7 +309,14 @@ export class VideoBackgroundProcessor {
       this.ctx.drawImage(this.videoElement, 0, 0, width, height);
 
       if (maskData && maskData.length === width * height) {
-        const frame = this.ctx.getImageData(0, 0, width, height);
+        // Reuse cached ImageData to avoid GC pressure
+        if (!this.cachedFrameData || this.cachedFrameData.width !== width || this.cachedFrameData.height !== height) {
+          this.cachedFrameData = this.ctx.getImageData(0, 0, width, height);
+        } else {
+          const src = this.ctx.getImageData(0, 0, width, height);
+          this.cachedFrameData.data.set(src.data);
+        }
+        const frame = this.cachedFrameData;
 
         if (this.mode === 'blur-light' || this.mode === 'blur-heavy') {
           this.applyBlur(frame, maskData, width, height);
@@ -347,8 +360,11 @@ export class VideoBackgroundProcessor {
   private smoothMask(mask: Float32Array, width: number, height: number) {
     if (!this.maskCtx || !this.maskCanvas) return;
 
-    // Write mask as grayscale image
-    const imgData = this.maskCtx.createImageData(width, height);
+    // Write mask as grayscale image (reuse cached ImageData)
+    if (!this.cachedMaskImgData || this.cachedMaskImgData.width !== width || this.cachedMaskImgData.height !== height) {
+      this.cachedMaskImgData = this.maskCtx.createImageData(width, height);
+    }
+    const imgData = this.cachedMaskImgData;
     for (let i = 0; i < mask.length; i++) {
       const v = Math.round(mask[i] * 255);
       const idx = i * 4;
@@ -379,7 +395,13 @@ export class VideoBackgroundProcessor {
 
     this.blurredCtx.filter = `blur(${profile.blurRadius}px)`;
     this.blurredCtx.drawImage(this.videoElement, 0, 0, width, height);
-    const blurred = this.blurredCtx.getImageData(0, 0, width, height);
+    if (!this.cachedBlurredData || this.cachedBlurredData.width !== width || this.cachedBlurredData.height !== height) {
+      this.cachedBlurredData = this.blurredCtx.getImageData(0, 0, width, height);
+    } else {
+      const src = this.blurredCtx.getImageData(0, 0, width, height);
+      this.cachedBlurredData.data.set(src.data);
+    }
+    const blurred = this.cachedBlurredData;
 
     // selfie_segmenter confidenceMasks[0]: HIGH = person, LOW = background
     for (let i = 0; i < mask.length; i++) {
@@ -422,7 +444,13 @@ export class VideoBackgroundProcessor {
     }
     this.blurredCtx.filter = 'none';
     this.blurredCtx.drawImage(this.backgroundImage, sx, sy, sw, sh, 0, 0, width, height);
-    const bgData = this.blurredCtx.getImageData(0, 0, width, height);
+    if (!this.cachedBgData || this.cachedBgData.width !== width || this.cachedBgData.height !== height) {
+      this.cachedBgData = this.blurredCtx.getImageData(0, 0, width, height);
+    } else {
+      const src = this.blurredCtx.getImageData(0, 0, width, height);
+      this.cachedBgData.data.set(src.data);
+    }
+    const bgData = this.cachedBgData;
 
     // selfie_segmenter: HIGH = person, LOW = background
     for (let i = 0; i < mask.length; i++) {
@@ -497,6 +525,10 @@ export class VideoBackgroundProcessor {
     this.maskCanvas = null;
     this.maskCtx = null;
     this.cachedMask = null;
+    this.cachedFrameData = null;
+    this.cachedBlurredData = null;
+    this.cachedBgData = null;
+    this.cachedMaskImgData = null;
     this.isPassThrough = false;
     this.overloadCounter = 0;
   }
