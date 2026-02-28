@@ -1424,13 +1424,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       } else {
         // Fallback: find active video if activeVideoRef is stale
         let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
+        // Reject local video if remote participants exist
+        const hasRemote = participants.length > 0;
+        if (pipVideo?.getAttribute('data-local-video') === 'true' && hasRemote) {
+          pipVideo = null;
+        }
         if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
           const allVideos = document.querySelectorAll('video');
           pipVideo = Array.from(allVideos).find(
             v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
-          ) as HTMLVideoElement || Array.from(allVideos).find(
+          ) as HTMLVideoElement || (!hasRemote ? Array.from(allVideos).find(
             v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused
-          ) as HTMLVideoElement || null;
+          ) as HTMLVideoElement : null) || null;
         }
         if (pipVideo) {
           await pipVideo.requestPictureInPicture();
@@ -1457,13 +1462,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         if (document.hidden) {
           if (document.pictureInPictureElement) return;
           let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
+          const hasRemote = participants.length > 0;
+          if (pipVideo?.getAttribute('data-local-video') === 'true' && hasRemote) {
+            pipVideo = null;
+          }
           if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
             const allVideos = document.querySelectorAll('video');
             pipVideo = Array.from(allVideos).find(
               v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
-            ) as HTMLVideoElement || Array.from(allVideos).find(
+            ) as HTMLVideoElement || (!hasRemote ? Array.from(allVideos).find(
               v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused
-            ) as HTMLVideoElement || null;
+            ) as HTMLVideoElement : null) || null;
           }
           if (pipVideo) {
             try {
