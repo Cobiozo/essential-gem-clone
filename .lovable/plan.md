@@ -1,118 +1,108 @@
 
-## Naprawa krytycznych bledow systemu spotkan wideo
+## Naprawa braku dzwieku od innych uczestnikow na urzadzeniach mobilnych
 
-### Problem 1: Przyciski mikrofonu/kamery nie reaguja na klikniecie
+### Przyczyna glowna
 
-**Przyczyna glowna**: Funkcje `handleToggleMute` i `handleToggleCamera` w `VideoRoom.tsx` sprawdzaja `if (localStreamRef.current)` na poczatku. Jesli strumien jest `null` (np. getUserMedia nie powiodlo sie, lub sciezki zakonczyly sie po przejsciu na tle na mobilnym), cale cialo funkcji jest pomijane **bez zadnego komunikatu** -- uzytkownik klika przycisk i nic sie nie dzieje.
+Na urzadzeniach mobilnych (szczegolnie iOS Safari i Chrome Android) przegladarki blokuja automatyczne odtwarzanie wideo z dzwiekiem (`autoplay` z `muted={false}`) do momentu interakcji uzytkownika. 
 
-**Dodatkowy problem**: Element `<button>` w `ControlButton` (MeetingControls.tsx) nie ma atrybutu `type="button"`. W niektorych kontekstach przegladarki domyslny `type="submit"` moze powodowac nieoczekiwane zachowanie.
+W kodzie `VideoGrid.tsx` elementy `<video>` dla zdalnych uczestnikow maja `muted={participant.isLocal}` -- czyli `muted={false}` dla zdalnych. Odtwarzanie uruchamiane jest przez:
+```text
+videoRef.current.play().catch(() => {});
+```
 
-**Naprawa**:
+Problem: `.catch(() => {})` polyka blad autoplay policy **bez zadnego komunikatu**. Na mobile `play()` jest odrzucane, wiec:
+- Wideo zdalnych uczestnikow nie odtwarza sie wcale
+- Uzytkownik nic nie slyszy i nie dostaje informacji o problemie
 
-1. **`MeetingControls.tsx`** -- dodac `type="button"` do elementu `<button>` w `ControlButton` (linia 62)
-2. **`VideoRoom.tsx`** -- w `handleToggleMute` (linia 1096) i `handleToggleCamera` (linia 1111):
-   - Dodac blok `else` z toastem "Brak strumienia audio/wideo. Sprobuj odswiezyc strone."
-   - Dodac probe ponownego uzyskania strumienia (re-acquire getUserMedia) gdy sciezki sa w stanie `ended`
-   - Jesli sciezki sa ended, automatycznie sprobowac `navigator.mediaDevices.getUserMedia()` i zaktualizowac `localStreamRef` + `localStream` state
+Dodatkowo `AudioContext` (uzywany do speaker detection) tez probuje `resume()` bez gwarancji ze jest w kontekscie user gesture.
 
-### Problem 2: Uczestnicy nie widza siebie nawzajem
+### Rozwiazanie
 
-**Przyczyna glowna**: Baza danych NIE ZAWIERA zadnych rekordow w `meeting_room_participants` dla pokoju `4f13d929-ffc1-478a-8abe-07b2a9b7a953`. Oznacza to ze INSERT/UPSERT nie powiodl sie cicho. Kod na liniach 686-698 robi upsert z `onConflict: 'room_id,user_id'`, ale:
+Dwuetapowe podejscie:
 
-- Jesli nie ma unikatowego indeksu na `(room_id, user_id)`, upsert zglosi blad
-- Blad jest logowany (`console.error`) ale uzytkownik NIE dostaje komunikatu
-- Ponowna proba (linia 694-698) tez moze sie nie powiesc
-- Bez rekordu w bazie: Postgres Realtime NIE wykrywa nowego uczestnika, heartbeat sync NIE widzi go, i jedynym kanalem sygnalizacji jest broadcast ktory moze byc stracony
+**Etap 1: Unlock audio na user gesture w VideoRoom**
 
-**Naprawa**:
+Dodanie globalnego "audio unlock" mechanizmu ktory:
+- Przy pierwszym kliknieciu/dotyknieciu w VideoRoom tworzy krotki cichy AudioContext i go resume'uje
+- To odblokowuje audio policy przegladarki dla calej strony
+- Listener usuwany po pierwszym uzyciu
 
-1. **`VideoRoom.tsx`** -- po INSERT/UPSERT uczestnika (linia 686-698):
-   - Dodac walidacje: jesli oba upserty sie nie powioda, pokazac toast z bledem i zalogowac szczegoly
-   - Dodac `SELECT` sprawdzajacy czy rekord faktycznie istnieje po upsert
-   - Jesli nie istnieje -- sprobowac czysty INSERT (nie upsert)
+**Etap 2: Retry play() z fallbackiem**
 
-2. **`VideoRoom.tsx`** -- dodac re-acquire media logic:
-   - Nowa funkcja `reacquireLocalStream()` ktora probuje ponownie uzyskac getUserMedia
-   - Wywolywana gdy `localStreamRef.current` jest null lub wszystkie sciezki sa ended
-   - Po uzyskaniu nowego strumienia -- zaktualizowac wszystkie istniejace polaczenia peer (`replaceTrack`)
+W `VideoGrid.tsx` zmiana wszystkich `play().catch(() => {})` na inteligentna logike:
 
-3. **`VideoRoom.tsx`** -- lepsze logowanie bledow polaczenia:
-   - Logowac peer connection state changes z wiekszymi szczegolami
-   - Dodac toast gdy ICE connection failuje permanentnie
-
-### Problem 3: Brak informacji zwrotnej na mobile
-
-**Przyczyna**: Na urzadzeniach mobilnych czesto dochodzi do utraty strumienia multimedia (przejscie na tle, zmiana karty, blokada ekranu). Kod nie informuje uzytkownika o utracie strumienia.
-
-**Naprawa**:
-
-1. **`VideoRoom.tsx`** -- dodac listener na `ended` event dla lokalnych sciezek audio/video
-2. Gdy sciezka konczy sie nieoczekiwanie (nie przez uzytkownika), automatycznie sprobowac re-acquire
-3. Jesli re-acquire sie nie powiedzie, pokazac toast z informacja
+1. Proba `play()` z dzwiekiem (muted=false)
+2. Jesli blad -- proba `play()` z `muted=true` + ustawienie flagi "audio zablokowany"  
+3. Jesli flaga aktywna -- wyswietlenie banneru/przycisku "Dotknij aby wlaczyc dzwiek" w VideoRoom
+4. Po kliknieciu banneru -- odmutowanie wszystkich zdalnych video i ponowne `play()`
 
 ### Pliki do zmiany
 
-| Plik | Operacja | Opis |
-|------|----------|------|
-| `src/components/meeting/MeetingControls.tsx` | Edycja | Dodanie `type="button"` do ControlButton |
-| `src/components/meeting/VideoRoom.tsx` | Edycja | Re-acquire media, lepsze error handling, toast na brak strumienia, walidacja upsert uczestnika, track ended listeners |
+| Plik | Zmiana |
+|------|--------|
+| `src/components/meeting/VideoGrid.tsx` | Zmiana `play().catch(() => {})` na retry z muted fallback; dodanie callbacku `onAudioBlocked` |
+| `src/components/meeting/VideoRoom.tsx` | Dodanie audio unlock na user gesture; banner "Dotknij aby wlaczyc dzwiek"; logika odmutowania video po tapnieciu |
 
-### Szczegoly techniczne zmian w VideoRoom.tsx
+### Szczegoly techniczne
 
-**handleToggleMute (linia 1096)**:
+#### VideoGrid.tsx -- zmiana play logic (3 miejsca: MainTile linia 71, ThumbnailTile linia 144, MiniVideo linia 388)
+
+Zamiast:
 ```text
-const handleToggleMute = async () => {
-  let stream = localStreamRef.current;
-  // Re-acquire if null or tracks ended
-  if (!stream || stream.getAudioTracks().every(t => t.readyState === 'ended')) {
-    stream = await reacquireLocalStream();
-    if (!stream) {
-      toast({ title: 'Brak dostepu do mikrofonu', description: 'Sprawdz uprawnienia przegladarki lub odswiez strone.', variant: 'destructive' });
-      return;
-    }
-  }
-  // ... reszta logiki toggle
-};
+videoRef.current.play().catch(() => {});
 ```
 
-**handleToggleCamera (linia 1111)** -- analogiczna zmiana.
-
-**reacquireLocalStream (nowa funkcja)**:
+Nowa logika:
 ```text
-const reacquireLocalStream = async (): Promise<MediaStream | null> => {
+const playVideo = async (video: HTMLVideoElement, isLocal: boolean) => {
+  if (isLocal) { video.play().catch(() => {}); return; }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-    // ... fallbacki audio-only, video-only
-    localStreamRef.current = stream;
-    setLocalStream(stream);
-    // replaceTrack w istniejacych polaczeniach
-    return stream;
-  } catch { return null; }
+    await video.play();
+  } catch {
+    // Autoplay z audio zablokowany -- mutuj i odtworz
+    video.muted = true;
+    try {
+      await video.play();
+      onAudioBlocked?.(); // callback do VideoRoom
+    } catch { /* nawet muted nie dziala */ }
+  }
 };
 ```
 
-**Walidacja upsert uczestnika (po liniach 686-698)**:
+Dodanie propa `onAudioBlocked?: () => void` do `VideoGridProps`.
+
+#### VideoRoom.tsx -- audio unlock + banner
+
+1. **Audio unlock listener** (dodany w useEffect init):
 ```text
-// Verify record exists
-const { data: verify } = await supabase
-  .from('meeting_room_participants')
-  .select('id')
-  .eq('room_id', roomId).eq('user_id', user.id)
-  .maybeSingle();
-if (!verify) {
-  // Try plain insert as fallback
-  await supabase.from('meeting_room_participants').insert({...});
-}
+const unlockAudio = () => {
+  const ctx = new AudioContext();
+  ctx.resume().then(() => ctx.close());
+  // Odmutuj wszystkie zdalne video
+  document.querySelectorAll('video').forEach(v => {
+    if (!v.muted) return; // juz gra
+    // ... odmutuj jesli to zdalne video
+  });
+  document.removeEventListener('touchstart', unlockAudio);
+  document.removeEventListener('click', unlockAudio);
+};
+document.addEventListener('touchstart', unlockAudio, { once: true });
+document.addEventListener('click', unlockAudio, { once: true });
 ```
 
-**Track ended listeners (po uzyskaniu strumienia w init)**:
+2. **Stan `audioBlocked`** -- ustawiany przez callback z VideoGrid
+3. **Banner UI** -- gdy `audioBlocked === true`:
 ```text
-stream.getTracks().forEach(track => {
-  track.addEventListener('ended', () => {
-    if (!cleanupDoneRef.current) {
-      console.warn('[VideoRoom] Local track ended unexpectedly:', track.kind);
-      reacquireLocalStream();
-    }
-  });
-});
+<button onClick={handleUnmuteAll}
+  className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-4 py-2 rounded-full animate-pulse">
+  🔇 Dotknij aby włączyć dźwięk
+</button>
 ```
+4. **handleUnmuteAll** -- przechodzi po wszystkich `<video>` w DOM, ustawia `muted = false`, wywoluje `play()`, zamyka banner
+
+### Dlaczego to zadziala
+
+- Klikniecie "Dolacz" w lobby jest user gesture -- ale `getUserMedia` i PeerJS setup sa async, wiec do momentu gdy przychodzi zdalny stream, gesture juz nie obowiazuje
+- Banner "Dotknij aby wlaczyc dzwiek" daje nowy user gesture w kontekscie juz istniejacego video elementu
+- Muted fallback zapewnia ze przynajmniej wideo jest widoczne nawet jesli audio jest zablokowane
+- Audio unlock listener na touchstart/click probuje odblokac audio jak najwczesniej
