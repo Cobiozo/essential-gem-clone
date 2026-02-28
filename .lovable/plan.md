@@ -1,105 +1,73 @@
 
 
-## Udostepnianie ekranu: fullscreen + przeciagane PiP kamery prowadzacego
+## Naprawa 3 problemow: echo, utrata audio/video po screen share, zmiana trybu
 
-### Obecna architektura i ograniczenie
+### Problem 1: Echo w trybie speaker/multi-speaker ("slychac siebie")
 
-Aktualnie, gdy prowadzacy udostepnia ekran, jego track video z kamery jest **zastepowany** trackiem z ekranu (`replaceTrack`). Uczestnicy otrzymuja JEDEN stream na peera — albo kamere, albo ekran. Nie ma mozliwosci jednoczesnego wyswietlenia obu.
+**Przyczyna**: React ma znany bug z atrybutem `muted` na elementach `<video>` — prop `muted={true}` nie zawsze jest aplikowany do DOM przy re-renderach. W `ThumbnailTile` i `MiniVideo`, `muted={!playAudio}` moze nie dzialac poprawnie, co sprawia ze miniaturka aktywnego mowcy (ktora powinna byc wyciszona) moze odtwarzac audio — prowadzac do podwojnego audio i echa.
 
-### Rozwiazanie: Drugi PeerJS call dla screen share
+W trybie galerii problem nie wystepuje, bo kazdy uczestnik ma dokladnie JEDEN element `<video>` (bez duplikatow).
 
-Aby uczestnicy widzieli jednoczesnie ekran (fullscreen) i kamere prowadzacego (PiP), potrzebny jest **drugi strumien**. Realizacja przez drugie polaczenie PeerJS z metadana `type: 'screen-share'`.
+**Rozwiazanie**: Dodac `useEffect` w `ThumbnailTile` i `MiniVideo`, ktory imperatywnie ustawia `video.muted` za kazdym razem gdy zmieni sie `playAudio`:
+
+```text
+// ThumbnailTile
+useEffect(() => {
+  if (videoRef.current) {
+    videoRef.current.muted = !playAudio;
+  }
+}, [playAudio]);
+
+// MiniVideo - analogicznie
+useEffect(() => {
+  if (ref.current) {
+    ref.current.muted = !playAudio;
+  }
+}, [playAudio]);
+```
+
+Dodatkowo w istniejacym useEffect (ustawianie srcObject), po `playVideoSafe` dodac jawne `video.muted = !playAudio` aby stan poczatkowy tez byl poprawny.
 
 ---
 
-### Szczegolowe zmiany
+### Problem 2: Uczestnicy traca audio/video prowadzacego po zakonczeniu udostepniania ekranu
 
-#### Plik 1: `src/components/meeting/VideoRoom.tsx`
-
-**A. Nowy state i ref dla screen share:**
-- `screenShareConnectionsRef = useRef<Map<string, MediaConnection>>()` — oddzielna mapa polaczen screen share
-- `remoteScreenShare` state: `{ peerId: string; displayName: string; stream: MediaStream } | null`
-
-**B. Zmiana logiki startowania screen share (linia ~1556-1596):**
-- NIE zastepowac camera track w glownym polaczeniu
-- NIE zatrzymywac camera tracks
-- Pobrac `getDisplayMedia` i wyslac jako DRUGIE call do kazdego peera:
-  ```text
-  const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-  participants.forEach(p => {
-    const call = peerRef.current.call(p.peerId, screenStream, {
-      metadata: { displayName, type: 'screen-share', userId: user?.id }
-    });
-    screenShareConnectionsRef.current.set(p.peerId, call);
-  });
-  ```
-- Broadcast `screen-share-started` z `peerId` i `displayName`
-- `videoTrack.onended` → zamknac screen share connections + broadcast `screen-share-stopped`
-
-**C. Zmiana `peer.on('call')` (linia ~1047):**
-- Sprawdzic `call.metadata.type === 'screen-share'`
-- Jesli tak: `call.answer()` z pustym streamem (lub local stream), zapisac stream do `remoteScreenShare` state
-- NIE nadpisywac glownego polaczenia camera w `connectionsRef`
-
-**D. Broadcast listener `screen-share-stopped`:**
-- Dodac listener w signaling channel
-- Po otrzymaniu: zamknac screen share connection, wyczyscic `remoteScreenShare`
-
-**E. Zmiana `restoreCamera` / stop screen share:**
-- Zamknac wszystkie screen share connections
-- Broadcast `screen-share-stopped`
-- Wyczyscic `screenShareConnectionsRef`
-- Kamera juz dziala (nie byla zatrzymana)
-
-**F. Przekazanie do VideoGrid:**
-- Nowe propsy: `remoteScreenShareStream`, `remoteScreenSharerName`
-
-#### Plik 2: `src/components/meeting/VideoGrid.tsx`
-
-**A. Nowe propsy w `VideoGridProps`:**
+**Przyczyna**: W handlerze `screen-share-stopped` na stronie uczestnika (linia 969-970), kod jawnie zamyka polaczenia screen share:
 ```text
-remoteScreenShareStream?: MediaStream | null;
-remoteScreenSharerName?: string;
+screenShareConnectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
 ```
+PeerJS moze miec problem z wieloma polaczeniami do tego samego peera — zamkniecie jednego polaczenia (screen share) moze zaktywowac cleanup wewnetrzny, ktory zaklocaja glowne polaczenie kamerowe do tego samego peera. Efekt: uczestnik traci stream prowadzacego.
 
-**B. Nowy komponent `DraggableFloatingPiP`:**
-- Male okienko (200x150px) z kamera prowadzacego
-- Przeciagane myszka i dotykiem (onMouseDown/onTouchStart + move + up)
-- Pozycja absolutna wzgledem kontenera VideoGrid
-- Zaokraglone rogi, cien, z-index nad glownym video
-- Wyswietla imie prowadzacego na dole
-- Domyslna pozycja: prawy dolny rog
+**Rozwiazanie**: Usunac jawne `conn.close()` z handlera `screen-share-stopped` po stronie uczestnika. Wystarczy wyczyscic stan UI (`setRemoteScreenShare(null)`) i mape referencji. Polaczenia zamkna sie automatycznie gdy prowadzacy zamknie je ze swojej strony (w `stopScreenShare`).
 
-**C. Nowy layout `ScreenShareLayout`:**
-- Gdy `remoteScreenShareStream` istnieje, nadpisuje aktualny tryb widoku
-- Screen share video na pelny ekran (object-contain, czarne tlo)
-- Kamera prowadzacego w `DraggableFloatingPiP` (znaleziona po peerId w participants)
-- Pasek miniaturek innych uczestnikow na dole (jak w speaker mode)
-
-**D. Logika w glownym `VideoGrid`:**
+Zmiana w `VideoRoom.tsx` (linia 964-971):
 ```text
-if (remoteScreenShareStream) {
-  return <ScreenShareLayout ... />;
-}
-// ...istniejacy kod trybów speaker/gallery/multi-speaker
+channel.on('broadcast', { event: 'screen-share-stopped' }, ({ payload }) => {
+  if (!cancelled) {
+    console.log('[VideoRoom] Screen share stopped by', payload?.peerId);
+    setRemoteScreenShare(null);
+    // Don't close connections explicitly - let host close them
+    // to avoid PeerJS interference with main camera connections
+    screenShareConnectionsRef.current.clear();
+  }
+});
 ```
 
 ---
 
-### Przepływ (perspektywa uczestnika)
+### Problem 3: Przelaczenie trybu widoku po zakonczeniu screen share
 
-```text
-1. Prowadzacy klika "Udostepnij ekran"
-2. getDisplayMedia → screenStream
-3. Drugie peer.call() do kazdego uczestnika z metadata.type='screen-share'
-4. Broadcast 'screen-share-started'
-5. Uczestnik:
-   - peer.on('call') → wykrywa type='screen-share' → answer → remoteScreenShare state
-   - VideoGrid wykrywa remoteScreenShareStream → ScreenShareLayout
-   - Ekran fullscreen + kamera prowadzacego w przeciaganym PiP
-6. Prowadzacy konczy → zamyka screen share connections → broadcast 'screen-share-stopped'
-7. Uczestnik: remoteScreenShare = null → powrot do normalnego trybu
-```
+**Przyczyna**: ViewMode jest juz zapisywany w sessionStorage (poprzednia poprawka). Problem moze wynikac z tego, ze utrata polaczenia (Problem 2) powoduje reconnect lub remount komponentu. Jesli komponent sie remountuje, viewMode jest odczytywany z sessionStorage — co powinno dzialac. Ale jesli reconnect zmienia stan `participants` (np. tymczasowe usuniecie i ponowne dodanie prowadzacego), to aktywny mowca sie resetuje i uzytkownik moze odczuc to jako zmiane trybu.
+
+**Rozwiazanie**: Naprawienie Problemu 2 powinno rozwiazac rowniez ten problem, poniewaz glowne polaczenie kamerowe nie bedzie juz zaklocane. Dodatkowa nie sa potrzebne zmiany.
+
+---
+
+### Bonus: Usuniecie martwego kodu
+
+Komponent `AudioOnlyStreams` (linia 99-108) i prop `forceAudioMuted` w `VideoTile` nie sa juz nigdzie uzywane. Warto je usunac dla czytelnosci.
+
+Rowniez funkcja `restoreCamera` (linia 1388-1467) jest zdefiniowana ale nigdy nie wywolywana — moze byc usunieta.
 
 ---
 
@@ -107,13 +75,13 @@ if (remoteScreenShareStream) {
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoRoom.tsx` | Dual-stream screen share, nowe broadcast events, oddzielne connections |
-| `src/components/meeting/VideoGrid.tsx` | ScreenShareLayout, DraggableFloatingPiP, nowe propsy |
+| `src/components/meeting/VideoGrid.tsx` | Imperatywne ustawianie `video.muted` w ThumbnailTile i MiniVideo. Usuniecie martwego kodu (AudioOnlyStreams, forceAudioMuted). |
+| `src/components/meeting/VideoRoom.tsx` | Usuniecie `conn.close()` z handlera `screen-share-stopped`. Usuniecie martwej funkcji `restoreCamera`. |
 
 ### Ryzyko
 
-Srednie. Wymaga starannego zarzadzania dwoma zestawami polaczen PeerJS. Kluczowe edge cases:
-- Nowy uczestnik dolacza podczas trwajacego screen share (trzeba mu rowniez wyslac screen stream)
-- Prowadzacy traci polaczenie i reconnectuje
-- Zamkniecie przegladarki podczas screen share (cleanup)
+Niskie. Zmiany sa defensywne:
+- Imperatywne muted to dodatkowe zabezpieczenie (nie zastepuje JSX prop)
+- Usuniecie `conn.close()` zmniejsza ryzyko kolizji PeerJS
+- Usuwanie martwego kodu nie wplywa na dzialanie
 
