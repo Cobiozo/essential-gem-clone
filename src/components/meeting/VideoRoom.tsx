@@ -86,6 +86,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isConnected, setIsConnected] = useState(false);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const isChatOpenRef = useRef(isChatOpen);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -1597,9 +1598,34 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     if (!isParticipantsOpen) setIsChatOpen(false);
   };
 
+  // Sync isChatOpenRef
+  useEffect(() => { isChatOpenRef.current = isChatOpen; }, [isChatOpen]);
+
+  // Persistent realtime subscription for unread chat badge (lives outside MeetingChat)
+  useEffect(() => {
+    const channel = supabase
+      .channel(`meeting-chat-unread:${roomId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'meeting_chat_messages',
+        filter: `room_id=eq.${roomId}`,
+      }, (payload) => {
+        const msg = payload.new as any;
+        const isOwn = guestTokenId
+          ? msg.guest_token_id === guestTokenId
+          : msg.user_id === user?.id;
+        if (!isOwn && !isChatOpenRef.current) {
+          setUnreadChatCount(prev => prev + 1);
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [roomId, user?.id, guestTokenId]);
+
   const handleNewChatMessage = useCallback(() => {
-    if (!isChatOpen) setUnreadChatCount(prev => prev + 1);
-  }, [isChatOpen]);
+    // Keep as fallback for when chat is open (MeetingChat also calls this)
+  }, []);
 
   // Background change handler
   const handleBackgroundChange = useCallback(async (newMode: BackgroundMode, imageSrc?: string) => {
