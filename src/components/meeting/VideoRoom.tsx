@@ -428,6 +428,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     const handleBeforeUnload = () => {
       if (cleanupDoneRef.current) return;
       cleanupDoneRef.current = true;
+
+      // Broadcast peer-left synchronicznie (best-effort)
+      const peerId = peerRef.current?.id;
+      if (peerId && channelRef.current) {
+        try {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'peer-left',
+            payload: { peerId }
+          });
+        } catch {}
+      }
+
       localStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
       connectionsRef.current.forEach(conn => { try { conn.close(); } catch {} });
       if (peerRef.current) { try { peerRef.current.destroy(); } catch {} }
@@ -530,8 +543,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               const missCount = (peerMissCountRef.current.get(p.peerId) || 0) + 1;
               peerMissCountRef.current.set(p.peerId, missCount);
 
-              if (missCount >= 3) {
-                // 3 consecutive misses + no live connection -> remove locally
+              if (missCount >= 2) {
+                // 2 consecutive misses + no live connection -> remove locally
                 toRemove.push(p.peerId);
                 peerMissCountRef.current.delete(p.peerId);
               }
@@ -546,7 +559,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           });
 
           if (toRemove.length > 0) {
-            console.log('[VideoRoom] Removing ghost participants after 3 misses:', toRemove);
+            console.log('[VideoRoom] Removing ghost participants after 2 misses:', toRemove);
             toRemove.forEach(peerId => {
               const conn = connectionsRef.current.get(peerId);
               if (conn) { try { conn.close(); } catch {} }
@@ -1268,6 +1281,34 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
     setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
   };
+
+  // === Realtime subscription: detect participant deactivation via DB ===
+  useEffect(() => {
+    if (!roomId) return;
+    const channel = supabase
+      .channel(`participant-status-${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'meeting_room_participants',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          if (updated.is_active === false && updated.peer_id) {
+            const myPeerId = peerRef.current?.id;
+            if (updated.peer_id !== myPeerId) {
+              console.log('[VideoRoom] Participant deactivated via DB:', updated.peer_id);
+              removePeer(updated.peer_id);
+            }
+          }
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [roomId]);
 
   // === Zmiana C: restoreCamera function using refs ===
   const restoreCamera = useCallback(async () => {
