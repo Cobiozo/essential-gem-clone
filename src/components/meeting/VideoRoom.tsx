@@ -94,6 +94,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | undefined>();
   const reconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const iceDisconnectTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const reconnectingPeersRef = useRef<Set<string>>(new Set());
   const channelReconnectAttemptsRef = useRef(0);
   const channelReconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const channelReconnectHandlerRef = useRef<(() => void) | null>(null);
@@ -490,6 +491,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           const toRemove: string[] = [];
 
           for (const p of currentParticipants) {
+            // Zmiana 4: Skip pruning for peers currently reconnecting
+            if (reconnectingPeersRef.current.has(p.peerId)) {
+              peerMissCountRef.current.delete(p.peerId);
+              continue;
+            }
             if (activePeerIds.has(p.peerId)) {
               // Present in DB - reset miss counter
               peerMissCountRef.current.delete(p.peerId);
@@ -1094,6 +1100,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     call.on('stream', (remoteStream) => {
       clearTimeout(timeout);
+      // Zmiana 5: Clear reconnecting flag on successful stream
+      reconnectingPeersRef.current.delete(call.peer);
+      reconnectAttemptsRef.current.delete(call.peer);
       setParticipants((prev) => {
         const exists = prev.find((p) => p.peerId === call.peer);
         if (exists) return prev.map((p) => p.peerId === call.peer ? { ...p, stream: remoteStream } : p);
@@ -1168,17 +1177,21 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     if (attempts >= 3) {
       console.warn(`[VideoRoom] Max reconnect attempts (3) reached for ${peerId}, marking locally unreachable`);
       reconnectAttemptsRef.current.delete(peerId);
+      // Zmiana 5: Clear reconnecting flag before final removal
+      reconnectingPeersRef.current.delete(peerId);
       // Only remove locally - do NOT update DB for remote peer
       removePeer(peerId);
       return;
     }
     reconnectAttemptsRef.current.set(peerId, attempts + 1);
+    // Zmiana 2: Mark peer as reconnecting
+    reconnectingPeersRef.current.add(peerId);
     console.log(`[VideoRoom] Reconnect attempt ${attempts + 1}/3 for ${peerId}`);
 
-    // Close old connection
+    // Zmiana 1: Delete from map BEFORE closing to prevent close handler from calling removePeer
     const oldConn = connectionsRef.current.get(peerId);
-    if (oldConn) { try { oldConn.close(); } catch {} }
     connectionsRef.current.delete(peerId);
+    if (oldConn) { try { oldConn.close(); } catch {} }
 
     // Use ref for fresh participant data
     const participant = participantsRef.current.find(p => p.peerId === peerId);
@@ -1188,10 +1201,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       if (cleanupDoneRef.current || !peerRef.current || !localStreamRef.current) return;
       callPeer(peerId, participant?.displayName || 'Uczestnik', localStreamRef.current!, participant?.avatarUrl, participant?.userId);
     }, 2000);
-  }, [roomId]); // removed 'participants' dependency
+  }, [roomId]);
 
   const removePeer = (peerId: string) => {
     connectionsRef.current.delete(peerId);
+    // Zmiana 3: Don't remove from UI during reconnect - keep with stream=null
+    if (reconnectingPeersRef.current.has(peerId)) {
+      setParticipants(prev => prev.map(p =>
+        p.peerId === peerId ? { ...p, stream: null } : p
+      ));
+      return;
+    }
     setParticipants((prev) => prev.filter((p) => p.peerId !== peerId));
   };
 
