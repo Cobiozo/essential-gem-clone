@@ -10,7 +10,7 @@ import type { MeetingSettings } from './MeetingSettingsDialog';
 
 interface MeetingLobbyProps {
   displayName: string;
-  onJoin: (audioEnabled: boolean, videoEnabled: boolean, settings?: MeetingSettings) => void;
+  onJoin: (audioEnabled: boolean, videoEnabled: boolean, settings?: MeetingSettings, stream?: MediaStream) => void;
   isConnecting: boolean;
   isHost?: boolean;
   roomId?: string;
@@ -84,8 +84,8 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   }, [audioEnabled, previewStream]);
 
   const handleJoin = () => {
-    previewStream?.getTracks().forEach((t) => t.stop());
-    onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined);
+    // Pass the existing stream to VideoRoom instead of stopping it
+    onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined, previewStream || undefined);
   };
 
   return (

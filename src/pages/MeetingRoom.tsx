@@ -44,6 +44,7 @@ const MeetingRoomPage: React.FC = () => {
   const [meetingPassword, setMeetingPassword] = useState<string | null>(null);
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
+  const [lobbyStream, setLobbyStream] = useState<MediaStream | null>(null);
   const statusRef = useRef(status);
   statusRef.current = status;
 
@@ -177,10 +178,11 @@ const MeetingRoomPage: React.FC = () => {
     setStatus('lobby');
   };
 
-  const handleJoin = (audio: boolean, video: boolean, settings?: import('@/components/meeting/MeetingSettingsDialog').MeetingSettings) => {
+  const handleJoin = (audio: boolean, video: boolean, settings?: import('@/components/meeting/MeetingSettingsDialog').MeetingSettings, stream?: MediaStream) => {
     setAudioEnabled(audio);
     setVideoEnabled(video);
     if (settings) setInitialSettings(settings);
+    if (stream) setLobbyStream(stream);
     setIsConnecting(true);
     setTimeout(() => {
       setStatus('joined');
@@ -310,6 +312,7 @@ const MeetingRoomPage: React.FC = () => {
       initialSettings={initialSettings}
       guestMode={!!guestData}
       guestTokenId={guestData?.guestTokenId}
+      initialStream={lobbyStream}
     />
   );
 };
