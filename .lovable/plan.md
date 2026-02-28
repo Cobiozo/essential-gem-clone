@@ -1,51 +1,60 @@
 
 
-## Naprawa PiP: pokazuje lokalne video zamiast zdalnego mowcy
+## Naprawa: Mobile nie słyszy desktop (jednokierunkowy problem audio)
 
 ### Przyczyna
 
-W `handleTogglePiP` i auto-PiP (`handleVisibility`), logika najpierw sprawdza `activeVideoRef.current`. Ten ref jest ustawiany przez VideoGrid na aktywnego mowce -- ale gdy uzytkownik jest sam lub jest "aktywny" (np. w speaker mode z indeksem 0), ref wskazuje na LOKALNE video. Warunek `!pipVideo?.srcObject || !pipVideo.videoWidth` NIE sprawdza czy to lokalne video, wiec przechodzi bezposrednio do `requestPictureInPicture()` z lokalnym obrazem.
+W `VideoRoom.tsx` linia 177, handler `unlockAudio` sprawdza warunek:
+```
+if (video.paused && video.srcObject && ...)
+```
 
-Filtr `data-local-video !== 'true'` istnieje tylko w fallbacku (gdy activeVideoRef jest stale), ale nigdy nie jest stosowany do samego `activeVideoRef.current`.
+Problem: gdy `playVideoSafe` nie moze odtworzyc z dzwiekiem (autoplay policy na mobile), ustawia `video.muted = true` i odtwarza wyciszone. Video NIE jest `paused` (gra, ale muted). Handler `unlockAudio` szuka tylko `paused` video, wiec pomija wyciszone -- video pozostaje muted na zawsze.
+
+Desktop nie ma tego problemu, bo autoplay z dzwiekiem jest dozwolone na desktopie.
 
 ### Rozwiazanie
 
-**Plik: `src/components/meeting/VideoRoom.tsx`**
+**Plik: `src/components/meeting/VideoRoom.tsx`** (linia 175-181)
 
-Zmienic warunek sprawdzajacy `activeVideoRef.current` -- dodac weryfikacje czy to nie jest lokalne video (chyba ze nie ma zadnych zdalnych uczestnikow):
+Zmienic warunek w unlockAudio, aby odblokwywac takze video ktore gra ale jest wyciszone (muted):
 
-**handleTogglePiP (linia 1426-1434):**
 ```text
-let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
+// PRZED (blad):
+document.querySelectorAll('video').forEach((v) => {
+  const video = v as HTMLVideoElement;
+  if (video.paused && video.srcObject && video.getAttribute('data-local-video') !== 'true') {
+    video.muted = false;
+    video.play().catch(() => {});
+  }
+});
 
-// Odrzuc activeVideoRef jesli to lokalne video (chyba ze jestesmy sami)
-const hasRemoteParticipants = remoteParticipants.length > 0;
-if (pipVideo?.getAttribute('data-local-video') === 'true' && hasRemoteParticipants) {
-  pipVideo = null; // wymus fallback do zdalnego video
-}
-
-if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
-  const allVideos = document.querySelectorAll('video');
-  pipVideo = Array.from(allVideos).find(
-    v => v.srcObject && v.videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
-  ) || (hasRemoteParticipants ? null : Array.from(allVideos).find(
-    v => v.srcObject && v.videoWidth > 0 && !v.paused
-  )) || null;
-}
+// PO (poprawka):
+document.querySelectorAll('video').forEach((v) => {
+  const video = v as HTMLVideoElement;
+  if (video.srcObject && video.getAttribute('data-local-video') !== 'true') {
+    if (video.paused) {
+      video.muted = false;
+      video.play().catch(() => {});
+    } else if (video.muted) {
+      // Video gra wyciszone (autoplay fallback) - odblokuj dzwiek
+      video.muted = false;
+    }
+  }
+});
 ```
 
-**Auto-PiP handleVisibility (linia 1459-1467):**
-Identyczna zmiana -- odrzucic lokalne video z activeVideoRef gdy sa zdalni uczestnicy, i w fallbacku nie wracac do lokalnego video jesli sa zdalni.
+### Dlaczego to naprawi problem
 
-### Dokladne zmiany
+Kazde dotknięcie ekranu na mobile teraz:
+1. Odblokuje wstrzymane (paused) zdalne video -- jak wczesniej
+2. NOWE: Odblokuje wyciszone (muted) ale grajace zdalne video -- naprawa glownego bugu
 
-| Miejsce | Zmiana |
-|---------|--------|
-| handleTogglePiP (linia 1426) | Dodac sprawdzenie `data-local-video` na activeVideoRef + `remoteParticipants.length` |
-| handleVisibility (linia 1459) | Analogiczna zmiana |
-| Fallback w obu miejscach | Usunac ostatni fallback (ktory lapie dowolne video) gdy sa zdalni uczestnicy |
+Desktop nie jest dotkniety ta zmiana, bo tam autoplay dziala bez wyciszenia.
 
-### Potrzebna zmienna
+### Plik do zmiany
 
-Zmienna `remoteParticipants` jest juz dostepna w komponencie (linia ~220-230 lub stan). Nalezy zweryfikowac jej dokladna nazwe w kodzie.
+| Plik | Zmiana |
+|------|--------|
+| `src/components/meeting/VideoRoom.tsx` | Linia 175-181: rozszerzyc warunek unlockAudio o muted (nie tylko paused) video |
 
