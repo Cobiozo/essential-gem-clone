@@ -189,7 +189,7 @@ const ThumbnailTile: React.FC<{
           ref={videoRef}
           autoPlay
           playsInline
-          muted={participant.isLocal}
+          muted
           className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`}
         />
       ) : (
@@ -422,7 +422,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   if (!showVideo) return <User className="h-5 w-5 text-zinc-500" />;
 
   return (
-    <video ref={ref} autoPlay playsInline muted={participant.isLocal}
+    <video ref={ref} autoPlay playsInline muted
       className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`} />
   );
 };
