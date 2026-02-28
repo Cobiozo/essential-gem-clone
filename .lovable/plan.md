@@ -1,105 +1,102 @@
 
-
-# Naprawa plynnosci obrazu i konturu tla
+# Naprawa wyswietlania wlasnych tel
 
 ## Diagnoza
 
-### Problem 1: Obraz sie zacina (spadek FPS)
-Przyczyna: ostatnie zmiany drastycznie zwiekszly koszt kazdej klatki:
-- Rozdzielczosc przetwarzania 960px — to ~2x wiecej pikseli niz 640px (920k vs 410k pikseli)
-- Podwojne erode/dilate — 4 pelne iteracje po masce (2x erode + 2x dilate) zamiast 2
-- Kontrastowanie z sila 10 i 8 — ciezsze obliczenia sigmoid na kazdym pikselu
-- Te operacje lacznie moga przekraczac 16ms budzet klatki na srednim sprzecie
+Upload dziala poprawnie — w bazie Supabase Storage jest 4 plikow w bucket `meeting-backgrounds`. Ale w UI widac "Twoje tla (0/3)" — hook `useCustomBackgrounds` nie pobiera listy.
 
-### Problem 2: Kontur nadal niedokladny
-Agresywniejsze parametry nie pomagaja, bo problem jest fundamentalny — model `selfie_multiclass_256x256` produkuje maske o rozdzielczosci 256x256 niezaleznie od rozmiaru wejscia. Zwiekszanie inputu do 960px nie daje lepszej maski, tylko spowalnia skalowanie.
+### Prawdopodobna przyczyna
+1. **Race condition**: `useEffect` z `listBackgrounds` uruchamia sie na mount, ale `user` z `useAuth` moze byc jeszcze `null`. Callback `listBackgrounds` ma `if (!user) return` — wiec nic nie robi. Potem `user` sie zmienia, ale `listBackgrounds` jest memoizowane przez `useCallback` z zaleznoscia `[user]` — wiec powinno sie odpalic ponownie przez `useEffect([listBackgrounds])`. Jednak jesli `user` przychodzi z opoznieniem i komponent re-renderuje sie wielokrotnie, moze byc problem z timingiem.
 
-### Problem 3: Upload wlasnego tla nie dziala
-Prawdopodobnie bucket `meeting-backgrounds` nie istnieje lub RLS blokuje operacje. Trzeba zweryfikowac i ewentualnie poprawic logike uploadu.
+2. **4 pliki w storage, limit 3**: Uzytkownik przeslal 4 pliki (bo walidacja `customImages.length >= 3` bazuje na stanie ktory moze byc 0 w momencie uploadu). Trzeba najpierw usunac nadmiarowy plik i poprawic walidacje.
+
+3. **Ciche bledy**: `listBackgrounds` lapie bledy w `catch` i loguje je do konsoli, ale uzytkownik nic nie widzi. Mozliwe ze `list()` zwraca blad ktory jest polykany.
 
 ## Plan naprawy
 
-### 1. Przywrocenie plynnosci — zmniejszenie kosztu per-klatka
+### Plik 1: `src/hooks/useCustomBackgrounds.ts`
 
-**Plik: `VideoBackgroundProcessor.ts`**
+**a) Dodanie retry i lepszego logowania:**
+- Dodac `console.log` na poczatku `listBackgrounds` zeby widziec czy sie odpala
+- Dodac retry z opoznieniem jesli `user` jest jeszcze null
 
-a) **Rozdzielczosc przetwarzania z powrotem na 640px** (desktop, 1 uczestnik):
-   - 960px nie daje lepszej maski (model i tak produkuje 256x256)
-   - 640px to optymalne tlo: wystarczajaco duze dla kompozycji, szybkie do przetworzenia
+**b) Usunac limit z list():**
+- Zamiast `limit: MAX_BACKGROUNDS` uzyc `limit: 100` — zeby zawsze pobrac wszystkie pliki
+- Walidacja limitu zostaje tylko przy uploadzie
 
-b) **Jeden przebieg erode/dilate zamiast dwoch**:
-   - Podwojny przebieg to 4 pelne iteracje po Float32Array — kosztowne
-   - Jeden przebieg (erode + dilate) wystarczy z lepszymi progami
+**c) Dodac refetch po otwarciu dropdown:**
+- Eksportowac `listBackgrounds` (jako `refetch`) z hooka
+- Wywolac `refetch` w `BackgroundSelector` gdy dropdown sie otwiera (onOpenChange)
 
-c) **Zmniejszenie sily kontrastowania**:
-   - Pre-blur: 10 -> 7 (wystarczajaco ostre, ale szybsze)
-   - Post-blur: 8 -> 5
+**d) Lepsze logowanie bledow:**
+- Toast z bledem jesli `list()` sie nie powiedzie
 
-d) **Temporal smoothing na 0.30/0.70** (zamiast 0.40/0.60):
-   - 0.40 poprzednia klatka powoduje "lag" w sledzeniu ruchu — obraz za bardzo "ciagnie" za osoba
-   - 0.30/0.70 daje plynne krawedzie bez opoznienia ruchu
+### Plik 2: `src/components/meeting/BackgroundSelector.tsx`
 
-e) **Segmentacja co 80ms zamiast 66ms** (desktop):
-   - 66ms = 15 segmentacji/s — zbyt czesto dla plynnosci
-   - 80ms = 12.5 segmentacji/s — wystarczajace, odczuwalnie lzejsze
+**a) Dodac `onOpenChange` do `DropdownMenu`:**
+- Wywolac `onRefresh?.()` callback gdy menu sie otwiera
+- To zapewni ze lista jest aktualna za kazdym razem
 
-### 2. Lepsza jakosc konturu — optymalizacja progow
+**b) Dodac prop `onRefresh`:**
+- Nowy opcjonalny prop w `BackgroundSelectorProps`
 
-**Plik: `VideoBackgroundProcessor.ts`**
+### Plik 3: `src/components/meeting/MeetingControls.tsx`
 
-Zamiast agresywnych progow ktore "wygryzaja" sylwetke, uzyc lagodniejszych z lepszym blendem:
+**a) Przekazac `onRefresh` do BackgroundSelector:**
+- Podlaczyc do `refetch` z hooka `useCustomBackgrounds`
 
+### Plik 4: `src/components/meeting/VideoRoom.tsx`
+
+**a) Eksportowac `refetch` z `useCustomBackgrounds`:**
+- Przekazac jako nowy prop `onRefreshBackgrounds` do `MeetingControls`
+
+### Dodatkowe: Wyczyscic nadmiarowe pliki w storage
+
+Uzytkownik ma 4 pliki ale limit to 3. Nie bedzie SQL migracji — po prostu hook pokaze wszystkie pliki (bez limitu w list) i pozwoli usunac nadmiarowe przez UI.
+
+## Zmiany techniczne
+
+### `useCustomBackgrounds.ts`
 ```text
-                  Obecne      Nowe
-blur-light:
-  thresholdHigh   0.75        0.65
-  thresholdLow    0.50        0.35
+Zmiana 1: list() bez limitu
+  - limit: MAX_BACKGROUNDS  ->  limit: 100
 
-blur-heavy:
-  thresholdHigh   0.70        0.60
-  thresholdLow    0.45        0.30
+Zmiana 2: eksport refetch
+  - return { ..., refetch: listBackgrounds }
 
-image:
-  thresholdHigh   0.75        0.65
-  thresholdLow    0.50        0.35
+Zmiana 3: lepsze logowanie
+  - console.log na poczatku listBackgrounds
+  - console.log po uzyskaniu wynikow
 ```
 
-Szersza strefa przejsciowa (0.30) daje plynniejszy gradient alfa — zamiast ostrego "wyciecia" z artefaktami, jest lagodne przejscie. To wlasnie tak dziala Zoom/Teams/Google Meet — nie maja idealnie ostrego konturu, ale maja plynne przejscie ktore wyglada naturalnie.
+### `BackgroundSelector.tsx`
+```text
+Zmiana 1: nowy prop onRefresh
+  - onRefresh?: () => void
 
-Blur maski: 2px -> 3px — lagodniejsze wygladzanie krawedzi.
-
-### 3. Naprawa uploadu wlasnych tel
-
-**Plik: `BackgroundSelector.tsx`**
-
-Problem: `DropdownMenuItem` domyslnie zamyka menu przy `onClick`. Nawet z `setTimeout`, jesli dropdown jest "controlled" (nie jest tutaj, ale Radix moze miec wewnetrzny stan), ref moze stracic focus. Rozwiazanie: uzyc `onSelect` z `preventDefault()` zamiast `onClick` z `setTimeout`, co zapobiega zamknieciu menu i pozwala otworzyc dialog plikow:
-
-```typescript
-<DropdownMenuItem
-  onSelect={(e) => {
-    e.preventDefault();
-    fileInputRef.current?.click();
-  }}
->
+Zmiana 2: onOpenChange na DropdownMenu
+  - <DropdownMenu onOpenChange={(open) => { if (open) onRefresh?.() }}>
 ```
 
-To jest oficjalny sposob Radix na zapobieganie zamknieciu menu.
+### `MeetingControls.tsx`
+```text
+Zmiana 1: nowy prop onRefreshBackgrounds
+  - onRefreshBackgrounds?: () => void
 
-**Plik: `useCustomBackgrounds.ts`**
+Zmiana 2: przekazanie do BackgroundSelector
+  - onRefresh={onRefreshBackgrounds}
+```
 
-Dodanie lepszego error handlingu i logowania — jesli bucket nie istnieje lub RLS blokuje, uzytkownik zobaczy jasny komunikat bledu.
+### `VideoRoom.tsx`
+```text
+Zmiana 1: eksport refetch z useCustomBackgrounds
+  - refetch: refetchBackgrounds
 
-## Podsumowanie zmian
-
-| Plik | Zmiana |
-|------|--------|
-| `VideoBackgroundProcessor.ts` | maxProcessWidth 960->640, segmentationIntervalMs 66->80, 1x erode/dilate, kontrast 7/5, temporal 0.30/0.70, progi 0.65/0.35, blur maski 3px |
-| `BackgroundSelector.tsx` | `onSelect` z `preventDefault()` zamiast `onClick` z `setTimeout` |
-| `useCustomBackgrounds.ts` | Lepsze logowanie bledow uploadu |
+Zmiana 2: przekazanie do MeetingControls
+  - onRefreshBackgrounds={refetchBackgrounds}
+```
 
 ## Efekt
-
-- **Plynnosc**: ~50% mniejszy koszt per-klatka (mniej pikseli, mniej iteracji, lzejsze operacje)
-- **Kontur**: lagodne, naturalne przejscie (jak Zoom/Teams) zamiast ostrego z artefaktami
-- **Upload**: naprawiony trigger dialogu plikow
-
+- Lista wlasnych tel bedzie odswiezana za kazdym razem gdy uzytkownik otworzy menu tla
+- Nie bedzie race condition — nawet jesli poczatkowy fetch sie nie powiedzie, kolejne otwarcie menu pobierze dane
+- Uzytkownik zobaczy swoje 4 przeslane tla i bedzie mogl usunac nadmiarowe
