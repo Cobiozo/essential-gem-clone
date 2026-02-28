@@ -1,9 +1,11 @@
 import React from 'react';
-import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square, LayoutGrid, UserCheck, Presentation, Settings } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Monitor, PhoneOff, Users, MessageCircle, PictureInPicture2, Square, LayoutGrid, UserCheck, Presentation, Settings, Palette } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MeetingSettingsDialog, type MeetingSettings } from './MeetingSettingsDialog';
+import { BackgroundSelector } from './BackgroundSelector';
 import type { ViewMode } from './VideoGrid';
+import type { BackgroundMode } from './VideoBackgroundProcessor';
 
 interface MeetingControlsProps {
   isMuted: boolean;
@@ -36,6 +38,13 @@ interface MeetingControlsProps {
   canScreenShare?: boolean;
   // Guest mode
   guestMode?: boolean;
+  // Background props
+  bgMode?: BackgroundMode;
+  bgSelectedImage?: string | null;
+  bgIsLoading?: boolean;
+  bgIsSupported?: boolean;
+  backgroundImages?: string[];
+  onBackgroundChange?: (mode: BackgroundMode, imageSrc?: string) => void;
 }
 
 const ControlButton: React.FC<{
@@ -125,6 +134,12 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   canCamera = true,
   canScreenShare = true,
   guestMode = false,
+  bgMode = 'none',
+  bgSelectedImage = null,
+  bgIsLoading = false,
+  bgIsSupported = false,
+  backgroundImages = [],
+  onBackgroundChange,
 }) => {
   const canManage = isHost || isCoHost;
   const disabledTip = 'Prowadzący wyłączył tę funkcję';
@@ -211,6 +226,28 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         <MeetingSettingsDialog
           settings={meetingSettings}
           onSettingsChange={onMeetingSettingsChange}
+        />
+      )}
+
+      {/* Background selector */}
+      {bgIsSupported && onBackgroundChange && (
+        <BackgroundSelector
+          currentMode={bgMode || 'none'}
+          selectedImage={bgSelectedImage || null}
+          backgroundImages={backgroundImages || []}
+          isLoading={bgIsLoading || false}
+          isSupported={bgIsSupported || false}
+          onSelect={(mode, src) => onBackgroundChange(mode, src)}
+          trigger={
+            <button className="flex flex-col items-center gap-1 min-w-[48px]">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+                bgMode && bgMode !== 'none' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-zinc-700 hover:bg-zinc-600'
+              }`}>
+                <Palette className="h-5 w-5 text-white" />
+              </div>
+              <span className="text-[10px] text-zinc-400 font-medium">Tło</span>
+            </button>
+          }
         />
       )}
 
