@@ -970,7 +970,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                   const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('user_id', p.user_id).single();
                   avatarUrl = profile?.avatar_url || undefined;
                 }
-                callPeer(p.peer_id, p.display_name || 'Uczestnik', stream, avatarUrl, p.user_id || undefined);
+                callPeer(p.peer_id, p.display_name || 'Uczestnik', localStreamRef.current || stream, avatarUrl, p.user_id || undefined);
               }
             }
           }
@@ -1016,7 +1016,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             callerAvatar = prof?.avatar_url || undefined;
           }
 
-          call.answer(stream);
+          call.answer(localStreamRef.current || stream);
           handleCall(call, name, callerAvatar, callerUserId);
         });
 
@@ -1060,7 +1060,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Zmiana 6: callPeer uses ref for localAvatarUrl to avoid stale closure
   const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
-    const call = peerRef.current.call(remotePeerId, stream, {
+    const activeStream = localStreamRef.current || stream;
+    const call = peerRef.current.call(remotePeerId, activeStream, {
       metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrlRef.current },
     });
     if (call) handleCall(call, name, avatarUrl, userId);
