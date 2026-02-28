@@ -159,28 +159,30 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     };
   }, []);
 
-  // Audio unlock on first user gesture (mobile autoplay policy)
+  // Persistent audio/video unlock on user gesture (mobile autoplay policy)
+  const audioUnlockedRef = useRef(false);
   useEffect(() => {
-    let unlocked = false;
     const unlockAudio = () => {
-      if (unlocked) return;
-      unlocked = true;
-      try {
-        const ctx = new AudioContext();
-        ctx.resume().then(() => ctx.close()).catch(() => {});
-      } catch {}
-      // Try to unmute any force-muted remote videos
+      // AudioContext resume - only once
+      if (!audioUnlockedRef.current) {
+        audioUnlockedRef.current = true;
+        try {
+          const ctx = new AudioContext();
+          ctx.resume().then(() => ctx.close()).catch(() => {});
+        } catch {}
+      }
+      // Always: try to unlock paused remote videos on every user gesture
       document.querySelectorAll('video').forEach((v) => {
         const video = v as HTMLVideoElement;
-        if (video.muted && !video.dataset.localVideo) {
+        if (video.paused && video.srcObject && video.getAttribute('data-local-video') !== 'true') {
           video.muted = false;
           video.play().catch(() => {});
         }
       });
       setAudioBlocked(false);
     };
-    document.addEventListener('touchstart', unlockAudio, { once: true });
-    document.addEventListener('click', unlockAudio, { once: true });
+    document.addEventListener('touchstart', unlockAudio);
+    document.addEventListener('click', unlockAudio);
     return () => {
       document.removeEventListener('touchstart', unlockAudio);
       document.removeEventListener('click', unlockAudio);
