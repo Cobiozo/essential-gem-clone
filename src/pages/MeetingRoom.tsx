@@ -20,7 +20,7 @@ interface GuestData {
 const MeetingRoomPage: React.FC = () => {
   const { roomId } = useParams<{ roomId: string }>();
   const [searchParams] = useSearchParams();
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const isGuestMode = searchParams.get('guest') === 'true';
@@ -140,7 +140,8 @@ const MeetingRoomPage: React.FC = () => {
     }
 
     if (!userRef.current) {
-      if (!user) {
+      // Wait for auth to finish loading before declaring unauthorized
+      if (!authLoading && !user) {
         setStatus('unauthorized');
       }
       return;
@@ -216,7 +217,7 @@ const MeetingRoomPage: React.FC = () => {
     };
 
     verifyAccess();
-  }, [roomId, user?.id, isGuestMode]);
+  }, [roomId, user?.id, isGuestMode, authLoading]);
 
   const handleGuestSuccess = (data: { token: string; guestTokenId: string; displayName: string; eventTitle: string }) => {
     setGuestData({
