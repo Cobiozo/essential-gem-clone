@@ -1,75 +1,87 @@
 
+# Poprawa jakosci maski alfa w efektach tla
 
-## Naprawa echa: "slyszę siebie" podczas udostepniania ekranu
+## Problem
 
-### Przyczyna
+Na screenshotach widac:
+- Nierowe, "poszarpane" krawedzie wokol sylwetki
+- Tlo przebijajace przez osobe (szczegolnie na wlosach i ramionach)
+- Brak plynnego przejscia miedzy osoba a tlem
+- Migotanie maski miedzy klatkami
 
-Ostatnia poprawka audio dodala do `playVideoSafe` logike:
-```
-if (userHasInteracted) video.muted = false;
-```
+## Przyczyny w aktualnym kodzie
 
-To **nadpisuje** celowe wyciszenie kafelkow wideo w trybach Speaker i Multi-Speaker. W tych trybach audio jest odtwarzane przez oddzielne ukryte elementy `<video>` (AudioElement), a kafelki sa celowo wyciszane dla poprawnego dzialania AEC (echo cancellation). Gdy `playVideoSafe` wymusza `muted=false`, audio gra zarowno z kafelka, jak i z AudioElement — co powoduje echo (uzytkownik slyszy siebie).
+1. **Model segmentacji**: Uzyty `selfie_segmenter` (float16) to podstawowy model MediaPipe. Istnieje lepszy model `selfie_multiclass_256x256` z dokladniejsza segmentacja.
 
-### Rozwiazanie
+2. **Progi alfa zbyt szerokie**: `personThresholdHigh: 0.55`, `personThresholdLow: 0.10-0.15`. Strefa przejsciowa jest za szeroka (0.40 zakresu), co powoduje duze "halo" wokol osoby.
 
-Zmienic `playVideoSafe` tak, aby **nie nadpisywalo** stanu `muted` ustawionego wczesniej przez komponent. Logika "sprobuj z dzwiekiem jesli uzytkownik juz kliknal" powinna dzialac **tylko** dla elementow, ktore nie zostaly celowo wyciszone.
+3. **Wygaldzanie maski za slabe**: Tylko jeden przebieg `blur(4px)` na masce. Nie usuwa szumu pikselowego ani nie wygladzaja krawedzi wystarczajaco.
 
-### Zmiany
+4. **Brak wygaldzania czasowego**: Kazda klatka ma niezalezna maske — powoduje migotanie na krawedziach sylwetki.
 
-**Plik: `src/components/meeting/VideoGrid.tsx`**
+## Rozwiazanie
 
-1. **`playVideoSafe`** — nie ustawiac `video.muted = false` bezwarunkowo. Zamiast tego: jesli video jest juz `muted` (ustawione przez komponent, np. `video.muted = !playAudio`), nie zmieniac tego. Flaga `userHasInteracted` powinna wplywac tylko na elementy, ktore nie maja jawnego wyciszenia:
+### 1. Lepszy model segmentacji
 
-```
-const playVideoSafe = async (
-  video: HTMLVideoElement, 
-  isLocal: boolean, 
-  onAudioBlocked?: () => void
-) => {
-  if (isLocal) {
-    video.play().catch(() => {});
-    return;
-  }
-  // Respect the muted state already set by the component.
-  // Only try unmuted play for elements that weren't explicitly muted.
-  try {
-    await video.play();
-  } catch {
-    video.muted = true;
-    try {
-      await video.play();
-      console.warn('[VideoGrid] Autoplay blocked — playing muted');
-      onAudioBlocked?.();
-    } catch (e2) {
-      console.error('[VideoGrid] Even muted play() failed:', e2);
-    }
-  }
-};
+Zamiana na `selfie_multiclass_256x256` — model wieloklasowy MediaPipe z lepsza separacja wlosow, twarzy, ciala i tla. Zapasowy fallback na obecny model.
+
+### 2. Zaostrzone progi alfa
+
+Obecne wartosci vs nowe:
+
+```text
+                    Obecne          Nowe
+blur-light:
+  thresholdHigh     0.55            0.65
+  thresholdLow      0.15            0.40
+
+blur-heavy:
+  thresholdHigh     0.55            0.60
+  thresholdLow      0.10            0.35
+
+image:
+  thresholdHigh     0.55            0.65
+  thresholdLow      0.10            0.40
 ```
 
-2. **`AudioElement`** — analogicznie: usunac nadpisywanie `el.muted = false`. AudioElement i tak powinien grac z dzwiekiem (nie jest celowo wyciszany), wiec wystarczy nie ustawiac `muted = true` na start:
+Wezsza strefa przejsciowa (0.25 zamiast 0.40-0.45) da ostrzejsze krawedzie.
 
+### 3. Wieloprzebiegowe wygaldzanie maski
+
+Zamiast jednego `blur(4px)`:
+- Krok 1: Kontrastowanie maski (sigmoid/power curve) — wzmacnia roznice miedzy osoba (blisko 1.0) a tlem (blisko 0.0), eliminujac "szare" piksele
+- Krok 2: Lekki blur maski (3px) — wygladzenie krawedzi bez utraty ostrosci
+- Krok 3: Ponowne kontrastowanie po blurze — przywraca ostre krawedzie
+
+### 4. Wygaldzanie czasowe (temporal smoothing)
+
+Blend biezacej maski z poprzednia klatka:
+```text
+finalMask[i] = previousMask[i] * 0.3 + currentMask[i] * 0.7
 ```
-// Zamiast: if (userHasInteracted) el.muted = false;
-// Po prostu: nie ustawiac muted na poczatku (domyslnie false)
-el.play().catch(() => {
-  el.muted = true;
-  el.play().then(() => {
-    onAudioBlocked?.();
-  }).catch(() => {});
-});
-```
+Redukuje migotanie na krawedziach miedzy klatkami, zachowujac reaktywnosc na ruch.
 
-3. **`ScreenShareLayout`** — bez zmian. Video ekranu ma juz `muted={!shouldUnmute}` kontrolowane przez `isAudioUnlocked`/`userHasInteracted`, co jest poprawne (screen share nie jest czescia AEC pipeline).
+### 5. Wyzsze limity rozdzielczosci przetwarzania
 
-### Podsumowanie zmian
+Obecna maksymalna szerokosc to 640px (desktop, 1 uczestnik). Zwiekszenie do 720px da wiecej detali w masce bez znaczacego spadku wydajnosci na nowoczesnym GPU.
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/meeting/VideoGrid.tsx` | Usunac nadpisywanie `muted` w `playVideoSafe` i `AudioElement` — respektowac stan ustawiony przez komponent |
+## Zmiany techniczne
 
-### Ryzyko
+### Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
 
-Niskie. Przywracamy oryginalne zachowanie `playVideoSafe` z jednym ulepszeniem: screen share video nadal korzysta z dynamicznego `muted` (co jest poprawne). Kafelki w Speaker/Multi-Speaker beda znow poprawnie wyciszane, eliminujac echo.
+1. **Model URL**: Zamiana na `selfie_multiclass_256x256` z fallbackiem na obecny model
+2. **BLUR_PROFILES**: Nowe progi (wyzszy high, wyzszy low, wezsza strefa przejscia)
+3. **smoothMask()**: Przepisanie na wieloprzebiegowe: kontrast -> blur -> kontrast + temporal blending z poprzednia maska
+4. **DESKTOP_PROFILE.maxProcessWidth**: 640 -> 720
+5. **Nowy bufor `previousMask`**: Do temporal smoothing
 
+## Wplyw na wydajnosc
+
+- Nowy model moze byc nieco ciezszy, ale `selfie_multiclass_256x256` jest zoptymalizowany pod katem GPU i dziala porownywalna szybko
+- Dodatkowe operacje na masce (sigmoid + blend) sa tanie — operacje na Float32Array, brak dodatkowych renderow canvas
+- Zwiekszenie rozdzielczosci z 640 na 720 to ~26% wiecej pikseli, ale w ramach zapasu wydajnosciowego (overload threshold 250ms)
+- Temporal smoothing to jedna dodatkowa iteracja po masce — pomijalna koszt
+
+## Ryzyko
+
+Niskie. Wszystkie zmiany sa w jednym pliku. Fallback na obecny model zabezpiecza kompatybilnosc. Progi mozna latwo dostroic.
