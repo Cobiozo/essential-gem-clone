@@ -1220,6 +1220,31 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         } catch (e) { console.warn('[VideoRoom] replaceTrack failed:', e); }
       });
 
+      // Re-apply background effect if active
+      if (bgMode !== 'none') {
+        try {
+          const processedStream = await applyBackground(stream, bgMode, bgSelectedImage);
+          if (processedStream !== stream) {
+            localStreamRef.current = processedStream;
+            setLocalStream(processedStream);
+            const processedVideoTrack = processedStream.getVideoTracks()[0];
+            if (processedVideoTrack) {
+              connectionsRef.current.forEach((conn) => {
+                try {
+                  const senders = (conn as any).peerConnection?.getSenders() as RTCRtpSender[] | undefined;
+                  if (senders) {
+                    const videoSender = senders.find(s => s.track?.kind === 'video');
+                    if (videoSender) videoSender.replaceTrack(processedVideoTrack);
+                  }
+                } catch (e) { console.warn('[VideoRoom] replaceTrack bg failed:', e); }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('[VideoRoom] Failed to re-apply background after reacquire:', e);
+        }
+      }
+
       console.log('[VideoRoom] Stream re-acquired successfully');
       toast({ title: 'Multimedia przywrócone' });
       return stream;
@@ -1227,7 +1252,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       console.error('[VideoRoom] reacquireLocalStream failed:', err);
       return null;
     }
-  }, [toast]);
+  }, [toast, bgMode, bgSelectedImage, applyBackground]);
 
   // Controls
   const handleToggleMute = async () => {
