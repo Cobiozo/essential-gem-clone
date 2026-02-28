@@ -848,6 +848,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
             channel.on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
               if (payload.peerId !== peerId && !cancelled) {
+                // Deduplikacja po userId: usun stary wpis tego samego uzytkownika (reconnect z nowym peerId)
+                if (payload.userId) {
+                  setParticipants(prev => {
+                    const oldEntries = prev.filter(p => p.userId === payload.userId && p.peerId !== payload.peerId);
+                    oldEntries.forEach(old => {
+                      const oldConn = connectionsRef.current.get(old.peerId);
+                      if (oldConn) { try { oldConn.close(); } catch {} }
+                      connectionsRef.current.delete(old.peerId);
+                      reconnectingPeersRef.current.delete(old.peerId);
+                    });
+                    return prev.filter(p => !(p.userId === payload.userId && p.peerId !== payload.peerId));
+                  });
+                }
                 callPeer(payload.peerId, payload.displayName, stream, undefined, payload.userId);
               }
             });
@@ -1052,6 +1065,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             callerAvatar = prof?.avatar_url || undefined;
           }
 
+          // Deduplikacja po userId: usun stare wpisy tego samego uzytkownika przed przyjęciem nowego połączenia
+          if (callerUserId) {
+            setParticipants(prev => {
+              const oldEntries = prev.filter(p => p.userId === callerUserId && p.peerId !== call.peer);
+              oldEntries.forEach(old => {
+                const oldConn = connectionsRef.current.get(old.peerId);
+                if (oldConn) { try { oldConn.close(); } catch {} }
+                connectionsRef.current.delete(old.peerId);
+                reconnectingPeersRef.current.delete(old.peerId);
+              });
+              return prev.filter(p => !(p.userId === callerUserId && p.peerId !== call.peer));
+            });
+          }
+
           call.answer(localStreamRef.current || stream);
           handleCall(call, name, callerAvatar, callerUserId);
         });
@@ -1120,7 +1147,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       setParticipants((prev) => {
         const exists = prev.find((p) => p.peerId === call.peer);
         if (exists) return prev.map((p) => p.peerId === call.peer ? { ...p, stream: remoteStream } : p);
-        return [...prev, { peerId: call.peer, displayName: name, stream: remoteStream, avatarUrl, userId }];
+
+        // Deduplikacja po userId: usun stare wpisy tego samego uzytkownika z innym peerId
+        let cleaned = prev;
+        if (userId) {
+          const oldEntries = prev.filter(p => p.userId === userId && p.peerId !== call.peer);
+          oldEntries.forEach(old => {
+            const oldConn = connectionsRef.current.get(old.peerId);
+            if (oldConn) { try { oldConn.close(); } catch {} }
+            connectionsRef.current.delete(old.peerId);
+          });
+          cleaned = prev.filter(p => !(p.userId === userId && p.peerId !== call.peer));
+        }
+
+        return [...cleaned, { peerId: call.peer, displayName: name, stream: remoteStream, avatarUrl, userId }];
       });
 
       // === Zmiana B (part): Track ended listeners for remote stream reconnect ===
