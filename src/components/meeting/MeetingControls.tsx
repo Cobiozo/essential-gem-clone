@@ -36,6 +36,7 @@ interface MeetingControlsProps {
   canMicrophone?: boolean;
   canCamera?: boolean;
   canScreenShare?: boolean;
+  isScreenShareSupported?: boolean;
   // Guest mode
   guestMode?: boolean;
   // Background props
@@ -134,6 +135,7 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   canMicrophone = true,
   canCamera = true,
   canScreenShare = true,
+  isScreenShareSupported = true,
   guestMode = false,
   bgMode = 'none',
   bgSelectedImage = null,
@@ -172,8 +174,10 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
           label="Ekran"
           onClick={onToggleScreenShare}
           active={isScreenSharing}
-          disabled={!canScreenShare && !canManage}
-          disabledTooltip={disabledTip}
+          disabled={(!canScreenShare && !canManage) || !isScreenShareSupported}
+          disabledTooltip={!isScreenShareSupported 
+            ? 'Udostępnianie ekranu nie jest obsługiwane na tym urządzeniu' 
+            : disabledTip}
         />
       )}
 

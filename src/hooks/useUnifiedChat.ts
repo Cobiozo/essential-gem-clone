@@ -727,21 +727,36 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     if (!user) return;
 
     try {
-      // Get unread messages where current user is recipient
-      const { data, error } = await supabase
+      // Get unread broadcast messages where current user is recipient
+      const { data: broadcastData, error: broadcastError } = await supabase
         .from('role_chat_messages')
         .select('sender_role')
         .eq('recipient_role', currentRole)
         .eq('is_read', false)
         .or(`recipient_id.eq.${user.id},recipient_id.is.null`);
 
-      if (error) throw error;
+      if (broadcastError) throw broadcastError;
 
       const counts = new Map<string, number>();
-      (data || []).forEach(m => {
+      (broadcastData || []).forEach(m => {
         const key = `incoming-${m.sender_role}`;
         counts.set(key, (counts.get(key) || 0) + 1);
       });
+
+      // Get unread direct messages (DMs) where current user is recipient
+      const { data: dmData, error: dmError } = await supabase
+        .from('role_chat_messages')
+        .select('sender_id')
+        .eq('recipient_id', user.id)
+        .eq('is_read', false)
+        .not('sender_id', 'eq', user.id);
+
+      if (!dmError && dmData) {
+        dmData.forEach(m => {
+          const key = `dm-${m.sender_id}`;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        });
+      }
 
       setUnreadCounts(counts);
     } catch (error) {
