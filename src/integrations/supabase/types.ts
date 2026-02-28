@@ -2050,6 +2050,41 @@ export type Database = {
           },
         ]
       }
+      event_push_reminders_sent: {
+        Row: {
+          event_id: string | null
+          guest_email: string | null
+          id: string
+          reminder_minutes: number
+          sent_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          event_id?: string | null
+          guest_email?: string | null
+          id?: string
+          reminder_minutes: number
+          sent_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          event_id?: string | null
+          guest_email?: string | null
+          id?: string
+          reminder_minutes?: number
+          sent_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_push_reminders_sent_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           cancelled_at: string | null
@@ -2160,6 +2195,8 @@ export type Database = {
           meeting_topic_id: string | null
           occurrences: Json | null
           publish_at: string | null
+          push_reminder_enabled: boolean | null
+          push_reminder_minutes: Json | null
           registration_form_config: Json | null
           requires_registration: boolean | null
           sms_reminder_enabled: boolean | null
@@ -2207,6 +2244,8 @@ export type Database = {
           meeting_topic_id?: string | null
           occurrences?: Json | null
           publish_at?: string | null
+          push_reminder_enabled?: boolean | null
+          push_reminder_minutes?: Json | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null
@@ -2254,6 +2293,8 @@ export type Database = {
           meeting_topic_id?: string | null
           occurrences?: Json | null
           publish_at?: string | null
+          push_reminder_enabled?: boolean | null
+          push_reminder_minutes?: Json | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
           sms_reminder_enabled?: boolean | null

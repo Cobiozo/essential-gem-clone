@@ -140,6 +140,9 @@ export type WebinarFormData = {
   is_external_platform?: boolean;
   external_platform_message?: string | null;
   registration_form_config?: any;
+  // Push reminder fields
+  push_reminder_enabled: boolean;
+  push_reminder_minutes: number[];
 };
 
 // Generic event form data (for team meetings, private meetings)
