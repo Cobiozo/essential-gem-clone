@@ -167,17 +167,15 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
         disabledTooltip={disabledTip}
       />
 
-      {/* Screen share - hidden for guests */}
-      {!guestMode && (
+      {/* Screen share - hidden for guests and unsupported devices */}
+      {!guestMode && isScreenShareSupported && (
         <ControlButton
           icon={<Monitor className="h-5 w-5 text-white" />}
           label="Ekran"
           onClick={onToggleScreenShare}
           active={isScreenSharing}
-          disabled={(!canScreenShare && !canManage) || !isScreenShareSupported}
-          disabledTooltip={!isScreenShareSupported 
-            ? 'Udostępnianie ekranu nie jest obsługiwane na tym urządzeniu' 
-            : disabledTip}
+          disabled={!canScreenShare && !canManage}
+          disabledTooltip={disabledTip}
         />
       )}
 
