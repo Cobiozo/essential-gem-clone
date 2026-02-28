@@ -1,110 +1,75 @@
 
-## Naprawa: uczestnik dalej widoczny po rozlaczeniu
+## Naprawa: echo w trybach speaker/multi-speaker
 
 ### Problem
 
-Gdy uczestnik zamyka karte / odswiezy strone:
-1. `beforeunload` poprawnie ustawia `is_active: false` w bazie (potwierdzone w danych)
-2. ALE broadcast `peer-left` NIE jest wysylany — jest tylko w `cleanup()` (async), a `beforeunload` ma wlasna sciezke synchroniczna ktora go pomija
-3. Heartbeat co 15s wymaga 3 pudel (45s minimum), a dodatkowo jesli stare polaczenie WebRTC raportuje stan `connected`, licznik jest resetowany — uczestnik moze nie zniknac przez minuty
+W trybach speaker/multi-speaker ten sam MediaStream (z trackami audio + video) jest przypisany jednoczesnie do:
+1. Elementu `<video>` (muted via `forceAudioMuted`) 
+2. Elementu `<audio>` (unmuted, z `AudioOnlyStreams`)
 
-### Rozwiazanie
+Przegladarki (szczegolnie Chrome) maja problemy z AEC (echo cancellation) gdy ten sam stream jest na dwoch elementach DOM jednoczesnie. Nawet muted `<video>` przetwarza track audio wewnetrznie, co "myli" algorytm AEC i powoduje echo.
 
-**Zmiana 1: Broadcast `peer-left` w `beforeunload` (VideoRoom.tsx, linia ~428)**
+W galerii kazdy stream jest na JEDNYM elemencie `<video>` -- AEC dziala poprawnie -- brak echa.
 
-Dodac probe wyslania broadcastu `peer-left` bezposrednio w `handleBeforeUnload`:
+### Rozwiazanie: rozdzielenie tracków
 
-```text
-const handleBeforeUnload = () => {
-  // ... istniejacy kod ...
-  
-  // Broadcast peer-left synchronicznie (best-effort)
-  const peerId = peerRef.current?.id;
-  if (peerId && channelRef.current) {
-    try {
-      channelRef.current.send({ 
-        type: 'broadcast', 
-        event: 'peer-left', 
-        payload: { peerId } 
-      });
-    } catch {}
-  }
-  
-  // ... reszta istniejacego kodu (fetch z keepalive) ...
-};
-```
+Zamiast przypisywac pelny stream do obu elementow, rozdzielic tracki:
+- `<video>` dostaje nowy MediaStream TYLKO z video tracks
+- `<audio>` dostaje pelny stream (lub tylko audio tracks)
 
-**Zmiana 2: Subskrypcja Realtime na `meeting_room_participants` (VideoRoom.tsx)**
+### Zmiany w `src/components/meeting/VideoGrid.tsx`
 
-Dodac nowy `useEffect` ktory subskrybuje zmiany w tabeli `meeting_room_participants` dla danego pokoju. Gdy uczestnik jest deaktywowany (`is_active: false`), natychmiast usunac go z lokalnego stanu:
+**1. VideoTile -- gdy `forceAudioMuted`, przypisac stream bez audio tracków**
+
+W useEffect ktory ustawia `video.srcObject` (linia ~122-140), gdy `forceAudioMuted` jest true, stworzyc nowy MediaStream tylko z video trackami:
 
 ```text
 useEffect(() => {
-  if (!roomId) return;
+  const video = videoRef.current;
+  if (!video || !participant.stream) return;
   
-  const channel = supabase
-    .channel(`participant-status-${roomId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'meeting_room_participants',
-        filter: `room_id=eq.${roomId}`,
-      },
-      (payload) => {
-        const updated = payload.new as any;
-        if (updated.is_active === false && updated.peer_id) {
-          // Nie usuwaj samego siebie
-          const myPeerId = peerRef.current?.id;
-          if (updated.peer_id !== myPeerId) {
-            console.log('[VideoRoom] Participant deactivated via DB:', updated.peer_id);
-            removePeer(updated.peer_id);
-          }
-        }
-      }
-    )
-    .subscribe();
-    
-  return () => { supabase.removeChannel(channel); };
-}, [roomId]);
+  // When forceAudioMuted, create video-only stream to avoid AEC confusion
+  if (forceAudioMuted) {
+    const videoTracks = participant.stream.getVideoTracks();
+    if (videoTracks.length > 0) {
+      const videoOnlyStream = new MediaStream(videoTracks);
+      video.srcObject = videoOnlyStream;
+    } else {
+      video.srcObject = participant.stream;
+    }
+  } else {
+    video.srcObject = participant.stream;
+  }
+  
+  playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+  // ... reszta handlerow loadedmetadata/loadeddata bez zmian
+}, [participant.stream, forceAudioMuted, onAudioBlocked]);
 ```
 
-**Zmiana 3: Skrocic czas ghost pruning w heartbeat (VideoRoom.tsx, linia ~533)**
+**2. Analogiczna zmiana w obsludze `addtrack`/`removetrack` (linia ~142-160)**
 
-Zmienic prog z 3 pudel na 2 pudla (30s zamiast 45s), i dodac dodatkowe sprawdzenie: jesli peer nie ma `stream` (null) i nie jest w trakcie reconnectu, usunac od razu:
+Przy reconnect (handleTrackChange) rowniez tworzyc video-only stream gdy forceAudioMuted.
 
-```text
-// W heartbeat, linia 533:
-if (missCount >= 2) {  // bylo 3, teraz 2
-  toRemove.push(p.peerId);
-  ...
-}
-```
-
-### Diagram dzialania
+### Diagram
 
 ```text
-Uczestnik zamyka karte:
-  1. beforeunload -> broadcast peer-left (best-effort)
-  2. beforeunload -> fetch PATCH is_active=false (keepalive)
-  
-Inni uczestnicy odbieraja:
-  A) broadcast peer-left -> removePeer() natychmiast
-  B) Realtime UPDATE is_active=false -> removePeer() w ~1s
-  C) Heartbeat ghost pruning -> removePeer() w 30s (fallback)
-  
-Wczesniej dzialalo TYLKO C (45s minimum), teraz sa 3 warstwy.
+PRZED (problem z AEC):
+  <video muted> srcObject = stream(audio+video)  -- audio track przetwarzany
+  <audio>        srcObject = stream(audio+video)  -- audio gra
+  = dwa elementy z tym samym audio trackiem -> AEC confused -> echo
+
+PO (naprawione):
+  <video>  srcObject = new MediaStream(videoTracks)  -- brak audio tracku
+  <audio>  srcObject = stream(audio+video)           -- audio gra
+  = kazdy element ma osobne tracki -> AEC dziala poprawnie -> brak echa
 ```
 
 ### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoRoom.tsx` | Broadcast peer-left w beforeunload |
-| `src/components/meeting/VideoRoom.tsx` | Nowa subskrypcja Realtime na meeting_room_participants |
-| `src/components/meeting/VideoRoom.tsx` | Skrocenie progu ghost pruning z 3 do 2 |
+| `src/components/meeting/VideoGrid.tsx` | VideoTile: gdy forceAudioMuted, tworzyc video-only MediaStream dla elementu video |
 
 ### Ryzyko
 
-Niskie. Zmiana 1 jest best-effort (broadcast moze nie dojsc przy zamknieciu karty, ale nic nie psuje). Zmiana 2 dodaje redundancje — jesli Realtime nie dziala, heartbeat nadal posprzata. Zmiana 3 skraca czas oczekiwania ale zachowuje odpowiedni margines.
+Niskie. Tworzenie nowego MediaStream z istniejacymi trackami jest lekkie (tracki sa wspoldzielone, nie kopiowane). Galeria nie jest modyfikowana. Zmiana dotyczy tylko routingu tracków w speaker/multi-speaker.
