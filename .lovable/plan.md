@@ -1,99 +1,69 @@
 
 
-## Naprawa efektow tla (rozmycie i wirtualne tla) we wszystkich trybach
+## Problem: Webinar znika z kalendarza gdy mija end_time (nawet jesli trwa dalej)
 
-### Zidentyfikowane problemy
+### Przyczyna
 
-Po analizie kodu znalazlem kilka potencjalnych przyczyn, dlaczego efekty tla nie dzialaja:
-
-### Problem 1: Niestabilne URL-e CDN z `@latest`
-
-W `VideoBackgroundProcessor.ts` (linia 134) uzywany jest URL:
-```text
-https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm
+Zapytania do bazy danych w dwoch hookach filtruja wydarzenia warunkiem:
+```
+end_time >= NOW()
 ```
 
-Tag `@latest` moze wskazywac na wersje WASM niezgodna z zainstalowana paczka `@mediapipe/tasks-vision@0.10.32`. Jesli WASM runtime jest np. w wersji 0.11.x a kod w 0.10.x, segmentacja cicho zawiedzie — model sie nie zaladuje albo zwroci puste maski.
+Gdy minie `end_time` webinaru (np. 20:27 UTC), wydarzenie jest **calkowicie pomijane przez zapytanie SQL** — nawet jesli pokoj spotkania jest nadal aktywny (overtime). Kalendarz i strona webinarow nigdy nie otrzymuja tego wydarzenia, wiec nie moga go wyswietlic.
 
-Podobnie model (linia 138):
-```text
-https://storage.googleapis.com/mediapipe-models/.../latest/selfie_segmenter.tflite
+Dotyczy to:
+- `src/hooks/useEvents.ts` (linia 42) — zrodlo danych dla CalendarWidget na dashboardzie
+- `src/hooks/usePublicEvents.ts` (linia 26) — zrodlo danych dla strony /webinars
+
+### Rozwiazanie
+
+Rozszerzyc okno czasowe zapytania o 3 godziny wstecz. Zamiast filtra `end_time >= NOW()` uzyc `end_time >= NOW() - 3 hours`. Dzieki temu:
+- Wydarzenia ktore trwaja dluzej niz zaplanowano (overtime) beda nadal widoczne
+- UI (CalendarWidget) juz ma logike overtime detection z `useMeetingRoomStatus` — wystarczy ze otrzyma dane
+- Po 3 godzinach od zakonczenia, wydarzenia znikna z widoku "nadchodzace" (co jest sensowne)
+
+### Zmiany w plikach
+
+**Plik 1: `src/hooks/useEvents.ts` (linia 34, 42)**
+
+Zmienic obliczanie `now` aby uwzgledniac bufor 3h:
+```
+const now = new Date().toISOString();
+const recentCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
 ```
 
-**Rozwiazanie**: Przypiac URL-e do wersji `0.10.32` (zgodnej z zainstalowana paczka).
+Zmienic filtr z:
+```
+.or(`end_time.gte.${now},occurrences.not.is.null`)
+```
+na:
+```
+.or(`end_time.gte.${recentCutoff},occurrences.not.is.null`)
+```
 
-### Problem 2: Bledy inicjalizacji MediaPipe sa ciche dla uzytkownika
+**Plik 2: `src/hooks/usePublicEvents.ts` (linia 19, 26)**
 
-Gdy `applyBackground` zawiedzie (np. blad ladowania modelu), catch zwraca surowy stream bez zadnego komunikatu dla uzytkownika. Uzytkownik klika efekt, nic sie nie dzieje, brak informacji dlaczego.
+Analogiczna zmiana:
+```
+const now = new Date().toISOString();
+const recentCutoff = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+```
 
-**Rozwiazanie**: Dodac toast z informacja o bledzie i lepsze logowanie.
+Filtr:
+```
+.or(`end_time.gte.${recentCutoff},occurrences.not.is.null`)
+```
 
-### Problem 3: Brak walidacji video tracka przed startem procesora
-
-`processor.start(sourceStream)` nie sprawdza czy raw stream ma zywy i wlaczony video track. Jesli kamera jest wylaczona (`track.enabled = false`) lub track zakonczyl sie (`readyState === 'ended'`), canvas bedzie czarny i efekt nie bedzie widoczny.
-
-**Rozwiazanie**: Przed wywolaniem `processor.start()`, sprawdzic czy raw stream ma zywy, wlaczony video track. Jesli nie — tymczasowo wlaczyc go, lub wyswietlic komunikat.
-
-### Problem 4: `initPromise` nie jest resetowany po bledzie GPU+CPU
-
-Jesli `ImageSegmenter.createFromOptions` zawiedzie zarowno z GPU jak i CPU, `this.initPromise` jest ustawiony na `null` (linia 158). Ale jesli blad wystapi przy pierwszym wywolaniu, kolejne wywolania `initialize()` probuja ponownie — co jest dobrze. Natomiast jesli juz raz sie powiodlo (`this.segmenter` jest ustawiony) ale segmenter jest uszkodzony (np. zwraca puste maski), nie ma mechanizmu retry.
-
-**Rozwiazanie**: Dodac walidacje wynikow segmentacji i retry logike.
-
----
-
-### Szczegolowe zmiany
-
-**Plik 1: `src/components/meeting/VideoBackgroundProcessor.ts`**
-
-1. Przypiac wersje CDN:
-   - WASM: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm`
-   - Model: uzyc stalej wersji zamiast `latest` (np. `https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/0.10.32/selfie_segmenter.tflite` — lub najblizsza dostepna wersja modelu)
-
-2. Dodac walidacje video tracka w `start()`:
-   ```text
-   const videoTrack = inputStream.getVideoTracks()[0];
-   if (!videoTrack || videoTrack.readyState === 'ended') {
-     console.warn('[BackgroundProcessor] No live video track, returning input stream');
-     return inputStream;
-   }
-   // Temporarily enable track if disabled
-   const wasDisabled = !videoTrack.enabled;
-   if (wasDisabled) videoTrack.enabled = true;
-   ```
-
-3. Dodac walidacje wynikow segmentacji w `processFrame`:
-   - Liczyc ile razy pod rzad brak masek
-   - Po 30 klatkach bez masek, logowac ostrzezenie i probowac reinicjalizowac segmenter
-
-4. Dodac metode `isReady(): boolean` aby mozna bylo sprawdzic czy procesor jest gotowy
-
-**Plik 2: `src/hooks/useVideoBackground.ts`**
-
-1. W `applyBackground`, przed `processor.start()`:
-   - Sprawdzic czy sourceStream ma zywy video track
-   - Jesli nie, logowac i zwrocic sourceStream bez zmian
-
-2. Dodac lepsze logowanie bledow (wyswietlic toast w UI)
-
-**Plik 3: `src/components/meeting/VideoRoom.tsx`**
-
-1. W `handleBackgroundChange`:
-   - Dodac toast informujacy o bledzie gdy efekt nie zadziala
-   - Sprawdzic czy kamera jest wlaczona — jesli nie, wyswietlic toast "Wlacz kamere aby uzyc efektow tla"
-   - Jesli raw stream jest martwy (all tracks ended), wywolac `reacquireLocalStream()` i dopiero potem zastosowac efekt
-
----
+Zmienna `now` pozostaje do uzycia w logice `hasUpcomingSchedule` (linia 120) — tam nadal chcemy porownywac z aktualnym czasem.
 
 ### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoBackgroundProcessor.ts` | Przypiac wersje CDN, walidacja video tracka, walidacja wynikow segmentacji |
-| `src/hooks/useVideoBackground.ts` | Walidacja sourceStream, lepsze logowanie |
-| `src/components/meeting/VideoRoom.tsx` | Toast na bledy, guard na wylaczona kamere, reacquire jesli stream martwy |
+| `src/hooks/useEvents.ts` | Bufor 3h w filtrze end_time |
+| `src/hooks/usePublicEvents.ts` | Bufor 3h w filtrze end_time |
 
 ### Ryzyko
 
-Niskie. Zmiany sa defensywne — dodaja walidacje i lepsze logowanie. Przypiecie wersji CDN zmniejsza ryzyko niestabilnosci. Jedyne potencjalne ryzyko: jesli model w wersji 0.10.32 nie jest dostepny pod stalym URL-em (Google Storage moze miec inna konwencje wersjonowania), ale to mozna obejsc testujac URL przed committem.
+Minimalne. Jedyna roznica: zapytanie zwroci nieco wiecej wynikow (wydarzenia zakonczone w ciagu ostatnich 3h). UI juz ma logike do wyswietlania badge "Zakonczone" lub "Trwa dluzej" — wiec dodatkowe wydarzenia beda poprawnie prezentowane.
 
