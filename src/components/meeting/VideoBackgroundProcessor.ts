@@ -24,6 +24,10 @@ export class VideoBackgroundProcessor {
   private mode: BackgroundMode = 'none';
   private backgroundImage: HTMLImageElement | null = null;
   private initPromise: Promise<void> | null = null;
+  private lastTimestamp = 0;
+  private frameErrorCount = 0;
+  private blurredCanvas: HTMLCanvasElement | null = null;
+  private blurredCtx: CanvasRenderingContext2D | null = null;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -32,6 +36,8 @@ export class VideoBackgroundProcessor {
     this.videoElement.autoplay = true;
     this.videoElement.playsInline = true;
     this.videoElement.muted = true;
+    // @ts-ignore webkit
+    this.videoElement.setAttribute('webkit-playsinline', '');
   }
 
   async initialize(): Promise<void> {
@@ -89,10 +95,39 @@ export class VideoBackgroundProcessor {
     this.canvas.width = width;
     this.canvas.height = height;
 
+    // Pre-create reusable blur canvas
+    this.blurredCanvas = document.createElement('canvas');
+    this.blurredCanvas.width = width;
+    this.blurredCanvas.height = height;
+    this.blurredCtx = this.blurredCanvas.getContext('2d')!;
+
+    // Reset state
+    this.lastTimestamp = 0;
+    this.frameErrorCount = 0;
+
     this.videoElement.srcObject = new MediaStream([videoTrack]);
-    await new Promise<void>((resolve) => {
-      this.videoElement.onloadeddata = () => resolve();
-    });
+
+    // Wait for video to be ready — handle both fresh and reused elements
+    if (this.videoElement.readyState >= 2) {
+      // Already has data, just ensure it's playing
+      try { await this.videoElement.play(); } catch {}
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          console.warn('[BackgroundProcessor] onloadeddata timeout, forcing start');
+          resolve();
+        }, 3000);
+        this.videoElement.onloadeddata = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        this.videoElement.onerror = () => {
+          clearTimeout(timeout);
+          reject(new Error('Video element error'));
+        };
+      });
+      try { await this.videoElement.play(); } catch {}
+    }
 
     this.outputStream = this.canvas.captureStream(30);
 
@@ -110,10 +145,19 @@ export class VideoBackgroundProcessor {
   private processFrame = () => {
     if (!this.isRunning || !this.segmenter) return;
 
+    // Ensure monotonically increasing timestamps for MediaPipe
     const now = performance.now();
+    const timestamp = now > this.lastTimestamp ? now : this.lastTimestamp + 1;
+    this.lastTimestamp = timestamp;
 
     try {
-      const result = this.segmenter.segmentForVideo(this.videoElement, now);
+      // Ensure video is playing and has dimensions
+      if (this.videoElement.videoWidth === 0 || this.videoElement.videoHeight === 0) {
+        this.animationFrameId = requestAnimationFrame(this.processFrame);
+        return;
+      }
+
+      const result = this.segmenter.segmentForVideo(this.videoElement, timestamp);
       const mask = result.categoryMask;
 
       if (mask) {
@@ -134,10 +178,24 @@ export class VideoBackgroundProcessor {
 
         this.ctx.putImageData(frame, 0, 0);
         mask.close();
+      } else {
+        // No mask — draw raw frame
+        this.ctx.drawImage(this.videoElement, 0, 0, this.canvas.width, this.canvas.height);
       }
+
+      this.frameErrorCount = 0;
     } catch (e) {
-      // On error, just draw the raw frame
-      this.ctx.drawImage(this.videoElement, 0, 0, this.canvas.width, this.canvas.height);
+      this.frameErrorCount++;
+      // On error, just draw the raw frame to keep video visible
+      try {
+        this.ctx.drawImage(this.videoElement, 0, 0, this.canvas.width, this.canvas.height);
+      } catch {}
+
+      if (this.frameErrorCount > 30) {
+        console.error('[BackgroundProcessor] Too many frame errors, stopping:', e);
+        // Keep running but just pass through raw frames
+        this.frameErrorCount = 0;
+      }
     }
 
     this.animationFrameId = requestAnimationFrame(this.processFrame);
@@ -146,23 +204,20 @@ export class VideoBackgroundProcessor {
   private applyBlur(frame: ImageData, mask: Uint8Array, width: number, height: number) {
     const blurRadius = this.mode === 'blur-light' ? 10 : 20;
 
-    // Create a blurred version using a temporary canvas
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    const tempCtx = tempCanvas.getContext('2d')!;
-    tempCtx.filter = `blur(${blurRadius}px)`;
-    tempCtx.drawImage(this.videoElement, 0, 0, width, height);
-    const blurred = tempCtx.getImageData(0, 0, width, height);
+    // Reuse pre-created blur canvas
+    if (this.blurredCtx && this.blurredCanvas) {
+      this.blurredCtx.filter = `blur(${blurRadius}px)`;
+      this.blurredCtx.drawImage(this.videoElement, 0, 0, width, height);
+      const blurred = this.blurredCtx.getImageData(0, 0, width, height);
 
-    // Composite: person pixels from original, background from blurred
-    for (let i = 0; i < mask.length; i++) {
-      // mask value: 0 = background, 1+ = person
-      if (mask[i] === 0) {
-        const idx = i * 4;
-        frame.data[idx] = blurred.data[idx];
-        frame.data[idx + 1] = blurred.data[idx + 1];
-        frame.data[idx + 2] = blurred.data[idx + 2];
+      // Composite: person pixels from original, background from blurred
+      for (let i = 0; i < mask.length; i++) {
+        if (mask[i] === 0) {
+          const idx = i * 4;
+          frame.data[idx] = blurred.data[idx];
+          frame.data[idx + 1] = blurred.data[idx + 1];
+          frame.data[idx + 2] = blurred.data[idx + 2];
+        }
       }
     }
   }
@@ -170,12 +225,9 @@ export class VideoBackgroundProcessor {
   private applyImageBackground(frame: ImageData, mask: Uint8Array, width: number, height: number) {
     if (!this.backgroundImage) return;
 
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    const tempCtx = tempCanvas.getContext('2d')!;
+    // Reuse blur canvas for background image rendering
+    if (!this.blurredCtx || !this.blurredCanvas) return;
 
-    // Draw background image scaled to fill
     const imgRatio = this.backgroundImage.width / this.backgroundImage.height;
     const canvasRatio = width / height;
     let sx = 0, sy = 0, sw = this.backgroundImage.width, sh = this.backgroundImage.height;
@@ -186,8 +238,9 @@ export class VideoBackgroundProcessor {
       sh = this.backgroundImage.width / canvasRatio;
       sy = (this.backgroundImage.height - sh) / 2;
     }
-    tempCtx.drawImage(this.backgroundImage, sx, sy, sw, sh, 0, 0, width, height);
-    const bgData = tempCtx.getImageData(0, 0, width, height);
+    this.blurredCtx.filter = 'none';
+    this.blurredCtx.drawImage(this.backgroundImage, sx, sy, sw, sh, 0, 0, width, height);
+    const bgData = this.blurredCtx.getImageData(0, 0, width, height);
 
     for (let i = 0; i < mask.length; i++) {
       if (mask[i] === 0) {
@@ -207,6 +260,8 @@ export class VideoBackgroundProcessor {
     }
     this.videoElement.srcObject = null;
     this.outputStream = null;
+    this.blurredCanvas = null;
+    this.blurredCtx = null;
   }
 
   destroy() {
