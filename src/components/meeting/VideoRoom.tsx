@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Peer, { MediaConnection } from 'peerjs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { VideoGrid } from './VideoGrid';
+import { VideoGrid, setUserHasInteracted } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
 import { MeetingChat } from './MeetingChat';
 import { ParticipantsPanel } from './ParticipantsPanel';
@@ -186,6 +186,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const audioUnlockedRef = useRef(false);
   useEffect(() => {
     const unlockAudio = () => {
+      // Set global interaction flag for all future media elements
+      setUserHasInteracted();
       // AudioContext resume - only once
       if (!audioUnlockedRef.current) {
         audioUnlockedRef.current = true;
@@ -1873,6 +1875,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   }, []);
 
   const handleUnmuteAll = useCallback(() => {
+    // Mark global interaction so all future media elements start unmuted
+    setUserHasInteracted();
+    audioUnlockedRef.current = true;
     document.querySelectorAll('video').forEach((v) => {
       const video = v as HTMLVideoElement;
       if (video.muted && !video.dataset.localVideo) {
@@ -1929,6 +1934,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           remoteScreenShareStream={remoteScreenShare?.stream || null}
           remoteScreenSharerName={remoteScreenShare?.displayName}
           remoteScreenSharerPeerId={remoteScreenShare?.peerId}
+          isAudioUnlocked={audioUnlockedRef.current || !audioBlocked}
         />
 
         {sidebarOpen && (
