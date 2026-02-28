@@ -8,6 +8,9 @@ import { MeetingChat } from './MeetingChat';
 import { ParticipantsPanel } from './ParticipantsPanel';
 import { MeetingTimer } from './MeetingTimer';
 import { useToast } from '@/hooks/use-toast';
+import { useVideoBackground } from '@/hooks/useVideoBackground';
+import { BackgroundSelector } from './BackgroundSelector';
+import type { BackgroundMode } from './VideoBackgroundProcessor';
 import type { MeetingSettings } from './MeetingSettingsDialog';
 
 interface RemoteParticipant {
@@ -85,6 +88,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const channelReconnectAttemptsRef = useRef(0);
   const channelReconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const channelReconnectHandlerRef = useRef<(() => void) | null>(null);
+  const dbParticipantChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Background blur/virtual background
+  const {
+    mode: bgMode,
+    selectedImage: bgSelectedImage,
+    isLoading: bgIsLoading,
+    isSupported: bgIsSupported,
+    applyBackground,
+    stopBackground,
+    backgroundImages,
+  } = useVideoBackground();
 
   // === Zmiana A: participantsRef synced with state ===
   const participantsRef = useRef<RemoteParticipant[]>([]);
@@ -337,6 +352,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       channelReconnectTimerRef.current = null;
     }
 
+    // Cleanup DB participant channel
+    if (dbParticipantChannelRef.current) {
+      try { supabase.removeChannel(dbParticipantChannelRef.current); } catch {}
+      dbParticipantChannelRef.current = null;
+    }
+
+    // Cleanup background processor
+    stopBackground();
+
     console.log('[VideoRoom] Cleanup complete');
   }, [roomId, user, guestMode, guestTokenId]);
 
@@ -485,10 +509,72 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         }
       } catch (e) { console.warn('[VideoRoom] Heartbeat/sync failed:', e); }
     };
-    const interval = setInterval(heartbeat, 30000);
+    const interval = setInterval(heartbeat, 15000);
     // Run first heartbeat immediately to self-heal on mount
     heartbeat();
     return () => clearInterval(interval);
+  }, [roomId, user, guestTokenId]);
+
+  // === Postgres Realtime subscription for immediate participant detection ===
+  useEffect(() => {
+    if (!user && !guestTokenId) return;
+    const myPeerId = () => peerRef.current?.id;
+
+    const channel = supabase
+      .channel(`participants-db:${roomId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'meeting_room_participants',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const newRow = payload.new as any;
+          if (!newRow?.peer_id || !newRow?.is_active) return;
+          const localPeerId = myPeerId();
+          if (!localPeerId || newRow.peer_id === localPeerId) return;
+          // Skip if it's our own user
+          if (user && newRow.user_id === user.id) return;
+          if (guestTokenId && newRow.guest_token_id === guestTokenId) return;
+          // Only call if not already connected
+          if (!connectionsRef.current.has(newRow.peer_id) && localStreamRef.current) {
+            console.log(`[VideoRoom] DB INSERT detected new peer: ${newRow.peer_id}, calling...`);
+            callPeer(newRow.peer_id, newRow.display_name || 'Uczestnik', localStreamRef.current!, undefined, newRow.user_id || undefined);
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'meeting_room_participants',
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          const updated = payload.new as any;
+          if (!updated?.peer_id || !updated?.is_active) return;
+          const localPeerId = myPeerId();
+          if (!localPeerId || updated.peer_id === localPeerId) return;
+          if (user && updated.user_id === user.id) return;
+          if (guestTokenId && updated.guest_token_id === guestTokenId) return;
+          // Reconnect if peer updated (e.g. re-joined) but we don't have connection
+          if (!connectionsRef.current.has(updated.peer_id) && localStreamRef.current) {
+            console.log(`[VideoRoom] DB UPDATE detected peer: ${updated.peer_id}, calling...`);
+            callPeer(updated.peer_id, updated.display_name || 'Uczestnik', localStreamRef.current!, undefined, updated.user_id || undefined);
+          }
+        }
+      )
+      .subscribe();
+
+    dbParticipantChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      dbParticipantChannelRef.current = null;
+    };
   }, [roomId, user, guestTokenId]);
 
   // Visibility change: reconnect peer and sync participants
@@ -1172,6 +1258,29 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     if (!isChatOpen) setUnreadChatCount(prev => prev + 1);
   }, [isChatOpen]);
 
+  // Background change handler
+  const handleBackgroundChange = useCallback(async (newMode: BackgroundMode, imageSrc?: string) => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    try {
+      const processedStream = await applyBackground(stream, newMode, imageSrc);
+      if (processedStream !== stream) {
+        // Replace video track in all peer connections
+        const videoTrack = processedStream.getVideoTracks()[0];
+        if (videoTrack) {
+          connectionsRef.current.forEach((conn) => {
+            const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
+            if (sender) sender.replaceTrack(videoTrack);
+          });
+        }
+        localStreamRef.current = processedStream;
+        setLocalStream(processedStream);
+      }
+    } catch (err) {
+      console.error('[VideoRoom] Background change failed:', err);
+    }
+  }, [applyBackground]);
+
   const handleLeave = async () => {
     try {
       await Promise.race([cleanup(), new Promise((resolve) => setTimeout(resolve, 3000))]);
@@ -1305,6 +1414,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         canCamera={canCamera}
         canScreenShare={canScreenShare && isScreenShareSupported}
         guestMode={guestMode}
+        bgMode={bgMode}
+        bgSelectedImage={bgSelectedImage}
+        bgIsLoading={bgIsLoading}
+        bgIsSupported={bgIsSupported}
+        backgroundImages={backgroundImages}
+        onBackgroundChange={handleBackgroundChange}
       />
     </div>
   );
