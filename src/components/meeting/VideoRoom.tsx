@@ -1423,7 +1423,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
         if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
           const allVideos = document.querySelectorAll('video');
-          pipVideo = Array.from(allVideos).find(v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused) as HTMLVideoElement || null;
+          pipVideo = Array.from(allVideos).find(
+            v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
+          ) as HTMLVideoElement || Array.from(allVideos).find(
+            v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused
+          ) as HTMLVideoElement || null;
         }
         if (pipVideo) {
           await pipVideo.requestPictureInPicture();
@@ -1452,7 +1456,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
           if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
             const allVideos = document.querySelectorAll('video');
-            pipVideo = Array.from(allVideos).find(v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused) as HTMLVideoElement || null;
+            pipVideo = Array.from(allVideos).find(
+              v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
+            ) as HTMLVideoElement || Array.from(allVideos).find(
+              v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused
+            ) as HTMLVideoElement || null;
           }
           if (pipVideo) {
             try {

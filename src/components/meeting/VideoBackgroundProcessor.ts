@@ -51,18 +51,18 @@ interface BlurProfile {
 const BLUR_PROFILES: Record<string, BlurProfile> = {
   'blur-light': {
     blurRadius: 6,
-    personThresholdHigh: 0.45, // more conservative: protect person aggressively
-    personThresholdLow: 0.25,
+    personThresholdHigh: 0.55,
+    personThresholdLow: 0.15,
   },
   'blur-heavy': {
     blurRadius: 20,
-    personThresholdHigh: 0.40,
-    personThresholdLow: 0.20,
+    personThresholdHigh: 0.55,
+    personThresholdLow: 0.10,
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.40,
-    personThresholdLow: 0.20,
+    personThresholdHigh: 0.55,
+    personThresholdLow: 0.10,
   },
 };
 
@@ -87,6 +87,8 @@ export class VideoBackgroundProcessor {
   private frameErrorCount = 0;
   private blurredCanvas: HTMLCanvasElement | null = null;
   private blurredCtx: CanvasRenderingContext2D | null = null;
+  private maskCanvas: HTMLCanvasElement | null = null;
+  private maskCtx: CanvasRenderingContext2D | null = null;
 
   // Adaptive performance
   private profile: PerformanceProfile;
@@ -186,6 +188,12 @@ export class VideoBackgroundProcessor {
     this.blurredCanvas.height = this.processHeight;
     this.blurredCtx = this.blurredCanvas.getContext('2d')!;
 
+    // Pre-create mask smoothing canvas
+    this.maskCanvas = document.createElement('canvas');
+    this.maskCanvas.width = this.processWidth;
+    this.maskCanvas.height = this.processHeight;
+    this.maskCtx = this.maskCanvas.getContext('2d', { willReadFrequently: true })!;
+
     // Reset state
     this.lastTimestamp = 0;
     this.frameErrorCount = 0;
@@ -272,6 +280,7 @@ export class VideoBackgroundProcessor {
             this.cachedMask = new Float32Array(rawMask.length);
           }
           this.cachedMask.set(rawMask);
+          this.smoothMask(this.cachedMask, width, height);
           this.cachedMaskWidth = width;
           this.cachedMaskHeight = height;
           maskData = this.cachedMask;
@@ -322,6 +331,34 @@ export class VideoBackgroundProcessor {
 
     this.animationFrameId = requestAnimationFrame(this.processFrame);
   };
+
+  private smoothMask(mask: Float32Array, width: number, height: number) {
+    if (!this.maskCtx || !this.maskCanvas) return;
+
+    // Write mask as grayscale image
+    const imgData = this.maskCtx.createImageData(width, height);
+    for (let i = 0; i < mask.length; i++) {
+      const v = Math.round(mask[i] * 255);
+      const idx = i * 4;
+      imgData.data[idx] = v;
+      imgData.data[idx + 1] = v;
+      imgData.data[idx + 2] = v;
+      imgData.data[idx + 3] = 255;
+    }
+    this.maskCtx.filter = 'none';
+    this.maskCtx.putImageData(imgData, 0, 0);
+
+    // Apply Gaussian blur via CSS filter
+    this.maskCtx.filter = 'blur(4px)';
+    this.maskCtx.drawImage(this.maskCanvas, 0, 0);
+    this.maskCtx.filter = 'none';
+
+    // Read back smoothed mask
+    const smoothed = this.maskCtx.getImageData(0, 0, width, height);
+    for (let i = 0; i < mask.length; i++) {
+      mask[i] = smoothed.data[i * 4] / 255;
+    }
+  }
 
   private applyBlur(frame: ImageData, mask: Float32Array, width: number, height: number) {
     const profile = BLUR_PROFILES[this.mode] || BLUR_PROFILES['blur-light'];
@@ -407,6 +444,8 @@ export class VideoBackgroundProcessor {
     this.outputStream = null;
     this.blurredCanvas = null;
     this.blurredCtx = null;
+    this.maskCanvas = null;
+    this.maskCtx = null;
     this.cachedMask = null;
     this.isPassThrough = false;
     this.overloadCounter = 0;
