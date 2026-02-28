@@ -18,46 +18,41 @@ export function useCustomBackgrounds() {
   }, []);
 
   const listBackgrounds = useCallback(async () => {
-    console.log('[useCustomBackgrounds] listBackgrounds called, user:', user?.id ?? 'null');
     if (!user) {
       setCustomImages([]);
       return;
     }
     setIsLoading(true);
     try {
+      console.log('[useCustomBackgrounds] Listing for user:', user.id);
       const { data, error } = await supabase.storage.from(BUCKET).list(user.id, {
         limit: 100,
       });
       if (error) {
-        console.error('[useCustomBackgrounds] List error details:', error.message);
-        if (error.message?.includes('Bucket not found')) {
-          throw new Error('Bucket "meeting-backgrounds" nie istnieje.');
-        }
-        if (error.message?.includes('row-level security') || error.message?.includes('Unauthorized')) {
-          throw new Error('Brak uprawnień do odczytu teł.');
-        }
-        throw error;
+        console.error('[useCustomBackgrounds] List error:', JSON.stringify(error));
+        setCustomImages([]);
+        return;
       }
       const files = (data || []).filter(f => f.name && !f.name.startsWith('.'));
-      // Sort by name (timestamp-based filenames) on client side
+      // Sort by name (timestamp-based filenames) — newest last
       files.sort((a, b) => a.name.localeCompare(b.name));
       const urls = files.map(f => getPublicUrl(`${user.id}/${f.name}`));
       console.log('[useCustomBackgrounds] Found', urls.length, 'backgrounds');
       setCustomImages(urls);
     } catch (err) {
       console.error('[useCustomBackgrounds] List failed:', err);
-      throw err;
+      setCustomImages([]);
     } finally {
       setIsLoading(false);
     }
   }, [user, getPublicUrl]);
 
   useEffect(() => {
-    listBackgrounds().catch(() => {});
+    listBackgrounds();
   }, [listBackgrounds]);
 
   const uploadImage = useCallback(async (file: File) => {
-    if (!user) throw new Error('Not authenticated');
+    if (!user) throw new Error('Nie jesteś zalogowany');
     if (!file.type.startsWith('image/')) {
       throw new Error('Tylko pliki graficzne są dozwolone.');
     }
@@ -65,12 +60,23 @@ export function useCustomBackgrounds() {
       throw new Error('Plik jest za duży (max 5MB).');
     }
 
-    // Server-side limit validation
+    // Server-side count check
     const { data: existing, error: listErr } = await supabase.storage.from(BUCKET).list(user.id, { limit: 100 });
-    if (listErr) throw listErr;
-    const existingCount = (existing || []).filter(f => f.name && !f.name.startsWith('.')).length;
-    if (existingCount >= MAX_BACKGROUNDS) {
-      throw new Error(`Maksymalnie ${MAX_BACKGROUNDS} własnych teł. Usuń jedno, aby dodać nowe.`);
+    if (listErr) {
+      console.error('[useCustomBackgrounds] Pre-upload list error:', listErr);
+      throw new Error('Nie udało się sprawdzić liczby teł. Spróbuj ponownie.');
+    }
+    const existingFiles = (existing || []).filter(f => f.name && !f.name.startsWith('.'));
+    
+    // If over limit, auto-delete oldest files to make room
+    if (existingFiles.length >= MAX_BACKGROUNDS) {
+      const sorted = [...existingFiles].sort((a, b) => a.name.localeCompare(b.name));
+      const toDelete = sorted.slice(0, sorted.length - MAX_BACKGROUNDS + 1);
+      if (toDelete.length > 0) {
+        const paths = toDelete.map(f => `${user.id}/${f.name}`);
+        console.log('[useCustomBackgrounds] Auto-deleting', paths.length, 'old backgrounds to make room');
+        await supabase.storage.from(BUCKET).remove(paths);
+      }
     }
 
     setIsUploading(true);
@@ -84,17 +90,16 @@ export function useCustomBackgrounds() {
         upsert: false,
       });
       if (error) {
-        console.error('[useCustomBackgrounds] Upload failed:', error.message, error);
+        console.error('[useCustomBackgrounds] Upload error:', JSON.stringify(error));
         if (error.message?.includes('Bucket not found')) {
-          throw new Error('Bucket "meeting-backgrounds" nie istnieje. Skontaktuj się z administratorem.');
+          throw new Error('Bucket "meeting-backgrounds" nie istnieje.');
         }
         if (error.message?.includes('row-level security') || error.message?.includes('Unauthorized')) {
-          throw new Error('Brak uprawnień do przesyłania plików. Sprawdź czy jesteś zalogowany.');
+          throw new Error('Brak uprawnień do przesyłania. Sprawdź czy jesteś zalogowany.');
         }
         throw error;
       }
 
-      // Refresh list — propagate errors so caller knows if refresh failed
       await listBackgrounds();
       return getPublicUrl(path);
     } finally {
