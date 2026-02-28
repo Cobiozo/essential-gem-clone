@@ -82,6 +82,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [viewMode, setViewMode] = useState<import('./VideoGrid').ViewMode>('speaker');
+  const [audioBlocked, setAudioBlocked] = useState(false);
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | undefined>();
   const reconnectAttemptsRef = useRef<Map<string, number>>(new Map());
   const iceDisconnectTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -146,6 +147,34 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => {
       clearInterval(interval);
       window.dispatchEvent(new Event('meeting-ended'));
+    };
+  }, []);
+
+  // Audio unlock on first user gesture (mobile autoplay policy)
+  useEffect(() => {
+    let unlocked = false;
+    const unlockAudio = () => {
+      if (unlocked) return;
+      unlocked = true;
+      try {
+        const ctx = new AudioContext();
+        ctx.resume().then(() => ctx.close()).catch(() => {});
+      } catch {}
+      // Try to unmute any force-muted remote videos
+      document.querySelectorAll('video').forEach((v) => {
+        const video = v as HTMLVideoElement;
+        if (video.muted && !video.dataset.localVideo) {
+          video.muted = false;
+          video.play().catch(() => {});
+        }
+      });
+      setAudioBlocked(false);
+    };
+    document.addEventListener('touchstart', unlockAudio, { once: true });
+    document.addEventListener('click', unlockAudio, { once: true });
+    return () => {
+      document.removeEventListener('touchstart', unlockAudio);
+      document.removeEventListener('click', unlockAudio);
     };
   }, []);
   const isCoHost = user ? coHostUserIds.includes(user.id) : false;
@@ -1417,6 +1446,22 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   }, [toast]);
 
+  // Handle audio blocked by mobile autoplay policy
+  const handleAudioBlocked = useCallback(() => {
+    setAudioBlocked(true);
+  }, []);
+
+  const handleUnmuteAll = useCallback(() => {
+    document.querySelectorAll('video').forEach((v) => {
+      const video = v as HTMLVideoElement;
+      if (video.muted && !video.dataset.localVideo) {
+        video.muted = false;
+        video.play().catch(() => {});
+      }
+    });
+    setAudioBlocked(false);
+  }, []);
+
   const sidebarOpen = isChatOpen || isParticipantsOpen;
 
   return (
@@ -1439,6 +1484,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       {/* Main content */}
       <div className="flex-1 flex overflow-hidden">
+        {/* Audio blocked banner for mobile */}
+        {audioBlocked && (
+          <button
+            onClick={handleUnmuteAll}
+            className="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-destructive text-destructive-foreground px-4 py-2 rounded-full animate-pulse shadow-lg text-sm font-medium"
+          >
+            🔇 Dotknij aby włączyć dźwięk
+          </button>
+        )}
+
         <VideoGrid
           participants={participants}
           localStream={localStream}
@@ -1449,6 +1504,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           viewMode={viewMode}
           isScreenSharing={isScreenSharing}
           onActiveVideoRef={(el) => { activeVideoRef.current = el; }}
+          onAudioBlocked={handleAudioBlocked}
         />
 
         {sidebarOpen && (

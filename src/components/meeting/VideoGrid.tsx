@@ -22,7 +22,29 @@ interface VideoGridProps {
   viewMode: ViewMode;
   isScreenSharing?: boolean;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
+  onAudioBlocked?: () => void;
 }
+
+// Helper: play video with muted fallback for mobile autoplay policy
+const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioBlocked?: () => void) => {
+  if (isLocal) {
+    video.play().catch(() => {});
+    return;
+  }
+  try {
+    await video.play();
+  } catch {
+    // Autoplay with audio blocked — mute and retry
+    video.muted = true;
+    try {
+      await video.play();
+      console.warn('[VideoGrid] Autoplay blocked — playing muted, notifying user');
+      onAudioBlocked?.();
+    } catch (e2) {
+      console.error('[VideoGrid] Even muted play() failed:', e2);
+    }
+  }
+};
 
 // ─── Audio indicator component ───
 const AudioIndicator: React.FC<{ audioLevel: number; isMuted?: boolean; size?: 'sm' | 'md' }> = ({
@@ -62,15 +84,16 @@ const VideoTile: React.FC<{
   className?: string;
   showOverlay?: boolean;
   videoRefCallback?: (el: HTMLVideoElement | null) => void;
-}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, videoRefCallback }) => {
+  onAudioBlocked?: () => void;
+}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, videoRefCallback, onAudioBlocked }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (videoRef.current && participant.stream) {
       videoRef.current.srcObject = participant.stream;
-      videoRef.current.play().catch(() => {});
+      playVideoSafe(videoRef.current, !!participant.isLocal, onAudioBlocked);
     }
-  }, [participant.stream]);
+  }, [participant.stream, onAudioBlocked]);
 
   useEffect(() => {
     if (videoRefCallback) videoRefCallback(videoRef.current);
@@ -91,6 +114,7 @@ const VideoTile: React.FC<{
         // @ts-ignore
         webkit-playsinline=""
         muted={participant.isLocal}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={showVideo
           ? `max-w-full max-h-full object-contain ${participant.isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''}`
           : 'hidden'
@@ -141,7 +165,7 @@ const ThumbnailTile: React.FC<{
   useEffect(() => {
     if (videoRef.current && participant.stream) {
       videoRef.current.srcObject = participant.stream;
-      videoRef.current.play().catch(() => {});
+      playVideoSafe(videoRef.current, !!participant.isLocal);
     }
   }, [participant.stream]);
 
@@ -300,7 +324,8 @@ const GalleryLayout: React.FC<{
   isScreenSharing?: boolean;
   audioLevels: Map<string, number>;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
-}> = ({ participants, isCameraOff, isScreenSharing, audioLevels, onActiveVideoRef }) => {
+  onAudioBlocked?: () => void;
+}> = ({ participants, isCameraOff, isScreenSharing, audioLevels, onActiveVideoRef, onAudioBlocked }) => {
   const cols = participants.length <= 2 ? 'grid-cols-1 md:grid-cols-2'
     : participants.length <= 4 ? 'grid-cols-2'
     : participants.length <= 9 ? 'grid-cols-2 md:grid-cols-3'
@@ -317,6 +342,7 @@ const GalleryLayout: React.FC<{
           audioLevel={audioLevels.get(p.peerId) || 0}
           className="rounded-lg min-h-0"
           videoRefCallback={i === 0 ? onActiveVideoRef : undefined}
+          onAudioBlocked={onAudioBlocked}
         />
       ))}
     </div>
@@ -385,7 +411,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   useEffect(() => {
     if (ref.current && participant.stream) {
       ref.current.srcObject = participant.stream;
-      ref.current.play().catch(() => {});
+      playVideoSafe(ref.current, !!participant.isLocal);
     }
   }, [participant.stream]);
 
@@ -412,6 +438,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   viewMode,
   isScreenSharing,
   onActiveVideoRef,
+  onAudioBlocked,
 }) => {
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
   const manualTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -453,7 +480,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   // ─── Gallery mode ───
   if (viewMode === 'gallery') {
-    return <GalleryLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} onActiveVideoRef={handleVideoRef} />;
+    return <GalleryLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} onActiveVideoRef={handleVideoRef} onAudioBlocked={onAudioBlocked} />;
   }
 
   // ─── Multi-speaker mode ───
@@ -474,6 +501,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           className="absolute inset-0 rounded-none"
           showOverlay={true}
           videoRefCallback={handleVideoRef}
+          onAudioBlocked={onAudioBlocked}
         />
       </div>
 
