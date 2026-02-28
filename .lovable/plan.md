@@ -1,90 +1,119 @@
 
-## Naprawa dwoch problemow: echo w trybie speaker/multi-speaker + przelaczenie viewMode po zakonczeniu screen share
 
-### Problem 1: Echo w trybie speaker/multi-speaker
+## Udostepnianie ekranu: fullscreen + przeciagane PiP kamery prowadzacego
 
-**Przyczyna**: W trybie galerii kazdy `VideoTile` odtwarza audio bezposrednio z widocznego elementu `<video>` — AEC przegladarki dziala poprawnie. W trybach speaker/multi-speaker audio jest odtwarzane z UKRYTYCH elementow `<video>` (komponent `AudioElement`), natomiast widoczne kafelki maja `forceAudioMuted={true}`. AEC Chrome dziala gorzej dla ukrytych elementow, co powoduje echo.
+### Obecna architektura i ograniczenie
 
-**Rozwiazanie**: Wyeliminowac `AudioOnlyStreams` i `forceAudioMuted`. Zamiast tego audio bedzie odtwarzane bezposrednio z widocznych elementow `<video>`:
+Aktualnie, gdy prowadzacy udostepnia ekran, jego track video z kamery jest **zastepowany** trackiem z ekranu (`replaceTrack`). Uczestnicy otrzymuja JEDEN stream na peera — albo kamere, albo ekran. Nie ma mozliwosci jednoczesnego wyswietlenia obu.
 
-- **Tryb speaker**: Usunac `AudioOnlyStreams`. Usunac `forceAudioMuted` z glownego `VideoTile`. W `ThumbnailTile` dodac prop `playAudio` — odmuteowac miniaturki dla zdalnych uczestnikow POZA aktywnym mowca (unikniecie podwojnego audio). Aktywny mowca gra audio z glownego kafelka, reszta z miniaturek.
-- **Tryb multi-speaker**: Usunac `AudioOnlyStreams`. Usunac `forceAudioMuted` z glownych kafelkow. W sekcji "others" (MiniVideo) odmutowac zdalnych uczestnikow.
+### Rozwiazanie: Drugi PeerJS call dla screen share
 
-### Problem 2: Przelaczenie z galerii na mowce po zakonczeniu screen share
-
-**Przyczyna**: `viewMode` domyslnie wynosi `'speaker'` (linia 93 VideoRoom.tsx) i NIE jest zapisywany w sessionStorage. Jesli cos spowoduje ponowne zamontowanie komponentu VideoRoom (np. zmiana stanu auth, reconnect kanalu realtime, lub inna zmiana statusu w MeetingRoomPage), viewMode wraca do domyslnego `'speaker'`.
-
-**Rozwiazanie**: Zapisywac `viewMode` w `sessionStorage` przy kazdej zmianie i odtwarzac go w lazy initializer `useState`.
+Aby uczestnicy widzieli jednoczesnie ekran (fullscreen) i kamere prowadzacego (PiP), potrzebny jest **drugi strumien**. Realizacja przez drugie polaczenie PeerJS z metadana `type: 'screen-share'`.
 
 ---
 
 ### Szczegolowe zmiany
 
-**Plik 1: `src/components/meeting/VideoGrid.tsx`**
+#### Plik 1: `src/components/meeting/VideoRoom.tsx`
 
-1. **ThumbnailTile** — dodac prop `playAudio?: boolean`:
-   - Jesli `playAudio` jest true, video element ma `muted={false}` zamiast zawsze `muted`
-   - Domyslnie `muted` (bez zmiany dla galerii i innych uzyc)
+**A. Nowy state i ref dla screen share:**
+- `screenShareConnectionsRef = useRef<Map<string, MediaConnection>>()` — oddzielna mapa polaczen screen share
+- `remoteScreenShare` state: `{ peerId: string; displayName: string; stream: MediaStream } | null`
 
-2. **MiniVideo** — dodac prop `playAudio?: boolean`:
-   - Analogicznie, jesli true, video element ma `muted={false}`
+**B. Zmiana logiki startowania screen share (linia ~1556-1596):**
+- NIE zastepowac camera track w glownym polaczeniu
+- NIE zatrzymywac camera tracks
+- Pobrac `getDisplayMedia` i wyslac jako DRUGIE call do kazdego peera:
+  ```text
+  const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+  participants.forEach(p => {
+    const call = peerRef.current.call(p.peerId, screenStream, {
+      metadata: { displayName, type: 'screen-share', userId: user?.id }
+    });
+    screenShareConnectionsRef.current.set(p.peerId, call);
+  });
+  ```
+- Broadcast `screen-share-started` z `peerId` i `displayName`
+- `videoTrack.onended` → zamknac screen share connections + broadcast `screen-share-stopped`
 
-3. **Speaker mode layout** (linia 620-652):
-   - Usunac `<AudioOnlyStreams>` 
-   - Usunac `forceAudioMuted={true}` z glownego VideoTile
-   - W ThumbnailTile: ustawic `playAudio={!p.isLocal && index !== activeIndex}` — odmutowac zdalne miniaturki poza aktywnym mowca
+**C. Zmiana `peer.on('call')` (linia ~1047):**
+- Sprawdzic `call.metadata.type === 'screen-share'`
+- Jesli tak: `call.answer()` z pustym streamem (lub local stream), zapisac stream do `remoteScreenShare` state
+- NIE nadpisywac glownego polaczenia camera w `connectionsRef`
 
-4. **Multi-speaker mode layout** (linia 484-519):
-   - Usunac `<AudioOnlyStreams>`
-   - Usunac `forceAudioMuted={true}` z glownych VideoTile
-   - W sekcji "others": ustawic `playAudio={!p.isLocal}` na MiniVideo
+**D. Broadcast listener `screen-share-stopped`:**
+- Dodac listener w signaling channel
+- Po otrzymaniu: zamknac screen share connection, wyczyscic `remoteScreenShare`
 
-**Plik 2: `src/components/meeting/VideoRoom.tsx`**
+**E. Zmiana `restoreCamera` / stop screen share:**
+- Zamknac wszystkie screen share connections
+- Broadcast `screen-share-stopped`
+- Wyczyscic `screenShareConnectionsRef`
+- Kamera juz dziala (nie byla zatrzymana)
 
-1. **Persist viewMode** — zmienic useState na lazy initializer:
-   ```text
-   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-     if (roomId) {
-       const saved = sessionStorage.getItem(`meeting_viewmode_${roomId}`);
-       if (saved === 'gallery' || saved === 'multi-speaker' || saved === 'speaker') return saved;
-     }
-     return 'speaker';
-   });
-   ```
+**F. Przekazanie do VideoGrid:**
+- Nowe propsy: `remoteScreenShareStream`, `remoteScreenSharerName`
 
-2. **Sync viewMode to sessionStorage** — dodac useEffect:
-   ```text
-   useEffect(() => {
-     if (roomId) sessionStorage.setItem(`meeting_viewmode_${roomId}`, viewMode);
-   }, [roomId, viewMode]);
-   ```
+#### Plik 2: `src/components/meeting/VideoGrid.tsx`
 
-3. **Cleanup** — w `handleLeave` dodac usuwanie klucza:
-   ```text
-   sessionStorage.removeItem(`meeting_viewmode_${roomId}`);
-   ```
+**A. Nowe propsy w `VideoGridProps`:**
+```text
+remoteScreenShareStream?: MediaStream | null;
+remoteScreenSharerName?: string;
+```
+
+**B. Nowy komponent `DraggableFloatingPiP`:**
+- Male okienko (200x150px) z kamera prowadzacego
+- Przeciagane myszka i dotykiem (onMouseDown/onTouchStart + move + up)
+- Pozycja absolutna wzgledem kontenera VideoGrid
+- Zaokraglone rogi, cien, z-index nad glownym video
+- Wyswietla imie prowadzacego na dole
+- Domyslna pozycja: prawy dolny rog
+
+**C. Nowy layout `ScreenShareLayout`:**
+- Gdy `remoteScreenShareStream` istnieje, nadpisuje aktualny tryb widoku
+- Screen share video na pelny ekran (object-contain, czarne tlo)
+- Kamera prowadzacego w `DraggableFloatingPiP` (znaleziona po peerId w participants)
+- Pasek miniaturek innych uczestnikow na dole (jak w speaker mode)
+
+**D. Logika w glownym `VideoGrid`:**
+```text
+if (remoteScreenShareStream) {
+  return <ScreenShareLayout ... />;
+}
+// ...istniejacy kod trybów speaker/gallery/multi-speaker
+```
 
 ---
 
-### Jak to dziala po zmianach
+### Przepływ (perspektywa uczestnika)
 
 ```text
-Echo (speaker mode):
-  PRZED: Audio z ukrytych <video> (AudioElement) → slabe AEC → echo
-  PO:    Audio z widocznych <video> (glowny kafelek + miniaturki) → dobre AEC → brak echa
-
-ViewMode:
-  PRZED: viewMode = 'speaker' (domyslne), nie zapisywany → reset po remount
-  PO:    viewMode zapisany w sessionStorage → przetrwa remount
+1. Prowadzacy klika "Udostepnij ekran"
+2. getDisplayMedia → screenStream
+3. Drugie peer.call() do kazdego uczestnika z metadata.type='screen-share'
+4. Broadcast 'screen-share-started'
+5. Uczestnik:
+   - peer.on('call') → wykrywa type='screen-share' → answer → remoteScreenShare state
+   - VideoGrid wykrywa remoteScreenShareStream → ScreenShareLayout
+   - Ekran fullscreen + kamera prowadzacego w przeciaganym PiP
+6. Prowadzacy konczy → zamyka screen share connections → broadcast 'screen-share-stopped'
+7. Uczestnik: remoteScreenShare = null → powrot do normalnego trybu
 ```
+
+---
 
 ### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoGrid.tsx` | Usunac AudioOnlyStreams i forceAudioMuted z speaker/multi-speaker. Dodac playAudio do ThumbnailTile i MiniVideo |
-| `src/components/meeting/VideoRoom.tsx` | Persist viewMode w sessionStorage |
+| `src/components/meeting/VideoRoom.tsx` | Dual-stream screen share, nowe broadcast events, oddzielne connections |
+| `src/components/meeting/VideoGrid.tsx` | ScreenShareLayout, DraggableFloatingPiP, nowe propsy |
 
 ### Ryzyko
 
-Niskie. Wszystkie audio teraz gra z widocznych elementow — identycznie jak w trybie galerii, ktory dziala bez echa. Zapis viewMode to standardowy wzorzec bez efektow ubocznych.
+Srednie. Wymaga starannego zarzadzania dwoma zestawami polaczen PeerJS. Kluczowe edge cases:
+- Nowy uczestnik dolacza podczas trwajacego screen share (trzeba mu rowniez wyslac screen stream)
+- Prowadzacy traci polaczenie i reconnectuje
+- Zamkniecie przegladarki podczas screen share (cleanup)
+
