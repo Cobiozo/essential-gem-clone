@@ -1576,7 +1576,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           setTimeout(async () => {
             const videos = document.querySelectorAll('video');
             const remoteVideo = Array.from(videos).find(
-              v => v.srcObject && v.videoWidth > 0 && !v.muted
+              v => v.srcObject && v.videoWidth > 0 && !v.muted && v.getAttribute('data-audio-only') !== 'true'
             );
             if (remoteVideo && !document.pictureInPictureElement) {
               try {
@@ -1615,9 +1615,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
           const allVideos = document.querySelectorAll('video');
           pipVideo = Array.from(allVideos).find(
-            v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
+            v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true' && v.getAttribute('data-audio-only') !== 'true'
           ) as HTMLVideoElement || (!hasRemote ? Array.from(allVideos).find(
-            v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused
+            v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-audio-only') !== 'true'
           ) as HTMLVideoElement : null) || null;
         }
         if (pipVideo) {
@@ -1652,9 +1652,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           if (!pipVideo?.srcObject || !pipVideo.videoWidth) {
             const allVideos = document.querySelectorAll('video');
             pipVideo = Array.from(allVideos).find(
-              v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true'
+              v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-local-video') !== 'true' && v.getAttribute('data-audio-only') !== 'true'
             ) as HTMLVideoElement || (!hasRemote ? Array.from(allVideos).find(
-              v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused
+              v => v.srcObject && (v as HTMLVideoElement).videoWidth > 0 && !v.paused && v.getAttribute('data-audio-only') !== 'true'
             ) as HTMLVideoElement : null) || null;
           }
           if (pipVideo) {
