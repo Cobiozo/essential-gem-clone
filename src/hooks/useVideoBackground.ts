@@ -1,12 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { VideoBackgroundProcessor, type BackgroundMode } from '@/components/meeting/VideoBackgroundProcessor';
 
-const BACKGROUND_IMAGES = [
-  '/backgrounds/bg-office.jpg',
-  '/backgrounds/bg-nature.jpg',
-  '/backgrounds/bg-abstract.jpg',
-];
-
 const LS_KEY_MODE = 'meeting_bg_mode';
 const LS_KEY_IMAGE = 'meeting_bg_image';
 
@@ -167,6 +161,6 @@ export function useVideoBackground() {
     updateRawStream,
     setParticipantCount,
     getSavedBackground,
-    backgroundImages: BACKGROUND_IMAGES,
+    backgroundImages: [] as string[],
   };
 }

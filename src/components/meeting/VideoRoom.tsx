@@ -10,6 +10,7 @@ import { MeetingTimer } from './MeetingTimer';
 import { useToast } from '@/hooks/use-toast';
 import { useVideoBackground } from '@/hooks/useVideoBackground';
 import { useCustomBackgrounds } from '@/hooks/useCustomBackgrounds';
+import { useZoomBackgrounds } from '@/hooks/useZoomBackgrounds';
 import { BackgroundSelector } from './BackgroundSelector';
 import type { BackgroundMode } from './VideoBackgroundProcessor';
 import type { MeetingSettings } from './MeetingSettingsDialog';
@@ -122,8 +123,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     updateRawStream,
     setParticipantCount: setBgParticipantCount,
     getSavedBackground,
-    backgroundImages,
   } = useVideoBackground();
+
+  const { zoomBackgrounds } = useZoomBackgrounds();
 
   const {
     customImages: customBackgroundImages,
@@ -2026,7 +2028,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         bgSelectedImage={bgSelectedImage}
         bgIsLoading={bgIsLoading}
         bgIsSupported={bgIsSupported}
-        backgroundImages={backgroundImages}
+        backgroundImages={zoomBackgrounds}
         onBackgroundChange={handleBackgroundChange}
         customBackgroundImages={customBackgroundImages}
         maxCustomBackgrounds={maxCustomBackgrounds}
