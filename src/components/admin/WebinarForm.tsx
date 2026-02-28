@@ -38,7 +38,9 @@ import {
   Clock,
   Upload,
   FileText,
-  Video
+  Video,
+  Plus,
+  X
 } from 'lucide-react';
 import type { DbEvent, WebinarFormData, WEBINAR_TYPES, DURATION_OPTIONS } from '@/types/events';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -106,6 +108,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
     registration_form_config: defaultRegistrationFormConfig,
     is_external_platform: false,
     external_platform_message: '',
+    push_reminder_enabled: false,
+    push_reminder_minutes: [5],
   });
 
   const [imageUrlInput, setImageUrlInput] = useState('');
@@ -167,6 +171,15 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
         use_internal_meeting: editingWebinar.use_internal_meeting ?? false,
         meeting_room_id: editingWebinar.meeting_room_id || null,
         meeting_password: (editingWebinar as any).meeting_password || null,
+        push_reminder_enabled: (editingWebinar as any).push_reminder_enabled ?? false,
+        push_reminder_minutes: (() => {
+          try {
+            const raw = (editingWebinar as any).push_reminder_minutes;
+            if (Array.isArray(raw)) return raw;
+            if (typeof raw === 'string') return JSON.parse(raw);
+            return [5];
+          } catch { return [5]; }
+        })(),
       });
       setImageUrlInput(editingWebinar.image_url || '');
       
@@ -252,6 +265,8 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
             use_internal_meeting: form.use_internal_meeting || false,
             meeting_room_id: form.use_internal_meeting ? (form.meeting_room_id || crypto.randomUUID()) : null,
             meeting_password: form.use_internal_meeting && form.meeting_password ? form.meeting_password : null,
+            push_reminder_enabled: form.push_reminder_enabled,
+            push_reminder_minutes: form.push_reminder_enabled ? JSON.stringify(form.push_reminder_minutes) : null,
           };
 
           let error;
@@ -688,6 +703,80 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
               />
               <Mail className="h-4 w-4 text-muted-foreground" />
               <Label className="text-muted-foreground">{t('admin.webinar.emailReminder')}</Label>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={form.push_reminder_enabled}
+                  onCheckedChange={(checked) => setForm({ ...form, push_reminder_enabled: checked })}
+                />
+                <Bell className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-muted-foreground">Web Push</Label>
+              </div>
+              {form.push_reminder_enabled && (
+                <div className="pl-8 space-y-2">
+                  {form.push_reminder_minutes.map((minutes, index) => {
+                    const allOptions = [1, 2, 3, 5, 10, 15, 30];
+                    const usedValues = form.push_reminder_minutes.filter((_, i) => i !== index);
+                    const availableOptions = allOptions.filter(v => !usedValues.includes(v));
+                    return (
+                      <div key={index} className="flex items-center gap-2">
+                        <Select
+                          value={String(minutes)}
+                          onValueChange={(val) => {
+                            const updated = [...form.push_reminder_minutes];
+                            updated[index] = Number(val);
+                            setForm({ ...form, push_reminder_minutes: updated });
+                          }}
+                        >
+                          <SelectTrigger className="w-[120px] h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableOptions.map(opt => (
+                              <SelectItem key={opt} value={String(opt)}>
+                                {opt} min
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {form.push_reminder_minutes.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              const updated = form.push_reminder_minutes.filter((_, i) => i !== index);
+                              setForm({ ...form, push_reminder_minutes: updated });
+                            }}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        )}
+                        {index === form.push_reminder_minutes.length - 1 && form.push_reminder_minutes.length < 3 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => {
+                              const allUsed = form.push_reminder_minutes;
+                              const next = [1, 2, 3, 5, 10, 15, 30].find(v => !allUsed.includes(v));
+                              if (next !== undefined) {
+                                setForm({ ...form, push_reminder_minutes: [...allUsed, next] });
+                              }
+                            }}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <p className="text-xs text-muted-foreground">maks. 3 przypomnienia</p>
+                </div>
+              )}
             </div>
           </CollapsibleContent>
         </Collapsible>

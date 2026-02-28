@@ -83,6 +83,7 @@ serve(async (req) => {
     webinarReminders24h: { processed: 0, success: 0, failed: 0 },
     webinarReminders1h: { processed: 0, success: 0, failed: 0 },
     webinarReminders15min: { processed: 0, success: 0, failed: 0 },
+    pushReminders: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
@@ -865,9 +866,121 @@ serve(async (req) => {
       }
     }
 
-    // 8. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success;
+    // ===== 8. WEB PUSH REMINDERS (configurable per-event) =====
+    if (!isTimeoutApproaching()) {
+      console.log("[CRON] Step 8: Processing web push reminders...");
+      
+      const now = new Date();
+      // Fetch events with push reminders enabled, starting within 32 minutes
+      const windowEnd = new Date(now.getTime() + 32 * 60 * 1000);
+      
+      const { data: pushEvents, error: pushEventsError } = await supabase
+        .from("events")
+        .select("id, title, start_time, push_reminder_minutes")
+        .eq("push_reminder_enabled", true)
+        .eq("is_active", true)
+        .not("push_reminder_minutes", "is", null)
+        .gte("start_time", now.toISOString())
+        .lte("start_time", windowEnd.toISOString());
+
+      if (pushEventsError) {
+        console.error("[CRON] Error fetching push events:", pushEventsError);
+      } else if (pushEvents && pushEvents.length > 0) {
+        console.log(`[CRON] Found ${pushEvents.length} events with push reminders to check`);
+        
+        for (const event of pushEvents) {
+          if (isTimeoutApproaching()) {
+            results.stoppedEarly = true;
+            break;
+          }
+          
+          const eventStart = new Date(event.start_time);
+          const minutesUntilStart = Math.round((eventStart.getTime() - now.getTime()) / 60000);
+          
+          // Parse configured reminder minutes
+          let reminderMinutes: number[] = [];
+          try {
+            const raw = event.push_reminder_minutes;
+            reminderMinutes = Array.isArray(raw) ? raw : (typeof raw === 'string' ? JSON.parse(raw) : []);
+          } catch {
+            continue;
+          }
+          
+          for (const configuredMinutes of reminderMinutes) {
+            // Check if current time falls within tolerance window: [configured - 2, configured + 2]
+            if (minutesUntilStart < configuredMinutes - 2 || minutesUntilStart > configuredMinutes + 2) {
+              continue;
+            }
+            
+            console.log(`[CRON] Push reminder ${configuredMinutes}min for event "${event.title}" (actual: ${minutesUntilStart}min left)`);
+            
+            // Get registered users
+            const { data: registrations } = await supabase
+              .from("event_registrations")
+              .select("user_id")
+              .eq("event_id", event.id)
+              .eq("status", "registered");
+            
+            if (!registrations || registrations.length === 0) continue;
+            
+            // Format time for notification body
+            const warsawTime = eventStart.toLocaleString("pl-PL", { 
+              timeZone: "Europe/Warsaw", 
+              hour: "2-digit", 
+              minute: "2-digit" 
+            });
+            
+            for (const reg of registrations) {
+              if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+              
+              // Check if already sent
+              const { data: alreadySent } = await supabase
+                .from("event_push_reminders_sent")
+                .select("id")
+                .eq("event_id", event.id)
+                .eq("user_id", reg.user_id)
+                .eq("reminder_minutes", configuredMinutes)
+                .maybeSingle();
+              
+              if (alreadySent) continue;
+              
+              results.pushReminders.processed++;
+              
+              try {
+                await supabase.functions.invoke("send-push-notification", {
+                  body: {
+                    userId: reg.user_id,
+                    title: `Webinar za ${minutesUntilStart} min: ${event.title}`,
+                    body: `Rozpoczęcie o ${warsawTime} (Warsaw)`,
+                    url: `/events`,
+                    tag: `webinar-push-${event.id}-${configuredMinutes}`,
+                  },
+                });
+                
+                // Log sent reminder
+                await supabase.from("event_push_reminders_sent").insert({
+                  event_id: event.id,
+                  user_id: reg.user_id,
+                  reminder_minutes: configuredMinutes,
+                });
+                
+                results.pushReminders.success++;
+                console.log(`[CRON] Push reminder sent to user ${reg.user_id} for "${event.title}" (${minutesUntilStart}min)`);
+              } catch (err) {
+                console.error(`[CRON] Push reminder failed:`, err);
+                results.pushReminders.failed++;
+              }
+            }
+          }
+        }
+      } else {
+        console.log("[CRON] No push reminders due");
+      }
+    }
+
+    // 9. Update job log with results
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success;
     
     await supabase
       .from("cron_job_logs")
