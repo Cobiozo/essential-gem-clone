@@ -121,10 +121,17 @@ const VideoTile: React.FC<{
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !participant.stream) return;
-    video.srcObject = participant.stream;
+
+    // When forceAudioMuted, create video-only stream to avoid AEC echo
+    if (forceAudioMuted) {
+      const videoTracks = participant.stream.getVideoTracks();
+      video.srcObject = videoTracks.length > 0 ? new MediaStream(videoTracks) : participant.stream;
+    } else {
+      video.srcObject = participant.stream;
+    }
+
     playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
 
-    // Retry play when metadata loads (stream may not be ready immediately)
     const handleLoaded = () => {
       if (video.paused && video.srcObject) {
         playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
@@ -137,7 +144,7 @@ const VideoTile: React.FC<{
       video.removeEventListener('loadedmetadata', handleLoaded);
       video.removeEventListener('loadeddata', handleLoaded);
     };
-  }, [participant.stream, onAudioBlocked]);
+  }, [participant.stream, forceAudioMuted, onAudioBlocked]);
 
   // Observe track changes within existing stream (reconnect scenarios)
   useEffect(() => {
@@ -146,7 +153,12 @@ const VideoTile: React.FC<{
     if (!stream || !video) return;
 
     const handleTrackChange = () => {
-      if (video.srcObject !== stream) video.srcObject = stream;
+      if (forceAudioMuted) {
+        const videoTracks = stream.getVideoTracks();
+        video.srcObject = videoTracks.length > 0 ? new MediaStream(videoTracks) : stream;
+      } else {
+        if (video.srcObject !== stream) video.srcObject = stream;
+      }
       playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
     };
 
