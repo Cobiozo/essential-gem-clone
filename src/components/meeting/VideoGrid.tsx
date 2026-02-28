@@ -75,6 +75,35 @@ const AudioIndicator: React.FC<{ audioLevel: number; isMuted?: boolean; size?: '
   );
 };
 
+// ─── Audio-only element for decoupled audio playback ───
+const AudioElement: React.FC<{ stream: MediaStream; onAudioBlocked?: () => void }> = ({ stream, onAudioBlocked }) => {
+  const ref = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    const audio = ref.current;
+    if (!audio || !stream) return;
+    audio.srcObject = stream;
+    audio.play().catch(() => {
+      audio.muted = true;
+      audio.play().then(() => {
+        console.warn('[AudioElement] Autoplay blocked — playing muted');
+        onAudioBlocked?.();
+      }).catch(() => {});
+    });
+  }, [stream, onAudioBlocked]);
+  return <audio ref={ref} autoPlay />;
+};
+
+// ─── Hidden audio streams for speaker/multi-speaker modes ───
+const AudioOnlyStreams: React.FC<{ participants: VideoParticipant[]; onAudioBlocked?: () => void }> = ({ participants, onAudioBlocked }) => (
+  <>
+    {participants
+      .filter(p => !p.isLocal && p.stream)
+      .map(p => (
+        <AudioElement key={p.peerId} stream={p.stream!} onAudioBlocked={onAudioBlocked} />
+      ))}
+  </>
+);
+
 // ─── Video Tile ───
 const VideoTile: React.FC<{
   participant: VideoParticipant;
@@ -83,9 +112,10 @@ const VideoTile: React.FC<{
   audioLevel?: number;
   className?: string;
   showOverlay?: boolean;
+  forceAudioMuted?: boolean;
   videoRefCallback?: (el: HTMLVideoElement | null) => void;
   onAudioBlocked?: () => void;
-}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, videoRefCallback, onAudioBlocked }) => {
+}> = ({ participant, isCameraOff, isScreenSharing, audioLevel = 0, className = '', showOverlay = true, forceAudioMuted, videoRefCallback, onAudioBlocked }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -161,7 +191,7 @@ const VideoTile: React.FC<{
         playsInline
         // @ts-ignore
         webkit-playsinline=""
-        muted={participant.isLocal}
+        muted={participant.isLocal || !!forceAudioMuted}
         data-local-video={participant.isLocal ? 'true' : undefined}
         className={showVideo
           ? `max-w-full max-h-full object-contain ${participant.isLocal && !isScreenSharing ? 'scale-x-[-1]' : ''}`
@@ -422,7 +452,8 @@ const MultiSpeakerLayout: React.FC<{
   audioLevels: Map<string, number>;
   speakingIndex: number;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
-}> = ({ participants, isCameraOff, isScreenSharing, audioLevels, speakingIndex, onActiveVideoRef }) => {
+  onAudioBlocked?: () => void;
+}> = ({ participants, isCameraOff, isScreenSharing, audioLevels, speakingIndex, onActiveVideoRef, onAudioBlocked }) => {
   // Show top 2-3 speakers in large tiles
   const speakerIndices = new Set<number>();
   if (speakingIndex >= 0) speakerIndices.add(speakingIndex);
@@ -440,6 +471,7 @@ const MultiSpeakerLayout: React.FC<{
 
   return (
     <div className="flex-1 flex flex-col bg-black">
+      <AudioOnlyStreams participants={participants} onAudioBlocked={onAudioBlocked} />
       <div className={`flex-1 flex gap-1 p-1 ${mainSpeakers.length === 1 ? '' : ''}`}>
         {mainSpeakers.map((idx, i) => (
           <VideoTile
@@ -449,6 +481,7 @@ const MultiSpeakerLayout: React.FC<{
             isScreenSharing={participants[idx].isLocal ? isScreenSharing : undefined}
             audioLevel={audioLevels.get(participants[idx].peerId) || 0}
             className="flex-1 rounded-lg min-h-0"
+            forceAudioMuted={true}
             videoRefCallback={
               i === 0 && !mainSpeakers.some(idx => !participants[idx].isLocal)
                 ? onActiveVideoRef
@@ -567,13 +600,14 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
 
   // ─── Multi-speaker mode ───
   if (viewMode === 'multi-speaker') {
-    return <MultiSpeakerLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} speakingIndex={speakingIndex} onActiveVideoRef={handleVideoRef} />;
+    return <MultiSpeakerLayout participants={allParticipants} isCameraOff={isCameraOff} isScreenSharing={isScreenSharing} audioLevels={audioLevels} speakingIndex={speakingIndex} onActiveVideoRef={handleVideoRef} onAudioBlocked={onAudioBlocked} />;
   }
 
 
   // ─── Speaker mode (default) ───
   return (
     <div className="flex-1 flex flex-col bg-black relative">
+      <AudioOnlyStreams participants={allParticipants} onAudioBlocked={onAudioBlocked} />
       <div className="flex-1 relative">
         <VideoTile
           participant={activeSpeaker}
@@ -582,6 +616,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           audioLevel={audioLevels.get(activeSpeaker.peerId) || 0}
           className="absolute inset-0 rounded-none"
           showOverlay={true}
+          forceAudioMuted={true}
           videoRefCallback={handleVideoRef}
           onAudioBlocked={onAudioBlocked}
         />
