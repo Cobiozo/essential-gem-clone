@@ -131,7 +131,7 @@ export class VideoBackgroundProcessor {
     this.initPromise = (async () => {
       try {
         const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm'
         );
         const modelOptions = {
           baseOptions: {
