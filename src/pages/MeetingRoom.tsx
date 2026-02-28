@@ -54,7 +54,7 @@ const MeetingRoomPage: React.FC = () => {
       ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email || 'Uczestnik'
       : 'Uczestnik';
 
-  const SESSION_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
+  const SESSION_MAX_AGE_MS = 4 * 60 * 60 * 1000; // 4 hours
 
   const tryAutoRejoin = (): boolean => {
     if (!roomId) return false;
@@ -180,7 +180,8 @@ const MeetingRoomPage: React.FC = () => {
         if (reg) {
           // Auto-rejoin bypasses password gate (user already passed it before refresh)
           if (!tryAutoRejoin()) {
-            setStatus(eventPassword ? 'password-gate' : 'lobby');
+            const passwordAlreadyPassed = sessionStorage.getItem(`meeting_password_passed_${roomId}`) === 'true';
+            setStatus(eventPassword && !passwordAlreadyPassed ? 'password-gate' : 'lobby');
           }
         } else {
           setStatus('unauthorized');
@@ -231,6 +232,7 @@ const MeetingRoomPage: React.FC = () => {
   const handleLeave = () => {
     if (roomId) {
       sessionStorage.removeItem(`meeting_session_${roomId}`);
+      sessionStorage.removeItem(`meeting_password_passed_${roomId}`);
     }
     if (guestData && roomId) {
       sessionStorage.removeItem(`guest_token_${roomId}`);
@@ -267,6 +269,7 @@ const MeetingRoomPage: React.FC = () => {
               e.preventDefault();
               if (passwordInput === meetingPassword) {
                 setPasswordError(false);
+                if (roomId) sessionStorage.setItem(`meeting_password_passed_${roomId}`, 'true');
                 setStatus('lobby');
               } else {
                 setPasswordError(true);
