@@ -175,6 +175,9 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const canJoinSoon = minutesUntilStart <= 15 && minutesUntilStart > 0;
   const durationMinutes = event.duration_minutes || differenceInMinutes(endDate, startDate);
 
+  // Check if current user is the host/creator of this event
+  const isHost = user?.id === event.host_user_id || user?.id === (event as any).created_by;
+
   // Check if this is a multi-occurrence event
   const isMultiOccurrence = isMultiOccurrenceEvent(event);
   const allOccurrences = isMultiOccurrence ? getAllOccurrences(event) : [];
@@ -465,7 +468,7 @@ Zapisz się tutaj: ${inviteUrl}
       });
     }
 
-    // Internal meeting button
+    // Internal meeting button - host always sees it when event is live/soon
     const useInternalMeeting = event.use_internal_meeting === true;
     const meetingRoomId = event.meeting_room_id;
 
@@ -479,7 +482,7 @@ Zapisz się tutaj: ${inviteUrl}
           onClick={() => window.open(`/meeting-room/${meetingRoomId}`, '_blank')}
         >
           <Video className="h-4 w-4 mr-2" />
-          Dołącz do spotkania
+          {isHost ? 'Rozpocznij spotkanie' : 'Dołącz do spotkania'}
         </Button>
       );
     }
@@ -500,7 +503,7 @@ Zapisz się tutaj: ${inviteUrl}
     }
 
     // Only show single register button for non-multi-occurrence events
-    if (showRegistration && event.requires_registration && isUpcoming && !isPastEvent && !isMultiOccurrence) {
+    if (showRegistration && event.requires_registration && isUpcoming && !isPastEvent && !isMultiOccurrence && !isHost) {
       const isFull = event.max_participants && (event.registration_count || 0) >= event.max_participants;
       
       // Change button text for external platform events
@@ -606,12 +609,16 @@ Zapisz się tutaj: ${inviteUrl}
 
           {/* Status badges */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {hasAnyRegistration && (
+            {isHost ? (
+              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                Prowadzący
+              </Badge>
+            ) : hasAnyRegistration ? (
               <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                 <Check className="h-3 w-3 mr-1" />
                 {isMultiOccurrence ? `${futureRegisteredCount} zapisanych` : 'Zapisany'}
               </Badge>
-            )}
+            ) : null}
             {isLive && (
               <Badge className="bg-red-500 animate-pulse text-xs">NA ŻYWO</Badge>
             )}
