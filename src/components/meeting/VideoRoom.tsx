@@ -654,6 +654,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         localStreamRef.current = stream;
         setLocalStream(stream);
 
+        // Track ended listeners for auto re-acquire on mobile
+        stream.getTracks().forEach(track => {
+          track.addEventListener('ended', () => {
+            if (!cleanupDoneRef.current) {
+              console.warn('[VideoRoom] Local track ended unexpectedly:', track.kind);
+              reacquireLocalStream();
+            }
+          });
+        });
+
         const iceServers = await getTurnCredentials();
         const peer = new Peer({ config: { iceServers, iceTransportPolicy: 'all' as RTCIceTransportPolicy }, debug: 1 });
         peerRef.current = peer;
@@ -690,11 +700,39 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                 { onConflict: 'room_id,user_id' }
               );
             if (participantError) {
-              console.error('[VideoRoom] Failed to register participant:', participantError);
-              await supabase.from('meeting_room_participants').upsert(
+              console.error('[VideoRoom] Failed to register participant (upsert):', participantError);
+              // Retry upsert once
+              const { error: retryError } = await supabase.from('meeting_room_participants').upsert(
                 { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
                 { onConflict: 'room_id,user_id' }
               );
+              if (retryError) {
+                console.error('[VideoRoom] Retry upsert also failed:', retryError);
+              }
+            }
+
+            // Verify participant record exists
+            const { data: verifyParticipant } = await supabase
+              .from('meeting_room_participants')
+              .select('id')
+              .eq('room_id', roomId)
+              .eq('user_id', user.id)
+              .maybeSingle();
+
+            if (!verifyParticipant) {
+              console.warn('[VideoRoom] Participant record missing after upsert, trying plain insert...');
+              const { error: insertError } = await supabase.from('meeting_room_participants').insert({
+                room_id: roomId,
+                user_id: user.id,
+                peer_id: peerId,
+                display_name: displayName,
+                is_active: true,
+                joined_at: new Date().toISOString(),
+              });
+              if (insertError) {
+                console.error('[VideoRoom] Plain insert also failed:', insertError);
+                toast({ title: 'Błąd dołączania', description: 'Nie udało się zarejestrować w spotkaniu. Spróbuj odświeżyć stronę.', variant: 'destructive' });
+              }
             }
           }
 
@@ -1092,36 +1130,102 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   }, []);
 
+  // === reacquireLocalStream: re-acquire media when stream is lost (mobile bg, etc.) ===
+  const reacquireLocalStream = useCallback(async (): Promise<MediaStream | null> => {
+    console.log('[VideoRoom] Attempting to re-acquire local stream...');
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      } catch {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          } catch {
+            console.error('[VideoRoom] reacquireLocalStream: all getUserMedia attempts failed');
+            toast({ title: 'Brak dostępu do multimediów', description: 'Sprawdź uprawnienia przeglądarki lub odśwież stronę.', variant: 'destructive' });
+            return null;
+          }
+        }
+      }
+
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+
+      // Add track ended listeners to new stream
+      stream.getTracks().forEach(track => {
+        track.addEventListener('ended', () => {
+          if (!cleanupDoneRef.current) {
+            console.warn('[VideoRoom] Re-acquired track ended:', track.kind);
+            reacquireLocalStream();
+          }
+        });
+      });
+
+      // Replace tracks in existing peer connections
+      const videoTrack = stream.getVideoTracks()[0];
+      const audioTrack = stream.getAudioTracks()[0];
+      connectionsRef.current.forEach((conn) => {
+        try {
+          const senders = (conn as any).peerConnection?.getSenders() as RTCRtpSender[] | undefined;
+          if (senders) {
+            senders.forEach(sender => {
+              if (sender.track?.kind === 'video' && videoTrack) sender.replaceTrack(videoTrack);
+              if (sender.track?.kind === 'audio' && audioTrack) sender.replaceTrack(audioTrack);
+            });
+          }
+        } catch (e) { console.warn('[VideoRoom] replaceTrack failed:', e); }
+      });
+
+      console.log('[VideoRoom] Stream re-acquired successfully');
+      toast({ title: 'Multimedia przywrócone' });
+      return stream;
+    } catch (err) {
+      console.error('[VideoRoom] reacquireLocalStream failed:', err);
+      return null;
+    }
+  }, [toast]);
+
   // Controls
-  const handleToggleMute = () => {
-    if (localStreamRef.current) {
-      if (isMuted && !canMicrophone) {
-        toast({ title: 'Mikrofon wyłączony', description: 'Prowadzący wyłączył możliwość używania mikrofonu.' });
-        return;
-      }
-      localStreamRef.current.getAudioTracks().forEach((t) => (t.enabled = isMuted));
-      const newMuted = !isMuted;
-      setIsMuted(newMuted);
-      if (channelRef.current && peerRef.current) {
-        channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted: newMuted, isCameraOff } });
-      }
+  const handleToggleMute = async () => {
+    let stream = localStreamRef.current;
+    // Re-acquire if null or all audio tracks ended
+    if (!stream || stream.getAudioTracks().length === 0 || stream.getAudioTracks().every(t => t.readyState === 'ended')) {
+      stream = await reacquireLocalStream();
+      if (!stream) return;
+    }
+    if (isMuted && !canMicrophone) {
+      toast({ title: 'Mikrofon wyłączony', description: 'Prowadzący wyłączył możliwość używania mikrofonu.' });
+      return;
+    }
+    stream.getAudioTracks().forEach((t) => (t.enabled = isMuted));
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    if (channelRef.current && peerRef.current) {
+      channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted: newMuted, isCameraOff } });
     }
   };
 
-  const handleToggleCamera = () => {
-    if (localStreamRef.current) {
-      if (isCameraOff && !canCamera) {
-        toast({ title: 'Kamera wyłączona', description: 'Prowadzący wyłączył możliwość używania kamery.' });
-        return;
-      }
-      const newEnabled = isCameraOff;
-      localStreamRef.current.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
-      const newCameraOff = !isCameraOff;
-      setIsCameraOff(newCameraOff);
-      setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
-      if (channelRef.current && peerRef.current) {
-        channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
-      }
+  const handleToggleCamera = async () => {
+    let stream = localStreamRef.current;
+    // Re-acquire if null or all video tracks ended
+    if (!stream || stream.getVideoTracks().length === 0 || stream.getVideoTracks().every(t => t.readyState === 'ended')) {
+      stream = await reacquireLocalStream();
+      if (!stream) return;
+    }
+    if (isCameraOff && !canCamera) {
+      toast({ title: 'Kamera wyłączona', description: 'Prowadzący wyłączył możliwość używania kamery.' });
+      return;
+    }
+    const newEnabled = isCameraOff;
+    stream.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
+    const newCameraOff = !isCameraOff;
+    setIsCameraOff(newCameraOff);
+    setLocalStream(new MediaStream(stream.getTracks()));
+    if (channelRef.current && peerRef.current) {
+      channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
     }
   };
 
