@@ -388,7 +388,11 @@ const GalleryLayout: React.FC<{
           isScreenSharing={p.isLocal ? isScreenSharing : undefined}
           audioLevel={audioLevels.get(p.peerId) || 0}
           className="rounded-lg min-h-0"
-          videoRefCallback={i === 0 ? onActiveVideoRef : undefined}
+          videoRefCallback={
+            i === participants.findIndex(pp => !pp.isLocal)
+              ? onActiveVideoRef
+              : (i === 0 && !participants.some(pp => !pp.isLocal) ? onActiveVideoRef : undefined)
+          }
           onAudioBlocked={onAudioBlocked}
         />
       ))}
@@ -431,7 +435,11 @@ const MultiSpeakerLayout: React.FC<{
             isScreenSharing={participants[idx].isLocal ? isScreenSharing : undefined}
             audioLevel={audioLevels.get(participants[idx].peerId) || 0}
             className="flex-1 rounded-lg min-h-0"
-            videoRefCallback={i === 0 ? onActiveVideoRef : undefined}
+            videoRefCallback={
+              i === 0 && !mainSpeakers.some(idx => !participants[idx].isLocal)
+                ? onActiveVideoRef
+                : (i === mainSpeakers.findIndex(idx => !participants[idx].isLocal) ? onActiveVideoRef : undefined)
+            }
           />
         ))}
       </div>

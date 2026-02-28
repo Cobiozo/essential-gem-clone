@@ -1418,6 +1418,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // PiP
   const autoPiPRef = useRef(false);
+  const participantsCountRef = useRef(participants.length);
+  participantsCountRef.current = participants.length;
 
   const handleTogglePiP = async () => {
     if (!isPiPSupported) return;
@@ -1467,7 +1469,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         if (document.hidden) {
           if (document.pictureInPictureElement) return;
           let pipVideo: HTMLVideoElement | null = activeVideoRef.current;
-          const hasRemote = participants.length > 0;
+          const hasRemote = participantsCountRef.current > 0;
           if (pipVideo?.getAttribute('data-local-video') === 'true' && hasRemote) {
             pipVideo = null;
           }
@@ -1496,7 +1498,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             }
           }
         } else {
-          if (document.pictureInPictureElement && autoPiPRef.current) {
+          if (document.pictureInPictureElement) {
             await document.exitPictureInPicture();
             autoPiPRef.current = false;
             setIsPiPActive(false);

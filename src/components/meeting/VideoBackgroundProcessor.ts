@@ -251,7 +251,9 @@ export class VideoBackgroundProcessor {
 
     try {
       if (this.videoElement.videoWidth === 0 || this.videoElement.videoHeight === 0) {
-        this.animationFrameId = requestAnimationFrame(this.processFrame);
+        if (!this.isTabHidden) {
+          this.animationFrameId = requestAnimationFrame(this.processFrame);
+        }
         return;
       }
 
@@ -266,7 +268,9 @@ export class VideoBackgroundProcessor {
           this.overloadCounter = 0;
           console.log('[BackgroundProcessor] Attempting to exit pass-through mode');
         }
-        this.animationFrameId = requestAnimationFrame(this.processFrame);
+        if (!this.isTabHidden) {
+          this.animationFrameId = requestAnimationFrame(this.processFrame);
+        }
         return;
       }
 
