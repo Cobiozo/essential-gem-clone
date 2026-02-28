@@ -1,111 +1,123 @@
 
 
-## Naprawa: duplikaty uczestnikow w siatce video
+## Naprawa: sprzezenia audio w trybach speaker/multi-speaker
 
 ### Problem
 
-Gdy uczestnik odswiezy strone lub ponownie dolaczy, dostaje NOWY `peerId` od PeerJS. Stary wpis w lokalnym stanie `participants` u innych uczestnikow nie jest natychmiast usuwany, poniewaz:
+W trybie galerii kazdy uczestnik ma JEDEN element `<video>` z `muted={participant.isLocal}` — audio gra poprawnie.
 
-1. Zdarzenie `peer-left` nie jest wysylane przy zamknieciu karty / odswiezeniu (brak czystego zamkniecia)
-2. Zdarzenie `close` na starym polaczeniu moze nie wypalic od razu
-3. Mechanizm "ghost pruning" wymaga 3 kolejnych pudel z interwalu co kilka sekund
-4. Tymczasem uzytkownik z nowym `peerId` nadaje `peer-joined` i jest ponownie wywolywany
+W trybie speaker/multi-speaker:
+1. Ten sam MediaStream jest przypisany do DWOCH elementow `<video>` (glowny tile + miniaturka). Nawet jesli miniaturka jest muted, przegladarki moga miec problem z echo cancellation gdy ten sam stream jest na dwoch elementach.
+2. Uczestnicy w miniaturkach maja `muted` bezwarunkowo — ich audio NIE GRA WCALE. Slychac tylko aktywnego mowce.
 
-Efekt: ten sam uzytkownik widnieje 2 razy w siatce — raz ze starym (martwym) peer ID, raz z nowym.
+### Rozwiazanie: rozdzielenie audio od video
 
-### Przyczyna w kodzie
+Dodac komponent `AudioOnlyStreams` ktory renderuje ukryte elementy `<audio>` dla WSZYSTKICH zdalnych uczestnikow. Wszystkie elementy `<video>` w trybach speaker/multi-speaker beda `muted` (tylko obraz).
 
-W `handleCall` -> `call.on('stream')` (linia 1120):
+**Nowy komponent: `AudioOnlyStreams`**
 
 ```text
-setParticipants((prev) => {
-  const exists = prev.find((p) => p.peerId === call.peer);
-  if (exists) return prev.map(p => p.peerId === call.peer ? {...p, stream} : p);
-  return [...prev, { peerId: call.peer, displayName: name, stream, avatarUrl, userId }];
-});
+const AudioOnlyStreams = ({ participants, onAudioBlocked }) => {
+  // Renderuj ukryty <audio> dla kazdego zdalnego uczestnika
+  return (
+    <>
+      {participants
+        .filter(p => !p.isLocal && p.stream)
+        .map(p => (
+          <AudioElement key={p.peerId} stream={p.stream} onAudioBlocked={onAudioBlocked} />
+        ))}
+    </>
+  );
+};
 ```
 
-Deduplikacja odbywa sie TYLKO po `peerId`. Jesli ten sam uzytkownik polaczyl sie z nowym peer ID, stary wpis nie jest usuwany.
-
-### Rozwiazanie
-
-**Zmiana 1: Deduplikacja po `userId` w `handleCall` (VideoRoom.tsx)**
-
-W `call.on('stream')` — przy dodawaniu nowego uczestnika, usunac stare wpisy tego samego `userId` (jesli istnieja) i zamknac ich martwe polaczenia:
+**`AudioElement` — pojedynczy element `<audio>`:**
 
 ```text
-setParticipants((prev) => {
-  const exists = prev.find((p) => p.peerId === call.peer);
-  if (exists) return prev.map(p => p.peerId === call.peer ? {...p, stream: remoteStream} : p);
-  
-  // Deduplikacja po userId: usun stare wpisy tego samego uzytkownika z innym peerId
-  let cleaned = prev;
-  if (userId) {
-    const oldEntries = prev.filter(p => p.userId === userId && p.peerId !== call.peer);
-    oldEntries.forEach(old => {
-      const oldConn = connectionsRef.current.get(old.peerId);
-      if (oldConn) { try { oldConn.close(); } catch {} }
-      connectionsRef.current.delete(old.peerId);
+const AudioElement = ({ stream, onAudioBlocked }) => {
+  const ref = useRef<HTMLAudioElement>(null);
+  useEffect(() => {
+    if (!ref.current || !stream) return;
+    ref.current.srcObject = stream;
+    ref.current.play().catch(() => {
+      // fallback jak w playVideoSafe
     });
-    cleaned = prev.filter(p => !(p.userId === userId && p.peerId !== call.peer));
-  }
+  }, [stream]);
+  return <audio ref={ref} autoPlay />;
+};
+```
+
+### Zmiany w VideoGrid
+
+**1. VideoTile — nowy prop `forceAudioMuted`**
+
+Dodac opcjonalny prop `forceAudioMuted?: boolean`. Gdy `true`, element `<video>` jest zawsze `muted`:
+
+```text
+muted={participant.isLocal || forceAudioMuted}
+```
+
+**2. GalleryLayout — bez zmian**
+
+W galerii kazdy video gra audio normalnie (`forceAudioMuted` nie jest ustawiony). Zachowanie identyczne jak dotychczas.
+
+**3. Speaker mode — `forceAudioMuted` + AudioOnlyStreams**
+
+```text
+return (
+  <div className="flex-1 flex flex-col bg-black relative">
+    <AudioOnlyStreams participants={allParticipants} onAudioBlocked={onAudioBlocked} />
+    <div className="flex-1 relative">
+      <VideoTile
+        participant={activeSpeaker}
+        forceAudioMuted={true}  // audio gra z AudioOnlyStreams
+        ...
+      />
+    </div>
+    {showThumbnails && (
+      <div>
+        {allParticipants.map((p, index) => (
+          <ThumbnailTile ... />  // juz muted — bez zmian
+        ))}
+      </div>
+    )}
+  </div>
+);
+```
+
+**4. MultiSpeakerLayout — `forceAudioMuted` + AudioOnlyStreams**
+
+Dodac `AudioOnlyStreams` na poczatku. VideoTile w glownym obszarze dostaje `forceAudioMuted={true}`. MiniVideo w pasku juz jest muted — bez zmian.
+
+### Diagram
+
+```text
+GALERIA:
+  Uczestnik A: <video muted={isLocal}> -- audio gra z video
+  Uczestnik B: <video muted={isLocal}> -- audio gra z video
+
+SPEAKER / MULTI-SPEAKER (po naprawie):
+  <audio> A  -- audio ZAWSZE gra (ukryty element)
+  <audio> B  -- audio ZAWSZE gra (ukryty element)
   
-  return [...cleaned, { peerId: call.peer, displayName: name, stream: remoteStream, avatarUrl, userId }];
-});
+  Glowny tile:  <video muted> -- tylko obraz
+  Miniaturki:   <video muted> -- tylko obraz (jak dotychczas)
 ```
 
-**Zmiana 2: Deduplikacja po `userId` przy odbiorze `peer-joined` (VideoRoom.tsx)**
+### Efekt
 
-W handleru `peer-joined` (linia 849), przed wywolaniem `callPeer`, usunac stare wpisy tego samego userId:
-
-```text
-channel.on('broadcast', { event: 'peer-joined' }, ({ payload }) => {
-  if (payload.peerId !== peerId && !cancelled) {
-    // Usun stary wpis tego samego uzytkownika (reconnect z nowym peerId)
-    if (payload.userId) {
-      setParticipants(prev => {
-        const oldEntries = prev.filter(p => p.userId === payload.userId && p.peerId !== payload.peerId);
-        oldEntries.forEach(old => {
-          const oldConn = connectionsRef.current.get(old.peerId);
-          if (oldConn) { try { oldConn.close(); } catch {} }
-          connectionsRef.current.delete(old.peerId);
-          reconnectingPeersRef.current.delete(old.peerId);
-        });
-        return prev.filter(p => !(p.userId === payload.userId && p.peerId !== payload.peerId));
-      });
-    }
-    callPeer(payload.peerId, payload.displayName, stream, undefined, payload.userId);
-  }
-});
-```
-
-**Zmiana 3: Deduplikacja po `userId` przy odbiorze incoming call (VideoRoom.tsx)**
-
-W `peer.on('call')` (linia 1015), po uzyskaniu `callerUserId`, usunac stare wpisy:
-
-```text
-// Po uzyskaniu callerUserId (linia ~1048):
-if (callerUserId) {
-  // Usun stare wpisy tego samego uzytkownika
-  setParticipants(prev => {
-    const oldEntries = prev.filter(p => p.userId === callerUserId && p.peerId !== call.peer);
-    oldEntries.forEach(old => {
-      const oldConn = connectionsRef.current.get(old.peerId);
-      if (oldConn) { try { oldConn.close(); } catch {} }
-      connectionsRef.current.delete(old.peerId);
-      reconnectingPeersRef.current.delete(old.peerId);
-    });
-    return prev.filter(p => !(p.userId === callerUserId && p.peerId !== call.peer));
-  });
-}
-```
+- Audio gra z JEDNEGO zrodla na uczestnika (element `<audio>`), niezaleznie od layoutu
+- Brak duplikacji streamow na dwoch elementach = brak sprzezen
+- Wszyscy uczestnicy sa slyszalni, nie tylko aktywny mowca
+- Galeria dziala bez zmian
 
 ### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoRoom.tsx` | Deduplikacja po userId w 3 miejscach: handleCall stream, peer-joined, peer.on('call') |
+| `src/components/meeting/VideoGrid.tsx` | Nowy komponent AudioOnlyStreams + AudioElement, prop forceAudioMuted w VideoTile, uzycie w speaker i multi-speaker |
 
 ### Ryzyko
 
-Niskie. Zmiany sa defensywne — usuwaja duplikaty tylko gdy `userId` sie zgadza i `peerId` jest inny. Nie wplywa na gosci bez userId (ci maja `undefined`). Stare martwe polaczenia sa zamykane, co zwalnia zasoby WebRTC.
+Niskie. Zmiana dotyczy tylko routingu audio. Galeria nie jest modyfikowana. Elementy `<audio>` sa standardowym sposobem odtwarzania audio w WebRTC.
+
