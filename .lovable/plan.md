@@ -1,97 +1,62 @@
 
-## Audyt systemu spotkan wewnetrznych + brakujace funkcje
 
-### 1. Problem: Uczestnicy nie widoczni natychmiast po dolaczeniu
+## Zabezpieczenie webinarow haslem (spotkania wewnetrzne)
 
-**Przyczyna**: Gdy nowy uczestnik dolaczy, flow jest nastepujacy:
-1. Nowy peer rejestruje sie w `meeting_room_participants` (INSERT/UPSERT)
-2. Kanai Supabase Realtime subskrybuje sie (`channel.subscribe`)
-3. Dopiero PO subskrypcji (`SUBSCRIBED`) nastepuje broadcast `peer-joined`
-4. Jednoczesnie nowy peer odpytuje DB o istniejacych uczestnikow i dzwoni do nich (`callPeer`)
+### Cel
+Dodanie mozliwosci ustawienia hasla dostepu do wewnetrznego pokoju spotkania podczas tworzenia webinaru/szkolenia. Uczestnicy musza podac haslo przed wejsciem do lobby.
 
-Problem polega na **race condition**: miedzy momentem INSERT do bazy a momentem SUBSCRIBED moze uplynac 1-3 sekundy. W tym czasie:
-- Istniejacy uczestnicy NIE widza nowego (bo broadcast jeszcze nie wyslany)
-- Nowy uczestnik moze juz widziec istniejacych (bo odpytuje DB)
+### Zmiany
 
-Dodatkowo, heartbeat (sync z baza) odbywa sie co **30 sekund** -- wiec jesli broadcast `peer-joined` zostanie stracony (np. chwilowy problem z kanalem), uczestnik pojawi sie dopiero po nastepnym heartbeat (do 30s).
+#### 1. Migracja SQL - nowa kolumna `meeting_password`
 
-**Naprawa**:
-- Dodac obsluge zdarzenia Postgres Realtime (INSERT na `meeting_room_participants`) jako **drugi kanal sygnalizacji** -- gdy pojawi sie nowy wiersz w bazie, natychmiast sprobuj polaczyc sie z tym peerem (jesli jeszcze nie polaczony). To dziala niezaleznie od broadcast i eliminuje race condition.
-- Zmniejszyc interwał heartbeat z 30s do 15s jako dodatkowe zabezpieczenie.
+Dodanie kolumny `meeting_password text` do tabeli `events`:
 
-### 2. Brak funkcji: Rozmycie tla / Wirtualne tlo
+```sql
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS meeting_password text;
+```
 
-**Stan obecny**: W kodzie NIE istnieje zadna implementacja rozmycia tla ani wirtualnych teł. Nie ma tez zadnych importow bibliotek do przetwarzania wideo (np. TensorFlow.js, MediaPipe).
+Haslo przechowywane jako zwykly tekst (nie jest to secret -- to haslo dostepu do pokoju, widoczne dla admina/hosta).
 
-**Plan implementacji**:
+#### 2. WebinarForm.tsx - pole hasla w sekcji "Wewnetrzny pokoj spotkania"
 
-Rozmycie tla i wirtualne tla wymagaja przetwarzania kazdej klatki wideo w czasie rzeczywistym -- segmentacja osoby od tla za pomoca modelu ML i zastosowanie efektu (blur lub zamiana tla).
+Gdy `use_internal_meeting` jest wlaczony, pod togglem pojawi sie dodatkowe pole:
+- Switch "Zabezpiecz haslem" + pole tekstowe na haslo
+- Przycisk do generowania losowego hasla (6 znakow)
+- Haslo zapisywane w kolumnie `meeting_password` przy insercie/update
 
-#### Technologia
-- **@mediapipe/selfie_segmentation** lub **@mediapipe/tasks-vision** -- lekki model ML do segmentacji osoby/tla dzialajacy w przegladarce (WebAssembly + GPU)
-- **OffscreenCanvas / Canvas 2D** -- rendering przetworzonego wideo
-- **captureStream()** -- przechwycenie strumienia z canvas i przekazanie go do WebRTC zamiast oryginalnego
+Pole pojawi sie bezposrednio pod istniejacym blokiem "Wewnetrzny pokoj spotkania" (linia 424-446).
 
-#### Architektura
-1. Nowy komponent `VideoBackgroundProcessor` -- obsluguje pipeline: kamera -> segmentacja -> canvas (blur/obraz) -> MediaStream
-2. Nowy hook `useVideoBackground` -- zarzadza stanem (off / blur / image), inicjalizacja modelu, cleanup
-3. Modyfikacja `MeetingLobby.tsx` -- dodanie przycisku wyboru tla w lobby (podglad efektu przed dolaczeniem)
-4. Modyfikacja `VideoRoom.tsx` -- integracja z procesorem, zamiana localStream na przetworzony stream
-5. Modyfikacja `MeetingControls.tsx` -- dodanie przycisku "Tlo" z menu (Brak / Rozmycie / Obraz 1-3)
+#### 3. TeamTrainingForm.tsx - to samo pole hasla
 
-#### Wazne uwagi
-- Wymaga zainstalowania pakietu `@mediapipe/tasks-vision` (~4MB model WASM)
-- Zuzywa znacznie wiecej CPU/GPU -- nalezy dodac ostrzezenie dla slabszych urzadzen
-- Model trzeba zaladowac asynchronicznie (pierwsze uzycie ~2-3s)
-- Na urzadzeniach mobilnych moze byc zbyt wolne -- nalezy wykrywac i ew. wylaczac opcje
+Analogiczna zmiana w formularzu szkolen (jesli rowniez ma toggle `use_internal_meeting`).
 
-### 3. Podsumowanie audytu -- co juz dziala
+#### 4. MeetingRoom.tsx - bramka hasla przed lobby
 
-| Funkcja | Status |
-|---------|--------|
-| Dolaczanie/opuszczanie pokoju | Dziala |
-| WebRTC peer-to-peer video/audio | Dziala |
-| Heartbeat + self-healing | Dziala (30s) |
-| Wykrywanie aktywnego mowcy | Dziala (hystereza 2.5s) |
-| Udostepnianie ekranu | Dziala |
-| Czat w spotkaniu | Dziala |
-| Panel uczestnikow | Dziala |
-| Role (Host/Co-Host) | Dziala |
-| Ustawienia spotkania (chat/mic/cam/screen) | Dziala |
-| PiP (Picture-in-Picture) | Dziala |
-| Tryb widoku (Speaker/Gallery/Multi-speaker) | Dziala |
-| Tryb goscia | Dziala |
-| TURN/STUN serwery | Dziala |
-| Reconnect ICE/Peer | Dziala (max 3 proby) |
-| Kanal reconnect (exponential backoff) | Dziala |
-| **Natychmiastowe widzenie uczestnikow** | **BUG -- race condition** |
-| **Rozmycie tla** | **BRAK** |
-| **Wirtualne tlo** | **BRAK** |
+W `verifyAccess()` (linia 101-156), po sprawdzeniu ze uzytkownik ma dostep:
+- Pobrac rowniez `meeting_password` z eventu
+- Jesli `meeting_password` nie jest null/pusty, ustawic nowy status `'password-gate'` zamiast `'lobby'`
+- Nowy ekran (inline w MeetingRoom.tsx) -- prosty formularz z polem na haslo i przyciskiem "Dolacz"
+- Po wpisaniu poprawnego hasla -> przejscie do `'lobby'`
+- Host/admin/tworca pomijaja bramke hasla (wchodza bezposrednio)
 
-### 4. Plan implementacji (kolejnosc)
+#### 5. Typy TypeScript
 
-#### Faza 1: Naprawa widocznosci uczestnikow
-- **`VideoRoom.tsx`**: Dodac subskrypcje Postgres Realtime na tabele `meeting_room_participants` (INSERT z `is_active=true`). Gdy pojawi sie nowy wiersz z `peer_id` roznym od lokalnego, natychmiast wywolac `callPeer`. To eliminuje zaleznosc od broadcast i rozwiazuje race condition.
-- **`VideoRoom.tsx`**: Zmniejszyc interwał heartbeat z 30000ms do 15000ms.
+Dodanie `meeting_password?: string | null` do `WebinarFormData` i `EventFormData` w `src/types/events.ts`.
 
-#### Faza 2: Rozmycie tla i wirtualne tla
-- Zainstalowac `@mediapipe/tasks-vision`
-- Utworzyc `src/components/meeting/VideoBackgroundProcessor.ts` -- klasa obslugujaca pipeline segmentacji
-- Utworzyc `src/hooks/useVideoBackground.ts` -- hook React do zarzadzania efektami tla
-- Utworzyc `src/components/meeting/BackgroundSelector.tsx` -- UI menu wyboru tla (Brak / Lekkie rozmycie / Mocne rozmycie / Obraz 1-3)
-- Zmodyfikowac `MeetingLobby.tsx` -- dodac przycisk wyboru tla z podgladem
-- Zmodyfikowac `VideoRoom.tsx` -- zastapic surowy localStream przetworzonym streamem
-- Zmodyfikowac `MeetingControls.tsx` -- dodac przycisk "Tlo" w pasku kontrolnym
-- Dodac 3-4 domyslne obrazy teł w `public/backgrounds/`
+### Logika bezpieczenstwa
 
-### Pliki do zmiany/utworzenia
+- **Host, admin i tworca** zawsze omijaja haslo (automatyczne przejscie do lobby)
+- **Gosc (guest mode)** -- bramka hasla przed formularzem goscia
+- Haslo sprawdzane po stronie klienta (porownanie z wartoscia z bazy). To jest wystarczajace bo:
+  - RLS i tak kontroluje kto widzi event
+  - Haslo sluzy jako dodatkowa warstwa "wiedzy" (czy ktos dostal haslo od organizatora), nie jako bezpieczenstwo kryptograficzne
 
-| Plik | Operacja | Opis |
-|------|----------|------|
-| `src/components/meeting/VideoRoom.tsx` | Edycja | Postgres Realtime subscription + heartbeat 15s + integracja background |
-| `src/components/meeting/VideoBackgroundProcessor.ts` | Nowy | Pipeline ML segmentacji + canvas rendering |
-| `src/hooks/useVideoBackground.ts` | Nowy | Hook zarzadzania efektami tla |
-| `src/components/meeting/BackgroundSelector.tsx` | Nowy | UI wyboru tla |
-| `src/components/meeting/MeetingLobby.tsx` | Edycja | Przycisk tla w lobby |
-| `src/components/meeting/MeetingControls.tsx` | Edycja | Przycisk tla w kontrolkach |
-| `public/backgrounds/` | Nowy | 3-4 domyslne obrazy teł |
+### Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | `ALTER TABLE events ADD COLUMN meeting_password text` |
+| `src/types/events.ts` | Dodanie `meeting_password` do typow formularzy |
+| `src/components/admin/WebinarForm.tsx` | Pole hasla pod togglem wewnetrznego spotkania |
+| `src/components/admin/TeamTrainingForm.tsx` | Analogiczne pole hasla |
+| `src/pages/MeetingRoom.tsx` | Bramka hasla przed lobby + nowy status `password-gate` |
