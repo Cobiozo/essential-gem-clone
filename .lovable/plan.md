@@ -1,73 +1,87 @@
 
 
-## Naprawa 3 problemow: echo, utrata audio/video po screen share, zmiana trybu
+## Naprawa efektow tla (rozmycie i wirtualne tla) we wszystkich trybach
 
-### Problem 1: Echo w trybie speaker/multi-speaker ("slychac siebie")
+### Zidentyfikowane problemy
 
-**Przyczyna**: React ma znany bug z atrybutem `muted` na elementach `<video>` — prop `muted={true}` nie zawsze jest aplikowany do DOM przy re-renderach. W `ThumbnailTile` i `MiniVideo`, `muted={!playAudio}` moze nie dzialac poprawnie, co sprawia ze miniaturka aktywnego mowcy (ktora powinna byc wyciszona) moze odtwarzac audio — prowadzac do podwojnego audio i echa.
+Po analizie kodu znalazlem kilka potencjalnych przyczyn, dlaczego efekty tla nie dzialaja:
 
-W trybie galerii problem nie wystepuje, bo kazdy uczestnik ma dokladnie JEDEN element `<video>` (bez duplikatow).
+### Problem 1: Niestabilne URL-e CDN z `@latest`
 
-**Rozwiazanie**: Dodac `useEffect` w `ThumbnailTile` i `MiniVideo`, ktory imperatywnie ustawia `video.muted` za kazdym razem gdy zmieni sie `playAudio`:
-
+W `VideoBackgroundProcessor.ts` (linia 134) uzywany jest URL:
 ```text
-// ThumbnailTile
-useEffect(() => {
-  if (videoRef.current) {
-    videoRef.current.muted = !playAudio;
-  }
-}, [playAudio]);
-
-// MiniVideo - analogicznie
-useEffect(() => {
-  if (ref.current) {
-    ref.current.muted = !playAudio;
-  }
-}, [playAudio]);
+https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm
 ```
 
-Dodatkowo w istniejacym useEffect (ustawianie srcObject), po `playVideoSafe` dodac jawne `video.muted = !playAudio` aby stan poczatkowy tez byl poprawny.
+Tag `@latest` moze wskazywac na wersje WASM niezgodna z zainstalowana paczka `@mediapipe/tasks-vision@0.10.32`. Jesli WASM runtime jest np. w wersji 0.11.x a kod w 0.10.x, segmentacja cicho zawiedzie — model sie nie zaladuje albo zwroci puste maski.
+
+Podobnie model (linia 138):
+```text
+https://storage.googleapis.com/mediapipe-models/.../latest/selfie_segmenter.tflite
+```
+
+**Rozwiazanie**: Przypiac URL-e do wersji `0.10.32` (zgodnej z zainstalowana paczka).
+
+### Problem 2: Bledy inicjalizacji MediaPipe sa ciche dla uzytkownika
+
+Gdy `applyBackground` zawiedzie (np. blad ladowania modelu), catch zwraca surowy stream bez zadnego komunikatu dla uzytkownika. Uzytkownik klika efekt, nic sie nie dzieje, brak informacji dlaczego.
+
+**Rozwiazanie**: Dodac toast z informacja o bledzie i lepsze logowanie.
+
+### Problem 3: Brak walidacji video tracka przed startem procesora
+
+`processor.start(sourceStream)` nie sprawdza czy raw stream ma zywy i wlaczony video track. Jesli kamera jest wylaczona (`track.enabled = false`) lub track zakonczyl sie (`readyState === 'ended'`), canvas bedzie czarny i efekt nie bedzie widoczny.
+
+**Rozwiazanie**: Przed wywolaniem `processor.start()`, sprawdzic czy raw stream ma zywy, wlaczony video track. Jesli nie — tymczasowo wlaczyc go, lub wyswietlic komunikat.
+
+### Problem 4: `initPromise` nie jest resetowany po bledzie GPU+CPU
+
+Jesli `ImageSegmenter.createFromOptions` zawiedzie zarowno z GPU jak i CPU, `this.initPromise` jest ustawiony na `null` (linia 158). Ale jesli blad wystapi przy pierwszym wywolaniu, kolejne wywolania `initialize()` probuja ponownie — co jest dobrze. Natomiast jesli juz raz sie powiodlo (`this.segmenter` jest ustawiony) ale segmenter jest uszkodzony (np. zwraca puste maski), nie ma mechanizmu retry.
+
+**Rozwiazanie**: Dodac walidacje wynikow segmentacji i retry logike.
 
 ---
 
-### Problem 2: Uczestnicy traca audio/video prowadzacego po zakonczeniu udostepniania ekranu
+### Szczegolowe zmiany
 
-**Przyczyna**: W handlerze `screen-share-stopped` na stronie uczestnika (linia 969-970), kod jawnie zamyka polaczenia screen share:
-```text
-screenShareConnectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
-```
-PeerJS moze miec problem z wieloma polaczeniami do tego samego peera — zamkniecie jednego polaczenia (screen share) moze zaktywowac cleanup wewnetrzny, ktory zaklocaja glowne polaczenie kamerowe do tego samego peera. Efekt: uczestnik traci stream prowadzacego.
+**Plik 1: `src/components/meeting/VideoBackgroundProcessor.ts`**
 
-**Rozwiazanie**: Usunac jawne `conn.close()` z handlera `screen-share-stopped` po stronie uczestnika. Wystarczy wyczyscic stan UI (`setRemoteScreenShare(null)`) i mape referencji. Polaczenia zamkna sie automatycznie gdy prowadzacy zamknie je ze swojej strony (w `stopScreenShare`).
+1. Przypiac wersje CDN:
+   - WASM: `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm`
+   - Model: uzyc stalej wersji zamiast `latest` (np. `https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/0.10.32/selfie_segmenter.tflite` — lub najblizsza dostepna wersja modelu)
 
-Zmiana w `VideoRoom.tsx` (linia 964-971):
-```text
-channel.on('broadcast', { event: 'screen-share-stopped' }, ({ payload }) => {
-  if (!cancelled) {
-    console.log('[VideoRoom] Screen share stopped by', payload?.peerId);
-    setRemoteScreenShare(null);
-    // Don't close connections explicitly - let host close them
-    // to avoid PeerJS interference with main camera connections
-    screenShareConnectionsRef.current.clear();
-  }
-});
-```
+2. Dodac walidacje video tracka w `start()`:
+   ```text
+   const videoTrack = inputStream.getVideoTracks()[0];
+   if (!videoTrack || videoTrack.readyState === 'ended') {
+     console.warn('[BackgroundProcessor] No live video track, returning input stream');
+     return inputStream;
+   }
+   // Temporarily enable track if disabled
+   const wasDisabled = !videoTrack.enabled;
+   if (wasDisabled) videoTrack.enabled = true;
+   ```
 
----
+3. Dodac walidacje wynikow segmentacji w `processFrame`:
+   - Liczyc ile razy pod rzad brak masek
+   - Po 30 klatkach bez masek, logowac ostrzezenie i probowac reinicjalizowac segmenter
 
-### Problem 3: Przelaczenie trybu widoku po zakonczeniu screen share
+4. Dodac metode `isReady(): boolean` aby mozna bylo sprawdzic czy procesor jest gotowy
 
-**Przyczyna**: ViewMode jest juz zapisywany w sessionStorage (poprzednia poprawka). Problem moze wynikac z tego, ze utrata polaczenia (Problem 2) powoduje reconnect lub remount komponentu. Jesli komponent sie remountuje, viewMode jest odczytywany z sessionStorage — co powinno dzialac. Ale jesli reconnect zmienia stan `participants` (np. tymczasowe usuniecie i ponowne dodanie prowadzacego), to aktywny mowca sie resetuje i uzytkownik moze odczuc to jako zmiane trybu.
+**Plik 2: `src/hooks/useVideoBackground.ts`**
 
-**Rozwiazanie**: Naprawienie Problemu 2 powinno rozwiazac rowniez ten problem, poniewaz glowne polaczenie kamerowe nie bedzie juz zaklocane. Dodatkowa nie sa potrzebne zmiany.
+1. W `applyBackground`, przed `processor.start()`:
+   - Sprawdzic czy sourceStream ma zywy video track
+   - Jesli nie, logowac i zwrocic sourceStream bez zmian
 
----
+2. Dodac lepsze logowanie bledow (wyswietlic toast w UI)
 
-### Bonus: Usuniecie martwego kodu
+**Plik 3: `src/components/meeting/VideoRoom.tsx`**
 
-Komponent `AudioOnlyStreams` (linia 99-108) i prop `forceAudioMuted` w `VideoTile` nie sa juz nigdzie uzywane. Warto je usunac dla czytelnosci.
-
-Rowniez funkcja `restoreCamera` (linia 1388-1467) jest zdefiniowana ale nigdy nie wywolywana — moze byc usunieta.
+1. W `handleBackgroundChange`:
+   - Dodac toast informujacy o bledzie gdy efekt nie zadziala
+   - Sprawdzic czy kamera jest wlaczona — jesli nie, wyswietlic toast "Wlacz kamere aby uzyc efektow tla"
+   - Jesli raw stream jest martwy (all tracks ended), wywolac `reacquireLocalStream()` i dopiero potem zastosowac efekt
 
 ---
 
@@ -75,13 +89,11 @@ Rowniez funkcja `restoreCamera` (linia 1388-1467) jest zdefiniowana ale nigdy ni
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoGrid.tsx` | Imperatywne ustawianie `video.muted` w ThumbnailTile i MiniVideo. Usuniecie martwego kodu (AudioOnlyStreams, forceAudioMuted). |
-| `src/components/meeting/VideoRoom.tsx` | Usuniecie `conn.close()` z handlera `screen-share-stopped`. Usuniecie martwej funkcji `restoreCamera`. |
+| `src/components/meeting/VideoBackgroundProcessor.ts` | Przypiac wersje CDN, walidacja video tracka, walidacja wynikow segmentacji |
+| `src/hooks/useVideoBackground.ts` | Walidacja sourceStream, lepsze logowanie |
+| `src/components/meeting/VideoRoom.tsx` | Toast na bledy, guard na wylaczona kamere, reacquire jesli stream martwy |
 
 ### Ryzyko
 
-Niskie. Zmiany sa defensywne:
-- Imperatywne muted to dodatkowe zabezpieczenie (nie zastepuje JSX prop)
-- Usuniecie `conn.close()` zmniejsza ryzyko kolizji PeerJS
-- Usuwanie martwego kodu nie wplywa na dzialanie
+Niskie. Zmiany sa defensywne — dodaja walidacje i lepsze logowanie. Przypiecie wersji CDN zmniejsza ryzyko niestabilnosci. Jedyne potencjalne ryzyko: jesli model w wersji 0.10.32 nie jest dostepny pod stalym URL-em (Google Storage moze miec inna konwencje wersjonowania), ale to mozna obejsc testujac URL przed committem.
 
