@@ -1,152 +1,106 @@
 
-## Naprawa: efekty tla nie dzialaja na desktop w webinarach
+## Naprawa: status "Zakonczone" dla trwajacych webinarow + informacja o przedluzeniu
 
-### Zidentyfikowane przyczyny
+### Problem
 
-**Przyczyna 1 (glowna): Petla zwrotna - procesor przetwarza wlasne wyjscie**
+W kalendarzu i w dialogu szczegolow, status wydarzenia jest okreslany wylacznie na podstawie zaplanowanego `end_time`:
+- `isAfter(now, eventEnd)` -> "Zakonczone"
 
-W `handleBackgroundChange` do `applyBackground` przekazywany jest `localStreamRef.current`, ktory po pierwszym uzyciu efektu jest strumieniem z `captureStream()` (wyjscie procesora). Wewnatrz `applyBackground` istnieje zabezpieczenie:
-
-```text
-if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
-  rawStreamRef.current = inputStream;  // <- TUTAJ: inputStream to przetworzony strumien!
-}
-```
-
-Na desktop, sciezka kamery moze zakonczyc sie (deviceId zmiana, sleep mode, odlaczenie USB kamery) i `rawStreamRef` wskazuje na martwy strumien. Wtedy `rawStreamRef` zostaje nadpisany przetworzonym strumieniem (CanvasCaptureMediaStreamTrack). Procesor probuje segmentowac wlasne wyjscie - efekt nie dziala lub daje zgarblony obraz.
-
-Na mobilnych to rzadziej wystepuje, bo kamera jest wbudowana i nie traci polaczenia.
-
-**Przyczyna 2: handleToggleCamera tworzy nowy MediaStream bez aktualizacji ref**
-
-```text
-setLocalStream(new MediaStream(stream.getTracks()));  // nowy obiekt
-// ale localStreamRef.current NIE jest aktualizowany!
-```
-
-Kazde przelaczenie kamery tworzy nowy wrapper MediaStream. `VideoParticipantTile` otrzymuje nowy obiekt, odpala `useEffect`, resetuje `video.srcObject`. Na desktop Chrome, wielokrotne resetowanie `srcObject` na CanvasCaptureMediaStreamTrack moze powodowac utrate klatek lub czarny obraz.
-
-**Przyczyna 3: Procesor dziala w tle podczas udostepniania ekranu**
-
-Gdy uzytkownik udostepnia ekran, `localStreamRef.current.getVideoTracks().forEach(t => t.stop())` zatrzymuje track canvas capture, ale procesor nadal rysuje na canvas (petla `processFrame` dziala). Po zakonczeniu udostepniania, `restoreCamera` tworzy nowy procesor, ale stara petla moze interferowac.
+Jesli webinar z wewnetrzna integracja WebRTC trwa dluzej niz zaplanowano, system pokazuje "Zakonczone" mimo ze spotkanie nadal trwa (uczestnicy sa w pokoju). Brakuje tez informacji o tym, ze webinar przedluzyl sie i o ile.
 
 ### Rozwiazanie
 
-**Zmiana 1: Zabezpieczenie przed petla zwrotna w `useVideoBackground.ts`**
+Dla wydarzen z wewnetrzna integracja (`use_internal_meeting = true`), sprawdzac czy w pokoju (`meeting_room_id`) sa aktywni uczestnicy (`meeting_room_participants.is_active = true`). Jesli tak -- wydarzenie "Trwa" mimo przekroczenia `end_time`, z informacja o czasie przedluzenia.
 
-W `applyBackground`, przed ustawieniem `rawStreamRef.current = inputStream`, sprawdzic czy inputStream nie jest wyjsciem procesora. Oznaczyc strumienie wyjsciowe flagaa:
+### Zmiany
 
-```text
-// Po processor.start():
-const outputStream = await processor.start(sourceStream);
-(outputStream as any).__bgProcessed = true;
+**Plik: `src/hooks/useMeetingRoomStatus.ts` (NOWY)**
 
-// W fallback:
-if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
-  if ((inputStream as any).__bgProcessed) {
-    console.warn('[useVideoBackground] Cannot use processed stream as raw source, skipping effect');
-    setMode('none');
-    return inputStream;
-  }
-  rawStreamRef.current = inputStream;
-}
-```
-
-**Zmiana 2: Nie tworzyc nowego MediaStream w `handleToggleCamera` (VideoRoom.tsx)**
-
-Zamiast `setLocalStream(new MediaStream(stream.getTracks()))`, wymusic re-render inaczej:
+Custom hook ktory dla listy `meeting_room_id` sprawdza czy sa aktywni uczestnicy:
 
 ```text
-// Zamiast:
-setLocalStream(new MediaStream(stream.getTracks()));
-
-// Uzyc:
-setLocalStream(prev => {
-  // Force re-render by creating shallow wrapper only if needed
-  if (prev === stream) return new MediaStream(stream.getTracks());
-  return stream;
-});
+useMeetingRoomStatus(roomIds: string[])
+-> activeRoomIds: Set<string>
 ```
 
-Albo lepiej - uzyc osobnego state do wymuszenia re-renderu:
+- Pojedyncze zapytanie do `meeting_room_participants` z filtrem `is_active = true` i `room_id.in.(roomIds)`
+- Subskrypcja Realtime na zmiany w tych pokojach (INSERT/UPDATE)
+- Zwraca `Set<string>` z ID pokojow ktore maja aktywnych uczestnikow
+
+**Plik: `src/components/dashboard/widgets/CalendarWidget.tsx`**
+
+1. Uzyc `useMeetingRoomStatus` z listaa `meeting_room_id` ze wszystkich wydarzen z `use_internal_meeting = true`
+2. W `getRegistrationButton` (linia 166): zmiana warunku "Zakonczone":
+   - Jesli `use_internal_meeting` i pokoj jest aktywny -> NIE pokazuj "Zakonczone"
+   - Zamiast tego pokaz "Trwa dluzej (+X min)" z informacja o czasie przedluzenia
+   - Przycisk "WEJDZ" pozostaje aktywny
+3. Jesli pokoj nie jest aktywny a `end_time` minal -> "Zakonczone" (bez zmian)
+
+**Plik: `src/components/events/EventDetailsDialog.tsx`**
+
+1. Przyjac nowy opcjonalny prop `activeRoomIds?: Set<string>`
+2. Zmodyfikowac logike `isEnded` (linia 88):
+   - Jesli `use_internal_meeting` i `meeting_room_id` jest w `activeRoomIds` -> `isEnded = false`
+3. Dodac sekcje informacyjna gdy webinar trwa dluzej niz zaplanowano:
+   - Badge "Trwa dluzej" zamiast "Zakonczone"
+   - Tekst: "Wydarzenie przedluza sie o X minut" (roznica miedzy `now` a `end_time`)
+4. Przycisk "Dolacz do spotkania" pozostaje aktywny w trybie overtime
+
+### Logika overtime
 
 ```text
-const [cameraToggleKey, setCameraToggleKey] = useState(0);
-// ...
-setCameraToggleKey(k => k + 1);
-// I przekazac key do VideoGrid aby wymusic re-render bez zmiany stream reference
+const scheduledEnd = new Date(event.end_time);
+const now = new Date();
+const isOvertime = now > scheduledEnd;
+const isRoomActive = activeRoomIds.has(event.meeting_room_id);
+const isStillRunning = event.use_internal_meeting && isRoomActive;
+
+// Status:
+if (isOvertime && isStillRunning) -> "Trwa dluzej (+Xmin)"
+if (isOvertime && !isStillRunning) -> "Zakonczone"  
+if (!isOvertime && isLive) -> "Trwa teraz"
 ```
 
-Najlepsza opcja: po prostu zaktualizowac tez `localStreamRef.current`:
+### Obliczenie czasu przedluzenia
 
 ```text
-const wrapped = new MediaStream(stream.getTracks());
-localStreamRef.current = wrapped;
-setLocalStream(wrapped);
+const overtimeMinutes = Math.round((now.getTime() - scheduledEnd.getTime()) / (1000 * 60));
+// Wyswietlenie: "+15 min" / "+1h 20min"
 ```
 
-Ale to by odlaczalo procesor od ref. Wiec najlepiej: NIE tworzyc nowego MediaStream, tylko uzyc counter/flag:
+### Diagram
 
 ```text
-stream.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
-setIsCameraOff(newCameraOff);
-// Wymusic re-render przez ustawienie tego samego strumienia (React nie wykryje zmiany)
-// Wiec uzyc dodatkowego stanu:
-setLocalStream(prev => prev); // nie zadziala - ta sama referencja
+end_time minal?
+    |
+  +---+---+
+  |       |
+ TAK     NIE -> normalna logika (Trwa teraz / Nadchodzace)
+  |
+  use_internal_meeting?
+  |
+  +---+---+
+  |       |
+ TAK     NIE -> "Zakonczone" (bez zmian)
+  |
+  Aktywni uczestnicy w pokoju?
+  |
+  +---+---+
+  |       |
+ TAK     NIE -> "Zakonczone"
+  |
+  "Trwa dluzej (+Xmin)"
+  Przycisk WEJDZ aktywny
 ```
 
-Praktyczne rozwiazanie: zachowac `new MediaStream(stream.getTracks())` ale ROWNIEZ zaktualizowac `localStreamRef.current`:
-
-```text
-const wrappedStream = new MediaStream(stream.getTracks());
-localStreamRef.current = wrappedStream;
-setLocalStream(wrappedStream);
-```
-
-I oznaczyc ten wrapper jako processed jesli oryginal byl processed:
-```text
-if ((stream as any).__bgProcessed) {
-  (wrappedStream as any).__bgProcessed = true;
-}
-```
-
-**Zmiana 3: Zatrzymac procesor przy udostepnianiu ekranu (VideoRoom.tsx)**
-
-W `handleToggleScreenShare`, przed rozpoczeciem udostepniania:
-
-```text
-// Zatrzymaj procesor tla aby nie marnowac zasobow
-stopBackground();
-```
-
-W `restoreCamera` procesor jest juz uruchamiany ponownie jesli `bgModeRef.current !== 'none'`.
-
-**Zmiana 4: Dodac `updateRawStream` w `handleBackgroundChange` (VideoRoom.tsx)**
-
-Przed wywolaniem `applyBackground`, jesli aktualny `localStreamRef.current` jest przetworzony, nie uzywac go jako raw:
-
-```text
-const handleBackgroundChange = useCallback(async (newMode: BackgroundMode, imageSrc?: string) => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    try {
-      // Ensure raw stream is up-to-date before applying new effect
-      if (!(stream as any).__bgProcessed) {
-        updateRawStream(stream);
-      }
-      const processedStream = await applyBackground(stream, newMode, imageSrc);
-      ...
-```
-
-### Podsumowanie zmian
+### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useVideoBackground.ts` | Flaga `__bgProcessed` na strumieniach wyjsciowych + guard przed petla zwrotna |
-| `src/components/meeting/VideoRoom.tsx` | Aktualizacja `localStreamRef` w handleToggleCamera |
-| `src/components/meeting/VideoRoom.tsx` | `stopBackground()` przy starcie screen share |
-| `src/components/meeting/VideoRoom.tsx` | Guard w handleBackgroundChange - updateRawStream tylko dla surowych strumieni |
+| `src/hooks/useMeetingRoomStatus.ts` | NOWY - hook sprawdzajacy aktywne pokoje |
+| `src/components/dashboard/widgets/CalendarWidget.tsx` | Uzycie hooka + logika overtime w getRegistrationButton |
+| `src/components/events/EventDetailsDialog.tsx` | Nowy prop activeRoomIds + logika overtime w statusie i badge |
 
 ### Ryzyko
 
-Niskie. Zmiany sa defensywne (guardy, flagi). Nie zmieniaja glownego flow, tylko zabezpieczaja edge-case'y ktore powoduja awarie na desktop. Kompatybilnosc wsteczna zachowana.
+Niskie. Hook wykonuje jedno zapytanie + subskrypcje Realtime. Logika overtime jest addytywna (dodaje nowy stan, nie zmienia istniejacych). Dla wydarzen bez wewnetrznej integracji zachowanie jest identyczne.
