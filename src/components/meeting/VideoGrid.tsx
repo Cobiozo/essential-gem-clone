@@ -248,8 +248,9 @@ const ThumbnailTile: React.FC<{
   isSpeaking: boolean;
   audioLevel: number;
   isCameraOff?: boolean;
+  playAudio?: boolean;
   onClick: () => void;
-}> = ({ participant, isActive, isSpeaking, audioLevel, isCameraOff, onClick }) => {
+}> = ({ participant, isActive, isSpeaking, audioLevel, isCameraOff, playAudio, onClick }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -292,7 +293,7 @@ const ThumbnailTile: React.FC<{
           ref={videoRef}
           autoPlay
           playsInline
-          muted
+          muted={!playAudio}
           className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`}
         />
       ) : (
@@ -483,7 +484,6 @@ const MultiSpeakerLayout: React.FC<{
 
   return (
     <div className="flex-1 flex flex-col bg-black">
-      <AudioOnlyStreams participants={participants} onAudioBlocked={onAudioBlocked} />
       <div className={`flex-1 flex gap-1 p-1 ${mainSpeakers.length === 1 ? '' : ''}`}>
         {mainSpeakers.map((idx, i) => (
           <VideoTile
@@ -493,12 +493,12 @@ const MultiSpeakerLayout: React.FC<{
             isScreenSharing={participants[idx].isLocal ? isScreenSharing : undefined}
             audioLevel={audioLevels.get(participants[idx].peerId) || 0}
             className="flex-1 rounded-lg min-h-0"
-            forceAudioMuted={true}
             videoRefCallback={
               i === 0 && !mainSpeakers.some(idx => !participants[idx].isLocal)
                 ? onActiveVideoRef
                 : (i === mainSpeakers.findIndex(idx => !participants[idx].isLocal) ? onActiveVideoRef : undefined)
             }
+            onAudioBlocked={onAudioBlocked}
           />
         ))}
       </div>
@@ -507,7 +507,7 @@ const MultiSpeakerLayout: React.FC<{
           {others.map((p) => (
             <div key={p.peerId} className="relative flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center">
               {p.stream ? (
-                <MiniVideo participant={p} isCameraOff={p.isLocal ? isCameraOff : undefined} />
+                <MiniVideo participant={p} isCameraOff={p.isLocal ? isCameraOff : undefined} playAudio={!p.isLocal} />
               ) : (
                 <User className="h-5 w-5 text-zinc-500" />
               )}
@@ -520,7 +520,7 @@ const MultiSpeakerLayout: React.FC<{
 };
 
 // Mini video for thumbnails in multi-speaker
-const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean }> = ({ participant, isCameraOff }) => {
+const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean; playAudio?: boolean }> = ({ participant, isCameraOff, playAudio }) => {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const video = ref.current;
@@ -549,7 +549,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   if (!showVideo) return <User className="h-5 w-5 text-zinc-500" />;
 
   return (
-    <video ref={ref} autoPlay playsInline muted
+    <video ref={ref} autoPlay playsInline muted={!playAudio}
       className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`} />
   );
 };
@@ -619,7 +619,6 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   // ─── Speaker mode (default) ───
   return (
     <div className="flex-1 flex flex-col bg-black relative">
-      <AudioOnlyStreams participants={allParticipants} onAudioBlocked={onAudioBlocked} />
       <div className="flex-1 relative">
         <VideoTile
           participant={activeSpeaker}
@@ -628,7 +627,6 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
           audioLevel={audioLevels.get(activeSpeaker.peerId) || 0}
           className="absolute inset-0 rounded-none"
           showOverlay={true}
-          forceAudioMuted={true}
           videoRefCallback={handleVideoRef}
           onAudioBlocked={onAudioBlocked}
         />
@@ -644,6 +642,7 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
               isSpeaking={index === speakingIndex}
               audioLevel={audioLevels.get(p.peerId) || 0}
               isCameraOff={p.isLocal ? isCameraOff : undefined}
+              playAudio={!p.isLocal && index !== activeIndex}
               onClick={() => setManualActiveIndex(index)}
             />
           ))}

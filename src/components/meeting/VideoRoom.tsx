@@ -90,7 +90,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
-  const [viewMode, setViewMode] = useState<import('./VideoGrid').ViewMode>('speaker');
+  const [viewMode, setViewMode] = useState<import('./VideoGrid').ViewMode>(() => {
+    if (roomId) {
+      const saved = sessionStorage.getItem(`meeting_viewmode_${roomId}`);
+      if (saved === 'gallery' || saved === 'multi-speaker' || saved === 'speaker') return saved;
+    }
+    return 'speaker';
+  });
   const [audioBlocked, setAudioBlocked] = useState(false);
   const [localAvatarUrl, setLocalAvatarUrl] = useState<string | undefined>();
   const reconnectAttemptsRef = useRef<Map<string, number>>(new Map());
@@ -1755,7 +1761,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   }, [applyBackground, updateRawStream]);
 
+  // Persist viewMode to sessionStorage
+  useEffect(() => {
+    if (roomId) sessionStorage.setItem(`meeting_viewmode_${roomId}`, viewMode);
+  }, [roomId, viewMode]);
+
   const handleLeave = async () => {
+    if (roomId) sessionStorage.removeItem(`meeting_viewmode_${roomId}`);
     try {
       await Promise.race([cleanup(), new Promise((resolve) => setTimeout(resolve, 3000))]);
     } catch (e) { console.warn('[VideoRoom] Cleanup error on leave:', e); }
