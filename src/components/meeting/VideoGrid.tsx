@@ -23,6 +23,9 @@ interface VideoGridProps {
   isScreenSharing?: boolean;
   onActiveVideoRef?: (el: HTMLVideoElement | null) => void;
   onAudioBlocked?: () => void;
+  remoteScreenShareStream?: MediaStream | null;
+  remoteScreenSharerName?: string;
+  remoteScreenSharerPeerId?: string;
 }
 
 // Helper: play video with muted fallback for mobile autoplay policy
@@ -554,6 +557,163 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   );
 };
 
+// ─── Draggable Floating PiP ───
+const DraggableFloatingPiP: React.FC<{
+  participant: VideoParticipant;
+  isCameraOff?: boolean;
+  audioLevel: number;
+}> = ({ participant, isCameraOff, audioLevel }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: -1, y: -1 });
+  const dragging = useRef(false);
+  const offset = useRef({ x: 0, y: 0 });
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Initialize position to bottom-right
+  useEffect(() => {
+    if (pos.x === -1 && containerRef.current?.parentElement) {
+      const parent = containerRef.current.parentElement;
+      setPos({ x: parent.clientWidth - 220, y: parent.clientHeight - 170 });
+    }
+  }, []);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !participant.stream) return;
+    video.srcObject = participant.stream;
+    playVideoSafe(video, !!participant.isLocal);
+  }, [participant.stream]);
+
+  const handleStart = (clientX: number, clientY: number) => {
+    dragging.current = true;
+    offset.current = { x: clientX - pos.x, y: clientY - pos.y };
+  };
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!dragging.current || !containerRef.current?.parentElement) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const parent = containerRef.current.parentElement;
+      const newX = Math.max(0, Math.min(parent.clientWidth - 200, clientX - offset.current.x));
+      const newY = Math.max(0, Math.min(parent.clientHeight - 150, clientY - offset.current.y));
+      setPos({ x: newX, y: newY });
+    };
+    const handleEnd = () => { dragging.current = false; };
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleEnd);
+    window.addEventListener('touchmove', handleMove, { passive: false });
+    window.addEventListener('touchend', handleEnd);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleEnd);
+      window.removeEventListener('touchmove', handleMove);
+      window.removeEventListener('touchend', handleEnd);
+    };
+  }, [pos]);
+
+  const showVideo = participant.isLocal
+    ? participant.stream && !isCameraOff
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+
+  return (
+    <div
+      ref={containerRef}
+      className="absolute z-30 w-[200px] h-[150px] rounded-xl overflow-hidden shadow-2xl border-2 border-zinc-600 cursor-grab active:cursor-grabbing bg-zinc-900"
+      style={{ left: pos.x >= 0 ? pos.x : undefined, top: pos.y >= 0 ? pos.y : undefined, right: pos.x < 0 ? 16 : undefined, bottom: pos.y < 0 ? 16 : undefined }}
+      onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+      onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
+    >
+      {showVideo ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={!!participant.isLocal}
+          className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+          <div className="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+            {participant.avatarUrl ? (
+              <img src={participant.avatarUrl} alt={participant.displayName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-lg font-semibold text-zinc-300">
+                {participant.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between">
+        <span className="text-[10px] text-white bg-black/60 px-1.5 py-0.5 rounded font-medium truncate">
+          {participant.displayName}
+        </span>
+        <AudioIndicator audioLevel={audioLevel} isMuted={participant.isMuted} size="sm" />
+      </div>
+    </div>
+  );
+};
+
+// ─── Screen Share Layout ───
+const ScreenShareLayout: React.FC<{
+  screenStream: MediaStream;
+  sharerName: string;
+  sharerParticipant?: VideoParticipant;
+  allParticipants: VideoParticipant[];
+  isCameraOff: boolean;
+  audioLevels: Map<string, number>;
+  onAudioBlocked?: () => void;
+}> = ({ screenStream, sharerName, sharerParticipant, allParticipants, isCameraOff, audioLevels, onAudioBlocked }) => {
+  const screenVideoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = screenVideoRef.current;
+    if (!video || !screenStream) return;
+    video.srcObject = screenStream;
+    playVideoSafe(video, false, onAudioBlocked);
+  }, [screenStream, onAudioBlocked]);
+
+  return (
+    <div className="flex-1 flex flex-col bg-black relative">
+      <div className="flex-1 relative flex items-center justify-center">
+        <video
+          ref={screenVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="max-w-full max-h-full object-contain"
+        />
+        <div className="absolute top-2 left-2 bg-red-600/80 text-white text-xs px-2 py-1 rounded-md font-medium">
+          📺 {sharerName} udostępnia ekran
+        </div>
+
+        {/* Draggable PiP for sharer's camera */}
+        {sharerParticipant && (
+          <DraggableFloatingPiP
+            participant={sharerParticipant}
+            isCameraOff={sharerParticipant.isLocal ? isCameraOff : undefined}
+            audioLevel={audioLevels.get(sharerParticipant.peerId) || 0}
+          />
+        )}
+      </div>
+
+      {/* Thumbnail strip for other participants */}
+      {allParticipants.length > 1 && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-black/80 overflow-x-auto">
+          {allParticipants
+            .filter(p => p.peerId !== sharerParticipant?.peerId)
+            .map((p) => (
+              <div key={p.peerId} className="relative flex-shrink-0 w-20 h-14 rounded-lg overflow-hidden bg-zinc-800 flex items-center justify-center">
+                <MiniVideo participant={p} isCameraOff={p.isLocal ? isCameraOff : undefined} playAudio={!p.isLocal} />
+              </div>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── Main VideoGrid ───
 export const VideoGrid: React.FC<VideoGridProps> = ({
   participants,
@@ -566,6 +726,9 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   isScreenSharing,
   onActiveVideoRef,
   onAudioBlocked,
+  remoteScreenShareStream,
+  remoteScreenSharerName,
+  remoteScreenSharerPeerId,
 }) => {
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
   const manualTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -604,6 +767,24 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
     (el: HTMLVideoElement | null) => { onActiveVideoRef?.(el); },
     [onActiveVideoRef]
   );
+
+  // ─── Screen share mode (overrides other modes) ───
+  if (remoteScreenShareStream) {
+    const sharerParticipant = remoteScreenSharerPeerId
+      ? allParticipants.find(p => p.peerId === remoteScreenSharerPeerId)
+      : undefined;
+    return (
+      <ScreenShareLayout
+        screenStream={remoteScreenShareStream}
+        sharerName={remoteScreenSharerName || 'Uczestnik'}
+        sharerParticipant={sharerParticipant}
+        allParticipants={allParticipants}
+        isCameraOff={isCameraOff}
+        audioLevels={audioLevels}
+        onAudioBlocked={onAudioBlocked}
+      />
+    );
+  }
 
   // ─── Gallery mode ───
   if (viewMode === 'gallery') {

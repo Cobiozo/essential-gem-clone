@@ -77,6 +77,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const screenSharePendingRef = useRef(false);
   const cachedAuthTokenRef = useRef<string | null>(null);
+  const screenShareConnectionsRef = useRef<Map<string, MediaConnection>>(new Map());
+  const screenShareStreamRef = useRef<MediaStream | null>(null);
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [participants, setParticipants] = useState<RemoteParticipant[]>([]);
@@ -84,6 +86,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const [isCameraOff, setIsCameraOff] = useState(!initialVideo);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [remoteScreenShare, setRemoteScreenShare] = useState<{ peerId: string; displayName: string; stream: MediaStream } | null>(null);
 
   const [isChatOpen, setIsChatOpen] = useState(false);
   const isChatOpenRef = useRef(isChatOpen);
@@ -403,6 +406,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     connectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
     connectionsRef.current.clear();
+    screenShareConnectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
+    screenShareConnectionsRef.current.clear();
+    screenShareStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    screenShareStreamRef.current = null;
     localStreamRef.current?.getTracks().forEach((t) => { try { t.stop(); } catch {} });
     localStreamRef.current = null;
     if (peerRef.current) { try { peerRef.current.destroy(); } catch {} peerRef.current = null; }
@@ -448,7 +455,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }
 
       localStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
+      screenShareStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
       connectionsRef.current.forEach(conn => { try { conn.close(); } catch {} });
+      screenShareConnectionsRef.current.forEach(conn => { try { conn.close(); } catch {} });
       if (peerRef.current) { try { peerRef.current.destroy(); } catch {} }
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://xzlhssqqbajqhnsmbucf.supabase.co';
       const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA';
@@ -945,7 +954,22 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                     toast({ title: 'Odebrano Ci rolę współprowadzącego' });
                   }
                 }
-              });
+            });
+            channel.on('broadcast', { event: 'screen-share-started' }, ({ payload }) => {
+              if (!cancelled) {
+                console.log('[VideoRoom] Screen share started by', payload?.displayName);
+                // UI hint - the actual stream arrives via peer.on('call')
+              }
+            });
+            channel.on('broadcast', { event: 'screen-share-stopped' }, ({ payload }) => {
+              if (!cancelled) {
+                console.log('[VideoRoom] Screen share stopped by', payload?.peerId);
+                setRemoteScreenShare(null);
+                // Close screen share connections
+                screenShareConnectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
+                screenShareConnectionsRef.current.clear();
+              }
+            });
             }
             channel.on('broadcast', { event: 'media-state-changed' }, ({ payload }) => {
               if (!cancelled && payload?.peerId) {
@@ -1047,6 +1071,32 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         peer.on('call', async (call) => {
           if (cancelled) return;
 
+          const meta = call.metadata || {};
+
+          // === Handle screen-share calls separately ===
+          if (meta.type === 'screen-share') {
+            console.log('[VideoRoom] Incoming screen-share call from', call.peer);
+            call.answer(new MediaStream()); // answer with empty stream
+            call.on('stream', (screenStream) => {
+              console.log('[VideoRoom] Received screen share stream from', call.peer);
+              setRemoteScreenShare({
+                peerId: meta.sharerPeerId || call.peer,
+                displayName: meta.displayName || 'Uczestnik',
+                stream: screenStream,
+              });
+            });
+            call.on('close', () => {
+              console.log('[VideoRoom] Screen share call closed');
+              setRemoteScreenShare(null);
+            });
+            call.on('error', () => {
+              setRemoteScreenShare(null);
+            });
+            // Store for cleanup
+            screenShareConnectionsRef.current.set(call.peer, call);
+            return;
+          }
+
           // Deduplikacja: sprawdź czy już mamy żywe połączenie do tego peera
           const existingConn = connectionsRef.current.get(call.peer);
           if (existingConn) {
@@ -1061,7 +1111,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             connectionsRef.current.delete(call.peer);
           }
 
-          const meta = call.metadata || {};
           let name = meta.displayName || 'Uczestnik';
           let callerUserId: string | undefined = meta.userId;
           let callerAvatar: string | undefined = meta.avatarUrl;
@@ -1194,6 +1243,26 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           }
         });
       });
+
+      // If we're screen sharing, also send screen stream to this new participant
+      if (isScreenSharingRef.current && screenShareStreamRef.current && peerRef.current) {
+        const myPeerId = peerRef.current.id;
+        if (!screenShareConnectionsRef.current.has(call.peer)) {
+          const screenCall = peerRef.current.call(call.peer, screenShareStreamRef.current, {
+            metadata: {
+              displayName,
+              type: 'screen-share',
+              userId: user?.id,
+              sharerPeerId: myPeerId,
+            },
+          });
+          if (screenCall) {
+            screenShareConnectionsRef.current.set(call.peer, screenCall);
+            screenCall.on('close', () => screenShareConnectionsRef.current.delete(call.peer));
+            screenCall.on('error', () => screenShareConnectionsRef.current.delete(call.peer));
+          }
+        }
+      }
     });
 
     call.on('close', () => {
@@ -1539,7 +1608,25 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   };
 
-  // === Zmiana C + D: handleToggleScreenShare with restoreCamera and auto-PiP ===
+  // === Dual-stream screen share: separate PeerJS calls for screen ===
+  const stopScreenShare = useCallback(() => {
+    // Stop screen stream tracks
+    screenShareStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    screenShareStreamRef.current = null;
+    // Close all screen share connections
+    screenShareConnectionsRef.current.forEach((conn) => { try { conn.close(); } catch {} });
+    screenShareConnectionsRef.current.clear();
+    setIsScreenSharing(false);
+    // Broadcast stop
+    if (channelRef.current && peerRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'screen-share-stopped',
+        payload: { peerId: peerRef.current.id },
+      });
+    }
+  }, []);
+
   const handleToggleScreenShare = async () => {
     if (document.pictureInPictureElement) {
       try { await document.exitPictureInPicture(); } catch {}
@@ -1548,51 +1635,54 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     screenSharePendingRef.current = true;
 
     if (isScreenSharing) {
-      // Turning off screen share - restore camera
+      // Turning off screen share
       try {
-        await restoreCamera();
-      } catch (err) { console.error('[VideoRoom] Failed to restore camera:', err); }
+        stopScreenShare();
+      } catch (err) { console.error('[VideoRoom] Failed to stop screen share:', err); }
       finally { screenSharePendingRef.current = false; }
     } else {
-      // Starting screen share
+      // Starting screen share — do NOT replace camera track
       try {
-        stopBackground(); // Stop background processor to free resources during screen share
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        const audioTrack = localStreamRef.current?.getAudioTracks()[0];
-        if (audioTrack) screenStream.addTrack(audioTrack);
-        localStreamRef.current?.getVideoTracks().forEach(t => t.stop());
-        localStreamRef.current = screenStream;
-        setLocalStream(screenStream);
+        screenShareStreamRef.current = screenStream;
         setIsScreenSharing(true);
-        const videoTrack = screenStream.getVideoTracks()[0];
-        connectionsRef.current.forEach((conn) => {
-          const sender = (conn as any).peerConnection?.getSenders()?.find((s: RTCRtpSender) => s.track?.kind === 'video');
-          if (sender && videoTrack) sender.replaceTrack(videoTrack);
+
+        const myPeerId = peerRef.current?.id;
+
+        // Send screen stream as second call to each participant
+        participantsRef.current.forEach(p => {
+          if (!peerRef.current) return;
+          const call = peerRef.current.call(p.peerId, screenStream, {
+            metadata: {
+              displayName,
+              type: 'screen-share',
+              userId: user?.id,
+              sharerPeerId: myPeerId,
+            },
+          });
+          if (call) {
+            screenShareConnectionsRef.current.set(p.peerId, call);
+            call.on('close', () => screenShareConnectionsRef.current.delete(p.peerId));
+            call.on('error', () => screenShareConnectionsRef.current.delete(p.peerId));
+          }
         });
 
-        // === Zmiana C: onended uses ref + restoreCamera ===
+        // Broadcast screen-share-started
+        if (channelRef.current) {
+          channelRef.current.send({
+            type: 'broadcast',
+            event: 'screen-share-started',
+            payload: { peerId: myPeerId, displayName },
+          });
+        }
+
+        // Handle browser stop button
+        const videoTrack = screenStream.getVideoTracks()[0];
         videoTrack.onended = () => {
           if (isScreenSharingRef.current) {
-            restoreCamera();
+            stopScreenShare();
           }
         };
-
-        // === Zmiana D: Auto-PiP on desktop when screen sharing starts ===
-        if (isPiPSupported && participantsRef.current.length > 0) {
-          setTimeout(async () => {
-            const videos = document.querySelectorAll('video');
-            const remoteVideo = Array.from(videos).find(
-              v => v.srcObject && v.videoWidth > 0 && !v.muted && v.getAttribute('data-audio-only') !== 'true'
-            );
-            if (remoteVideo && !document.pictureInPictureElement) {
-              try {
-                await remoteVideo.requestPictureInPicture();
-                setIsPiPActive(true);
-                remoteVideo.addEventListener('leavepictureinpicture', () => setIsPiPActive(false), { once: true });
-              } catch (e) { console.warn('[VideoRoom] Auto-PiP on screen share failed:', e); }
-            }
-          }, 500);
-        }
       } catch (err) { console.log('[VideoRoom] Screen sharing cancelled:', err); }
       finally { screenSharePendingRef.current = false; }
     }
@@ -1891,6 +1981,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           isScreenSharing={isScreenSharing}
           onActiveVideoRef={(el) => { activeVideoRef.current = el; }}
           onAudioBlocked={handleAudioBlocked}
+          remoteScreenShareStream={remoteScreenShare?.stream || null}
+          remoteScreenSharerName={remoteScreenShare?.displayName}
+          remoteScreenSharerPeerId={remoteScreenShare?.peerId}
         />
 
         {sidebarOpen && (
