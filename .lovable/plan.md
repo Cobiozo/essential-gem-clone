@@ -1,68 +1,51 @@
 
 
-## Naprawa: brak audio i video po zakonczeniu udostepniania ekranu
+## Naprawa auto-PiP po przełączeniu karty
 
 ### Przyczyna
 
-W funkcji `restoreCamera` (linia 1313-1376 w VideoRoom.tsx) po zakonczeniu screen share:
-
-1. Nowy stream z `getUserMedia` jest pobierany (audio + video) -- OK
-2. **Video track** jest zamieniany u wszystkich peerow przez `replaceTrack` -- OK
-3. **Audio track** NIE jest zamieniany -- BUG
-
-Stary audio track (z zatrzymanego screen share stream) jest martwy. Nowy audio track istnieje w lokalnym safe ale nigdy nie trafia do peerow.
-
-Dodatkowo, jesli background jest aktywny i `processedStream` zastepuje raw stream, audio track z processed stream tez musi byc wyslany do peerow.
+Niedawna zmiana `<audio>` na ukryty `<video>` w komponencie `AudioElement` (dla lepszego AEC) spowodowala problem z auto-PiP. Teraz `document.querySelectorAll('video')` zwraca rowniez te ukryte elementy audio-only. Poniewaz maja one `srcObject` (pelny stream z video trackami), moga miec `videoWidth > 0` i pasowac do selektora PiP -- przeglądarka probuje otworzyc PiP na ukrytym elemencie zamiast na widocznym filmie uczestnika.
 
 ### Rozwiazanie
 
-Dodac `replaceTrack` rowniez dla audio sendera w dwoch miejscach w `restoreCamera`:
+1. Oznaczyc ukryte elementy `<video>` w `AudioElement` atrybutem `data-audio-only="true"`
+2. Wykluczyc je z selektorow PiP we wszystkich trzech miejscach w `VideoRoom.tsx`
 
-**Miejsce 1 (linia ~1334-1338)**: Po zamianie video track, rowniez zamienic audio track:
+### Zmiany
 
+**Plik 1: `src/components/meeting/VideoGrid.tsx`**
+
+W `AudioElement` (linia 93) dodac atrybut:
 ```text
-const videoTrack = stream.getVideoTracks()[0];
-const audioTrack = stream.getAudioTracks()[0];
-connectionsRef.current.forEach((conn) => {
-  const senders = (conn as any).peerConnection?.getSenders();
-  if (senders) {
-    const videoSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
-    if (videoSender && videoTrack) videoSender.replaceTrack(videoTrack);
-    const audioSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
-    if (audioSender && audioTrack) audioSender.replaceTrack(audioTrack);
-  }
-});
+<video ref={ref} autoPlay playsInline data-audio-only="true" style={{ display: 'none' }} />
 ```
 
-**Miejsce 2 (linia ~1349-1354)**: Po zastosowaniu tla, jesli processed stream ma nowy audio track, rowniez go zamienic (zabezpieczenie):
+**Plik 2: `src/components/meeting/VideoRoom.tsx`**
 
+Trzy miejsca do poprawy:
+
+1. **Auto-PiP on tab switch** (linia 1654-1658): Dodac `v.getAttribute('data-audio-only') !== 'true'` do filtrow `find()`:
 ```text
-const processedVideoTrack = processedStream.getVideoTracks()[0];
-const processedAudioTrack = processedStream.getAudioTracks()[0];
-if (processedVideoTrack || processedAudioTrack) {
-  connectionsRef.current.forEach((conn) => {
-    const senders = (conn as any).peerConnection?.getSenders();
-    if (senders) {
-      if (processedVideoTrack) {
-        const vs = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
-        if (vs) vs.replaceTrack(processedVideoTrack);
-      }
-      if (processedAudioTrack) {
-        const as_ = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
-        if (as_) as_.replaceTrack(processedAudioTrack);
-      }
-    }
-  });
-}
+pipVideo = Array.from(allVideos).find(
+  v => v.srcObject && v.videoWidth > 0 && !v.paused 
+    && v.getAttribute('data-local-video') !== 'true'
+    && v.getAttribute('data-audio-only') !== 'true'
+) as HTMLVideoElement || ...
 ```
+I analogicznie w fallbacku (linia 1657).
 
-### Plik do modyfikacji
+2. **Manual PiP toggle** (linia 1616-1621): Dodac ten sam filtr.
+
+3. **Auto-PiP on screen share** (linia 1577-1580): Dodac filtr `data-audio-only`.
+
+### Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoRoom.tsx` | restoreCamera: dodac replaceTrack dla audio sendera w obu miejscach |
+| `src/components/meeting/VideoGrid.tsx` | AudioElement: dodac `data-audio-only="true"` do `<video>` |
+| `src/components/meeting/VideoRoom.tsx` | Wykluczyc `data-audio-only` z selektorow PiP w 3 miejscach |
 
 ### Ryzyko
 
-Niskie. `replaceTrack` jest bezpieczna operacja WebRTC -- jesli sender lub track nie istnieje, nic sie nie dzieje. Nie wymaga renegocjacji ICE.
+Minimalne. Zmiana polega na dodaniu atrybutu i filtra -- brak wplywu na inne funkcjonalnosci.
 
