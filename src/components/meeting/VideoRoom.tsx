@@ -1495,9 +1495,42 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   };
 
   const handleEndMeeting = async () => {
+    // 1. Broadcast meeting-ended
     if (channelRef.current) {
       try { await channelRef.current.send({ type: 'broadcast', event: 'meeting-ended', payload: {} }); } catch (e) { console.warn('[VideoRoom] Failed to broadcast meeting-ended:', e); }
     }
+
+    // 2. Deactivate ALL participants in this room
+    try {
+      await supabase.from('meeting_room_participants')
+        .update({ is_active: false, left_at: new Date().toISOString() })
+        .eq('room_id', roomId)
+        .eq('is_active', true);
+    } catch (e) { console.warn('[VideoRoom] Failed to deactivate all participants:', e); }
+
+    // 3. Expire guest tokens for this room's event
+    try {
+      const { data: event } = await supabase
+        .from('events')
+        .select('id')
+        .eq('meeting_room_id', roomId)
+        .maybeSingle();
+      if (event) {
+        await supabase.from('meeting_guest_tokens')
+          .update({ used_at: new Date().toISOString() })
+          .eq('event_id', event.id)
+          .is('used_at', null);
+      }
+    } catch (e) { console.warn('[VideoRoom] Failed to expire guest tokens:', e); }
+
+    // 4. Fill missing left_at in guest analytics
+    try {
+      await supabase.from('meeting_guest_analytics')
+        .update({ left_at: new Date().toISOString() })
+        .eq('room_id', roomId)
+        .is('left_at', null);
+    } catch (e) { console.warn('[VideoRoom] Failed to update guest analytics:', e); }
+
     await handleLeave();
   };
 
