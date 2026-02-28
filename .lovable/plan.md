@@ -1,97 +1,68 @@
 
 
-## Naprawa dwoch problemow: echo w speaker/multi-speaker + powrot do lobby po odswiezeniu
+## Naprawa: brak audio i video po zakonczeniu udostepniania ekranu
 
-### Problem 1: Echo w trybie speaker/multi-speaker
+### Przyczyna
 
-**Przyczyna**: Komponent `AudioElement` uzywa elementu `<audio>` do odtwarzania dzwieku zdalnych uczestnikow. Przegladarki (szczegolnie Chrome) maja slabsze wsparcie AEC (echo cancellation) dla elementow `<audio>` niz `<video>`. W trybie galerii dzwiek gra przez elementy `<video>` i AEC dziala poprawnie — stad brak echa w galerii.
+W funkcji `restoreCamera` (linia 1313-1376 w VideoRoom.tsx) po zakonczeniu screen share:
 
-**Rozwiazanie**: Zamienic element `<audio>` na ukryty `<video>` w komponencie `AudioElement`. Przegladarki lepiej obsluguja AEC dla `<video>`, nawet gdy element jest ukryty.
+1. Nowy stream z `getUserMedia` jest pobierany (audio + video) -- OK
+2. **Video track** jest zamieniany u wszystkich peerow przez `replaceTrack` -- OK
+3. **Audio track** NIE jest zamieniany -- BUG
 
-### Problem 2: Odswiezenie wraca do lobby
+Stary audio track (z zatrzymanego screen share stream) jest martwy. Nowy audio track istnieje w lokalnym safe ale nigdy nie trafia do peerow.
 
-**Przyczyna**: Mechanizm `tryAutoRejoin` jest wolany wewnatrz asynchronicznej funkcji `verifyAccess`, ktora zalezy od `user?.id` w dependency array useEffect. Jezeli obiekt `user` zmieni sie podczas inicjalizacji auth (np. token refresh), efekt moze sie uruchomic wielokrotnie lub w nieoczekiwanej kolejnosci. Ponadto guard `statusRef.current !== 'loading'` moze zablokowac ponowne uruchomienie po bledzie.
+Dodatkowo, jesli background jest aktywny i `processedStream` zastepuje raw stream, audio track z processed stream tez musi byc wyslany do peerow.
 
-**Rozwiazanie**: Uzyc lazy initializer w `useState` aby synchronicznie sprawdzic `sessionStorage` PRZED jakimkolwiek efektem. Jezeli istnieja dane sesji, ustawic `status='joined'` od pierwszego renderowania — bez czekania na async verifyAccess.
+### Rozwiazanie
 
----
+Dodac `replaceTrack` rowniez dla audio sendera w dwoch miejscach w `restoreCamera`:
 
-### Zmiany w plikach
+**Miejsce 1 (linia ~1334-1338)**: Po zamianie video track, rowniez zamienic audio track:
 
-**Plik 1: `src/components/meeting/VideoGrid.tsx`**
-
-Zmiana w komponencie `AudioElement` (linia 79-94):
-
-Zamienic `<audio>` na ukryty `<video>`:
-- `useRef<HTMLAudioElement>` → `useRef<HTMLVideoElement>`
-- Element `<audio ref={ref} autoPlay />` → `<video ref={ref} autoPlay playsInline style={{ display: 'none' }} />`
-- Dodac `playsInline` dla kompatybilnosci z iOS
-
-**Plik 2: `src/pages/MeetingRoom.tsx`**
-
-Zmiana 1: Lazy initializer dla `status` (linia 33):
-
-Zamiast:
 ```text
-const [status, setStatus] = useState<...>('loading');
-```
-
-Uzyc:
-```text
-const [status, setStatus] = useState<...>(() => {
-  // Synchroniczne sprawdzenie sessionStorage na auto-rejoin
-  if (roomId && !isGuestMode) {
-    const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
-    if (raw) {
-      try {
-        const saved = JSON.parse(raw);
-        if (Date.now() - saved.joinedAt <= 4 * 60 * 60 * 1000) {
-          return 'joined';
-        }
-      } catch {}
-    }
+const videoTrack = stream.getVideoTracks()[0];
+const audioTrack = stream.getAudioTracks()[0];
+connectionsRef.current.forEach((conn) => {
+  const senders = (conn as any).peerConnection?.getSenders();
+  if (senders) {
+    const videoSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
+    if (videoSender && videoTrack) videoSender.replaceTrack(videoTrack);
+    const audioSender = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
+    if (audioSender && audioTrack) audioSender.replaceTrack(audioTrack);
   }
-  return 'loading';
 });
 ```
 
-Zmiana 2: Rowniez odtworzyc `audioEnabled`, `videoEnabled`, `initialSettings` z sessionStorage synchronicznie (linie 36-42):
-
-Uzyc lazy initializers dla tych stanow, czytajac dane z tego samego klucza `meeting_session_${roomId}`.
-
-Zmiana 3: W efekcie `verifyAccess` (linia 116), zmienic guard aby pozwolic na ponowna weryfikacje z 'joined' (na wypadek cofniecia dostepu):
+**Miejsce 2 (linia ~1349-1354)**: Po zastosowaniu tla, jesli processed stream ma nowy audio track, rowniez go zamienic (zabezpieczenie):
 
 ```text
-if (statusRef.current !== 'loading' && statusRef.current !== 'joined') return;
+const processedVideoTrack = processedStream.getVideoTracks()[0];
+const processedAudioTrack = processedStream.getAudioTracks()[0];
+if (processedVideoTrack || processedAudioTrack) {
+  connectionsRef.current.forEach((conn) => {
+    const senders = (conn as any).peerConnection?.getSenders();
+    if (senders) {
+      if (processedVideoTrack) {
+        const vs = senders.find((s: RTCRtpSender) => s.track?.kind === 'video');
+        if (vs) vs.replaceTrack(processedVideoTrack);
+      }
+      if (processedAudioTrack) {
+        const as_ = senders.find((s: RTCRtpSender) => s.track?.kind === 'audio');
+        if (as_) as_.replaceTrack(processedAudioTrack);
+      }
+    }
+  });
+}
 ```
 
-I dodac w verifyAccess sprawdzenie: jesli juz jestesmy 'joined' (z auto-rejoin), nie nadpisywac statusu na 'lobby' — tylko na bledy ('error', 'unauthorized').
-
----
-
-### Diagram dzialania po zmianach
-
-```text
-Odswiezenie strony:
-  1. useState(() => ...) synchronicznie sprawdza sessionStorage
-  2. Jesli dane istnieja -> status = 'joined' od razu (VideoRoom renderuje sie natychmiast)
-  3. verifyAccess biegnie w tle i waliduje dostep
-  4. Jesli dostep cofniety -> status zmienia sie na 'unauthorized'
-  
-Echo:
-  PRZED: <audio> element -> slabe AEC -> echo
-  PO:    <video hidden> element -> dobre AEC -> brak echa
-```
-
-### Pliki do modyfikacji
+### Plik do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/meeting/VideoGrid.tsx` | AudioElement: zamiana `<audio>` na ukryty `<video>` |
-| `src/pages/MeetingRoom.tsx` | Lazy initializer dla status + audioEnabled/videoEnabled/settings |
-| `src/pages/MeetingRoom.tsx` | Guard w verifyAccess: pozwolic na re-weryfikacje z 'joined' |
+| `src/components/meeting/VideoRoom.tsx` | restoreCamera: dodac replaceTrack dla audio sendera w obu miejscach |
 
 ### Ryzyko
 
-Niskie. Ukryty `<video>` zachowuje sie identycznie jak `<audio>` pod wzgledem odtwarzania, ale z lepszym AEC. Lazy initializer jest standardowym wzorcem React i nie wplywa na inne efekty.
+Niskie. `replaceTrack` jest bezpieczna operacja WebRTC -- jesli sender lub track nie istnieje, nic sie nie dzieje. Nie wymaga renegocjacji ICE.
 
