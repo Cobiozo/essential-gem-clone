@@ -90,7 +90,7 @@ const AudioElement: React.FC<{ stream: MediaStream; onAudioBlocked?: () => void 
       }).catch(() => {});
     });
   }, [stream, onAudioBlocked]);
-  return <video ref={ref} autoPlay playsInline style={{ display: 'none' }} />;
+  return <video ref={ref} autoPlay playsInline data-audio-only="true" style={{ display: 'none' }} />;
 };
 
 // ─── Hidden audio streams for speaker/multi-speaker modes ───
