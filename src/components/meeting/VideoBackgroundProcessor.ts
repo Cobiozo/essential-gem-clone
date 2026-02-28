@@ -214,8 +214,9 @@ export class VideoBackgroundProcessor {
   };
 
   private applyBlur(frame: ImageData, mask: Float32Array, width: number, height: number) {
-    const blurRadius = this.mode === 'blur-light' ? 10 : 20;
-    const THRESHOLD = 0.5;
+    const blurRadius = this.mode === 'blur-light' ? 4 : 25;
+    const EDGE_LOW = 0.3;
+    const EDGE_HIGH = 0.7;
 
     // Reuse pre-created blur canvas
     if (this.blurredCtx && this.blurredCanvas) {
@@ -223,14 +224,24 @@ export class VideoBackgroundProcessor {
       this.blurredCtx.drawImage(this.videoElement, 0, 0, width, height);
       const blurred = this.blurredCtx.getImageData(0, 0, width, height);
 
-      // Composite: person pixels from original, background from blurred
+      // mask = background confidence (masks[0]): 1.0 = background, 0.0 = person
       for (let i = 0; i < mask.length; i++) {
-        if (mask[i] < THRESHOLD) {
+        const bgConf = mask[i];
+        if (bgConf > EDGE_HIGH) {
+          // Pure background -> use blurred
           const idx = i * 4;
           frame.data[idx] = blurred.data[idx];
           frame.data[idx + 1] = blurred.data[idx + 1];
           frame.data[idx + 2] = blurred.data[idx + 2];
+        } else if (bgConf > EDGE_LOW) {
+          // Edge zone -> soft blend
+          const alpha = (bgConf - EDGE_LOW) / (EDGE_HIGH - EDGE_LOW);
+          const idx = i * 4;
+          frame.data[idx] = frame.data[idx] * (1 - alpha) + blurred.data[idx] * alpha;
+          frame.data[idx + 1] = frame.data[idx + 1] * (1 - alpha) + blurred.data[idx + 1] * alpha;
+          frame.data[idx + 2] = frame.data[idx + 2] * (1 - alpha) + blurred.data[idx + 2] * alpha;
         }
+        // bgConf <= EDGE_LOW -> person, keep original
       }
     }
   }
@@ -241,7 +252,8 @@ export class VideoBackgroundProcessor {
     // Reuse blur canvas for background image rendering
     if (!this.blurredCtx || !this.blurredCanvas) return;
 
-    const THRESHOLD = 0.5;
+    const EDGE_LOW = 0.3;
+    const EDGE_HIGH = 0.7;
     const imgRatio = this.backgroundImage.width / this.backgroundImage.height;
     const canvasRatio = width / height;
     let sx = 0, sy = 0, sw = this.backgroundImage.width, sh = this.backgroundImage.height;
@@ -256,12 +268,20 @@ export class VideoBackgroundProcessor {
     this.blurredCtx.drawImage(this.backgroundImage, sx, sy, sw, sh, 0, 0, width, height);
     const bgData = this.blurredCtx.getImageData(0, 0, width, height);
 
+    // mask = background confidence (masks[0]): 1.0 = background, 0.0 = person
     for (let i = 0; i < mask.length; i++) {
-      if (mask[i] < THRESHOLD) {
+      const bgConf = mask[i];
+      if (bgConf > EDGE_HIGH) {
         const idx = i * 4;
         frame.data[idx] = bgData.data[idx];
         frame.data[idx + 1] = bgData.data[idx + 1];
         frame.data[idx + 2] = bgData.data[idx + 2];
+      } else if (bgConf > EDGE_LOW) {
+        const alpha = (bgConf - EDGE_LOW) / (EDGE_HIGH - EDGE_LOW);
+        const idx = i * 4;
+        frame.data[idx] = frame.data[idx] * (1 - alpha) + bgData.data[idx] * alpha;
+        frame.data[idx + 1] = frame.data[idx + 1] * (1 - alpha) + bgData.data[idx + 1] * alpha;
+        frame.data[idx + 2] = frame.data[idx + 2] * (1 - alpha) + bgData.data[idx + 2] * alpha;
       }
     }
   }
