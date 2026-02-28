@@ -46,6 +46,12 @@ interface MeetingControlsProps {
   bgIsSupported?: boolean;
   backgroundImages?: string[];
   onBackgroundChange?: (mode: BackgroundMode, imageSrc?: string) => void;
+  // Custom backgrounds
+  customBackgroundImages?: string[];
+  maxCustomBackgrounds?: number;
+  isUploadingBackground?: boolean;
+  onUploadBackground?: (file: File) => void;
+  onDeleteBackground?: (url: string) => void;
 }
 
 const ControlButton: React.FC<{
@@ -143,6 +149,11 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
   bgIsSupported = false,
   backgroundImages = [],
   onBackgroundChange,
+  customBackgroundImages = [],
+  maxCustomBackgrounds = 3,
+  isUploadingBackground = false,
+  onUploadBackground,
+  onDeleteBackground,
 }) => {
   const canManage = isHost || isCoHost;
   const disabledTip = 'Prowadzący wyłączył tę funkcję';
@@ -241,6 +252,11 @@ export const MeetingControls: React.FC<MeetingControlsProps> = ({
           isLoading={bgIsLoading || false}
           isSupported={bgIsSupported || false}
           onSelect={(mode, src) => onBackgroundChange(mode, src)}
+          customImages={customBackgroundImages}
+          maxCustom={maxCustomBackgrounds}
+          isUploading={isUploadingBackground}
+          onUpload={onUploadBackground}
+          onDelete={onDeleteBackground}
           trigger={
             <button className="flex flex-col items-center gap-1 min-w-[48px]">
               <div className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${

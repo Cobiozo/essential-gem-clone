@@ -9,6 +9,7 @@ import { ParticipantsPanel } from './ParticipantsPanel';
 import { MeetingTimer } from './MeetingTimer';
 import { useToast } from '@/hooks/use-toast';
 import { useVideoBackground } from '@/hooks/useVideoBackground';
+import { useCustomBackgrounds } from '@/hooks/useCustomBackgrounds';
 import { BackgroundSelector } from './BackgroundSelector';
 import type { BackgroundMode } from './VideoBackgroundProcessor';
 import type { MeetingSettings } from './MeetingSettingsDialog';
@@ -120,8 +121,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stopBackground,
     updateRawStream,
     setParticipantCount: setBgParticipantCount,
+    getSavedBackground,
     backgroundImages,
   } = useVideoBackground();
+
+  const {
+    customImages: customBackgroundImages,
+    isUploading: isUploadingBackground,
+    uploadImage: uploadBackgroundImage,
+    deleteImage: deleteBackgroundImage,
+    maxBackgrounds: maxCustomBackgrounds,
+  } = useCustomBackgrounds();
 
   // === Zmiana A: participantsRef synced with state ===
   const participantsRef = useRef<RemoteParticipant[]>([]);
@@ -1449,10 +1459,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         } catch (e) { console.warn('[VideoRoom] replaceTrack failed:', e); }
       });
 
-      // Re-apply background effect if active
-      if (bgModeRef.current !== 'none') {
+      // Re-apply background effect if active (from state or localStorage)
+      let effectiveMode = bgModeRef.current;
+      let effectiveImage = bgSelectedImageRef.current;
+      if (effectiveMode === 'none') {
+        const saved = getSavedBackground();
+        effectiveMode = saved.mode;
+        effectiveImage = saved.image;
+      }
+      if (effectiveMode !== 'none') {
         try {
-          const processedStream = await applyBackground(stream, bgModeRef.current, bgSelectedImageRef.current);
+          const processedStream = await applyBackground(stream, effectiveMode, effectiveImage);
           if (processedStream !== stream) {
             localStreamRef.current = processedStream;
             setLocalStream(processedStream);
@@ -1476,13 +1493,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       console.log('[VideoRoom] Stream re-acquired successfully');
       toast({ title: 'Multimedia przywrócone' });
-      // Return the final active stream (processed if background was applied)
       return localStreamRef.current || stream;
     } catch (err) {
       console.error('[VideoRoom] reacquireLocalStream failed:', err);
       return null;
     }
-  }, [toast, applyBackground, updateRawStream]);
+  }, [toast, applyBackground, updateRawStream, getSavedBackground]);
 
   // Controls
   const handleToggleMute = async () => {
@@ -2011,6 +2027,29 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         bgIsSupported={bgIsSupported}
         backgroundImages={backgroundImages}
         onBackgroundChange={handleBackgroundChange}
+        customBackgroundImages={customBackgroundImages}
+        maxCustomBackgrounds={maxCustomBackgrounds}
+        isUploadingBackground={isUploadingBackground}
+        onUploadBackground={async (file) => {
+          try {
+            await uploadBackgroundImage(file);
+            toast({ title: 'Tło przesłane' });
+          } catch (err: any) {
+            toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+          }
+        }}
+        onDeleteBackground={async (url) => {
+          try {
+            // If currently using this background, switch to none
+            if (bgSelectedImage === url) {
+              await handleBackgroundChange('none');
+            }
+            await deleteBackgroundImage(url);
+            toast({ title: 'Tło usunięte' });
+          } catch (err: any) {
+            toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+          }
+        }}
       />
     </div>
   );
