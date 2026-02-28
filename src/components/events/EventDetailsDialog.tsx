@@ -24,6 +24,7 @@ interface EventDetailsDialogProps {
   onOpenChange: (open: boolean) => void;
   onRegister: (eventId: string, occurrenceIndex?: number) => void;
   onCancelRegistration?: (eventId: string, occurrenceIndex?: number) => void;
+  activeRoomIds?: Set<string>;
 }
 
 export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
@@ -32,6 +33,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   onOpenChange,
   onRegister,
   onCancelRegistration,
+  activeRoomIds,
 }) => {
   const { language } = useLanguage();
   const locale = language === 'pl' ? pl : enUS;
@@ -85,8 +87,23 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const externalPlatformMessage = (event as any).external_platform_message || 
     'Ten webinar odbywa się na zewnętrznej platformie. Zapisz się tutaj, aby otrzymać przypomnienie w kalendarzu, a następnie użyj przycisku poniżej, aby zarejestrować się na platformie docelowej.';
 
-  const isEnded = isAfter(now, eventEnd);
-  const isLive = isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd);
+  // Overtime detection for internal meetings
+  const isRoomActive = useInternalMeeting && meetingRoomId && activeRoomIds
+    ? activeRoomIds.has(meetingRoomId) 
+    : false;
+  const isOvertime = isAfter(now, eventEnd);
+  const isStillRunning = isOvertime && isRoomActive;
+  
+  const isEnded = isOvertime && !isStillRunning;
+  const isLive = (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) || isStillRunning;
+  
+  // Overtime display
+  const overtimeMinutes = isStillRunning 
+    ? Math.round((now.getTime() - eventEnd.getTime()) / (1000 * 60))
+    : 0;
+  const overtimeLabel = overtimeMinutes >= 60
+    ? `+${Math.floor(overtimeMinutes / 60)}h ${overtimeMinutes % 60}min`
+    : `+${overtimeMinutes} min`;
   const canJoin = event.is_registered && isLive && (effectiveZoomLink || useInternalMeeting);
   const showMeetingLink = event.is_registered && (effectiveZoomLink || useInternalMeeting) && !isEnded;
   
@@ -131,7 +148,8 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               <div className="flex items-center gap-2">
                 {getEventTypeBadge()}
                 {isEnded && <Badge variant="secondary">Zakończone</Badge>}
-                {isLive && !isEnded && <Badge className="bg-emerald-600">Trwa teraz</Badge>}
+                {isStillRunning && <Badge className="bg-amber-600">Trwa dłużej ({overtimeLabel})</Badge>}
+                {isLive && !isEnded && !isStillRunning && <Badge className="bg-emerald-600">Trwa teraz</Badge>}
               </div>
               <DialogTitle className="text-lg leading-tight">{event.title}</DialogTitle>
             </DialogHeader>

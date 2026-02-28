@@ -17,6 +17,7 @@ import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccu
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
+import { useMeetingRoomStatus } from '@/hooks/useMeetingRoomStatus';
 
 interface CalendarWidgetProps {
   events?: EventWithRegistration[];
@@ -40,6 +41,14 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const dateLocale = language === 'pl' ? pl : enUS;
+
+  // Collect meeting_room_ids from internal meeting events for overtime detection
+  const internalMeetingRoomIds = useMemo(() => {
+    return events
+      .filter(e => (e as any).use_internal_meeting && (e as any).meeting_room_id)
+      .map(e => (e as any).meeting_room_id as string);
+  }, [events]);
+  const activeRoomIds = useMeetingRoomStatus(internalMeetingRoomIds);
 
   // Legend items configuration
   const legendItems = [
@@ -162,9 +171,36 @@ ${signUpLabel}: ${inviteUrl}
     const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
     const isExternalPlatform = (event as any).is_external_platform === true;
     
-    // Wydarzenie zakończone
-    if (isAfter(now, eventEnd)) {
+    // Overtime detection for internal meetings
+    const useInternalMeeting = (event as any).use_internal_meeting === true;
+    const meetingRoomId = (event as any).meeting_room_id as string | undefined;
+    const isRoomActive = useInternalMeeting && meetingRoomId ? activeRoomIds.has(meetingRoomId) : false;
+    const isOvertime = isAfter(now, eventEnd);
+    const isStillRunning = isOvertime && isRoomActive;
+
+    // Wydarzenie zakończone (but NOT if room is still active)
+    if (isOvertime && !isStillRunning) {
       return <Badge variant="secondary" className="text-xs">{tf('events.ended', 'Zakończone')}</Badge>;
+    }
+
+    // Overtime: event past end_time but room still active
+    if (isStillRunning) {
+      const overtimeMinutes = Math.round((now.getTime() - eventEnd.getTime()) / (1000 * 60));
+      const overtimeLabel = overtimeMinutes >= 60
+        ? `+${Math.floor(overtimeMinutes / 60)}h ${overtimeMinutes % 60}min`
+        : `+${overtimeMinutes} min`;
+
+      if (event.is_registered && meetingRoomId) {
+        return (
+          <Button size="sm" className="h-6 text-xs bg-amber-600 hover:bg-amber-700" asChild>
+            <a href={`/meeting-room/${meetingRoomId}`} target="_blank" rel="noopener noreferrer">
+              <Video className="h-3 w-3 mr-1" />
+              {tf('events.join', 'WEJDŹ')} ({overtimeLabel})
+            </a>
+          </Button>
+        );
+      }
+      return <Badge className="text-xs bg-amber-600">{tf('events.overtime', 'Trwa dłużej')} ({overtimeLabel})</Badge>;
     }
     
     // Można dołączyć (15 min przed lub trwa)
@@ -518,6 +554,7 @@ ${signUpLabel}: ${inviteUrl}
           open={!!detailsEvent}
           onOpenChange={(open) => !open && setDetailsEvent(null)}
           onRegister={(eventId, occurrenceIndex) => registerForEvent(eventId, occurrenceIndex)}
+          activeRoomIds={activeRoomIds}
           onCancelRegistration={async (eventId, occurrenceIndex) => {
             // For individual meetings (tripartite/partner_consultation) use Edge Function
             const event = detailsEvent;
