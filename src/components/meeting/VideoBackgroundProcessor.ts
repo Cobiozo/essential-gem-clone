@@ -32,10 +32,10 @@ const MOBILE_PROFILE: PerformanceProfile = {
 };
 
 const DESKTOP_PROFILE: PerformanceProfile = {
-  maxProcessWidth: 960,
-  segmentationIntervalMs: 50, // ~20 seg/s
+  maxProcessWidth: 640,
+  segmentationIntervalMs: 66, // ~15 seg/s
   outputFps: 24,
-  overloadThresholdMs: 60,
+  overloadThresholdMs: 150,
 };
 
 // --- Blur profiles (foreground-safe thresholds) ---
@@ -311,7 +311,7 @@ export class VideoBackgroundProcessor {
       const frameDuration = performance.now() - frameStart;
       if (frameDuration > this.profile.overloadThresholdMs) {
         this.overloadCounter++;
-        if (this.overloadCounter > 15) {
+        if (this.overloadCounter > 30) {
           console.warn(`[BackgroundProcessor] Overload detected (${frameDuration.toFixed(0)}ms avg), switching to pass-through`);
           this.isPassThrough = true;
           this.lastSegmentationTime = performance.now();
