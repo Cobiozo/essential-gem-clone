@@ -1,42 +1,45 @@
 
-
-# Naprawienie widoczności przycisku "Zablokuj" przy członkach zespołu
+# Auto-odświeżanie listy zablokowanych po akcji admina
 
 ## Problem
-Przycisk blokowania w `OrganizationList.tsx` (linia 149) ma warunek:
-```
-node.role !== 'partner' && node.role !== 'admin'
-```
-Ponieważ wszyscy członkowie zespołu mają rolę "Partner", przycisk nigdy się nie wyświetla.
+Gdy admin odblokuje użytkownika (np. sebastiansnopek210587), lider nadal widzi go jako zablokowanego, ponieważ dane w React Query cache nie są odświeżane. Brak subskrypcji realtime na tabeli `user_blocks`.
 
 ## Rozwiązanie
-Zmienić warunek tak, aby przycisk blokowania pojawiał się przy **każdym członku zespołu** (level > 0), z wyjątkiem administratorów. Partnerzy powinni móc być blokowani przez lidera.
+Dodać subskrypcję Supabase Realtime na tabelę `user_blocks` w hooku `useLeaderBlocks`. Gdy nastąpi zmiana (UPDATE/DELETE) w tabeli, automatycznie wywołać `invalidateQueries` co odświeży listę.
 
-### Zmiana w pliku `src/components/team-contacts/organization/OrganizationList.tsx`
+### Zmiana w `src/hooks/useLeaderBlocks.ts`
 
-**Linia 149** — zmiana warunku z:
+1. Dodać `useEffect` z subskrypcją realtime na tabelę `user_blocks`:
+   - Nasłuchiwanie na zdarzenia `UPDATE` i `DELETE` (admin zmienia `is_active` na `false`)
+   - Przy każdym zdarzeniu: `queryClient.invalidateQueries({ queryKey: ['leader-blocks'] })`
+   - Cleanup: usunięcie kanału przy unmount
+
+2. Zmniejszyć `staleTime` query do 30 sekund (fallback na wypadek gdyby realtime nie zadziałał)
+
+### Kod zmiany
+
 ```typescript
-{!isRoot && onBlockUser && node.role !== 'partner' && node.role !== 'admin' && (
-```
-na:
-```typescript
-{!isRoot && onBlockUser && node.role !== 'admin' && (
+// W useLeaderBlocks, po definicji useQuery:
+useEffect(() => {
+  if (!user) return;
+  
+  const channel = supabase
+    .channel('leader-blocks-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'user_blocks',
+    }, () => {
+      queryClient.invalidateQueries({ queryKey: ['leader-blocks'] });
+    })
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [user, queryClient]);
 ```
 
-Usunięcie `node.role !== 'partner'` sprawi, że przycisk blokowania będzie widoczny przy partnerach, specjalistach i klientach — czyli przy każdym członku zespołu poza rootem (samym liderem) i adminami.
-
-### Zmiana w RPC `leader_block_user` (migracja SQL)
-Analogicznie w funkcji backendowej trzeba usunąć warunek blokujący partnerów. Obecnie:
-```sql
-IF v_target_role IN ('admin', 'partner') THEN
-  RAISE EXCEPTION 'Cannot block admin or partner users';
-END IF;
-```
-Zmienić na:
-```sql
-IF v_target_role = 'admin' THEN
-  RAISE EXCEPTION 'Cannot block admin users';
-END IF;
-```
-
-To dwie minimalne zmiany — jedna w froncie, jedna w bazie — które rozwiązują problem.
+### Wynik
+- Gdy admin odblokuje użytkownika, lider zobaczy aktualizację w ciągu 1-2 sekund bez odświeżania strony
+- Jeden plik do zmiany: `src/hooks/useLeaderBlocks.ts`
