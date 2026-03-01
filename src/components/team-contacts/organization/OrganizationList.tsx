@@ -146,7 +146,7 @@ const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = fal
           )}
 
           {/* Block button - only for non-root, non-partner/admin */}
-          {!isRoot && onBlockUser && node.role !== 'partner' && node.role !== 'admin' && (
+          {!isRoot && onBlockUser && node.role !== 'admin' && (
             <Button
               variant="ghost"
               size="sm"
