@@ -14,6 +14,7 @@ export interface OrganizationMember {
   email: string | null;
   phone_number: string | null;
   level: number;
+  is_active: boolean;
 }
 
 export interface OrganizationTreeNode extends OrganizationMember {
@@ -70,7 +71,7 @@ export const useOrganizationTree = () => {
       if (settings?.show_upline && profile.upline_eq_id) {
         const { data: uplineData, error: uplineError } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, eq_id, upline_eq_id, role, avatar_url, email, phone_number')
+          .select('user_id, first_name, last_name, eq_id, upline_eq_id, role, avatar_url, email, phone_number, is_active')
           .eq('eq_id', profile.upline_eq_id)
           .eq('is_active', true)
           .single();
@@ -86,7 +87,8 @@ export const useOrganizationTree = () => {
             avatar_url: uplineData.avatar_url,
             email: uplineData.email,
             phone_number: uplineData.phone_number,
-            level: -1, // Above the root
+            level: -1,
+            is_active: uplineData.is_active ?? true,
           });
         }
       }
