@@ -719,6 +719,10 @@ const Admin = () => {
           title: "Sukces",
           description: `Klient został ${!currentStatus ? 'odblokowany' : 'zablokowany'}.`,
         });
+
+        // Invalidate block-related queries so leader views update immediately
+        queryClient.invalidateQueries({ queryKey: ['admin-user-blocks'] });
+        queryClient.invalidateQueries({ queryKey: ['leader-blocks'] });
       }
     } catch (error: any) {
       console.error('Error toggling user status:', error);
