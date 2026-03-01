@@ -62,6 +62,8 @@ const LS_CACHE_KEY = 'i18n_translations_cache';
 const LS_CACHE_VERSION_KEY = 'i18n_cache_version';
 const LS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+const isDev = process.env.NODE_ENV === 'development';
+
 interface LSCacheEntry {
   data: I18nTranslation[];
   timestamp: number;
@@ -142,7 +144,7 @@ const setLocalStorageCacheAsync = (langCode: string, data: I18nTranslation[]): v
   }
 };
 
-const isDev = process.env.NODE_ENV === 'development';
+
 
 const notifyListeners = () => {
   cacheListeners.forEach(cb => cb());
