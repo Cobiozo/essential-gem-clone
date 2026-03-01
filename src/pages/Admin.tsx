@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAdminPresence } from '@/hooks/useAdminPresence';
 import { FloatingAdminPresence } from '@/components/admin/FloatingAdminPresence';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
@@ -168,6 +169,7 @@ const Admin = () => {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [items, setItems] = useState<CMSItem[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -414,6 +416,40 @@ const Admin = () => {
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [emailTemplates, setEmailTemplates] = useState<{ id: string; name: string }[]>([]);
   
+  // Fetch active user blocks for admin annotations
+  const { data: userBlocksData } = useQuery({
+    queryKey: ['admin-user-blocks'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_blocks')
+        .select('*')
+        .eq('is_active', true);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const userBlocksMap = useMemo(() => {
+    const map = new Map<string, typeof userBlocksData extends (infer T)[] ? T : never>();
+    userBlocksData?.forEach(block => {
+      map.set(block.blocked_user_id, block);
+    });
+    return map;
+  }, [userBlocksData]);
+
+  const handleAdminUnblock = async (blockId: string) => {
+    try {
+      const { error } = await supabase.rpc('leader_unblock_user', { p_block_id: blockId });
+      if (error) throw error;
+      toast({ title: 'Użytkownik odblokowany' });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-blocks'] });
+      fetchUsers();
+    } catch (err: any) {
+      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+    }
+  };
+
   // Enable security preventions but allow text selection for CMS editing
   useSecurityPreventions(false);
 
@@ -4386,6 +4422,14 @@ const Admin = () => {
                               isSelected={selectedUserIds.has(userProfile.user_id)}
                               onSelectionChange={handleUserSelectionChange}
                               showCheckbox={true}
+                              blockInfo={userBlocksMap.get(userProfile.user_id) ? {
+                                blocked_by_first_name: userBlocksMap.get(userProfile.user_id)!.blocked_by_first_name,
+                                blocked_by_last_name: userBlocksMap.get(userProfile.user_id)!.blocked_by_last_name,
+                                blocked_at: userBlocksMap.get(userProfile.user_id)!.blocked_at,
+                                reason: userBlocksMap.get(userProfile.user_id)!.reason,
+                                block_id: userBlocksMap.get(userProfile.user_id)!.id,
+                              } : null}
+                              onUnblockUser={handleAdminUnblock}
                             />
                           ))}
                         </div>

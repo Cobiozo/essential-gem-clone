@@ -5,8 +5,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ChevronDown, ChevronRight, Users, ArrowUp, Star, Mail, Phone } from 'lucide-react';
+import { ChevronDown, ChevronRight, Users, ArrowUp, Star, Mail, Phone, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { OrganizationTreeNode, OrganizationMember } from '@/hooks/useOrganizationTree';
 import { OrganizationTreeSettings } from '@/hooks/useOrganizationTreeSettings';
 
@@ -20,6 +23,8 @@ interface OrganizationListProps {
     specjalisci: number;
     clients: number;
   };
+  onBlockUser?: (userId: string, reason?: string) => void;
+  blockingInProgress?: boolean;
 }
 
 const getRoleConfig = (role: string | null) => {
@@ -48,10 +53,14 @@ interface ListNodeProps {
   settings: OrganizationTreeSettings;
   level: number;
   isRoot?: boolean;
+  onBlockUser?: (userId: string, reason?: string) => void;
+  blockingInProgress?: boolean;
 }
 
-const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = false }) => {
+const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = false, onBlockUser, blockingInProgress }) => {
   const [isOpen, setIsOpen] = useState(level < 2);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
   const roleConfig = getRoleConfig(node.role);
   const hasChildren = node.children.length > 0;
   const initials = getInitials(node.first_name, node.last_name);
@@ -135,7 +144,57 @@ const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = fal
               {node.childCount}
             </Badge>
           )}
+
+          {/* Block button - only for non-root, non-partner/admin */}
+          {!isRoot && onBlockUser && node.role !== 'partner' && node.role !== 'admin' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                setBlockDialogOpen(true);
+              }}
+            >
+              <Ban className="w-4 h-4" />
+            </Button>
+          )}
         </div>
+
+        {/* Block confirmation dialog */}
+        {onBlockUser && (
+          <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Zablokuj dostęp</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Czy na pewno chcesz zablokować dostęp użytkownikowi <strong>{node.first_name} {node.last_name}</strong>?
+              </p>
+              <Textarea
+                placeholder="Powód blokady (opcjonalnie)"
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+              />
+              <DialogFooter>
+                <Button variant="outline" onClick={() => { setBlockDialogOpen(false); setBlockReason(''); }}>
+                  Anuluj
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={blockingInProgress}
+                  onClick={() => {
+                    onBlockUser(node.id, blockReason || undefined);
+                    setBlockDialogOpen(false);
+                    setBlockReason('');
+                  }}
+                >
+                  Zablokuj
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Children */}
         {hasChildren && (
@@ -147,6 +206,8 @@ const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = fal
                   node={child}
                   settings={settings}
                   level={level + 1}
+                  onBlockUser={onBlockUser}
+                  blockingInProgress={blockingInProgress}
                 />
               ))}
             </div>
@@ -199,6 +260,8 @@ export const OrganizationList: React.FC<OrganizationListProps> = ({
   upline,
   settings,
   statistics,
+  onBlockUser,
+  blockingInProgress,
 }) => {
   if (!tree) {
     return (
@@ -266,6 +329,8 @@ export const OrganizationList: React.FC<OrganizationListProps> = ({
               settings={settings}
               level={0}
               isRoot
+              onBlockUser={onBlockUser}
+              blockingInProgress={blockingInProgress}
             />
           </div>
         </ScrollArea>

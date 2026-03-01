@@ -94,6 +94,14 @@ interface CompactUserCardProps {
   isSelected?: boolean;
   onSelectionChange?: (userId: string, selected: boolean) => void;
   showCheckbox?: boolean;
+  blockInfo?: {
+    blocked_by_first_name: string | null;
+    blocked_by_last_name: string | null;
+    blocked_at: string;
+    reason: string | null;
+    block_id: string;
+  } | null;
+  onUnblockUser?: (blockId: string) => void;
 }
 
 const getRoleDisplayName = (role: string): string => {
@@ -178,6 +186,8 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
   isSelected = false,
   onSelectionChange,
   showCheckbox = false,
+  blockInfo,
+  onUnblockUser,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isSendingActivation, setIsSendingActivation] = useState(false);
@@ -266,6 +276,13 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                   <Badge variant="destructive" className="text-xs h-5">
                     Zablokowany
                   </Badge>
+                )}
+                {blockInfo && (
+                  <span className="text-xs text-muted-foreground">
+                    przez {blockInfo.blocked_by_first_name} {blockInfo.blocked_by_last_name},{' '}
+                    {new Date(blockInfo.blocked_at).toLocaleString('pl-PL')}
+                    {blockInfo.reason && ` — ${blockInfo.reason}`}
+                  </span>
                 )}
                 {/* Consent badge */}
                 {(userProfile.accepted_terms && userProfile.accepted_privacy && userProfile.accepted_rodo) ? (
