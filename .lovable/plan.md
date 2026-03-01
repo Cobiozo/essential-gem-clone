@@ -1,25 +1,26 @@
 
+# Naprawa: zarejestrowane webinary nie widoczne w widżecie "Moje spotkania"
 
-# Przywrocenie plynnosci wideo z zachowaniem ostrosci krawedzi
+## Przyczyna
 
-## Przyczyna problemu
-
-Ostatnia zmiana ustawila `segmentationIntervalMs: 0`, co oznacza ze segmentacja ML + caly pipeline (contrastMask, erode/dilate, canvas blur, smoothstep, temporal blend) uruchamia sie na KAZDEJ klatce requestAnimationFrame (~60fps). To przeciaza GPU/CPU i powoduje spadek plynnosci.
+W `src/hooks/useEvents.ts` (linia 166-173) filtr liderski usuwa webinary/szkolenia hostowane przez liderów, jeśli użytkownik nie jest w downline danego lidera. Problem: filtr nie sprawdza, czy użytkownik jest **zarejestrowany** na to wydarzenie. Efekt: użytkownik zapisuje się na webinar (np. na stronie Webinary, gdzie filtr liderski nie działa), ale po powrocie na Dashboard wydarzenie znika z widżetu "Moje spotkania", bo `useEvents` je odfiltrowuje.
 
 ## Naprawa
 
-### Plik: `src/components/meeting/VideoBackgroundProcessor.ts`
+### Plik: `src/hooks/useEvents.ts`
 
-Jedna zmiana — przywrocic throttling segmentacji do 20ms (desktop) i 60ms (mobile):
+Jedna zmiana w linii 172 — dodanie warunku `event.is_registered`:
 
-| Parametr | Przed (v1) | Po ostatniej zmianie | Teraz (fix) |
-|----------|-----------|---------------------|-------------|
-| segmentationIntervalMs (desktop image) | 40 | 0 | 20 (~50fps) |
-| mobileSegmentationIntervalMs | 60 | 60 | 60 (bez zmian) |
+```typescript
+// Przed:
+return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
 
-20ms daje ~50 segmentacji/s — perceptualnie nieodroznialne od "kazdej klatki", ale GPU ma czas na renderowanie miedzy segmentacjami. Wszystkie poprawki jakosci krawedzi (contrast 8, blur 2px, smoothstep 0.35-0.55, temporal weights) zostaja bez zmian.
+// Po:
+return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id) || event.is_registered;
+```
+
+Logika: jeśli użytkownik jest już zarejestrowany na wydarzenie, powinien je widzieć niezależnie od filtra liderskiego. To jest spójne z filtrem spotkań indywidualnych (linia 145), który już stosuje taką zasadę.
 
 ## Zakres zmian
-- Linia 45: `segmentationIntervalMs: 0` zmieniane na `segmentationIntervalMs: 20`
-- Zadne inne pliki ani parametry nie sa modyfikowane
-
+- `src/hooks/useEvents.ts` — jedna linia (172)
+- Żadne inne pliki nie wymagają zmian
