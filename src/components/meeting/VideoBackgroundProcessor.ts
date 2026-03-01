@@ -42,7 +42,7 @@ const DESKTOP_PROFILE: PerformanceProfile = {
 // Quality-first overrides for image mode (applied on top of base profile)
 const IMAGE_MODE_OVERRIDES = {
   minProcessWidth: 640,        // never go below 640 for image backgrounds
-  segmentationIntervalMs: 40,  // ~25fps segmentation for responsive edges
+  segmentationIntervalMs: 0,   // every frame — real-time mask for image backgrounds
   mobileMinProcessWidth: 480,
   mobileSegmentationIntervalMs: 60,
 };
@@ -67,8 +67,8 @@ const BLUR_PROFILES: Record<string, BlurProfile> = {
   },
   'image': {
     blurRadius: 0,
-    personThresholdHigh: 0.70,
-    personThresholdLow: 0.30,
+    personThresholdHigh: 0.60,
+    personThresholdLow: 0.40,
   },
 };
 
@@ -479,7 +479,7 @@ export class VideoBackgroundProcessor {
     // Image mode with full-res model: very gentle — preserve natural gradients from high-res mask
     // Multiclass fallback: aggressive to compensate for low-res artifacts
     if (isImageMode) {
-      contrastMask(mask, isFullResModel ? 5 : 14);
+      contrastMask(mask, isFullResModel ? 8 : 14);
     } else {
       contrastMask(mask, 7);
     }
@@ -510,7 +510,7 @@ export class VideoBackgroundProcessor {
       this.maskCtx.putImageData(imgData, 0, 0);
 
       // Image mode: wider blur for edge feathering; blur modes: standard
-      const blurPx = isImageMode ? (isFullResModel ? 3 : 1) : 3;
+      const blurPx = isImageMode ? (isFullResModel ? 2 : 1) : 3;
       this.maskCtx.filter = `blur(${blurPx}px)`;
       this.maskCtx.drawImage(this.maskCanvas, 0, 0);
       this.maskCtx.filter = 'none';
@@ -542,7 +542,7 @@ export class VideoBackgroundProcessor {
         
         // High motion → low weight (follow movement closely)
         // Low motion → higher weight (stability)
-        const weight = this.motionScore > 0.05 ? 0.08 : this.motionScore > 0.02 ? 0.15 : 0.25;
+        const weight = this.motionScore > 0.05 ? 0.03 : this.motionScore > 0.02 ? 0.08 : 0.15;
         
         for (let i = 0; i < mask.length; i++) {
           mask[i] = this.previousMask[i] * weight + mask[i] * (1 - weight);
@@ -575,8 +575,8 @@ export class VideoBackgroundProcessor {
    * transition zone → smooth Hermite interpolation.
    */
   private applyEdgeAwareSmoothstep(mask: Float32Array) {
-    const edgeLow = 0.20;   // below this → definitely background
-    const edgeHigh = 0.65;  // above this → definitely person
+    const edgeLow = 0.35;   // below this → definitely background
+    const edgeHigh = 0.55;  // above this → definitely person
     
     for (let i = 0; i < mask.length; i++) {
       mask[i] = smoothstep(edgeLow, edgeHigh, mask[i]);
