@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
+
 
 const LeaderEventRegistrationsView: React.FC = () => {
   const { user } = useAuth();
@@ -54,7 +54,8 @@ const LeaderEventRegistrationsView: React.FC = () => {
     enabled: !!selectedEventId,
   });
 
-  const exportToXlsx = () => {
+  const exportToXlsx = async () => {
+    const XLSX = await import('xlsx');
     if (registrations.length === 0) return;
     const eventTitle = events.find(e => e.id === selectedEventId)?.title || 'rejestracje';
     const wsData = registrations.map(r => ({ 'Imię': r.first_name, 'Nazwisko': r.last_name, 'Email': r.email, 'Telefon': r.phone, 'Typ': r.type === 'user' ? 'Użytkownik' : 'Gość', 'Status': r.status, 'Data rejestracji': r.registered_at ? format(new Date(r.registered_at), 'dd.MM.yyyy HH:mm') : '—' }));

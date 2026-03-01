@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Search, Download, Mail, CheckCircle, Clock, XCircle, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import * as XLSX from 'xlsx';
+
 
 interface PaidEventOrder {
   id: string;
@@ -102,7 +102,8 @@ export const PaidEventsOrders: React.FC = () => {
   };
 
   // Export to Excel
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
+    const XLSX = await import('xlsx');
     const exportData = filteredOrders.map(order => ({
       'Wydarzenie': order.paid_events?.title || '-',
       'Imię': order.first_name,

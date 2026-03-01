@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Contact, Search, Download, Loader2 } from 'lucide-react';
 import { useLeaderTeamMembers } from '@/hooks/useLeaderTeamMembers';
 import { useToast } from '@/hooks/use-toast';
-import * as XLSX from 'xlsx';
+
 
 const LeaderTeamContactsView: React.FC = () => {
   const { teamMembers, loading } = useLeaderTeamMembers();
@@ -27,7 +27,8 @@ const LeaderTeamContactsView: React.FC = () => {
 
   const roles = [...new Set(teamMembers.map(m => m.role).filter(Boolean))];
 
-  const exportToXlsx = () => {
+  const exportToXlsx = async () => {
+    const XLSX = await import('xlsx');
     const wsData = filtered.map(m => ({
       'Imię': m.first_name || '', 'Nazwisko': m.last_name || '',
       'Email': m.email || '', 'Telefon': m.phone_number || '',
