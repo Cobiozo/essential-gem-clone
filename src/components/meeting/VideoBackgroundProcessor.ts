@@ -42,7 +42,7 @@ const DESKTOP_PROFILE: PerformanceProfile = {
 // Quality-first overrides for image mode (applied on top of base profile)
 const IMAGE_MODE_OVERRIDES = {
   minProcessWidth: 640,        // never go below 640 for image backgrounds
-  segmentationIntervalMs: 0,   // every frame — real-time mask for image backgrounds
+  segmentationIntervalMs: 20,  // ~50fps segmentation — real-time feel with GPU headroom
   mobileMinProcessWidth: 480,
   mobileSegmentationIntervalMs: 60,
 };
