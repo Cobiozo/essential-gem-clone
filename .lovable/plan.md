@@ -1,45 +1,41 @@
 
-# Auto-odświeżanie listy zablokowanych po akcji admina
+# Wyswietlanie zablokowanych uzytkownikow w strukturze organizacji
 
 ## Problem
-Gdy admin odblokuje użytkownika (np. sebastiansnopek210587), lider nadal widzi go jako zablokowanego, ponieważ dane w React Query cache nie są odświeżane. Brak subskrypcji realtime na tabeli `user_blocks`.
+Funkcja RPC `get_organization_tree` filtruje `WHERE p.is_active = true`, wiec zablokowany uzytkownik (z `is_active = false`) calkowicie znika z drzewa struktury u lidera. Powinien nadal byc widoczny, ale z oznaczeniem "Zablokowany".
 
-## Rozwiązanie
-Dodać subskrypcję Supabase Realtime na tabelę `user_blocks` w hooku `useLeaderBlocks`. Gdy nastąpi zmiana (UPDATE/DELETE) w tabeli, automatycznie wywołać `invalidateQueries` co odświeży listę.
+## Zmiany
 
-### Zmiana w `src/hooks/useLeaderBlocks.ts`
+### 1. Migracja SQL - Modyfikacja `get_organization_tree`
+Zmiana RPC tak, aby zwracala rowniez nieaktywnych uzytkownikow (z `is_active = false`) oraz dodanie kolumny `is_active` do wyniku.
 
-1. Dodać `useEffect` z subskrypcją realtime na tabelę `user_blocks`:
-   - Nasłuchiwanie na zdarzenia `UPDATE` i `DELETE` (admin zmienia `is_active` na `false`)
-   - Przy każdym zdarzeniu: `queryClient.invalidateQueries({ queryKey: ['leader-blocks'] })`
-   - Cleanup: usunięcie kanału przy unmount
+Zmiana polega na:
+- Usunienciu warunku `AND p.is_active = true` z rekurencyjnego CTE (pozostawienie go tylko dla roota, aby lider zawsze sie widzial)
+- Dodaniu kolumny `p.is_active` do wyniku funkcji
 
-2. Zmniejszyć `staleTime` query do 30 sekund (fallback na wypadek gdyby realtime nie zadziałał)
-
-### Kod zmiany
-
-```typescript
-// W useLeaderBlocks, po definicji useQuery:
-useEffect(() => {
-  if (!user) return;
-  
-  const channel = supabase
-    .channel('leader-blocks-realtime')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'user_blocks',
-    }, () => {
-      queryClient.invalidateQueries({ queryKey: ['leader-blocks'] });
-    })
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [user, queryClient]);
+```sql
+CREATE OR REPLACE FUNCTION get_organization_tree(p_root_eq_id text, p_max_depth int DEFAULT 5)
+RETURNS TABLE(
+  id uuid, first_name text, last_name text, eq_id text,
+  upline_eq_id text, role text, avatar_url text,
+  email text, phone_number text, level int, is_active boolean
+) ...
+-- Root: WHERE p.eq_id = p_root_eq_id AND p.is_active = true
+-- Children: usunac AND p.is_active = true (aby zablokowane osoby tez sie pojawialy)
 ```
 
-### Wynik
-- Gdy admin odblokuje użytkownika, lider zobaczy aktualizację w ciągu 1-2 sekund bez odświeżania strony
-- Jeden plik do zmiany: `src/hooks/useLeaderBlocks.ts`
+### 2. Aktualizacja interfejsu `OrganizationMember` (`src/hooks/useOrganizationTree.ts`)
+Dodanie pola `is_active` do interfejsu i mapowania danych.
+
+### 3. Aktualizacja `OrganizationList.tsx` - badge "Zablokowany"
+- Przy kazdym uzytkowniku z `is_active === false` wyswietlic czerwony Badge "Zablokowany"
+- Ukryc przycisk blokowania dla juz zablokowanych uzytkownikow
+- Lekko wyszarzyc wiersz zablokowanego uzytkownika (opacity)
+
+### 4. Weryfikacja strony admina
+Admin CMS juz poprawnie wyswietla zablokowanych uzytkownikow w zakladce "Zablokowani" (filtruje po `is_active = false` z danymi z `user_blocks`). Ta czesc dziala - admin widzi zablokowanych. Nie sa potrzebne dodatkowe zmiany po stronie admina.
+
+## Kolejnosc implementacji
+1. Migracja SQL (modyfikacja RPC)
+2. Aktualizacja interfejsu `OrganizationMember`
+3. Aktualizacja komponentu `OrganizationList.tsx` (badge + ukrycie przycisku blokowania)
