@@ -39,7 +39,7 @@ const LeaderImportantInfoView = lazy(() => import('@/components/leader/LeaderImp
 const LeaderReflinksView = lazy(() => import('@/components/leader/LeaderReflinksView'));
 const LeaderReportsView = lazy(() => import('@/components/leader/LeaderReportsView'));
 const LeaderCertificatesView = lazy(() => import('@/components/leader/LeaderCertificatesView'));
-const LeaderBlockedUsersView = lazy(() => import('@/components/leader/LeaderBlockedUsersView'));
+
 
 const LazyFallback = () => (
   <div className="flex justify-center h-40">
@@ -141,7 +141,7 @@ const LeaderPanel: React.FC = () => {
     ...(hasTeamReflinks ? [{ id: 'reflinks', label: 'Reflinki', icon: Link, badge: 0 }] : []),
     ...(hasTeamReports ? [{ id: 'reports', label: 'Raporty', icon: BarChart3, badge: 0 }] : []),
     ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0 }] : []),
-    ...(hasOrgTree ? [{ id: 'blocked-users', label: 'Zablokowani', icon: ShieldX, badge: 0 }] : []),
+    
   ];
 
   const resolvedDefaultTab = availableTabs.find(t => t.id === defaultTab)?.id ?? availableTabs[0]?.id ?? '';
@@ -187,8 +187,6 @@ const LeaderPanel: React.FC = () => {
         return <Suspense fallback={<LazyFallback />}><LeaderReportsView /></Suspense>;
       case 'certificates':
         return <Suspense fallback={<LazyFallback />}><LeaderCertificatesView /></Suspense>;
-      case 'blocked-users':
-        return <Suspense fallback={<LazyFallback />}><LeaderBlockedUsersView /></Suspense>;
       default:
         return null;
     }
