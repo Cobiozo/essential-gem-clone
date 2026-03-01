@@ -189,6 +189,33 @@ export const useOrganizationTree = () => {
     }
   }, [settingsLoading, profile?.eq_id, fetchTree]);
 
+  // Realtime subscription: refresh tree when profiles.is_active changes (e.g. admin unblocks)
+  useEffect(() => {
+    const channel = supabase
+      .channel('org-tree-profiles-realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+      }, () => {
+        hasFetchedRef.current = false;
+        fetchTree();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_blocks',
+      }, () => {
+        hasFetchedRef.current = false;
+        fetchTree();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchTree]);
+
   return {
     tree,
     upline,
