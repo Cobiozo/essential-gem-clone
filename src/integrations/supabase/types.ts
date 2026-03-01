@@ -7511,6 +7511,7 @@ export type Database = {
           eq_id: string
           first_name: string
           id: string
+          is_active: boolean
           last_name: string
           level: number
           phone_number: string

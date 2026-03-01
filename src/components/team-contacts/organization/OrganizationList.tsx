@@ -77,6 +77,7 @@ const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = fal
           className={cn(
             'flex items-center gap-3 p-3 rounded-lg transition-colors',
             isRoot ? 'bg-primary/10 border-2 border-primary' : 'bg-muted/50 hover:bg-muted',
+            !node.is_active && 'opacity-60',
           )}
         >
           {/* Expand/collapse */}
@@ -116,6 +117,9 @@ const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = fal
                   {roleConfig.label}
                 </Badge>
               )}
+              {!node.is_active && (
+                <Badge variant="destructive">Zablokowany</Badge>
+              )}
             </div>
             
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-0.5">
@@ -145,8 +149,8 @@ const ListNode: React.FC<ListNodeProps> = ({ node, settings, level, isRoot = fal
             </Badge>
           )}
 
-          {/* Block button - only for non-root, non-partner/admin */}
-          {!isRoot && onBlockUser && node.role !== 'admin' && (
+          {/* Block button - only for non-root, non-admin, active users */}
+          {!isRoot && onBlockUser && node.role !== 'admin' && node.is_active && (
             <Button
               variant="ghost"
               size="sm"
