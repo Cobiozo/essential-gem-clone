@@ -1,36 +1,42 @@
 
 
-# Przeniesienie zakładki "Zablokowani" do wnętrza "Moja struktura"
+# Naprawienie widoczności przycisku "Zablokuj" przy członkach zespołu
 
 ## Problem
-Obecnie "Zablokowani" jest osobną zakładką na najwyższym poziomie Panelu Lidera. Użytkownik chce, aby była to pod-zakładka wewnątrz widoku "Moja struktura", obok przełącznika Lista/Graf.
+Przycisk blokowania w `OrganizationList.tsx` (linia 149) ma warunek:
+```
+node.role !== 'partner' && node.role !== 'admin'
+```
+Ponieważ wszyscy członkowie zespołu mają rolę "Partner", przycisk nigdy się nie wyświetla.
 
-## Zmiany
+## Rozwiązanie
+Zmienić warunek tak, aby przycisk blokowania pojawiał się przy **każdym członku zespołu** (level > 0), z wyjątkiem administratorów. Partnerzy powinni móc być blokowani przez lidera.
 
-### 1. Usunięcie zakładki "Zablokowani" z LeaderPanel.tsx
-- Usunięcie wpisu `blocked-users` z tablicy `availableTabs` (linia 144)
-- Usunięcie case `blocked-users` z `renderTabContent` (linia 190-191)
-- Usunięcie importu `LeaderBlockedUsersView` z lazy imports (linia 42)
+### Zmiana w pliku `src/components/team-contacts/organization/OrganizationList.tsx`
 
-### 2. Modyfikacja LeaderOrgTreeView.tsx — dodanie pod-zakładki
-- Dodanie stanu `subView: 'structure' | 'blocked'` (domyślnie `'structure'`)
-- W sekcji "Twoja struktura" (karta z przełącznikiem Lista/Graf) dodanie dwóch przycisków: **Struktura** i **Zablokowani** (z liczbą zablokowanych)
-- Gdy `subView === 'blocked'` — renderowanie `LeaderBlockedUsersView` zamiast drzewa/listy
-- Gdy `subView === 'structure'` — istniejący widok Lista/Graf bez zmian
-- Przycisk blokowania przy każdym członku zespołu pozostaje bez zmian (już działa)
+**Linia 149** — zmiana warunku z:
+```typescript
+{!isRoot && onBlockUser && node.role !== 'partner' && node.role !== 'admin' && (
+```
+na:
+```typescript
+{!isRoot && onBlockUser && node.role !== 'admin' && (
+```
 
-### 3. Modyfikacja LeaderBlockedUsersView.tsx — rozszerzenie danych
-- Upewnienie się, że każdy zablokowany użytkownik pokazuje:
-  - Imię i nazwisko zablokowanego
-  - Kto zablokował (imię i nazwisko lidera)
-  - Powód blokady
-  - Data i godzina blokady
-  - Przycisk "Przywróć"
+Usunięcie `node.role !== 'partner'` sprawi, że przycisk blokowania będzie widoczny przy partnerach, specjalistach i klientach — czyli przy każdym członku zespołu poza rootem (samym liderem) i adminami.
 
-Dane `blocked_by_first_name`, `blocked_by_last_name`, `reason`, `blocked_at` są już dostępne z tabeli `user_blocks` i hooka `useLeaderBlocks`. Komponent `LeaderBlockedUsersView` już wyświetla te informacje — zostanie jedynie dopracowany wizualnie, aby wyraźnie prezentować kto zablokował.
+### Zmiana w RPC `leader_block_user` (migracja SQL)
+Analogicznie w funkcji backendowej trzeba usunąć warunek blokujący partnerów. Obecnie:
+```sql
+IF v_target_role IN ('admin', 'partner') THEN
+  RAISE EXCEPTION 'Cannot block admin or partner users';
+END IF;
+```
+Zmienić na:
+```sql
+IF v_target_role = 'admin' THEN
+  RAISE EXCEPTION 'Cannot block admin users';
+END IF;
+```
 
-### Wynik
-- Zakładka "Zablokowani" znika z paska głównego Panelu Lidera
-- Pojawia się jako pod-widok w "Moja struktura" (przełącznik: Struktura / Zablokowani)
-- Przycisk blokowania przy członkach zespołu działa jak dotychczas
-
+To dwie minimalne zmiany — jedna w froncie, jedna w bazie — które rozwiązują problem.
