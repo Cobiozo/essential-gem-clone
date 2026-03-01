@@ -169,7 +169,7 @@ export const useEvents = () => {
               // If host is NOT a leader (e.g. admin), treat as global event (visible by role flags)
               if (!actualLeaderSet.has(event.host_user_id)) return true;
               // Leader event: show only if I'm the host OR in their team
-              return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id);
+              return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id) || event.is_registered;
             });
           }
         }
