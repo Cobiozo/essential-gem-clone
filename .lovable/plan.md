@@ -1,53 +1,61 @@
 
-# Naprawa braku obrazu z kamery w lobby i pokoju spotkania
 
-## Diagnoza
+# Real-time mask + zero jagged pixels — pipeline tuning
 
-### Problem 1: Brak podgladu kamery w lobby (szary prostokat)
-**Przyczyna**: `getUserMedia` jest wywolywane w `useEffect` (linia 46-68 w MeetingLobby.tsx). Nowoczesne przegladarki (szczegolnie mobilne) blokuja dostep do kamery/mikrofonu jesli nie jest wywolany bezposrednio z gestu uzytkownika (klikniecie/dotyk). Zgodnie z polityka autoplay/permissions: `getUserMedia` w `useEffect` moze zwrocic `NotAllowedError` lub po cichu nie dzialac.
+## Root Cause (from screenshots)
 
-Dodatkowo: nawet jesli strumien sie uruchomi, element `<video>` jest renderowany warunkowo (`videoEnabled && previewStream`) — jesli React przerenderuje komponent, referencja `videoRef` moze sie rozjechac.
+Screenshot 1 (blue geometric bg): Visible pixelated step-pattern along hair, glasses, and shoulder edges — the smoothstep transition band is too wide and the spatial blur isn't smoothing the staircase artifacts from the low-res mask.
 
-### Problem 2: Brak obrazu uczestnikow w pokoju spotkania
-**Przyczyna**: VideoRoom reuzywuje strumien z lobby (`initialStream`). Jesli lobby nie uzyskal strumienia (problem 1), `initialStream` jest `null`. Wtedy VideoRoom probuje `getUserMedia` w swoim `useEffect` (linia 776) — ale to tez jest poza gestem uzytkownika, wiec tez moze byc zablokowane.
+Screenshot 2 (bookshelf bg): Ghosting/halo above head and around shoulders — temporal smoothing carries stale mask data too long, and the wide transition band (0.20-0.65) bleeds background into the person zone.
 
-Dla zdalnych uczestnikow: `showVideo` w VideoGrid (linia 198) sprawdza `stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live')`. Jesli zdalny uczestnik nie mial strumienia, warunek jest `false` i pokazuje sie avatar.
+## Changes (all in `VideoBackgroundProcessor.ts`)
 
-## Plan naprawy
+### 1. Remove segmentation throttling for image mode
+Current: mask updates every 40ms (skips frames between).
+Fix: For image mode, run segmentation on EVERY frame (`segmentationIntervalMs = 0`). The selfie_segmenter model is lightweight enough (~3-5ms on GPU). This eliminates the stale-mask lag that causes the contour to "trail" behind movement.
 
-### Plik: `src/components/meeting/MeetingLobby.tsx`
+```
+IMAGE_MODE_OVERRIDES.segmentationIntervalMs = 0  // every frame
+```
 
-**A) Przesuniecie `getUserMedia` do gestu uzytkownika:**
-- Zamiast wywoływac `getUserMedia` w `useEffect` automatycznie, dodac przycisk "Wlacz kamere i mikrofon" ktory uruchamia strumien z klikniecia.
-- Jako fallback: nadal probowac w `useEffect`, ale z jasnym komunikatem bledu jesli sie nie uda.
-- Gdy `getUserMedia` sie nie powiedzie w useEffect, wyswietlic przycisk "Zezwol na dostep do kamery" ktory wywola `getUserMedia` z gestu.
+### 2. Tighten smoothstep thresholds
+Current: `smoothstep(0.20, 0.65)` — very wide 0.45 transition band creates ghosting.
+Fix: Narrow to `smoothstep(0.35, 0.55)` — only 0.20 range. This makes edges crisp while still anti-aliased (not hard-clipped).
 
-**B) Utrzymanie video ref stabilnosci:**
-- Element `<video>` zawsze renderowac w DOM (z `hidden` class gdy kamera wylaczona), zeby `ref` sie nie gubil.
-- Przenosimy warunek widocznosci z renderowania warunkowego na CSS (`className="hidden"`).
+### 3. Increase initial contrast
+Current: `contrastMask(mask, 5)` — too gentle, leaves too many mid-values.
+Fix: Increase to `contrastMask(mask, 8)` — pushes mask values toward 0/1 more aggressively before spatial processing, reducing the number of ambiguous edge pixels.
 
-**C) Retry po odmowie uprawnien:**
-- Jesli `getUserMedia` rzuci `NotAllowedError`, wyswietlic przycisk "Sprobuj ponownie" ktory wywola `getUserMedia` z kontekstu klikniecia.
+### 4. Reduce spatial blur radius  
+Current: 3px canvas blur spreads mask edges too wide.
+Fix: Reduce to 2px — still removes staircase artifacts from the upscaled mask but creates a narrower feathered edge.
 
-### Plik: `src/components/meeting/VideoRoom.tsx`
+### 5. Reduce temporal smoothing weights
+Current: 0.08 (high motion), 0.15 (medium), 0.25 (low motion) — too much previous-frame blending.
+Fix: 0.03 (high motion), 0.08 (medium), 0.15 (low motion). This makes the mask follow the person almost instantly while still smoothing micro-jitter in stillness.
 
-**D) Zabezpieczenie inicjalizacji strumienia:**
-- Jesli `initialStream` z lobby jest null/dead I `getUserMedia` w useEffect tez nie zadziala — wyswietlic toast z przyciskiem "Wlacz kamere" ktory manualnie wywola `reacquireLocalStream`.
-- Dodac fallback: jesli strumien jest null po init, ustawic `isCameraOff=true` i `isMuted=true` zamiast calkowicie blokowac uczestnictwo — uzytkownik moze dolaczac bez kamery.
+### 6. Tighten alpha blending thresholds in applyImageBackground
+Current: `personThresholdHigh: 0.70, personThresholdLow: 0.30` from BLUR_PROFILES — creates a wide blend zone.
+Fix: Use dedicated image-mode thresholds: `thHigh: 0.60, thLow: 0.40` — narrower transition band means less ghosting at edges while smoothstep still prevents hard pixel steps.
 
-### Plik: `src/components/meeting/VideoGrid.tsx`
+## Summary of parameter changes
 
-**E) Stabilnosc elementu video:**
-- Upewnic sie ze `<video>` jest ZAWSZE w DOM (linia 204-216 juz to robi z `hidden` class). To jest OK.
-- Dodac `video.play()` retry po `loadeddata` event, zeby odrobic ewentualny autoplay block.
+| Parameter | Before | After |
+|-----------|--------|-------|
+| segmentationIntervalMs (image) | 40 | 0 (every frame) |
+| contrastMask strength | 5 | 8 |
+| spatial blur radius | 3px | 2px |
+| smoothstep range | 0.20-0.65 | 0.35-0.55 |
+| temporal weight (high motion) | 0.08 | 0.03 |
+| temporal weight (medium) | 0.15 | 0.08 |
+| temporal weight (low) | 0.25 | 0.15 |
+| blend thHigh/thLow | 0.70/0.30 | 0.60/0.40 |
 
-## Pliki do modyfikacji
-1. `src/components/meeting/MeetingLobby.tsx` — glowna zmiana (getUserMedia z gestu + fallback UI)
-2. `src/components/meeting/VideoRoom.tsx` — fallback jesli strumien nie istnieje po init
-3. `src/components/meeting/VideoGrid.tsx` — drobna poprawka retry play
+## File to modify
+- `src/components/meeting/VideoBackgroundProcessor.ts` only
 
-## Bez zmian
-- `VideoBackgroundProcessor.ts` — nie jest przyczyna braku obrazu
-- `useVideoBackground.ts` — bez zmian
-- `ParticipantsPanel.tsx` — bez zmian
-- Caly flow PeerJS/sygnalizacja — bez zmian
+## What stays unchanged
+- Blur modes (blur-light, blur-heavy) — completely untouched
+- Multiclass fallback pipeline — untouched
+- Background image flipping, upload logic, PeerJS, screen share — untouched
+- All other meeting components — untouched
