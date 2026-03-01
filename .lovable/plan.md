@@ -1,41 +1,34 @@
 
-# Wyswietlanie zablokowanych uzytkownikow w strukturze organizacji
+# Fix: Odblokowanie przez admina nie aktualizuje widoku lidera
 
 ## Problem
-Funkcja RPC `get_organization_tree` filtruje `WHERE p.is_active = true`, wiec zablokowany uzytkownik (z `is_active = false`) calkowicie znika z drzewa struktury u lidera. Powinien nadal byc widoczny, ale z oznaczeniem "Zablokowany".
+Tabela `user_blocks` nie jest dodana do publikacji Supabase Realtime (`supabase_realtime`). Subskrypcja realtime w `useLeaderBlocks.ts` nasłuchuje, ale nigdy nie otrzymuje zdarzeń, bo tabela nie emituje zmian.
 
-## Zmiany
+Dodatkowo, w widoku "Struktura" u lidera (`OrganizationList`), po odblokowaniu przez admina, drzewo organizacji nie odświeża się automatycznie - użytkownik nadal widnieje jako "Zablokowany".
 
-### 1. Migracja SQL - Modyfikacja `get_organization_tree`
-Zmiana RPC tak, aby zwracala rowniez nieaktywnych uzytkownikow (z `is_active = false`) oraz dodanie kolumny `is_active` do wyniku.
+## Rozwiązanie
 
-Zmiana polega na:
-- Usunienciu warunku `AND p.is_active = true` z rekurencyjnego CTE (pozostawienie go tylko dla roota, aby lider zawsze sie widzial)
-- Dodaniu kolumny `p.is_active` do wyniku funkcji
+### 1. Migracja SQL - Włączenie Realtime dla tabeli `user_blocks`
+Dodanie tabeli `user_blocks` do publikacji `supabase_realtime`:
 
 ```sql
-CREATE OR REPLACE FUNCTION get_organization_tree(p_root_eq_id text, p_max_depth int DEFAULT 5)
-RETURNS TABLE(
-  id uuid, first_name text, last_name text, eq_id text,
-  upline_eq_id text, role text, avatar_url text,
-  email text, phone_number text, level int, is_active boolean
-) ...
--- Root: WHERE p.eq_id = p_root_eq_id AND p.is_active = true
--- Children: usunac AND p.is_active = true (aby zablokowane osoby tez sie pojawialy)
+ALTER PUBLICATION supabase_realtime ADD TABLE user_blocks;
 ```
 
-### 2. Aktualizacja interfejsu `OrganizationMember` (`src/hooks/useOrganizationTree.ts`)
-Dodanie pola `is_active` do interfejsu i mapowania danych.
+Opcjonalnie dodanie tabeli `profiles` do realtime (jeśli jeszcze nie jest), aby zmiany `is_active` odświeżały drzewo organizacji:
 
-### 3. Aktualizacja `OrganizationList.tsx` - badge "Zablokowany"
-- Przy kazdym uzytkowniku z `is_active === false` wyswietlic czerwony Badge "Zablokowany"
-- Ukryc przycisk blokowania dla juz zablokowanych uzytkownikow
-- Lekko wyszarzyc wiersz zablokowanego uzytkownika (opacity)
+```sql
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+```
 
-### 4. Weryfikacja strony admina
-Admin CMS juz poprawnie wyswietla zablokowanych uzytkownikow w zakladce "Zablokowani" (filtruje po `is_active = false` z danymi z `user_blocks`). Ta czesc dziala - admin widzi zablokowanych. Nie sa potrzebne dodatkowe zmiany po stronie admina.
+### 2. Dodanie subskrypcji realtime na `profiles` w `useOrganizationTree.ts`
+Aby drzewo organizacji odświeżało się automatycznie po zmianie `is_active` w profilu (gdy admin odblokuje), dodać `useEffect` z subskrypcją na tabelę `profiles` - invalidacja `organization-tree` query przy zmianach.
 
-## Kolejnosc implementacji
-1. Migracja SQL (modyfikacja RPC)
-2. Aktualizacja interfejsu `OrganizationMember`
-3. Aktualizacja komponentu `OrganizationList.tsx` (badge + ukrycie przycisku blokowania)
+### Kolejność
+1. Migracja SQL (włączenie Realtime)
+2. Aktualizacja `useOrganizationTree.ts` (subskrypcja realtime na profiles)
+
+### Wynik
+- Admin odblokuje użytkownika -> lider widzi zmianę w "Zablokowani" w ciągu 1-2 sekund
+- Drzewo organizacji automatycznie odświeża status "Zablokowany" / aktywny
+- Brak potrzeby ręcznego odświeżania strony
