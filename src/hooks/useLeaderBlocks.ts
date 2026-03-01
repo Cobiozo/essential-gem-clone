@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -64,7 +65,28 @@ export function useLeaderBlocks() {
       });
     },
     enabled: !!user,
+    staleTime: 30 * 1000,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('leader-blocks-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_blocks',
+      }, () => {
+        queryClient.invalidateQueries({ queryKey: ['leader-blocks'] });
+        queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, queryClient]);
 
   const blockUser = useMutation({
     mutationFn: async ({ userId, reason }: { userId: string; reason?: string }) => {
