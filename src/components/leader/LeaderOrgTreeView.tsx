@@ -6,11 +6,13 @@ import { Switch } from '@/components/ui/switch';
 import { Loader2, TreePine, List, Users, UserRound, User, Shield, Crown } from 'lucide-react';
 import { useOrganizationTree } from '@/hooks/useOrganizationTree';
 import { useSubTeamLeaders } from '@/hooks/useSubTeamLeaders';
+import { useLeaderBlocks } from '@/hooks/useLeaderBlocks';
 import { OrganizationChart, OrganizationList } from '@/components/team-contacts/organization';
 
 const LeaderOrgTreeView: React.FC = () => {
   const { tree, upline, treeData, statistics, settings, loading, error } = useOrganizationTree();
   const { isLeader, getSubLeaderInfo, toggleIndependence, loading: subLoading } = useSubTeamLeaders();
+  const { blockUser } = useLeaderBlocks();
   const [viewMode, setViewMode] = useState<'graph' | 'list'>('list');
 
   if (loading || subLoading) {
@@ -181,6 +183,8 @@ const LeaderOrgTreeView: React.FC = () => {
               upline={upline}
               settings={treeSettings as any}
               statistics={statistics}
+              onBlockUser={(userId, reason) => blockUser.mutate({ userId, reason })}
+              blockingInProgress={blockUser.isPending}
             />
           )}
         </CardContent>

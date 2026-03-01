@@ -6929,6 +6929,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_blocks: {
+        Row: {
+          blocked_at: string
+          blocked_by_first_name: string | null
+          blocked_by_last_name: string | null
+          blocked_by_user_id: string | null
+          blocked_user_id: string
+          id: string
+          is_active: boolean
+          reason: string | null
+          unblocked_at: string | null
+          unblocked_by_user_id: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          blocked_by_first_name?: string | null
+          blocked_by_last_name?: string | null
+          blocked_by_user_id?: string | null
+          blocked_user_id: string
+          id?: string
+          is_active?: boolean
+          reason?: string | null
+          unblocked_at?: string | null
+          unblocked_by_user_id?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          blocked_by_first_name?: string | null
+          blocked_by_last_name?: string | null
+          blocked_by_user_id?: string | null
+          blocked_user_id?: string
+          id?: string
+          is_active?: boolean
+          reason?: string | null
+          unblocked_at?: string | null
+          unblocked_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_blocks_blocked_by_user_id_fkey"
+            columns: ["blocked_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_user_id_fkey"
+            columns: ["blocked_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_cookie_consents: {
         Row: {
           consent_given_at: string
@@ -7626,10 +7680,15 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: boolean
       }
+      leader_block_user: {
+        Args: { p_reason?: string; p_target_user_id: string }
+        Returns: boolean
+      }
       leader_reject_user: {
         Args: { rejection_reason?: string; target_user_id: string }
         Returns: boolean
       }
+      leader_unblock_user: { Args: { p_block_id: string }; Returns: boolean }
       refresh_all_active_reflinks: { Args: never; Returns: Json }
       reset_all_active_reflinks: { Args: never; Returns: Json }
       search_guardians: {
