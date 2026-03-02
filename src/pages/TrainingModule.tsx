@@ -1350,19 +1350,21 @@ const TrainingModule = () => {
                           disabled={isLocked}
                           className={`w-full text-left p-3 rounded-lg border transition-colors ${
                             isCurrent 
-                              ? 'border-primary bg-primary/5' 
+                              ? 'border-yellow-500 bg-yellow-500/10' 
+                              : isCompleted
+                              ? 'border-green-500 bg-green-500/5'
                               : isLocked 
-                              ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60'
-                              : 'border-border hover:border-primary/50'
+                              ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
+                              : 'border-border hover:border-yellow-500/50'
                           }`}
                         >
                           <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
                             {isLocked ? (
-                              <Lock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                              <Lock className="h-4 w-4 flex-shrink-0 text-red-500" />
                             ) : isCompleted ? (
                               <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
                             ) : (
-                              <span className="flex-shrink-0">{getMediaIcon(lesson.media_type)}</span>
+                              <span className="flex-shrink-0 text-red-500">{getMediaIcon(lesson.media_type)}</span>
                             )}
                             <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
                               {lesson.title}
@@ -1413,19 +1415,21 @@ const TrainingModule = () => {
                       disabled={isLocked}
                       className={`w-full text-left p-3 rounded-lg border transition-colors ${
                         isCurrent 
-                          ? 'border-primary bg-primary/5' 
+                          ? 'border-yellow-500 bg-yellow-500/10' 
+                          : isCompleted
+                          ? 'border-green-500 bg-green-500/5'
                           : isLocked 
-                          ? 'border-muted bg-muted/30 cursor-not-allowed opacity-60'
-                          : 'border-border hover:border-primary/50'
+                          ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
+                          : 'border-border hover:border-yellow-500/50'
                       }`}
                     >
                       <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
                         {isLocked ? (
-                          <Lock className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+                          <Lock className="h-4 w-4 flex-shrink-0 text-red-500" />
                         ) : isCompleted ? (
                           <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
                         ) : (
-                          <span className="flex-shrink-0">{getMediaIcon(lesson.media_type)}</span>
+                          <span className="flex-shrink-0 text-red-500">{getMediaIcon(lesson.media_type)}</span>
                         )}
                         <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
                           {lesson.title}
