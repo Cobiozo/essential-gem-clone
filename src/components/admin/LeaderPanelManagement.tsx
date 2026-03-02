@@ -12,7 +12,7 @@ import {
   Search, Loader2, Crown, CalendarDays, GraduationCap, Calculator,
   UserRound, TreePine, UserCheck, CalendarPlus, ClipboardList,
   BookOpenCheck, Library, Bell, Mail, Smartphone, Contact, UserCog,
-  Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight,
+  Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
@@ -38,6 +38,7 @@ interface PartnerLeaderData {
   can_manage_team_reflinks: boolean;
   can_view_team_reports: boolean;
   can_manage_certificates: boolean;
+  can_customize_landing_page: boolean;
   permission_id?: string;
   has_influencer_calc: boolean;
   has_specialist_calc: boolean;
@@ -49,7 +50,8 @@ type LeaderPermField =
   | 'can_manage_team_training' | 'can_manage_knowledge_base' | 'can_send_team_notifications'
   | 'can_send_team_emails' | 'can_send_team_push' | 'can_view_team_contacts'
   | 'can_manage_team_contacts' | 'can_manage_daily_signal' | 'can_manage_important_info'
-  | 'can_manage_team_reflinks' | 'can_view_team_reports' | 'can_manage_certificates';
+  | 'can_manage_team_reflinks' | 'can_view_team_reports' | 'can_manage_certificates'
+  | 'can_customize_landing_page';
 
 const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'individual_meetings_enabled', 'can_view_team_progress', 'can_view_org_tree',
@@ -58,6 +60,7 @@ const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'can_send_team_emails', 'can_send_team_push', 'can_view_team_contacts',
   'can_manage_team_contacts', 'can_manage_daily_signal', 'can_manage_important_info',
   'can_manage_team_reflinks', 'can_view_team_reports', 'can_manage_certificates',
+  'can_customize_landing_page',
 ];
 
 interface ColumnDef {
@@ -85,6 +88,7 @@ const columns: ColumnDef[] = [
   { key: 'can_manage_daily_signal', label: 'Sygnał Dnia', icon: Sun, type: 'leader', group: 'Treść' },
   { key: 'can_manage_important_info', label: 'Ważne info', icon: Info, type: 'leader', group: 'Treść' },
   { key: 'can_manage_team_reflinks', label: 'Reflinki', icon: Link, type: 'leader', group: 'Treść' },
+  { key: 'can_customize_landing_page', label: 'Moja strona', icon: Globe, type: 'leader', group: 'Treść' },
   { key: 'can_view_team_reports', label: 'Raporty', icon: BarChart3, type: 'leader', group: 'Raporty' },
   { key: 'can_manage_certificates', label: 'Certyfikaty', icon: Award, type: 'leader', group: 'Raporty' },
   { key: 'has_influencer_calc', label: 'Kalk. Influencer', icon: Calculator, type: 'calc_influencer', group: 'Kalkulatory' },
@@ -161,6 +165,7 @@ export const LeaderPanelManagement: React.FC = () => {
           can_manage_team_reflinks: perm?.can_manage_team_reflinks || false,
           can_view_team_reports: perm?.can_view_team_reports || false,
           can_manage_certificates: perm?.can_manage_certificates || false,
+          can_customize_landing_page: perm?.can_customize_landing_page || false,
           permission_id: perm?.id,
           has_influencer_calc: calcAccess?.has_access || false,
           has_specialist_calc: specAccess?.has_access || false,
