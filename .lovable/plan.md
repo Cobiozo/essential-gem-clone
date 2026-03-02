@@ -1,134 +1,137 @@
 
-# Audyt „ostatniego webinaru” i plan naprawy (mobile/PWA audio+video)
+# Podglad tla na zywo w selektorze BackgroundSelector
 
-## Co potwierdziłem w danych z projektu
+## Obecny stan
+- `BackgroundSelector` to prosty dropdown z lista opcji (tekst + miniatura) -- brak podgladu na zywo
+- Selektor jest dostepny tylko w `MeetingControls` (po dolaczeniu do spotkania)
+- W Lobby (`MeetingLobby.tsx`) nie ma mozliwosci wyboru tla -- uzytkownik widzi surowy obraz z kamery
 
-1. Ostatni webinar wewnętrzny:
-- `event_id`: `0fb56a2d-8b88-4346-9f91-59ba04132261`
-- `meeting_room_id`: `0d71dcc1-a333-4127-bde6-2c8a69c65d56`
-- Host: `629a2d9a-994a-4e6a-a9c4-8ae0b07e3770`
-- Uczestnik: `8b7ef46c-7647-412f-8626-4876081a38a1`
+## Plan zmian
 
-2. W tym pokoju uczestnik był zapisany jako `is_active=true` nawet po zakończeniu spotkania (to sygnał, że mobile/PWA lifecycle nadal bywa niestabilny przy zamykaniu/powrocie aplikacji).
+### Zmiana 1: Rozszerzenie BackgroundSelector o podglad na zywo
 
-3. Poprzednia poprawka PWA była niepełna:
-- nadal są wejścia do `/meeting-room/...` przez `_blank` / `window.open` w:
-  - `src/components/events/EventCard.tsx`
-  - `src/components/events/EventDetailsDialog.tsx`
-To nadal może wyrywać użytkownika z kontekstu PWA/sesji.
+**Plik: `src/components/meeting/BackgroundSelector.tsx`**
 
-4. W `VideoRoom.tsx` są obecnie **dwa** różne listenery `visibilitychange` (jeden duży async + drugi dodany później). To zwiększa ryzyko równoległych reacquire i niestabilnych stanów strumienia.
+Dodanie opcjonalnego elementu `<video>` w gornej czesci `DropdownMenuContent`, ktory pokazuje obraz z kamery z aktualnie wskazywanym (hovered) efektem tla:
 
-5. `MeetingRoom.tsx` ma auto-rejoin (sessionStorage), który może omijać lobby i user-gesture na mobile/PWA. To jest krytyczne dla iOS/Android polityk media.
+- Nowe propsy: `previewStream?: MediaStream` (surowy strumien z kamery) i `onPreviewChange?: (mode: BackgroundMode, src?: string) => void` (callback hover/preview)
+- W gornej czesci dropdowna: element `<canvas>` o proporcjach 16:9 (ok. 280x158px) pokazujacy podglad na zywo
+- Stan wewnetrzny `hoveredMode` / `hoveredImage` sledzacy, ktora opcje uzytkownik aktualnie wskazuje
+- Przy `onMouseEnter` na kazdej opcji -> wywolanie `onPreviewChange` z danym trybem
+- Przy `onMouseLeave` z calego menu -> powrot do aktualnie aktywnego trybu
+- Na urzadzeniach dotykowych (mobile): podglad pokazuje aktualnie wybrana opcje (bez hover)
 
----
+Podglad uzywa lekkiej instancji `VideoBackgroundProcessor` zaradzanej przez rodzica (Lobby lub VideoRoom), zeby nie duplikowac ciezkiego modelu ML.
 
-## Najbardziej prawdopodobna przyczyna „uczestnik dołączył, ale go nie widać i nie słychać”
+### Zmiana 2: Integracja BackgroundSelector w MeetingLobby
 
-To kombinacja 3 problemów:
-1. Nie wszystkie ścieżki wejścia do webinaru zostały przerobione na nawigację wewnętrzną (część nadal otwiera nową kartę/okno).
-2. Auto-rejoin potrafi wejść prosto do VideoRoom bez świeżego gestu użytkownika.
-3. Podwójna obsługa `visibilitychange` może powodować wyścigi przy odzyskiwaniu strumieni po background/foreground.
+**Plik: `src/components/meeting/MeetingLobby.tsx`**
 
-Efekt końcowy na mobile/PWA: uczestnik formalnie „jest w pokoju”, ale media nie są stabilnie publikowane/odtwarzane.
+- Import i uzycie `useVideoBackground`, `useZoomBackgrounds`, `useCustomBackgrounds`
+- Dodanie przycisku "Tlo" pod przelacznikami Mikrofon/Kamera (ikona Palette), ktory otwiera `BackgroundSelector`
+- Podglad na zywo: strumien `previewStream` z lobby jest przekazywany do selektora
+- Gdy uzytkownik wybiera tlo w selektorze:
+  1. `applyBackground(previewStream, mode, imageSrc)` zwraca przetworzony strumien
+  2. Przetworzony strumien jest podpinany pod `videoRef` w lobby (uzytkownik widzi efekt w glownym podgladzie)
+  3. Przetworzony strumien jest przekazywany do `onJoin()` przy dolaczaniu
+- Gdy uzytkownik zmieni hover na inna opcje w selektorze, podglad w glownym wideo lobby aktualizuje sie na zywo
 
----
+### Zmiana 3: Logika podgladu w tle (hover preview)
 
-## Plan wdrożenia poprawek
+**Plik: `src/hooks/useVideoBackground.ts`**
 
-## 1) Domknięcie wszystkich wejść do meeting-room (PWA-safe)
-### Pliki:
-- `src/components/events/EventCard.tsx`
-- `src/components/events/EventDetailsDialog.tsx`
+- Nowa metoda `previewBackground(stream, mode, imageSrc)` -- lekka wersja `applyBackground`:
+  - Uzywa tego samego processora co `applyBackground`
+  - Zmienia opcje processora bez zatrzymywania/restartowania go (jesli juz dziala)
+  - Optymalizacja: `setOptions()` + dalszy rendering bez `stop()/start()` gdy zmienia sie tylko tryb/obraz
 
-### Zmiany:
-- Zamienić `window.open('/meeting-room/...', '_blank')` i linki `target="_blank"` dla **wewnętrznych** meetingów na:
-  - `useNavigate()` + `navigate('/meeting-room/...')` lub
-  - `<Link to="/meeting-room/...">`
-- Zostawić `_blank` tylko dla linków zewnętrznych (Zoom, YouTube, itp.).
+### Zmiana 4: Przekazanie przetworzonego strumienia do VideoRoom
 
-Cel: każdy join do internal webinaru zostaje w tym samym kontekście aplikacji (PWA/session/auth).
+**Plik: `src/pages/MeetingRoom.tsx`**
 
----
+- Strumien z lobby (surowy lub przetworzony) jest juz przekazywany przez `onJoin(..., stream)`.
+- Dodanie logiki: jesli strumien z lobby ma flage `__bgProcessed`, VideoRoom uzywa go bezposrednio i ustawia `updateRawStream` z oryginalnym surowym strumieniem (zachowanym w lobby).
+- To zapewnia plynne przejscie z podgladu tla w lobby do aktywnego spotkania bez re-init processora.
 
-## 2) Stabilny i przewidywalny join flow na mobile/PWA
-### Plik:
-- `src/pages/MeetingRoom.tsx`
+## Przeplyw UX
 
-### Zmiany:
-- Ograniczyć auto-rejoin dla mobile/PWA:
-  - gdy wykryte mobile/standalone PWA i brak świeżego streamu z lobby, wymusić status `lobby` zamiast bezpośredniego `joined`.
-- Auto-rejoin zostawić dla desktop (i ewentualnie dla mobile tylko po bardzo krótkim czasie i z potwierdzonym streamem).
+```text
+Lobby:
++---------------------------+
+|   Dolacz do spotkania     |
+|   Witaj, Jan              |
+|                           |
+|  +---------------------+  |
+|  |  [LIVE VIDEO z tlem]|  |  <-- glowny podglad (surowy lub z efektem)
+|  +---------------------+  |
+|                           |
+|  Mikrofon          [ON]   |
+|  |||||||||||||||    51%    |
+|  Kamera            [ON]   |
+|  Tlo               [>>]   |  <-- przycisk otwierajacy BackgroundSelector
+|                           |
+|  [  Dolacz do spotkania ] |
++---------------------------+
 
-Cel: `getUserMedia` ma być po realnym geście użytkownika w lobby, co poprawia skuteczność na iPhone/Android/PWA.
+Po kliknieciu "Tlo":
++---------------------------+
+| Podglad tla [LIVE 16:9]   |  <-- mini podglad z aktualnym hover
+|---------------------------|
+| o Brak efektu             |
+| o Lekkie rozmycie         |
+| o Mocne rozmycie          |
+|---------------------------|
+| Wirtualne tla             |
+| [img] Tlo 1               |
+| [img] Tlo 2               |
+|---------------------------|
+| Twoje tla (1/3)           |
+| [img] Wlasne 1            |
+| + Dodaj tlo               |
++---------------------------+
+```
 
----
+## Sekcja techniczna
 
-## 3) Ujednolicenie lifecycle media w VideoRoom (usunąć duplikację)
-### Plik:
-- `src/components/meeting/VideoRoom.tsx`
+### Nowe propsy BackgroundSelector:
+```typescript
+interface BackgroundSelectorProps {
+  // ... istniejace propsy ...
+  previewStream?: MediaStream | null;
+  onPreviewModeChange?: (mode: BackgroundMode, imageSrc?: string) => void;
+}
+```
 
-### Zmiany:
-- Zostawić **jeden** listener `visibilitychange` (ten bardziej kompletny), usunąć drugi duplikat.
-- Wspólny handler powinien:
-  - po `visible`: sprawdzać live tracks + ewentualnie `reacquireLocalStream()`,
-  - po `visible`: próbować `play()` na video elementach remote,
-  - mieć debounce i guard, żeby nie uruchamiać równoległych reacquire.
+### Logika podgladu w lobby (MeetingLobby):
+```typescript
+// Gdy uzytkownik wybiera tlo w selektorze:
+const handleBackgroundSelect = async (mode: BackgroundMode, imageSrc?: string) => {
+  if (!previewStream) return;
+  if (mode === 'none') {
+    // Przywroc surowy strumien
+    videoRef.current.srcObject = previewStream;
+    return;
+  }
+  const processed = await applyBackground(previewStream, mode, imageSrc);
+  videoRef.current.srcObject = processed;
+  setProcessedStream(processed); // zapamietaj do przekazania w onJoin
+};
+```
 
-Cel: brak race condition po przejściu app w tło i z powrotem.
+### Podglad canvas w BackgroundSelector:
+- Element `<video>` ukryty (zrodlowy) + `<canvas>` widoczny (280x158px)
+- Renderowanie: `requestAnimationFrame` rysuje klatki z video na canvas
+- Gdy `previewStream` nie jest podany (np. w VideoRoom), podglad sie nie pojawia (backward compatible)
 
----
+## Pliki do zmiany
+1. `src/components/meeting/BackgroundSelector.tsx` -- dodanie podgladu video na zywo w dropdownie
+2. `src/components/meeting/MeetingLobby.tsx` -- integracja selektora tla z przyciskiem + logika podgladu
+3. `src/hooks/useVideoBackground.ts` -- metoda `previewBackground` do szybkiego przelaczania
+4. `src/pages/MeetingRoom.tsx` -- obsluga przetworzonego strumienia z lobby
 
-## 4) Twardsze zasady publikacji mediów przy starcie połączenia
-### Plik:
-- `src/components/meeting/VideoRoom.tsx`
-
-### Zmiany:
-- Przed rozpoczęciem calli i broadcastu peer-joined sprawdzić, czy lokalny stream ma co najmniej 1 żywy track.
-- Jeśli nie ma: pokazać jasny stan „wymagane uprawnienia do mediów” + przycisk retry (zamiast przechodzić dalej do „cichego” joinu bez mediów).
-
-Cel: uniknąć sytuacji „uczestnik dołączył logicznie, ale bez audio/video”.
-
----
-
-## 5) Domknięcie cleanup na mobile (mniej ghost active participants)
-### Plik:
-- `src/components/meeting/VideoRoom.tsx`
-
-### Zmiany:
-- Oprócz `beforeunload`, dołożyć `pagehide`/`visibilitychange`-aware cleanup (best-effort keepalive PATCH) dla iOS/Android.
-- Utrzymać heartbeat, ale ograniczyć przypadki pozostawania `is_active=true` po wyjściu.
-
-Cel: lepsza spójność stanu uczestników i mniej fałszywych „aktywnych” po stronie webinaru.
-
----
-
-## Kolejność wdrożenia
-
-1. Naprawa wszystkich linków wejścia do meeting-room (`EventCard`, `EventDetailsDialog`).
-2. Korekta auto-rejoin (`MeetingRoom.tsx`).
-3. Refaktor listenerów `visibilitychange` (`VideoRoom.tsx`).
-4. Walidacja lokalnego streamu przed callami (`VideoRoom.tsx`).
-5. Usprawnienie cleanup dla mobile (`VideoRoom.tsx`).
-
----
-
-## Kryteria akceptacji po wdrożeniu
-
-1. Internal webinar uruchamiany z każdej karty/dialogu otwiera się w tej samej aplikacji (bez nowej karty/bez wyjścia z PWA).
-2. Na iPhone/Android/PWA uczestnik po dołączeniu jest widoczny i słyszalny bez ręcznego „ratowania” sesji.
-3. Powrót z tła (powiadomienie, przełączenie aplikacji) nie zabija trwale audio/video.
-4. Brak podwójnych reakcji na `visibilitychange`.
-5. Po wyjściu z webinaru uczestnik nie zostaje długo jako fałszywie aktywny.
-
----
-
-## Sekcja techniczna (skrót zmian kodowych)
-
-- `EventCard.tsx`: `window.open('/meeting-room/...', '_blank')` -> `navigate('/meeting-room/...')`.
-- `EventDetailsDialog.tsx`: wewnętrzne `<a href="/meeting-room/..." target="_blank">` -> router navigation bez `_blank`.
-- `MeetingRoom.tsx`: warunkowy auto-rejoin (desktop-first), mobile/PWA kierowane przez lobby.
-- `VideoRoom.tsx`:
-  - usunięcie zduplikowanego `visibilitychange`,
-  - jeden guarded handler od reacquire + `video.play()`,
-  - gate „no live local track => nie publikuj peer-joined/calli”.
+## Oczekiwane rezultaty
+- Uzytkownik widzi podglad tla na zywo w selektorze przed zastosowaniem
+- Glowny podglad w lobby aktualizuje sie po wybraniu efektu
+- Efekt tla przechodzi plynnie z lobby do spotkania bez ponownego ladowania modelu
+- Dziala zarowno dla prowadzacego jak i uczestnika
+- Backward compatible -- w VideoRoom (MeetingControls) selektor dziala jak dotychczas
