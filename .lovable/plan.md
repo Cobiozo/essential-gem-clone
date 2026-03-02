@@ -1,53 +1,39 @@
 
-# Kolorystyka lekcji w liście: żółta/zielona ramka + czerwone ikonki
+# Naprawienie pola OTP -- obsługa liter, cyfr i wklejania
 
-## Co się zmieni
+## Problem
+Komponent `InputOTP` (z biblioteki `input-otp`) domyślnie wymusza klawiaturę numeryczną i akceptuje tylko cyfry. Kody OTP w formacie ZW-XXXX-XX zawierają litery i cyfry (np. `ZW-A3BK-7N`), więc użytkownik nie może ich wpisać ani wkleić.
 
-Na stronie modułu szkoleniowego (`TrainingModule.tsx`) lista lekcji (zarówno mobilna jak i desktopowa) otrzyma nową kolorystykę:
+## Rozwiązanie
 
-1. **Aktualnie oglądana lekcja** -- żółta ramka (`border-yellow-500`) + lekkie żółte tło
-2. **Zaliczona lekcja** -- zielona ramka (`border-green-500`) + lekkie zielone tło  
-3. **Niezaliczona lekcja (nie bieżąca)** -- brak kolorowej ramki, ale ikonki (kamerka, kłódka, dokument) w kolorze **czerwonym**
+**Plik: `src/pages/HealthyKnowledgePublicPage.tsx`**
 
-## Szczegóły techniczne
+Zamiana komponentu `InputOTP` na zwykły `<Input>` z odpowiednią logiką:
 
-### Plik: `src/pages/TrainingModule.tsx`
+- Pole tekstowe z `inputMode="text"` (pełna klawiatura na mobile)
+- Automatyczna konwersja na wielkie litery (`toUpperCase`)
+- Filtrowanie do dozwolonych znaków: `A-Z, 0-9` (bez O, I, 0, 1 -- zgodnie z generatorem)
+- Obsługa wklejania pełnego kodu: jeśli użytkownik wklei `ZW-A3BK-7N`, automatycznie usunąć prefiks `ZW-` i myślniki, wyciągnąć 6 znaków
+- Placeholder: `XXXX-XX`
+- Maksymalnie 6 znaków (bez myślników)
+- Wizualne formatowanie: wyświetlanie `ZW-` jako prefix (jak jest teraz) + pole z auto-formatowaniem wpisywanego kodu
 
-**Zmiana w klasach CSS przycisków lekcji** (dwa miejsca: mobilna lista ~linia 1351 i desktopowa ~linia 1414):
+### Szczegóły:
+1. Usunięcie importu `InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator`
+2. Dodanie zwykłego `<Input>` z:
+   - `value` wyświetlany z auto-formatowaniem (np. `A3BK-7N`)
+   - `onChange` filtrujący niedozwolone znaki i konwertujący na uppercase
+   - `onPaste` obsługujący wklejanie pełnych kodów (z prefiksem ZW- lub bez)
+   - `maxLength={7}` (6 znaków + 1 myślnik wizualny) lub prosta 6-znakowa maska
+   - `autoComplete="off"`, `spellCheck={false}`
+3. Przycisk "Uzyskaj dostęp" aktywny gdy 6 znaków alfanumerycznych
 
-Obecna logika:
+### Logika paste:
 ```
-isCurrent  -> 'border-primary bg-primary/5'
-isLocked   -> 'border-muted bg-muted/30 cursor-not-allowed opacity-60'
-default    -> 'border-border hover:border-primary/50'
-```
-
-Nowa logika:
-```
-isCurrent    -> 'border-yellow-500 bg-yellow-500/10'        (żółta ramka)
-isCompleted  -> 'border-green-500 bg-green-500/5'           (zielona ramka)
-isLocked     -> 'border-border bg-muted/30 cursor-not-allowed opacity-60'  (bez kolorowej ramki)
-default      -> 'border-border hover:border-yellow-500/50'  (bez ramki, hover żółty)
-```
-
-**Zmiana kolorów ikonek** (dwa miejsca: mobilna ~linia 1360 i desktopowa ~linia 1422):
-
-Obecne:
-- Kłódka: `text-muted-foreground`
-- Kamerka/inne: brak koloru (domyślny)
-
-Nowe:
-- Kłódka (`Lock`): `text-red-500`
-- Ikonki mediów (kamerka `Video`, `Volume2`, `File`, `FileText`): `text-red-500` -- zmiana w `getMediaIcon` lub bezpośrednio w renderze dla niezaliczonych lekcji
-- Zaliczone (`CheckCircle`): zostaje `text-green-600` (bez zmian)
-
-**Zmiana w `getMediaIcon`** -- nie zmieniamy samej funkcji, ale w renderze dodajemy czerwony kolor do spanu owijającego ikonkę gdy lekcja nie jest zaliczona:
-```tsx
-<span className="flex-shrink-0 text-red-500">{getMediaIcon(lesson.media_type)}</span>
+Wklejone: "ZW-A3BK-7N" -> wyciągamy "A3BK7N" (6 znaków)
+Wklejone: "A3BK-7N"    -> wyciągamy "A3BK7N" (6 znaków)  
+Wklejone: "A3BK7N"     -> używamy bezpośrednio
 ```
 
-## Podsumowanie zmian
-- 1 plik: `src/pages/TrainingModule.tsx`
-- 2 sekcje (mobilna + desktopowa lista lekcji) -- identyczne zmiany w obu
-- Zmiana klas CSS ramek (border) i tła (bg) przycisków lekcji
-- Zmiana koloru ikonek kłódki i mediów na czerwony dla niezaliczonych lekcji
+## Plik do zmiany
+- `src/pages/HealthyKnowledgePublicPage.tsx` -- zamiana InputOTP na Input z pełną obsługą alfanumeryczną i paste
