@@ -1,131 +1,71 @@
 
-# Naprawa automatycznego zatwierdzania ukończonych szkoleń
 
-## Problem
-Gdy użytkownik ukończy 100% lekcji w module, flaga `training_assignments.is_completed` nie zawsze zostaje ustawiona na `true`. Dzieje się tak ponieważ jedyny punkt ustawiający tę flagę to kliknięcie "Następna lekcja" na OSTATNIEJ lekcji w `TrainingModule.tsx`. Jeśli użytkownik:
-- zamknie stronę po obejrzeniu ostatniej lekcji
-- admin zatwierdzi pojedyncze lekcje ręcznie
-- strona się odświeży w trakcie
+# Analiza responsywności Akademii na urządzeniach mobilnych (Android, iOS, Apple)
 
-...to `is_completed` nigdy nie zostanie ustawione.
+## Ocena obecnego stanu
 
-**Potwierdzenie w bazie**: Elżbieta Krzyżaniak ma `completed_lessons=18`, `total_lessons=18` ale `is_completed=false` dla modułu PRODUKTOWE.
+Akademia jest **w dużej mierze dobrze przygotowana** na urządzenia mobilne. Oto szczegółowa analiza z wykrytymi problemami wymagającymi poprawek:
 
-## Rozwiązanie: trójwarstwowe zabezpieczenie
+## Problemy do naprawienia
 
-### Warstwa 1: Trigger bazodanowy (główne zabezpieczenie)
+### 1. Header w TrainingModule.tsx -- brak responsywności na wąskich ekranach
 
-Nowy trigger na tabeli `training_progress` -- po każdym INSERT/UPDATE sprawdza, czy wszystkie aktywne lekcje danego modułu są ukończone. Jeśli tak, automatycznie ustawia `training_assignments.is_completed = true`.
+**Problem**: Nagłówek modułu szkoleniowego (linie 1320-1338) nie ma `flex-wrap` ani ukrywania tekstu na mobile. Na ekranach < 375px przycisk "Powrót do szkoleń" + tytuł modułu mogą się nie mieścić w jednej linii, powodując obcięcie lub overflow.
 
-```sql
-CREATE OR REPLACE FUNCTION public.auto_complete_training_assignment()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-DECLARE
-  v_module_id uuid;
-  v_total_lessons int;
-  v_completed_lessons int;
-BEGIN
-  -- Znajdź moduł dla tej lekcji
-  SELECT module_id INTO v_module_id
-  FROM training_lessons WHERE id = NEW.lesson_id;
+**Naprawa**:
+- Dodanie `flex-wrap` do kontenera nagłówka
+- Ukrycie tekstu "Powrót do szkoleń" na mobile (zostawienie samej ikony strzałki)
+- Zmniejszenie paddingu na mobile (`px-2 sm:px-4`)
+- Dodanie `truncate` na tytule modułu i opisie
 
-  IF v_module_id IS NULL THEN RETURN NEW; END IF;
+### 2. Przyciski nawigacji lekcji -- za małe na dotyk na iOS
 
-  -- Tylko jeśli lekcja została ukończona
-  IF NEW.is_completed = true THEN
-    -- Policz lekcje
-    SELECT COUNT(*) INTO v_total_lessons
-    FROM training_lessons
-    WHERE module_id = v_module_id AND is_active = true;
+**Problem**: Przyciski "Poprzednia" / "Następna" (linie 1580-1601) nie mają `flex-wrap` i mogą się nakładać na wąskich ekranach. Tekst "X z Y" pomiędzy nimi nie ma minimalnej szerokości.
 
-    SELECT COUNT(*) INTO v_completed_lessons
-    FROM training_progress tp
-    JOIN training_lessons tl ON tl.id = tp.lesson_id
-    WHERE tp.user_id = NEW.user_id
-      AND tl.module_id = v_module_id
-      AND tl.is_active = true
-      AND tp.is_completed = true;
+**Naprawa**:
+- Dodanie `flex-wrap` do kontenera
+- Na mobile zmiana layoutu na kolumnowy gdy brakuje miejsca
+- Upewnienie się, że przyciski mają odpowiedni `min-height: 44px` (wymaganie iOS)
 
-    -- Jeśli wszystkie ukończone -> zaktualizuj assignment
-    IF v_completed_lessons >= v_total_lessons AND v_total_lessons > 0 THEN
-      UPDATE training_assignments
-      SET is_completed = true,
-          completed_at = COALESCE(completed_at, now()),
-          updated_at = now()
-      WHERE user_id = NEW.user_id
-        AND module_id = v_module_id
-        AND is_completed = false;
-    END IF;
-  END IF;
+### 3. VideoControls -- kontrolki mogą się przepełniać na iPhone SE (320px)
 
-  RETURN NEW;
-END;
-$$;
+**Problem**: Rząd kontrolek wideo (Play, -10s, czas, Napraw, Pomoc, Fullscreen) zawiera wiele elementów. Na iPhone SE (320px) mogą się źle zawijać. Choć `flex-wrap` jest obecne, kolejność zawijania może wyglądać chaotycznie.
 
-CREATE TRIGGER trg_auto_complete_training
-AFTER INSERT OR UPDATE ON training_progress
-FOR EACH ROW
-EXECUTE FUNCTION auto_complete_training_assignment();
-```
+**Naprawa**:
+- Grupowanie kontrolek w logiczne sekcje
+- Ukrycie tekstu "-10s" na ekranach < 360px (zostawienie ikony)
+- Przeniesienie przycisku "Pomoc" / "Diagnostyka" do drugiego rzędu na mobile
 
-To rozwiązuje problem na stałe -- niezależnie od tego JAK lekcja zostanie ukończona (frontend, admin, API), trigger automatycznie zaktualizuje assignment.
+### 4. SecureVideoControls -- Slider trudny do obsługi na dotyk
 
-### Warstwa 2: Auto-naprawa w panelu admina
+**Problem**: Pasek postępu (Slider) w trybie "secure" (ukończone lekcje) może być trudny do precyzyjnego obsługiwania na ekranach dotykowych -- domyślna wysokość 8px jest za mała dla palca.
 
-**Plik: `src/components/admin/TrainingManagement.tsx`**
+**Naprawa**:
+- Zwiększenie obszaru dotykowego slidera na urządzeniach mobilnych (min. 44px)
+- Dodanie powiększonego touch target za pomocą pseudo-elementu
 
-W funkcji `fetchUserProgress`, po zbudowaniu `userProgressMap`, dodanie logiki auto-naprawy: jeśli `progress_percentage === 100` ale `is_completed === false`, automatyczne wywołanie UPDATE w tle (jednorazowa naprawa istniejących niespójnych danych).
+### 5. Brak ukrywania Separatora w nagłówku na mobile
 
-Dodatkowo zmiana warunku wyświetlania przycisku "Zatwierdź":
-- Obecny: `{!module.is_completed && (...)}`
-- Nowy: `{!module.is_completed && module.progress_percentage < 100 && (...)}`
+**Problem**: `<Separator orientation="vertical" />` w nagłówku TrainingModule jest widoczny na mobile, ale nie dodaje wartości wizualnej gdy elementy się zawijają.
 
-Gdy postęp = 100%, przycisk "Zatwierdź" jest zbędny (trigger już powinien zatwierdzić).
+**Naprawa**: Dodanie `hidden sm:block` do Separatora.
 
-### Warstwa 3: Zabezpieczenie w TrainingModule.tsx
+## Elementy, które juz dzialaja prawidlowo
 
-**Plik: `src/pages/TrainingModule.tsx`**
-
-Dodanie sprawdzenia ukończenia modułu po KAŻDYM upsert postępu lekcji (linia ~936), nie tylko przy kliknięciu "Następna" na ostatniej lekcji. Po zapisie postępu, jeśli wszystkie lekcje w module są ukończone, ustawienie `is_completed = true` (redundancja z triggerem, ale dodatkowe zabezpieczenie po stronie frontend).
-
-## Naprawa istniejących danych
-
-Jednorazowa migracja SQL naprawi WSZYSTKIE istniejące niespójności w bazie:
-
-```sql
-UPDATE training_assignments ta
-SET is_completed = true,
-    completed_at = COALESCE(ta.completed_at, now()),
-    updated_at = now()
-WHERE ta.is_completed = false
-  AND (
-    SELECT COUNT(*) FROM training_lessons tl
-    WHERE tl.module_id = ta.module_id AND tl.is_active = true
-  ) > 0
-  AND (
-    SELECT COUNT(*) FROM training_lessons tl
-    WHERE tl.module_id = ta.module_id AND tl.is_active = true
-  ) = (
-    SELECT COUNT(*) FROM training_progress tp
-    JOIN training_lessons tl ON tl.id = tp.lesson_id
-    WHERE tp.user_id = ta.user_id
-      AND tl.module_id = ta.module_id
-      AND tl.is_active = true
-      AND tp.is_completed = true
-  );
-```
+- Training.tsx (lista modulow): responsywny grid `md:grid-cols-2 lg:grid-cols-3`, sticky header z `env(safe-area-inset-top)`, `flex-wrap` w nagłówku, ukrywanie tekstów na mobile (`hidden sm:inline`)
+- TrainingModule.tsx: oddzielna lista lekcji mobilna (Collapsible) vs desktopowa, responsywne rozmiary wideo (`max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh]`), responsywne paddingi
+- LessonNotesDialog: poprawny `max-w-md sm:max-w-lg`, responsywna `ScrollArea`
+- Globalne CSS: `touch-action: manipulation`, min. 44px na interaktywne elementy, `-webkit-overflow-scrolling: touch`, `overscroll-behavior: contain`, safe area support
+- PWA: konfiguracja manifest, service worker, install banner
 
 ## Pliki do zmiany
-1. **Migracja SQL** -- trigger `auto_complete_training_assignment` + jednorazowa naprawa danych
-2. `src/components/admin/TrainingManagement.tsx` -- ukrycie przycisku "Zatwierdź" przy 100% + auto-naprawa w fetchUserProgress
-3. `src/pages/TrainingModule.tsx` -- sprawdzenie ukończenia modułu po każdym zapisie lekcji
 
-## Oczekiwany rezultat
-- Elżbieta Krzyżaniak (i inni z 100% postępem) zostaną automatycznie naprawieni
-- Każde przyszłe ukończenie ostatniej lekcji w module automatycznie ustawi `is_completed = true` dzięki triggerowi
-- Przycisk "Zatwierdź" nie pojawia się gdy moduł ma 100% postępu
-- Problem nie może się powtórzyć niezależnie od sposobu ukończenia lekcji
+1. **`src/pages/TrainingModule.tsx`** -- naprawa nagłówka (flex-wrap, ukrycie tekstu na mobile, truncate), naprawa przycisków nawigacji, separator
+2. **`src/components/training/VideoControls.tsx`** -- lepsza organizacja kontrolek na ekranach < 360px
+3. **`src/components/training/SecureVideoControls.tsx`** -- zwiększony touch target dla slidera
+4. **`src/index.css`** -- opcjonalnie: dodanie utility dla zwiększonego touch targetu na Slider
+
+## Zakres zmian
+
+Zmiany są kosmetyczne i nie wpływają na logikę biznesową. Dotyczą wyłącznie klas CSS i drobnych zmian w strukturze HTML dla lepszego zawijania na wąskich ekranach.
+
