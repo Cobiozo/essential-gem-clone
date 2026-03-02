@@ -1,58 +1,62 @@
 
 
-# Audyt i optymalizacja VideoBackgroundProcessor
+# Naprawa wewnętrznych spotkań na PWA / mobilnych przeglądarkach
 
-## Zidentyfikowane problemy
+## Zdiagnozowane problemy
 
-### 1. Zbyt agresywny kontrast maski (linia 482)
-`contrastMask(mask, 8)` przy full-res modelu za mocno "twardnieje" granice maski zanim jeszcze zostaną wygładzone. Naturalne gradienty z wysokorozdzielczego modelu selfie_segmenter są tracone na starcie pipeline'u.
+### Problem 1: `window.open('_blank')` i `target="_blank"` wyrzucają z PWA
+Najkrytyczniejszy bug. W trybie standalone (PWA na iOS i Android), kliknięcie "Dołącz do spotkania" wywołuje `window.open('/meeting-room/...', '_blank')`, co:
+- **iOS PWA**: otwiera Safari zamiast zostać w aplikacji -- użytkownik traci kontekst sesji, auth cookie, i wraca do strony logowania
+- **Android PWA**: otwiera nową kartę w Chrome -- opuszcza aplikację PWA
+- **Mobilne przeglądarki**: otwiera nową kartę, co na telefonach jest dezorientujące
 
-### 2. Za wąskie pasmo przejściowe smoothstep (linie 578-579)
-`edgeLow=0.35, edgeHigh=0.55` daje pasmo przejściowe o szerokości zaledwie 0.20. To powoduje widoczną, ostrą granicę między osobą a tłem (widoczne na screenshocie - krawędzie ramion i głowy).
+Dotyczy 3 miejsc:
+1. `EventCardCompact.tsx` linia 482: `window.open('/meeting-room/${meetingRoomId}', '_blank')`
+2. `CalendarWidget.tsx` linia 196: `<a href="/meeting-room/..." target="_blank">`
+3. `CalendarWidget.tsx` linia 212: `<a href="/meeting-room/..." target="_blank">`
 
-### 3. Za mały blur przestrzenny maski (linia 513)
-`blurPx=2` dla full-res modelu jest niewystarczający do naturalnego featheringu krawędzi. Przy rozdzielczości 640px, 2px to minimalna ilość wygładzenia.
+### Problem 2: Brak obsługi `visibilitychange` w VideoRoom
+Na mobilnych urządzeniach przełączenie aplikacji (np. powiadomienie) powoduje `visibilitychange` -> system może zamknąć kamierę/mikrofon. Wprawdzie jest `reacquireLocalStream`, ale brak jawnego handlera `visibilitychange` w `VideoRoom` oznacza, że re-acquire zależy wyłącznie od eventu `ended` na trackach, co nie zawsze się odpala na iOS.
 
-### 4. Tło rysowane od nowa w każdej klatce (linie 724-734)
-`applyImageBackground` rysuje obraz tła na canvas, a potem robi `getImageData` **w każdej klatce**, mimo że tło się nie zmienia. To niepotrzebne obciążenie CPU/GPU.
+### Problem 3: iOS autoplay policy w PWA
+`video.play()` w lobby działa, ale w VideoRoom remote video elements mogą się nie odpalić w PWA standalone na iOS. Obecny mechanizm `touchstart/click -> play()` jest dobry, ale wymaga, aby użytkownik dotknął ekran po dołączeniu.
 
-### 5. Rozdzielczość przetwarzania (640px) przy 1 uczestniku
-Gdy użytkownik jest sam w pokoju, `setParticipantCount(1)` ustawia 800px jako base, ale `IMAGE_MODE_OVERRIDES.minProcessWidth=640` i tak ogranicza do 640. System mógłby korzystać z wyższej rozdzielczości.
+---
 
-### 6. Brak "person-priority" blendingu w strefie przejścia
-W strefie granicznej (linie 752-759) blend jest liniowy. Przy wirtualnym tle krawędzie sylwetki powinny faworyzować piksele osoby (bias), aby uniknąć "prześwitu" tła przez ciało.
+## Plan zmian
+
+### Zmiana 1: Nawigacja wewnętrzna zamiast `_blank` (krytyczna)
+
+**Plik: `src/components/events/EventCardCompact.tsx`**
+- Zaimportować `useNavigate` z react-router-dom (lub użyć istniejącego importu)
+- Zamienić `window.open('/meeting-room/${meetingRoomId}', '_blank')` na `navigate('/meeting-room/${meetingRoomId}')` -- nawigacja w ramach tej samej karty/PWA
+
+**Plik: `src/components/dashboard/widgets/CalendarWidget.tsx`**
+- Zamienić `<a href="/meeting-room/..." target="_blank">` na `<a href="/meeting-room/...">` (bez `target="_blank"`) we wszystkich wewnętrznych linkach do meeting-room
+- Linki do Zoom/YouTube (zewnętrzne) zostawiamy z `target="_blank"` -- te powinny otwierać przeglądarkę
+
+### Zmiana 2: Handler `visibilitychange` w VideoRoom (mobilna stabilność)
+
+**Plik: `src/components/meeting/VideoRoom.tsx`**
+- Dodać `useEffect` z listenerem `visibilitychange`:
+  - Gdy `document.visibilityState === 'visible'`: sprawdzić czy tracks żyją, jeśli nie -> `reacquireLocalStream()`
+  - Gdy `document.visibilityState === 'hidden'`: nic nie robić (nie zatrzymywać strumienia)
+- To naprawi utratę kamery/mikrofonu po powrocie z powiadomienia na iOS/Android
+
+### Zmiana 3: Automatyczne odpalanie remote video po powrocie z tła
+
+**Plik: `src/components/meeting/VideoRoom.tsx`**
+- W handlerze `visibilitychange` (z Zmiany 2), po `visible`: wykonać `document.querySelectorAll('video').forEach(v => v.play().catch(() => {}))` -- odpalić ewentualne zapauzowane remote video
 
 ---
 
-## Plan zmian (plik: `VideoBackgroundProcessor.ts`)
-
-### Zmiana 1: Łagodniejszy kontrast wstępny
-Zmniejszenie siły z `8` na `4` dla full-res modelu w trybie image. Zachowa więcej naturalnych gradientów z maski ML.
-
-### Zmiana 2: Szersze pasmo smoothstep
-Rozszerzenie z `(0.35, 0.55)` na `(0.25, 0.65)` - pasmo przejściowe 0.40 zamiast 0.20. Da miększe, bardziej naturalne krawędzie.
-
-### Zmiana 3: Większy blur przestrzenny maski
-Zwiększenie z `2px` na `4px` dla full-res modelu w trybie image. Lepsze featherowanie krawędzi.
-
-### Zmiana 4: Cache tła statycznego
-Rysowanie obrazu tła na canvas i pobieranie `ImageData` tylko raz (przy pierwszym użyciu lub zmianie rozmiaru), zamiast w każdej klatce.
-
-### Zmiana 5: Wyższa rozdzielczość przy 1 uczestniku
-Podniesienie `IMAGE_MODE_OVERRIDES.minProcessWidth` z `640` do `960` oraz obniżenie segmentationIntervalMs do `16` (60fps segmentacji). Przy solo spotkaniu GPU ma pełen zapas mocy.
-
-### Zmiana 6: Person-priority blending w strefie przejścia
-W `applyImageBackground`, w strefie przejściowej zastosowanie bias na korzyść osoby: `personAlpha = t^0.7` zamiast liniowego `t`. Zmniejszy efekt "prześwitu" tła przez sylwetkę.
-
-### Zmiana 7: Wyższy outputFps dla solo
-Podniesienie `captureStream` FPS z 24 do 30 w `setParticipantCount(1)` - płynniejszy obraz przy 1 uczestniku.
-
----
+## Pliki do zmiany
+1. `src/components/events/EventCardCompact.tsx` -- zamiana `window.open` na `navigate`
+2. `src/components/dashboard/widgets/CalendarWidget.tsx` -- usunięcie `target="_blank"` z wewnętrznych linków
+3. `src/components/meeting/VideoRoom.tsx` -- dodanie handlera `visibilitychange`
 
 ## Oczekiwane rezultaty
-- Krawędzie sylwetki: miękkie, naturalne przejście zamiast ostrych granic
-- Brak "halo" wokół głowy i ramion
-- Płynniejszy obraz (30fps output, 60fps segmentacja przy solo)
-- Mniejsze obciążenie CPU dzięki cache'owaniu tła
-- Lepsza precyzja dzięki wyższej rozdzielczości przetwarzania (960px vs 640px)
+- Kliknięcie "Dołącz do spotkania" w PWA na iPhone/Android otwiera pokój spotkania w ramach aplikacji
+- Powrót z powiadomienia na telefonie automatycznie przywraca kamerę i mikrofon
+- Remote video nie zatrzymuje się po przełączeniu aplikacji
 
