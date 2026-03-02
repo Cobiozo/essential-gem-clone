@@ -81,8 +81,8 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
         </div>
       )}
 
-      {/* Progress bar (clickable slider) */}
-      <div className="w-full">
+      {/* Progress bar (clickable slider) - enlarged touch target on mobile */}
+      <div className="w-full py-2 -my-1">
         <Slider
           value={[progressPercentage]}
           max={100}
@@ -94,7 +94,7 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
       </div>
 
       {/* Controls row */}
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
         {/* Play/Pause */}
         <Button
           variant="outline"
