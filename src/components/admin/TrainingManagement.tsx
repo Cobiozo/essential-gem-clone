@@ -996,6 +996,34 @@ const TrainingManagement = () => {
         });
       });
 
+      // Auto-repair: fix inconsistent data where progress=100% but is_completed=false
+      const repairPromises: (() => Promise<any>)[] = [];
+      Object.values(userProgressMap).forEach((userProg: any) => {
+        userProg.modules.forEach((mod: any) => {
+          if (mod.progress_percentage === 100 && !mod.is_completed) {
+            console.log(`🔧 Auto-repairing: user ${userProg.user_id}, module ${mod.module_id} (100% but not completed)`);
+            mod.is_completed = true;
+            repairPromises.push(async () => {
+              await supabase
+                .from('training_assignments')
+                .update({
+                  is_completed: true,
+                  completed_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                })
+                .eq('user_id', userProg.user_id)
+                .eq('module_id', mod.module_id)
+                .eq('is_completed', false);
+            });
+          }
+        });
+      });
+      if (repairPromises.length > 0) {
+        Promise.all(repairPromises.map(fn => fn())).then(() => {
+          console.log(`🔧 Auto-repaired ${repairPromises.length} inconsistent assignments`);
+        });
+      }
+
       setUserProgress(Object.values(userProgressMap));
     } catch (error) {
       console.error('Error fetching user progress:', error);
@@ -1994,8 +2022,8 @@ const TrainingManagement = () => {
                                     <Badge variant={module.progress_percentage === 100 ? "default" : "secondary"} className="text-xs">
                                       {module.progress_percentage}%
                                     </Badge>
-                                    {/* Approve button - visible when module is_completed = false */}
-                                    {!module.is_completed && (
+                                    {/* Approve button - visible when module not completed AND progress < 100% */}
+                                    {!module.is_completed && module.progress_percentage < 100 && (
                                       <Button
                                         size="sm"
                                         variant="outline"
