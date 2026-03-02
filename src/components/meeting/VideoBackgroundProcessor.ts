@@ -103,7 +103,7 @@ export class VideoBackgroundProcessor {
   private segmenter: ImageSegmenter | null = null;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private outputStream: MediaStream | null = null;
+  public outputStream: MediaStream | null = null;
   private animationFrameId: number | null = null;
   private videoElement: HTMLVideoElement;
   private isRunning = false;
