@@ -34,6 +34,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/events/register/', // Guest registration pages
     '/change-password', // Temp password change page
     '/reset-password',  // Password reset page
+    '/landing-preview', // Leader landing page preview
   ];
   
   // Sprawdź czy ścieżka jest publiczna
@@ -49,7 +50,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
     '/events', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
-    '/meeting-room', '/change-password', '/reset-password', '/omega-base'
+    '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview'
   ];
   const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);
   const isKnownRoute = KNOWN_APP_ROUTES.some(r =>

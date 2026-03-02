@@ -18,7 +18,7 @@ import {
   CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound,
   TreePine, UserCheck, Users, Pencil, ShieldX,
   CalendarPlus, ClipboardList, BookOpenCheck, Library,
-  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award,
+  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe,
 } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
@@ -39,6 +39,7 @@ const LeaderImportantInfoView = lazy(() => import('@/components/leader/LeaderImp
 const LeaderReflinksView = lazy(() => import('@/components/leader/LeaderReflinksView'));
 const LeaderReportsView = lazy(() => import('@/components/leader/LeaderReportsView'));
 const LeaderCertificatesView = lazy(() => import('@/components/leader/LeaderCertificatesView'));
+const LeaderLandingEditorView = lazy(() => import('@/components/leader/LeaderLandingEditorView'));
 
 
 const LazyFallback = () => (
@@ -70,6 +71,7 @@ const LeaderPanel: React.FC = () => {
     hasTeamReflinks,
     hasTeamReports,
     hasCertificates,
+    hasLandingPage,
     isAnyLeaderFeatureEnabled,
     loading: permLoading,
   } = useLeaderPermissions();
@@ -141,6 +143,7 @@ const LeaderPanel: React.FC = () => {
     ...(hasTeamReflinks ? [{ id: 'reflinks', label: 'Reflinki', icon: Link, badge: 0 }] : []),
     ...(hasTeamReports ? [{ id: 'reports', label: 'Raporty', icon: BarChart3, badge: 0 }] : []),
     ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0 }] : []),
+    ...(hasLandingPage ? [{ id: 'landing-page', label: 'Moja strona', icon: Globe, badge: 0 }] : []),
     
   ];
 
@@ -187,6 +190,8 @@ const LeaderPanel: React.FC = () => {
         return <Suspense fallback={<LazyFallback />}><LeaderReportsView /></Suspense>;
       case 'certificates':
         return <Suspense fallback={<LazyFallback />}><LeaderCertificatesView /></Suspense>;
+      case 'landing-page':
+        return <Suspense fallback={<LazyFallback />}><LeaderLandingEditorView /></Suspense>;
       default:
         return null;
     }
