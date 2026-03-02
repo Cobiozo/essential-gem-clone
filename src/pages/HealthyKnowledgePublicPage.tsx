@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp';
+import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Heart, Lock, Clock, ArrowLeft, Loader2, CheckCircle2, Play, FileText, Image, Music, Type } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -70,7 +70,35 @@ const LiveCountdown: React.FC<{ expiresAt: string }> = ({ expiresAt }) => {
 const HealthyKnowledgePublicPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   
-  const [otpValue, setOtpValue] = useState('');
+  const [otpRaw, setOtpRaw] = useState(''); // raw 6 chars, no hyphens
+
+  const cleanCode = (input: string): string => {
+    // Strip ZW- prefix and hyphens, keep only alphanumeric, uppercase
+    let cleaned = input.toUpperCase().replace(/^ZW-?/, '').replace(/-/g, '');
+    cleaned = cleaned.replace(/[^A-Z0-9]/g, '');
+    return cleaned.slice(0, 6);
+  };
+
+  const formatDisplay = (raw: string): string => {
+    if (raw.length <= 4) return raw;
+    return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+  };
+
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = cleanCode(e.target.value);
+    setOtpRaw(cleaned);
+  };
+
+  const handleCodePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text');
+    const cleaned = cleanCode(pasted);
+    setOtpRaw(cleaned);
+    if (cleaned.length === 6) {
+      // Auto-submit after paste
+      setTimeout(() => handleOtpSubmit(cleaned), 100);
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,8 +147,9 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     checkSession();
   }, [slug]);
 
-  const handleOtpSubmit = async () => {
-    if (otpValue.length !== 6) {
+  const handleOtpSubmit = async (codeOverride?: string) => {
+    const raw = codeOverride || otpRaw;
+    if (raw.length !== 6) {
       toast.error('Wprowadź pełny kod dostępu');
       return;
     }
@@ -130,7 +159,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
 
     try {
       // Format code as ZW-XXXX-XX
-      const formattedCode = `ZW-${otpValue.slice(0, 4)}-${otpValue.slice(4, 6)}`.toUpperCase();
+      const formattedCode = `ZW-${raw.slice(0, 4)}-${raw.slice(4, 6)}`.toUpperCase();
 
       const response = await supabase.functions.invoke('validate-hk-otp', {
         body: {
@@ -299,24 +328,18 @@ const HealthyKnowledgePublicPage: React.FC = () => {
             
             <div className="flex items-center gap-2">
               <span className="text-lg font-mono font-bold text-muted-foreground">ZW-</span>
-              <InputOTP 
-                value={otpValue} 
-                onChange={setOtpValue} 
-                maxLength={6}
-                onComplete={() => handleOtpSubmit()}
-              >
-                <InputOTPGroup>
-                  <InputOTPSlot index={0} />
-                  <InputOTPSlot index={1} />
-                  <InputOTPSlot index={2} />
-                  <InputOTPSlot index={3} />
-                </InputOTPGroup>
-                <InputOTPSeparator />
-                <InputOTPGroup>
-                  <InputOTPSlot index={4} />
-                  <InputOTPSlot index={5} />
-                </InputOTPGroup>
-              </InputOTP>
+              <Input
+                value={formatDisplay(otpRaw)}
+                onChange={handleCodeChange}
+                onPaste={handleCodePaste} 
+                onKeyDown={(e) => { if (e.key === 'Enter' && otpRaw.length === 6) handleOtpSubmit(); }}
+                placeholder="XXXX-XX"
+                maxLength={7}
+                autoComplete="off"
+                spellCheck={false}
+                inputMode="text"
+                className="font-mono text-lg tracking-widest uppercase w-[140px] text-center"
+              />
             </div>
 
             {error && (
@@ -327,8 +350,8 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           <Button 
             className="w-full" 
             size="lg"
-            onClick={handleOtpSubmit}
-            disabled={loading || otpValue.length !== 6}
+            onClick={() => handleOtpSubmit()}
+            disabled={loading || otpRaw.length !== 6}
           >
             {loading ? (
               <>
