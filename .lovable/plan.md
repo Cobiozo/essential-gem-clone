@@ -1,48 +1,58 @@
 
 
-# Dodanie uprawnienia "Moja strona" do CMS + instrukcja Fazy 6
+# Audyt i optymalizacja VideoBackgroundProcessor
 
-## Co zostanie zrobione w kodzie
+## Zidentyfikowane problemy
 
-Jedyna zmiana: dodanie `can_customize_landing_page` do panelu zarządzania uprawnieniami liderów (`LeaderPanelManagement.tsx`), aby administratorzy mogli włączać/wyłączać to uprawnienie z poziomu CMS.
+### 1. Zbyt agresywny kontrast maski (linia 482)
+`contrastMask(mask, 8)` przy full-res modelu za mocno "twardnieje" granice maski zanim jeszcze zostaną wygładzone. Naturalne gradienty z wysokorozdzielczego modelu selfie_segmenter są tracone na starcie pipeline'u.
 
-### Zmiany w `src/components/admin/LeaderPanelManagement.tsx`:
+### 2. Za wąskie pasmo przejściowe smoothstep (linie 578-579)
+`edgeLow=0.35, edgeHigh=0.55` daje pasmo przejściowe o szerokości zaledwie 0.20. To powoduje widoczną, ostrą granicę między osobą a tłem (widoczne na screenshocie - krawędzie ramion i głowy).
 
-1. **Import ikony** `Globe` z lucide-react (reprezentuje "stronę www")
-2. **Dodanie do interfejsu `PartnerLeaderData`**: pole `can_customize_landing_page: boolean`
-3. **Dodanie do `LEADER_PERM_FIELDS`**: `'can_customize_landing_page'`
-4. **Dodanie do `columns`**: `{ key: 'can_customize_landing_page', label: 'Moja strona', icon: Globe, type: 'leader', group: 'Treść' }`
-5. **Mapowanie w `loadData`**: odczyt pola z `leader_permissions`
+### 3. Za mały blur przestrzenny maski (linia 513)
+`blurPx=2` dla full-res modelu jest niewystarczający do naturalnego featheringu krawędzi. Przy rozdzielczości 640px, 2px to minimalna ilość wygładzenia.
 
-Nie są potrzebne żadne zmiany w bazie danych — kolumna `can_customize_landing_page` już istnieje w tabeli `leader_permissions`, a hook `useLeaderPermissions` już ją obsługuje.
+### 4. Tło rysowane od nowa w każdej klatce (linie 724-734)
+`applyImageBackground` rysuje obraz tła na canvas, a potem robi `getImageData` **w każdej klatce**, mimo że tło się nie zmienia. To niepotrzebne obciążenie CPU/GPU.
+
+### 5. Rozdzielczość przetwarzania (640px) przy 1 uczestniku
+Gdy użytkownik jest sam w pokoju, `setParticipantCount(1)` ustawia 800px jako base, ale `IMAGE_MODE_OVERRIDES.minProcessWidth=640` i tak ogranicza do 640. System mógłby korzystać z wyższej rozdzielczości.
+
+### 6. Brak "person-priority" blendingu w strefie przejścia
+W strefie granicznej (linie 752-759) blend jest liniowy. Przy wirtualnym tle krawędzie sylwetki powinny faworyzować piksele osoby (bias), aby uniknąć "prześwitu" tła przez ciało.
 
 ---
 
-## Instrukcja manualna — Faza 6 (infrastruktura)
+## Plan zmian (plik: `VideoBackgroundProcessor.ts`)
 
-Te kroki muszą być wykonane ręcznie na serwerze Cyberfolks:
+### Zmiana 1: Łagodniejszy kontrast wstępny
+Zmniejszenie siły z `8` na `4` dla full-res modelu w trybie image. Zachowa więcej naturalnych gradientów z maski ML.
 
-### 1. Wildcard DNS
-W panelu Cyberfolks, w ustawieniach DNS dla domeny `purelife.info.pl`, dodaj rekord:
+### Zmiana 2: Szersze pasmo smoothstep
+Rozszerzenie z `(0.35, 0.55)` na `(0.25, 0.65)` - pasmo przejściowe 0.40 zamiast 0.20. Da miększe, bardziej naturalne krawędzie.
 
-```text
-Typ: A
-Nazwa: *
-Wartość: [IP serwera Cyberfolks]
-TTL: 3600
-```
+### Zmiana 3: Większy blur przestrzenny maski
+Zwiększenie z `2px` na `4px` dla full-res modelu w trybie image. Lepsze featherowanie krawędzi.
 
-To sprawi, że każda subdomena (np. `ABC123.purelife.info.pl`) będzie kierowana na ten sam serwer.
+### Zmiana 4: Cache tła statycznego
+Rysowanie obrazu tła na canvas i pobieranie `ImageData` tylko raz (przy pierwszym użyciu lub zmianie rozmiaru), zamiast w każdej klatce.
 
-### 2. Wildcard SSL (Let's Encrypt)
-Na serwerze zainstaluj certbot z pluginem DNS (np. `certbot-dns-cloudflare` lub ręczny DNS-01 challenge):
+### Zmiana 5: Wyższa rozdzielczość przy 1 uczestniku
+Podniesienie `IMAGE_MODE_OVERRIDES.minProcessWidth` z `640` do `960` oraz obniżenie segmentationIntervalMs do `16` (60fps segmentacji). Przy solo spotkaniu GPU ma pełen zapas mocy.
 
-```text
-certbot certonly --manual --preferred-challenges dns -d "*.purelife.info.pl" -d "purelife.info.pl"
-```
+### Zmiana 6: Person-priority blending w strefie przejścia
+W `applyImageBackground`, w strefie przejściowej zastosowanie bias na korzyść osoby: `personAlpha = t^0.7` zamiast liniowego `t`. Zmniejszy efekt "prześwitu" tła przez sylwetkę.
 
-Certbot poprosi o dodanie rekordu TXT `_acme-challenge.purelife.info.pl`. Po weryfikacji certyfikat wildcard zostanie wystawiony. Skonfiguruj go w Express/nginx.
+### Zmiana 7: Wyższy outputFps dla solo
+Podniesienie `captureStream` FPS z 24 do 30 w `setParticipantCount(1)` - płynniejszy obraz przy 1 uczestniku.
 
-### 3. Nadanie uprawnień liderom
-Po wdrożeniu zmian z tego planu, administratorzy będą mogli włączać uprawnienie "Moja strona" bezpośrednio z CMS (zakładka "Panel Lidera"), tak samo jak pozostałe uprawnienia — przełącznikiem Switch przy danym partnerze.
+---
+
+## Oczekiwane rezultaty
+- Krawędzie sylwetki: miękkie, naturalne przejście zamiast ostrych granic
+- Brak "halo" wokół głowy i ramion
+- Płynniejszy obraz (30fps output, 60fps segmentacja przy solo)
+- Mniejsze obciążenie CPU dzięki cache'owaniu tła
+- Lepsza precyzja dzięki wyższej rozdzielczości przetwarzania (960px vs 640px)
 
