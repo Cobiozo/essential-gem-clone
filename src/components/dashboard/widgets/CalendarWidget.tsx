@@ -193,7 +193,7 @@ ${signUpLabel}: ${inviteUrl}
       if (event.is_registered && meetingRoomId) {
         return (
           <Button size="sm" className="h-6 text-xs bg-amber-600 hover:bg-amber-700" asChild>
-            <a href={`/meeting-room/${meetingRoomId}`} target="_blank" rel="noopener noreferrer">
+            <a href={`/meeting-room/${meetingRoomId}`}>
               <Video className="h-3 w-3 mr-1" />
               {tf('events.join', 'WEJDŹ')} ({overtimeLabel})
             </a>
@@ -209,7 +209,7 @@ ${signUpLabel}: ${inviteUrl}
       if ((event as any).use_internal_meeting && (event as any).meeting_room_id) {
         return (
           <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
-            <a href={`/meeting-room/${(event as any).meeting_room_id}`} target="_blank" rel="noopener noreferrer">
+            <a href={`/meeting-room/${(event as any).meeting_room_id}`}>
               <Video className="h-3 w-3 mr-1" />
               {tf('events.join', 'WEJDŹ')}
             </a>
