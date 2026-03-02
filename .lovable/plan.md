@@ -1,60 +1,48 @@
 
-Cel: usunąć trwały błąd produkcyjny `Cannot read properties of undefined (reading 'useLayoutEffect')` w `vendor-utils-*.js`.
 
-Diagnoza po analizie kodu:
-- `server.js` ma poprawne nagłówki no-cache dla `index.html` i SPA fallback.
-- `sw-push.js` już nie cache’uje `/assets/*.js` i `/assets/*.css`.
-- `vite.config.ts` ma bardzo agresywne, ręczne `manualChunks` (szczególnie `vendor-utils` z `@dnd-kit/*` + `@supabase/*` + `date-fns`), co jest znanym źródłem błędów inicjalizacji React hooków po buildzie (kolejność/cyrkularność chunków).
+# Dodanie uprawnienia "Moja strona" do CMS + instrukcja Fazy 6
 
-Do I know what the issue is?
-Tak — najbardziej prawdopodobna przyczyna to obecna strategia chunkowania (`manualChunks`) generująca niestabilny bundle produkcyjny, a nie sam Service Worker.
+## Co zostanie zrobione w kodzie
 
-Plan naprawy (wdrożenie kodowe):
+Jedyna zmiana: dodanie `can_customize_landing_page` do panelu zarządzania uprawnieniami liderów (`LeaderPanelManagement.tsx`), aby administratorzy mogli włączać/wyłączać to uprawnienie z poziomu CMS.
 
-1) Uproszczenie chunkowania w `vite.config.ts` (priorytet)
-- Usunąć ręczne grupy:
-  - `vendor-core`
-  - `vendor-ui`
-  - `vendor-utils`
-- Zostawić tylko chunki dla naprawdę ciężkich bibliotek ładowanych na żądanie (`xlsx`, `jspdf/html2canvas/html2pdf.js`, `fabric`, `recharts`, `jszip`, `embla`), najlepiej przez funkcję `manualChunks(id)` opartą o `id.includes(...)`.
-- Dla całej reszty (React, Router, TanStack, Radix, dnd-kit, Supabase) pozwolić Vite/Rollup decydować automatycznie.
-- Utrzymać `resolve.dedupe` dla React.
+### Zmiany w `src/components/admin/LeaderPanelManagement.tsx`:
 
-2) Stabilizacja CJS/ESM dla bibliotek typu dnd-kit
-- W `build.commonjsOptions` dodać:
-  - `transformMixedEsModules: true`
-- Cel: uniknąć błędnych interopów przy paczkach publikowanych jako mix CJS/ESM.
+1. **Import ikony** `Globe` z lucide-react (reprezentuje "stronę www")
+2. **Dodanie do interfejsu `PartnerLeaderData`**: pole `can_customize_landing_page: boolean`
+3. **Dodanie do `LEADER_PERM_FIELDS`**: `'can_customize_landing_page'`
+4. **Dodanie do `columns`**: `{ key: 'can_customize_landing_page', label: 'Moja strona', icon: Globe, type: 'leader', group: 'Treść' }`
+5. **Mapowanie w `loadData`**: odczyt pola z `leader_permissions`
 
-3) Ograniczenie ryzyka „cross-feature chunk”
-- Nie mieszać w jednym ręcznym chunku:
-  - bibliotek DnD (UI z hookami React)
-  - biblioteki backendowej (`@supabase/supabase-js`)
-- To było obecnie w `vendor-utils` i jest architektonicznie kruche.
+Nie są potrzebne żadne zmiany w bazie danych — kolumna `can_customize_landing_page` już istnieje w tabeli `leader_permissions`, a hook `useLeaderPermissions` już ją obsługuje.
 
-Plan wdrożenia na produkcję (krytyczne kroki operacyjne):
-1. Na serwerze:
-   - `rm -rf dist` (usunąć stary build całkowicie)
-   - wgrać nowy `dist` jako komplet
-2. Restart procesu:
-   - `pm2 restart <app> --update-env`
-3. Twarde odświeżenie po stronie klienta:
-   - najlepiej test w oknie incognito (bez starego SW/session cache)
-4. Walidacja HTTP:
-   - `index.html` musi mieć `no-cache, no-store, must-revalidate`
-   - `/assets/*.js` powinny mieć `immutable`
+---
 
-Checklist testów po poprawce:
-1) Wejście na `/` jako niezalogowany — brak błędu w konsoli.
-2) Logowanie i przejście na dashboard — brak `useLayoutEffect` exception.
-3) Wejście na widok używający DnD (np. panel lidera/edytor bloków) — DnD działa, brak crash.
-4) Otworzyć app po kolejnym deployu — brak regresji „white screen / hook undefined”.
+## Instrukcja manualna — Faza 6 (infrastruktura)
 
-Ryzyka i fallback:
-- Jeśli błąd nadal wystąpi po uproszczeniu chunków:
-  1. tymczasowo całkowicie wyłączyć `manualChunks` (poza domyślnym podziałem Vite),
-  2. ponowić czysty deploy (`rm -rf dist` + restart PM2),
-  3. dopiero potem wracać do selektywnej optymalizacji bundle.
+Te kroki muszą być wykonane ręcznie na serwerze Cyberfolks:
 
-Zakres plików do zmiany:
-- `vite.config.ts` (główna naprawa).
-- (bez zmian funkcjonalnych) `server.js` i `public/sw-push.js` pozostają jak są, bo obecnie są zgodne z dobrymi praktykami cache-control.
+### 1. Wildcard DNS
+W panelu Cyberfolks, w ustawieniach DNS dla domeny `purelife.info.pl`, dodaj rekord:
+
+```text
+Typ: A
+Nazwa: *
+Wartość: [IP serwera Cyberfolks]
+TTL: 3600
+```
+
+To sprawi, że każda subdomena (np. `ABC123.purelife.info.pl`) będzie kierowana na ten sam serwer.
+
+### 2. Wildcard SSL (Let's Encrypt)
+Na serwerze zainstaluj certbot z pluginem DNS (np. `certbot-dns-cloudflare` lub ręczny DNS-01 challenge):
+
+```text
+certbot certonly --manual --preferred-challenges dns -d "*.purelife.info.pl" -d "purelife.info.pl"
+```
+
+Certbot poprosi o dodanie rekordu TXT `_acme-challenge.purelife.info.pl`. Po weryfikacji certyfikat wildcard zostanie wystawiony. Skonfiguruj go w Express/nginx.
+
+### 3. Nadanie uprawnień liderom
+Po wdrożeniu zmian z tego planu, administratorzy będą mogli włączać uprawnienie "Moja strona" bezpośrednio z CMS (zakładka "Panel Lidera"), tak samo jak pozostałe uprawnienia — przełącznikiem Switch przy danym partnerze.
+
