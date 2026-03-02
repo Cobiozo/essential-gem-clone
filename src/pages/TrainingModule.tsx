@@ -647,6 +647,29 @@ const TrainingModule = () => {
           // Clear localStorage backup after successful save
           localStorage.removeItem(`lesson_progress_${lessonId}`);
           console.log(`[TrainingModule] Progress saved successfully for lesson ${lessonId}`);
+          
+          // Check if all lessons are now completed (redundant safety with DB trigger)
+          if (isCompleted && moduleId && user) {
+            const allCompleted = lessons.every(l => 
+              l.id === lessonId ? true : progress[l.id]?.is_completed
+            );
+            if (allCompleted && lessons.length > 0) {
+              console.log('[TrainingModule] All lessons completed, ensuring assignment is marked');
+              supabase
+                .from('training_assignments')
+                .update({
+                  is_completed: true,
+                  completed_at: new Date().toISOString()
+                })
+                .eq('user_id', user.id)
+                .eq('module_id', moduleId)
+                .eq('is_completed', false)
+                .then(({ error: assignErr }) => {
+                  if (!assignErr) console.log('[TrainingModule] Assignment auto-completed via save');
+                });
+            }
+          }
+          
           return true;
         }
         throw error;
