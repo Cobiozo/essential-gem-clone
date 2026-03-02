@@ -28,71 +28,21 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Consolidated core chunk: React + Router + Query (reduces requests)
-          'vendor-core': [
-            'react', 
-            'react-dom', 
-            'react-router-dom',
-            '@tanstack/react-query',
-          ],
-          
-          // Consolidated UI chunk: All Radix + Icons + UI utilities
-          'vendor-ui': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-accordion',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-select',
-            '@radix-ui/react-checkbox',
-            '@radix-ui/react-switch',
-            '@radix-ui/react-scroll-area',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-label',
-            '@radix-ui/react-slot',
-            '@radix-ui/react-toast',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-radio-group',
-            '@radix-ui/react-collapsible',
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-hover-card',
-            '@radix-ui/react-menubar',
-            '@radix-ui/react-navigation-menu',
-            '@radix-ui/react-toggle',
-            '@radix-ui/react-toggle-group',
-            '@radix-ui/react-context-menu',
-            '@radix-ui/react-aspect-ratio',
-            '@radix-ui/react-slider',
-            'lucide-react',
-            'cmdk',
-            'sonner',
-            'vaul',
-          ],
-          
-          // Consolidated utilities: DnD + Date + Supabase
-          'vendor-utils': [
-            '@dnd-kit/core',
-            '@dnd-kit/sortable',
-            '@dnd-kit/modifiers',
-            '@dnd-kit/utilities',
-            '@supabase/supabase-js',
-            'date-fns',
-          ],
-          
-          // Heavy libraries - loaded on-demand only
-          'lib-xlsx': ['xlsx'],
-          'lib-pdf': ['jspdf', 'html2canvas', 'html2pdf.js'],
-          'lib-fabric': ['fabric'],
-          'lib-charts': ['recharts'],
-          'lib-zip': ['jszip'],
-          'lib-carousel': ['embla-carousel-react'],
+        manualChunks(id) {
+          // Only isolate heavy, on-demand libraries
+          if (id.includes('node_modules/xlsx')) return 'lib-xlsx';
+          if (id.includes('node_modules/jspdf') || id.includes('node_modules/html2canvas') || id.includes('node_modules/html2pdf.js')) return 'lib-pdf';
+          if (id.includes('node_modules/fabric')) return 'lib-fabric';
+          if (id.includes('node_modules/recharts')) return 'lib-charts';
+          if (id.includes('node_modules/jszip')) return 'lib-zip';
+          if (id.includes('node_modules/embla-carousel')) return 'lib-carousel';
+          // Everything else (React, Radix, dnd-kit, Supabase, etc.) — let Vite decide
         },
       },
     },
-    // Increase chunk size warning limit
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
     chunkSizeWarningLimit: 1000,
   },
   // Optimize dependencies
