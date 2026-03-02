@@ -127,6 +127,7 @@ const LeaderPanel = lazyWithRetry(() => import("./pages/LeaderPanel"));
 const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ChangeTempPassword = lazyWithRetry(() => import("./pages/ChangeTempPassword"));
 const OmegaBasePage = lazyWithRetry(() => import("./pages/OmegaBasePage"));
+const LeaderLandingPage = lazyWithRetry(() => import("./pages/LeaderLandingPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -354,6 +355,8 @@ const AppContent = () => {
               <Route path="/meeting-room/:roomId" element={<MeetingRoom />} />
               <Route path="/leader" element={<LeaderPanel />} />
               <Route path="/omega-base" element={<OmegaBasePage />} />
+              <Route path="/landing-preview" element={<LeaderLandingPage />} />
+              <Route path="/:alias" element={<PartnerPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

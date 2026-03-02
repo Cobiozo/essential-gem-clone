@@ -3343,6 +3343,91 @@ export type Database = {
         }
         Relationships: []
       }
+      leader_landing_analytics: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          page_id: string
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          page_id: string
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          page_id?: string
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leader_landing_analytics_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "leader_landing_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leader_landing_pages: {
+        Row: {
+          blocks: Json
+          created_at: string
+          eq_id: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          page_description: string | null
+          page_title: string | null
+          theme_color: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          eq_id: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          page_description?: string | null
+          page_title?: string | null
+          theme_color?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          eq_id?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          page_description?: string | null
+          page_title?: string | null
+          theme_color?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leader_landing_pages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       leader_meeting_settings: {
         Row: {
           created_at: string | null
@@ -3416,6 +3501,7 @@ export type Database = {
           can_approve_registrations: boolean | null
           can_broadcast: boolean | null
           can_create_team_events: boolean | null
+          can_customize_landing_page: boolean
           can_host_private_meetings: boolean | null
           can_manage_certificates: boolean | null
           can_manage_daily_signal: boolean | null
@@ -3452,6 +3538,7 @@ export type Database = {
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_create_team_events?: boolean | null
+          can_customize_landing_page?: boolean
           can_host_private_meetings?: boolean | null
           can_manage_certificates?: boolean | null
           can_manage_daily_signal?: boolean | null
@@ -3488,6 +3575,7 @@ export type Database = {
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_create_team_events?: boolean | null
+          can_customize_landing_page?: boolean
           can_host_private_meetings?: boolean | null
           can_manage_certificates?: boolean | null
           can_manage_daily_signal?: boolean | null

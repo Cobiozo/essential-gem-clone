@@ -24,6 +24,7 @@ export interface LeaderPermissionsResult {
   hasTeamReflinks: boolean;
   hasTeamReports: boolean;
   hasCertificates: boolean;
+  hasLandingPage: boolean;
   isAnyLeaderFeatureEnabled: boolean;
   leaderPermission: {
     individual_meetings_enabled?: boolean | null;
@@ -47,6 +48,7 @@ export interface LeaderPermissionsResult {
     can_manage_team_reflinks?: boolean | null;
     can_view_team_reports?: boolean | null;
     can_manage_certificates?: boolean | null;
+    can_customize_landing_page?: boolean | null;
     zoom_link?: string | null;
   } | null;
   loading: boolean;
@@ -125,6 +127,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       const hasTeamReflinks = leaderPerm?.can_manage_team_reflinks === true;
       const hasTeamReports = leaderPerm?.can_view_team_reports === true;
       const hasCertificates = leaderPerm?.can_manage_certificates === true;
+      const hasLandingPage = leaderPerm?.can_customize_landing_page === true;
 
       return {
         leaderPermission: leaderPerm,
@@ -148,6 +151,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
         hasTeamReflinks,
         hasTeamReports,
         hasCertificates,
+        hasLandingPage,
       };
     },
     enabled: !!user && (isPartner || isAdmin),
@@ -174,6 +178,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
   const hasTeamReflinks = data?.hasTeamReflinks ?? false;
   const hasTeamReports = data?.hasTeamReports ?? false;
   const hasCertificates = data?.hasCertificates ?? false;
+  const hasLandingPage = data?.hasLandingPage ?? false;
 
   return {
     hasMeetings,
@@ -196,12 +201,13 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
     hasTeamReflinks,
     hasTeamReports,
     hasCertificates,
+    hasLandingPage,
     isAnyLeaderFeatureEnabled:
       hasMeetings || hasTeamProgress || hasInfluencerCalc || hasSpecialistCalc ||
       hasOrgTree || hasApprovalPermission || hasTeamEvents || hasEventRegistrations ||
       hasTeamTrainingMgmt || hasKnowledgeBase || hasTeamNotifications || hasTeamEmails ||
       hasTeamPush || hasTeamContacts || hasTeamContactsMgmt || hasDailySignal ||
-      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates,
+      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage,
     leaderPermission: data?.leaderPermission ?? null,
     loading: isLoading,
   };
