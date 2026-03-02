@@ -4,10 +4,10 @@
  */
 
 // Cache Configuration
-const CACHE_STATIC = 'purelife-static-v3';
-const CACHE_ASSETS = 'purelife-assets-v1';
-const CACHE_API = 'purelife-api-v1';
-const CACHE_FONTS = 'purelife-fonts-v1';
+const CACHE_STATIC = 'purelife-static-v4';
+const CACHE_ASSETS = 'purelife-assets-v2';
+const CACHE_API = 'purelife-api-v2';
+const CACHE_FONTS = 'purelife-fonts-v2';
 const ALL_CACHES = [CACHE_STATIC, CACHE_ASSETS, CACHE_API, CACHE_FONTS];
 
 const STATIC_ASSETS = [
@@ -47,7 +47,7 @@ self.addEventListener('install', (event) => {
 
 // ─── Activate ──────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Service Worker activated — cache version: static-v3');
+  console.log('[SW] Service Worker activated — cache version: static-v4');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
@@ -77,9 +77,10 @@ self.addEventListener('fetch', (event) => {
       return;
     }
 
-    // 2. Vite hashed assets (immutable — cache forever)
-    if (url.pathname.startsWith('/assets/') && /\.[a-f0-9]{8,}\./.test(url.pathname)) {
-      event.respondWith(cacheFirst(event.request, CACHE_ASSETS));
+    // 2. IMPORTANT: do NOT cache JS/CSS app chunks in SW.
+    // They are already cached via HTTP headers (immutable hashes) and SW cache here
+    // can cause chunk-mismatch/runtime errors after deployments.
+    if (url.pathname.startsWith('/assets/') && /\.[a-f0-9]{8,}\.(js|css)$/.test(url.pathname)) {
       return;
     }
   }
