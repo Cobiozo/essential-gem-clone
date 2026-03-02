@@ -30,9 +30,18 @@ const MeetingRoomPage: React.FC = () => {
   const userRef = useRef(user);
   if (user) userRef.current = user;
 
+  // Detect mobile/PWA to force lobby (user gesture required for getUserMedia)
+  const isMobileOrPWA = () => {
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    return isMobile || isStandalone;
+  };
+
   // Helper to read saved session synchronously
   const getSavedSession = () => {
     if (!roomId || isGuestMode) return null;
+    // On mobile/PWA, never auto-rejoin — always go through lobby for fresh user gesture
+    if (isMobileOrPWA()) return null;
     const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
     if (!raw) return null;
     try {
@@ -76,6 +85,8 @@ const MeetingRoomPage: React.FC = () => {
 
   const tryAutoRejoin = (): boolean => {
     if (!roomId) return false;
+    // On mobile/PWA, never auto-rejoin — force lobby for fresh getUserMedia gesture
+    if (isMobileOrPWA()) return false;
     const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
     if (!raw) return false;
     try {

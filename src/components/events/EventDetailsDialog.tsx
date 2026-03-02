@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +38,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 }) => {
   const { language } = useLanguage();
   const locale = language === 'pl' ? pl : enUS;
+  const navigate = useNavigate();
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
 
   // Fetch zoom_link from leader_permissions if event doesn't have one
@@ -258,14 +260,12 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                   <Video className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   {useInternalMeeting && meetingRoomId ? (
-                    <a 
-                      href={`/meeting-room/${meetingRoomId}`}
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-sm text-primary hover:underline truncate flex-1"
+                    <button 
+                      onClick={() => { onOpenChange(false); navigate(`/meeting-room/${meetingRoomId}`); }}
+                      className="text-sm text-primary hover:underline truncate flex-1 text-left"
                     >
                       Link do wewnętrznego pokoju spotkania
-                    </a>
+                    </button>
                   ) : (
                     <a 
                       href={effectiveZoomLink!} 
@@ -280,11 +280,9 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               )}
 
               {canJoin && useInternalMeeting && meetingRoomId ? (
-                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" asChild>
-                  <a href={`/meeting-room/${meetingRoomId}`} target="_blank" rel="noopener noreferrer">
-                    <Video className="h-4 w-4 mr-2" />
-                    Dołącz do spotkania
-                  </a>
+                <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => { onOpenChange(false); navigate(`/meeting-room/${meetingRoomId}`); }}>
+                  <Video className="h-4 w-4 mr-2" />
+                  Dołącz do spotkania
                 </Button>
               ) : canJoin ? (
                 <Button className="w-full bg-emerald-600 hover:bg-emerald-700" asChild>
