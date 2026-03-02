@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -145,6 +146,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const dateLocale = language === 'pl' ? pl : enUS;
   
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -479,7 +481,7 @@ Zapisz się tutaj: ${inviteUrl}
           variant="default"
           size="sm"
           className="bg-blue-600 hover:bg-blue-700"
-          onClick={() => window.open(`/meeting-room/${meetingRoomId}`, '_blank')}
+          onClick={() => navigate(`/meeting-room/${meetingRoomId}`)}
         >
           <Video className="h-4 w-4 mr-2" />
           {isHost ? 'Rozpocznij spotkanie' : 'Dołącz do spotkania'}

@@ -1512,6 +1512,29 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   }, [toast, applyBackground, updateRawStream, getSavedBackground]);
 
+  // === Visibility change handler: re-acquire media when returning from background (mobile) ===
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !cleanupDoneRef.current) {
+        console.log('[VideoRoom] Page became visible, checking media tracks...');
+        const stream = localStreamRef.current;
+        const tracksAlive = stream && stream.getTracks().some(t => t.readyState === 'live');
+        if (!tracksAlive) {
+          console.warn('[VideoRoom] Tracks dead after visibility change, re-acquiring...');
+          reacquireLocalStream();
+        }
+        // Resume any paused remote video elements (iOS autoplay policy)
+        document.querySelectorAll('video').forEach(v => {
+          if (v.paused && v.srcObject) {
+            v.play().catch(() => {});
+          }
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [reacquireLocalStream]);
+
   // Controls
   const handleToggleMute = async () => {
     let stream = localStreamRef.current;
