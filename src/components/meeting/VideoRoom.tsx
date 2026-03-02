@@ -500,8 +500,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         } catch {}
       }
     };
+    // pagehide fires reliably on iOS/Android when app is closed or navigated away
+    const handlePageHide = (e: PageTransitionEvent) => {
+      if (!e.persisted) handleBeforeUnload();
+    };
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [roomId, user, guestTokenId]);
 
   // === Local miss counter for graceful pruning ===
@@ -747,6 +755,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         }
         // Don't prune participants here - let heartbeat handle graceful pruning
       } catch (e) { console.warn('[VideoRoom] Visibility sync failed:', e); }
+
+      // Resume any paused remote video elements (iOS autoplay policy)
+      document.querySelectorAll('video').forEach(v => {
+        if ((v as HTMLVideoElement).paused && (v as HTMLVideoElement).srcObject) {
+          (v as HTMLVideoElement).play().catch(() => {});
+        }
+      });
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -1512,28 +1527,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   }, [toast, applyBackground, updateRawStream, getSavedBackground]);
 
-  // === Visibility change handler: re-acquire media when returning from background (mobile) ===
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !cleanupDoneRef.current) {
-        console.log('[VideoRoom] Page became visible, checking media tracks...');
-        const stream = localStreamRef.current;
-        const tracksAlive = stream && stream.getTracks().some(t => t.readyState === 'live');
-        if (!tracksAlive) {
-          console.warn('[VideoRoom] Tracks dead after visibility change, re-acquiring...');
-          reacquireLocalStream();
-        }
-        // Resume any paused remote video elements (iOS autoplay policy)
-        document.querySelectorAll('video').forEach(v => {
-          if (v.paused && v.srcObject) {
-            v.play().catch(() => {});
-          }
-        });
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [reacquireLocalStream]);
+  // (Visibility change media re-acquire is handled in the main visibilitychange handler above)
 
   // Controls
   const handleToggleMute = async () => {
