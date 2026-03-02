@@ -174,12 +174,12 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               variant="outline"
               size="sm"
               onClick={onRewind}
-              className="flex items-center gap-1"
+              className="flex items-center gap-1 min-h-[44px]"
               disabled={isBuffering || currentTime < 1}
               title="Cofnij 10 sekund"
             >
               <RotateCcw className="h-4 w-4" />
-              -10s
+              <span className="hidden xs:inline">-10s</span>
             </Button>
           )}
         </div>
@@ -218,11 +218,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               variant="ghost"
               size="sm"
               onClick={onRetry}
-              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
+              className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground min-h-[44px]"
               title="Wideo się zacina? Kliknij aby spróbować ponownie"
             >
               <RefreshCw className="h-3 w-3 mr-1" />
-              Napraw
+              <span className="hidden sm:inline">Napraw</span>
             </Button>
           )}
           

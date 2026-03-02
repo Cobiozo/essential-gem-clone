@@ -1318,21 +1318,21 @@ const TrainingModule = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card sticky top-[env(safe-area-inset-top)] z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 flex flex-wrap items-center gap-2 sm:gap-4">
           <Button 
             variant="ghost" 
             size="sm"
             onClick={() => navigate('/training')}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 min-h-[44px]"
           >
             <ArrowLeft className="h-4 w-4" />
-            Powrót do szkoleń
+            <span className="hidden sm:inline">Powrót do szkoleń</span>
           </Button>
-          <Separator orientation="vertical" className="h-6" />
-          <div>
-            <h1 className="text-lg font-semibold">{displayModule?.title || module.title}</h1>
+          <Separator orientation="vertical" className="h-6 hidden sm:block" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base sm:text-lg font-semibold truncate">{displayModule?.title || module.title}</h1>
             {(displayModule?.description || module.description) && (
-              <p className="text-sm text-muted-foreground">{displayModule?.description || module.description}</p>
+              <p className="text-sm text-muted-foreground truncate">{displayModule?.description || module.description}</p>
             )}
           </div>
         </div>
@@ -1577,23 +1577,25 @@ const TrainingModule = () => {
 
                 <Separator />
 
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <Button
                     variant="outline"
                     onClick={goToPreviousLesson}
                     disabled={currentLessonIndex === 0 || isNavigating}
+                    className="min-h-[44px]"
                   >
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Poprzednia
                   </Button>
 
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-muted-foreground order-last sm:order-none w-full sm:w-auto text-center">
                     {currentLessonIndex + 1} z {lessons.length}
                   </div>
 
                   <Button
                     onClick={goToNextLesson}
                     disabled={isNavigating || (!canProceed && requiredTime > 0 && !isLessonCompleted)}
+                    className="min-h-[44px]"
                   >
                     {currentLessonIndex === lessons.length - 1 ? "Zakończ" : "Następna"}
                     <ArrowRight className="h-4 w-4 ml-2" />
