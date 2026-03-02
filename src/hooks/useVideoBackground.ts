@@ -133,6 +133,48 @@ export function useVideoBackground() {
     }
   }, [getProcessor, loadImage]);
 
+  /** Lightweight preview: changes processor options without stop/start if already running */
+  const previewBackground = useCallback(async (
+    inputStream: MediaStream,
+    newMode: BackgroundMode,
+    imageSrc?: string | null,
+  ): Promise<MediaStream> => {
+    if (!rawStreamRef.current || rawStreamRef.current.getTracks().every(t => t.readyState === 'ended')) {
+      if (!(inputStream as any).__bgProcessed) {
+        rawStreamRef.current = inputStream;
+      }
+    }
+    const sourceStream = rawStreamRef.current || inputStream;
+
+    if (newMode === 'none') {
+      processorRef.current?.stop();
+      return sourceStream;
+    }
+
+    const videoTrack = sourceStream.getVideoTracks()[0];
+    if (!videoTrack || videoTrack.readyState === 'ended') return sourceStream;
+
+    const processor = getProcessor();
+
+    let bgImage: HTMLImageElement | null = null;
+    if (newMode === 'image' && imageSrc) {
+      bgImage = await loadImage(imageSrc);
+    }
+
+    // If processor is already running, just swap options (no stop/start)
+    if (processor.isReady()) {
+      processor.setOptions({ mode: newMode, backgroundImage: bgImage });
+      // Return existing output stream
+      return (processor as any).outputStream || sourceStream;
+    }
+
+    // First time: full start
+    processor.setOptions({ mode: newMode, backgroundImage: bgImage });
+    const outputStream = await processor.start(sourceStream);
+    (outputStream as any).__bgProcessed = true;
+    return outputStream;
+  }, [getProcessor, loadImage]);
+
   const stopBackground = useCallback(() => {
     processorRef.current?.stop();
     setMode('none');
@@ -157,6 +199,7 @@ export function useVideoBackground() {
     isLoading,
     isSupported,
     applyBackground,
+    previewBackground,
     stopBackground,
     updateRawStream,
     setParticipantCount,

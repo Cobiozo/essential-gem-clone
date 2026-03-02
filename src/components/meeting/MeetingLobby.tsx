@@ -3,10 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Video, VideoOff, Mic, MicOff, LogIn, Settings, MessageCircle, Monitor, AlertCircle } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, LogIn, Settings, MessageCircle, Monitor, AlertCircle, Palette } from 'lucide-react';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
+import { BackgroundSelector } from './BackgroundSelector';
+import { useVideoBackground } from '@/hooks/useVideoBackground';
+import { useZoomBackgrounds } from '@/hooks/useZoomBackgrounds';
+import { useCustomBackgrounds } from '@/hooks/useCustomBackgrounds';
 import type { MeetingSettings } from './MeetingSettingsDialog';
+import type { BackgroundMode } from './VideoBackgroundProcessor';
 
 interface MeetingLobbyProps {
   displayName: string;
@@ -29,6 +34,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   const [videoEnabled, setVideoEnabled] = useState(true);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
+  const [processedStream, setProcessedStream] = useState<MediaStream | null>(null);
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [needsManualGrant, setNeedsManualGrant] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
@@ -36,6 +42,32 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafIdRef = useRef<number>(0);
   const cleanupStreamRef = useRef<MediaStream | null>(null);
+
+  // Background hooks
+  const {
+    mode: bgMode,
+    selectedImage: bgSelectedImage,
+    isLoading: bgLoading,
+    isSupported: bgSupported,
+    applyBackground,
+    previewBackground,
+    stopBackground,
+    updateRawStream,
+    getSavedBackground,
+  } = useVideoBackground();
+
+  const { zoomBackgrounds } = useZoomBackgrounds();
+  const {
+    customImages,
+    isUploading: bgUploading,
+    uploadImage,
+    deleteImage,
+    refetch: refetchBackgrounds,
+    maxBackgrounds: maxCustomBackgrounds,
+  } = useCustomBackgrounds();
+
+  // The stream currently shown in the preview (may be raw or processed)
+  const displayStreamRef = useRef<MediaStream | null>(null);
 
   // Host settings
   const [meetingSettings, setMeetingSettings] = useState<MeetingSettings>({
@@ -71,24 +103,39 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     }
     cleanupStreamRef.current = stream;
     setPreviewStream(stream);
+    updateRawStream(stream);
     return stream;
-  }, []);
+  }, [updateRawStream]);
 
-  // Auto-attempt on mount (may fail on some browsers without user gesture)
+  // Auto-attempt on mount
   useEffect(() => {
     acquireStream();
     return () => {
       if (!streamPassedRef.current && cleanupStreamRef.current) {
         cleanupStreamRef.current.getTracks().forEach((t) => t.stop());
       }
+      stopBackground();
     };
   }, []);
 
-  // Attach stream to video element and call play()
+  // Auto-apply saved background when stream is ready
+  useEffect(() => {
+    if (!previewStream) return;
+    const saved = getSavedBackground();
+    if (saved.mode !== 'none') {
+      applyBackground(previewStream, saved.mode, saved.image).then((out) => {
+        setProcessedStream(out);
+      }).catch(() => {});
+    }
+  }, [previewStream]);
+
+  // Attach the display stream (processed or raw) to video element
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !previewStream) return;
-    video.srcObject = previewStream;
+    const stream = processedStream || previewStream;
+    displayStreamRef.current = stream;
+    if (!video || !stream) return;
+    video.srcObject = stream;
     video.play().catch((err) => {
       console.warn('[Lobby] Video play() failed:', err);
     });
@@ -99,9 +146,9 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     };
     video.addEventListener('loadeddata', handleLoaded);
     return () => video.removeEventListener('loadeddata', handleLoaded);
-  }, [previewStream]);
+  }, [previewStream, processedStream]);
 
-  // Mic level indicator via AudioContext + AnalyserNode
+  // Mic level indicator
   useEffect(() => {
     if (!previewStream || !audioEnabled) {
       setMicLevel(0);
@@ -132,7 +179,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
         const avg = sum / dataArray.length;
-        setMicLevel(Math.min(avg / 128, 1)); // normalize 0-1
+        setMicLevel(Math.min(avg / 128, 1));
         rafIdRef.current = requestAnimationFrame(tick);
       };
       rafIdRef.current = requestAnimationFrame(tick);
@@ -162,9 +209,39 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     }
   }, [audioEnabled, previewStream]);
 
+  // Background selection handler
+  const handleBackgroundSelect = useCallback(async (mode: BackgroundMode, imageSrc?: string) => {
+    if (!previewStream) return;
+    try {
+      if (mode === 'none') {
+        stopBackground();
+        setProcessedStream(null);
+        return;
+      }
+      const out = await applyBackground(previewStream, mode, imageSrc);
+      setProcessedStream(out);
+    } catch (err) {
+      console.error('[Lobby] Background apply failed:', err);
+    }
+  }, [previewStream, applyBackground, stopBackground]);
+
+  // Preview hover handler (lightweight, no stop/start)
+  const handlePreviewModeChange = useCallback(async (mode: BackgroundMode, imageSrc?: string) => {
+    if (!previewStream) return;
+    try {
+      const out = await previewBackground(previewStream, mode, imageSrc);
+      if (out !== previewStream) {
+        setProcessedStream(out);
+      } else {
+        setProcessedStream(null);
+      }
+    } catch {}
+  }, [previewStream, previewBackground]);
+
   const handleJoin = () => {
     streamPassedRef.current = true;
-    onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined, previewStream || undefined);
+    const streamToPass = processedStream || previewStream || undefined;
+    onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined, streamToPass);
   };
 
   return (
@@ -186,7 +263,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
             </div>
           )}
 
-          {/* Video preview - video always in DOM for ref stability */}
+          {/* Video preview */}
           <div className="relative bg-muted rounded-lg overflow-hidden aspect-video flex items-center justify-center">
             <video
               ref={videoRef}
@@ -194,13 +271,13 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
               playsInline
               muted
               className={
-                videoEnabled && previewStream
+                videoEnabled && (previewStream || processedStream)
                   ? 'w-full h-full object-cover'
                   : 'hidden'
               }
               style={{ transform: 'scaleX(-1)' }}
             />
-            {(!videoEnabled || !previewStream) && (
+            {(!videoEnabled || (!previewStream && !processedStream)) && (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <VideoOff className="h-12 w-12" />
                 <span className="text-sm">Kamera wyłączona</span>
@@ -208,7 +285,7 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
             )}
           </div>
 
-          {/* Manual grant button when auto-acquire failed */}
+          {/* Manual grant button */}
           {needsManualGrant && (
             <Button
               variant="outline"
@@ -252,6 +329,38 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
               </div>
               <Switch checked={videoEnabled} onCheckedChange={setVideoEnabled} />
             </div>
+
+            {/* Background selector */}
+            {bgSupported && videoEnabled && previewStream && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Palette className="h-4 w-4" />
+                  <Label>Tło</Label>
+                </div>
+                <BackgroundSelector
+                  currentMode={bgMode}
+                  selectedImage={bgSelectedImage}
+                  backgroundImages={zoomBackgrounds}
+                  isLoading={bgLoading}
+                  isSupported={bgSupported}
+                  onSelect={handleBackgroundSelect}
+                  previewStream={processedStream || previewStream}
+                  onPreviewModeChange={handlePreviewModeChange}
+                  customImages={customImages}
+                  maxCustom={maxCustomBackgrounds}
+                  isUploading={bgUploading}
+                  onUpload={(file) => { uploadImage(file).catch(() => {}); }}
+                  onDelete={(url) => { deleteImage(url).catch(() => {}); }}
+                  onRefresh={refetchBackgrounds}
+                  trigger={
+                    <Button variant="outline" size="sm" className="gap-1.5">
+                      <Palette className="h-3.5 w-3.5" />
+                      {bgMode === 'none' ? 'Brak' : bgMode === 'blur-light' ? 'Lekkie' : bgMode === 'blur-heavy' ? 'Mocne' : 'Obraz'}
+                    </Button>
+                  }
+                />
+              </div>
+            )}
           </div>
 
           {/* Host settings */}
