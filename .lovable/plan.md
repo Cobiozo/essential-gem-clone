@@ -1,29 +1,25 @@
 
 
-# Zmiany w formularzu kontaktu prywatnego
+# Naprawa złotej ikonki selektora dat
 
-## 1. Złota ikonka kalendarza na polach daty
-Pola `type="date"` (added_at, next_contact_date, reminder_date) mają natywną ikonkę kalendarza, która jest słabo widoczna na ciemnym tle. Rozwiązanie: dodanie CSS stylów do tych inputów, aby ikonka kalendarza była złota. Użyję klasy Tailwind z custom CSS (`[&::-webkit-calendar-picker-indicator]`) aby nadać filtr koloru złotego na ikonkę.
+## Problem
+Klasy Tailwind `[&::-webkit-calendar-picker-indicator]` z filtrami CSS są dodawane przez `className` prop, ale komponent `Input` używa `cn()` (tailwind-merge), który scala klasy. Problem: te pseudo-element selektory mogą nie działać poprawnie przez Tailwind — filtry `brightness-0 invert sepia saturate hue-rotate` wymagają odpowiedniej kolejności i mogą być usuwane lub źle mergowane.
 
-Klasa do dodania na każdym `Input type="date"`:
+## Rozwiązanie
+Dodać style globalnie w `src/App.css` (lub `index.css`) za pomocą natywnego CSS, który jest pewniejszy niż klasy Tailwind dla pseudo-elementów:
+
+```css
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: brightness(0) invert(1) sepia(1) saturate(10) hue-rotate(15deg);
+  cursor: pointer;
+}
 ```
-className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
-```
 
-## 2. Nowe opcje statusu relacji
-Zamiana SelectItem w sekcji "Status relacji":
-- `observation` → "Czynny obserwujący"
-- `potential_client` → "Potencjalny klient"  
-- `potential_partner` → "Potencjalny partner"
-- `closed_success` → "Zamknięty - sukces dołączył"
-- `closed_not_now` → "Zamknięty - nie teraz"
+To złapie **wszystkie** inputy date w aplikacji — nie trzeba dodawać className na każdym polu osobno. Dodatkowe `cursor: pointer` poprawi UX.
 
-Usunięcie: "Klient" (active), "Potencjalny specjalista". Dodanie: "Potencjalny klient". Aktualizacja domyślnej wartości na `observation`. Aktualizacja typu w `types.ts`.
-
-## 3. Zamiana kolejności pól
-Przenieść "Dlaczego chcesz się odezwać" (contact_reason) **powyżej** "Zainteresowanie produktami" (products). Obecna kolejność: source → products → reason. Nowa: source → reason → products.
+Opcjonalnie: usunąć zbędne klasy `[&::-webkit-calendar-picker-indicator]` z `PrivateContactForm.tsx` (3 miejsca), bo globalny CSS je zastąpi.
 
 ## Pliki do zmiany
-- `src/components/team-contacts/PrivateContactForm.tsx` — wszystkie 3 zmiany
-- `src/components/team-contacts/types.ts` — aktualizacja `relationship_status` enum (dodanie `potential_client`, usunięcie `active`, `potential_specialist`, `suspended`)
+- `src/App.css` — dodanie globalnego stylu dla ikonki kalendarza
+- `src/components/team-contacts/PrivateContactForm.tsx` — opcjonalne usunięcie zduplikowanych klas (cleanup)
 
