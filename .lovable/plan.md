@@ -1,27 +1,52 @@
 
 
-# Plan: Selektor godziny przypomnienia w kontaktach prywatnych
+# Analiza eksportu kontaktów prywatnych
 
-## Koncepcja
+## Diagnoza
 
-Zamiast sztywnego okna 10:00-15:00 CET, partner sam wybiera datę **i godzinę** przypomnienia. Edge function przetwarza przypomnienia gdy `reminder_date <= NOW()` -- bez ograniczenia godzinowego. Cron i tak odpala się co godzinę, więc przypomnienie przyjdzie z dokładnością do ~1h od wybranej godziny.
+Eksport jest zablokowany przez ustawienie w bazie: `allow_team_contacts_export = false` w tabeli `ai_compass_settings`. To jest widoczne na screenshocie — komunikat "Eksport jest wyłączony przez administratora".
 
-## Zmiany
+## Aktualny stan eksportu
 
-### 1. Formularz (`PrivateContactForm.tsx`)
-- Zamienić `<Input type="date">` dla `reminder_date` na dwa pola obok siebie: `<Input type="date">` + `<Input type="time">` (np. `09:00`, `14:30`)
-- Przy zapisie łączyć datę i godzinę w pełny timestamp z timezone Warsaw: `2026-03-05T14:30:00+01:00`
-- Przy edycji parsować istniejący `reminder_date` z powrotem na osobne pola daty i czasu
-- Domyślna godzina: `10:00` (jeśli partner nie wybierze)
+### Formaty: 3 opcje
+1. **Excel (.xlsx)** — pełne dane tabelaryczne
+2. **HTML** — tabela w przeglądarce, gotowa do druku
+3. **Word (.doc)** — HTML z nagłówkami MS Office
 
-### 2. Edge function (`process-pending-notifications/index.ts`)
-- **Usunąć** warunek okna 10:00-15:00 CET (linie 983-989)
-- Zostawić istniejącą logikę `reminder_date <= NOW()` -- to wystarczy, bo teraz `reminder_date` zawiera konkretną godzinę ustawioną przez partnera
+### Dane zawarte w eksporcie
 
-### 3. Brak zmian w bazie danych
-- Kolumna `reminder_date` jest typu `timestamptz` -- już obsługuje datę z godziną. Zmiana dotyczy tylko tego, że formularz będzie zapisywał pełny timestamp zamiast samej daty.
+**Excel** (najbogatszy):
+- Imię, Nazwisko, EQID, Rola, Status (client/partner), Status relacji
+- Telefon, Email, Adres, Zawód, Data dodania
+- Opcjonalnie: Notatki
+- Dla klientów: Zakupiony produkt, Data zakupu
+- Dla nie-klientów: Poziom współpracy, Data rozpoczęcia
 
-## Pliki do zmiany
-- `src/components/team-contacts/PrivateContactForm.tsx` -- dodanie pola godziny, łączenie daty+czasu przy zapisie
-- `supabase/functions/process-pending-notifications/index.ts` -- usunięcie warunku 10-15 CET
+**HTML i Word** (ograniczone):
+- Imię i nazwisko, EQID, Rola, Status relacji, Telefon, Email
+- HTML opcjonalnie: Notatki
+- Word: brak notatek
+
+### Problemy
+- Eksport jest zaprojektowany pod kontakty zespołowe (nazwy plików: `kontakty-zespolu-*`), nie pod kontakty prywatne
+- Dane jak `purchased_product`, `collaboration_level` nie istnieją w kontaktach prywatnych — te pola będą puste
+- Brak pól specyficznych dla kontaktów prywatnych: `contact_source`, `contact_reason`, `products`, `reminder_date`
+
+## Plan naprawy
+
+### 1. Migracja SQL — włączenie eksportu
+```sql
+UPDATE ai_compass_settings SET allow_team_contacts_export = true;
+```
+
+### 2. Dopasowanie danych eksportu do kontaktów prywatnych
+W `TeamContactExport.tsx` zaktualizować mapowanie danych, żeby uwzględniało pola kontaktów prywatnych:
+- Dodać: Źródło kontaktu (`contact_source`), Powód kontaktu (`contact_reason`), Produkty (`products`), Data przypomnienia (`reminder_date`)
+- Usunąć/pominąć pola nieistniejące w kontaktach prywatnych (EQID, Rola, `purchased_product`, `collaboration_level`)
+- Zmienić nazwy plików z `kontakty-zespolu-*` na `kontakty-prywatne-*`
+- Zaktualizować tytuły w HTML/Word na "Kontakty prywatne"
+
+### Pliki do zmiany
+- Migracja SQL — `allow_team_contacts_export = true`
+- `src/components/team-contacts/TeamContactExport.tsx` — dopasowanie pól i nazw do kontaktów prywatnych
 
