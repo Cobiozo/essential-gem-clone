@@ -120,10 +120,10 @@ const Training = () => {
 
   // Filter modules by the currently viewed language catalog
   const filteredModules = useMemo(() => {
-    if (!viewLanguage) return modulesWithLockState;
-    return modulesWithLockState.filter(m =>
-      !m.language_code || m.language_code === viewLanguage
-    );
+    const filtered = !viewLanguage 
+      ? modulesWithLockState 
+      : modulesWithLockState.filter(m => !m.language_code || m.language_code === viewLanguage);
+    return filtered.sort((a, b) => (a.unlock_order || 999) - (b.unlock_order || 999));
   }, [modulesWithLockState, viewLanguage]);
 
   // Load user's training_language from profile
