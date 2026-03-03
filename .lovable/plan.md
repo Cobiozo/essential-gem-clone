@@ -1,41 +1,51 @@
 
 
-# Plan: Pełny system przypomnień kontaktowych (in-app + push + email)
+# Analiza i plan naprawy systemu przypomnień kontaktowych
 
-## Problem
-Formularz kontaktu prywatnego pozwala ustawić `reminder_date` i `reminder_note`, ale żaden mechanizm nie sprawdza tych dat i nie wysyła powiadomień. Dane leżą nieużywane w bazie.
+## Znalezione problemy
 
-## Rozwiązanie
-Dodać nową sekcję w edge function `process-pending-notifications` (analogicznie do istniejących sekcji webinarowych), która:
+### Problem 1: Event type `contact_reminder` jest WYŁĄCZONY
+W bazie: `is_active = false`, `send_email = false`, `email_template_id = NULL`.
 
-1. **Pobiera kontakty z wymagalnymi przypomnieniami:**
-   ```sql
-   SELECT id, user_id, first_name, last_name, reminder_note, reminder_date
-   FROM team_contacts
-   WHERE reminder_date <= NOW()
-     AND (reminder_sent = false OR reminder_sent IS NULL)
-     AND is_active = true
-     AND reminder_date IS NOT NULL
-   ```
+Oznacza to, że:
+- **E-mail nigdy się nie wyśle** — `send-notification-email` sprawdza `send_email` i `email_template_id`, oba są puste/false, więc natychmiast zwraca `skipped`
+- Event type jest nieaktywny, co może blokować inne funkcje systemu
 
-2. **Dla każdego rekordu:**
-   - Tworzy powiadomienie **in-app** w `user_notifications` (tytuł: "Przypomnienie o kontakcie", treść: notatka lub imię+nazwisko, link: `/my-account?tab=team-contacts`)
-   - Wysyła **Web Push** via `send-push-notification`
-   - Wysyła **e-mail** via `send-notification-email` (używając event type `contact_reminder` z tabeli `notification_event_types`, który już istnieje)
-   - Ustawia `reminder_sent = true` w `team_contacts`
+### Problem 2: Brak ograniczenia godzinowego 10:00-15:00 CET
+Cron `process-pending-notifications` odpala się co godzinę (`0 * * * *`). Sekcja 8b przetwarza przypomnienia **o dowolnej porze** — brak warunku sprawdzającego czy aktualny czas CET mieści się w przedziale 10:00-15:00.
 
-3. **Dodaje tracking do results:**
-   ```
-   contactReminders: { processed: 0, success: 0, failed: 0 }
-   ```
+### Problem 3: Brak szablonu e-mail dla przypomnień kontaktowych
+Nie istnieje szablon e-mail (`email_templates`) powiązany z event type `contact_reminder`, więc nawet po włączeniu `send_email` nie będzie czego wysłać.
 
-## Plik do zmiany
-- `supabase/functions/process-pending-notifications/index.ts` — dodanie sekcji ~60 linii (przed sekcją "9. Update job log"), aktualizacja `results` i podsumowania
+---
 
-## Szczegóły techniczne
-- Sekcja wstawiona jako punkt "8b" (po push reminders, przed finalizacją)
-- Treść powiadomienia: `"{first_name} {last_name}: {reminder_note}"` lub fallback `"Zaplanowane przypomnienie o kontakcie {first_name} {last_name}"`
-- E-mail: wywołanie `send-notification-email` z `event_type_id` pobranym z `notification_event_types` WHERE `event_key = 'contact_reminder'`
-- Formatowanie daty przypomnienia w strefie `Europe/Warsaw`
-- 1s delay między e-mailami (jak w reszcie systemu)
+## Plan naprawy
+
+### 1. Migracja SQL — aktywacja event type i stworzenie szablonu e-mail
+
+- Utworzyć szablon e-mail w tabeli `email_templates` dla przypomnień kontaktowych (treść po polsku: tytuł kontaktu, notatka, data, link do kontaktów)
+- Zaktualizować `notification_event_types` WHERE `event_key = 'contact_reminder'`:
+  - `is_active = true`
+  - `send_email = true`  
+  - `email_template_id` = ID nowego szablonu
+
+### 2. Dodanie okna czasowego 10:00-15:00 CET w edge function
+
+W sekcji 8b (`process-pending-notifications/index.ts`) dodać na początku warunek:
+
+```typescript
+const nowWarsaw = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
+const warsawHour = new Date(nowWarsaw).getHours();
+if (warsawHour < 10 || warsawHour >= 15) {
+  console.log(`[CRON] Contact reminders skipped: outside 10:00-15:00 CET window (current: ${warsawHour}:00)`);
+} else {
+  // ... existing reminder processing logic
+}
+```
+
+### 3. Pliki do zmiany
+- `supabase/functions/process-pending-notifications/index.ts` — dodanie warunku godzinowego w sekcji 8b
+- Migracja SQL — szablon e-mail + aktywacja event type
+
+Żadne zmiany w UI nie są potrzebne.
 
