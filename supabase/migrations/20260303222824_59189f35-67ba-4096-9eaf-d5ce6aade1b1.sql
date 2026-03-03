@@ -1,0 +1,1 @@
+UPDATE ai_compass_settings SET allow_team_contacts_export = true;
