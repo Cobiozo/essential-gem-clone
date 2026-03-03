@@ -38,6 +38,9 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     notes: contact?.notes || '',
     next_contact_date: contact?.next_contact_date || '',
     reminder_date: contact?.reminder_date ? contact.reminder_date.split('T')[0] : '',
+    reminder_time: contact?.reminder_date
+      ? new Date(contact.reminder_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
+      : '10:00',
     reminder_note: contact?.reminder_note || '',
     products: contact?.products || '',
     contact_source: contact?.contact_source || '',
@@ -58,7 +61,21 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       relationship_status: formData.relationship_status || 'observation',
       notes: formData.notes || null,
       next_contact_date: formData.next_contact_date || null,
-      reminder_date: formData.reminder_date ? new Date(formData.reminder_date).toISOString() : null,
+      reminder_date: formData.reminder_date
+        ? (() => {
+            const [hours, minutes] = (formData.reminder_time || '10:00').split(':').map(Number);
+            const dateStr = formData.reminder_date;
+            // Build Warsaw-local datetime string and let the browser parse with offset
+            const warsawDate = new Date(`${dateStr}T${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:00`);
+            // Get Warsaw offset for that date
+            const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Warsaw', timeZoneName: 'shortOffset' });
+            const parts = formatter.formatToParts(warsawDate);
+            const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || '+01:00';
+            const offset = offsetPart.replace('GMT', '').replace('+', '+').padStart(6, '+00:00');
+            const isoOffset = offset.includes(':') ? offset : `${offset}:00`;
+            return `${dateStr}T${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:00${isoOffset}`;
+          })()
+        : null,
       reminder_note: formData.reminder_note || null,
       products: formData.products || null,
       contact_source: formData.contact_source || null,
@@ -231,13 +248,27 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="reminder_date">Data przypomnienia</Label>
-        <Input
-          id="reminder_date"
-          type="date"
-          value={formData.reminder_date}
-          onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
-        />
+        <Label htmlFor="reminder_date">Data i godzina przypomnienia</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            id="reminder_date"
+            type="date"
+            value={formData.reminder_date}
+            onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
+          />
+          <Input
+            id="reminder_time"
+            type="time"
+            value={formData.reminder_time}
+            onChange={(e) => setFormData({ ...formData, reminder_time: e.target.value })}
+            disabled={!formData.reminder_date}
+          />
+        </div>
+        {formData.reminder_date && (
+          <p className="text-xs text-muted-foreground">
+            Przypomnienie zostanie wysłane ok. godz. {formData.reminder_time || '10:00'} (CET)
+          </p>
+        )}
       </div>
 
       <div className="space-y-2">
