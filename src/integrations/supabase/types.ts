@@ -6401,6 +6401,8 @@ export type Database = {
           address: string | null
           client_status: string | null
           collaboration_level: string | null
+          contact_reason: string | null
+          contact_source: string | null
           contact_type: string
           contact_upline_eq_id: string | null
           contact_upline_first_name: string | null
@@ -6436,6 +6438,8 @@ export type Database = {
           address?: string | null
           client_status?: string | null
           collaboration_level?: string | null
+          contact_reason?: string | null
+          contact_source?: string | null
           contact_type?: string
           contact_upline_eq_id?: string | null
           contact_upline_first_name?: string | null
@@ -6471,6 +6475,8 @@ export type Database = {
           address?: string | null
           client_status?: string | null
           collaboration_level?: string | null
+          contact_reason?: string | null
+          contact_source?: string | null
           contact_type?: string
           contact_upline_eq_id?: string | null
           contact_upline_first_name?: string | null

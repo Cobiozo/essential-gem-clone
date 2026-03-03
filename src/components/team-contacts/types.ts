@@ -35,6 +35,10 @@ export interface TeamContact {
   // Products
   products: string | null;
   
+  // Contact source and reason
+  contact_source: string | null;
+  contact_reason: string | null;
+  
   // Reminder fields
   next_contact_date: string | null;
   reminder_date: string | null;
