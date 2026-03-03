@@ -12,6 +12,23 @@ interface TeamContactExportProps {
   onClose: () => void;
 }
 
+const getRelationshipLabel = (status: string | null) => {
+  switch (status) {
+    case 'observation': return 'Czynny obserwujący';
+    case 'potential_client': return 'Potencjalny klient';
+    case 'potential_partner': return 'Potencjalny partner';
+    case 'closed_success': return 'Zamknięty - sukces';
+    case 'closed_not_now': return 'Zamknięty - nie teraz';
+    default: return status || '-';
+  }
+};
+
+const formatDate = (d: string | null) =>
+  d ? new Date(d).toLocaleDateString('pl-PL') : '';
+
+const formatDateTime = (d: string | null) =>
+  d ? new Date(d).toLocaleString('pl-PL') : '';
+
 export const TeamContactExport: React.FC<TeamContactExportProps> = ({
   contacts,
   onClose,
@@ -36,56 +53,33 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     checkExportPermission();
   }, []);
 
-  const getRoleLabel = useCallback((role: string) => {
-    switch (role) {
-      case 'client': return 'Klient';
-      case 'partner': return 'Partner';
-      case 'specjalista': return 'Specjalista';
-      default: return role;
-    }
-  }, []);
+  const buildExcelRow = useCallback((c: TeamContact) => ({
+    'Imię': c.first_name,
+    'Nazwisko': c.last_name,
+    'Status relacji': getRelationshipLabel(c.relationship_status),
+    'Telefon': c.phone_number || '',
+    'Email': c.email || '',
+    'Adres': c.address || '',
+    'Zawód': c.profession || '',
+    'Źródło kontaktu': c.contact_source || '',
+    'Powód kontaktu': c.contact_reason || '',
+    'Produkty': c.products || '',
+    'Data przypomnienia': formatDateTime(c.reminder_date),
+    'Data dodania': formatDate(c.added_at),
+    ...(includeNotes ? { 'Notatki': c.notes || '' } : {}),
+  }), [includeNotes]);
+
+  const fileName = `kontakty-prywatne-${new Date().toISOString().split('T')[0]}`;
 
   const handleExportExcel = useCallback(async () => {
     setExporting(true);
     try {
-      // Dynamic import of xlsx library
       const XLSX = await import('xlsx');
-      
-      const exportData = contacts.map((contact) => ({
-        'Imię': contact.first_name,
-        'Nazwisko': contact.last_name,
-        'EQID': contact.eq_id || '',
-        'Rola': getRoleLabel(contact.role),
-        'Status': contact.role === 'client'
-          ? (contact.client_status || '-')
-          : (contact.partner_status || '-'),
-        'Status relacji': contact.relationship_status || '-',
-        'Telefon': contact.phone_number || '',
-        'Email': contact.email || '',
-        'Adres': contact.address || '',
-        'Zawód': contact.profession || '',
-        'Data dodania': contact.added_at ? new Date(contact.added_at).toLocaleDateString('pl-PL') : '',
-        ...(includeNotes ? { 'Notatki': contact.notes || '' } : {}),
-        ...(contact.role === 'client' ? {
-          'Zakupiony produkt': contact.purchased_product || '',
-          'Data zakupu': contact.purchase_date 
-            ? new Date(contact.purchase_date).toLocaleDateString('pl-PL')
-            : '',
-        } : {}),
-        ...(contact.role !== 'client' ? {
-          'Poziom współpracy': contact.collaboration_level || '',
-          'Data rozpoczęcia': contact.start_date
-            ? new Date(contact.start_date).toLocaleDateString('pl-PL')
-            : '',
-        } : {}),
-      }));
-
+      const exportData = contacts.map(buildExcelRow);
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Kontakty');
-
-      const fileName = `kontakty-zespolu-${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(wb, fileName);
+      XLSX.writeFile(wb, `${fileName}.xlsx`);
 
       toast({
         title: 'Eksport zakończony',
@@ -102,7 +96,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     } finally {
       setExporting(false);
     }
-  }, [contacts, includeNotes, getRoleLabel, toast, onClose]);
+  }, [contacts, buildExcelRow, fileName, toast, onClose]);
 
   const handleExportHtml = useCallback(() => {
     const htmlContent = `
@@ -111,7 +105,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kontakty zespołu - ${new Date().toLocaleDateString('pl-PL')}</title>
+  <title>Kontakty prywatne - ${new Date().toLocaleDateString('pl-PL')}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     h1 { color: #333; }
@@ -120,25 +114,22 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     th { background-color: #4CAF50; color: white; }
     tr:nth-child(even) { background-color: #f2f2f2; }
     tr:hover { background-color: #ddd; }
-    .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-    .client { background: #e3f2fd; color: #1976d2; }
-    .partner { background: #e8f5e9; color: #388e3c; }
-    .specjalista { background: #f3e5f5; color: #7b1fa2; }
   </style>
 </head>
 <body>
-  <h1>Kontakty zespołu</h1>
+  <h1>Kontakty prywatne</h1>
   <p>Wygenerowano: ${new Date().toLocaleString('pl-PL')}</p>
   <p>Liczba kontaktów: ${contacts.length}</p>
   <table>
     <thead>
       <tr>
         <th>Imię i nazwisko</th>
-        <th>EQID</th>
-        <th>Rola</th>
-        <th>Status</th>
+        <th>Status relacji</th>
         <th>Telefon</th>
         <th>Email</th>
+        <th>Źródło</th>
+        <th>Produkty</th>
+        <th>Przypomnienie</th>
         ${includeNotes ? '<th>Notatki</th>' : ''}
       </tr>
     </thead>
@@ -146,11 +137,12 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       ${contacts.map(c => `
         <tr>
           <td>${c.first_name} ${c.last_name}</td>
-          <td>${c.eq_id || '-'}</td>
-          <td><span class="badge ${c.role}">${getRoleLabel(c.role)}</span></td>
-          <td>${c.relationship_status || '-'}</td>
+          <td>${getRelationshipLabel(c.relationship_status)}</td>
           <td>${c.phone_number || '-'}</td>
           <td>${c.email || '-'}</td>
+          <td>${c.contact_source || '-'}</td>
+          <td>${c.products || '-'}</td>
+          <td>${formatDateTime(c.reminder_date) || '-'}</td>
           ${includeNotes ? `<td>${c.notes || '-'}</td>` : ''}
         </tr>
       `).join('')}
@@ -163,7 +155,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kontakty-zespolu-${new Date().toISOString().split('T')[0]}.html`;
+    a.download = `${fileName}.html`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -172,10 +164,9 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       description: `Wyeksportowano ${contacts.length} kontaktów do HTML`,
     });
     onClose();
-  }, [contacts, includeNotes, getRoleLabel, toast, onClose]);
+  }, [contacts, includeNotes, fileName, toast, onClose]);
 
   const handleExportDocx = useCallback(() => {
-    // Simple DOCX-like content (actually HTML that Word can open)
     const docContent = `
 <html xmlns:o="urn:schemas-microsoft-com:office:office" 
       xmlns:w="urn:schemas-microsoft-com:office:word" 
@@ -191,7 +182,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
   </style>
 </head>
 <body>
-  <h1>Kontakty zespołu</h1>
+  <h1>Kontakty prywatne</h1>
   <p><strong>Data:</strong> ${new Date().toLocaleString('pl-PL')}</p>
   <p><strong>Liczba kontaktów:</strong> ${contacts.length}</p>
   <br/>
@@ -199,21 +190,25 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     <tr>
       <th>Imię</th>
       <th>Nazwisko</th>
-      <th>EQID</th>
-      <th>Rola</th>
-      <th>Status</th>
+      <th>Status relacji</th>
       <th>Telefon</th>
       <th>Email</th>
+      <th>Źródło</th>
+      <th>Produkty</th>
+      <th>Przypomnienie</th>
+      ${includeNotes ? '<th>Notatki</th>' : ''}
     </tr>
     ${contacts.map(c => `
       <tr>
         <td>${c.first_name}</td>
         <td>${c.last_name}</td>
-        <td>${c.eq_id || '-'}</td>
-        <td>${getRoleLabel(c.role)}</td>
-        <td>${c.relationship_status || '-'}</td>
+        <td>${getRelationshipLabel(c.relationship_status)}</td>
         <td>${c.phone_number || '-'}</td>
         <td>${c.email || '-'}</td>
+        <td>${c.contact_source || '-'}</td>
+        <td>${c.products || '-'}</td>
+        <td>${formatDateTime(c.reminder_date) || '-'}</td>
+        ${includeNotes ? `<td>${c.notes || '-'}</td>` : ''}
       </tr>
     `).join('')}
   </table>
@@ -224,7 +219,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `kontakty-zespolu-${new Date().toISOString().split('T')[0]}.doc`;
+    a.download = `${fileName}.doc`;
     a.click();
     URL.revokeObjectURL(url);
 
@@ -233,7 +228,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       description: `Wyeksportowano ${contacts.length} kontaktów do Word`,
     });
     onClose();
-  }, [contacts, getRoleLabel, toast, onClose]);
+  }, [contacts, includeNotes, fileName, toast, onClose]);
 
   const handleExport = useCallback(() => {
     if (contacts.length === 0) {
@@ -246,15 +241,9 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     }
 
     switch (exportFormat) {
-      case 'xlsx':
-        handleExportExcel();
-        break;
-      case 'html':
-        handleExportHtml();
-        break;
-      case 'docx':
-        handleExportDocx();
-        break;
+      case 'xlsx': handleExportExcel(); break;
+      case 'html': handleExportHtml(); break;
+      case 'docx': handleExportDocx(); break;
     }
   }, [contacts.length, exportFormat, handleExportExcel, handleExportHtml, handleExportDocx, toast]);
 
@@ -280,7 +269,6 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
           Eksportuj {contacts.length} kontaktów do wybranego formatu.
         </p>
 
-        {/* Format selection */}
         <div className="space-y-3">
           <Label className="text-sm font-medium">Format eksportu</Label>
           <div className="grid grid-cols-3 gap-3">
