@@ -1,38 +1,29 @@
 
-# Formularz kontaktu prywatnego — jedna kolumna + nowe pola
 
-## Zmiany
+# Zmiany w formularzu kontaktu prywatnego
 
-### 1. Migracja DB — dodanie dwóch kolumn do `team_contacts`
-- `contact_source TEXT` — skąd jest kontakt (Facebook, Instagram, basen, zawody, itp.)
-- `contact_reason TEXT` — dlaczego chcesz się odezwać do tej osoby
+## 1. Złota ikonka kalendarza na polach daty
+Pola `type="date"` (added_at, next_contact_date, reminder_date) mają natywną ikonkę kalendarza, która jest słabo widoczna na ciemnym tle. Rozwiązanie: dodanie CSS stylów do tych inputów, aby ikonka kalendarza była złota. Użyję klasy Tailwind z custom CSS (`[&::-webkit-calendar-picker-indicator]`) aby nadać filtr koloru złotego na ikonkę.
 
-### 2. Przebudowa `PrivateContactForm.tsx`
-Usunięcie zakładek (Tabs). Wszystkie pola w jednej kolumnie, scrollowalne w dialogu:
-
+Klasa do dodania na każdym `Input type="date"`:
 ```
-Imię *              Nazwisko *
-Telefon             Email
-Zawód               Status relacji
-Adres
-Skąd jest kontakt (np. Facebook, Instagram, basen, zawody)
-Zainteresowanie produktami
-Dlaczego chcesz się odezwać (textarea)
-Notatki z rozmów (textarea)
-Data pierwszego kontaktu
-Data kolejnego kontaktu
-Data przypomnienia
-Treść przypomnienia (textarea)
-[Anuluj] [Dodaj kontakt]
+className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
 ```
 
-Pary Imię/Nazwisko, Telefon/Email, Zawód/Status — w `grid-cols-2`. Reszta pól w jednej kolumnie. Sekcje oddzielone separatorami z nagłówkami.
+## 2. Nowe opcje statusu relacji
+Zamiana SelectItem w sekcji "Status relacji":
+- `observation` → "Czynny obserwujący"
+- `potential_client` → "Potencjalny klient"  
+- `potential_partner` → "Potencjalny partner"
+- `closed_success` → "Zamknięty - sukces dołączył"
+- `closed_not_now` → "Zamknięty - nie teraz"
 
-### 3. Aktualizacja typów
-Dodanie `contact_source` i `contact_reason` do `TeamContact` w `types.ts`.
+Usunięcie: "Klient" (active), "Potencjalny specjalista". Dodanie: "Potencjalny klient". Aktualizacja domyślnej wartości na `observation`. Aktualizacja typu w `types.ts`.
+
+## 3. Zamiana kolejności pól
+Przenieść "Dlaczego chcesz się odezwać" (contact_reason) **powyżej** "Zainteresowanie produktami" (products). Obecna kolejność: source → products → reason. Nowa: source → reason → products.
 
 ## Pliki do zmiany
-- **Nowa migracja SQL** — `ALTER TABLE team_contacts ADD COLUMN contact_source TEXT, ADD COLUMN contact_reason TEXT`
-- **`src/components/team-contacts/PrivateContactForm.tsx`** — usunięcie Tabs, layout jednokolumnowy, dwa nowe pola
-- **`src/components/team-contacts/types.ts`** — dodanie `contact_source` i `contact_reason`
-- **`src/integrations/supabase/types.ts`** — auto-update po migracji
+- `src/components/team-contacts/PrivateContactForm.tsx` — wszystkie 3 zmiany
+- `src/components/team-contacts/types.ts` — aktualizacja `relationship_status` enum (dodanie `potential_client`, usunięcie `active`, `potential_specialist`, `suspended`)
+
