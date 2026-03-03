@@ -214,7 +214,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.added_at}
           onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
-          className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
         />
       </div>
 
@@ -228,7 +227,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.next_contact_date}
           onChange={(e) => setFormData({ ...formData, next_contact_date: e.target.value })}
-          className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
         />
       </div>
 
@@ -239,7 +237,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.reminder_date}
           onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
-          className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
         />
       </div>
 
