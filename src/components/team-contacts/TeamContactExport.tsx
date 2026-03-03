@@ -53,33 +53,50 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     checkExportPermission();
   }, []);
 
-  const buildExcelRow = useCallback((c: TeamContact) => ({
-    'Imię': c.first_name,
-    'Nazwisko': c.last_name,
-    'Status relacji': getRelationshipLabel(c.relationship_status),
-    'Telefon': c.phone_number || '',
-    'Email': c.email || '',
-    'Adres': c.address || '',
-    'Zawód': c.profession || '',
-    'Źródło kontaktu': c.contact_source || '',
-    'Powód kontaktu': c.contact_reason || '',
-    'Produkty': c.products || '',
-    'Data przypomnienia': formatDateTime(c.reminder_date),
-    'Data dodania': formatDate(c.added_at),
-    ...(includeNotes ? { 'Notatki': c.notes || '' } : {}),
-  }), [includeNotes]);
-
   const fileName = `kontakty-prywatne-${new Date().toISOString().split('T')[0]}`;
+
+  const buildStyledHtmlTable = useCallback(() => {
+    const headers = [
+      'Imię', 'Nazwisko', 'Status relacji', 'Telefon', 'Email', 'Adres', 'Zawód',
+      'Źródło kontaktu', 'Powód kontaktu', 'Produkty', 'Data przypomnienia', 'Data dodania',
+      ...(includeNotes ? ['Notatki'] : []),
+    ];
+    const rows = contacts.map((c, i) => {
+      const bgColor = i % 2 === 0 ? '#ffffff' : '#f2f2f2';
+      const cells = [
+        c.first_name, c.last_name, getRelationshipLabel(c.relationship_status),
+        c.phone_number || '-', c.email || '-', c.address || '-', c.profession || '-',
+        c.contact_source || '-', c.contact_reason || '-', c.products || '-',
+        formatDateTime(c.reminder_date) || '-', formatDate(c.added_at) || '-',
+        ...(includeNotes ? [c.notes || '-'] : []),
+      ];
+      return `<tr>${cells.map(v => `<td style="border:1px solid #ddd;padding:8px;background:${bgColor}">${v}</td>`).join('')}</tr>`;
+    });
+    return `<table style="border-collapse:collapse;width:100%">
+      <thead><tr>${headers.map(h => `<th style="border:1px solid #ddd;padding:8px;background:#4CAF50;color:white;font-weight:bold">${h}</th>`).join('')}</tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+  }, [contacts, includeNotes]);
 
   const handleExportExcel = useCallback(async () => {
     setExporting(true);
     try {
-      const XLSX = await import('xlsx');
-      const exportData = contacts.map(buildExcelRow);
-      const ws = XLSX.utils.json_to_sheet(exportData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Kontakty');
-      XLSX.writeFile(wb, `${fileName}.xlsx`);
+      const htmlContent = `
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8">
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Kontakty</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+</head><body>${buildStyledHtmlTable()}</body></html>`;
+
+      const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}.xls`;
+      a.click();
+      URL.revokeObjectURL(url);
 
       toast({
         title: 'Eksport zakończony',
@@ -96,7 +113,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
     } finally {
       setExporting(false);
     }
-  }, [contacts, buildExcelRow, fileName, toast, onClose]);
+  }, [contacts, buildStyledHtmlTable, fileName, toast, onClose]);
 
   const handleExportHtml = useCallback(() => {
     const htmlContent = `
@@ -173,7 +190,9 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
       xmlns="http://www.w3.org/TR/REC-html40">
 <head>
   <meta charset="UTF-8">
+  <!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:SpellingState>Clean</w:SpellingState><w:GrammarState>Clean</w:GrammarState></w:WordDocument></xml><![endif]-->
   <style>
+    @page { size: landscape; margin: 1cm; }
     body { font-family: Calibri, sans-serif; }
     h1 { color: #2E7D32; }
     table { width: 100%; border-collapse: collapse; }
@@ -282,7 +301,7 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
               }`}
             >
               <FileSpreadsheet className="w-6 h-6 text-green-600" />
-              <span className="text-sm font-medium">Excel (.xlsx)</span>
+              <span className="text-sm font-medium">Excel (.xls)</span>
             </button>
             <button
               type="button"
