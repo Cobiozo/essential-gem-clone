@@ -1,0 +1,1 @@
+ALTER TABLE public.team_contacts ADD COLUMN contact_source TEXT, ADD COLUMN contact_reason TEXT;
