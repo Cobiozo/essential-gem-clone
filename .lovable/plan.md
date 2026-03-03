@@ -1,50 +1,45 @@
 
-Naprawiam to konkretnie pod Twój przypadek (`dd.mm.rrrr` + klikalna ikonka jest, ale jej nie widać).
 
-## Diagnoza (dlaczego poprzednia poprawka nie zadziałała)
-1. Styl złotej ikonki został dodany do `src/App.css`, ale ten plik nie jest nigdzie importowany (`main.tsx` ładuje tylko `index.css`).
-2. W `src/index.css` już istnieje reguła dla dark mode:
-   - `.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }`
-   która i tak nadpisuje kolor na biały/ciemny wariant, zamiast złotego.
+# Zmiany w kontaktach prywatnych
 
-## Plan wdrożenia
-1. Przenieść/ustawić docelowe style ikonki daty w `src/index.css` (jedyne miejsce globalnych stylów).
-2. Zastąpić istniejącą regułę dark-mode dla date/time tak, aby dla `input[type="date"]` wymuszała:
-   - `opacity: 1`
-   - złoty filtr `filter: ... !important`
-   - `cursor: pointer`
-3. Dodać poprawkę widoczności i klikalności:
-   - `padding-right` dla `input[type="date"]`, żeby ikonka miała miejsce i nie zlewała się z tekstem daty.
-4. Usunąć martwy kod z `App.css` (lub zostawić, ale rekomendowane usunięcie, żeby nie mylił w przyszłości).
+## 1. Usunięcie EQID z widoku kontaktów prywatnych
 
-## Techniczne szczegóły (co dokładnie zmienię)
-Plik: `src/index.css`  
-Sekcja: globalne utility/base dla date inputów
+Kontakty prywatne nie mają EQID (to osoby spoza systemu). Trzeba usunąć wyświetlanie "EQID: -" w obu widokach:
 
-- Zmiana istniejącej reguły:
-```css
-.dark input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-```
-na docelową złotą z wymuszeniem widoczności:
-```css
-.dark input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 1;
-  filter: brightness(0) saturate(100%) invert(74%) sepia(43%) saturate(884%) hue-rotate(8deg) brightness(95%) contrast(89%) !important;
-  cursor: pointer;
-}
-```
+**TeamContactAccordion.tsx** (linia 195-197): Usunąć linię `EQID: {contact.eq_id || '-'}` ale tylko gdy `contactType === 'private'`.
 
-- Dodatkowo:
-```css
-input[type="date"] {
-  padding-right: 2.5rem;
-}
-```
+**TeamContactsTable.tsx** (linia 131): Usunąć kolumnę EQID dla kontaktów prywatnych (podobnie jak ukrywanie kolumny Status dla team_member).
 
-## Kryteria akceptacji
-1. W formularzu „Dodaj kontakt prywatny” przy polach daty ikonka jest wyraźnie widoczna (złota), nie „zniknięta”.
-2. Ikonka pozostaje klikalna i otwiera natywny selektor daty.
-3. Działa na wszystkich polach typu date w aplikacji (globalnie), zgodnie z Twoim wymaganiem „wszędzie”.
+## 2. Przy imieniu i nazwisku tylko status relacji (bez roli "Klient")
+
+Na screenshocie widać: **"katarzyna Snopek test `Klient` `Obserwacja`"** -- ma byc tylko status, bez badge "Klient".
+
+**TeamContactAccordion.tsx** (linia 192): Warunkowe ukrycie `getRoleBadge()` dla kontaktów prywatnych. Kontakty prywatne mają zawsze rolę `client`, więc badge "Klient" jest zbędny. Pokazywać tylko `getStatusBadge()`.
+
+**TeamContactsTable.tsx**: Analogicznie -- ukryć kolumnę "Rola" dla kontaktów prywatnych, zostawić tylko Status.
+
+Dodatkowo: ujednolicić etykiety statusów w `TeamContactAccordion` i `TeamContactFilters` z nowymi wartościami:
+- `observation` → "Czynny obserwujący" (nie "Obserwacja")
+- Dodać `potential_client` → "Potencjalny klient"
+- Usunąć stare wartości (`active`, `potential_specialist`, `suspended`)
+
+## 3. Podział kontaktów prywatnych na "Z zaproszeń" i "Własna lista"
+
+Rozróżnienie oparte na istnieniu rekordu w `guest_event_registrations` powiązanego przez `team_contact_id`.
+
+**Podejście**: W `TeamContactsTab.tsx` podzielić zakładkę "Kontakty prywatne" na dwa podzakładki (nested Tabs):
+- **Własna lista** -- kontakty prywatne, które NIE mają żadnych rekordów w `guest_event_registrations`
+- **Z zaproszeń na wydarzenia** -- kontakty prywatne, które MAJĄ co najmniej 1 rekord w `guest_event_registrations`
+
+**Implementacja**:
+1. W `useTeamContacts.ts` dodać pobieranie listy `contact_id` z `guest_event_registrations` (jednorazowe zapytanie `SELECT DISTINCT team_contact_id FROM guest_event_registrations WHERE team_contact_id IS NOT NULL`).
+2. Przekazać tę listę do komponentów wyświetlających -- filtrować kontakty na dwie grupy.
+3. Alternatywnie: dodać podzakładki w `TeamContactsTab.tsx` sekcji "private" z filtrowaniem po stronie frontendu.
+
+**Pliki do zmiany**:
+- `src/components/team-contacts/TeamContactAccordion.tsx` -- ukrycie EQID i roli dla prywatnych, aktualizacja statusów
+- `src/components/team-contacts/TeamContactsTable.tsx` -- ukrycie EQID i roli dla prywatnych
+- `src/components/team-contacts/TeamContactFilters.tsx` -- aktualizacja opcji filtrów statusu
+- `src/components/team-contacts/TeamContactsTab.tsx` -- dodanie podzakładek "Własna lista" / "Z zaproszeń"
+- `src/hooks/useTeamContacts.ts` -- dodanie pobierania ID kontaktów z rejestracji wydarzeń
+
