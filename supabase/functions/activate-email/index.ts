@@ -24,8 +24,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!userId) {
       console.error("[activate-email] Missing user_id parameter");
-      const origin = "https://xzlhssqqbajqhnsmbucf.lovableproject.com";
-      return Response.redirect(`${origin}/auth?error=invalid_link`, 302);
+      return Response.redirect(`https://purelife.info.pl/auth?error=invalid_link`, 302);
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -56,13 +55,11 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Fallback: redirect to auth page with success
-    const origin = "https://xzlhssqqbajqhnsmbucf.lovableproject.com";
-    return Response.redirect(`${origin}/auth?activated=true`, 302);
+    return Response.redirect(`https://purelife.info.pl/auth?activated=true`, 302);
 
   } catch (error: any) {
     console.error("[activate-email] Error:", error);
-    const origin = "https://xzlhssqqbajqhnsmbucf.lovableproject.com";
-    return Response.redirect(`${origin}/auth?error=activation_failed`, 302);
+    return Response.redirect(`https://purelife.info.pl/auth?error=activation_failed`, 302);
   }
 };
 

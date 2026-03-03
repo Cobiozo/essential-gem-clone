@@ -140,16 +140,36 @@ async function sendSmtpEmail(
     // DATA
     await sendCommand('DATA');
 
-    // Email content with proper headers
+    // Email content with proper headers (multipart/alternative for better deliverability)
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '');
+    
     const emailContent = [
-      `From: ${settings.from_name} <${settings.from_email}>`,
+      `From: "${settings.from_name}" <${settings.from_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `Return-Path: <${settings.from_email}>`,
+      `Reply-To: <${settings.from_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
       'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      base64Encode(plainText),
+      '',
+      `--${boundary}`,
       'Content-Type: text/html; charset=UTF-8',
       'Content-Transfer-Encoding: base64',
       '',
       base64Encode(htmlBody),
+      '',
+      `--${boundary}--`,
       '.',
     ].join('\r\n');
 
@@ -260,7 +280,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate activation token using Supabase Auth
     let activationLink = '';
-    const baseOrigin = req.headers.get("origin") || "https://xzlhssqqbajqhnsmbucf.lovableproject.com";
+    const baseOrigin = "https://purelife.info.pl";
     
     // The redirect URL will go through our activate-email function first to set email_activated=true
     // Then Supabase will redirect to /auth?activated=true
