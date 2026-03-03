@@ -99,11 +99,10 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
               <SelectItem value="all">Wszystkie statusy</SelectItem>
               {contactType === 'private' ? (
                 <>
-                  <SelectItem value="observation">Obserwacja</SelectItem>
-                  <SelectItem value="active">Klient</SelectItem>
+                  <SelectItem value="observation">Czynny obserwujący</SelectItem>
+                  <SelectItem value="potential_client">Potencjalny klient</SelectItem>
                   <SelectItem value="potential_partner">Potencjalny partner</SelectItem>
-                  <SelectItem value="potential_specialist">Potencjalny specjalista</SelectItem>
-                  <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
+                  <SelectItem value="closed_success">Zamknięty - sukces dołączył</SelectItem>
                   <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
                 </>
               ) : (

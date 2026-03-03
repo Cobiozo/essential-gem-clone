@@ -9,6 +9,7 @@ export const useTeamContacts = () => {
   const { toast } = useToast();
   const [contacts, setContacts] = useState<TeamContact[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventContactIds, setEventContactIds] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
     status: '',
@@ -235,9 +236,28 @@ export const useTeamContacts = () => {
     }
   };
 
+  // Fetch contact IDs that have event registrations
+  const fetchEventContactIds = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('guest_event_registrations')
+        .select('team_contact_id')
+        .eq('invited_by_user_id', user.id)
+        .not('team_contact_id', 'is', null);
+      
+      if (error) throw error;
+      const ids = new Set((data || []).map((r: any) => r.team_contact_id as string));
+      setEventContactIds(ids);
+    } catch (error) {
+      console.error('Error fetching event contact IDs:', error);
+    }
+  }, [user]);
+
   useEffect(() => {
     fetchContacts();
-  }, [fetchContacts]);
+    fetchEventContactIds();
+  }, [fetchContacts, fetchEventContactIds]);
 
   return {
     contacts,
@@ -249,5 +269,6 @@ export const useTeamContacts = () => {
     deleteContact,
     getContactHistory,
     refetch: fetchContacts,
+    eventContactIds,
   };
 };

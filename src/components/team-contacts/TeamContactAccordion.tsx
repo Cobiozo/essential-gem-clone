@@ -82,20 +82,18 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
       return null;
     }
     
-    const statusLabels: Record<string, { labelKey: string; className: string }> = {
-      active: { labelKey: 'teamContacts.status.active', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
-      observation: { labelKey: 'teamContacts.status.observation', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
-      potential_partner: { labelKey: 'teamContacts.status.potentialPartner', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
-      potential_specialist: { labelKey: 'teamContacts.status.potentialSpecialist', className: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200' },
-      suspended: { labelKey: 'teamContacts.status.suspended', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' },
-      closed_success: { labelKey: 'teamContacts.status.closedSuccess', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
-      closed_not_now: { labelKey: 'teamContacts.status.closedNotNow', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
+    const statusLabels: Record<string, { label: string; className: string }> = {
+      observation: { label: 'Czynny obserwujący', className: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' },
+      potential_client: { label: 'Potencjalny klient', className: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
+      potential_partner: { label: 'Potencjalny partner', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' },
+      closed_success: { label: 'Zamknięty - sukces dołączył', className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200' },
+      closed_not_now: { label: 'Zamknięty - nie teraz', className: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200' },
     };
     
     if (contact.relationship_status) {
       const status = statusLabels[contact.relationship_status];
       if (status) {
-        return <Badge className={status.className}>{t(status.labelKey)}</Badge>;
+        return <Badge className={status.className}>{status.label}</Badge>;
       }
     }
     return null;
@@ -189,12 +187,14 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       <h3 className="font-semibold text-foreground truncate">
                         {contact.first_name} {contact.last_name}
                       </h3>
-                      {getRoleBadge(contact.role)}
+                      {contactType !== 'private' && getRoleBadge(contact.role)}
                       {getStatusBadge(contact, contactType === 'team_member')}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
-                    </p>
+                    {contactType !== 'private' && (
+                      <p className="text-sm text-muted-foreground">
+                        EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
 
