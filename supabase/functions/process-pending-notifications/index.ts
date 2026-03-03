@@ -980,14 +980,9 @@ serve(async (req) => {
     }
 
     // ===== 8b. CONTACT REMINDERS (team_contacts reminder_date) =====
-    // Only process between 10:00-15:00 CET (Europe/Warsaw)
-    const nowWarsaw = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
-    const warsawHour = new Date(nowWarsaw).getHours();
-    
-    if (warsawHour < 10 || warsawHour >= 15) {
-      console.log(`[CRON] Contact reminders skipped: outside 10:00-15:00 CET window (current Warsaw hour: ${warsawHour}:00)`);
-    } else if (!isTimeoutApproaching()) {
-      console.log("[CRON] Step 8b: Processing contact reminders (within 10:00-15:00 CET window)...");
+    // Reminders fire when reminder_date <= NOW() — the user picks the exact date+time in the form
+    if (!isTimeoutApproaching()) {
+      console.log("[CRON] Step 8b: Processing contact reminders...");
 
       const { data: dueReminders, error: remindersFetchError } = await supabase
         .from("team_contacts")
