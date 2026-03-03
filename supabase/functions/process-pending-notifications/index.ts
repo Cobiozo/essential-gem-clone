@@ -84,6 +84,7 @@ serve(async (req) => {
     webinarReminders1h: { processed: 0, success: 0, failed: 0 },
     webinarReminders15min: { processed: 0, success: 0, failed: 0 },
     pushReminders: { processed: 0, success: 0, failed: 0 },
+    contactReminders: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
@@ -978,9 +979,133 @@ serve(async (req) => {
       }
     }
 
+    // ===== 8b. CONTACT REMINDERS (team_contacts reminder_date) =====
+    if (!isTimeoutApproaching()) {
+      console.log("[CRON] Step 8b: Processing contact reminders...");
+
+      const { data: dueReminders, error: remindersFetchError } = await supabase
+        .from("team_contacts")
+        .select("id, user_id, first_name, last_name, reminder_note, reminder_date")
+        .lte("reminder_date", new Date().toISOString())
+        .eq("is_active", true)
+        .not("reminder_date", "is", null)
+        .or("reminder_sent.eq.false,reminder_sent.is.null");
+
+      if (remindersFetchError) {
+        console.error("[CRON] Error fetching contact reminders:", remindersFetchError);
+      } else if (dueReminders && dueReminders.length > 0) {
+        console.log(`[CRON] Found ${dueReminders.length} contact reminders due`);
+
+        // Fetch contact_reminder event type id for email
+        const { data: contactReminderEventType } = await supabase
+          .from("notification_event_types")
+          .select("id")
+          .eq("event_key", "contact_reminder")
+          .maybeSingle();
+
+        for (const contact of dueReminders) {
+          if (isTimeoutApproaching()) {
+            results.stoppedEarly = true;
+            break;
+          }
+
+          if (results.contactReminders.processed > 0) {
+            await delay(1000);
+          }
+
+          results.contactReminders.processed++;
+
+          const contactName = `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || 'Kontakt';
+          const message = contact.reminder_note
+            ? `${contactName}: ${contact.reminder_note}`
+            : `Zaplanowane przypomnienie o kontakcie ${contactName}`;
+
+          const reminderDateFormatted = contact.reminder_date
+            ? new Date(contact.reminder_date).toLocaleString('pl-PL', {
+                timeZone: 'Europe/Warsaw',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              }) + ' (Warsaw)'
+            : '';
+
+          try {
+            // 1. In-app notification
+            await supabase.from("user_notifications").insert({
+              user_id: contact.user_id,
+              notification_type: "reminder",
+              source_module: "team_contacts",
+              title: "Przypomnienie o kontakcie",
+              message,
+              link: "/my-account?tab=team-contacts",
+              metadata: {
+                contact_id: contact.id,
+                contact_name: contactName,
+                reminder_date: contact.reminder_date,
+              },
+            });
+
+            // 2. Web Push (best effort)
+            try {
+              await supabase.functions.invoke("send-push-notification", {
+                body: {
+                  userId: contact.user_id,
+                  title: "Przypomnienie o kontakcie",
+                  body: message,
+                  url: "/my-account?tab=team-contacts",
+                  tag: `contact-reminder-${contact.id}`,
+                },
+              });
+              console.log(`[CRON] Push sent for contact reminder: ${contactName}`);
+            } catch (pushErr) {
+              console.warn("[CRON] Push failed for contact reminder (non-blocking):", pushErr);
+            }
+
+            // 3. Email via send-notification-email (if event type exists)
+            if (contactReminderEventType?.id) {
+              try {
+                await supabase.functions.invoke("send-notification-email", {
+                  body: {
+                    event_type_id: contactReminderEventType.id,
+                    recipient_user_id: contact.user_id,
+                    payload: {
+                      kontakt: contactName,
+                      notatka: contact.reminder_note || '',
+                      data_przypomnienia: reminderDateFormatted,
+                      message,
+                      link: "/my-account?tab=team-contacts",
+                    },
+                  },
+                });
+                console.log(`[CRON] Email sent for contact reminder: ${contactName}`);
+              } catch (emailErr) {
+                console.warn("[CRON] Email failed for contact reminder (non-blocking):", emailErr);
+              }
+            }
+
+            // 4. Mark as sent
+            await supabase
+              .from("team_contacts")
+              .update({ reminder_sent: true })
+              .eq("id", contact.id);
+
+            results.contactReminders.success++;
+            console.log(`[CRON] Contact reminder processed for: ${contactName}`);
+          } catch (err) {
+            console.error(`[CRON] Exception processing contact reminder for ${contactName}:`, err);
+            results.contactReminders.failed++;
+          }
+        }
+      } else {
+        console.log("[CRON] No contact reminders due");
+      }
+    }
+
     // 9. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success;
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success;
     
     await supabase
       .from("cron_job_logs")
