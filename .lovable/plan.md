@@ -1,26 +1,38 @@
 
+# Formularz kontaktu prywatnego — jedna kolumna + nowe pola
 
-# Sortowanie kafelków modułów szkoleniowych wg unlock_order
+## Zmiany
 
-## Problem
-Kafelki modułów wyświetlają się w kolejności z bazy danych (wg `id`/czasu dodania), a nie wg `unlock_order`. Na screenshocie widać, że moduł nr 1 (SZYBKI START) jest na środku, a nr 2 (BIZNESOWE) po lewej.
+### 1. Migracja DB — dodanie dwóch kolumn do `team_contacts`
+- `contact_source TEXT` — skąd jest kontakt (Facebook, Instagram, basen, zawody, itp.)
+- `contact_reason TEXT` — dlaczego chcesz się odezwać do tej osoby
 
-## Naprawa
-Jedna zmiana w `src/pages/Training.tsx` — posortowanie `filteredModules` po `unlock_order` przed renderowaniem w gridzie. Moduły bez `unlock_order` trafią na koniec.
+### 2. Przebudowa `PrivateContactForm.tsx`
+Usunięcie zakładek (Tabs). Wszystkie pola w jednej kolumnie, scrollowalne w dialogu:
 
-**Zmiana w `filteredModules` (useMemo, linia ~122-127):**
-```ts
-const filteredModules = useMemo(() => {
-  const filtered = !viewLanguage 
-    ? modulesWithLockState 
-    : modulesWithLockState.filter(m => !m.language_code || m.language_code === viewLanguage);
-  
-  return filtered.sort((a, b) => (a.unlock_order || 999) - (b.unlock_order || 999));
-}, [modulesWithLockState, viewLanguage]);
+```
+Imię *              Nazwisko *
+Telefon             Email
+Zawód               Status relacji
+Adres
+Skąd jest kontakt (np. Facebook, Instagram, basen, zawody)
+Zainteresowanie produktami
+Dlaczego chcesz się odezwać (textarea)
+Notatki z rozmów (textarea)
+Data pierwszego kontaktu
+Data kolejnego kontaktu
+Data przypomnienia
+Treść przypomnienia (textarea)
+[Anuluj] [Dodaj kontakt]
 ```
 
-Grid CSS (`md:grid-cols-2 lg:grid-cols-3`) już jest poprawny — renderuje od lewej do prawej, z góry na dół. Wystarczy posortować dane.
+Pary Imię/Nazwisko, Telefon/Email, Zawód/Status — w `grid-cols-2`. Reszta pól w jednej kolumnie. Sekcje oddzielone separatorami z nagłówkami.
 
-## Plik do zmiany
-- `src/pages/Training.tsx` — dodanie `.sort()` w `filteredModules`
+### 3. Aktualizacja typów
+Dodanie `contact_source` i `contact_reason` do `TeamContact` w `types.ts`.
 
+## Pliki do zmiany
+- **Nowa migracja SQL** — `ALTER TABLE team_contacts ADD COLUMN contact_source TEXT, ADD COLUMN contact_reason TEXT`
+- **`src/components/team-contacts/PrivateContactForm.tsx`** — usunięcie Tabs, layout jednokolumnowy, dwa nowe pola
+- **`src/components/team-contacts/types.ts`** — dodanie `contact_source` i `contact_reason`
+- **`src/integrations/supabase/types.ts`** — auto-update po migracji
