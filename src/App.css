@@ -41,8 +41,3 @@
   color: #888;
 }
 
-/* Golden calendar picker icon for date inputs */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: brightness(0) invert(1) sepia(1) saturate(10) hue-rotate(15deg);
-  cursor: pointer;
-}
