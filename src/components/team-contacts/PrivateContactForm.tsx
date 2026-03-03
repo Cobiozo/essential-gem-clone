@@ -139,11 +139,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="observation">Obserwacja</SelectItem>
-              <SelectItem value="active">Klient</SelectItem>
+              <SelectItem value="observation">Czynny obserwujący</SelectItem>
+              <SelectItem value="potential_client">Potencjalny klient</SelectItem>
               <SelectItem value="potential_partner">Potencjalny partner</SelectItem>
-              <SelectItem value="potential_specialist">Potencjalny specjalista</SelectItem>
-              <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
+              <SelectItem value="closed_success">Zamknięty - sukces dołączył</SelectItem>
               <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
             </SelectContent>
           </Select>
@@ -174,16 +173,6 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="products">Zainteresowanie produktami</Label>
-        <Input
-          id="products"
-          value={formData.products}
-          onChange={(e) => setFormData({ ...formData, products: e.target.value })}
-          placeholder="np. Koneser, Life Pack, Omega-3"
-        />
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="contact_reason">Dlaczego chcesz się odezwać</Label>
         <Textarea
           id="contact_reason"
@@ -191,6 +180,16 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           onChange={(e) => setFormData({ ...formData, contact_reason: e.target.value })}
           placeholder="Podaj powód, dla którego ten kontakt jest dla Ciebie ważny..."
           rows={3}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="products">Zainteresowanie produktami</Label>
+        <Input
+          id="products"
+          value={formData.products}
+          onChange={(e) => setFormData({ ...formData, products: e.target.value })}
+          placeholder="np. Koneser, Life Pack, Omega-3"
         />
       </div>
 
@@ -215,6 +214,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.added_at}
           onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
+          className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
         />
       </div>
 
@@ -228,6 +228,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.next_contact_date}
           onChange={(e) => setFormData({ ...formData, next_contact_date: e.target.value })}
+          className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
         />
       </div>
 
@@ -238,6 +239,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.reminder_date}
           onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
+          className="[&::-webkit-calendar-picker-indicator]:brightness-0 [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:sepia [&::-webkit-calendar-picker-indicator]:saturate-[10] [&::-webkit-calendar-picker-indicator]:hue-rotate-[15deg]"
         />
       </div>
 
