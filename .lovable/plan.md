@@ -1,51 +1,27 @@
 
 
-# Analiza i plan naprawy systemu przypomnień kontaktowych
+# Plan: Selektor godziny przypomnienia w kontaktach prywatnych
 
-## Znalezione problemy
+## Koncepcja
 
-### Problem 1: Event type `contact_reminder` jest WYŁĄCZONY
-W bazie: `is_active = false`, `send_email = false`, `email_template_id = NULL`.
+Zamiast sztywnego okna 10:00-15:00 CET, partner sam wybiera datę **i godzinę** przypomnienia. Edge function przetwarza przypomnienia gdy `reminder_date <= NOW()` -- bez ograniczenia godzinowego. Cron i tak odpala się co godzinę, więc przypomnienie przyjdzie z dokładnością do ~1h od wybranej godziny.
 
-Oznacza to, że:
-- **E-mail nigdy się nie wyśle** — `send-notification-email` sprawdza `send_email` i `email_template_id`, oba są puste/false, więc natychmiast zwraca `skipped`
-- Event type jest nieaktywny, co może blokować inne funkcje systemu
+## Zmiany
 
-### Problem 2: Brak ograniczenia godzinowego 10:00-15:00 CET
-Cron `process-pending-notifications` odpala się co godzinę (`0 * * * *`). Sekcja 8b przetwarza przypomnienia **o dowolnej porze** — brak warunku sprawdzającego czy aktualny czas CET mieści się w przedziale 10:00-15:00.
+### 1. Formularz (`PrivateContactForm.tsx`)
+- Zamienić `<Input type="date">` dla `reminder_date` na dwa pola obok siebie: `<Input type="date">` + `<Input type="time">` (np. `09:00`, `14:30`)
+- Przy zapisie łączyć datę i godzinę w pełny timestamp z timezone Warsaw: `2026-03-05T14:30:00+01:00`
+- Przy edycji parsować istniejący `reminder_date` z powrotem na osobne pola daty i czasu
+- Domyślna godzina: `10:00` (jeśli partner nie wybierze)
 
-### Problem 3: Brak szablonu e-mail dla przypomnień kontaktowych
-Nie istnieje szablon e-mail (`email_templates`) powiązany z event type `contact_reminder`, więc nawet po włączeniu `send_email` nie będzie czego wysłać.
+### 2. Edge function (`process-pending-notifications/index.ts`)
+- **Usunąć** warunek okna 10:00-15:00 CET (linie 983-989)
+- Zostawić istniejącą logikę `reminder_date <= NOW()` -- to wystarczy, bo teraz `reminder_date` zawiera konkretną godzinę ustawioną przez partnera
 
----
+### 3. Brak zmian w bazie danych
+- Kolumna `reminder_date` jest typu `timestamptz` -- już obsługuje datę z godziną. Zmiana dotyczy tylko tego, że formularz będzie zapisywał pełny timestamp zamiast samej daty.
 
-## Plan naprawy
-
-### 1. Migracja SQL — aktywacja event type i stworzenie szablonu e-mail
-
-- Utworzyć szablon e-mail w tabeli `email_templates` dla przypomnień kontaktowych (treść po polsku: tytuł kontaktu, notatka, data, link do kontaktów)
-- Zaktualizować `notification_event_types` WHERE `event_key = 'contact_reminder'`:
-  - `is_active = true`
-  - `send_email = true`  
-  - `email_template_id` = ID nowego szablonu
-
-### 2. Dodanie okna czasowego 10:00-15:00 CET w edge function
-
-W sekcji 8b (`process-pending-notifications/index.ts`) dodać na początku warunek:
-
-```typescript
-const nowWarsaw = new Date().toLocaleString("en-US", { timeZone: "Europe/Warsaw" });
-const warsawHour = new Date(nowWarsaw).getHours();
-if (warsawHour < 10 || warsawHour >= 15) {
-  console.log(`[CRON] Contact reminders skipped: outside 10:00-15:00 CET window (current: ${warsawHour}:00)`);
-} else {
-  // ... existing reminder processing logic
-}
-```
-
-### 3. Pliki do zmiany
-- `supabase/functions/process-pending-notifications/index.ts` — dodanie warunku godzinowego w sekcji 8b
-- Migracja SQL — szablon e-mail + aktywacja event type
-
-Żadne zmiany w UI nie są potrzebne.
+## Pliki do zmiany
+- `src/components/team-contacts/PrivateContactForm.tsx` -- dodanie pola godziny, łączenie daty+czasu przy zapisie
+- `supabase/functions/process-pending-notifications/index.ts` -- usunięcie warunku 10-15 CET
 
