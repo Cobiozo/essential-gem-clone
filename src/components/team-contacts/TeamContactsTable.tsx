@@ -51,6 +51,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const isTeamMember = contactType === 'team_member';
+  const isPrivate = contactType === 'private';
 
   const getRoleBadge = (role: string) => {
     switch (role) {
@@ -66,39 +67,22 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   };
 
   const getStatusBadge = (contact: TeamContact) => {
-    // Dla team_member nie pokazuj statusu - tylko rolę
-    if (isTeamMember) {
-      return null;
-    }
+    if (isTeamMember) return null;
     
-    // First check relationship_status
     if (contact.relationship_status) {
-      const statusLabels: Record<string, { labelKey: string; className: string }> = {
-        active: { labelKey: 'teamContacts.active', className: 'bg-green-100 text-green-800' },
-        suspended: { labelKey: 'teamContacts.suspended', className: 'bg-yellow-100 text-yellow-800' },
-        closed_success: { labelKey: 'teamContacts.success', className: 'bg-blue-100 text-blue-800' },
-        closed_not_now: { labelKey: 'teamContacts.notNow', className: 'bg-gray-100 text-gray-800' },
+      const statusLabels: Record<string, { label: string; className: string }> = {
+        observation: { label: 'Czynny obserwujący', className: 'bg-purple-100 text-purple-800' },
+        potential_client: { label: 'Potencjalny klient', className: 'bg-green-100 text-green-800' },
+        potential_partner: { label: 'Potencjalny partner', className: 'bg-blue-100 text-blue-800' },
+        closed_success: { label: 'Zamknięty - sukces dołączył', className: 'bg-emerald-100 text-emerald-800' },
+        closed_not_now: { label: 'Zamknięty - nie teraz', className: 'bg-gray-100 text-gray-800' },
       };
       const status = statusLabels[contact.relationship_status];
       if (status) {
-        return <Badge className={status.className}>{t(status.labelKey)}</Badge>;
+        return <Badge className={status.className}>{status.label}</Badge>;
       }
     }
-    
-    // Fallback to role-specific status
-    if (contact.role === 'client') {
-      return contact.client_status === 'active' ? (
-        <Badge className="bg-green-100 text-green-800">{t('teamContacts.active')}</Badge>
-      ) : contact.client_status === 'inactive' ? (
-        <Badge variant="destructive">{t('teamContacts.inactive')}</Badge>
-      ) : null;
-    } else {
-      return contact.partner_status === 'active' ? (
-        <Badge className="bg-green-100 text-green-800">{t('teamContacts.active')}</Badge>
-      ) : contact.partner_status === 'suspended' ? (
-        <Badge variant="destructive">{t('teamContacts.suspended')}</Badge>
-      ) : null;
-    }
+    return null;
   };
 
   if (loading) {
@@ -128,8 +112,8 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
             <TableRow>
               <TableHead>{t('teamContacts.firstName')}</TableHead>
               <TableHead>{t('teamContacts.lastName')}</TableHead>
-              <TableHead>EQID</TableHead>
-              <TableHead>{t('teamContacts.role')}</TableHead>
+              {!isPrivate && <TableHead>EQID</TableHead>}
+              {!isPrivate && <TableHead>{t('teamContacts.role')}</TableHead>}
               {!isTeamMember && <TableHead>{t('teamContacts.status')}</TableHead>}
               <TableHead>{t('teamContacts.dateAdded')}</TableHead>
               <TableHead className="text-right">{t('teamContacts.actions')}</TableHead>
@@ -140,8 +124,8 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
               <TableRow key={contact.id}>
                 <TableCell className="font-medium">{contact.first_name}</TableCell>
                 <TableCell>{contact.last_name}</TableCell>
-                <TableCell className="font-mono text-sm">{contact.eq_id || '-'}</TableCell>
-                <TableCell>{getRoleBadge(contact.role)}</TableCell>
+                {!isPrivate && <TableCell className="font-mono text-sm">{contact.eq_id || '-'}</TableCell>}
+                {!isPrivate && <TableCell>{getRoleBadge(contact.role)}</TableCell>}
                 {!isTeamMember && <TableCell>{getStatusBadge(contact)}</TableCell>}
                 <TableCell>
                   {new Date(contact.added_at).toLocaleDateString('pl-PL')}

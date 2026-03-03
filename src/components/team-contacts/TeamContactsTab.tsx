@@ -62,7 +62,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
@@ -79,6 +79,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events'>('own');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -193,11 +194,17 @@ export const TeamContactsTab: React.FC = () => {
   };
 
   // Filter contacts by type for display
-  const filteredContacts = contacts.filter(c => {
-    if (activeTab === 'private') return c.contact_type === 'private';
-    if (activeTab === 'team') return c.contact_type === 'team_member';
-    return true;
-  });
+  const privateContacts = contacts.filter(c => c.contact_type === 'private');
+  const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id));
+  const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id));
+  
+  const filteredContacts = (() => {
+    if (activeTab === 'private') {
+      return privateSubTab === 'events' ? eventContacts : ownContacts;
+    }
+    if (activeTab === 'team') return contacts.filter(c => c.contact_type === 'team_member');
+    return contacts;
+  })();
 
   const isTeamMemberTab = activeTab === 'team';
   const isPrivateTab = activeTab === 'private';
@@ -305,6 +312,26 @@ export const TeamContactsTab: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Sub-tabs for private contacts */}
+              <div className="flex items-center gap-2 mb-4">
+                <Button
+                  variant={privateSubTab === 'own' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('own')}
+                >
+                  Własna lista
+                  <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
+                </Button>
+                <Button
+                  variant={privateSubTab === 'events' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('events')}
+                >
+                  Z zaproszeń na wydarzenia
+                  <Badge variant="secondary" className="ml-2">{eventContacts.length}</Badge>
+                </Button>
+              </div>
+
               {showFilters && (
                 <TeamContactFilters
                   filters={filters}
