@@ -88,7 +88,12 @@ export const TeamContactExport: React.FC<TeamContactExportProps> = ({
 <x:Name>Kontakty</x:Name>
 <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
 </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-</head><body>${buildStyledHtmlTable()}</body></html>`;
+</head><body>
+<h1 style="font-family:Calibri,sans-serif;color:#2E7D32;font-size:24px">Kontakty prywatne</h1>
+<p style="font-family:Calibri,sans-serif">Wygenerowano: ${new Date().toLocaleString('pl-PL')}</p>
+<p style="font-family:Calibri,sans-serif">Liczba kontaktów: ${contacts.length}</p>
+<br/>
+${buildStyledHtmlTable()}</body></html>`;
 
       const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
       const url = URL.createObjectURL(blob);
