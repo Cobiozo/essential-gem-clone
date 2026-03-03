@@ -1,25 +1,50 @@
 
+Naprawiam to konkretnie pod Twój przypadek (`dd.mm.rrrr` + klikalna ikonka jest, ale jej nie widać).
 
-# Naprawa złotej ikonki selektora dat
+## Diagnoza (dlaczego poprzednia poprawka nie zadziałała)
+1. Styl złotej ikonki został dodany do `src/App.css`, ale ten plik nie jest nigdzie importowany (`main.tsx` ładuje tylko `index.css`).
+2. W `src/index.css` już istnieje reguła dla dark mode:
+   - `.dark input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }`
+   która i tak nadpisuje kolor na biały/ciemny wariant, zamiast złotego.
 
-## Problem
-Klasy Tailwind `[&::-webkit-calendar-picker-indicator]` z filtrami CSS są dodawane przez `className` prop, ale komponent `Input` używa `cn()` (tailwind-merge), który scala klasy. Problem: te pseudo-element selektory mogą nie działać poprawnie przez Tailwind — filtry `brightness-0 invert sepia saturate hue-rotate` wymagają odpowiedniej kolejności i mogą być usuwane lub źle mergowane.
+## Plan wdrożenia
+1. Przenieść/ustawić docelowe style ikonki daty w `src/index.css` (jedyne miejsce globalnych stylów).
+2. Zastąpić istniejącą regułę dark-mode dla date/time tak, aby dla `input[type="date"]` wymuszała:
+   - `opacity: 1`
+   - złoty filtr `filter: ... !important`
+   - `cursor: pointer`
+3. Dodać poprawkę widoczności i klikalności:
+   - `padding-right` dla `input[type="date"]`, żeby ikonka miała miejsce i nie zlewała się z tekstem daty.
+4. Usunąć martwy kod z `App.css` (lub zostawić, ale rekomendowane usunięcie, żeby nie mylił w przyszłości).
 
-## Rozwiązanie
-Dodać style globalnie w `src/App.css` (lub `index.css`) za pomocą natywnego CSS, który jest pewniejszy niż klasy Tailwind dla pseudo-elementów:
+## Techniczne szczegóły (co dokładnie zmienię)
+Plik: `src/index.css`  
+Sekcja: globalne utility/base dla date inputów
 
+- Zmiana istniejącej reguły:
 ```css
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+```
+na docelową złotą z wymuszeniem widoczności:
+```css
+.dark input[type="date"]::-webkit-calendar-picker-indicator,
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: brightness(0) invert(1) sepia(1) saturate(10) hue-rotate(15deg);
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(74%) sepia(43%) saturate(884%) hue-rotate(8deg) brightness(95%) contrast(89%) !important;
   cursor: pointer;
 }
 ```
 
-To złapie **wszystkie** inputy date w aplikacji — nie trzeba dodawać className na każdym polu osobno. Dodatkowe `cursor: pointer` poprawi UX.
+- Dodatkowo:
+```css
+input[type="date"] {
+  padding-right: 2.5rem;
+}
+```
 
-Opcjonalnie: usunąć zbędne klasy `[&::-webkit-calendar-picker-indicator]` z `PrivateContactForm.tsx` (3 miejsca), bo globalny CSS je zastąpi.
-
-## Pliki do zmiany
-- `src/App.css` — dodanie globalnego stylu dla ikonki kalendarza
-- `src/components/team-contacts/PrivateContactForm.tsx` — opcjonalne usunięcie zduplikowanych klas (cleanup)
-
+## Kryteria akceptacji
+1. W formularzu „Dodaj kontakt prywatny” przy polach daty ikonka jest wyraźnie widoczna (złota), nie „zniknięta”.
+2. Ikonka pozostaje klikalna i otwiera natywny selektor daty.
+3. Działa na wszystkich polach typu date w aplikacji (globalnie), zgodnie z Twoim wymaganiem „wszędzie”.
