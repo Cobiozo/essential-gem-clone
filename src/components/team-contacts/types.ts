@@ -30,7 +30,7 @@ export interface TeamContact {
   contact_upline_last_name: string | null;
   
   // Relationship status
-  relationship_status: 'active' | 'suspended' | 'closed_success' | 'closed_not_now' | 'observation' | 'potential_partner' | 'potential_specialist' | null;
+  relationship_status: 'observation' | 'potential_client' | 'potential_partner' | 'closed_success' | 'closed_not_now' | null;
   
   // Products
   products: string | null;

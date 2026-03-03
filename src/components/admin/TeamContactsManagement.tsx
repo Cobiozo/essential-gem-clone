@@ -328,7 +328,7 @@ export const TeamContactsManagement: React.FC = () => {
     clients: contacts.filter(c => c.role === 'client').length,
     partners: contacts.filter(c => c.role === 'partner').length,
     specialists: contacts.filter(c => c.role === 'specjalista').length,
-    active: contacts.filter(c => c.relationship_status === 'active').length,
+    active: contacts.filter(c => c.relationship_status === 'observation' || c.relationship_status === 'potential_client' || c.relationship_status === 'potential_partner').length,
   };
 
   return (
