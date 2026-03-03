@@ -319,7 +319,7 @@ export const TeamContactsTab: React.FC = () => {
                   size="sm"
                   onClick={() => setPrivateSubTab('own')}
                 >
-                  Własna lista
+                  Moja lista kontaktów
                   <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
                 </Button>
                 <Button
@@ -350,6 +350,7 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   isAdmin={isAdmin}
                   contactType="private"
+                  hideEventInfo={privateSubTab === 'own'}
                 />
               ) : (
                 <TeamContactsTable
@@ -360,6 +361,7 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   isAdmin={isAdmin}
                   contactType="private"
+                  hideEventInfo={privateSubTab === 'own'}
                 />
               )}
             </CardContent>

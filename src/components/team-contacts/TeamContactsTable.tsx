@@ -34,6 +34,7 @@ interface TeamContactsTableProps {
   getContactHistory: (contactId: string) => Promise<TeamContactHistory[]>;
   isAdmin: boolean;
   contactType?: 'private' | 'team_member';
+  hideEventInfo?: boolean;
   readOnly?: boolean;
 }
 
@@ -45,6 +46,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   getContactHistory,
   isAdmin,
   contactType,
+  hideEventInfo = false,
   readOnly = false,
 }) => {
   const { t } = useLanguage();
@@ -132,7 +134,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
-                    {!readOnly && <ContactEventInfoButton contact={contact} />}
+                    {!readOnly && !hideEventInfo && <ContactEventInfoButton contact={contact} />}
                     <Button
                       variant="ghost"
                       size="icon"

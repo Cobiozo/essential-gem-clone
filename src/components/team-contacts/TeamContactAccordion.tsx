@@ -29,6 +29,7 @@ interface TeamContactAccordionProps {
   isAdmin: boolean;
   readOnly?: boolean;
   contactType?: 'private' | 'team_member';
+  hideEventInfo?: boolean;
   onUpdateNotes?: (contactId: string, notes: string) => Promise<void>;
 }
 
@@ -41,6 +42,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   isAdmin,
   readOnly = false,
   contactType,
+  hideEventInfo = false,
   onUpdateNotes,
 }) => {
   const { t } = useLanguage();
@@ -201,7 +203,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                 <div className="flex items-center gap-2">
                   {!readOnly && (
                     <>
-                      <ContactEventInfoButton contact={contact} />
+                      {!hideEventInfo && <ContactEventInfoButton contact={contact} />}
                       <Button
                         variant="ghost"
                         size="icon"
