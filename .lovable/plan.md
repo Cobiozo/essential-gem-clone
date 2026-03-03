@@ -1,71 +1,41 @@
 
 
-# Analiza responsywności Akademii na urządzeniach mobilnych (Android, iOS, Apple)
+# Naprawa brakujących przypisań do modułów szkoleniowych
 
-## Ocena obecnego stanu
+## Diagnoza
 
-Akademia jest **w dużej mierze dobrze przygotowana** na urządzenia mobilne. Oto szczegółowa analiza z wykrytymi problemami wymagającymi poprawek:
+Znalazłem **trzy problemy** blokujące Marikę i wielu innych użytkowników:
 
-## Problemy do naprawienia
+### Problem 1: Brakujące przypisanie do PRODUKTOWE - EQOLOGY (unlock_order: 6)
+Marika ma ukończone moduły 1-5, ale **nie ma przypisania do modułu nr 6** (PRODUKTOWE - EQOLOGY). Bez ukończenia modułu 6, moduł 7 (NIEZBĘDNIK KLIENTA) jest zablokowany przez logikę sekwencyjnego odblokowywania.
 
-### 1. Header w TrainingModule.tsx -- brak responsywności na wąskich ekranach
+**Skala problemu**: **109 użytkowników** nie ma przypisania do PRODUKTOWE - EQOLOGY, w tym **48 partnerów** z językiem PL. Dodatkowe braki: SPRZEDAŻOWE (6), TECHNICZNE S (7), TECHNICZNE K (1).
 
-**Problem**: Nagłówek modułu szkoleniowego (linie 1320-1338) nie ma `flex-wrap` ani ukrywania tekstu na mobile. Na ekranach < 375px przycisk "Powrót do szkoleń" + tytuł modułu mogą się nie mieścić w jednej linii, powodując obcięcie lub overflow.
+**Przyczyna**: Moduł PRODUKTOWE - EQOLOGY został utworzony 2026-02-18. Trigger `assign_training_module_to_users` powinien był przypisać go automatycznie, ale najwyraźniej nie zadziałał poprawnie dla wszystkich użytkowników.
 
-**Naprawa**:
-- Dodanie `flex-wrap` do kontenera nagłówka
-- Ukrycie tekstu "Powrót do szkoleń" na mobile (zostawienie samej ikony strzałki)
-- Zmniejszenie paddingu na mobile (`px-2 sm:px-4`)
-- Dodanie `truncate` na tytule modułu i opisie
+### Problem 2: NIEZBĘDNIK KLIENTA ma `visible_to_partners: false`
+Marika jest partnerem, a moduł NIEZBĘDNIK KLIENTA ma wyłączoną widoczność dla partnerów. Nawet gdyby ukończyła moduł 6, nadal nie zobaczy modułu 7.
 
-### 2. Przyciski nawigacji lekcji -- za małe na dotyk na iOS
+### Problem 3: Trigger przypisania nie obsługuje UPDATE
+Trigger `trigger_assign_new_module` odpala się tylko na INSERT do `training_modules`. Gdy administrator zmieni widoczność modułu (np. włączy `visible_to_partners`), przypisania nie zostaną utworzone automatycznie.
 
-**Problem**: Przyciski "Poprzednia" / "Następna" (linie 1580-1601) nie mają `flex-wrap` i mogą się nakładać na wąskich ekranach. Tekst "X z Y" pomiędzy nimi nie ma minimalnej szerokości.
+## Plan naprawy
 
-**Naprawa**:
-- Dodanie `flex-wrap` do kontenera
-- Na mobile zmiana layoutu na kolumnowy gdy brakuje miejsca
-- Upewnienie się, że przyciski mają odpowiedni `min-height: 44px` (wymaganie iOS)
+### Krok 1: Napraw dane — bulk INSERT brakujących przypisań
+Jednorazowe zapytanie SQL, które doda brakujące przypisania dla WSZYSTKICH użytkowników i WSZYSTKICH modułów, do których powinni mieć dostęp na podstawie swojej roli.
 
-### 3. VideoControls -- kontrolki mogą się przepełniać na iPhone SE (320px)
+### Krok 2: Zmień widoczność NIEZBĘDNIK KLIENTA
+UPDATE `visible_to_partners = true` na module NIEZBĘDNIK KLIENTA (jeśli to zamierzone — z screenshota widać, że admin przypisał ten moduł Marice, więc powinien być widoczny dla partnerów).
 
-**Problem**: Rząd kontrolek wideo (Play, -10s, czas, Napraw, Pomoc, Fullscreen) zawiera wiele elementów. Na iPhone SE (320px) mogą się źle zawijać. Choć `flex-wrap` jest obecne, kolejność zawijania może wyglądać chaotycznie.
-
-**Naprawa**:
-- Grupowanie kontrolek w logiczne sekcje
-- Ukrycie tekstu "-10s" na ekranach < 360px (zostawienie ikony)
-- Przeniesienie przycisku "Pomoc" / "Diagnostyka" do drugiego rzędu na mobile
-
-### 4. SecureVideoControls -- Slider trudny do obsługi na dotyk
-
-**Problem**: Pasek postępu (Slider) w trybie "secure" (ukończone lekcje) może być trudny do precyzyjnego obsługiwania na ekranach dotykowych -- domyślna wysokość 8px jest za mała dla palca.
-
-**Naprawa**:
-- Zwiększenie obszaru dotykowego slidera na urządzeniach mobilnych (min. 44px)
-- Dodanie powiększonego touch target za pomocą pseudo-elementu
-
-### 5. Brak ukrywania Separatora w nagłówku na mobile
-
-**Problem**: `<Separator orientation="vertical" />` w nagłówku TrainingModule jest widoczny na mobile, ale nie dodaje wartości wizualnej gdy elementy się zawijają.
-
-**Naprawa**: Dodanie `hidden sm:block` do Separatora.
-
-## Elementy, które juz dzialaja prawidlowo
-
-- Training.tsx (lista modulow): responsywny grid `md:grid-cols-2 lg:grid-cols-3`, sticky header z `env(safe-area-inset-top)`, `flex-wrap` w nagłówku, ukrywanie tekstów na mobile (`hidden sm:inline`)
-- TrainingModule.tsx: oddzielna lista lekcji mobilna (Collapsible) vs desktopowa, responsywne rozmiary wideo (`max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh]`), responsywne paddingi
-- LessonNotesDialog: poprawny `max-w-md sm:max-w-lg`, responsywna `ScrollArea`
-- Globalne CSS: `touch-action: manipulation`, min. 44px na interaktywne elementy, `-webkit-overflow-scrolling: touch`, `overscroll-behavior: contain`, safe area support
-- PWA: konfiguracja manifest, service worker, install banner
+### Krok 3: Rozszerz trigger o obsługę UPDATE
+Dodanie migracji zmieniającej trigger `trigger_assign_new_module` tak, aby odpalał się również na UPDATE tabeli `training_modules`. Dzięki temu zmiana widoczności modułu automatycznie utworzy brakujące przypisania.
 
 ## Pliki do zmiany
+1. **Migracja SQL** — rozszerzenie triggera o UPDATE + naprawa widoczności NIEZBĘDNIK KLIENTA
+2. **Jednorazowy INSERT** — uzupełnienie brakujących przypisań dla wszystkich użytkowników
 
-1. **`src/pages/TrainingModule.tsx`** -- naprawa nagłówka (flex-wrap, ukrycie tekstu na mobile, truncate), naprawa przycisków nawigacji, separator
-2. **`src/components/training/VideoControls.tsx`** -- lepsza organizacja kontrolek na ekranach < 360px
-3. **`src/components/training/SecureVideoControls.tsx`** -- zwiększony touch target dla slidera
-4. **`src/index.css`** -- opcjonalnie: dodanie utility dla zwiększonego touch targetu na Slider
-
-## Zakres zmian
-
-Zmiany są kosmetyczne i nie wpływają na logikę biznesową. Dotyczą wyłącznie klas CSS i drobnych zmian w strukturze HTML dla lepszego zawijania na wąskich ekranach.
+## Oczekiwany rezultat
+- Marika (i 108 innych) dostanie przypisanie do PRODUKTOWE - EQOLOGY
+- Po ukończeniu PRODUKTOWE - EQOLOGY, NIEZBĘDNIK KLIENTA się odblokuje
+- Przyszłe zmiany widoczności modułów automatycznie utworzą przypisania
 
