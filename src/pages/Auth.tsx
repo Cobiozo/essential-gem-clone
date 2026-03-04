@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { GuardianSearchInput, Guardian } from '@/components/auth/GuardianSearchInput';
 import { PhoneCountryCodePicker } from '@/components/auth/PhoneCountryCodePicker';
 

@@ -102,7 +102,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           {/* Logo - switches between light/dark mode images */}
           <div className={cn(
             "flex flex-col items-center justify-center",
-            hasTextContent ? "mb-4 sm:mb-6" : "mb-0"
+            hasTextContent ? "mb-1 sm:mb-2" : "mb-0"
           )}>
             <img 
               src={activeImage} 

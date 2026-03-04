@@ -60,7 +60,7 @@ import {
   Crown,
   UsersRound,
 } from 'lucide-react';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 // Translation keys for sidebar navigation
 const SIDEBAR_KEYS = {
