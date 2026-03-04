@@ -1,26 +1,26 @@
 
 
-## Plan: Selektor godziny co 30 minut + zmiana interwału CRON
+## Plan: Wyświetlanie godziny przypomnienia w widoku rozwiniętym
 
-### 1. Selektor godziny w formularzu kontaktu (`PrivateContactForm.tsx`)
+### Problem
+W `TeamContactAccordion.tsx` linia 385 wyświetla `reminder_date` za pomocą `formatDate()`, który pokazuje tylko datę (`toLocaleDateString`). Godzina jest pomijana.
 
-Zamienić `<Input type="time">` na dwa `<Select>`:
-- **Godzina**: 00–23
-- **Minuty**: 00 lub 30
+### Zmiana
+W `src/components/team-contacts/TeamContactAccordion.tsx`, linia 385 — zamienić `formatDate(contact.reminder_date)` na `toLocaleString` z godziną i minutą w strefie Warsaw:
 
-Przy ładowaniu istniejącej wartości `reminder_time` zaokrąglić minuty do najbliższego 00/30. Wartość `formData.reminder_time` nadal przechowywana jako `"HH:mm"`.
+```tsx
+// Przed:
+{formatDate(contact.reminder_date)}
 
-Walidacja w `handleSubmit` — usunąć regex `/^\d{2}:\d{2}$/`, bo selecty zawsze dają poprawny format.
-
-### 2. Zmiana domyślnego interwału CRON (`CronJobsManagement.tsx`)
-
-W `INTERVAL_OPTIONS` zmienić domyślny interwał — bez zmian w kodzie, ale wykonać SQL:
-```sql
-UPDATE cron_settings SET interval_minutes = 30 WHERE job_name = 'process-pending-notifications';
+// Po:
+{new Date(contact.reminder_date).toLocaleString('pl-PL', { 
+  timeZone: 'Europe/Warsaw', 
+  day: '2-digit', month: '2-digit', year: 'numeric', 
+  hour: '2-digit', minute: '2-digit' 
+})}
 ```
-Oraz zaktualizować pg_cron schedule na `*/30 * * * *`.
 
-### Zakres plików
-- `src/components/team-contacts/PrivateContactForm.tsx` — zamiana input time na 2 selecty (godzina + minuta 00/30)
-- SQL w bazie — zmiana interwału CRON na 30 min
+Wynik: "Przypomnienie: 04.03.2026, 13:30" zamiast "Przypomnienie: 4.03.2026".
+
+Zakres: 1 linia w 1 pliku.
 
