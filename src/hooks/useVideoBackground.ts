@@ -71,6 +71,14 @@ export function useVideoBackground() {
 
   const updateRawStream = useCallback((stream: MediaStream) => {
     rawStreamRef.current = stream;
+    // If processor is actively running, hot-swap its source
+    if (processorRef.current && processorRef.current.isReady()) {
+      processorRef.current.updateSourceStream(stream);
+    }
+  }, []);
+
+  const getRawStream = useCallback((): MediaStream | null => {
+    return rawStreamRef.current;
   }, []);
 
   const applyBackground = useCallback(async (
@@ -202,6 +210,7 @@ export function useVideoBackground() {
     previewBackground,
     stopBackground,
     updateRawStream,
+    getRawStream,
     setParticipantCount,
     getSavedBackground,
     backgroundImages: [] as string[],
