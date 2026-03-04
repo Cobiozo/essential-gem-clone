@@ -6410,6 +6410,7 @@ export type Database = {
           created_at: string | null
           email: string | null
           eq_id: string | null
+          first_contact_annotation: string | null
           first_name: string
           id: string
           is_active: boolean | null
@@ -6429,6 +6430,7 @@ export type Database = {
           reminder_note: string | null
           reminder_sent: boolean | null
           role: string
+          second_contact_date: string | null
           start_date: string | null
           updated_at: string | null
           user_id: string
@@ -6447,6 +6449,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           eq_id?: string | null
+          first_contact_annotation?: string | null
           first_name: string
           id?: string
           is_active?: boolean | null
@@ -6466,6 +6469,7 @@ export type Database = {
           reminder_note?: string | null
           reminder_sent?: boolean | null
           role: string
+          second_contact_date?: string | null
           start_date?: string | null
           updated_at?: string | null
           user_id: string
@@ -6484,6 +6488,7 @@ export type Database = {
           created_at?: string | null
           email?: string | null
           eq_id?: string | null
+          first_contact_annotation?: string | null
           first_name?: string
           id?: string
           is_active?: boolean | null
@@ -6503,6 +6508,7 @@ export type Database = {
           reminder_note?: string | null
           reminder_sent?: boolean | null
           role?: string
+          second_contact_date?: string | null
           start_date?: string | null
           updated_at?: string | null
           user_id?: string

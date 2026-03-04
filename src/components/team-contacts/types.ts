@@ -55,6 +55,10 @@ export interface TeamContact {
   start_date: string | null;
   partner_status: 'active' | 'suspended' | null;
   
+  // Second contact & annotation
+  second_contact_date: string | null;
+  first_contact_annotation: string | null;
+  
   is_active: boolean;
   
   // Deleted user tracking
