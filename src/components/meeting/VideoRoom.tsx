@@ -297,6 +297,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const isMutedRef = useRef(isMuted);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
+  const isCameraOffRef = useRef(isCameraOff);
+  useEffect(() => { isCameraOffRef.current = isCameraOff; }, [isCameraOff]);
+
   const bgModeRef = useRef(bgMode);
   useEffect(() => { bgModeRef.current = bgMode; }, [bgMode]);
   const bgSelectedImageRef = useRef(bgSelectedImage);
@@ -928,11 +931,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       let stream = localStreamRef.current;
       const tracksAlive = stream?.getTracks().some(t => t.readyState === 'live');
-      if (!stream || !tracksAlive || isMobile) {
-        console.log('[VideoRoom] Re-acquiring stream (mobile=' + isMobile + ', alive=' + tracksAlive + ')');
-        if (isMobile && stream) {
-          stream.getTracks().forEach(t => t.stop());
-        }
+      if (!stream || !tracksAlive) {
+        console.log('[VideoRoom] Re-acquiring stream (alive=' + tracksAlive + ')');
         const freshStream = await reacquireLocalStream();
         if (!freshStream) return;
         stream = freshStream;
@@ -1696,6 +1696,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           }
         }
       }
+
+      // Preserve user's mute/camera state on fresh tracks
+      stream.getAudioTracks().forEach(t => t.enabled = !isMutedRef.current);
+      stream.getVideoTracks().forEach(t => t.enabled = !isCameraOffRef.current);
 
       localStreamRef.current = stream;
       setLocalStream(stream);
