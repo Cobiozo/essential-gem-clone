@@ -1,18 +1,26 @@
 
 
-## Plan: Walidacja kolejności dat w formularzu kontaktu
+## Plan: Selektor godziny co 30 minut + zmiana interwału CRON
 
-### Zmiana w `src/components/team-contacts/PrivateContactForm.tsx`
+### 1. Selektor godziny w formularzu kontaktu (`PrivateContactForm.tsx`)
 
-Dodać walidację dat w `handleSubmit` (przed linią 78, po walidacji reminder fields):
+Zamienić `<Input type="time">` na dwa `<Select>`:
+- **Godzina**: 00–23
+- **Minuty**: 00 lub 30
 
-1. **second_contact_date >= added_at**: Jeśli `second_contact_date` jest wypełnione i jest wcześniejsze niż `added_at` (data pierwszego kontaktu) → błąd: "Data drugiego kontaktu nie może być wcześniejsza niż data pierwszego kontaktu."
+Przy ładowaniu istniejącej wartości `reminder_time` zaokrąglić minuty do najbliższego 00/30. Wartość `formData.reminder_time` nadal przechowywana jako `"HH:mm"`.
 
-2. **next_contact_date >= second_contact_date**: Jeśli oba wypełnione i `next_contact_date` < `second_contact_date` → błąd: "Data kolejnego kontaktu nie może być wcześniejsza niż data drugiego kontaktu."
+Walidacja w `handleSubmit` — usunąć regex `/^\d{2}:\d{2}$/`, bo selecty zawsze dają poprawny format.
 
-3. **next_contact_date >= added_at** (fallback): Jeśli `next_contact_date` jest wypełnione ale `second_contact_date` nie, to `next_contact_date` >= `added_at`.
+### 2. Zmiana domyślnego interwału CRON (`CronJobsManagement.tsx`)
 
-Walidacja porównuje stringi dat w formacie `YYYY-MM-DD` (porównanie leksykograficzne działa poprawnie dla tego formatu). Błąd wyświetlany inline w istniejącym alercie `error`.
+W `INTERVAL_OPTIONS` zmienić domyślny interwał — bez zmian w kodzie, ale wykonać SQL:
+```sql
+UPDATE cron_settings SET interval_minutes = 30 WHERE job_name = 'process-pending-notifications';
+```
+Oraz zaktualizować pg_cron schedule na `*/30 * * * *`.
 
-Zakres: tylko `PrivateContactForm.tsx`, ~15 linii kodu walidacji.
+### Zakres plików
+- `src/components/team-contacts/PrivateContactForm.tsx` — zamiana input time na 2 selecty (godzina + minuta 00/30)
+- SQL w bazie — zmiana interwału CRON na 30 min
 
