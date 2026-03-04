@@ -1,26 +1,26 @@
 
 
-## Plan: Wyświetlanie godziny przypomnienia w widoku rozwiniętym
+## Plan: Zmiana logo i zmniejszenie odstępu
 
-### Problem
-W `TeamContactAccordion.tsx` linia 385 wyświetla `reminder_date` za pomocą `formatDate()`, który pokazuje tylko datę (`toLocaleDateString`). Godzina jest pomijana.
+### 1. Dodanie nowego logo do projektu
+Skopiować plik `user-uploads://Projekt_bez_nazwy_1.png` do `src/assets/pure-life-droplet-new.png`.
 
-### Zmiana
-W `src/components/team-contacts/TeamContactAccordion.tsx`, linia 385 — zamienić `formatDate(contact.reminder_date)` na `toLocaleString` z godziną i minutą w strefie Warsaw:
+### 2. Zmniejszenie odstępu między logo a napisem "Pure Life Team" (`HeroSection.tsx`)
+W sekcji logo (linia 103-116) zmniejszyć `mb-4 sm:mb-6` na `mb-1 sm:mb-2` gdy jest tekst, aby logo było bliżej napisu pod spodem.
 
-```tsx
-// Przed:
-{formatDate(contact.reminder_date)}
+### 3. Zmiana logo na stronie logowania (`Auth.tsx`)
+Linia 756 — zamienić `newPureLifeLogo` na nowy import `pure-life-droplet-new.png`.
 
-// Po:
-{new Date(contact.reminder_date).toLocaleString('pl-PL', { 
-  timeZone: 'Europe/Warsaw', 
-  day: '2-digit', month: '2-digit', year: 'numeric', 
-  hour: '2-digit', minute: '2-digit' 
-})}
-```
+### 4. Zmiana logo w sidebarze dashboardu (`DashboardSidebar.tsx`)
+Linia 658 — zamienić `newPureLifeLogo` na nowy import `pure-life-droplet-new.png`.
 
-Wynik: "Przypomnienie: 04.03.2026, 13:30" zamiast "Przypomnienie: 4.03.2026".
+### 5. Zmiana logo w sidebarze admina (`AdminSidebar.tsx`)
+Linia ~230 — zamienić `newPureLifeLogo` na nowy import.
 
-Zakres: 1 linia w 1 pliku.
+### Zakres plików
+- Nowy plik: `src/assets/pure-life-droplet-new.png`
+- `src/components/HeroSection.tsx` — zmniejszenie gap
+- `src/pages/Auth.tsx` — nowe logo
+- `src/components/dashboard/DashboardSidebar.tsx` — nowe logo
+- `src/components/admin/AdminSidebar.tsx` — nowe logo
 
