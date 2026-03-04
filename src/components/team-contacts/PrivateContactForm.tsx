@@ -26,6 +26,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   
+  const createdAtDisplay = contact?.created_at
+    ? new Date(contact.created_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : new Date().toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
   const [formData, setFormData] = useState({
     first_name: contact?.first_name || '',
     last_name: contact?.last_name || '',
@@ -34,6 +38,8 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     profession: contact?.profession || '',
     address: contact?.address || '',
     added_at: contact?.added_at || new Date().toISOString().split('T')[0],
+    second_contact_date: contact?.second_contact_date || '',
+    first_contact_annotation: contact?.first_contact_annotation || '',
     relationship_status: contact?.relationship_status || 'observation',
     notes: contact?.notes || '',
     next_contact_date: contact?.next_contact_date || '',
@@ -80,6 +86,8 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       products: formData.products || null,
       contact_source: formData.contact_source || null,
       contact_reason: formData.contact_reason || null,
+      second_contact_date: formData.second_contact_date || null,
+      first_contact_annotation: formData.first_contact_annotation || null,
       added_at: formData.added_at,
       is_active: true,
       contact_type: 'private',
@@ -224,6 +232,17 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
         />
       </div>
 
+      {/* Data utworzenia kontaktu — read-only */}
+      <div className="space-y-2">
+        <Label>Data utworzenia kontaktu</Label>
+        <Input
+          value={createdAtDisplay}
+          readOnly
+          disabled
+          className="bg-muted"
+        />
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="added_at">Data pierwszego kontaktu</Label>
         <Input
@@ -231,6 +250,27 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           type="date"
           value={formData.added_at}
           onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="second_contact_date">Data drugiego kontaktu</Label>
+        <Input
+          id="second_contact_date"
+          type="date"
+          value={formData.second_contact_date}
+          onChange={(e) => setFormData({ ...formData, second_contact_date: e.target.value })}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="first_contact_annotation">Adnotacja po pierwszym kontakcie</Label>
+        <Textarea
+          id="first_contact_annotation"
+          value={formData.first_contact_annotation}
+          onChange={(e) => setFormData({ ...formData, first_contact_annotation: e.target.value })}
+          placeholder="Co musisz zapamiętać po ustaleniach pierwszego kontaktu..."
+          rows={3}
         />
       </div>
 
