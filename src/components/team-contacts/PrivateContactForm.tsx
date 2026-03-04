@@ -142,7 +142,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+    <form onSubmit={handleSubmit} className="space-y-4 pr-2">
       {/* Dane podstawowe */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
