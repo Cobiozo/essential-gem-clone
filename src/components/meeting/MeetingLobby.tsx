@@ -111,10 +111,12 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
   useEffect(() => {
     acquireStream();
     return () => {
-      if (!streamPassedRef.current && cleanupStreamRef.current) {
-        cleanupStreamRef.current.getTracks().forEach((t) => t.stop());
+      if (!streamPassedRef.current) {
+        cleanupStreamRef.current?.getTracks().forEach((t) => t.stop());
+        stopBackground();
       }
-      stopBackground();
+      // When stream was passed to VideoRoom, don't kill the processor —
+      // VideoRoom will create its own and the old one will be GC'd
     };
   }, []);
 

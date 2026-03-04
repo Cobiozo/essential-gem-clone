@@ -237,15 +237,25 @@ export function useVideoBackground() {
     // If processor is already running, just swap options (no stop/start)
     if (processor.isReady()) {
       processor.setOptions({ mode: newMode, backgroundImage: bgImage });
-      // Return existing output stream
-      return (processor as any).outputStream || sourceStream;
+      const videoStream = (processor as any).outputStream || sourceStream;
+      if (videoStream !== sourceStream) {
+        const combined = new MediaStream();
+        videoStream.getVideoTracks().forEach((t: MediaStreamTrack) => combined.addTrack(t));
+        sourceStream.getAudioTracks().forEach((t: MediaStreamTrack) => combined.addTrack(t));
+        (combined as any).__bgProcessed = true;
+        return combined;
+      }
+      return sourceStream;
     }
 
     // First time: full start
     processor.setOptions({ mode: newMode, backgroundImage: bgImage });
-    const outputStream = await processor.start(sourceStream);
-    (outputStream as any).__bgProcessed = true;
-    return outputStream;
+    const videoOnlyStream = await processor.start(sourceStream);
+    const combinedStream = new MediaStream();
+    videoOnlyStream.getVideoTracks().forEach((t: MediaStreamTrack) => combinedStream.addTrack(t));
+    sourceStream.getAudioTracks().forEach((t: MediaStreamTrack) => combinedStream.addTrack(t));
+    (combinedStream as any).__bgProcessed = true;
+    return combinedStream;
   }, [getProcessor, loadImage]);
 
   const stopBackground = useCallback(() => {
