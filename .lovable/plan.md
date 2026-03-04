@@ -1,55 +1,32 @@
 
 
-# Plan: Offline queue + fix kontaktu prywatnego
+# Plan: Reorganizacja sekcji dat w formularzu kontaktów prywatnych
 
-## Problem 1: Nie można dodać kontaktu prywatnego
+## Nowe pola w bazie danych
 
-Na screenshocie widoczny toast "Nie udało się dodać kontaktu". Bez logów konsoli nie mogę zidentyfikować dokładnego błędu Supabase. Jedak najlepszym podejściem jest **dodanie lepszego logowania błędów** do `addContact` w `useTeamContacts.ts`, żeby w toaście wyświetlał się konkretny komunikat z bazy (np. naruszenie CHECK, RLS, brak sesji).
+Dodanie 2 kolumn do tabeli `team_contacts`:
+- `second_contact_date` (date, nullable) — data drugiego kontaktu
+- `first_contact_annotation` (text, nullable) — adnotacja po pierwszym kontakcie
 
-Aktualny kod:
-```typescript
-toast({ title: 'Błąd', description: 'Nie udało się dodać kontaktu' });
+SQL migration:
+```sql
+ALTER TABLE team_contacts 
+ADD COLUMN second_contact_date date,
+ADD COLUMN first_contact_annotation text;
 ```
 
-Zmiana — pokazanie rzeczywistego komunikatu błędu:
-```typescript
-toast({ title: 'Błąd', description: error.message || 'Nie udało się dodać kontaktu' });
-```
+## Zmiany w formularzu (`PrivateContactForm.tsx`)
 
-Dodatkowo dodam `console.error` z pełnym obiektem błędu, żeby łatwiej diagnozować.
+Nowy układ sekcji (od góry):
+1. **Data utworzenia kontaktu** — read-only, auto-wypełnione aktualnym czasem (`created_at` lub `new Date()` dla nowych kontaktów), wyświetlane jako sformatowana data+godzina (Warsaw)
+2. **Data pierwszego kontaktu** — istniejące pole `added_at`
+3. **Data drugiego kontaktu** — nowe pole `second_contact_date`
+4. **Adnotacja po pierwszym kontakcie** — nowe pole tekstowe `first_contact_annotation` (textarea, placeholder: "Co musisz zapamiętać po ustaleniach pierwszego kontaktu...")
 
-## Problem 2: Offline queue (Plan B z wcześniejszego planu)
-
-### Nowe pliki
-
-**`src/hooks/useOfflineQueue.ts`**
-- Kolejka w `localStorage` pod kluczem `offline_contacts_queue`
-- Nasłuchuje `window.addEventListener('online', sync)`
-- Funkcja `enqueue(contactData)` — zapisuje do localStorage
-- Funkcja `sync()` — wysyła oczekujące kontakty do Supabase, po sukcesie usuwa z kolejki
-- Zwraca: `{ pendingCount, enqueue, sync }`
-
-### Modyfikacje
-
-**`src/hooks/useTeamContacts.ts`** — zmiana `addContact`:
-- Jeśli `!navigator.onLine` LUB błąd sieciowy (np. `TypeError: Failed to fetch`) → `enqueue(contactData)` zamiast toasta błędu
-- Toast: "Kontakt zapisany offline — zostanie zsynchronizowany automatycznie"
-- Po powrocie online i syncu → `refetch()` + toast sukcesu
-
-**`src/components/team-contacts/TeamContactsTab.tsx`**:
-- Dodanie banera informacyjnego gdy `pendingCount > 0`: "X kontaktów czeka na synchronizację"
-- Po syncu baner znika
-
-### Logika synchronizacji
-1. `window.addEventListener('online')` → uruchom sync
-2. Dla każdego elementu w kolejce: `supabase.from('team_contacts').insert(...)` 
-3. Sukces → usuń z kolejki + dodaj history entry
-4. Błąd nie-sieciowy → usuń z kolejki (nie ponawiaj, pokaż błąd)
-5. Błąd sieciowy → zostaw w kolejce
-6. Na koniec → `refetch()` + toast z podsumowaniem
-
-### Bezpieczeństwo
-- Queue przechowuje dane lokalne, nie tokeny/hasła
-- Maksymalny rozmiar kolejki: 50 kontaktów (ochrona przed zapełnieniem localStorage)
-- Kontakty zsynchronizowane z aktualnym `user.id` w momencie syncu (nie w momencie zapisu offline)
+## Pliki do zmiany
+- **SQL migration** — dodanie 2 kolumn
+- **`src/components/team-contacts/types.ts`** — dodanie `second_contact_date` i `first_contact_annotation`
+- **`src/components/team-contacts/PrivateContactForm.tsx`** — reorganizacja sekcji dat + nowe pola
+- **`src/hooks/useTeamContacts.ts`** — uwzględnienie nowych pól w `addContact`/`updateContact`
+- **`src/integrations/supabase/types.ts`** — regeneracja typów (po migracji)
 
