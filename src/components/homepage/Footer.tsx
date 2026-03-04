@@ -1,5 +1,5 @@
 import React from 'react';
-import dropletIcon from '@/assets/pure-life-droplet.png';
+import dropletIcon from '@/assets/pure-life-droplet-new.png';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const Footer = () => {
