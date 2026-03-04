@@ -1,34 +1,86 @@
 
 
-## Plan: Naprawienie proporcji logo we wszystkich miejscach
+## Plan: Upgrade ExpressTURN do Premium z failoverem serwerów
 
 ### Problem
-Logo złotej kropli nie jest kwadratowe — ma inne proporcje. Klasy `w-X h-X` wymuszają kwadratowy kontener, co powoduje zniekształcenie (zwężenie).
+Obecna konfiguracja używa jednego serwera relay1 z HMAC credentials. Trzeba przejść na Premium z pełną listą 20+ serwerów i dodać automatyczne wykrywanie niedostępnych serwerów.
 
-### Rozwiązanie
-We wszystkich miejscach użycia logo dodać `object-contain` oraz ustawić tylko jedną oś (wysokość) lub użyć `aspect-auto`, aby zachować proporcje.
+### Bezpieczeństwo — sekrety
+Dane logowania (USERNAME, PASSWORD, SECRET KEY) **nie mogą być hardkodowane** w kodzie. Zostaną zapisane jako sekrety Supabase:
+- `EXPRESSTURN_USERNAME` = `000000002087995940`
+- `EXPRESSTURN_PASSWORD` = `Xcp6fcr0VYtodHIrOVrr/yOWs8E=`
+- `EXPRESSTURN_SECRET` (już istnieje) — zaktualizować na `91e9981d556aa32d5cdb5c2b1f282853`
 
-### Zmiany w plikach
+### Zmiany
 
-**1. `src/pages/Auth.tsx` (linia 756)**
-- Przed: `className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4"`
-- Po: `className="h-16 sm:h-20 mx-auto mb-4 object-contain"` — tylko wysokość, szerokość automatyczna
+**1. Edge Function `get-turn-credentials/index.ts` — pełna przebudowa**
 
-**2. `src/components/admin/AdminSidebar.tsx` (linia ~231)**
-- Przed: `className="w-8 h-8 flex-shrink-0"`
-- Po: `className="h-8 flex-shrink-0 object-contain"` — usunięcie stałej szerokości
+Zamiast generowania HMAC credentials, zwracać statyczne dane logowania z sekretów + pełną listę serwerów TURN w wielu grupach:
 
-**3. `src/components/dashboard/DashboardSidebar.tsx` (linia ~657-660)**
-- Już ma `object-contain` i `max-h-full max-w-full`, ale sprawdzę czy kontener nadrzędny (linia ~653) nie wymusza kwadratowego rozmiaru i jeśli tak — poprawię
+```text
+Serwery TURN (port 3478, UDP+TCP):
+  relay1-19.expressturn.com:3478
+  global.expressturn.com:3478
 
-**4. `src/components/dashboard/widgets/DashboardFooterSection.tsx` (linia 156)**
-- Przed: `className="w-6 h-6 object-contain"`
-- Po: `className="h-6 object-contain"` — usunięcie stałej szerokości
+Serwery TURN (port 80, TCP — firewall-friendly):
+  relay1.expressturn.com:80
 
-**5. `src/components/homepage/Footer.tsx` (linia 18)**
-- Przed: `className="w-6 h-6"`
-- Po: `className="h-6 object-contain"` — usunięcie stałej szerokości
+Serwery TURNS (port 443, TLS — most firewall-friendly):
+  relay1.expressturn.com:443
+```
 
-### Zakres
-5 plików, po 1 linii w każdym — zmiana klas CSS na obrazku logo.
+Każda grupa serwerów będzie zwrócona jako osobny wpis `iceServers` z tymi samymi credentials, co pozwala przeglądarce testować je niezależnie.
+
+Zachowanie HMAC jako fallback — jeśli `EXPRESSTURN_USERNAME` nie jest ustawiony, użyj starego mechanizmu HMAC z SECRET KEY.
+
+**2. Klient `VideoRoom.tsx` — health check i failover**
+
+Dodać funkcję `testTurnServers()` wywoływaną po otrzymaniu `iceServers` z edge function. Mechanizm:
+- Dla każdego serwera TURN tworzy mini `RTCPeerConnection` z pojedynczym serwerem
+- Nasłuchuje na event `icegatheringstatechange` — jeśli wygeneruje kandydata `relay` w ciągu 3s, serwer jest dostępny
+- Filtruje niedostępne serwery i przekazuje do PeerJS tylko działające
+- Jeśli żaden TURN nie działa — fallback na STUN only z ostrzeżeniem w konsoli
+
+**3. Struktura odpowiedzi edge function**
+
+```json
+{
+  "iceServers": [
+    { "urls": "stun:stun.l.google.com:19302" },
+    { "urls": "stun:stun1.l.google.com:19302" },
+    {
+      "urls": [
+        "turn:relay1.expressturn.com:3478",
+        "turn:relay2.expressturn.com:3478",
+        "turn:relay3.expressturn.com:3478",
+        "turn:relay4.expressturn.com:3478",
+        "turn:relay5.expressturn.com:3478",
+        "turn:global.expressturn.com:3478"
+      ],
+      "username": "000000002087995940",
+      "credential": "<from-secret>"
+    },
+    {
+      "urls": [
+        "turn:relay1.expressturn.com:80",
+        "turn:relay1.expressturn.com:80?transport=tcp"
+      ],
+      "username": "...",
+      "credential": "..."
+    },
+    {
+      "urls": [
+        "turns:relay1.expressturn.com:443?transport=tcp"
+      ],
+      "username": "...",
+      "credential": "..."
+    }
+  ]
+}
+```
+
+### Zakres plików
+- `supabase/functions/get-turn-credentials/index.ts` — przebudowa na premium credentials + pełna lista serwerów
+- `src/components/meeting/VideoRoom.tsx` — dodanie health check / failover logic
+- Sekrety Supabase: dodanie `EXPRESSTURN_USERNAME`, `EXPRESSTURN_PASSWORD`, aktualizacja `EXPRESSTURN_SECRET`
 
