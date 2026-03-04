@@ -159,6 +159,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     // Monitor local video for frozen frames using requestVideoFrameCallback or fallback
     const videoEl = document.querySelector('video[data-local-video="true"]') as HTMLVideoElement | null;
     
+    const isMobilePWA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
     if (videoEl && 'requestVideoFrameCallback' in videoEl) {
       let frameCounter = 0;
       const countFrame = () => {
@@ -170,12 +172,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       (videoEl as any).requestVideoFrameCallback(countFrame);
       
       freezeCheckInterval = setInterval(() => {
+        if (document.hidden) return; // Don't check while hidden
         if (frameCounter === lastFrameCount) {
           frozenChecks++;
           if (frozenChecks >= 2) { // 2 checks × 3s = 6s frozen
-            console.warn('[VideoRoom] Local video frozen for 6s, reacquiring...');
             frozenChecks = 0;
-            reacquireLocalStream();
+            if (isMobilePWA) {
+              console.warn('[VideoRoom] Local video frozen 6s (mobile) — showing toast');
+              toast({ title: 'Kamera się zawiesiła', description: 'Dotknij ikony kamery, aby ją ponownie włączyć.', variant: 'destructive' });
+            } else {
+              console.warn('[VideoRoom] Local video frozen for 6s, reacquiring...');
+              reacquireLocalStream();
+            }
           }
         } else {
           frozenChecks = 0;
@@ -186,20 +194,23 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
     // Listen for background processor stall events (with cooldown + hidden check)
     const handleStall = () => {
-      // Ignore stalls when tab is hidden (iOS/PWA zeros videoWidth in background)
       if (document.hidden) {
         console.log('[VideoRoom] Ignoring background-processor-stalled (tab hidden)');
         return;
       }
-      // Cooldown: max 1 recovery every 10s
       const now = Date.now();
       if (now - stallCooldownRef.current < 10000) {
         console.log('[VideoRoom] Stall recovery cooldown active, skipping');
         return;
       }
       stallCooldownRef.current = now;
-      console.warn('[VideoRoom] Background processor stalled, reacquiring stream...');
-      reacquireLocalStream();
+      if (isMobilePWA) {
+        console.warn('[VideoRoom] Background processor stalled (mobile) — showing toast');
+        toast({ title: 'Efekt tła zawieszony', description: 'Dotknij ikony kamery, aby ponownie włączyć.', variant: 'destructive' });
+      } else {
+        console.warn('[VideoRoom] Background processor stalled, reacquiring stream...');
+        reacquireLocalStream();
+      }
     };
     window.addEventListener('background-processor-stalled', handleStall);
 
@@ -1021,12 +1032,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         setLocalStream(stream);
         updateRawStream(stream);
 
-        // Track ended listeners for auto re-acquire on mobile
+        // Track ended listeners for auto re-acquire (desktop only; mobile needs user gesture)
+        const isMob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         stream.getTracks().forEach(track => {
           track.addEventListener('ended', () => {
             if (!cleanupDoneRef.current) {
               console.warn('[VideoRoom] Local track ended unexpectedly:', track.kind);
-              reacquireLocalStream();
+              if (isMob) {
+                toast({ title: 'Kamera/mikrofon wyłączony', description: 'Dotknij ikony kamery, aby ponownie włączyć.', variant: 'destructive' });
+              } else {
+                reacquireLocalStream();
+              }
             }
           });
         });
