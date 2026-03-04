@@ -1,0 +1,1 @@
+UPDATE cron_settings SET interval_minutes = 30, updated_at = now() WHERE job_name = 'process-pending-notifications';
