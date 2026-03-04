@@ -1,46 +1,55 @@
 
 
-# Diagnoza: Brakujący moduł TECHNICZNE w panelu admina
+# Plan: Offline queue + fix kontaktu prywatnego
 
-## Problem
-Jarosław Wiglusz ma przypisany moduł TECHNICZNE w bazie danych (`training_assignments`), ale nie widzi go w zakładce "Postępy użytkowników" w CMS admina.
+## Problem 1: Nie można dodać kontaktu prywatnego
 
-## Przyczyna
-Tabela `training_assignments` zawiera **1244 rekordów**. Zapytanie Supabase w `fetchUserProgress` (linia 863) pobiera je **bez paginacji**:
+Na screenshocie widoczny toast "Nie udało się dodać kontaktu". Bez logów konsoli nie mogę zidentyfikować dokładnego błędu Supabase. Jedak najlepszym podejściem jest **dodanie lepszego logowania błędów** do `addContact` w `useTeamContacts.ts`, żeby w toaście wyświetlał się konkretny komunikat z bazy (np. naruszenie CHECK, RLS, brak sesji).
 
+Aktualny kod:
 ```typescript
-const { data: assignments } = await supabase
-  .from('training_assignments')
-  .select(`user_id, module_id, ...`)
-  // ← BRAK .range() lub paginacji
+toast({ title: 'Błąd', description: 'Nie udało się dodać kontaktu' });
 ```
 
-**Supabase domyślnie zwraca maksymalnie 1000 wierszy.** Pozostałe 244 rekordy (w tym TECHNICZNE dla Jarosława) są po cichu obcinane.
-
-Co ciekawe, pobieranie `training_progress` (linia 891) **już ma paginację** — ktoś naprawił ten problem wcześniej, ale zapomniał o `training_assignments`.
-
-## Rozwiązanie
-Dodać paginację do zapytania `training_assignments` w `fetchUserProgress` — identyczny wzorzec jak istniejąca paginacja `training_progress` (linie 887-903):
-
+Zmiana — pokazanie rzeczywistego komunikatu błędu:
 ```typescript
-let allAssignments: any[] = [];
-let from = 0;
-const batchSize = 1000;
-
-while (true) {
-  const { data, error } = await supabase
-    .from('training_assignments')
-    .select(`...`)
-    .range(from, from + batchSize - 1);
-  
-  if (error) throw error;
-  if (!data || data.length === 0) break;
-  allAssignments = [...allAssignments, ...data];
-  if (data.length < batchSize) break;
-  from += batchSize;
-}
+toast({ title: 'Błąd', description: error.message || 'Nie udało się dodać kontaktu' });
 ```
 
-## Plik do zmiany
-- `src/components/admin/TrainingManagement.tsx` — paginacja w `fetchUserProgress` dla `training_assignments` (linie 863-882)
+Dodatkowo dodam `console.error` z pełnym obiektem błędu, żeby łatwiej diagnozować.
+
+## Problem 2: Offline queue (Plan B z wcześniejszego planu)
+
+### Nowe pliki
+
+**`src/hooks/useOfflineQueue.ts`**
+- Kolejka w `localStorage` pod kluczem `offline_contacts_queue`
+- Nasłuchuje `window.addEventListener('online', sync)`
+- Funkcja `enqueue(contactData)` — zapisuje do localStorage
+- Funkcja `sync()` — wysyła oczekujące kontakty do Supabase, po sukcesie usuwa z kolejki
+- Zwraca: `{ pendingCount, enqueue, sync }`
+
+### Modyfikacje
+
+**`src/hooks/useTeamContacts.ts`** — zmiana `addContact`:
+- Jeśli `!navigator.onLine` LUB błąd sieciowy (np. `TypeError: Failed to fetch`) → `enqueue(contactData)` zamiast toasta błędu
+- Toast: "Kontakt zapisany offline — zostanie zsynchronizowany automatycznie"
+- Po powrocie online i syncu → `refetch()` + toast sukcesu
+
+**`src/components/team-contacts/TeamContactsTab.tsx`**:
+- Dodanie banera informacyjnego gdy `pendingCount > 0`: "X kontaktów czeka na synchronizację"
+- Po syncu baner znika
+
+### Logika synchronizacji
+1. `window.addEventListener('online')` → uruchom sync
+2. Dla każdego elementu w kolejce: `supabase.from('team_contacts').insert(...)` 
+3. Sukces → usuń z kolejki + dodaj history entry
+4. Błąd nie-sieciowy → usuń z kolejki (nie ponawiaj, pokaż błąd)
+5. Błąd sieciowy → zostaw w kolejce
+6. Na koniec → `refetch()` + toast z podsumowaniem
+
+### Bezpieczeństwo
+- Queue przechowuje dane lokalne, nie tokeny/hasła
+- Maksymalny rozmiar kolejki: 50 kontaktów (ochrona przed zapełnieniem localStorage)
+- Kontakty zsynchronizowane z aktualnym `user.id` w momencie syncu (nie w momencie zapisu offline)
 
