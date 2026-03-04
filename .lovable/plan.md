@@ -1,23 +1,18 @@
 
-Cel: w oknie „Edytuj kontakt” zostawić tylko jeden pionowy pasek przewijania.
 
-Diagnoza:
-- Obecnie przewijanie jest w dwóch miejscach jednocześnie:
-  1) `DialogContent` w `TeamContactsTab.tsx` ma `overflow-y-auto`
-  2) `<form>` w `PrivateContactForm.tsx` ma `max-h-[70vh] overflow-y-auto`
-- To daje dwa niezależne scrollbary widoczne obok siebie.
+## Plan: Walidacja kolejności dat w formularzu kontaktu
 
-Plan wdrożenia:
-1. Ujednolicić scroll do poziomu modala (jeden scrollbar).
-2. W `src/components/team-contacts/PrivateContactForm.tsx` usunąć z klasy formularza:
-   - `max-h-[70vh]`
-   - `overflow-y-auto`
-   (zostawić zwykły layout formularza bez własnego scrolla).
-3. W `src/components/team-contacts/TeamContactsTab.tsx` zostawić przewijanie na `DialogContent` (jak teraz), żeby cały modal miał jeden wspólny scroll.
-4. Sprawdzić oba przypadki:
-   - Dodawanie kontaktu prywatnego
-   - Edycja istniejącego kontaktu prywatnego
-   i potwierdzić, że jest tylko jeden pionowy pasek przewijania.
+### Zmiana w `src/components/team-contacts/PrivateContactForm.tsx`
 
-Dodatkowa uwaga techniczna:
-- Nie ruszam logiki zapisu ani walidacji — zmiana dotyczy wyłącznie UX/scroll w warstwie UI, żeby nie wpływać na ostatnie poprawki związane z zapisem kontaktu.
+Dodać walidację dat w `handleSubmit` (przed linią 78, po walidacji reminder fields):
+
+1. **second_contact_date >= added_at**: Jeśli `second_contact_date` jest wypełnione i jest wcześniejsze niż `added_at` (data pierwszego kontaktu) → błąd: "Data drugiego kontaktu nie może być wcześniejsza niż data pierwszego kontaktu."
+
+2. **next_contact_date >= second_contact_date**: Jeśli oba wypełnione i `next_contact_date` < `second_contact_date` → błąd: "Data kolejnego kontaktu nie może być wcześniejsza niż data drugiego kontaktu."
+
+3. **next_contact_date >= added_at** (fallback): Jeśli `next_contact_date` jest wypełnione ale `second_contact_date` nie, to `next_contact_date` >= `added_at`.
+
+Walidacja porównuje stringi dat w formacie `YYYY-MM-DD` (porównanie leksykograficzne działa poprawnie dla tego formatu). Błąd wyświetlany inline w istniejącym alercie `error`.
+
+Zakres: tylko `PrivateContactForm.tsx`, ~15 linii kodu walidacji.
+
