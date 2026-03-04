@@ -1,0 +1,1 @@
+ALTER TABLE team_contacts ADD COLUMN first_contact_result text;

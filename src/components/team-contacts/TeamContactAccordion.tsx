@@ -253,6 +253,45 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
               {isExpanded && (
                 <CardContent className="pt-0 pb-4 border-t">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
+                    
+                    {/* Oś czasu - dla kontaktów prywatnych */}
+                    {contactType === 'private' && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Calendar className="w-4 h-4" /> Oś czasu
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          <p><span className="text-muted-foreground">Utworzono:</span> {contact.created_at ? new Date(contact.created_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                          <p><span className="text-muted-foreground">Pierwszy kontakt:</span> {formatDate(contact.added_at)}</p>
+                          {contact.first_contact_result && (
+                            <p><span className="text-muted-foreground">Wynik:</span> {
+                              { answered: 'Odebrał', no_answer: 'Nie odebrane', wrong_number: 'Błędny numer', out_of_range: 'Poza zasięgiem' }[contact.first_contact_result] || contact.first_contact_result
+                            }</p>
+                          )}
+                          {contact.second_contact_date && (
+                            <p><span className="text-muted-foreground">Drugi kontakt:</span> {formatDate(contact.second_contact_date)}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Źródło kontaktu - dla kontaktów prywatnych */}
+                    {contactType === 'private' && (contact.contact_source || contact.contact_reason) && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <User className="w-4 h-4" /> Źródło kontaktu
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          {contact.contact_source && (
+                            <p><span className="text-muted-foreground">Skąd:</span> {contact.contact_source}</p>
+                          )}
+                          {contact.contact_reason && (
+                            <p><span className="text-muted-foreground">Powód:</span> {contact.contact_reason}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Kontakt */}
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -277,7 +316,8 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </div>
                     </div>
 
-                    {/* Struktura */}
+                    {/* Struktura - tylko dla team_member */}
+                    {contactType !== 'private' && (
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Users className="w-4 h-4" /> {t('teamContacts.structure')}
@@ -301,6 +341,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                         )}
                       </div>
                     </div>
+                    )}
 
                     {/* Produkty - tylko dla prywatnych kontaktów */}
                     {contactType !== 'team_member' && (
@@ -322,7 +363,16 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </div>
                     )}
 
-                    {/* Przypomnienia */}
+                    {/* Adnotacja po pierwszym kontakcie - dla prywatnych */}
+                    {contactType === 'private' && contact.first_contact_annotation && (
+                      <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                          <Calendar className="w-4 h-4" /> Adnotacja po pierwszym kontakcie
+                        </h4>
+                        <p className="text-sm bg-muted/50 p-3 rounded-md">{contact.first_contact_annotation}</p>
+                      </div>
+                    )}
+
                     <div className="space-y-2">
                       <h4 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                         <Bell className="w-4 h-4" /> {t('teamContacts.reminders')}
