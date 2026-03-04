@@ -143,6 +143,65 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Sync participant count to background processor for adaptive quality
   useEffect(() => { setBgParticipantCount(participants.length); }, [participants.length, setBgParticipantCount]);
 
+  // === Adaptive bitrate limiter for peer connections ===
+  const applyBitrateLimits = useCallback(async (call: MediaConnection, participantCount: number) => {
+    try {
+      const pc = (call as any).peerConnection as RTCPeerConnection | undefined;
+      if (!pc) return;
+      const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+      if (!sender) return;
+      const params = sender.getParameters();
+      if (!params.encodings || params.encodings.length === 0) {
+        params.encodings = [{}];
+      }
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      let maxBitrate: number;
+      if (participantCount >= 4) {
+        maxBitrate = isMobile ? 300_000 : 500_000;
+      } else if (participantCount >= 2) {
+        maxBitrate = isMobile ? 500_000 : 1_000_000;
+      } else {
+        maxBitrate = isMobile ? 800_000 : 1_500_000;
+      }
+      params.encodings[0].maxBitrate = maxBitrate;
+      await sender.setParameters(params);
+      console.log(`[VideoRoom] Bitrate limit set to ${maxBitrate / 1000}kbps for ${call.peer} (${participantCount} participants)`);
+    } catch (e) {
+      console.warn('[VideoRoom] Failed to apply bitrate limits:', e);
+    }
+  }, []);
+
+  // === Adaptive video quality based on participant count ===
+  useEffect(() => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    const videoTrack = stream.getVideoTracks()[0];
+    if (!videoTrack || videoTrack.readyState !== 'live') return;
+
+    const count = participants.length;
+    const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    let constraints: MediaTrackConstraints;
+
+    if (count >= 4) {
+      constraints = { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15, max: 15 } };
+    } else if (count >= 2) {
+      constraints = { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 20, max: 20 } };
+    } else {
+      constraints = isMobile
+        ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+        : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+    }
+
+    videoTrack.applyConstraints(constraints).then(() => {
+      console.log(`[VideoRoom] Adaptive quality: ${JSON.stringify(constraints)} for ${count} participants`);
+    }).catch(e => console.warn('[VideoRoom] applyConstraints failed:', e));
+
+    // Also update bitrate on existing connections
+    connectionsRef.current.forEach((conn) => {
+      applyBitrateLimits(conn, count);
+    });
+  }, [participants.length, applyBitrateLimits]);
+
   // === Zmiana C: isScreenSharingRef synced with state ===
   const isScreenSharingRef = useRef(false);
   useEffect(() => { isScreenSharingRef.current = isScreenSharing; }, [isScreenSharing]);
@@ -896,8 +955,27 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           });
         });
 
-        const iceServers = await getTurnCredentials();
+        // Non-blocking TURN: start PeerJS immediately with full server list, filter in background
+        const iceServersPromise = getTurnCredentials();
+        // Use basic STUN to start immediately, upgrade ICE config when TURN test finishes
+        const fallbackIce: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
+        let iceServers: RTCIceServer[];
+        // Race: use TURN if ready within 500ms, otherwise start with STUN
+        const raceResult = await Promise.race([
+          iceServersPromise.then(s => ({ type: 'turn' as const, servers: s })),
+          new Promise<{ type: 'fallback'; servers: RTCIceServer[] }>(r => setTimeout(() => r({ type: 'fallback', servers: fallbackIce }), 500)),
+        ]);
+        iceServers = raceResult.servers;
+        const startedWithFallback = raceResult.type === 'fallback';
         const peer = new Peer({ config: { iceServers, iceTransportPolicy: 'all' as RTCIceTransportPolicy }, debug: 1 });
+        // If started with fallback, upgrade config when TURN servers are ready
+        if (startedWithFallback) {
+          iceServersPromise.then(turnServers => {
+            if (cancelled || !peerRef.current || peerRef.current.destroyed) return;
+            console.log('[VideoRoom] TURN servers ready, upgrading ICE config for future connections');
+            (peerRef.current as any).options.config = { iceServers: turnServers, iceTransportPolicy: 'all' };
+          }).catch(() => {});
+        }
         peerRef.current = peer;
 
         peer.on('open', async (peerId) => {
@@ -996,7 +1074,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
                     return prev.filter(p => !(p.userId === payload.userId && p.peerId !== payload.peerId));
                   });
                 }
-                callPeer(payload.peerId, payload.displayName, stream, undefined, payload.userId);
+                callPeer(payload.peerId, payload.displayName, localStreamRef.current || stream, undefined, payload.userId);
               }
             });
             channel.on('broadcast', { event: 'peer-left' }, ({ payload }) => {
@@ -1319,6 +1397,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       // Zmiana 5: Clear reconnecting flag on successful stream
       reconnectingPeersRef.current.delete(call.peer);
       reconnectAttemptsRef.current.delete(call.peer);
+      // Apply bitrate limits after connection established
+      applyBitrateLimits(call, participantsRef.current.length + 1);
       setParticipants((prev) => {
         const exists = prev.find((p) => p.peerId === call.peer);
         if (exists) return prev.map((p) => p.peerId === call.peer ? { ...p, stream: remoteStream } : p);
@@ -1632,12 +1712,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stream.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
     const newCameraOff = !isCameraOff;
     setIsCameraOff(newCameraOff);
-    const wrappedStream = new MediaStream(stream.getTracks());
-    if ((stream as any).__bgProcessed) {
-      (wrappedStream as any).__bgProcessed = true;
-    }
-    localStreamRef.current = wrappedStream;
-    setLocalStream(wrappedStream);
     if (channelRef.current && peerRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
     }

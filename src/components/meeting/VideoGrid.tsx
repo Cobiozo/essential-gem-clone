@@ -149,9 +149,31 @@ const VideoTile: React.FC<{
     video.addEventListener('loadedmetadata', handleLoaded);
     video.addEventListener('loadeddata', handleLoaded);
 
+    // Heartbeat: check every 3s if video is paused and resume
+    const heartbeat = setInterval(() => {
+      if (video.paused && video.srcObject && !participant.isLocal) {
+        console.log(`[VideoTile] Resuming paused video for ${participant.peerId}`);
+        playVideoSafe(video, false, onAudioBlocked);
+      }
+    }, 3000);
+
+    // onpause handler: immediately try to resume (unless intentional)
+    const handlePause = () => {
+      if (video.srcObject && !participant.isLocal) {
+        setTimeout(() => {
+          if (video.paused && video.srcObject) {
+            playVideoSafe(video, false, onAudioBlocked);
+          }
+        }, 100);
+      }
+    };
+    video.addEventListener('pause', handlePause);
+
     return () => {
       video.removeEventListener('loadedmetadata', handleLoaded);
       video.removeEventListener('loadeddata', handleLoaded);
+      video.removeEventListener('pause', handlePause);
+      clearInterval(heartbeat);
     };
   }, [participant.stream, onAudioBlocked]);
 
