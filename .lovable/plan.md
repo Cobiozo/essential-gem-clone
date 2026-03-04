@@ -1,86 +1,64 @@
 
 
-## Plan: Upgrade ExpressTURN do Premium z failoverem serwerów
+## Analiza problemów z płynnością WebRTC — Plan napraw
 
-### Problem
-Obecna konfiguracja używa jednego serwera relay1 z HMAC credentials. Trzeba przejść na Premium z pełną listą 20+ serwerów i dodać automatyczne wykrywanie niedostępnych serwerów.
+### Zidentyfikowane przyczyny zamrożonego/niestabilnego obrazu
 
-### Bezpieczeństwo — sekrety
-Dane logowania (USERNAME, PASSWORD, SECRET KEY) **nie mogą być hardkodowane** w kodzie. Zostaną zapisane jako sekrety Supabase:
-- `EXPRESSTURN_USERNAME` = `000000002087995940`
-- `EXPRESSTURN_PASSWORD` = `Xcp6fcr0VYtodHIrOVrr/yOWs8E=`
-- `EXPRESSTURN_SECRET` (już istnieje) — zaktualizować na `91e9981d556aa32d5cdb5c2b1f282853`
+Po przeanalizowaniu `VideoRoom.tsx`, `VideoGrid.tsx`, `VideoBackgroundProcessor.ts` i konfiguracji TURN zidentyfikowałem następujące problemy:
 
-### Zmiany
+---
 
-**1. Edge Function `get-turn-credentials/index.ts` — pełna przebudowa**
+### Problem 1: Brak limitu bitrate na połączeniach peer-to-peer
+W `callPeer` (linia 1302) i `handleCall` (linia 1308) nie ma żadnego ustawienia `maxBitrate` na `RTCRtpSender`. PeerJS domyślnie nie ogranicza bitrate, co prowadzi do:
+- Przesyłania zbyt dużej ilości danych → przeciążenie TURN relay → zamrożony obraz
+- Braku adaptacji do przepustowości sieci
 
-Zamiast generowania HMAC credentials, zwracać statyczne dane logowania z sekretów + pełną listę serwerów TURN w wielu grupach:
+**Naprawa:** Po nawiązaniu połączenia (w `handleCall`, po `call.on('stream')`) ustawić `setParameters()` na video senderze z `maxBitrate` ~800kbps (mobile) / ~1500kbps (desktop). Dodać też degradację jakości przy wielu uczestnikach (simulcast-like).
 
-```text
-Serwery TURN (port 3478, UDP+TCP):
-  relay1-19.expressturn.com:3478
-  global.expressturn.com:3478
+### Problem 2: Brak retransmisji wideo po zatrzymaniu odtwarzania
+W `VideoTile` (VideoGrid.tsx, linia 136) wideo jest ustawiane raz przy zmianie streamu. Jeśli przeglądarka zapauzuje wideo (np. tło, pamięć), nie ma mechanizmu cyklicznego sprawdzania i ponownego uruchamiania `play()`.
 
-Serwery TURN (port 80, TCP — firewall-friendly):
-  relay1.expressturn.com:80
+**Naprawa:** Dodać `setInterval` co 3s w `VideoTile` który sprawdza `video.paused && video.srcObject` i wywołuje `play()`.
 
-Serwery TURNS (port 443, TLS — most firewall-friendly):
-  relay1.expressturn.com:443
-```
+### Problem 3: Wrapping streamu w `handleToggleCamera` tworzy nowy MediaStream
+Linia 1635-1640: `new MediaStream(stream.getTracks())` tworzy nowy obiekt streamu za każdym toggle kamery. To powoduje re-render `VideoTile` z nowym referencją `participant.stream`, co resetuje `srcObject` i może chwilowo zamrozić obraz.
 
-Każda grupa serwerów będzie zwrócona jako osobny wpis `iceServers` z tymi samymi credentials, co pozwala przeglądarce testować je niezależnie.
+**Naprawa:** Zamiast tworzyć nowy `MediaStream`, togglować `track.enabled` bez zmiany referencji streamu. Usunąć wrapping.
 
-Zachowanie HMAC jako fallback — jeśli `EXPRESSTURN_USERNAME` nie jest ustawiony, użyj starego mechanizmu HMAC z SECRET KEY.
+### Problem 4: TURN health check blokuje start połączenia o ~3s
+`filterReachableTurnServers()` testuje każdy serwer z 3s timeout przed zainicjowaniem PeerJS. Na wolnej sieci to dodatkowe 3s opóźnienia.
 
-**2. Klient `VideoRoom.tsx` — health check i failover**
+**Naprawa:** Uruchomić health check asynchronicznie (non-blocking). Rozpocząć PeerJS natychmiast z pełną listą serwerów, a w tle testować dostępność. Po zakończeniu testu — zaktualizować konfigurację ICE przez `peer.options.config` dla przyszłych połączeń.
 
-Dodać funkcję `testTurnServers()` wywoływaną po otrzymaniu `iceServers` z edge function. Mechanizm:
-- Dla każdego serwera TURN tworzy mini `RTCPeerConnection` z pojedynczym serwerem
-- Nasłuchuje na event `icegatheringstatechange` — jeśli wygeneruje kandydata `relay` w ciągu 3s, serwer jest dostępny
-- Filtruje niedostępne serwery i przekazuje do PeerJS tylko działające
-- Jeśli żaden TURN nie działa — fallback na STUN only z ostrzeżeniem w konsoli
+### Problem 5: Brak degradacji jakości wideo przy wielu uczestnikach
+Kamera zawsze wysyła 1280x720@24fps (desktop) niezależnie od liczby uczestników. Przy 4+ uczestnikach to zbyt dużo dla mesh P2P.
 
-**3. Struktura odpowiedzi edge function**
+**Naprawa:** Dynamicznie obniżać rozdzielczość i framerate przez `applyConstraints()` na video track:
+- 1 uczestnik: 1280x720 @ 24fps
+- 2-3 uczestników: 640x480 @ 20fps  
+- 4+ uczestników: 480x360 @ 15fps
 
-```json
-{
-  "iceServers": [
-    { "urls": "stun:stun.l.google.com:19302" },
-    { "urls": "stun:stun1.l.google.com:19302" },
-    {
-      "urls": [
-        "turn:relay1.expressturn.com:3478",
-        "turn:relay2.expressturn.com:3478",
-        "turn:relay3.expressturn.com:3478",
-        "turn:relay4.expressturn.com:3478",
-        "turn:relay5.expressturn.com:3478",
-        "turn:global.expressturn.com:3478"
-      ],
-      "username": "000000002087995940",
-      "credential": "<from-secret>"
-    },
-    {
-      "urls": [
-        "turn:relay1.expressturn.com:80",
-        "turn:relay1.expressturn.com:80?transport=tcp"
-      ],
-      "username": "...",
-      "credential": "..."
-    },
-    {
-      "urls": [
-        "turns:relay1.expressturn.com:443?transport=tcp"
-      ],
-      "username": "...",
-      "credential": "..."
-    }
-  ]
-}
-```
+### Problem 6: Stale `stream` closure w init useEffect
+Linia 999: `callPeer(..., stream, ...)` używa `stream` z closure `init()`. Jeśli stream zostanie zastąpiony (reacquire, background effect), nowe połączenia dostaną stary stream.
 
-### Zakres plików
-- `supabase/functions/get-turn-credentials/index.ts` — przebudowa na premium credentials + pełna lista serwerów
-- `src/components/meeting/VideoRoom.tsx` — dodanie health check / failover logic
-- Sekrety Supabase: dodanie `EXPRESSTURN_USERNAME`, `EXPRESSTURN_PASSWORD`, aktualizacja `EXPRESSTURN_SECRET`
+**Naprawa:** Zmienić na `localStreamRef.current || stream` (co częściowo jest już robione w `callPeer` linia 1301, ale w broadcast handler linia 999 nadal używa closure).
+
+---
+
+### Zmiany w plikach
+
+**1. `src/components/meeting/VideoRoom.tsx`**
+- Dodać funkcję `applyBitrateLimits(call, participantCount)` — ustawia `maxBitrate` na video senderze
+- Wywołać ją w `handleCall` po `call.on('stream')`
+- Dodać `useEffect` reagujący na `participants.length` — dynamicznie obniżać rozdzielczość kamery
+- Usunąć wrapping `new MediaStream()` w `handleToggleCamera`
+- Naprawić closure `stream` w broadcast handler (użyć `localStreamRef.current`)
+- Uczynić TURN health check non-blocking (start peer natychmiast, testuj w tle)
+
+**2. `src/components/meeting/VideoGrid.tsx`**
+- W `VideoTile`: dodać `setInterval` co 3s sprawdzający `video.paused` i wywołujący `play()`
+- Dodać `video.onpause` handler który natychmiast próbuje wznowić odtwarzanie (z wyjątkiem świadomych pauz)
+
+### Zakres
+2 pliki, ~80 linii nowego kodu, bez zmian w edge function ani strukturze bazy danych.
 
