@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
@@ -62,7 +62,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, pendingOfflineCount } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
@@ -312,6 +312,15 @@ export const TeamContactsTab: React.FC = () => {
               </div>
             </CardHeader>
             <CardContent>
+              {/* Offline queue banner */}
+              {pendingOfflineCount > 0 && (
+                <div className="mb-4 flex items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3">
+                  <WifiOff className="h-4 w-4 shrink-0 text-amber-600" />
+                  <span className="text-sm text-amber-700 dark:text-amber-400">
+                    {pendingOfflineCount} kontakt(ów) czeka na synchronizację — zostaną wysłane automatycznie po przywróceniu połączenia
+                  </span>
+                </div>
+              )}
               {/* Sub-tabs for private contacts */}
               <div className="flex items-center gap-2 mb-4">
                 <Button
