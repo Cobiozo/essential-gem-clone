@@ -1,30 +1,36 @@
 
+Cel: usunąć blokadę zapisu kontaktu przy edycji i pokazać użytkownikowi precyzyjny błąd pola formularza.
 
-# Plan: Fix contact save reliability and error feedback
+Do I know what the issue is? Tak. Aktualny błąd wynika z niepoprawnego składania offsetu strefy czasu dla `reminder_date` w `PrivateContactForm.tsx` (powstaje np. `2026-03-08T10:00:00+0:+1`, co Supabase odrzuca jako invalid timestamp with time zone).
 
-## Root cause analysis
+Zakres zmian (bez migracji DB):
+1) `src/components/team-contacts/PrivateContactForm.tsx`
+- Zastąpić ręczne budowanie offsetu (`Intl.DateTimeFormat + padStart`) bezpieczną konwersją datetime:
+  - użyć `fromZonedTime` z `date-fns-tz` dla strefy `Europe/Warsaw`
+  - zapisywać `reminder_date` jako poprawne ISO (`toISOString()`).
+- Dodać walidację wejścia przed submit:
+  - `reminder_date` musi mieć format `YYYY-MM-DD`
+  - `reminder_time` musi mieć format `HH:mm`
+  - jeśli niepoprawne: zablokować zapis i pokazać błąd pod sekcją przypomnienia.
+- Rozszerzyć obsługę błędów API:
+  - jeśli backend zwróci błąd związany z timestamp/time zone, pokazać czytelny komunikat przy polu przypomnienia (nie tylko ogólny alert).
 
-From the network logs, the most recent save attempt actually **succeeded** (PATCH returned 200). However, there are several fragility issues that can cause intermittent failures:
+2) `src/hooks/useTeamContacts.ts`
+- W `updateContact` i `addContact` zachować obecne zwracanie `false/null`, ale przekazać bardziej szczegółowy komunikat błędu do formularza (np. przez `throw` albo ustandaryzowany obiekt wyniku), aby formularz mógł wskazać problem konkretnego pola.
+- Nie zmieniać logiki historii (już jest non-blocking).
 
-1. **History insert can cause false failure**: In `updateContact`, the history insert (line 187-193) is inside the same try/catch as the update itself. If the history insert fails, the catch block shows "Nie udalo sie zaktualizowac kontaktu" even though the contact WAS saved successfully.
+3) `src/components/team-contacts/TeamContactsTab.tsx`
+- Utrzymać zamykanie modala tylko po realnym sukcesie.
+- Dopilnować, by błąd z `updateContact` trafiał z powrotem do `PrivateContactForm` (zamiast samego `false` bez kontekstu).
 
-2. **Generic error message**: `updateContact` shows `'Nie udalo sie zaktualizowac kontaktu'` without `error.message` - impossible to diagnose.
+Wpływ na istniejące kontakty:
+- Działa dla już utworzonych rekordów bez migracji.
+- Po edycji starego kontaktu nowy zapis `reminder_date` będzie już zawsze poprawny.
+- Lista i powiadomienia będą aktualizowane poprawnie, bo zapis przestanie być odrzucany przez parser timestamptz.
 
-3. **Form sends unnecessary fields on edit**: The form always sends `is_active: true`, `contact_type: 'private'`, `eq_id: null`, `linked_user_id: null`, `role: 'client'`, `reminder_sent: false` - this overwrites values that shouldn't change during edit (especially `reminder_sent: false` resets already-sent reminders).
-
-4. **No error state in form**: If save fails, the user only sees a toast (easily missed). The form should show inline error feedback.
-
-## Changes
-
-### `src/hooks/useTeamContacts.ts`
-- Make history insert **non-blocking** (wrap in separate try/catch) so it can't cause false "update failed" errors
-- Show `error.message` in the error toast (like already done for `addContact`)
-
-### `src/components/team-contacts/PrivateContactForm.tsx`
-- **On edit**: only send changed/editable fields, do NOT send `is_active`, `contact_type`, `eq_id`, `linked_user_id`, `role`, `reminder_sent`
-- Add `error` state to display inline error message in the form when save fails
-- Make `onSubmit` return a boolean so the form can react to success/failure
-
-### `src/components/team-contacts/TeamContactsTab.tsx`
-- Update `handleEditContact` to propagate success/failure back to the form
-
+Plan testów po wdrożeniu:
+1) Edycja istniejącego kontaktu z ustawionym przypomnieniem (data + godzina) → zapis OK.
+2) Edycja istniejącego kontaktu bez przypomnienia → zapis OK.
+3) Wprowadzenie błędnej godziny/daty (symulacja) → komunikat przy polu przypomnienia.
+4) Sprawdzenie, że modal zamyka się tylko po sukcesie.
+5) Weryfikacja end-to-end: edycja kontaktu → odświeżenie listy → rozwinięcie kontaktu → zgodność danych osi czasu i przypomnienia.
