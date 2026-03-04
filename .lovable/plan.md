@@ -1,40 +1,30 @@
 
 
-# Plan: Rozszerzenie widoku rozwiniętego kontaktu + wynik pierwszego kontaktu
+# Plan: Fix contact save reliability and error feedback
 
-## 1. Nowe pole w bazie danych
+## Root cause analysis
 
-Dodanie kolumny `first_contact_result` do tabeli `team_contacts`:
+From the network logs, the most recent save attempt actually **succeeded** (PATCH returned 200). However, there are several fragility issues that can cause intermittent failures:
 
-```sql
-ALTER TABLE team_contacts 
-ADD COLUMN first_contact_result text;
-```
+1. **History insert can cause false failure**: In `updateContact`, the history insert (line 187-193) is inside the same try/catch as the update itself. If the history insert fails, the catch block shows "Nie udalo sie zaktualizowac kontaktu" even though the contact WAS saved successfully.
 
-Wartości: `answered` (odebrał), `no_answer` (nie odebrane), `wrong_number` (błędny numer), `out_of_range` (poza zasięgiem).
+2. **Generic error message**: `updateContact` shows `'Nie udalo sie zaktualizowac kontaktu'` without `error.message` - impossible to diagnose.
 
-## 2. Zmiany w plikach
+3. **Form sends unnecessary fields on edit**: The form always sends `is_active: true`, `contact_type: 'private'`, `eq_id: null`, `linked_user_id: null`, `role: 'client'`, `reminder_sent: false` - this overwrites values that shouldn't change during edit (especially `reminder_sent: false` resets already-sent reminders).
 
-### `types.ts`
-- Dodanie `first_contact_result: string | null`
+4. **No error state in form**: If save fails, the user only sees a toast (easily missed). The form should show inline error feedback.
 
-### `PrivateContactForm.tsx`
-- Dodanie pola Select "Wynik pierwszego kontaktu" pod "Data pierwszego kontaktu" z 4 opcjami
-- Uwzględnienie `first_contact_result` w formData i submitcie
+## Changes
 
-### `TeamContactAccordion.tsx` — rozszerzony widok dla kontaktów prywatnych
-Dodanie brakujących danych w expanded view:
-- **Sekcja "Oś czasu"**: Data utworzenia (created_at), Data pierwszego kontaktu (added_at), Wynik pierwszego kontaktu (first_contact_result), Data drugiego kontaktu (second_contact_date)
-- **Sekcja "Źródło kontaktu"**: Skąd jest kontakt (contact_source), Dlaczego chcesz się odezwać (contact_reason)
-- **Sekcja "Adnotacje"**: Adnotacja po pierwszym kontakcie (first_contact_annotation)
-- Istniejące sekcje (Kontakt, Produkty, Przypomnienia, Notatki) pozostają
+### `src/hooks/useTeamContacts.ts`
+- Make history insert **non-blocking** (wrap in separate try/catch) so it can't cause false "update failed" errors
+- Show `error.message` in the error toast (like already done for `addContact`)
 
-### `useTeamContacts.ts`
-- Uwzględnienie `first_contact_result` w `addContact`
+### `src/components/team-contacts/PrivateContactForm.tsx`
+- **On edit**: only send changed/editable fields, do NOT send `is_active`, `contact_type`, `eq_id`, `linked_user_id`, `role`, `reminder_sent`
+- Add `error` state to display inline error message in the form when save fails
+- Make `onSubmit` return a boolean so the form can react to success/failure
 
-### `supabase/types.ts`
-- Regeneracja po migracji
-
-## 3. Kompatybilność wsteczna
-Wszystkie nowe pola są nullable — istniejące kontakty zachowują dane, nowe pola wyświetlają się jako puste do momentu edycji.
+### `src/components/team-contacts/TeamContactsTab.tsx`
+- Update `handleEditContact` to propagate success/failure back to the form
 
