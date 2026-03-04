@@ -75,6 +75,23 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       }
     }
 
+    // Validate chronological order of dates
+    const addedAt = formData.added_at;
+    if (formData.second_contact_date && addedAt && formData.second_contact_date < addedAt) {
+      setError('Data drugiego kontaktu nie może być wcześniejsza niż data pierwszego kontaktu.');
+      setLoading(false);
+      return;
+    }
+    if (formData.next_contact_date) {
+      const minDate = formData.second_contact_date || addedAt;
+      const minLabel = formData.second_contact_date ? 'drugiego' : 'pierwszego';
+      if (minDate && formData.next_contact_date < minDate) {
+        setError(`Data kolejnego kontaktu nie może być wcześniejsza niż data ${minLabel} kontaktu.`);
+        setLoading(false);
+        return;
+      }
+    }
+
     // Build reminder_date as proper ISO using date-fns-tz
     let reminderDateISO: string | null = null;
     if (formData.reminder_date) {
