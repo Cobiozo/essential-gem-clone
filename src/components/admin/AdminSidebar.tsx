@@ -293,7 +293,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           <img 
             src={siteLogo || newPureLifeLogo} 
             alt="Pure Life Center" 
-            className="w-8 h-8 flex-shrink-0" 
+            className="h-8 flex-shrink-0 object-contain" 
           />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">

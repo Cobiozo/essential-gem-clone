@@ -15,7 +15,7 @@ const Footer = () => {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <img src={dropletIcon} alt="" className="w-6 h-6" />
+            <img src={dropletIcon} alt="" className="h-6 object-contain" />
             <span className="text-primary font-bold text-lg">PURE LIFE CENTER</span>
           </div>
           

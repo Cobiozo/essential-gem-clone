@@ -753,7 +753,7 @@ const Auth = () => {
         </div>
         
         <div className="text-center mb-6 sm:mb-8">
-          <img src={newPureLifeLogo} alt="Pure Life Center" className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" />
+          <img src={newPureLifeLogo} alt="Pure Life Center" className="h-16 sm:h-20 mx-auto mb-4 object-contain" />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground">PURE LIFE CENTER</h1>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">{t('auth.adminPanel')}</p>
         </div>

@@ -652,13 +652,12 @@ export const DashboardSidebar: React.FC = () => {
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-3">
           <div className={`flex-shrink-0 flex items-center justify-center ${
-            isCollapsed ? 'h-8 w-8 min-w-[32px] min-h-[32px]' : 'h-10 w-10 min-w-[40px] min-h-[40px]'
+            isCollapsed ? 'h-8 min-h-[32px]' : 'h-10 min-h-[40px]'
           }`}>
             <img 
               src={newPureLifeLogo} 
               alt="Pure Life Center" 
-              className="max-h-full max-w-full object-contain"
-              style={{ aspectRatio: '1/1' }}
+              className="h-full object-contain"
             />
           </div>
           {!isCollapsed && (

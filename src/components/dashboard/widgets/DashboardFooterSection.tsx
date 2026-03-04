@@ -153,7 +153,7 @@ export const DashboardFooterSection: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-border pt-4 pb-2 flex flex-col md:flex-row items-center justify-between text-xs text-muted-foreground gap-2">
         <div className="flex items-center gap-2">
-          <img src={pureLifeLogo} alt="Pure Life Center" className="w-6 h-6 object-contain" />
+          <img src={pureLifeLogo} alt="Pure Life Center" className="h-6 object-contain" />
           <span className="text-primary font-bold">PURE LIFE CENTER</span>
         </div>
         <span>© {new Date().getFullYear()} Pure Life Center. {t('footer.allRightsReserved')}</span>
