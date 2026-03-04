@@ -28,23 +28,23 @@ interface PerformanceProfile {
 const MOBILE_PROFILE: PerformanceProfile = {
   maxProcessWidth: 480,
   segmentationIntervalMs: 100,
-  outputFps: 15,
+  outputFps: 24,
   overloadThresholdMs: 120,
 };
 
 const DESKTOP_PROFILE: PerformanceProfile = {
   maxProcessWidth: 640,
   segmentationIntervalMs: 80,
-  outputFps: 24,
+  outputFps: 30,
   overloadThresholdMs: 250,
 };
 
 // Quality-first overrides for image mode (applied on top of base profile)
 const IMAGE_MODE_OVERRIDES = {
   minProcessWidth: 960,        // high-res for image backgrounds (solo gets full benefit)
-  segmentationIntervalMs: 16,  // ~60fps segmentation — real-time feel with GPU headroom
+  segmentationIntervalMs: 50,  // ~20fps segmentation — sufficient quality without CPU saturation
   mobileMinProcessWidth: 480,
-  mobileSegmentationIntervalMs: 60,
+  mobileSegmentationIntervalMs: 100,
 };
 
 // --- Blur profiles ---
@@ -393,9 +393,9 @@ export class VideoBackgroundProcessor {
 
     this.outputStream = this.canvas.captureStream(this.profile.outputFps);
 
-    inputStream.getAudioTracks().forEach(track => {
-      this.outputStream!.addTrack(track);
-    });
+    // NOTE: Audio tracks are NOT added here — processor returns video-only stream.
+    // Audio is combined with video in useVideoBackground.attemptApply() to prevent
+    // AEC (Acoustic Echo Cancellation) issues from duplicate audio track references.
 
     this.isRunning = true;
     this.setupVisibilityHandler();

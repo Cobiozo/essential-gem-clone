@@ -192,13 +192,18 @@ export function useVideoBackground() {
     }
 
     processor.setOptions({ mode: newMode, backgroundImage: bgImage });
-    const outputStream = await processor.start(sourceStream);
-    (outputStream as any).__bgProcessed = true;
+    const videoOnlyStream = await processor.start(sourceStream);
+    
+    // Combine video from processor with audio from raw source to prevent AEC issues
+    const combinedStream = new MediaStream();
+    videoOnlyStream.getVideoTracks().forEach(t => combinedStream.addTrack(t));
+    sourceStream.getAudioTracks().forEach(t => combinedStream.addTrack(t));
+    (combinedStream as any).__bgProcessed = true;
 
     setMode(newMode);
     setSelectedImage(imageSrc || null);
     persistChoice(newMode, imageSrc || null);
-    return outputStream;
+    return combinedStream;
   }, [getProcessor, loadImage]);
 
   /** Lightweight preview: changes processor options without stop/start if already running */
