@@ -1,26 +1,17 @@
 
 
-## Plan: Zmiana logo i zmniejszenie odstępu
+## Plan: Zmiana logo w stopkach na nową złotą kroplę
 
-### 1. Dodanie nowego logo do projektu
-Skopiować plik `user-uploads://Projekt_bez_nazwy_1.png` do `src/assets/pure-life-droplet-new.png`.
+### 1. Stopka strony głównej (`Footer.tsx`)
+Zamienić import `pure-life-droplet.png` na `pure-life-droplet-new.png` (linia 2).
 
-### 2. Zmniejszenie odstępu między logo a napisem "Pure Life Team" (`HeroSection.tsx`)
-W sekcji logo (linia 103-116) zmniejszyć `mb-4 sm:mb-6` na `mb-1 sm:mb-2` gdy jest tekst, aby logo było bliżej napisu pod spodem.
+### 2. Stopka dashboardu (`DashboardFooterSection.tsx`)
+Zamienić import `pure-life-logo-new.png` na `pure-life-droplet-new.png` (linia 4).
 
-### 3. Zmiana logo na stronie logowania (`Auth.tsx`)
-Linia 756 — zamienić `newPureLifeLogo` na nowy import `pure-life-droplet-new.png`.
-
-### 4. Zmiana logo w sidebarze dashboardu (`DashboardSidebar.tsx`)
-Linia 658 — zamienić `newPureLifeLogo` na nowy import `pure-life-droplet-new.png`.
-
-### 5. Zmiana logo w sidebarze admina (`AdminSidebar.tsx`)
-Linia ~230 — zamienić `newPureLifeLogo` na nowy import.
+### 3. Header — logo z bazy danych
+Logo w nagłówku (`Header.tsx`) jest pobierane dynamicznie z tabeli `system_texts` w bazie danych (pole `site_logo`). Aby je zmienić, trzeba zaktualizować URL logo w panelu administracyjnym (sekcja „Logo strony") lub wykonać UPDATE w bazie. Mogę zaktualizować je bezpośrednio w bazie, jeśli chcesz.
 
 ### Zakres plików
-- Nowy plik: `src/assets/pure-life-droplet-new.png`
-- `src/components/HeroSection.tsx` — zmniejszenie gap
-- `src/pages/Auth.tsx` — nowe logo
-- `src/components/dashboard/DashboardSidebar.tsx` — nowe logo
-- `src/components/admin/AdminSidebar.tsx` — nowe logo
+- `src/components/homepage/Footer.tsx` — zmiana importu logo
+- `src/components/dashboard/widgets/DashboardFooterSection.tsx` — zmiana importu logo
 
