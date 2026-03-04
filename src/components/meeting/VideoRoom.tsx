@@ -339,11 +339,74 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     }
   }, [coHostUserIds, roomId]);
 
+  // Test a single TURN server entry for reachability (returns true if relay candidate found within timeout)
+  const testTurnServer = useCallback((server: RTCIceServer, timeoutMs = 3000): Promise<boolean> => {
+    return new Promise((resolve) => {
+      let resolved = false;
+      const done = (result: boolean) => { if (!resolved) { resolved = true; resolve(result); } };
+
+      const timer = setTimeout(() => done(false), timeoutMs);
+
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [server] });
+        pc.createDataChannel('test');
+        pc.onicecandidate = (e) => {
+          if (e.candidate && e.candidate.type === 'relay') {
+            clearTimeout(timer);
+            pc.close();
+            done(true);
+          }
+        };
+        pc.onicegatheringstatechange = () => {
+          if (pc.iceGatheringState === 'complete' && !resolved) {
+            clearTimeout(timer);
+            pc.close();
+            done(false);
+          }
+        };
+        pc.createOffer().then(offer => pc.setLocalDescription(offer)).catch(() => { clearTimeout(timer); done(false); });
+      } catch {
+        clearTimeout(timer);
+        done(false);
+      }
+    });
+  }, []);
+
+  // Test all TURN servers and filter to only reachable ones
+  const filterReachableTurnServers = useCallback(async (iceServers: RTCIceServer[]): Promise<RTCIceServer[]> => {
+    const stunServers = iceServers.filter(s => {
+      const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+      return urls.every(u => u.startsWith('stun:'));
+    });
+    const turnServers = iceServers.filter(s => {
+      const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+      return urls.some(u => u.startsWith('turn:') || u.startsWith('turns:'));
+    });
+
+    if (turnServers.length === 0) return iceServers;
+
+    console.log(`[VideoRoom] Testing ${turnServers.length} TURN server group(s)...`);
+    const results = await Promise.all(turnServers.map(async (server) => {
+      const reachable = await testTurnServer(server);
+      const urls = Array.isArray(server.urls) ? server.urls : [server.urls];
+      console.log(`[VideoRoom] TURN ${urls[0]}${urls.length > 1 ? ` (+${urls.length - 1})` : ''}: ${reachable ? '✅ OK' : '❌ unreachable'}`);
+      return reachable ? server : null;
+    }));
+
+    const reachable = results.filter(Boolean) as RTCIceServer[];
+    if (reachable.length === 0) {
+      console.warn('[VideoRoom] ⚠️ No TURN servers reachable! Falling back to STUN only.');
+      return stunServers;
+    }
+    console.log(`[VideoRoom] ${reachable.length}/${turnServers.length} TURN group(s) reachable`);
+    return [...stunServers, ...reachable];
+  }, [testTurnServer]);
+
   // Fetch TURN credentials
   const getTurnCredentials = useCallback(async () => {
     try {
+      let iceServers: RTCIceServer[];
       if (guestMode && guestTokenId) {
-        // Guest mode: call with guest token header
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL || 'https://xzlhssqqbajqhnsmbucf.supabase.co'}/functions/v1/get-turn-credentials`,
           {
@@ -357,11 +420,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           }
         );
         const data = await response.json();
-        return data?.iceServers || [];
+        iceServers = data?.iceServers || [];
+      } else {
+        const { data, error } = await supabase.functions.invoke('get-turn-credentials');
+        if (error) throw error;
+        iceServers = data?.iceServers || [];
       }
-      const { data, error } = await supabase.functions.invoke('get-turn-credentials');
-      if (error) throw error;
-      return data?.iceServers || [];
+
+      // Health check: filter out unreachable TURN servers
+      const filtered = await filterReachableTurnServers(iceServers);
+      return filtered;
     } catch (err) {
       console.error('[VideoRoom] Failed to get TURN credentials:', err);
       return [
@@ -369,7 +437,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         { urls: 'stun:stun1.l.google.com:19302' },
       ];
     }
-  }, [guestMode, guestTokenId]);
+  }, [guestMode, guestTokenId, filterReachableTurnServers]);
 
   // Cleanup function with guard
   const cleanup = useCallback(async () => {
