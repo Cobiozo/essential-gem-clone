@@ -216,7 +216,8 @@ export const useTeamContacts = () => {
         description: error.message || 'Nie udało się zaktualizować kontaktu',
         variant: 'destructive',
       });
-      return false;
+      // Re-throw so the form can display specific error
+      throw error;
     }
   };
 

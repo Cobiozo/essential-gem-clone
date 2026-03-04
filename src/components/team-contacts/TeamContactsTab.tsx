@@ -157,11 +157,16 @@ export const TeamContactsTab: React.FC = () => {
 
   const handleEditContact = async (data: Partial<TeamContact>): Promise<boolean> => {
     if (!editingContact) return false;
-    const result = await updateContact(editingContact.id, data);
-    if (result) {
-      setEditingContact(null);
+    try {
+      const result = await updateContact(editingContact.id, data);
+      if (result) {
+        setEditingContact(null);
+      }
+      return result;
+    } catch (error: any) {
+      // Re-throw so PrivateContactForm can display the error inline
+      throw error;
     }
-    return result;
   };
 
   const handleDeleteContact = async (id: string) => {

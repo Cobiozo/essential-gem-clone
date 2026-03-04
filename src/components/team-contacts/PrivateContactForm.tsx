@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { fromZonedTime } from 'date-fns-tz';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,6 +60,38 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    // Validate reminder fields
+    if (formData.reminder_date) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.reminder_date)) {
+        setError('Data przypomnienia musi być w formacie RRRR-MM-DD.');
+        setLoading(false);
+        return;
+      }
+      if (!/^\d{2}:\d{2}$/.test(formData.reminder_time || '')) {
+        setError('Godzina przypomnienia musi być w formacie GG:MM.');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Build reminder_date as proper ISO using date-fns-tz
+    let reminderDateISO: string | null = null;
+    if (formData.reminder_date) {
+      try {
+        const [hours, minutes] = (formData.reminder_time || '10:00').split(':').map(Number);
+        // fromZonedTime interprets the given date+time as Warsaw local time and returns UTC Date
+        const utcDate = fromZonedTime(
+          `${formData.reminder_date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`,
+          'Europe/Warsaw'
+        );
+        reminderDateISO = utcDate.toISOString();
+      } catch {
+        setError('Nieprawidłowa data lub godzina przypomnienia.');
+        setLoading(false);
+        return;
+      }
+    }
     
     const editableFields: any = {
       first_name: formData.first_name,
@@ -70,19 +103,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       relationship_status: formData.relationship_status || 'observation',
       notes: formData.notes || null,
       next_contact_date: formData.next_contact_date || null,
-      reminder_date: formData.reminder_date
-        ? (() => {
-            const [hours, minutes] = (formData.reminder_time || '10:00').split(':').map(Number);
-            const dateStr = formData.reminder_date;
-            const warsawDate = new Date(`${dateStr}T${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:00`);
-            const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Warsaw', timeZoneName: 'shortOffset' });
-            const parts = formatter.formatToParts(warsawDate);
-            const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || '+01:00';
-            const offset = offsetPart.replace('GMT', '').replace('+', '+').padStart(6, '+00:00');
-            const isoOffset = offset.includes(':') ? offset : `${offset}:00`;
-            return `${dateStr}T${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:00${isoOffset}`;
-          })()
-        : null,
+      reminder_date: reminderDateISO,
       reminder_note: formData.reminder_note || null,
       products: formData.products || null,
       contact_source: formData.contact_source || null,
@@ -110,7 +131,11 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
         setError('Nie udało się zapisać kontaktu. Spróbuj ponownie.');
       }
     } catch (err: any) {
-      setError(err?.message || 'Nie udało się zapisać kontaktu. Spróbuj ponownie.');
+      if (err?.message?.includes('timestamp') || err?.message?.includes('time zone')) {
+        setError('Nieprawidłowy format daty/godziny przypomnienia. Sprawdź wartości i spróbuj ponownie.');
+      } else {
+        setError(err?.message || 'Nie udało się zapisać kontaktu. Spróbuj ponownie.');
+      }
     } finally {
       setLoading(false);
     }
