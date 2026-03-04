@@ -47,9 +47,12 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     notes: contact?.notes || '',
     next_contact_date: contact?.next_contact_date || '',
     reminder_date: contact?.reminder_date ? contact.reminder_date.split('T')[0] : '',
-    reminder_time: contact?.reminder_date
-      ? new Date(contact.reminder_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })
-      : '10:00',
+    reminder_hour: contact?.reminder_date
+      ? new Date(contact.reminder_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' }).split(':')[0]
+      : '10',
+    reminder_minute: contact?.reminder_date
+      ? (parseInt(new Date(contact.reminder_date).toLocaleTimeString('en-GB', { minute: '2-digit', timeZone: 'Europe/Warsaw' }).split(':')[1] || '0') >= 30 ? '30' : '00')
+      : '00',
     reminder_note: contact?.reminder_note || '',
     products: contact?.products || '',
     contact_source: contact?.contact_source || '',
@@ -68,11 +71,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
         setLoading(false);
         return;
       }
-      if (!/^\d{2}:\d{2}$/.test(formData.reminder_time || '')) {
-        setError('Godzina przypomnienia musi być w formacie GG:MM.');
-        setLoading(false);
-        return;
-      }
+      // Hour/minute selects always produce valid values, no regex needed
     }
 
     // Validate chronological order of dates
@@ -96,10 +95,11 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     let reminderDateISO: string | null = null;
     if (formData.reminder_date) {
       try {
-        const [hours, minutes] = (formData.reminder_time || '10:00').split(':').map(Number);
+        const hours = formData.reminder_hour || '10';
+        const minutes = formData.reminder_minute || '00';
         // fromZonedTime interprets the given date+time as Warsaw local time and returns UTC Date
         const utcDate = fromZonedTime(
-          `${formData.reminder_date}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`,
+          `${formData.reminder_date}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00`,
           'Europe/Warsaw'
         );
         reminderDateISO = utcDate.toISOString();
@@ -371,17 +371,41 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             value={formData.reminder_date}
             onChange={(e) => setFormData({ ...formData, reminder_date: e.target.value })}
           />
-          <Input
-            id="reminder_time"
-            type="time"
-            value={formData.reminder_time}
-            onChange={(e) => setFormData({ ...formData, reminder_time: e.target.value })}
-            disabled={!formData.reminder_date}
-          />
+          <div className="flex gap-2">
+            <Select
+              value={formData.reminder_hour}
+              onValueChange={(value) => setFormData({ ...formData, reminder_hour: value })}
+              disabled={!formData.reminder_date}
+            >
+              <SelectTrigger className="w-[80px]">
+                <SelectValue placeholder="Godz." />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 24 }, (_, i) => {
+                  const h = String(i).padStart(2, '0');
+                  return <SelectItem key={h} value={String(i)}>{h}</SelectItem>;
+                })}
+              </SelectContent>
+            </Select>
+            <span className="flex items-center text-muted-foreground font-bold">:</span>
+            <Select
+              value={formData.reminder_minute}
+              onValueChange={(value) => setFormData({ ...formData, reminder_minute: value })}
+              disabled={!formData.reminder_date}
+            >
+              <SelectTrigger className="w-[80px]">
+                <SelectValue placeholder="Min." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="00">00</SelectItem>
+                <SelectItem value="30">30</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         {formData.reminder_date && (
           <p className="text-xs text-muted-foreground">
-            Przypomnienie zostanie wysłane ok. godz. {formData.reminder_time || '10:00'} (CET)
+            Przypomnienie zostanie wysłane ok. godz. {formData.reminder_hour?.padStart(2, '0') || '10'}:{formData.reminder_minute || '00'} (CET)
           </p>
         )}
       </div>
