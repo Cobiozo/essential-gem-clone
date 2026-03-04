@@ -56,7 +56,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { UserProfileCard } from './UserProfileCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useLeaderPermissions } from '@/hooks/useLeaderPermissions';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
