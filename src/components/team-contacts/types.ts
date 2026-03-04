@@ -58,6 +58,7 @@ export interface TeamContact {
   // Second contact & annotation
   second_contact_date: string | null;
   first_contact_annotation: string | null;
+  first_contact_result: string | null;
   
   is_active: boolean;
   

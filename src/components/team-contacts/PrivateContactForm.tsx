@@ -40,6 +40,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
     added_at: contact?.added_at || new Date().toISOString().split('T')[0],
     second_contact_date: contact?.second_contact_date || '',
     first_contact_annotation: contact?.first_contact_annotation || '',
+    first_contact_result: contact?.first_contact_result || '',
     relationship_status: contact?.relationship_status || 'observation',
     notes: contact?.notes || '',
     next_contact_date: contact?.next_contact_date || '',
@@ -88,6 +89,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       contact_reason: formData.contact_reason || null,
       second_contact_date: formData.second_contact_date || null,
       first_contact_annotation: formData.first_contact_annotation || null,
+      first_contact_result: formData.first_contact_result || null,
       added_at: formData.added_at,
       is_active: true,
       contact_type: 'private',
@@ -251,6 +253,24 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           value={formData.added_at}
           onChange={(e) => setFormData({ ...formData, added_at: e.target.value })}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="first_contact_result">Wynik pierwszego kontaktu</Label>
+        <Select
+          value={formData.first_contact_result || ''}
+          onValueChange={(value) => setFormData({ ...formData, first_contact_result: value })}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Wybierz wynik..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="answered">Odebrał</SelectItem>
+            <SelectItem value="no_answer">Nie odebrane</SelectItem>
+            <SelectItem value="wrong_number">Błędny numer</SelectItem>
+            <SelectItem value="out_of_range">Poza zasięgiem</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="space-y-2">

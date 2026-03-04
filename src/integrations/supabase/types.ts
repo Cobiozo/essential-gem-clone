@@ -6411,6 +6411,7 @@ export type Database = {
           email: string | null
           eq_id: string | null
           first_contact_annotation: string | null
+          first_contact_result: string | null
           first_name: string
           id: string
           is_active: boolean | null
@@ -6450,6 +6451,7 @@ export type Database = {
           email?: string | null
           eq_id?: string | null
           first_contact_annotation?: string | null
+          first_contact_result?: string | null
           first_name: string
           id?: string
           is_active?: boolean | null
@@ -6489,6 +6491,7 @@ export type Database = {
           email?: string | null
           eq_id?: string | null
           first_contact_annotation?: string | null
+          first_contact_result?: string | null
           first_name?: string
           id?: string
           is_active?: boolean | null
