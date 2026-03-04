@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useOfflineQueue } from '@/hooks/useOfflineQueue';
 import type { TeamContact, TeamContactFilters, TeamContactHistory } from '@/components/team-contacts/types';
 
 export const useTeamContacts = () => {
@@ -95,8 +96,22 @@ export const useTeamContacts = () => {
     }
   }, [user, isAdmin, filters, toast]);
 
+  const { pendingCount, enqueue, sync } = useOfflineQueue(fetchContacts);
+
   const addContact = async (contact: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
     if (!user) return null;
+
+    // If offline, enqueue immediately
+    if (!navigator.onLine) {
+      const queued = enqueue(contact as any);
+      if (queued) {
+        toast({
+          title: 'Zapisano offline',
+          description: 'Kontakt zostanie zsynchronizowany po przywróceniu połączenia',
+        });
+      }
+      return null;
+    }
     
     try {
       const { data, error } = await supabase
@@ -127,11 +142,23 @@ export const useTeamContacts = () => {
       return data as TeamContact;
     } catch (error: any) {
       console.error('Error adding contact:', error);
-      toast({
-        title: 'Błąd',
-        description: 'Nie udało się dodać kontaktu',
-        variant: 'destructive',
-      });
+      
+      // Network error — save offline
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError') || error.name === 'TypeError') {
+        const queued = enqueue(contact as any);
+        if (queued) {
+          toast({
+            title: 'Zapisano offline',
+            description: 'Kontakt zostanie zsynchronizowany po przywróceniu połączenia',
+          });
+        }
+      } else {
+        toast({
+          title: 'Błąd',
+          description: error.message || 'Nie udało się dodać kontaktu',
+          variant: 'destructive',
+        });
+      }
       return null;
     }
   };
@@ -270,5 +297,6 @@ export const useTeamContacts = () => {
     getContactHistory,
     refetch: fetchContacts,
     eventContactIds,
+    pendingOfflineCount: pendingCount,
   };
 };
