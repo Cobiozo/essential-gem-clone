@@ -121,6 +121,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     applyBackground,
     stopBackground,
     updateRawStream,
+    getRawStream,
     setParticipantCount: setBgParticipantCount,
     getSavedBackground,
   } = useVideoBackground();
@@ -142,6 +143,54 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // Sync participant count to background processor for adaptive quality
   useEffect(() => { setBgParticipantCount(participants.length); }, [participants.length, setBgParticipantCount]);
+
+  // === Local stream freeze detection + background processor stall recovery ===
+  useEffect(() => {
+    if (!localStreamRef.current) return;
+    let freezeCheckInterval: ReturnType<typeof setInterval> | null = null;
+    let lastFrameCount = 0;
+    let frozenChecks = 0;
+
+    // Monitor local video for frozen frames using requestVideoFrameCallback or fallback
+    const videoEl = document.querySelector('video[data-local-video="true"]') as HTMLVideoElement | null;
+    
+    if (videoEl && 'requestVideoFrameCallback' in videoEl) {
+      let frameCounter = 0;
+      const countFrame = () => {
+        frameCounter++;
+        if (localStreamRef.current) {
+          (videoEl as any).requestVideoFrameCallback(countFrame);
+        }
+      };
+      (videoEl as any).requestVideoFrameCallback(countFrame);
+      
+      freezeCheckInterval = setInterval(() => {
+        if (frameCounter === lastFrameCount) {
+          frozenChecks++;
+          if (frozenChecks >= 2) { // 2 checks × 3s = 6s frozen
+            console.warn('[VideoRoom] Local video frozen for 6s, reacquiring...');
+            frozenChecks = 0;
+            reacquireLocalStream();
+          }
+        } else {
+          frozenChecks = 0;
+        }
+        lastFrameCount = frameCounter;
+      }, 3000);
+    }
+
+    // Listen for background processor stall events
+    const handleStall = () => {
+      console.warn('[VideoRoom] Background processor stalled, reacquiring stream...');
+      reacquireLocalStream();
+    };
+    window.addEventListener('background-processor-stalled', handleStall);
+
+    return () => {
+      if (freezeCheckInterval) clearInterval(freezeCheckInterval);
+      window.removeEventListener('background-processor-stalled', handleStall);
+    };
+  }, [localStream]); // re-setup when localStream changes
 
   // === Adaptive bitrate limiter for peer connections ===
   const applyBitrateLimits = useCallback(async (call: MediaConnection, participantCount: number) => {
@@ -173,10 +222,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // === Adaptive video quality based on participant count ===
   useEffect(() => {
-    const stream = localStreamRef.current;
-    if (!stream) return;
-    const videoTrack = stream.getVideoTracks()[0];
+    // Use raw camera track for applyConstraints (canvas tracks don't support it)
+    const rawStream = getRawStream();
+    const rawTrack = rawStream?.getVideoTracks()[0];
+    // Fallback to localStreamRef only if no raw stream available
+    const fallbackStream = localStreamRef.current;
+    const fallbackTrack = fallbackStream?.getVideoTracks()[0];
+    const videoTrack = (rawTrack && rawTrack.readyState === 'live') ? rawTrack : fallbackTrack;
     if (!videoTrack || videoTrack.readyState !== 'live') return;
+
+    // Skip canvas-captured tracks (they don't support applyConstraints)
+    try {
+      const caps = videoTrack.getCapabilities?.();
+      if (caps && !caps.width) return; // Canvas track has no width capability
+    } catch {}
 
     const count = participants.length;
     const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
@@ -200,7 +259,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     connectionsRef.current.forEach((conn) => {
       applyBitrateLimits(conn, count);
     });
-  }, [participants.length, applyBitrateLimits]);
+  }, [participants.length, applyBitrateLimits, getRawStream]);
 
   // === Zmiana C: isScreenSharingRef synced with state ===
   const isScreenSharingRef = useRef(false);

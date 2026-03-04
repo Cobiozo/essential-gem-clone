@@ -107,6 +107,8 @@ export class VideoBackgroundProcessor {
   private animationFrameId: number | null = null;
   private videoElement: HTMLVideoElement;
   private isRunning = false;
+  private stallFrameCount = 0;
+  private _stalled = false;
   private mode: BackgroundMode = 'none';
   private backgroundImage: HTMLImageElement | null = null;
   private initPromise: Promise<void> | null = null;
@@ -345,10 +347,23 @@ export class VideoBackgroundProcessor {
 
     try {
       if (this.videoElement.videoWidth === 0 || this.videoElement.videoHeight === 0) {
+        this.stallFrameCount++;
+        if (this.stallFrameCount >= 30 && !this._stalled) {
+          this._stalled = true;
+          console.warn('[BackgroundProcessor] Stalled: 30 consecutive empty frames');
+          try {
+            window.dispatchEvent(new CustomEvent('background-processor-stalled'));
+          } catch {}
+        }
         if (!this.isTabHidden) {
           this.animationFrameId = requestAnimationFrame(this.processFrame);
         }
         return;
+      }
+      // Reset stall counter on valid frame
+      if (this.stallFrameCount > 0) {
+        this.stallFrameCount = 0;
+        this._stalled = false;
       }
 
       const { processWidth: width, processHeight: height } = this;
@@ -858,7 +873,28 @@ export class VideoBackgroundProcessor {
     return this.segmenter !== null && this.isRunning;
   }
 
+  isStalled(): boolean {
+    return this._stalled;
+  }
+
   getMode(): BackgroundMode {
     return this.mode;
+  }
+
+  /**
+   * Hot-swap the source stream without full stop/start.
+   * Used when camera is re-acquired while processor is running.
+   */
+  updateSourceStream(newStream: MediaStream) {
+    const videoTrack = newStream.getVideoTracks()[0];
+    if (!videoTrack || videoTrack.readyState === 'ended') {
+      console.warn('[BackgroundProcessor] updateSourceStream: no live video track');
+      return;
+    }
+    this.videoElement.srcObject = new MediaStream([videoTrack]);
+    this.videoElement.play().catch(() => {});
+    this.stallFrameCount = 0;
+    this._stalled = false;
+    console.log('[BackgroundProcessor] Source stream hot-swapped');
   }
 }
