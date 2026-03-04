@@ -365,7 +365,8 @@ All colors MUST be HSL.
 @layer utilities {
   /* Golden calendar picker icon - forced visibility */
   input[type="date"]::-webkit-calendar-picker-indicator,
-  input[type="time"]::-webkit-calendar-picker-indicator {
+  input[type="time"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     opacity: 1 !important;
     display: block !important;
     width: 1.25rem;
@@ -375,13 +376,15 @@ All colors MUST be HSL.
   }
 
   input[type="date"],
-  input[type="time"] {
+  input[type="time"],
+  input[type="datetime-local"] {
     padding-right: 2.5rem;
   }
 
   /* Firefox support for dark mode date/time inputs */
   .dark input[type="time"],
-  .dark input[type="date"] {
+  .dark input[type="date"],
+  .dark input[type="datetime-local"] {
     color-scheme: dark;
   }
   
