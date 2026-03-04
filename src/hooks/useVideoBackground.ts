@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { VideoBackgroundProcessor, type BackgroundMode } from '@/components/meeting/VideoBackgroundProcessor';
+import { VideoBackgroundProcessor, BackgroundProcessorError, BG_ERROR_CODES, type BackgroundMode } from '@/components/meeting/VideoBackgroundProcessor';
 
 const LS_KEY_MODE = 'meeting_bg_mode';
 const LS_KEY_IMAGE = 'meeting_bg_image';
@@ -27,11 +27,19 @@ function persistChoice(mode: BackgroundMode, image: string | null) {
   } catch {}
 }
 
+function detectMobilePWA(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  const isStandalone = (window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  return isMobile || isStandalone;
+}
+
 export function useVideoBackground() {
   const [mode, setMode] = useState<BackgroundMode>(loadSavedMode);
   const [selectedImage, setSelectedImage] = useState<string | null>(loadSavedImage);
   const [isLoading, setIsLoading] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
+  const [lastError, setLastError] = useState<string | null>(null);
   const processorRef = useRef<VideoBackgroundProcessor | null>(null);
   const loadedImagesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const rawStreamRef = useRef<MediaStream | null>(null);
@@ -90,6 +98,7 @@ export function useVideoBackground() {
       if ((inputStream as any).__bgProcessed) {
         console.warn('[useVideoBackground] Cannot use processed stream as raw source, skipping effect');
         setMode('none');
+        setLastError(null);
         persistChoice('none', null);
         return inputStream;
       }
@@ -101,6 +110,7 @@ export function useVideoBackground() {
       processorRef.current?.stop();
       setMode('none');
       setSelectedImage(null);
+      setLastError(null);
       persistChoice('none', null);
       return sourceStream;
     }
@@ -109,36 +119,86 @@ export function useVideoBackground() {
     if (!videoTrack || videoTrack.readyState === 'ended') {
       console.warn('[useVideoBackground] Source stream has no live video track, cannot apply background');
       setMode('none');
+      setLastError('BG_VIDEO_NOT_READY');
       persistChoice('none', null);
       return sourceStream;
     }
 
     setIsLoading(true);
-    try {
-      const processor = getProcessor();
-      processor.stop();
+    setLastError(null);
+    const isMobilePWA = detectMobilePWA();
 
-      let bgImage: HTMLImageElement | null = null;
-      if (newMode === 'image' && imageSrc) {
-        bgImage = await loadImage(imageSrc);
+    // Stage 1: Normal attempt
+    try {
+      const result = await attemptApply(sourceStream, newMode, imageSrc);
+      setIsLoading(false);
+      return result;
+    } catch (err1) {
+      const errCode = err1 instanceof BackgroundProcessorError ? err1.code : 'BG_START_FAILED';
+      console.warn(`[useVideoBackground] Stage 1 failed (${errCode}):`, err1);
+
+      // Stage 2: On mobile/PWA, retry with compatibility mode
+      if (isMobilePWA) {
+        try {
+          console.log('[useVideoBackground] Stage 2: retrying with compatibility mode...');
+          // Destroy old processor, create fresh one in compat mode
+          processorRef.current?.destroy();
+          processorRef.current = null;
+          const freshProcessor = getProcessor();
+          freshProcessor.enableCompatibilityMode();
+          
+          const result = await attemptApply(sourceStream, newMode, imageSrc);
+          setIsLoading(false);
+          return result;
+        } catch (err2) {
+          console.warn('[useVideoBackground] Stage 2 (compat) failed:', err2);
+
+          // Stage 3: Fallback to blur-light if original request was heavier
+          if (newMode !== 'blur-light') {
+            try {
+              console.log('[useVideoBackground] Stage 3: falling back to blur-light...');
+              const result = await attemptApply(sourceStream, 'blur-light', null);
+              setIsLoading(false);
+              setLastError('BG_FALLBACK_BLUR');
+              return result;
+            } catch (err3) {
+              console.error('[useVideoBackground] Stage 3 (blur-light fallback) failed:', err3);
+            }
+          }
+        }
       }
 
-      processor.setOptions({ mode: newMode, backgroundImage: bgImage });
-      const outputStream = await processor.start(sourceStream);
-      (outputStream as any).__bgProcessed = true;
-
-      setMode(newMode);
-      setSelectedImage(imageSrc || null);
-      persistChoice(newMode, imageSrc || null);
-      setIsLoading(false);
-      return outputStream;
-    } catch (err) {
-      console.error('[useVideoBackground] Failed to apply background:', err);
+      // All stages failed
       setIsLoading(false);
       setMode('none');
+      setLastError(errCode);
       persistChoice('none', null);
-      throw err;
+      throw err1;
     }
+  }, [getProcessor, loadImage]);
+
+  /** Internal helper: single apply attempt */
+  const attemptApply = useCallback(async (
+    sourceStream: MediaStream,
+    newMode: BackgroundMode,
+    imageSrc?: string | null,
+  ): Promise<MediaStream> => {
+    const processor = getProcessor();
+    processor.stop();
+
+    let bgImage: HTMLImageElement | null = null;
+    if (newMode === 'image' && imageSrc) {
+      bgImage = await loadImage(imageSrc);
+    }
+
+    processor.setOptions({ mode: newMode, backgroundImage: bgImage });
+    const outputStream = await processor.start(sourceStream);
+    (outputStream as any).__bgProcessed = true;
+
+    setMode(newMode);
+    setSelectedImage(imageSrc || null);
+    persistChoice(newMode, imageSrc || null);
+    return outputStream;
   }, [getProcessor, loadImage]);
 
   /** Lightweight preview: changes processor options without stop/start if already running */
@@ -206,6 +266,7 @@ export function useVideoBackground() {
     selectedImage,
     isLoading,
     isSupported,
+    lastError,
     applyBackground,
     previewBackground,
     stopBackground,
