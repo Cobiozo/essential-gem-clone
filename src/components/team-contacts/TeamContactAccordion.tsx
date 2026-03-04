@@ -382,7 +382,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                           <p><span className="text-muted-foreground">{t('teamContacts.nextContact')}:</span> {formatDate(contact.next_contact_date)}</p>
                         )}
                         {contact.reminder_date && (
-                          <p><span className="text-muted-foreground">{t('teamContacts.reminder')}:</span> {formatDate(contact.reminder_date)}</p>
+                          <p><span className="text-muted-foreground">{t('teamContacts.reminder')}:</span> {contact.reminder_date ? new Date(contact.reminder_date).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</p>
                         )}
                         {contact.reminder_note && (
                           <p className="text-muted-foreground italic">{contact.reminder_note}</p>
