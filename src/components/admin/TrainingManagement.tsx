@@ -859,27 +859,42 @@ const TrainingManagement = () => {
   const fetchUserProgress = async () => {
     setProgressLoading(true);
     try {
-      // Fetch all assignments with user and module info
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('training_assignments')
-        .select(`
-          user_id,
-          module_id,
-          assigned_at,
-          is_completed,
-          profiles!training_assignments_user_id_fkey (
-            email,
-            first_name,
-            last_name,
-            eq_id,
-            training_language
-          ),
-          training_modules!training_assignments_module_id_fkey (
-            title
-          )
-        `);
+      // Fetch ALL assignments with pagination to bypass 1000 row limit
+      let allAssignments: any[] = [];
+      let assignFrom = 0;
+      const assignBatchSize = 1000;
+      
+      while (true) {
+        const { data, error: assignmentsError } = await supabase
+          .from('training_assignments')
+          .select(`
+            user_id,
+            module_id,
+            assigned_at,
+            is_completed,
+            profiles!training_assignments_user_id_fkey (
+              email,
+              first_name,
+              last_name,
+              eq_id,
+              training_language
+            ),
+            training_modules!training_assignments_module_id_fkey (
+              title
+            )
+          `)
+          .range(assignFrom, assignFrom + assignBatchSize - 1);
 
-      if (assignmentsError) throw assignmentsError;
+        if (assignmentsError) throw assignmentsError;
+        if (!data || data.length === 0) break;
+        
+        allAssignments = [...allAssignments, ...data];
+        if (data.length < assignBatchSize) break;
+        assignFrom += assignBatchSize;
+      }
+      
+      const assignments = allAssignments;
+      console.log(`📊 Fetched ${assignments.length} total assignment records (paginated)`);
 
       // Fetch ALL progress records with pagination to bypass 1000 row limit
       // This ensures we capture progress for users who may not have assignments
