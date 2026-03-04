@@ -167,12 +167,18 @@ export const useTeamContacts = () => {
     if (!user) return false;
     
     try {
-      // Get current values for history
-      const { data: currentData } = await supabase
-        .from('team_contacts')
-        .select('*')
-        .eq('id', id)
-        .single();
+      // Get current values for history (non-blocking if fails)
+      let currentData: any = null;
+      try {
+        const { data } = await supabase
+          .from('team_contacts')
+          .select('*')
+          .eq('id', id)
+          .single();
+        currentData = data;
+      } catch (e) {
+        console.warn('Could not fetch current contact data for history:', e);
+      }
 
       const { data, error } = await supabase
         .from('team_contacts')
@@ -183,14 +189,18 @@ export const useTeamContacts = () => {
 
       if (error) throw error;
 
-      // Add history entry
-      await supabase.from('team_contacts_history').insert({
-        contact_id: id,
-        change_type: 'updated',
-        previous_values: currentData,
-        new_values: data,
-        changed_by: user.id,
-      });
+      // Add history entry (non-blocking — don't fail the update if history insert fails)
+      try {
+        await supabase.from('team_contacts_history').insert({
+          contact_id: id,
+          change_type: 'updated',
+          previous_values: currentData,
+          new_values: data,
+          changed_by: user.id,
+        });
+      } catch (historyError) {
+        console.warn('History insert failed, but contact was updated:', historyError);
+      }
 
       toast({
         title: 'Sukces',
@@ -203,7 +213,7 @@ export const useTeamContacts = () => {
       console.error('Error updating contact:', error);
       toast({
         title: 'Błąd',
-        description: 'Nie udało się zaktualizować kontaktu',
+        description: error.message || 'Nie udało się zaktualizować kontaktu',
         variant: 'destructive',
       });
       return false;

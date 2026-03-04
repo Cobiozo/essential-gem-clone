@@ -15,7 +15,7 @@ import type { TeamContact } from './types';
 
 interface PrivateContactFormProps {
   contact?: TeamContact;
-  onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => void;
+  onSubmit: (data: Omit<TeamContact, 'id' | 'user_id' | 'created_at' | 'updated_at'> | Partial<TeamContact>) => Promise<boolean> | void;
   onCancel: () => void;
 }
 
@@ -25,6 +25,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   onCancel,
 }) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const createdAtDisplay = contact?.created_at
     ? new Date(contact.created_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -57,8 +58,9 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     
-    const data: any = {
+    const editableFields: any = {
       first_name: formData.first_name,
       last_name: formData.last_name,
       phone_number: formData.phone_number || null,
@@ -72,9 +74,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
         ? (() => {
             const [hours, minutes] = (formData.reminder_time || '10:00').split(':').map(Number);
             const dateStr = formData.reminder_date;
-            // Build Warsaw-local datetime string and let the browser parse with offset
             const warsawDate = new Date(`${dateStr}T${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:00`);
-            // Get Warsaw offset for that date
             const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Warsaw', timeZoneName: 'shortOffset' });
             const parts = formatter.formatToParts(warsawDate);
             const offsetPart = parts.find(p => p.type === 'timeZoneName')?.value || '+01:00';
@@ -91,6 +91,11 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       first_contact_annotation: formData.first_contact_annotation || null,
       first_contact_result: formData.first_contact_result || null,
       added_at: formData.added_at,
+    };
+
+    // Only include system fields when creating new contact
+    const data = contact ? editableFields : {
+      ...editableFields,
       is_active: true,
       contact_type: 'private',
       eq_id: null,
@@ -99,8 +104,16 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       reminder_sent: false,
     };
 
-    await onSubmit(data);
-    setLoading(false);
+    try {
+      const result = await onSubmit(data);
+      if (result === false) {
+        setError('Nie udało się zapisać kontaktu. Spróbuj ponownie.');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Nie udało się zapisać kontaktu. Spróbuj ponownie.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -341,6 +354,13 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           rows={3}
         />
       </div>
+
+      {/* Error feedback */}
+      {error && (
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
