@@ -118,9 +118,14 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
     };
   }, []);
 
-  // Auto-apply saved background when stream is ready
+  // Auto-apply saved background when stream is ready (skip on mobile/PWA to avoid stream corruption)
   useEffect(() => {
     if (!previewStream) return;
+    const isMobilePWA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobilePWA) {
+      console.log('[Lobby] Skipping auto-apply background on mobile/PWA');
+      return;
+    }
     const saved = getSavedBackground();
     if (saved.mode !== 'none') {
       applyBackground(previewStream, saved.mode, saved.image).then((out) => {
@@ -240,7 +245,15 @@ export const MeetingLobby: React.FC<MeetingLobbyProps> = ({
 
   const handleJoin = () => {
     streamPassedRef.current = true;
-    const streamToPass = processedStream || previewStream || undefined;
+    // Validate streams have live tracks before passing to VideoRoom
+    const isLive = (s: MediaStream | null) => s?.getTracks().some(t => t.readyState === 'live') ?? false;
+    let streamToPass: MediaStream | undefined;
+    if (isLive(processedStream)) {
+      streamToPass = processedStream!;
+    } else if (isLive(previewStream)) {
+      streamToPass = previewStream!;
+    }
+    // If neither is live, pass undefined — VideoRoom will acquire its own
     onJoin(audioEnabled, videoEnabled, isHost ? meetingSettings : undefined, streamToPass);
   };
 
