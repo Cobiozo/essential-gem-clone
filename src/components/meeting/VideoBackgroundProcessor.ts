@@ -94,6 +94,30 @@ function detectMobile(): boolean {
     ('ontouchstart' in window && window.innerWidth < 1024);
 }
 
+function detectIOSPWA(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isStandalone = (window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  return isIOS || (isStandalone && detectMobile());
+}
+
+/** Classified background processing error */
+export class BackgroundProcessorError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = 'BackgroundProcessorError';
+    this.code = code;
+  }
+}
+
+export const BG_ERROR_CODES = {
+  MODEL_INIT_FAILED: 'BG_MODEL_INIT_FAILED',
+  VIDEO_NOT_READY: 'BG_VIDEO_NOT_READY',
+  CONTEXT_LOST: 'BG_CONTEXT_LOST',
+  START_FAILED: 'BG_START_FAILED',
+} as const;
+
 // Primary model: selfie_segmenter (full-res output — mask matches input resolution)
 const PRIMARY_MODEL_URL = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/1/selfie_segmenter.tflite';
 // Fallback model: multiclass 256x256
@@ -153,6 +177,7 @@ export class VideoBackgroundProcessor {
   private isTabHidden = false;
   private backgroundIntervalId: ReturnType<typeof setInterval> | null = null;
   private visibilityHandler: (() => void) | null = null;
+  private _compatibilityMode = false;
 
   constructor() {
     this.canvas = document.createElement('canvas');
@@ -170,9 +195,11 @@ export class VideoBackgroundProcessor {
     this.profile = { ...base };
   }
 
-  async initialize(): Promise<void> {
+  async initialize(forceCompatibility = false): Promise<void> {
     if (this.segmenter) return;
     if (this.initPromise) return this.initPromise;
+
+    const useCompat = forceCompatibility || this._compatibilityMode;
 
     this.initPromise = (async () => {
       try {
@@ -189,29 +216,49 @@ export class VideoBackgroundProcessor {
           });
         };
 
-        // Try primary full-res selfie_segmenter with GPU
-        try {
-          this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'GPU');
-          this.isMulticlassModel = false;
-          console.log('[BackgroundProcessor] ✅ Full-res selfie_segmenter loaded (GPU)');
-        } catch (e1) {
-          console.warn('[BackgroundProcessor] Full-res GPU failed, trying CPU:', e1);
+        const isIOSPWA = detectIOSPWA();
+        // iOS PWA or compatibility mode: try CPU first
+        const delegateOrder: ('GPU' | 'CPU')[] = (useCompat || isIOSPWA) ? ['CPU', 'GPU'] : ['GPU', 'CPU'];
+        
+        if (useCompat || isIOSPWA) {
+          console.log(`[BackgroundProcessor] 📱 Mobile compatibility mode (iOS/PWA=${isIOSPWA}, forced=${forceCompatibility})`);
+          this._compatibilityMode = true;
+          // Lower processing params for compat mode
+          this.baseProfile.maxProcessWidth = Math.min(this.baseProfile.maxProcessWidth, 360);
+          this.baseProfile.segmentationIntervalMs = Math.max(this.baseProfile.segmentationIntervalMs, 120);
+          this.profile = { ...this.baseProfile };
+        }
+
+        let loaded = false;
+        // Try primary model with preferred delegate order
+        for (const delegate of delegateOrder) {
+          if (loaded) break;
           try {
-            this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, 'CPU');
+            this.segmenter = await createSegmenter(PRIMARY_MODEL_URL, delegate);
             this.isMulticlassModel = false;
-            console.log('[BackgroundProcessor] ✅ Full-res selfie_segmenter loaded (CPU)');
-          } catch (e2) {
-            console.warn('[BackgroundProcessor] Full-res model failed, falling back to multiclass 256x256:', e2);
+            loaded = true;
+            console.log(`[BackgroundProcessor] ✅ Full-res selfie_segmenter loaded (${delegate})`);
+          } catch (e) {
+            console.warn(`[BackgroundProcessor] Full-res ${delegate} failed:`, e);
+          }
+        }
+        // Fallback to multiclass model
+        if (!loaded) {
+          console.warn('[BackgroundProcessor] Full-res model failed, falling back to multiclass 256x256');
+          for (const delegate of delegateOrder) {
+            if (loaded) break;
             try {
-              this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'GPU');
+              this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, delegate);
               this.isMulticlassModel = true;
-              console.log('[BackgroundProcessor] ⚠️ Multiclass 256x256 fallback loaded (GPU)');
-            } catch (e3) {
-              this.segmenter = await createSegmenter(FALLBACK_MODEL_URL, 'CPU');
-              this.isMulticlassModel = true;
-              console.log('[BackgroundProcessor] ⚠️ Multiclass 256x256 fallback loaded (CPU)');
+              loaded = true;
+              console.log(`[BackgroundProcessor] ⚠️ Multiclass 256x256 fallback loaded (${delegate})`);
+            } catch (e) {
+              console.warn(`[BackgroundProcessor] Multiclass ${delegate} failed:`, e);
             }
           }
+        }
+        if (!loaded) {
+          throw new BackgroundProcessorError(BG_ERROR_CODES.MODEL_INIT_FAILED, 'All model/delegate combinations failed');
         }
       } catch (err) {
         console.error('[BackgroundProcessor] Failed to initialize:', err);
@@ -253,7 +300,29 @@ export class VideoBackgroundProcessor {
       return inputStream;
     }
 
-    await this.initialize();
+    // Internal single retry on start failure
+    try {
+      return await this._startInternal(inputStream);
+    } catch (err) {
+      console.warn('[BackgroundProcessor] First start attempt failed, retrying with compatibility mode...', err);
+      // Reset for retry
+      this.stop();
+      this.segmenter?.close();
+      this.segmenter = null;
+      this.initPromise = null;
+      this._compatibilityMode = true;
+      try {
+        return await this._startInternal(inputStream);
+      } catch (retryErr) {
+        console.error('[BackgroundProcessor] Retry also failed:', retryErr);
+        throw retryErr instanceof BackgroundProcessorError ? retryErr
+          : new BackgroundProcessorError(BG_ERROR_CODES.START_FAILED, String(retryErr));
+      }
+    }
+  }
+
+  private async _startInternal(inputStream: MediaStream): Promise<MediaStream> {
+    await this.initialize(this._compatibilityMode);
 
     const videoTrack = inputStream.getVideoTracks()[0];
     if (!videoTrack || videoTrack.readyState === 'ended') {
@@ -348,9 +417,10 @@ export class VideoBackgroundProcessor {
     try {
       if (this.videoElement.videoWidth === 0 || this.videoElement.videoHeight === 0) {
         this.stallFrameCount++;
-        if (this.stallFrameCount >= 30 && !this._stalled) {
+        // Only emit stall event when tab is visible (iOS/PWA zeros videoWidth in background)
+        if (this.stallFrameCount >= 30 && !this._stalled && !document.hidden) {
           this._stalled = true;
-          console.warn('[BackgroundProcessor] Stalled: 30 consecutive empty frames');
+          console.warn('[BackgroundProcessor] Stalled: 30 consecutive empty frames (tab visible)');
           try {
             window.dispatchEvent(new CustomEvent('background-processor-stalled'));
           } catch {}
@@ -362,6 +432,9 @@ export class VideoBackgroundProcessor {
       }
       // Reset stall counter on valid frame
       if (this.stallFrameCount > 0) {
+        if (this._stalled) {
+          console.log('[BackgroundProcessor] Recovered from stall');
+        }
         this.stallFrameCount = 0;
         this._stalled = false;
       }
@@ -791,6 +864,9 @@ export class VideoBackgroundProcessor {
         }
       } else {
         this.isTabHidden = false;
+        // Reset stall counter on return to foreground (iOS/PWA may have zeroed videoWidth)
+        this.stallFrameCount = 0;
+        this._stalled = false;
         if (this.backgroundIntervalId) {
           clearInterval(this.backgroundIntervalId);
           this.backgroundIntervalId = null;
@@ -896,5 +972,14 @@ export class VideoBackgroundProcessor {
     this.stallFrameCount = 0;
     this._stalled = false;
     console.log('[BackgroundProcessor] Source stream hot-swapped');
+  }
+
+  /** Enable compatibility mode for next initialization */
+  enableCompatibilityMode() {
+    this._compatibilityMode = true;
+  }
+
+  isCompatibilityMode(): boolean {
+    return this._compatibilityMode;
   }
 }

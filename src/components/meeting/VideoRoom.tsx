@@ -118,6 +118,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     selectedImage: bgSelectedImage,
     isLoading: bgIsLoading,
     isSupported: bgIsSupported,
+    lastError: bgLastError,
     applyBackground,
     stopBackground,
     updateRawStream,
@@ -125,6 +126,10 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     setParticipantCount: setBgParticipantCount,
     getSavedBackground,
   } = useVideoBackground();
+
+  // Lock to prevent concurrent background apply operations
+  const isApplyingBackgroundRef = useRef(false);
+  const stallCooldownRef = useRef(0);
 
   const { zoomBackgrounds } = useZoomBackgrounds();
 
@@ -179,8 +184,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }, 3000);
     }
 
-    // Listen for background processor stall events
+    // Listen for background processor stall events (with cooldown + hidden check)
     const handleStall = () => {
+      // Ignore stalls when tab is hidden (iOS/PWA zeros videoWidth in background)
+      if (document.hidden) {
+        console.log('[VideoRoom] Ignoring background-processor-stalled (tab hidden)');
+        return;
+      }
+      // Cooldown: max 1 recovery every 10s
+      const now = Date.now();
+      if (now - stallCooldownRef.current < 10000) {
+        console.log('[VideoRoom] Stall recovery cooldown active, skipping');
+        return;
+      }
+      stallCooldownRef.current = now;
       console.warn('[VideoRoom] Background processor stalled, reacquiring stream...');
       reacquireLocalStream();
     };
@@ -2002,26 +2019,29 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       return;
     }
 
-    const stream = localStreamRef.current;
-    if (!stream) return;
-
-    // Check if stream is dead — reacquire if needed
-    const currentVideoTrack = stream.getVideoTracks()[0];
-    if (newMode !== 'none' && (!currentVideoTrack || currentVideoTrack.readyState === 'ended')) {
-      toast({ title: 'Odzyskiwanie kamery...', description: 'Strumień wideo wygasł, próbuję ponownie.' });
-      try {
-        const freshStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-        localStreamRef.current = freshStream;
-        setLocalStream(freshStream);
-        updateRawStream(freshStream);
-      } catch (e) {
-        console.error('[VideoRoom] Failed to reacquire stream:', e);
-        toast({ title: 'Błąd kamery', description: 'Nie udało się odzyskać strumienia wideo.', variant: 'destructive' });
-        return;
-      }
+    // Lock to prevent concurrent apply operations
+    if (isApplyingBackgroundRef.current) {
+      console.warn('[VideoRoom] Background change already in progress, skipping');
+      return;
     }
+    isApplyingBackgroundRef.current = true;
 
     try {
+      let stream = localStreamRef.current;
+      if (!stream) { isApplyingBackgroundRef.current = false; return; }
+
+      // Check if stream is dead — use reacquireLocalStream instead of raw getUserMedia
+      const currentVideoTrack = stream.getVideoTracks()[0];
+      if (newMode !== 'none' && (!currentVideoTrack || currentVideoTrack.readyState === 'ended')) {
+        toast({ title: 'Odzyskiwanie kamery...', description: 'Strumień wideo wygasł, próbuję ponownie.' });
+        const freshStream = await reacquireLocalStream();
+        if (!freshStream) {
+          isApplyingBackgroundRef.current = false;
+          return;
+        }
+        stream = freshStream;
+      }
+
       // Ensure raw stream is up-to-date before applying new effect
       const activeStream = localStreamRef.current!;
       if (!(activeStream as any).__bgProcessed) {
@@ -2038,11 +2058,29 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           if (sender) sender.replaceTrack(videoTrack);
         });
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('[VideoRoom] Background change failed:', err);
-      toast({ title: 'Błąd efektu tła', description: 'Nie udało się zastosować efektu. Spróbuj ponownie.', variant: 'destructive' });
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const errorCode = err?.code || '';
+      
+      let description = 'Nie udało się zastosować efektu. Spróbuj ponownie.';
+      if (errorCode === 'BG_MODEL_INIT_FAILED') {
+        description = isMobile
+          ? 'Model tła nie załadował się na tym urządzeniu. Spróbuj lżejszego efektu (rozmycie).'
+          : 'Nie udało się załadować modelu segmentacji. Odśwież stronę.';
+      } else if (errorCode === 'BG_FALLBACK_BLUR') {
+        // This is actually a partial success — blur-light was applied as fallback
+        toast({ title: 'Zastosowano lekkie rozmycie', description: 'Wybrany efekt był zbyt ciężki dla tego urządzenia.' });
+        isApplyingBackgroundRef.current = false;
+        return;
+      } else if (isMobile) {
+        description = 'Efekt tła nie jest dostępny na tym urządzeniu. Spróbuj ponownie po chwili.';
+      }
+      toast({ title: 'Błąd efektu tła', description, variant: 'destructive' });
+    } finally {
+      isApplyingBackgroundRef.current = false;
     }
-  }, [applyBackground, updateRawStream, isCameraOff, toast]);
+  }, [applyBackground, updateRawStream, isCameraOff, toast, reacquireLocalStream]);
 
   // Persist viewMode to sessionStorage
   useEffect(() => {
