@@ -22,6 +22,7 @@ import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { PWAInstallBanner } from "@/components/pwa/PWAInstallBanner";
 import { SWUpdateBanner } from "@/components/pwa/SWUpdateBanner";
 
@@ -298,8 +299,9 @@ const AppContent = () => {
         <Sonner />
         <BrowserRouter>
           <div className="min-h-screen bg-background flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-8 h-8 mx-auto mb-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="text-center flex flex-col items-center">
+              <img src={newPureLifeLogo} alt="Pure Life Center" className="h-24 object-contain mb-6" />
+              <div className="w-10 h-10 mx-auto mb-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
               <p className="text-muted-foreground">Ładowanie...</p>
             </div>
           </div>
