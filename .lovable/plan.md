@@ -1,32 +1,40 @@
 
 
-# Plan: Reorganizacja sekcji dat w formularzu kontaktów prywatnych
+# Plan: Rozszerzenie widoku rozwiniętego kontaktu + wynik pierwszego kontaktu
 
-## Nowe pola w bazie danych
+## 1. Nowe pole w bazie danych
 
-Dodanie 2 kolumn do tabeli `team_contacts`:
-- `second_contact_date` (date, nullable) — data drugiego kontaktu
-- `first_contact_annotation` (text, nullable) — adnotacja po pierwszym kontakcie
+Dodanie kolumny `first_contact_result` do tabeli `team_contacts`:
 
-SQL migration:
 ```sql
 ALTER TABLE team_contacts 
-ADD COLUMN second_contact_date date,
-ADD COLUMN first_contact_annotation text;
+ADD COLUMN first_contact_result text;
 ```
 
-## Zmiany w formularzu (`PrivateContactForm.tsx`)
+Wartości: `answered` (odebrał), `no_answer` (nie odebrane), `wrong_number` (błędny numer), `out_of_range` (poza zasięgiem).
 
-Nowy układ sekcji (od góry):
-1. **Data utworzenia kontaktu** — read-only, auto-wypełnione aktualnym czasem (`created_at` lub `new Date()` dla nowych kontaktów), wyświetlane jako sformatowana data+godzina (Warsaw)
-2. **Data pierwszego kontaktu** — istniejące pole `added_at`
-3. **Data drugiego kontaktu** — nowe pole `second_contact_date`
-4. **Adnotacja po pierwszym kontakcie** — nowe pole tekstowe `first_contact_annotation` (textarea, placeholder: "Co musisz zapamiętać po ustaleniach pierwszego kontaktu...")
+## 2. Zmiany w plikach
 
-## Pliki do zmiany
-- **SQL migration** — dodanie 2 kolumn
-- **`src/components/team-contacts/types.ts`** — dodanie `second_contact_date` i `first_contact_annotation`
-- **`src/components/team-contacts/PrivateContactForm.tsx`** — reorganizacja sekcji dat + nowe pola
-- **`src/hooks/useTeamContacts.ts`** — uwzględnienie nowych pól w `addContact`/`updateContact`
-- **`src/integrations/supabase/types.ts`** — regeneracja typów (po migracji)
+### `types.ts`
+- Dodanie `first_contact_result: string | null`
+
+### `PrivateContactForm.tsx`
+- Dodanie pola Select "Wynik pierwszego kontaktu" pod "Data pierwszego kontaktu" z 4 opcjami
+- Uwzględnienie `first_contact_result` w formData i submitcie
+
+### `TeamContactAccordion.tsx` — rozszerzony widok dla kontaktów prywatnych
+Dodanie brakujących danych w expanded view:
+- **Sekcja "Oś czasu"**: Data utworzenia (created_at), Data pierwszego kontaktu (added_at), Wynik pierwszego kontaktu (first_contact_result), Data drugiego kontaktu (second_contact_date)
+- **Sekcja "Źródło kontaktu"**: Skąd jest kontakt (contact_source), Dlaczego chcesz się odezwać (contact_reason)
+- **Sekcja "Adnotacje"**: Adnotacja po pierwszym kontakcie (first_contact_annotation)
+- Istniejące sekcje (Kontakt, Produkty, Przypomnienia, Notatki) pozostają
+
+### `useTeamContacts.ts`
+- Uwzględnienie `first_contact_result` w `addContact`
+
+### `supabase/types.ts`
+- Regeneracja po migracji
+
+## 3. Kompatybilność wsteczna
+Wszystkie nowe pola są nullable — istniejące kontakty zachowują dane, nowe pola wyświetlają się jako puste do momentu edycji.
 
