@@ -288,16 +288,16 @@ const TrainingModule = () => {
                 }
               }
 
-            if (!allPreviousCompleted) {
-              toast({
-                title: "Moduł zablokowany",
-                description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
-                variant: "destructive"
-              });
-              navigate('/training');
-              return;
+              if (!allPreviousCompleted) {
+                toast({
+                  title: "Moduł zablokowany",
+                  description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
+                  variant: "destructive"
+                });
+                navigate('/training');
+                return;
+              }
             }
-          }
           // If module is in a different language than user's training language, skip lock check
         }
 
