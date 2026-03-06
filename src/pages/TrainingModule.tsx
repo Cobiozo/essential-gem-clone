@@ -298,6 +298,7 @@ const TrainingModule = () => {
                 return;
               }
             }
+          }
           // If module is in a different language than user's training language, skip lock check
         }
 
