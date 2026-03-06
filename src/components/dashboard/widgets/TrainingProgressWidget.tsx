@@ -6,6 +6,7 @@ import { GraduationCap, ArrowRight, Play, Globe } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchBatchModuleProgress } from '@/hooks/useTrainingProgress';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { TrainingDonutChart } from './TrainingDonutChart';
 import { Widget3DIcon } from './Widget3DIcon';
@@ -94,72 +95,16 @@ export const TrainingProgressWidget: React.FC = () => {
           }
         }
 
-        // Batch fetch
-        const [certificatesRes, lessonsRes, progressRes] = await Promise.all([
-          supabase
-            .from('certificates')
-            .select('module_id, issued_at')
-            .eq('user_id', user.id)
-            .order('issued_at', { ascending: false }),
-          supabase
-            .from('training_lessons')
-            .select('id, module_id, created_at')
-            .in('module_id', allModuleIds)
-            .eq('is_active', true),
-          supabase
-            .from('training_progress')
-            .select('lesson_id, is_completed, training_lessons!inner(module_id, created_at)')
-            .eq('user_id', user.id)
-            .eq('is_completed', true),
-        ]);
-
-        const certMap: Record<string, string> = {};
-        certificatesRes.data?.forEach(cert => {
-          if (!certMap[cert.module_id]) certMap[cert.module_id] = cert.issued_at;
-        });
-
-        const lessonsByModule = new Map<string, any[]>();
-        lessonsRes.data?.forEach(l => {
-          const arr = lessonsByModule.get(l.module_id) || [];
-          arr.push(l);
-          lessonsByModule.set(l.module_id, arr);
-        });
+        // Use shared batch progress calculation
+        const progressMap = await fetchBatchModuleProgress(user.id, allModuleIds);
 
         const modulesWithProgress: ModuleProgress[] = filteredModules.map((mod: any) => {
-          const certIssuedAt = certMap[mod.id];
-          const lessons = lessonsByModule.get(mod.id) || [];
-
-          let totalLessons = lessons.length;
-          if (certIssuedAt) {
-            const certDate = new Date(certIssuedAt);
-            const filtered = lessons.filter(l => new Date(l.created_at) <= certDate).length;
-            totalLessons = filtered > 0 ? filtered : lessons.length;
-          }
-
-          let completedInModule = 0;
-          if (certIssuedAt) {
-            const certDate = new Date(certIssuedAt);
-            const filteredCompleted = (progressRes.data || []).filter(
-              (p: any) => p.training_lessons?.module_id === mod.id &&
-                         new Date(p.training_lessons?.created_at) <= certDate
-            ).length;
-            const allCompleted = (progressRes.data || []).filter(
-              (p: any) => p.training_lessons?.module_id === mod.id
-            ).length;
-            completedInModule = filteredCompleted > 0 ? filteredCompleted : allCompleted;
-          } else {
-            completedInModule = (progressRes.data || []).filter(
-              (p: any) => p.training_lessons?.module_id === mod.id
-            ).length;
-          }
-
-          const progressPercent = totalLessons > 0 ? Math.round((completedInModule / totalLessons) * 100) : 0;
-
+          const prog = progressMap.get(mod.id);
           return {
             id: mod.id,
             title: titleTransMap.get(mod.id) || mod.title,
-            progress: progressPercent,
-            isCompleted: progressPercent === 100,
+            progress: prog?.progressPercent || 0,
+            isCompleted: prog?.isCompleted || false,
           };
         });
 
