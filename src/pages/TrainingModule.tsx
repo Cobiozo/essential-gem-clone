@@ -251,29 +251,42 @@ const TrainingModule = () => {
 
             const previousModules = (allSeqModules || []).filter(m => (m.unlock_order || 0) < (moduleData.unlock_order || 0));
 
-            let allPreviousCompleted = true;
-            for (const prev of previousModules) {
-              const { data: prevLessons } = await supabase
-                .from('training_lessons')
-                .select('id')
-                .eq('module_id', prev.id)
-                .eq('is_active', true);
-              
-              const prevLessonIds = (prevLessons || []).map(l => l.id);
-              if (prevLessonIds.length === 0) continue;
+            if (previousModules.length > 0) {
+              const prevIds = previousModules.map(m => m.id);
 
-              const { data: prevProgress } = await supabase
-                .from('training_progress')
-                .select('lesson_id')
-                .eq('user_id', user.id)
-                .eq('is_completed', true)
-                .in('lesson_id', prevLessonIds);
+              // BATCH: 2 queries instead of N*2
+              const [prevLessonsRes, prevProgressRes] = await Promise.all([
+                supabase
+                  .from('training_lessons')
+                  .select('id, module_id')
+                  .in('module_id', prevIds)
+                  .eq('is_active', true),
+                supabase
+                  .from('training_progress')
+                  .select('lesson_id')
+                  .eq('user_id', user.id)
+                  .eq('is_completed', true),
+              ]);
 
-              if ((prevProgress?.length || 0) < prevLessonIds.length) {
-                allPreviousCompleted = false;
-                break;
+              const lessonsByMod = new Map<string, string[]>();
+              (prevLessonsRes.data || []).forEach(l => {
+                const arr = lessonsByMod.get(l.module_id) || [];
+                arr.push(l.id);
+                lessonsByMod.set(l.module_id, arr);
+              });
+
+              const completedSet = new Set((prevProgressRes.data || []).map(p => p.lesson_id));
+
+              let allPreviousCompleted = true;
+              for (const prev of previousModules) {
+                const modLessons = lessonsByMod.get(prev.id) || [];
+                if (modLessons.length === 0) continue;
+                const allDone = modLessons.every(id => completedSet.has(id));
+                if (!allDone) {
+                  allPreviousCompleted = false;
+                  break;
+                }
               }
-            }
 
             if (!allPreviousCompleted) {
               toast({
