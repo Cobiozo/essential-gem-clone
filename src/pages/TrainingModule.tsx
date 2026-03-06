@@ -228,78 +228,27 @@ const TrainingModule = () => {
         if (!mounted) return;
         if (moduleError) throw moduleError;
 
-        // Check sequential unlock - only enforce for user's own training language
+        // Check sequential unlock via server-side validation
         if (moduleData.unlock_order != null) {
-          // Get user's training_language
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('training_language')
-            .eq('user_id', user.id)
-            .single();
+          const { data: isUnlocked, error: unlockErr } = await supabase
+            .rpc('check_training_module_unlock', {
+              p_user_id: user.id,
+              p_module_id: moduleId
+            });
 
-          const userTrainingLang = profileData?.training_language || null;
-
-          // Only enforce lock if module is in user's training language
-          if (userTrainingLang && moduleData.language_code === userTrainingLang) {
-            const { data: allSeqModules } = await supabase
-              .from('training_modules')
-              .select('id, unlock_order, language_code')
-              .not('unlock_order', 'is', null)
-              .eq('is_active', true)
-              .eq('language_code', userTrainingLang)
-              .order('unlock_order');
-
-            const previousModules = (allSeqModules || []).filter(m => (m.unlock_order || 0) < (moduleData.unlock_order || 0));
-
-            if (previousModules.length > 0) {
-              const prevIds = previousModules.map(m => m.id);
-
-              // BATCH: 2 queries instead of N*2
-              const [prevLessonsRes, prevProgressRes] = await Promise.all([
-                supabase
-                  .from('training_lessons')
-                  .select('id, module_id')
-                  .in('module_id', prevIds)
-                  .eq('is_active', true),
-                supabase
-                  .from('training_progress')
-                  .select('lesson_id')
-                  .eq('user_id', user.id)
-                  .eq('is_completed', true),
-              ]);
-
-              const lessonsByMod = new Map<string, string[]>();
-              (prevLessonsRes.data || []).forEach(l => {
-                const arr = lessonsByMod.get(l.module_id) || [];
-                arr.push(l.id);
-                lessonsByMod.set(l.module_id, arr);
-              });
-
-              const completedSet = new Set((prevProgressRes.data || []).map(p => p.lesson_id));
-
-              let allPreviousCompleted = true;
-              for (const prev of previousModules) {
-                const modLessons = lessonsByMod.get(prev.id) || [];
-                if (modLessons.length === 0) continue;
-                const allDone = modLessons.every(id => completedSet.has(id));
-                if (!allDone) {
-                  allPreviousCompleted = false;
-                  break;
-                }
-              }
-
-              if (!allPreviousCompleted) {
-                toast({
-                  title: "Moduł zablokowany",
-                  description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
-                  variant: "destructive"
-                });
-                navigate('/training');
-                return;
-              }
-            }
+          if (unlockErr) {
+            console.error('[TrainingModule] Unlock check error:', unlockErr);
           }
-          // If module is in a different language than user's training language, skip lock check
+
+          if (isUnlocked === false) {
+            toast({
+              title: "Moduł zablokowany",
+              description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
+              variant: "destructive"
+            });
+            navigate('/training');
+            return;
+          }
         }
 
         setModule(moduleData);
