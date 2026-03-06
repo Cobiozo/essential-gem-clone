@@ -402,59 +402,61 @@ const Training = () => {
         }
       }
 
-      // For each module, get lesson count and user progress
-      const modulesWithProgress = await Promise.all(
-        modulesData.map(async (module) => {
-          // Get certificate date for this module (if exists)
-          const certIssuedAt = certMap[module.id]?.issuedAt;
-          
-          // Get all active lessons with their creation dates
-          const { data: lessonsData } = await supabase
-            .from('training_lessons')
-            .select('id, min_time_seconds, video_duration_seconds, created_at')
-            .eq('module_id', module.id)
-            .eq('is_active', true);
+      // BATCH: Fetch all lessons and progress in 2 queries instead of N+1
+      const allModuleIds = modulesData.map((m: any) => m.id);
 
-          // Always show ALL active lessons count (no cert date filtering)
-          const relevantLessonsCount = lessonsData?.length || 0;
-
-          // Get user progress if logged in
-          let completedLessons = 0;
-          let totalTime = 0;
-
-          if (user) {
-            const { data: progressData } = await supabase
+      const [allLessonsRes, allProgressRes] = await Promise.all([
+        supabase
+          .from('training_lessons')
+          .select('id, module_id, min_time_seconds, video_duration_seconds, created_at')
+          .in('module_id', allModuleIds)
+          .eq('is_active', true),
+        user
+          ? supabase
               .from('training_progress')
-              .select(`
-                is_completed,
-                lesson:training_lessons!inner(min_time_seconds, created_at)
-              `)
+              .select('lesson_id, is_completed, training_lessons!inner(module_id)')
               .eq('user_id', user.id)
-              .eq('lesson.module_id', module.id)
-              .eq('is_completed', true);
+              .eq('is_completed', true)
+          : Promise.resolve({ data: [] }),
+      ]);
 
-            completedLessons = progressData?.length || 0;
-          }
+      // Group lessons by module
+      const lessonsByModule = new Map<string, any[]>();
+      (allLessonsRes.data || []).forEach((l: any) => {
+        const arr = lessonsByModule.get(l.module_id) || [];
+        arr.push(l);
+        lessonsByModule.set(l.module_id, arr);
+      });
 
-          // Detect if admin added new lessons after user got certificate
-          const hasCertificate = !!certIssuedAt;
-          const hasNewLessons = hasCertificate && completedLessons < relevantLessonsCount;
+      // Group completed lessons by module
+      const completedByModule = new Map<string, number>();
+      ((allProgressRes as any).data || []).forEach((p: any) => {
+        const mid = p.training_lessons?.module_id;
+        if (mid) completedByModule.set(mid, (completedByModule.get(mid) || 0) + 1);
+      });
 
-          // Get total estimated time for module (prioritize video_duration_seconds)
-          totalTime = lessonsData?.reduce((acc, lesson) => 
-            acc + (lesson.video_duration_seconds || lesson.min_time_seconds || 0), 0) || 0;
+      const modulesWithProgress = modulesData.map((module: any) => {
+        const lessons = lessonsByModule.get(module.id) || [];
+        const relevantLessonsCount = lessons.length;
+        const completedLessons = completedByModule.get(module.id) || 0;
 
-          return {
-            ...module,
-            lessons_count: relevantLessonsCount,
-            completed_lessons: completedLessons,
-            total_time_minutes: Math.ceil(totalTime / 60),
-            certificate_id: certMap[module.id]?.id,
-            certificate_url: certMap[module.id]?.url,
-            has_new_lessons: hasNewLessons
-          };
-        })
-      );
+        const certIssuedAt = certMap[module.id]?.issuedAt;
+        const hasCertificate = !!certIssuedAt;
+        const hasNewLessons = hasCertificate && completedLessons < relevantLessonsCount;
+
+        const totalTime = lessons.reduce((acc: number, lesson: any) =>
+          acc + (lesson.video_duration_seconds || lesson.min_time_seconds || 0), 0);
+
+        return {
+          ...module,
+          lessons_count: relevantLessonsCount,
+          completed_lessons: completedLessons,
+          total_time_minutes: Math.ceil(totalTime / 60),
+          certificate_id: certMap[module.id]?.id,
+          certificate_url: certMap[module.id]?.url,
+          has_new_lessons: hasNewLessons
+        };
+      });
 
       setModules(modulesWithProgress);
     } catch (error) {

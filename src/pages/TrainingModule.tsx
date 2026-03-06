@@ -228,64 +228,27 @@ const TrainingModule = () => {
         if (!mounted) return;
         if (moduleError) throw moduleError;
 
-        // Check sequential unlock - only enforce for user's own training language
+        // Check sequential unlock via server-side validation
         if (moduleData.unlock_order != null) {
-          // Get user's training_language
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('training_language')
-            .eq('user_id', user.id)
-            .single();
+          const { data: isUnlocked, error: unlockErr } = await supabase
+            .rpc('check_training_module_unlock', {
+              p_user_id: user.id,
+              p_module_id: moduleId
+            });
 
-          const userTrainingLang = profileData?.training_language || null;
-
-          // Only enforce lock if module is in user's training language
-          if (userTrainingLang && moduleData.language_code === userTrainingLang) {
-            const { data: allSeqModules } = await supabase
-              .from('training_modules')
-              .select('id, unlock_order, language_code')
-              .not('unlock_order', 'is', null)
-              .eq('is_active', true)
-              .eq('language_code', userTrainingLang)
-              .order('unlock_order');
-
-            const previousModules = (allSeqModules || []).filter(m => (m.unlock_order || 0) < (moduleData.unlock_order || 0));
-
-            let allPreviousCompleted = true;
-            for (const prev of previousModules) {
-              const { data: prevLessons } = await supabase
-                .from('training_lessons')
-                .select('id')
-                .eq('module_id', prev.id)
-                .eq('is_active', true);
-              
-              const prevLessonIds = (prevLessons || []).map(l => l.id);
-              if (prevLessonIds.length === 0) continue;
-
-              const { data: prevProgress } = await supabase
-                .from('training_progress')
-                .select('lesson_id')
-                .eq('user_id', user.id)
-                .eq('is_completed', true)
-                .in('lesson_id', prevLessonIds);
-
-              if ((prevProgress?.length || 0) < prevLessonIds.length) {
-                allPreviousCompleted = false;
-                break;
-              }
-            }
-
-            if (!allPreviousCompleted) {
-              toast({
-                title: "Moduł zablokowany",
-                description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
-                variant: "destructive"
-              });
-              navigate('/training');
-              return;
-            }
+          if (unlockErr) {
+            console.error('[TrainingModule] Unlock check error:', unlockErr);
           }
-          // If module is in a different language than user's training language, skip lock check
+
+          if (isUnlocked === false) {
+            toast({
+              title: "Moduł zablokowany",
+              description: "Najpierw ukończ poprzednie szkolenie, aby odblokować ten moduł.",
+              variant: "destructive"
+            });
+            navigate('/training');
+            return;
+          }
         }
 
         setModule(moduleData);
@@ -592,7 +555,7 @@ const TrainingModule = () => {
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA',
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
                 'Prefer': 'resolution=merge-duplicates'
               },
               body: JSON.stringify(payload),
@@ -638,7 +601,7 @@ const TrainingModule = () => {
             time_spent_seconds: timeSpent,
             video_position_seconds: videoPos,
             is_completed: isCompleted,
-            completed_at: isCompleted ? new Date().toISOString() : null
+            ...(isCompleted ? { completed_at: new Date().toISOString() } : {})
           }, { 
             onConflict: 'user_id,lesson_id'
           });
@@ -1068,10 +1031,10 @@ const TrainingModule = () => {
       }
     } finally {
       setIsNavigating(false);
-      // Delay resetting transition flag to allow state to stabilize
-      setTimeout(() => {
+      // Reset transition flag after a render cycle
+      requestAnimationFrame(() => {
         isTransitioningRef.current = false;
-      }, 100);
+      });
     }
   };
 
@@ -1343,7 +1306,7 @@ const TrainingModule = () => {
           {/* Mobile: Collapsible lesson list */}
           <div className="lg:col-span-1 lg:hidden">
             <Card>
-              <Collapsible defaultOpen={false}>
+              <Collapsible defaultOpen={true}>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer p-4">
                     <div className="flex items-center justify-between">
@@ -1532,7 +1495,7 @@ const TrainingModule = () => {
                       onTimeUpdate={handleVideoTimeUpdate}
                       onDurationChange={handleDurationChange}
                       initialTime={positionLoaded ? (progress[currentLesson?.id]?.video_position_seconds || 0) : 0}
-                      className="w-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
+                      className="w-full max-h-[45vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
                       noteMarkers={noteMarkers}
                       onNoteMarkerClick={handleNoteMarkerClick}
                       seekToTimeRef={seekToTimeRef}

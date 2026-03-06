@@ -7552,6 +7552,10 @@ export type Database = {
         }[]
       }
       check_is_admin_for_events: { Args: never; Returns: boolean }
+      check_training_module_unlock: {
+        Args: { p_module_id: string; p_user_id: string }
+        Returns: boolean
+      }
       cleanup_expired_guest_tokens: { Args: never; Returns: number }
       cleanup_expired_media_tokens: { Args: never; Returns: number }
       cleanup_old_meeting_chat: { Args: never; Returns: number }
