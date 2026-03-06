@@ -592,7 +592,7 @@ const TrainingModule = () => {
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
-                'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bGhzc3FxYmFqcWhuc21idWNmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzMDI2MDksImV4cCI6MjA3Mzg3ODYwOX0.8eHStZeSprUJ6YNQy45hEQe1cpudDxCFvk6sihWKLhA',
+                'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
                 'Prefer': 'resolution=merge-duplicates'
               },
               body: JSON.stringify(payload),
@@ -638,7 +638,7 @@ const TrainingModule = () => {
             time_spent_seconds: timeSpent,
             video_position_seconds: videoPos,
             is_completed: isCompleted,
-            completed_at: isCompleted ? new Date().toISOString() : null
+            ...(isCompleted ? { completed_at: new Date().toISOString() } : {})
           }, { 
             onConflict: 'user_id,lesson_id'
           });
@@ -1068,10 +1068,10 @@ const TrainingModule = () => {
       }
     } finally {
       setIsNavigating(false);
-      // Delay resetting transition flag to allow state to stabilize
-      setTimeout(() => {
+      // Reset transition flag after a render cycle
+      requestAnimationFrame(() => {
         isTransitioningRef.current = false;
-      }, 100);
+      });
     }
   };
 
@@ -1343,7 +1343,7 @@ const TrainingModule = () => {
           {/* Mobile: Collapsible lesson list */}
           <div className="lg:col-span-1 lg:hidden">
             <Card>
-              <Collapsible defaultOpen={false}>
+              <Collapsible defaultOpen={true}>
                 <CollapsibleTrigger asChild>
                   <CardHeader className="cursor-pointer p-4">
                     <div className="flex items-center justify-between">
@@ -1532,7 +1532,7 @@ const TrainingModule = () => {
                       onTimeUpdate={handleVideoTimeUpdate}
                       onDurationChange={handleDurationChange}
                       initialTime={positionLoaded ? (progress[currentLesson?.id]?.video_position_seconds || 0) : 0}
-                      className="w-full max-h-[50vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
+                      className="w-full max-h-[45vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
                       noteMarkers={noteMarkers}
                       onNoteMarkerClick={handleNoteMarkerClick}
                       seekToTimeRef={seekToTimeRef}
