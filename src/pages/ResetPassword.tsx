@@ -19,27 +19,40 @@ const ResetPassword = () => {
   const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
-    // Listen for PASSWORD_RECOVERY event from Supabase
+    let timeoutId: NodeJS.Timeout;
+    let resolved = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       console.log("[ResetPassword] Auth event:", event);
       if (event === "PASSWORD_RECOVERY") {
+        resolved = true;
         setIsRecoverySession(true);
+        setSessionChecked(true);
+        clearTimeout(timeoutId);
       }
-      setSessionChecked(true);
     });
 
-    // Also check if we already have a session (user clicked link and was auto-logged in)
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsRecoverySession(true);
-      }
-      setSessionChecked(true);
-    };
-    
-    checkSession();
+    // Check URL hash for recovery indicators
+    const hash = window.location.hash;
+    const hasRecoveryParams = hash.includes('type=recovery') || hash.includes('type=magiclink');
 
-    return () => subscription.unsubscribe();
+    if (hasRecoveryParams) {
+      // Give Supabase time to process the hash tokens
+      timeoutId = setTimeout(() => {
+        if (!resolved) {
+          console.log("[ResetPassword] Timeout reached, no PASSWORD_RECOVERY event received");
+          setSessionChecked(true);
+        }
+      }, 5000);
+    } else {
+      // No recovery params in URL — not a valid recovery link
+      setSessionChecked(true);
+    }
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   const passwordValid = newPassword.length >= 8 
