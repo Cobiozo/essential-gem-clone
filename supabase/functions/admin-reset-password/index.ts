@@ -272,7 +272,7 @@ serve(async (req) => {
     await supabase.from("email_logs").insert({
       template_id: templateData.id,
       recipient_email: user_email,
-      recipient_user_id: user.id,
+      recipient_user_id: userId,
       subject: subject,
       status: result.success ? "sent" : "error",
       error_message: result.error || null,
