@@ -219,7 +219,7 @@ serve(async (req) => {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: 'https://purelife.lovable.app/reset-password'
+        redirectTo: 'https://purelife.info.pl/reset-password'
       }
     });
 
