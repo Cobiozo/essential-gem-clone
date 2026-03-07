@@ -1,41 +1,24 @@
 
 
-## Problem
+## Plan zmian
 
-Edge function `admin-reset-password` calls `supabase.auth.admin.listUsers()` without pagination — this returns only the **first 50 users**. With 159 users in the system, users beyond page 1 are never found, causing "Nie znaleziono użytkownika" error.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Fix
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-**File: `supabase/functions/admin-reset-password/index.ts`**
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-Replace the `listUsers()` + `.find()` approach with a direct lookup:
+### 2. Złote ikony dla datetime-local (index.css)
 
-1. Query `profiles` table by email to get `user_id`
-2. Use `supabase.auth.admin.updateUserById(user_id, { password })` directly
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-This eliminates pagination entirely and works for any number of users.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-```typescript
-// BEFORE (broken for 50+ users):
-const { data: users } = await supabase.auth.admin.listUsers();
-const user = users.users.find(u => u.email === user_email);
-
-// AFTER:
-const { data: profileData, error: profileError } = await supabase
-  .from('profiles')
-  .select('user_id')
-  .eq('email', user_email)
-  .single();
-
-if (profileError || !profileData) {
-  throw new Error(`Nie znaleziono użytkownika: ${user_email}`);
-}
-
-const userId = profileData.user_id;
-// Then use userId for updateUserById and email_logs insert
-```
-
-Also update CORS headers to match the standard pattern (add missing client headers).
-
-### Scope: 1 file, ~10 lines changed
+### Zakres: 2 pliki, ~10 linii zmian
 

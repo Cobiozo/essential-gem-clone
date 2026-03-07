@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 interface ResetPasswordRequest {
@@ -172,23 +172,24 @@ serve(async (req) => {
     const { user_email, new_password, admin_name, send_email = true }: ResetPasswordRequest = await req.json();
     console.log("[admin-reset-password] Request for:", user_email, "by:", admin_name, "send_email:", send_email);
 
-    // Get user by email
-    const { data: users, error: getUserError } = await supabase.auth.admin.listUsers();
-    
-    if (getUserError) {
-      console.error("Error getting users:", getUserError);
-      throw new Error("Nie udało się pobrać danych użytkowników");
-    }
+    // Get user by email from profiles table (avoids listUsers pagination limit)
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id")
+      .eq("email", user_email)
+      .single();
 
-    const user = users.users.find(u => u.email === user_email);
-    
-    if (!user) {
+    if (profileError || !profileData) {
+      console.error("Error finding user:", profileError);
       throw new Error(`Nie znaleziono użytkownika z adresem email: ${user_email}`);
     }
 
+    const userId = profileData.user_id;
+    console.log("[admin-reset-password] Found user_id:", userId);
+
     // Update user password using admin API
     const { error: updateError } = await supabase.auth.admin.updateUserById(
-      user.id,
+      userId,
       { 
         password: new_password,
         email_confirm: true
@@ -271,7 +272,7 @@ serve(async (req) => {
     await supabase.from("email_logs").insert({
       template_id: templateData.id,
       recipient_email: user_email,
-      recipient_user_id: user.id,
+      recipient_user_id: userId,
       subject: subject,
       status: result.success ? "sent" : "error",
       error_message: result.error || null,
