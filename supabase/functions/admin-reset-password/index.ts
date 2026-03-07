@@ -172,20 +172,57 @@ serve(async (req) => {
     const { user_email, new_password, admin_name, send_email = true }: ResetPasswordRequest = await req.json();
     console.log("[admin-reset-password] Request for:", user_email, "by:", admin_name, "send_email:", send_email);
 
-    // Get user by email from profiles table (avoids listUsers pagination limit)
-    const { data: profileData, error: profileError } = await supabase
-      .from("profiles")
-      .select("user_id")
-      .eq("email", user_email)
-      .single();
-
-    if (profileError || !profileData) {
-      console.error("Error finding user:", profileError);
-      throw new Error(`Nie znaleziono użytkownika z adresem email: ${user_email}`);
+    const normalizedEmail = user_email?.trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error("Email użytkownika jest wymagany");
     }
 
-    const userId = profileData.user_id;
-    console.log("[admin-reset-password] Found user_id:", userId);
+    // 1) Try fast lookup in profiles (case-insensitive)
+    let userId: string | null = null;
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select("user_id, email")
+      .ilike("email", normalizedEmail)
+      .maybeSingle();
+
+    if (profileError) {
+      console.warn("[admin-reset-password] Profile lookup warning:", profileError);
+    }
+
+    if (profileData?.user_id) {
+      userId = profileData.user_id;
+      console.log("[admin-reset-password] Found user_id in profiles:", userId);
+    }
+
+    // 2) Fallback to paginated Auth users lookup (handles missing profiles)
+    if (!userId) {
+      const perPage = 100;
+      const maxPages = 20;
+
+      for (let page = 1; page <= maxPages; page++) {
+        const { data: usersData, error: usersError } = await supabase.auth.admin.listUsers({ page, perPage });
+
+        if (usersError) {
+          console.error("[admin-reset-password] Error listing auth users:", usersError);
+          break;
+        }
+
+        const matchedUser = usersData.users.find((u) => u.email?.toLowerCase() === normalizedEmail);
+        if (matchedUser) {
+          userId = matchedUser.id;
+          console.log("[admin-reset-password] Found user_id in auth.users:", userId, "page:", page);
+          break;
+        }
+
+        if (usersData.users.length < perPage) {
+          break;
+        }
+      }
+    }
+
+    if (!userId) {
+      throw new Error(`Nie znaleziono użytkownika z adresem email: ${user_email}`);
+    }
 
     // Update user password using admin API
     const { error: updateError } = await supabase.auth.admin.updateUserById(
