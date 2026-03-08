@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import type { TeamContact, TeamContactHistory } from './types';
+import type { TeamContact, TeamContactHistory, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -31,6 +31,7 @@ interface TeamContactAccordionProps {
   contactType?: 'private' | 'team_member';
   hideEventInfo?: boolean;
   onUpdateNotes?: (contactId: string, notes: string) => Promise<void>;
+  eventContactDetails?: Map<string, EventRegistrationInfo[]>;
 }
 
 export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
