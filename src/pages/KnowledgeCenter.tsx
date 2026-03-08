@@ -25,7 +25,7 @@ import {
   RESOURCE_TYPE_LABELS, DOCUMENT_CATEGORIES, GRAPHICS_CATEGORIES 
 } from '@/types/knowledge';
 import { SocialShareDialog, GraphicsCard } from '@/components/share';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useKnowledgeTranslations } from '@/hooks/useKnowledgeTranslations';
 import { generateTeamName } from '@/hooks/useTeamName';
 import { TeamKnowledgeSection } from '@/components/knowledge/TeamKnowledgeSection';

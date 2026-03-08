@@ -13,7 +13,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
-import pureLifeLogo from '@/assets/pure-life-logo-new.png';
+import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 const registrationSchema = z.object({
   email: z.string().email('Podaj prawidłowy adres email'),

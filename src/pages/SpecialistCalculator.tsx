@@ -7,7 +7,7 @@ import { useSpecialistCalculatorAccess, useSpecialistCalculatorSettings } from "
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExchangeRateWidget } from "@/components/calculator/ExchangeRateWidget";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
-import pureLifeLogo from "@/assets/pure-life-logo-new.png";
+import pureLifeLogo from "@/assets/pure-life-droplet-new.png";
 
 const SpecialistCalculatorPage = () => {
   const { data: accessData, isLoading: accessLoading } = useSpecialistCalculatorAccess();

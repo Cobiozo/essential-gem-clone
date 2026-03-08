@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { IconPicker } from '@/components/cms/IconPicker';
-import dropletIcon from '@/assets/pure-life-droplet.png';
+import dropletIcon from '@/assets/pure-life-droplet-new.png';
 
 interface DashboardFooterSettings {
   id: string;

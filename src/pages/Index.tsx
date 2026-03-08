@@ -7,7 +7,7 @@ import { useCMSTranslations } from '@/hooks/useCMSTranslations';
 import { useCMSSectionTranslations } from '@/hooks/useCMSSectionTranslations';
 import { usePublishedPages } from '@/hooks/usePublishedPages';
 import { useSystemTexts } from '@/hooks/useSystemTexts';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import niezbednikLogo from '@/assets/logo-niezbednika-pure-life.png';
 import { Header } from '@/components/Header';
 import { HeroSection } from '@/components/HeroSection';

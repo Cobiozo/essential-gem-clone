@@ -78,7 +78,7 @@ import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
 import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
 import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
 // import * as XLSX from 'xlsx';

@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { FormattedText } from '@/components/FormattedText';
 import confetti from 'canvas-confetti';
-import pureLifeLogo from '@/assets/pure-life-logo-new.png';
+import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 const SESSION_STORAGE_KEY = 'infolink_session_';
 

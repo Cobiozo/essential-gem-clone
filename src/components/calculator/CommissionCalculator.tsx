@@ -9,7 +9,7 @@ import { FranchiseInfoCard } from './FranchiseInfoCard';
 import { ExchangeRateWidget } from './ExchangeRateWidget';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import pureLifeLogo from '@/assets/pure-life-logo-new.png';
+import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 export function CommissionCalculator() {
   const { data, isLoading, error } = useCalculatorSettings();
