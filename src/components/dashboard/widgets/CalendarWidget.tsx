@@ -401,7 +401,7 @@ ${signUpLabel}: ${inviteUrl}
                   !isSameMonth(day, currentMonth) && "text-muted-foreground opacity-50",
                   hasEvents && !today && !isWeekend && "bg-muted/30 dark:bg-muted/20",
                   hasEvents && !today && isWeekend && "bg-muted/50 dark:bg-muted/40",
-                  today && "bg-accent text-accent-foreground font-semibold",
+                  today && "bg-accent dark:bg-accent text-accent-foreground dark:text-accent-foreground font-semibold",
                   isSelected && "ring-2 ring-primary",
                   hasEvents && "cursor-pointer hover:bg-muted",
                   !hasEvents && "hover:bg-muted/50"
