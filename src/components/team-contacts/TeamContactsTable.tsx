@@ -49,6 +49,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   contactType,
   hideEventInfo = false,
   readOnly = false,
+  eventContactDetails,
 }) => {
   const { t } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
