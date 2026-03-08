@@ -373,9 +373,13 @@ ${signUpLabel}: ${inviteUrl}
           ))}
 
           {/* Empty cells for offset */}
-          {Array.from({ length: firstDayOffset }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-10" />
-          ))}
+          {Array.from({ length: firstDayOffset }).map((_, i) => {
+            const isWeekendCol = (i % 7) >= 5 || (firstDayOffset - i) <= (firstDayOffset >= 6 ? (firstDayOffset === 6 ? 1 : 2) : 0);
+            const colIndex = i;
+            return (
+              <div key={`empty-${i}`} className={cn("h-10 rounded-md", colIndex >= 5 && "bg-muted/25 dark:bg-muted/20")} />
+            );
+          })}
 
           {/* Calendar days */}
           {days.map(day => {
