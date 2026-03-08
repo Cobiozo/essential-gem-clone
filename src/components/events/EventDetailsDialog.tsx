@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe, FileText, Phone, MessageSquare, Target } from 'lucide-react';
 import { subMinutes, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
@@ -65,6 +65,20 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   }, [event]);
 
   if (!event) return null;
+
+  // Parse prospect data from description for individual meetings
+  const isIndividualMeeting = ['tripartite_meeting', 'partner_consultation'].includes(event.event_type);
+  let prospectData: { prospect_name?: string; prospect_phone?: string; prospect_email?: string; notes?: string; goal?: string } | null = null;
+  if (isIndividualMeeting && event.description) {
+    try {
+      const parsed = JSON.parse(event.description);
+      if (typeof parsed === 'object' && parsed !== null) {
+        prospectData = parsed;
+      }
+    } catch {
+      // Not JSON, will use regular description display
+    }
+  }
 
   const eventStart = new Date(event.start_time);
   const eventEnd = new Date(event.end_time);
@@ -243,16 +257,63 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
               </Alert>
             )}
 
-            {/* Description - pod spodem */}
-            {event.description && (
+            {/* Description / Prospect Data */}
+            {isIndividualMeeting && prospectData ? (
+              <div className="pt-2 border-t space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span>{event.event_type === 'tripartite_meeting' ? 'Dane spotkania trójstronnego' : 'Dane konsultacji'}</span>
+                </div>
+                <div className={`rounded-lg border p-3 space-y-2 ${
+                  event.event_type === 'tripartite_meeting' 
+                    ? 'bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800' 
+                    : 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:border-fuchsia-800'
+                }`}>
+                  {prospectData.prospect_name && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">Prospekt:</span>
+                      <span className="font-medium">{prospectData.prospect_name}</span>
+                    </div>
+                  )}
+                  {prospectData.prospect_phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">Telefon:</span>
+                      <span className="font-medium">{prospectData.prospect_phone}</span>
+                    </div>
+                  )}
+                  {prospectData.prospect_email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-muted-foreground">Email:</span>
+                      <span className="font-medium">{prospectData.prospect_email}</span>
+                    </div>
+                  )}
+                  {prospectData.goal && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <Target className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground">Cel:</span>
+                      <span>{prospectData.goal}</span>
+                    </div>
+                  )}
+                  {prospectData.notes && (
+                    <div className="flex items-start gap-2 text-sm">
+                      <MessageSquare className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <span className="text-muted-foreground">Notatki:</span>
+                      <span>{prospectData.notes}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : event.description ? (
               <div className="pt-2 border-t">
                 <div
                   className="text-sm text-muted-foreground prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{ __html: event.description }}
                 />
               </div>
-            )}
-
+            ) : null}
             {/* Action buttons */}
             <div className="pt-4 border-t space-y-2">
               {/* Meeting link visible for registered users before meeting ends */}
