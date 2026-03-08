@@ -451,14 +451,34 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-sm">{code.code}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleCopyCode(code.code)}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
+                        <TooltipProvider delayDuration={300}>
+                          <div className="flex gap-0.5">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyCode(code.code)}>
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj kod</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyInfoLinkLink(code)}>
+                                  <Link2 className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj link</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyInfoLinkMessage(code)}>
+                                  <MessageSquare className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj wiadomość</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {code.reflink?.title || 'InfoLink'}
