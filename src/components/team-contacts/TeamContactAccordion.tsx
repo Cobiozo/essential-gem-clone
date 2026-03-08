@@ -192,8 +192,18 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                         {contact.first_name} {contact.last_name}
                       </h3>
                       {contactType !== 'private' && getRoleBadge(contact.role)}
-                      {getStatusBadge(contact, contactType === 'team_member')}
+                       {getStatusBadge(contact, contactType === 'team_member')}
                     </div>
+                    {/* Event badges inline */}
+                    {eventContactDetails && eventContactDetails.get(contact.id) && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {eventContactDetails.get(contact.id)!.map((ev) => (
+                          <Badge key={ev.event_id} variant="outline" className="text-xs font-normal">
+                            📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                     {contactType !== 'private' && (
                       <p className="text-sm text-muted-foreground">
                         EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
