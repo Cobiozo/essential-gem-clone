@@ -229,10 +229,23 @@ export const EventCard: React.FC<EventCardProps> = ({
     return badges.length > 0 ? <>{badges}</> : null;
   };
 
+  // Build short invite URL using slug + eq_id
+  const buildInviteUrl = () => {
+    const baseUrl = 'https://purelife.info.pl';
+    const eventSlug = (event as any).slug;
+    const eqId = profile?.eq_id;
+    
+    if (eventSlug) {
+      return `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`;
+    }
+    // Fallback to old format
+    return `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+  };
+
   // Copy invitation text to clipboard
   const handleCopyInvitation = () => {
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
-    const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    const inviteUrl = buildInviteUrl();
     const invitationText = `
 🎥 Zaproszenie na webinar: ${event.title}
 
