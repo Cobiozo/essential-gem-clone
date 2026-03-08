@@ -33,7 +33,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   cancelRegistration = async () => false,
 }) => {
   const { t, tf, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
