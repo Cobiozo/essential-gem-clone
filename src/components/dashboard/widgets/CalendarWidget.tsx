@@ -363,15 +363,18 @@ ${signUpLabel}: ${inviteUrl}
         {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-1">
           {/* Weekday headers */}
-          {weekDays.map(day => (
-            <div key={day} className="text-center text-xs text-muted-foreground font-medium py-1">
+          {weekDays.map((day, idx) => (
+            <div key={day} className={cn(
+              "text-center text-xs text-muted-foreground font-medium py-1 rounded-md",
+              idx >= 5 && "bg-muted/50 dark:bg-muted/40"
+            )}>
               {day}
             </div>
           ))}
 
           {/* Empty cells for offset */}
           {Array.from({ length: firstDayOffset }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-10" />
+            <div key={`empty-${i}`} className={cn("h-10 rounded-md", i >= 5 && "bg-muted/25 dark:bg-muted/20")} />
           ))}
 
           {/* Calendar days */}
@@ -386,14 +389,18 @@ ${signUpLabel}: ${inviteUrl}
             const bottomDots = dayEvents.slice(0, 4);
             const overflowCount = eventCount - 4;
 
+            const isWeekend = getAdjustedDayOfWeek(day) >= 5;
+
             return (
               <button
                 key={day.toISOString()}
                 onClick={() => handleDayClick(day)}
                 className={cn(
                   "h-10 w-full rounded-md text-sm relative flex flex-col items-center justify-center transition-colors",
+                  isWeekend && "bg-muted/25 dark:bg-muted/20",
                   !isSameMonth(day, currentMonth) && "text-muted-foreground opacity-50",
-                  hasEvents && !today && "bg-muted/30 dark:bg-muted/20",
+                  hasEvents && !today && !isWeekend && "bg-muted/30 dark:bg-muted/20",
+                  hasEvents && !today && isWeekend && "bg-muted/50 dark:bg-muted/40",
                   today && "bg-accent text-accent-foreground font-semibold",
                   isSelected && "ring-2 ring-primary",
                   hasEvents && "cursor-pointer hover:bg-muted",
