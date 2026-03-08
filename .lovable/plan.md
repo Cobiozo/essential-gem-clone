@@ -1,24 +1,30 @@
 
 
-## Plan zmian
+# Plan: Licznik osób zapisanych z mojego zaproszenia
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Cel
+Wyświetlić na karcie wydarzenia badge z liczbą gości, którzy zarejestrowali się przez link zaproszeniowy zalogowanego użytkownika.
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+## Zmiany
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### 1. `src/components/events/EventCard.tsx`
+- Dodać `useEffect` lub `useState` do pobrania liczby gości z `guest_event_registrations` gdzie `invited_by_user_id = user.id` i `event_id = event.id` (status = 'registered')
+- Wyświetlić badge w sekcji `CardContent` obok uczestników, np.:
+  ```
+  👥 Twoje zaproszenia: 3
+  ```
+- Badge widoczny tylko gdy count > 0 i user jest zalogowany
 
-### 2. Złote ikony dla datetime-local (index.css)
+### 2. Zapytanie
+```typescript
+const { count } = await supabase
+  .from('guest_event_registrations')
+  .select('*', { count: 'exact', head: true })
+  .eq('event_id', event.id)
+  .eq('invited_by_user_id', user.id)
+  .eq('status', 'registered');
+```
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
-
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
+### Pliki do edycji:
+1. `src/components/events/EventCard.tsx` — dodać fetch count + wyświetlenie badge
 
