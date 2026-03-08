@@ -145,7 +145,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
 }) => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const dateLocale = language === 'pl' ? pl : enUS;
   
