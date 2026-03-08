@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
-import type { TeamContact, TeamContactFilters, TeamContactHistory } from '@/components/team-contacts/types';
+import type { TeamContact, TeamContactFilters, TeamContactHistory, EventRegistrationInfo } from '@/components/team-contacts/types';
 
 export const useTeamContacts = () => {
   const { user, isAdmin } = useAuth();
