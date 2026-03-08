@@ -307,7 +307,13 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                 </div>
               </div>
             ) : event.description ? (
-
+              <div className="pt-2 border-t">
+                <div
+                  className="text-sm text-muted-foreground prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: event.description }}
+                />
+              </div>
+            ) : null}
             {/* Action buttons */}
             <div className="pt-4 border-t space-y-2">
               {/* Meeting link visible for registered users before meeting ends */}
