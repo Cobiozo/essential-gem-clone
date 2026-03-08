@@ -66,6 +66,20 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
 
   if (!event) return null;
 
+  // Parse prospect data from description for individual meetings
+  const isIndividualMeeting = ['tripartite_meeting', 'partner_consultation'].includes(event.event_type);
+  let prospectData: { prospect_name?: string; prospect_phone?: string; prospect_email?: string; notes?: string; goal?: string } | null = null;
+  if (isIndividualMeeting && event.description) {
+    try {
+      const parsed = JSON.parse(event.description);
+      if (typeof parsed === 'object' && parsed !== null) {
+        prospectData = parsed;
+      }
+    } catch {
+      // Not JSON, will use regular description display
+    }
+  }
+
   const eventStart = new Date(event.start_time);
   const eventEnd = new Date(event.end_time);
   const now = new Date();
