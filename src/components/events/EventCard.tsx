@@ -265,7 +265,7 @@ Zapisz się tutaj: ${inviteUrl}
 
   // Copy guest registration link
   const handleCopyGuestLink = () => {
-    const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    const inviteUrl = buildInviteUrl();
     navigator.clipboard.writeText(inviteUrl);
     toast({ 
       title: 'Skopiowano!', 
