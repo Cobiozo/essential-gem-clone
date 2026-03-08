@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit, Trash2, History, HelpCircle } from 'lucide-react';
-import type { TeamContact, TeamContactHistory } from './types';
+import type { TeamContact, TeamContactHistory, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
