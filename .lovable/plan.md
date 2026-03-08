@@ -1,33 +1,24 @@
 
 
-# Plan: Dodanie przycisków "Kopiuj wiadomość" i "Kopiuj link" do widżetu OTP
+## Plan zmian
 
-## Problem
-Widget `CombinedOtpCodesWidget` ma tylko przycisk kopiowania kodu. Brakuje przycisków do kopiowania linku i pełnej wiadomości (link + kod).
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Rozwiązanie
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx`
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-1. Dodać import `Link2, MessageSquare` z lucide-react i `copyToClipboard` z `@/lib/clipboardUtils`
-2. Dodać funkcje:
-   - `handleCopyLink` — kopiuje URL:
-     - InfoLink: `${origin}/infolink/${reflink.slug || reflink.id}`
-     - HK: `https://purelife.info.pl/zdrowa-wiedza/${knowledge.slug}`
-   - `handleCopyMessage` — kopiuje sformatowaną wiadomość z linkiem + kodem (wzór z `MyHkCodesHistory`)
-3. Obok istniejącego przycisku Copy (kod) dodać 2 nowe przyciski z tooltipami:
-   - 📋 Kopiuj kod (istniejący)
-   - 🔗 Kopiuj link
-   - 💬 Kopiuj wiadomość
+### 2. Złote ikony dla datetime-local (index.css)
 
-Użyć `copyToClipboard` zamiast `navigator.clipboard.writeText` (iOS compatibility).
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-### Interfejs — rząd 3 małych przycisków obok kodu:
-```text
-ZW-U4MW-BF [📋] [🔗] [💬]    Oczekuje
-Insulinooporność               ⏱ 0/3
-```
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-### Plik do edycji:
-1. `src/components/dashboard/widgets/CombinedOtpCodesWidget.tsx`
+### Zakres: 2 pliki, ~10 linii zmian
 

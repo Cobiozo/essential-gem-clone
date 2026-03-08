@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Key, Clock, Copy, Loader2, CheckCircle2, XCircle, Users } from 'lucide-react';
+import { Key, Clock, Copy, Loader2, CheckCircle2, XCircle, Users, Link2, MessageSquare } from 'lucide-react';
+import { copyToClipboard } from '@/lib/clipboardUtils';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
 import { HkOtpCode } from '@/types/healthyKnowledge';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 
@@ -19,9 +21,10 @@ interface InfoLinkCode {
   used_sessions: number;
   created_at: string;
   first_used_at?: string | null;
-  reflink?: {
+   reflink?: {
     id: string;
     title: string;
+    slug?: string;
     otp_max_sessions: number;
     otp_validity_hours?: number;
   };
@@ -169,7 +172,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
         .from('infolink_otp_codes')
         .select(`
           id, code, expires_at, used_sessions, created_at, first_used_at,
-          reflink:reflinks(id, title, otp_max_sessions, otp_validity_hours),
+          reflink:reflinks(id, title, slug, otp_max_sessions, otp_validity_hours),
           infolink_sessions(expires_at)
         `)
         .eq('partner_id', user.id)
@@ -268,12 +271,49 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   }
 
   const handleCopyCode = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success('Kod skopiowany');
-    } catch (error) {
-      toast.error('Nie udało się skopiować');
-    }
+    const ok = await copyToClipboard(code);
+    if (ok) toast.success('Kod skopiowany');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyInfoLinkLink = async (code: InfoLinkCode) => {
+    const slug = code.reflink?.slug || code.reflink?.id;
+    if (!slug) return;
+    const link = `${window.location.origin}/infolink/${slug}`;
+    const ok = await copyToClipboard(link);
+    if (ok) toast.success('Link skopiowany');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyInfoLinkMessage = async (code: InfoLinkCode) => {
+    const slug = code.reflink?.slug || code.reflink?.id;
+    if (!slug) return;
+    const link = `${window.location.origin}/infolink/${slug}`;
+    const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
+    const ok = await copyToClipboard(message);
+    if (ok) toast.success('Wiadomość skopiowana');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyHkLink = async (code: HkOtpCode) => {
+    const knowledge = code.healthy_knowledge as any;
+    const slug = knowledge?.slug;
+    if (!slug) return;
+    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const ok = await copyToClipboard(link);
+    if (ok) toast.success('Link skopiowany');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyHkMessage = async (code: HkOtpCode) => {
+    const knowledge = code.healthy_knowledge as any;
+    const slug = knowledge?.slug;
+    if (!slug) return;
+    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
+    const ok = await copyToClipboard(message);
+    if (ok) toast.success('Wiadomość skopiowana');
+    else toast.error('Nie udało się skopiować');
   };
 
   // Don't render if no codes in both categories
@@ -411,14 +451,34 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-sm">{code.code}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleCopyCode(code.code)}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
+                        <TooltipProvider delayDuration={300}>
+                          <div className="flex gap-0.5">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyCode(code.code)}>
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj kod</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyInfoLinkLink(code)}>
+                                  <Link2 className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj link</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyInfoLinkMessage(code)}>
+                                  <MessageSquare className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj wiadomość</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {code.reflink?.title || 'InfoLink'}
@@ -471,14 +531,34 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-sm">{code.code}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleCopyCode(code.code)}
-                        >
-                          <Copy className="w-3 h-3" />
-                        </Button>
+                        <TooltipProvider delayDuration={300}>
+                          <div className="flex gap-0.5">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyCode(code.code)}>
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj kod</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyHkLink(code)}>
+                                  <Link2 className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj link</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyHkMessage(code)}>
+                                  <MessageSquare className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Kopiuj wiadomość</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </div>
                       <p className="text-xs text-muted-foreground truncate mt-0.5">
                         {knowledge?.title || 'Materiał'}
