@@ -172,7 +172,7 @@ export const CombinedOtpCodesWidget: React.FC = () => {
         .from('infolink_otp_codes')
         .select(`
           id, code, expires_at, used_sessions, created_at, first_used_at,
-          reflink:reflinks(id, title, otp_max_sessions, otp_validity_hours),
+          reflink:reflinks(id, title, slug, otp_max_sessions, otp_validity_hours),
           infolink_sessions(expires_at)
         `)
         .eq('partner_id', user.id)
