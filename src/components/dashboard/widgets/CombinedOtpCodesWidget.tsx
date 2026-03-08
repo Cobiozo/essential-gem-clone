@@ -271,12 +271,49 @@ export const CombinedOtpCodesWidget: React.FC = () => {
   }
 
   const handleCopyCode = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      toast.success('Kod skopiowany');
-    } catch (error) {
-      toast.error('Nie udało się skopiować');
-    }
+    const ok = await copyToClipboard(code);
+    if (ok) toast.success('Kod skopiowany');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyInfoLinkLink = async (code: InfoLinkCode) => {
+    const slug = code.reflink?.slug || code.reflink?.id;
+    if (!slug) return;
+    const link = `${window.location.origin}/infolink/${slug}`;
+    const ok = await copyToClipboard(link);
+    if (ok) toast.success('Link skopiowany');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyInfoLinkMessage = async (code: InfoLinkCode) => {
+    const slug = code.reflink?.slug || code.reflink?.id;
+    if (!slug) return;
+    const link = `${window.location.origin}/infolink/${slug}`;
+    const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
+    const ok = await copyToClipboard(message);
+    if (ok) toast.success('Wiadomość skopiowana');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyHkLink = async (code: HkOtpCode) => {
+    const knowledge = code.healthy_knowledge as any;
+    const slug = knowledge?.slug;
+    if (!slug) return;
+    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const ok = await copyToClipboard(link);
+    if (ok) toast.success('Link skopiowany');
+    else toast.error('Nie udało się skopiować');
+  };
+
+  const handleCopyHkMessage = async (code: HkOtpCode) => {
+    const knowledge = code.healthy_knowledge as any;
+    const slug = knowledge?.slug;
+    if (!slug) return;
+    const link = `https://purelife.info.pl/zdrowa-wiedza/${slug}`;
+    const message = `🔗 Link: ${link}\n🔑 Kod dostępu: ${code.code}`;
+    const ok = await copyToClipboard(message);
+    if (ok) toast.success('Wiadomość skopiowana');
+    else toast.error('Nie udało się skopiować');
   };
 
   // Don't render if no codes in both categories
