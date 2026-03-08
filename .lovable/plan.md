@@ -1,24 +1,29 @@
 
+# Plan: Naprawić wyświetlanie danych prospekta w EventDetailsDialog
 
-## Plan zmian
+## Problem
+`EventDetailsDialog` szuka pól `prospect_name`, `notes`, `goal` w JSON, ale `PartnerMeetingBooking` zapisuje dane pod innymi nazwami:
+- `prospect_first_name` + `prospect_last_name` (nie `prospect_name`)
+- `booking_notes` (nie `notes`)
+- `consultation_purpose` (nie `goal`)
 
-### 1. Logo na ekranie ładowania (App.tsx)
+Dlatego na screenshocie brakuje imienia prospekta, notatek i celu.
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+## Zmiana
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### `src/components/events/EventDetailsDialog.tsx`
 
-### 2. Złote ikony dla datetime-local (index.css)
+1. Zmienić interfejs `prospectData` na prawidłowe pola:
+   - `prospect_first_name`, `prospect_last_name`, `prospect_phone`, `prospect_email`
+   - `booking_notes`, `consultation_purpose`
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+2. Zaktualizować rendering:
+   - **Prospekt**: `prospect_first_name` + `prospect_last_name`
+   - **Telefon**: `prospect_phone`
+   - **Email**: `prospect_email`
+   - **Cel konsultacji**: `consultation_purpose` (dla `partner_consultation`)
+   - **Notatki**: `booking_notes`
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+3. Dodać sekcję "Prowadzący" z imieniem i nazwiskiem hosta (z `event.host_profile` lub `event.host_name`) w karcie danych spotkania, aby było jasne kto prowadzi.
 
-### Zakres: 2 pliki, ~10 linii zmian
-
+Jeden plik do edycji: `EventDetailsDialog.tsx`
