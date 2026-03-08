@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useOfflineQueue } from '@/hooks/useOfflineQueue';
-import type { TeamContact, TeamContactFilters, TeamContactHistory } from '@/components/team-contacts/types';
+import type { TeamContact, TeamContactFilters, TeamContactHistory, EventRegistrationInfo } from '@/components/team-contacts/types';
 
 export const useTeamContacts = () => {
   const { user, isAdmin } = useAuth();
@@ -11,6 +11,7 @@ export const useTeamContacts = () => {
   const [contacts, setContacts] = useState<TeamContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventContactIds, setEventContactIds] = useState<Set<string>>(new Set());
+  const [eventContactDetails, setEventContactDetails] = useState<Map<string, EventRegistrationInfo[]>>(new Map());
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
     status: '',
@@ -280,13 +281,34 @@ export const useTeamContacts = () => {
     try {
       const { data, error } = await supabase
         .from('guest_event_registrations')
-        .select('team_contact_id')
+        .select('team_contact_id, event_id, first_name, status, events(title, start_time)')
         .eq('invited_by_user_id', user.id)
         .not('team_contact_id', 'is', null);
       
       if (error) throw error;
-      const ids = new Set((data || []).map((r: any) => r.team_contact_id as string));
+      const ids = new Set<string>();
+      const detailsMap = new Map<string, EventRegistrationInfo[]>();
+      
+      for (const r of (data || [])) {
+        const contactId = r.team_contact_id as string;
+        ids.add(contactId);
+        
+        const event = r.events as any;
+        if (event) {
+          const info: EventRegistrationInfo = {
+            event_id: r.event_id,
+            event_title: event.title || '',
+            event_start_time: event.start_time || '',
+            guest_status: r.status || 'registered',
+          };
+          const existing = detailsMap.get(contactId) || [];
+          existing.push(info);
+          detailsMap.set(contactId, existing);
+        }
+      }
+      
       setEventContactIds(ids);
+      setEventContactDetails(detailsMap);
     } catch (error) {
       console.error('Error fetching event contact IDs:', error);
     }
@@ -308,6 +330,7 @@ export const useTeamContacts = () => {
     getContactHistory,
     refetch: fetchContacts,
     eventContactIds,
+    eventContactDetails,
     pendingOfflineCount: pendingCount,
   };
 };

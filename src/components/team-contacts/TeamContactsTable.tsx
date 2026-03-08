@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Edit, Trash2, History, HelpCircle } from 'lucide-react';
-import type { TeamContact, TeamContactHistory } from './types';
+import type { TeamContact, TeamContactHistory, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -36,6 +36,7 @@ interface TeamContactsTableProps {
   contactType?: 'private' | 'team_member';
   hideEventInfo?: boolean;
   readOnly?: boolean;
+  eventContactDetails?: Map<string, EventRegistrationInfo[]>;
 }
 
 export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
@@ -48,6 +49,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   contactType,
   hideEventInfo = false,
   readOnly = false,
+  eventContactDetails,
 }) => {
   const { t } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -117,6 +119,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
               {!isPrivate && <TableHead>EQID</TableHead>}
               {!isPrivate && <TableHead>{t('teamContacts.role')}</TableHead>}
               {!isTeamMember && <TableHead>{t('teamContacts.status')}</TableHead>}
+              {eventContactDetails && <TableHead>Wydarzenie</TableHead>}
               <TableHead>{t('teamContacts.dateAdded')}</TableHead>
               <TableHead className="text-right">{t('teamContacts.actions')}</TableHead>
             </TableRow>
@@ -129,6 +132,17 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 {!isPrivate && <TableCell className="font-mono text-sm">{contact.eq_id || '-'}</TableCell>}
                 {!isPrivate && <TableCell>{getRoleBadge(contact.role)}</TableCell>}
                 {!isTeamMember && <TableCell>{getStatusBadge(contact)}</TableCell>}
+                {eventContactDetails && (
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {(eventContactDetails.get(contact.id) || []).map((ev) => (
+                        <Badge key={ev.event_id} variant="outline" className="text-xs font-normal">
+                          📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                )}
                 <TableCell>
                   {new Date(contact.added_at).toLocaleDateString('pl-PL')}
                 </TableCell>
