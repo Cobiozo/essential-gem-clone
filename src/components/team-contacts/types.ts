@@ -70,6 +70,13 @@ export interface TeamContact {
   linked_admin_approved?: boolean | null;
 }
 
+export interface EventRegistrationInfo {
+  event_id: string;
+  event_title: string;
+  event_start_time: string;
+  guest_status: string;
+}
+
 export interface TeamContactHistory {
   id: string;
   contact_id: string;

@@ -330,6 +330,7 @@ export const useTeamContacts = () => {
     getContactHistory,
     refetch: fetchContacts,
     eventContactIds,
+    eventContactDetails,
     pendingOfflineCount: pendingCount,
   };
 };
