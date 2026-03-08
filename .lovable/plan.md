@@ -1,24 +1,19 @@
 
 
-## Plan zmian
+# Plan: Wyrazistsze cieniowanie kolumn weekendowych (Sb, Nd)
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Zmiana
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+### `src/components/dashboard/widgets/CalendarWidget.tsx`
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+1. **Nagłówki weekendowe** (linie 366-370): Dodać ciemniejsze tło do nagłówków Sb/Nd (`bg-muted/50 dark:bg-muted/40 rounded-md`)
 
-### 2. Złote ikony dla datetime-local (index.css)
+2. **Komórki dni** (linie 389-421): Dodać warunek `isWeekend` na podstawie `getAdjustedDayOfWeek(day) >= 5` i aplikować tło `bg-muted/20 dark:bg-muted/15` jako bazowe cieniowanie kolumny weekendowej (niezależne od tego czy dzień ma wydarzenia)
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+3. **Puste komórki offsetu** (linie 373-374): Dodać cieniowanie do pustych komórek które wypadają w kolumnach Sb/Nd
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+Efekt: pionowe pasy cieniowania na kolumnach Sb i Nd, widoczne zarówno w light jak i dark mode.
 
-### Zakres: 2 pliki, ~10 linii zmian
+### Plik do edycji:
+- `src/components/dashboard/widgets/CalendarWidget.tsx`
 
