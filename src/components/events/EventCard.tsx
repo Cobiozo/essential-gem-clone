@@ -48,6 +48,22 @@ export const EventCard: React.FC<EventCardProps> = ({
   
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
+  const [inviteCount, setInviteCount] = useState<number>(0);
+
+  // Fetch count of guests registered via my invitation
+  useEffect(() => {
+    if (!user) return;
+    const fetchInviteCount = async () => {
+      const { count } = await supabase
+        .from('guest_event_registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', event.id)
+        .eq('invited_by_user_id', user.id)
+        .eq('status', 'registered');
+      setInviteCount(count || 0);
+    };
+    fetchInviteCount();
+  }, [user, event.id]);
 
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
