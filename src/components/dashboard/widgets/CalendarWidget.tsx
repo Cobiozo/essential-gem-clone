@@ -363,8 +363,11 @@ ${signUpLabel}: ${inviteUrl}
         {/* Calendar grid */}
         <div className="grid grid-cols-7 gap-1">
           {/* Weekday headers */}
-          {weekDays.map(day => (
-            <div key={day} className="text-center text-xs text-muted-foreground font-medium py-1">
+          {weekDays.map((day, idx) => (
+            <div key={day} className={cn(
+              "text-center text-xs text-muted-foreground font-medium py-1 rounded-md",
+              idx >= 5 && "bg-muted/50 dark:bg-muted/40"
+            )}>
               {day}
             </div>
           ))}
