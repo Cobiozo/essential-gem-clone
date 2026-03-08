@@ -119,6 +119,7 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
               {!isPrivate && <TableHead>EQID</TableHead>}
               {!isPrivate && <TableHead>{t('teamContacts.role')}</TableHead>}
               {!isTeamMember && <TableHead>{t('teamContacts.status')}</TableHead>}
+              {eventContactDetails && <TableHead>Wydarzenie</TableHead>}
               <TableHead>{t('teamContacts.dateAdded')}</TableHead>
               <TableHead className="text-right">{t('teamContacts.actions')}</TableHead>
             </TableRow>
