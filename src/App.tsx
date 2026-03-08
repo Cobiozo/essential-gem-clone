@@ -111,6 +111,7 @@ const InfoLinkPage = lazyWithRetry(() => import("./pages/InfoLinkPage"));
 const WebinarsPage = lazyWithRetry(() => import("./pages/WebinarsPage"));
 const TeamMeetingsPage = lazyWithRetry(() => import("./pages/TeamMeetingsPage"));
 const EventGuestRegistration = lazyWithRetry(() => import("./pages/EventGuestRegistration"));
+const EventRegistrationBySlug = lazyWithRetry(() => import("./pages/EventRegistrationBySlug"));
 const CommissionCalculatorPage = lazyWithRetry(() => import("./pages/CommissionCalculator"));
 const SpecialistCalculatorPage = lazyWithRetry(() => import("./pages/SpecialistCalculator"));
 const HtmlPage = lazyWithRetry(() => import("./pages/HtmlPage"));
