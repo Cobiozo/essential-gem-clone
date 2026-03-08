@@ -132,6 +132,17 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 {!isPrivate && <TableCell className="font-mono text-sm">{contact.eq_id || '-'}</TableCell>}
                 {!isPrivate && <TableCell>{getRoleBadge(contact.role)}</TableCell>}
                 {!isTeamMember && <TableCell>{getStatusBadge(contact)}</TableCell>}
+                {eventContactDetails && (
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {(eventContactDetails.get(contact.id) || []).map((ev) => (
+                        <Badge key={ev.event_id} variant="outline" className="text-xs font-normal">
+                          📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                )}
                 <TableCell>
                   {new Date(contact.added_at).toLocaleDateString('pl-PL')}
                 </TableCell>

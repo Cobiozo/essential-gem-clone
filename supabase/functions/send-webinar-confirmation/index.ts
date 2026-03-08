@@ -237,6 +237,44 @@ const handler = async (req: Request): Promise<Response> => {
           .eq('event_id', eventId)
           .eq('email', email);
       }
+
+      // === IN-APP NOTIFICATION to inviter ===
+      try {
+        await supabase.from('user_notifications').insert({
+          user_id: invitedByUserId,
+          notification_type: 'guest_registered',
+          source_module: 'events',
+          title: `Nowa rejestracja: ${firstName} ${lastName || ''}`.trim(),
+          message: `${firstName} ${lastName || ''} zarejestrował(a) się na "${eventTitle}" z Twojego zaproszenia.`.trim(),
+          link: '/my-account?tab=team-contacts&subTab=private',
+          metadata: { event_id: eventId, guest_email: email, event_title: eventTitle },
+        });
+        console.log(`[send-webinar-confirmation] In-app notification sent to inviter: ${invitedByUserId}`);
+      } catch (notifError) {
+        console.warn('[send-webinar-confirmation] Failed to create in-app notification:', notifError);
+      }
+
+      // === WEB PUSH to inviter ===
+      try {
+        const pushPayload = {
+          userId: invitedByUserId,
+          title: `Nowa rejestracja na ${eventTitle}`,
+          body: `${firstName} ${lastName || ''} zapisał(a) się z Twojego zaproszenia!`.trim(),
+          url: '/my-account?tab=team-contacts&subTab=private',
+        };
+        
+        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify(pushPayload),
+        });
+        console.log(`[send-webinar-confirmation] Push notification sent to inviter: ${invitedByUserId}`);
+      } catch (pushError) {
+        console.warn('[send-webinar-confirmation] Failed to send push notification:', pushError);
+      }
     }
 
     // Try to get template from database
