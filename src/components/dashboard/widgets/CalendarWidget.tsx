@@ -33,7 +33,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   cancelRegistration = async () => false,
 }) => {
   const { t, tf, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -63,7 +63,13 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
-    const inviteUrl = `${window.location.origin}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    const baseUrl = 'https://purelife.info.pl';
+    const eventSlug = (event as any).slug;
+    const eqId = profile?.eq_id;
+    
+    const inviteUrl = eventSlug
+      ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
+      : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
     const webinarInvLabel = tf('events.webinarInvitation', 'Zaproszenie na webinar');
     const hostLabel = tf('events.host', 'Prowadzący');

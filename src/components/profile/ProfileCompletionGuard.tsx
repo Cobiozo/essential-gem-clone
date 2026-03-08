@@ -32,6 +32,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/infolink/',  // InfoLink pages are public (OTP protected)
     '/zdrowa-wiedza/', // Zdrowa Wiedza public pages (OTP protected)
     '/events/register/', // Guest registration pages
+    '/e/',             // Short event registration URLs
     '/change-password', // Temp password change page
     '/reset-password',  // Password reset page
     '/landing-preview', // Leader landing page preview
@@ -49,7 +50,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   const KNOWN_APP_ROUTES = [
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
-    '/events', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
+    '/events', '/e', '/install', '/page', '/html', '/infolink', '/zdrowa-wiedza',
     '/meeting-room', '/change-password', '/reset-password', '/omega-base', '/landing-preview'
   ];
   const isSingleSegmentPath = /^\/[^/]+$/.test(location.pathname);

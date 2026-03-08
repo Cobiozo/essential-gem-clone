@@ -2199,6 +2199,7 @@ export type Database = {
           push_reminder_minutes: Json | null
           registration_form_config: Json | null
           requires_registration: boolean | null
+          slug: string | null
           sms_reminder_enabled: boolean | null
           start_time: string
           timezone: string | null
@@ -2248,6 +2249,7 @@ export type Database = {
           push_reminder_minutes?: Json | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
+          slug?: string | null
           sms_reminder_enabled?: boolean | null
           start_time: string
           timezone?: string | null
@@ -2297,6 +2299,7 @@ export type Database = {
           push_reminder_minutes?: Json | null
           registration_form_config?: Json | null
           requires_registration?: boolean | null
+          slug?: string | null
           sms_reminder_enabled?: boolean | null
           start_time?: string
           timezone?: string | null
