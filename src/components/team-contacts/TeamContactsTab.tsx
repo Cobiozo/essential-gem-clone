@@ -358,7 +358,16 @@ export const TeamContactsTab: React.FC = () => {
                 />
               )}
               
-              {viewMode === 'accordion' ? (
+              {privateSubTab === 'events' ? (
+                <EventGroupedContacts
+                  eventGroups={eventGroupedContacts}
+                  duplicateContactEvents={duplicateContactEvents}
+                  loading={loading}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
+                />
+              ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
                   contacts={filteredContacts}
                   loading={loading}
@@ -367,8 +376,7 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   isAdmin={isAdmin}
                   contactType="private"
-                  hideEventInfo={privateSubTab === 'own'}
-                  eventContactDetails={privateSubTab === 'events' ? eventContactDetails : undefined}
+                  hideEventInfo={true}
                 />
               ) : (
                 <TeamContactsTable
@@ -379,8 +387,7 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   isAdmin={isAdmin}
                   contactType="private"
-                  hideEventInfo={privateSubTab === 'own'}
-                  eventContactDetails={privateSubTab === 'events' ? eventContactDetails : undefined}
+                  hideEventInfo={true}
                 />
               )}
             </CardContent>
