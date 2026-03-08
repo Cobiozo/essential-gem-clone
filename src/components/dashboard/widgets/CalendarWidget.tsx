@@ -65,9 +65,8 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
     const baseUrl = 'https://purelife.info.pl';
     const eventSlug = (event as any).slug;
-    const eqId = (user as any)?.user_metadata?.eq_id;
+    const eqId = profile?.eq_id;
     
-    // Try to get eq_id from profile context if available
     const inviteUrl = eventSlug
       ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
       : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
