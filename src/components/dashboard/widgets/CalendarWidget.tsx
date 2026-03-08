@@ -371,33 +371,45 @@ ${signUpLabel}: ${inviteUrl}
 
           {/* Empty cells for offset */}
           {Array.from({ length: firstDayOffset }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-8" />
+            <div key={`empty-${i}`} className="h-10" />
           ))}
 
           {/* Calendar days */}
           {days.map(day => {
             const dayEvents = getEventsForDay(day);
             const hasEvents = dayEvents.length > 0;
+            const eventCount = dayEvents.length;
             const isSelected = selectedDate && isSameDay(day, selectedDate);
             const today = isToday(day);
+
+            // Split dots: bottom row up to 4, overflow row above the number
+            const bottomDots = dayEvents.slice(0, 4);
+            const overflowCount = eventCount - 4;
 
             return (
               <button
                 key={day.toISOString()}
                 onClick={() => handleDayClick(day)}
                 className={cn(
-                  "h-8 w-full rounded-md text-sm relative flex flex-col items-center justify-center transition-colors",
+                  "h-10 w-full rounded-md text-sm relative flex flex-col items-center justify-center transition-colors",
                   !isSameMonth(day, currentMonth) && "text-muted-foreground opacity-50",
+                  hasEvents && !today && "bg-muted/30 dark:bg-muted/20",
                   today && "bg-accent text-accent-foreground font-semibold",
                   isSelected && "ring-2 ring-primary",
                   hasEvents && "cursor-pointer hover:bg-muted",
                   !hasEvents && "hover:bg-muted/50"
                 )}
               >
+                {/* Overflow indicator above number */}
+                {overflowCount > 0 && (
+                  <span className="absolute top-0.5 text-[8px] font-bold text-muted-foreground leading-none">
+                    +{overflowCount}
+                  </span>
+                )}
                 <span>{format(day, 'd')}</span>
                 {hasEvents && (
                   <div className="absolute bottom-0.5 flex gap-0.5">
-                    {dayEvents.slice(0, 3).map((event, i) => (
+                    {bottomDots.map((event, i) => (
                       <div
                         key={i}
                         className={cn("w-1.5 h-1.5 rounded-full", getEventColor(event.event_type))}
