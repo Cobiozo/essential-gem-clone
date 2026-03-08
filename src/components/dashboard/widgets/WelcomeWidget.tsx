@@ -84,9 +84,9 @@ export const WelcomeWidget: React.FC = () => {
   }, [userTimezone, tf]);
 
   const firstName = profile?.first_name || '';
-  const todayWorldDays = getTodayWorldDays();
-  const now = new Date();
-  const hour = now.getHours();
+  const hour = currentTime.getHours();
+
+  const todayWorldDays = useMemo(() => getTodayWorldDays(), [currentTime.toDateString()]);
 
   // Dynamic greeting based on time of day
   const getGreeting = () => {
@@ -96,9 +96,9 @@ export const WelcomeWidget: React.FC = () => {
   };
 
   // Format date based on language
-  const formattedDate = format(now, 'EEEE, d MMMM yyyy', {
+  const formattedDate = useMemo(() => format(currentTime, 'EEEE, d MMMM yyyy', {
     locale: language === 'pl' ? pl : enUS,
-  });
+  }), [currentTime.toDateString(), language]);
 
   // Format time in selected timezone
   const formattedTime = formatInTimeZone(currentTime, selectedTimezone, 'HH:mm:ss');
