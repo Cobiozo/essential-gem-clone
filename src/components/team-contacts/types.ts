@@ -77,6 +77,13 @@ export interface EventRegistrationInfo {
   guest_status: string;
 }
 
+export interface EventGroup {
+  event_id: string;
+  title: string;
+  date: string;
+  contacts: TeamContact[];
+}
+
 export interface TeamContactHistory {
   id: string;
   contact_id: string;
