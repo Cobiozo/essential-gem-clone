@@ -131,7 +131,7 @@ export const WelcomeWidget: React.FC = () => {
             </p>
             {todayWorldDays.length > 0 && (
               <p className="text-sm text-gold/80 flex items-center gap-1.5">
-                🎉 {t('dashboard.today_is') || 'Dziś jest'}: {todayWorldDays.join(' • ')}
+                🎉 {tf('dashboard.today_is', 'Dziś jest')}: {todayWorldDays.join(' • ')}
               </p>
             )}
           </div>
