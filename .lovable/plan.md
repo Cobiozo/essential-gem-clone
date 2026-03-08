@@ -1,24 +1,52 @@
 
 
-## Plan zmian
+# Plan: Wyświetlanie "Dnia dzisiejszego" w WelcomeWidget
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Podejście
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Stworzyć statyczną mapę światowych/międzynarodowych dni przypisanych do dat (klucz: `MM-DD`), i wyświetlić odpowiedni wpis pod datą w WelcomeWidget. Podejście statyczne jest najszybsze, darmowe i nie wymaga API.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Zmiany
 
-### 2. Złote ikony dla datetime-local (index.css)
+### 1. Nowy plik: `src/utils/worldDays.ts`
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+Mapa ~150-200 najważniejszych międzynarodowych/światowych dni w formacie:
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+```typescript
+export const WORLD_DAYS: Record<string, string[]> = {
+  '01-01': ['Nowy Rok', 'Światowy Dzień Pokoju'],
+  '01-27': ['Międzynarodowy Dzień Pamięci o Ofiarach Holokaustu'],
+  '02-14': ['Walentynki', 'Międzynarodowy Dzień Epilepsji'],
+  '03-08': ['Międzynarodowy Dzień Kobiet'],
+  '03-20': ['Międzynarodowy Dzień Szczęścia', 'Pierwszy Dzień Wiosny'],
+  // ... itd.
+};
 
-### Zakres: 2 pliki, ~10 linii zmian
+export function getTodayWorldDays(): string[] {
+  const now = new Date();
+  const key = `${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+  return WORLD_DAYS[key] || [];
+}
+```
+
+### 2. Edycja: `src/components/dashboard/widgets/WelcomeWidget.tsx`
+
+Pod linią z `formattedDate` (linia 128-129) dodać wyświetlanie dnia:
+
+```tsx
+<p className="text-muted-foreground capitalize">
+  {formattedDate}
+</p>
+{todayWorldDays.length > 0 && (
+  <p className="text-sm text-gold/80 flex items-center gap-1.5">
+    🎉 {t('dashboard.today_is') || 'Dziś jest'}: {todayWorldDays.join(' • ')}
+  </p>
+)}
+```
+
+Mapa będzie zawierać polskie i międzynarodowe święta/dni tematyczne — ok. 150+ wpisów pokrywających cały rok.
+
+### Pliki do edycji:
+1. **Nowy**: `src/utils/worldDays.ts`
+2. **Edycja**: `src/components/dashboard/widgets/WelcomeWidget.tsx`
 
