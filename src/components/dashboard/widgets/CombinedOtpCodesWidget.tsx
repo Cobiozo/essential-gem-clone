@@ -21,9 +21,10 @@ interface InfoLinkCode {
   used_sessions: number;
   created_at: string;
   first_used_at?: string | null;
-  reflink?: {
+   reflink?: {
     id: string;
     title: string;
+    slug?: string;
     otp_max_sessions: number;
     otp_validity_hours?: number;
   };
