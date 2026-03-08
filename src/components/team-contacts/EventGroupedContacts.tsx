@@ -205,7 +205,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
       {historyContact && (
         <TeamContactHistoryDialog
           contact={historyContact}
-          getContactHistory={getContactHistory}
+          getHistory={getContactHistory}
           onClose={() => setHistoryContact(null)}
         />
       )}
