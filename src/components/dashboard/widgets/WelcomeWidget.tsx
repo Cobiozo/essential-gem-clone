@@ -121,7 +121,7 @@ export const WelcomeWidget: React.FC = () => {
       <CardContent className="relative z-10 p-6 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-2xl md:text-3xl font-bold text-amber-600 dark:text-gold">
+            <h2 className="text-2xl md:text-3xl font-bold text-gold">
               {getGreeting()}{firstName ? `, ${firstName}` : ''}! 👋
             </h2>
             <p className="text-muted-foreground capitalize">
@@ -133,8 +133,8 @@ export const WelcomeWidget: React.FC = () => {
           <div className="flex flex-col items-end gap-0.5">
             {/* Main clock - user's timezone */}
             <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-amber-600 dark:text-gold tabular-nums">
-                <Clock className="h-5 w-5 md:h-6 md:w-6 text-amber-600/70 dark:text-gold/70" />
+              <div className="flex items-center gap-2 text-2xl md:text-3xl font-mono font-bold text-gold tabular-nums">
+                <Clock className="h-5 w-5 md:h-6 md:w-6 text-gold/70" />
                 {formattedTime}
               </div>
               <Select value={selectedTimezone} onValueChange={setSelectedTimezone}>
