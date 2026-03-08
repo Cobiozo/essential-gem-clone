@@ -84,6 +84,7 @@ export const WelcomeWidget: React.FC = () => {
   }, [userTimezone, tf]);
 
   const firstName = profile?.first_name || '';
+  const todayWorldDays = getTodayWorldDays();
   const now = new Date();
   const hour = now.getHours();
 
