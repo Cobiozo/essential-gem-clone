@@ -36,6 +36,7 @@ interface TeamContactsTableProps {
   contactType?: 'private' | 'team_member';
   hideEventInfo?: boolean;
   readOnly?: boolean;
+  eventContactDetails?: Map<string, EventRegistrationInfo[]>;
 }
 
 export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
