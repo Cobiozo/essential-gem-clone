@@ -16,6 +16,7 @@ import {
 import { WidgetInfoButton } from '../WidgetInfoButton';
 import { NewsTicker } from '@/components/news-ticker';
 import { getCommonTimezones, getTimezoneAbbr } from '@/utils/timezoneHelpers';
+import { getTodayWorldDays } from '@/utils/worldDays';
 
 export const WelcomeWidget: React.FC = () => {
   const { profile } = useAuth();
@@ -83,6 +84,7 @@ export const WelcomeWidget: React.FC = () => {
   }, [userTimezone, tf]);
 
   const firstName = profile?.first_name || '';
+  const todayWorldDays = getTodayWorldDays();
   const now = new Date();
   const hour = now.getHours();
 
@@ -127,6 +129,11 @@ export const WelcomeWidget: React.FC = () => {
             <p className="text-muted-foreground capitalize">
               {formattedDate}
             </p>
+            {todayWorldDays.length > 0 && (
+              <p className="text-sm text-gold/80 flex items-center gap-1.5">
+                🎉 {t('dashboard.today_is') || 'Dziś jest'}: {todayWorldDays.join(' • ')}
+              </p>
+            )}
           </div>
           
           {/* Digital clock with timezone selector */}
