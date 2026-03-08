@@ -13,7 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useCMSTranslations } from '@/hooks/useCMSTranslations';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { useSecurityPreventions } from '@/hooks/useSecurityPreventions';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { CMSSection, CMSItem, ContentCell } from '@/types/cms';
 import { HomeRowContainer } from '@/components/homepage/HomeRowContainer';
 import { useAuth } from '@/contexts/AuthContext';

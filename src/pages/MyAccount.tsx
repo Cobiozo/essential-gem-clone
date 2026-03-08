@@ -35,7 +35,7 @@ import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
 import MyHkCodesHistory from '@/components/healthy-knowledge/MyHkCodesHistory';
-import newPureLifeLogo from '@/assets/pure-life-logo-new.png';
+import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 
