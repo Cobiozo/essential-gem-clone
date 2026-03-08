@@ -281,17 +281,6 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
                     ? 'bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800' 
                     : 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:border-fuchsia-800'
                 }`}>
-            {isIndividualMeeting && prospectData ? (
-              <div className="pt-2 border-t space-y-3">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span>{event.event_type === 'tripartite_meeting' ? 'Dane spotkania trójstronnego' : 'Dane konsultacji'}</span>
-                </div>
-                <div className={`rounded-lg border p-3 space-y-2 ${
-                  event.event_type === 'tripartite_meeting' 
-                    ? 'bg-violet-50 border-violet-200 dark:bg-violet-950/20 dark:border-violet-800' 
-                    : 'bg-fuchsia-50 border-fuchsia-200 dark:bg-fuchsia-950/20 dark:border-fuchsia-800'
-                }`}>
                   {hostDisplayName && (
                     <div className="flex items-center gap-2 text-sm">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
