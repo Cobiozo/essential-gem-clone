@@ -517,7 +517,8 @@ Zapisz się tutaj: ${inviteUrl}
     }
 
     // Only show single register button for non-multi-occurrence events
-    if (showRegistration && event.requires_registration && isUpcoming && !isPastEvent && !isMultiOccurrence && !isHost) {
+    // Allow registration if upcoming OR within 15min grace period after start
+    if (showRegistration && event.requires_registration && (isUpcoming || canStillRegister) && !isPastEvent && !isMultiOccurrence && !isHost) {
       const isFull = event.max_participants && (event.registration_count || 0) >= event.max_participants;
       
       // Change button text for external platform events
@@ -543,6 +544,28 @@ Zapisz się tutaj: ${inviteUrl}
             <Check className="h-4 w-4 mr-2" />
           )}
           {registerButtonText}
+        </Button>
+      );
+    }
+
+    // After cutoff: show disabled button with informational toast for non-registered users
+    if (showRegistration && event.requires_registration && isAfterCutoff && !isRegistered && !isPastEvent && !isMultiOccurrence && !isHost) {
+      const cutoffTimeStr = formatInTimeZone(registrationCutoff, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm');
+      buttons.push(
+        <Button
+          key="register-closed"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            toast({
+              title: 'Rejestracja zamknięta',
+              description: `Zapisanie się na spotkanie było możliwe do godz. ${cutoffTimeStr}. Aktualnie spotkanie trwa. W przyszłości, aby uniknąć takiej sytuacji, zapisz się wcześniej przed rozpoczęciem spotkania.`,
+              variant: 'destructive',
+            });
+          }}
+        >
+          <X className="h-4 w-4 mr-2" />
+          Zapisz się
         </Button>
       );
     }
