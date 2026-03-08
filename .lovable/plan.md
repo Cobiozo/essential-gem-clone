@@ -1,24 +1,22 @@
 
 
-## Plan zmian
+# Fix: Dzisiejszy dzień niewidoczny w trybie ciemnym
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+8 marca 2026 to niedziela. Komórka kalendarza dostaje klasy weekendowe (`dark:bg-muted/20`) ORAZ klasy "dziś" (`bg-accent text-accent-foreground`). W dark mode `dark:bg-muted/20` ma wyższy priorytet CSS niż `bg-accent`, więc tło jest ciemne, a tekst (`accent-foreground: hsl(0 0% 10%)`) — prawie czarny. Efekt: niewidoczna liczba.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Rozwiązanie
 
-### 2. Złote ikony dla datetime-local (index.css)
+W `CalendarWidget.tsx` linia 404 — dodać `dark:bg-accent` i `dark:text-accent-foreground` aby nadpisać wariant weekendowy w ciemnym motywie:
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+```tsx
+// Linia 404, zmiana z:
+today && "bg-accent text-accent-foreground font-semibold",
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+// Na:
+today && "bg-accent dark:bg-accent text-accent-foreground dark:text-accent-foreground font-semibold",
+```
 
-### Zakres: 2 pliki, ~10 linii zmian
+Jedna linia, zero ryzyka regresji.
 
