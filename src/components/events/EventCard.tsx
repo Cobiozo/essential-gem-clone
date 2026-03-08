@@ -76,6 +76,11 @@ export const EventCard: React.FC<EventCardProps> = ({
   const minutesUntilStart = differenceInMinutes(startDate, now);
   const canJoinSoon = minutesUntilStart <= 15 && minutesUntilStart > 0;
 
+  // Registration cutoff: 15 minutes after event start
+  const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
+  const canStillRegister = now < registrationCutoff;
+  const isAfterCutoff = isLive && !canStillRegister;
+
   // Duration in minutes
   const durationMinutes = event.duration_minutes || differenceInMinutes(endDate, startDate);
 
