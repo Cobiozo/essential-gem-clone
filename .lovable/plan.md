@@ -1,44 +1,24 @@
 
 
-# Plan: Grupowanie kontaktów wg wydarzeń + wykrywanie duplikatów
+## Plan zmian
 
-## Obecny stan
-Sub-tab "Z zaproszeń na wydarzenia" pokazuje płaską listę kontaktów z badge'ami wydarzeń. Brak grupowania i wykrywania duplikatów.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Zmiany
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### 1. Nowy komponent `EventGroupedContacts.tsx`
-Widok grupujący kontakty według wydarzeń:
-- Każde wydarzenie jako sekcja z nagłówkiem (tytuł + data + liczba gości)
-- Pod spodem lista kontaktów zapisanych na to wydarzenie
-- Collapsible sections (rozwijane/zwijane)
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-### 2. Wykrywanie duplikatów
-W hooku `useTeamContacts.ts` — po pobraniu `eventContactDetails`, zbudować mapę duplikatów:
-- Klucz: `email` lub `phone_number` (normalizowane)
-- Wartość: lista event_id + contact_id gdzie ta osoba się pojawiła
-- Jeśli osoba jest w >1 wydarzeniu → oznaczenie badge "Zapisany na X wydarzeń"
+### 2. Złote ikony dla datetime-local (index.css)
 
-### 3. Struktura danych
-Rozszerzyć `useTeamContacts` o:
-```typescript
-// Mapa: event_id → { event_title, event_date, contacts: TeamContact[] }
-eventGroupedContacts: Map<string, { title: string; date: string; contacts: TeamContact[] }>
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-// Mapa: contact email/phone → number of events
-duplicateContactEvents: Map<string, number>
-```
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-### 4. UI w `TeamContactsTab.tsx`
-W sub-tabie "Z zaproszeń na wydarzenia" zamienić flat list na `EventGroupedContacts`:
-- Nagłówek wydarzenia z datą i liczbą zapisanych
-- Kontakty pod każdym wydarzeniem z akcjami (edycja, usuwanie, historia)
-- Badge "🔄 Zapisany na X wydarzeń" przy kontaktach pojawiających się wielokrotnie
-- Zachować istniejące tryby widoku (accordion/table)
-
-### Pliki do edycji:
-1. `src/hooks/useTeamContacts.ts` — dodać `eventGroupedContacts` i `duplicateContactEvents`
-2. `src/components/team-contacts/EventGroupedContacts.tsx` — nowy komponent
-3. `src/components/team-contacts/TeamContactsTab.tsx` — użyć nowego komponentu w sub-tabie events
-4. `src/components/team-contacts/types.ts` — dodać typ `EventGroup`
+### Zakres: 2 pliki, ~10 linii zmian
 

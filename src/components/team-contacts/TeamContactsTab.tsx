@@ -22,6 +22,7 @@ import { TeamContactExport } from './TeamContactExport';
 import { TeamMap } from './TeamMap';
 import { SpecialistSearch } from './SpecialistSearch';
 import { OrganizationChart, OrganizationList } from './organization';
+import { EventGroupedContacts } from './EventGroupedContacts';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
@@ -62,7 +63,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactDetails, pendingOfflineCount } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactDetails, eventGroupedContacts, duplicateContactEvents, pendingOfflineCount } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
@@ -357,7 +358,16 @@ export const TeamContactsTab: React.FC = () => {
                 />
               )}
               
-              {viewMode === 'accordion' ? (
+              {privateSubTab === 'events' ? (
+                <EventGroupedContacts
+                  eventGroups={eventGroupedContacts}
+                  duplicateContactEvents={duplicateContactEvents}
+                  loading={loading}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
+                />
+              ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
                   contacts={filteredContacts}
                   loading={loading}
@@ -366,8 +376,7 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   isAdmin={isAdmin}
                   contactType="private"
-                  hideEventInfo={privateSubTab === 'own'}
-                  eventContactDetails={privateSubTab === 'events' ? eventContactDetails : undefined}
+                  hideEventInfo={true}
                 />
               ) : (
                 <TeamContactsTable
@@ -378,8 +387,7 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   isAdmin={isAdmin}
                   contactType="private"
-                  hideEventInfo={privateSubTab === 'own'}
-                  eventContactDetails={privateSubTab === 'events' ? eventContactDetails : undefined}
+                  hideEventInfo={true}
                 />
               )}
             </CardContent>
