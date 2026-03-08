@@ -121,7 +121,7 @@ export const WelcomeWidget: React.FC = () => {
       <CardContent className="relative z-10 p-6 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-2xl md:text-3xl font-bold text-amber-600 dark:text-gold">
+            <h2 className="text-2xl md:text-3xl font-bold text-gold">
               {getGreeting()}{firstName ? `, ${firstName}` : ''}! 👋
             </h2>
             <p className="text-muted-foreground capitalize">
