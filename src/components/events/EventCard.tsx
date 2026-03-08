@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,6 +48,22 @@ export const EventCard: React.FC<EventCardProps> = ({
   
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
+  const [inviteCount, setInviteCount] = useState<number>(0);
+
+  // Fetch count of guests registered via my invitation
+  useEffect(() => {
+    if (!user) return;
+    const fetchInviteCount = async () => {
+      const { count } = await supabase
+        .from('guest_event_registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', event.id)
+        .eq('invited_by_user_id', user.id)
+        .eq('status', 'registered');
+      setInviteCount(count || 0);
+    };
+    fetchInviteCount();
+  }, [user, event.id]);
 
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
@@ -468,6 +484,14 @@ Zapisz się tutaj: ${inviteUrl}
             <span>
               {event.registration_count || 0} / {event.max_participants} uczestników
             </span>
+          </div>
+        )}
+
+        {/* Invite count badge */}
+        {user && inviteCount > 0 && (
+          <div className="flex items-center gap-2 text-sm text-primary font-medium">
+            <UserPlus className="h-4 w-4" />
+            <span>Twoje zaproszenia: {inviteCount}</span>
           </div>
         )}
       </CardContent>
