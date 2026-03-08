@@ -1,36 +1,24 @@
 
 
-# Plan: Poprawa kalendarza — więcej kropek + cieniowanie dni z wydarzeniami
+## Plan zmian
 
-## Problem
-Kalendarz pokazuje max 3 kropki na dzień (`slice(0, 3)`), więc dni z >3 wydarzeniami nie odzwierciedlają rzeczywistej liczby. Ponadto brak wizualnego wyróżnienia dni z wydarzeniami — trudno je odróżnić na pierwszy rzut oka.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Rozwiązanie
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### `src/components/dashboard/widgets/CalendarWidget.tsx`
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-1. **Usunąć limit `slice(0, 3)`** — wyświetlać kropki dla wszystkich wydarzeń na dany dzień
-2. **Przepełnienie kropek**: jeśli >4 wydarzenia → pokazać 4 kropki + małą liczbę (np. "+2") lub rozłożyć kropki w 2 rzędy (nad i pod cyfrą dnia)
-3. **Cieniowanie dni z wydarzeniami** — dodać subtelne tło (np. `bg-muted/40` lub lekki gradient) do dni, które mają wydarzenia, w stylu zbliżonym do wrzuconego screena (lekko szare/podświetlone komórki)
-4. **Zwiększyć wysokość komórki** z `h-8` na `h-10` aby zmieścić kropki bez nakładania się na cyfrę
-5. **Układ kropek**: do 4 kropek — jeden rząd pod cyfrą; 5+ — dwa rzędy (3+reszta) lub rząd pod + rząd nad cyfrą dnia
+### 2. Złote ikony dla datetime-local (index.css)
 
-### Szczegóły techniczne
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-```text
-Komórka kalendarza (h-10):
-┌─────────┐
-│  ● ●    │  ← dodatkowe kropki (jeśli >4)
-│   15    │  ← cyfra dnia
-│ ● ● ● ●│  ← dolny rząd kropek (do 4)
-└─────────┘
-```
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-- Dni z wydarzeniami: `bg-muted/30 dark:bg-muted/20` — subtelne cieniowanie
-- Dzień dzisiejszy: zachować istniejący `bg-accent` ale mocniejszy
-- Weekend (Sb, Nd): delikatnie wyszarzone tło `text-muted-foreground/70`
-- Usuniecie `slice(0, 3)` → wyświetlanie wszystkich kropek, z max ~6 w widoku (reszta jako "+N")
-
-### Plik do edycji:
-1. `src/components/dashboard/widgets/CalendarWidget.tsx` — sekcja renderowania dni (linie 378-410)
+### Zakres: 2 pliki, ~10 linii zmian
 
