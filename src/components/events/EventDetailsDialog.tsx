@@ -9,7 +9,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe, FileText, Phone, MessageSquare, Target } from 'lucide-react';
 import { subMinutes, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
