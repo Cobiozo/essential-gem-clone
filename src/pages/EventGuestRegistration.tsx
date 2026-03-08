@@ -202,6 +202,9 @@ const EventGuestRegistration: React.FC = () => {
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   const isPast = new Date() > endDate;
+  const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
+  const isAfterCutoff = new Date() > registrationCutoff && !isPast;
+  const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
   if (success || alreadyRegistered) {
     return (
@@ -330,6 +333,14 @@ const EventGuestRegistration: React.FC = () => {
             {isPast ? (
               <div className="text-center p-4 bg-muted rounded-lg">
                 <p className="text-muted-foreground">Ten webinar już się odbył.</p>
+              </div>
+            ) : isAfterCutoff ? (
+              <div className="text-center p-4 bg-destructive/10 rounded-lg space-y-2">
+                <AlertCircle className="h-8 w-8 mx-auto text-destructive" />
+                <p className="text-sm font-medium">Rejestracja zamknięta</p>
+                <p className="text-sm text-muted-foreground">
+                  Zapisanie się na spotkanie było możliwe do godz. {cutoffTimeStr}. Aktualnie spotkanie trwa. W przyszłości, aby uniknąć takiej sytuacji, zapisz się wcześniej przed rozpoczęciem spotkania.
+                </p>
               </div>
             ) : (
               <>

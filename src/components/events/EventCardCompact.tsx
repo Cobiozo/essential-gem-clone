@@ -175,6 +175,11 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const isPastEvent = isPast(endDate);
   const minutesUntilStart = differenceInMinutes(startDate, now);
   const canJoinSoon = minutesUntilStart <= 15 && minutesUntilStart > 0;
+
+  // Registration cutoff: 15 minutes after event start
+  const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
+  const canStillRegister = now < registrationCutoff;
+  const isAfterCutoff = isLive && !canStillRegister;
   const durationMinutes = event.duration_minutes || differenceInMinutes(endDate, startDate);
 
   // Check if current user is the host/creator of this event
@@ -512,7 +517,8 @@ Zapisz się tutaj: ${inviteUrl}
     }
 
     // Only show single register button for non-multi-occurrence events
-    if (showRegistration && event.requires_registration && isUpcoming && !isPastEvent && !isMultiOccurrence && !isHost) {
+    // Allow registration if upcoming OR within 15min grace period after start
+    if (showRegistration && event.requires_registration && (isUpcoming || canStillRegister) && !isPastEvent && !isMultiOccurrence && !isHost) {
       const isFull = event.max_participants && (event.registration_count || 0) >= event.max_participants;
       
       // Change button text for external platform events
@@ -538,6 +544,28 @@ Zapisz się tutaj: ${inviteUrl}
             <Check className="h-4 w-4 mr-2" />
           )}
           {registerButtonText}
+        </Button>
+      );
+    }
+
+    // After cutoff: show disabled button with informational toast for non-registered users
+    if (showRegistration && event.requires_registration && isAfterCutoff && !isRegistered && !isPastEvent && !isMultiOccurrence && !isHost) {
+      const cutoffTimeStr = formatInTimeZone(registrationCutoff, event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm');
+      buttons.push(
+        <Button
+          key="register-closed"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            toast({
+              title: 'Rejestracja zamknięta',
+              description: `Zapisanie się na spotkanie było możliwe do godz. ${cutoffTimeStr}. Aktualnie spotkanie trwa. W przyszłości, aby uniknąć takiej sytuacji, zapisz się wcześniej przed rozpoczęciem spotkania.`,
+              variant: 'destructive',
+            });
+          }}
+        >
+          <X className="h-4 w-4 mr-2" />
+          Zapisz się
         </Button>
       );
     }
