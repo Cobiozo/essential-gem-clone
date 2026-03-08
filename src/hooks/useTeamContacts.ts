@@ -11,6 +11,7 @@ export const useTeamContacts = () => {
   const [contacts, setContacts] = useState<TeamContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventContactIds, setEventContactIds] = useState<Set<string>>(new Set());
+  const [eventContactDetails, setEventContactDetails] = useState<Map<string, EventRegistrationInfo[]>>(new Map());
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
     status: '',
