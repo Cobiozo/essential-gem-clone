@@ -367,6 +367,7 @@ export const TeamContactsTab: React.FC = () => {
                   isAdmin={isAdmin}
                   contactType="private"
                   hideEventInfo={privateSubTab === 'own'}
+                  eventContactDetails={privateSubTab === 'events' ? eventContactDetails : undefined}
                 />
               ) : (
                 <TeamContactsTable
@@ -378,6 +379,7 @@ export const TeamContactsTab: React.FC = () => {
                   isAdmin={isAdmin}
                   contactType="private"
                   hideEventInfo={privateSubTab === 'own'}
+                  eventContactDetails={privateSubTab === 'events' ? eventContactDetails : undefined}
                 />
               )}
             </CardContent>
