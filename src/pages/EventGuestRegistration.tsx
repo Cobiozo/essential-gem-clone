@@ -202,6 +202,9 @@ const EventGuestRegistration: React.FC = () => {
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   const isPast = new Date() > endDate;
+  const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
+  const isAfterCutoff = new Date() > registrationCutoff && !isPast;
+  const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
   if (success || alreadyRegistered) {
     return (
