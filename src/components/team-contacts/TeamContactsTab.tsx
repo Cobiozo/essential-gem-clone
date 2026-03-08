@@ -22,6 +22,7 @@ import { TeamContactExport } from './TeamContactExport';
 import { TeamMap } from './TeamMap';
 import { SpecialistSearch } from './SpecialistSearch';
 import { OrganizationChart, OrganizationList } from './organization';
+import { EventGroupedContacts } from './EventGroupedContacts';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
