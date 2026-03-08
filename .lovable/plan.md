@@ -1,24 +1,26 @@
 
+# Plan: Wymiana starego logo na nowe we wszystkich plikach
 
-## Plan zmian
+## Problem
+Wiele stron nadal używa starego logo `pure-life-logo-new.png` zamiast nowego `pure-life-droplet-new.png`. Dotyczy to 11 plików.
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Zmiany
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Zamiana importu logo w następujących plikach:
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### Pliki używające `pure-life-logo-new.png` → `pure-life-droplet-new.png`:
+1. `src/pages/MyAccount.tsx`
+2. `src/pages/Index.tsx`
+3. `src/pages/Admin.tsx`
+4. `src/pages/KnowledgeCenter.tsx`
+5. `src/pages/Page.tsx`
+6. `src/pages/EventGuestRegistration.tsx`
+7. `src/pages/InfoLinkPage.tsx`
+8. `src/pages/SpecialistCalculator.tsx`
+9. `src/components/calculator/CommissionCalculator.tsx`
 
-### 2. Złote ikony dla datetime-local (index.css)
+### Pliki używające `pure-life-droplet.png` → `pure-life-droplet-new.png`:
+10. `src/components/homepage/TeamSection.tsx`
+11. `src/components/admin/DashboardFooterManagement.tsx`
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
-
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
-
+Każda zmiana to podmiana jednej linii importu — żadna inna logika się nie zmienia.
