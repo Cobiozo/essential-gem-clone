@@ -325,11 +325,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="h-8 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 touch-action-manipulation"
           onClick={() => handleCancelMeeting(event)}
           disabled={cancellingEventId === event.id}
         >
-          <X className="h-3 w-3 mr-1" />
+          <X className="h-3.5 w-3.5 mr-1" />
           {tf('common.cancel', 'Anuluj')}
         </Button>
       );
