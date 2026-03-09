@@ -1,24 +1,16 @@
 
+# Usunięcie przycisku Diagnostyka/Pomoc z VideoControls
 
-## Plan zmian
+## Zakres zmian
 
-### 1. Logo na ekranie ładowania (App.tsx)
+**Plik: `src/components/training/VideoControls.tsx`**
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+1. **Usunąć importy**: `HelpCircle`, `Settings`, `Copy` (nieużywane po zmianie)
+2. **Usunąć props z interfejsu**: `showDiagnostics`, `videoSrc`, `retryCount`, `smartBufferingActive`, `bufferedAheadSeconds`, `connectionType`, `downlink`, `rtt`
+3. **Usunąć destructuring** tych props z komponentu
+4. **Usunąć funkcję `copyDiagnostics`** (linie ~65-79)
+5. **Usunąć cały Button** z `HelpCircle` (linie 229-281) — przycisk "Diagnostyka"/"Pomoc" wraz z toast contentem
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+Przycisk "Napraw" (`onRetry`) pozostaje — nadal przydatny dla użytkowników.
 
-### 2. Złote ikony dla datetime-local (index.css)
-
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
-
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
-
+Jeden plik, usunięcie ~80 linii martwego kodu.
