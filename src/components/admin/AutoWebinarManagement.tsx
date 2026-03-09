@@ -285,13 +285,18 @@ export const AutoWebinarManagement: React.FC = () => {
     setCreatingEvent(true);
     try {
       const cfg = await ensureConfig();
-      const titleForSlug = invitationForm.invitation_title || roomForm.room_title || 'auto-webinar';
+      const titleForSlug = invitationForm.invitation_title || roomForm.room_title;
+      if (!titleForSlug) {
+        toast({ title: 'Błąd', description: 'Wypełnij tytuł zaproszenia przed utworzeniem wydarzenia', variant: 'destructive' });
+        setCreatingEvent(false);
+        return;
+      }
       const slug = slugify(titleForSlug) + '-' + Math.random().toString(36).substring(2, 6);
       const now = new Date();
       const farFuture = new Date(now.getFullYear() + 10, 0, 1);
 
-      const eventTitle = invitationForm.invitation_title || 'Webinar Automatyczny';
-      const eventDescription = invitationForm.invitation_description || 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę. Nie wymaga rejestracji na konkretny termin.';
+      const eventTitle = invitationForm.invitation_title || roomForm.room_title;
+      const eventDescription = invitationForm.invitation_description || 'Dołącz do webinarów — nowe sesje startują regularnie.';
 
       const { data: eventData, error: eventError } = await supabase
         .from('events')
