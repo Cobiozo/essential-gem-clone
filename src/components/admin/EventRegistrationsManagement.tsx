@@ -302,12 +302,12 @@ export const EventRegistrationsManagement: React.FC = () => {
     fetchGuestRegistrations();
   }, [selectedEventId, toast]);
 
-  // Calculate statistics for users
+  // Calculate statistics for unique users (not rows — one user with 5 occurrences = 1 person)
   const userStats = useMemo(() => {
-    const total = registrations.length;
-    const active = registrations.filter(r => r.status === 'registered').length;
-    const cancelled = registrations.filter(r => r.status === 'cancelled').length;
-    return { total, active, cancelled };
+    const uniqueUsers = new Set(registrations.map(r => r.user_id));
+    const activeUsers = new Set(registrations.filter(r => r.status === 'registered').map(r => r.user_id));
+    const cancelledUsers = new Set(registrations.filter(r => r.status === 'cancelled').map(r => r.user_id));
+    return { total: uniqueUsers.size, active: activeUsers.size, cancelled: cancelledUsers.size };
   }, [registrations]);
 
   // Calculate statistics for guests

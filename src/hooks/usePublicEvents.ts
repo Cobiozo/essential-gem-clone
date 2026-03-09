@@ -82,16 +82,20 @@ export const usePublicEvents = (eventType: PublicEventType) => {
           const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
           
           // Get registration counts for events
+          // Count unique users per event (not rows — one user with multiple occurrences = 1 person)
           const { data: counts } = await supabase
             .from('event_registrations')
-            .select('event_id')
+            .select('event_id, user_id')
             .eq('status', 'registered')
             .in('event_id', eventIds);
 
           const countMap = new Map<string, number>();
+          const seenPerEvent = new Map<string, Set<string>>();
           counts?.forEach(c => {
-            countMap.set(c.event_id, (countMap.get(c.event_id) || 0) + 1);
+            if (!seenPerEvent.has(c.event_id)) seenPerEvent.set(c.event_id, new Set());
+            seenPerEvent.get(c.event_id)!.add(c.user_id);
           });
+          seenPerEvent.forEach((users, eventId) => countMap.set(eventId, users.size));
           
           const eventsWithRegistration = filteredEvents.map(event => ({
             ...event,
