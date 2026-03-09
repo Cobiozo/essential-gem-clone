@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 
@@ -43,9 +43,47 @@ export const AutoWebinarManagement: React.FC = () => {
     thumbnail_url: '',
   });
 
+  // Invitation form state
+  const [invitationForm, setInvitationForm] = useState({
+    invitation_title: '',
+    invitation_description: '',
+    invitation_image_url: '',
+  });
+
+  // Room form state
+  const [roomForm, setRoomForm] = useState({
+    room_title: '',
+    room_subtitle: '',
+    room_background_color: '#000000',
+    room_show_live_badge: true,
+    room_show_schedule_info: true,
+    room_logo_url: '',
+    countdown_label: 'Następny webinar za',
+  });
+
   useEffect(() => {
     loadData();
   }, []);
+
+  // Sync forms when config loads
+  useEffect(() => {
+    if (config) {
+      setInvitationForm({
+        invitation_title: config.invitation_title || '',
+        invitation_description: config.invitation_description || '',
+        invitation_image_url: config.invitation_image_url || '',
+      });
+      setRoomForm({
+        room_title: config.room_title || 'Webinar NA ŻYWO',
+        room_subtitle: config.room_subtitle || '',
+        room_background_color: config.room_background_color || '#000000',
+        room_show_live_badge: config.room_show_live_badge !== false,
+        room_show_schedule_info: config.room_show_schedule_info !== false,
+        room_logo_url: config.room_logo_url || '',
+        countdown_label: config.countdown_label || 'Następny webinar za',
+      });
+    }
+  }, [config]);
 
   const loadData = async () => {
     setLoading(true);
@@ -101,7 +139,6 @@ export const AutoWebinarManagement: React.FC = () => {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
-    // Sync linked event's is_active with config is_enabled
     if (cfg.event_id) {
       await supabase.from('events').update({ is_active: newEnabled }).eq('id', cfg.event_id);
       if (linkedEvent) {
@@ -126,6 +163,69 @@ export const AutoWebinarManagement: React.FC = () => {
     toast({ title: 'Zapisano' });
   };
 
+  const handleSaveInvitation = async () => {
+    const cfg = await ensureConfig();
+    const updates: Record<string, any> = {
+      invitation_title: invitationForm.invitation_title || null,
+      invitation_description: invitationForm.invitation_description || null,
+      invitation_image_url: invitationForm.invitation_image_url || null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('auto_webinar_config')
+      .update(updates)
+      .eq('id', cfg.id);
+
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    // Sync with linked event
+    if (cfg.event_id) {
+      const eventUpdates: Record<string, any> = {};
+      if (invitationForm.invitation_title) eventUpdates.title = invitationForm.invitation_title;
+      if (invitationForm.invitation_description) eventUpdates.description = invitationForm.invitation_description;
+      if (Object.keys(eventUpdates).length > 0) {
+        await supabase.from('events').update(eventUpdates).eq('id', cfg.event_id);
+        if (linkedEvent && eventUpdates.title) {
+          setLinkedEvent({ ...linkedEvent, title: eventUpdates.title });
+        }
+      }
+    }
+
+    setConfig({ ...cfg, ...updates });
+    toast({ title: 'Zapisano', description: 'Treść zaproszenia zaktualizowana' });
+  };
+
+  const handleSaveRoom = async () => {
+    const cfg = await ensureConfig();
+    const updates: Record<string, any> = {
+      room_title: roomForm.room_title || null,
+      room_subtitle: roomForm.room_subtitle || null,
+      room_background_color: roomForm.room_background_color || '#000000',
+      room_show_live_badge: roomForm.room_show_live_badge,
+      room_show_schedule_info: roomForm.room_show_schedule_info,
+      room_logo_url: roomForm.room_logo_url || null,
+      countdown_label: roomForm.countdown_label || 'Następny webinar za',
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from('auto_webinar_config')
+      .update(updates)
+      .eq('id', cfg.id);
+
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setConfig({ ...cfg, ...updates });
+    toast({ title: 'Zapisano', description: 'Wygląd pokoju zaktualizowany' });
+  };
+
   const handleCreateLinkedEvent = async () => {
     if (!user) return;
     setCreatingEvent(true);
@@ -135,11 +235,14 @@ export const AutoWebinarManagement: React.FC = () => {
       const now = new Date();
       const farFuture = new Date(now.getFullYear() + 10, 0, 1);
 
+      const eventTitle = invitationForm.invitation_title || 'Webinar Automatyczny';
+      const eventDescription = invitationForm.invitation_description || 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę. Nie wymaga rejestracji na konkretny termin.';
+
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .insert({
-          title: 'Webinar Automatyczny',
-          description: 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę. Nie wymaga rejestracji na konkretny termin.',
+          title: eventTitle,
+          description: eventDescription,
           event_type: 'auto_webinar',
           start_time: now.toISOString(),
           end_time: farFuture.toISOString(),
@@ -159,7 +262,6 @@ export const AutoWebinarManagement: React.FC = () => {
 
       if (eventError) throw eventError;
 
-      // Link event to config
       const { error: linkError } = await supabase
         .from('auto_webinar_config')
         .update({ event_id: eventData.id, updated_at: new Date().toISOString() })
@@ -215,7 +317,6 @@ export const AutoWebinarManagement: React.FC = () => {
 
   const handleDeleteLinkedEvent = async () => {
     if (!linkedEvent || !config) return;
-    // Deactivate event and unlink from config
     await supabase.from('events').update({ is_active: false }).eq('id', linkedEvent.id);
     await supabase.from('auto_webinar_config').update({ event_id: null, updated_at: new Date().toISOString() }).eq('id', config.id);
     setLinkedEvent(null);
@@ -406,6 +507,238 @@ export const AutoWebinarManagement: React.FC = () => {
               placeholder="Wyświetlana podczas oczekiwania na następny webinar..."
               rows={2}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Invitation Content Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Treść zaproszenia
+          </CardTitle>
+          <CardDescription>
+            Personalizuj tytuł, opis i obraz zaproszenia widocznego dla uczestników
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Form */}
+            <div className="space-y-4">
+              <div>
+                <Label>Tytuł zaproszenia</Label>
+                <Input
+                  value={invitationForm.invitation_title}
+                  onChange={(e) => setInvitationForm(prev => ({ ...prev, invitation_title: e.target.value }))}
+                  placeholder="np. Webinar — Sekret Sukcesu"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Tytuł widoczny w wydarzeniu i zaproszeniach
+                </p>
+              </div>
+              <div>
+                <Label>Opis zaproszenia</Label>
+                <Textarea
+                  value={invitationForm.invitation_description}
+                  onChange={(e) => setInvitationForm(prev => ({ ...prev, invitation_description: e.target.value }))}
+                  placeholder="Opisz czego dotyczy webinar..."
+                  rows={3}
+                />
+              </div>
+              <div>
+                <Label>URL obrazu / banera</Label>
+                <Input
+                  value={invitationForm.invitation_image_url}
+                  onChange={(e) => setInvitationForm(prev => ({ ...prev, invitation_image_url: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+              <Button onClick={handleSaveInvitation}>
+                Zapisz treść zaproszenia
+              </Button>
+            </div>
+
+            {/* Invitation Preview */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Eye className="h-4 w-4" />
+                Podgląd zaproszenia
+              </div>
+              <div className="rounded-xl border bg-card overflow-hidden">
+                {invitationForm.invitation_image_url && (
+                  <div className="aspect-video bg-muted">
+                    <img
+                      src={invitationForm.invitation_image_url}
+                      alt="Baner"
+                      className="w-full h-full object-cover"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  </div>
+                )}
+                <div className="p-4 space-y-2">
+                  <Badge variant="secondary" className="text-xs">Webinar</Badge>
+                  <h3 className="font-semibold text-lg">
+                    {invitationForm.invitation_title || 'Webinar Automatyczny'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {invitationForm.invitation_description || 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę.'}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                    <Radio className="h-3 w-3" />
+                    Codziennie {config?.start_hour ?? 8}:00 – {config?.end_hour ?? 22}:00
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Room Appearance Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Wygląd pokoju webinarowego
+          </CardTitle>
+          <CardDescription>
+            Personalizuj wygląd pokoju, w którym uczestnicy oglądają webinar
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Form */}
+            <div className="space-y-4">
+              <div>
+                <Label>Tytuł pokoju</Label>
+                <Input
+                  value={roomForm.room_title}
+                  onChange={(e) => setRoomForm(prev => ({ ...prev, room_title: e.target.value }))}
+                  placeholder="Webinar NA ŻYWO"
+                />
+              </div>
+              <div>
+                <Label>Podtytuł</Label>
+                <Input
+                  value={roomForm.room_subtitle}
+                  onChange={(e) => setRoomForm(prev => ({ ...prev, room_subtitle: e.target.value }))}
+                  placeholder="np. Sesje odbywają się co godzinę"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Kolor tła wideo</Label>
+                  <div className="flex gap-2 items-center mt-1">
+                    <input
+                      type="color"
+                      value={roomForm.room_background_color}
+                      onChange={(e) => setRoomForm(prev => ({ ...prev, room_background_color: e.target.value }))}
+                      className="w-10 h-10 rounded border cursor-pointer"
+                    />
+                    <Input
+                      value={roomForm.room_background_color}
+                      onChange={(e) => setRoomForm(prev => ({ ...prev, room_background_color: e.target.value }))}
+                      className="flex-1"
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Etykieta odliczania</Label>
+                  <Input
+                    value={roomForm.countdown_label}
+                    onChange={(e) => setRoomForm(prev => ({ ...prev, countdown_label: e.target.value }))}
+                    placeholder="Następny webinar za"
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label>URL logo (opcjonalnie)</Label>
+                <Input
+                  value={roomForm.room_logo_url}
+                  onChange={(e) => setRoomForm(prev => ({ ...prev, room_logo_url: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Badge „NA ŻYWO"</Label>
+                  <p className="text-xs text-muted-foreground">Pokaż pulsujący badge podczas transmisji</p>
+                </div>
+                <Switch
+                  checked={roomForm.room_show_live_badge}
+                  onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_live_badge: v }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label>Sekcja harmonogramu</Label>
+                  <p className="text-xs text-muted-foreground">Pokaż kartę z informacjami o harmonogramie</p>
+                </div>
+                <Switch
+                  checked={roomForm.room_show_schedule_info}
+                  onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
+                />
+              </div>
+              <Button onClick={handleSaveRoom}>
+                Zapisz wygląd pokoju
+              </Button>
+            </div>
+
+            {/* Room Preview */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Eye className="h-4 w-4" />
+                Podgląd pokoju webinarowego
+              </div>
+              <div className="rounded-xl border bg-card overflow-hidden">
+                {/* Header preview */}
+                <div className="p-3 flex items-center justify-between border-b">
+                  <div className="flex items-center gap-2">
+                    {roomForm.room_logo_url ? (
+                      <img src={roomForm.room_logo_url} alt="" className="h-8 w-8 rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    ) : (
+                      <div className="p-1.5 rounded-lg bg-destructive/10">
+                        <Radio className="h-4 w-4 text-destructive" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-bold leading-tight">{roomForm.room_title || 'Webinar NA ŻYWO'}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">{roomForm.room_subtitle || `Co godzinę ${config?.start_hour ?? 8}:00 – ${config?.end_hour ?? 22}:00`}</p>
+                    </div>
+                  </div>
+                  {roomForm.room_show_live_badge && (
+                    <Badge variant="destructive" className="text-[10px] gap-1 py-0.5 px-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-background" />
+                      NA ŻYWO
+                    </Badge>
+                  )}
+                </div>
+                {/* Video area preview */}
+                <div className="aspect-video flex items-center justify-center relative" style={{ backgroundColor: roomForm.room_background_color }}>
+                  <div className="text-center space-y-1">
+                    <Radio className="h-8 w-8 text-white/30 mx-auto" />
+                    <p className="text-white/40 text-xs">Obszar wideo</p>
+                  </div>
+                  <div className="absolute top-2 left-2">
+                    <Badge variant="secondary" className="bg-background/80 text-[10px]">
+                      Tytuł filmu
+                    </Badge>
+                  </div>
+                </div>
+                {/* Schedule info preview */}
+                {roomForm.room_show_schedule_info && (
+                  <div className="p-3 border-t">
+                    <p className="text-[10px] font-medium text-muted-foreground mb-1">Harmonogram</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Co {config?.interval_minutes ?? 60} min, {config?.start_hour ?? 8}:00 – {config?.end_hour ?? 22}:00
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
