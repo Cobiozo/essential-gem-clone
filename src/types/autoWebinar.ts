@@ -37,6 +37,11 @@ export interface AutoWebinarConfig {
   room_custom_section_title: string | null;
   room_custom_section_content: string | null;
   countdown_label: string | null;
+  // Role visibility
+  visible_to_partners: boolean;
+  visible_to_specjalista: boolean;
+  visible_to_clients: boolean;
+  show_in_calendar: boolean;
   created_at: string;
   updated_at: string;
 }
