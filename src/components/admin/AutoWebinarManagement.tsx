@@ -9,11 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
+import { cn } from '@/lib/utils';
 
 interface LinkedEvent {
   id: string;
@@ -63,6 +65,14 @@ export const AutoWebinarManagement: React.FC = () => {
         .eq('id', cfg.event_id)
         .single();
       setLinkedEvent(eventData as LinkedEvent | null);
+
+      // Auto-fix: if system is disabled but event is still active, deactivate it
+      if (eventData && !cfg.is_enabled && eventData.is_active) {
+        await supabase.from('events').update({ is_active: false }).eq('id', eventData.id);
+        setLinkedEvent({ ...(eventData as LinkedEvent), is_active: false });
+      }
+    } else {
+      setLinkedEvent(null);
     }
     setLoading(false);
   };
@@ -176,7 +186,6 @@ export const AutoWebinarManagement: React.FC = () => {
       setTimeout(() => setCopiedLink(false), 2000);
       toast({ title: 'Skopiowano link zaproszeniowy' });
     } catch {
-      // Fallback for iOS
       const textarea = document.createElement('textarea');
       textarea.value = link;
       document.body.appendChild(textarea);
@@ -187,6 +196,31 @@ export const AutoWebinarManagement: React.FC = () => {
       setTimeout(() => setCopiedLink(false), 2000);
       toast({ title: 'Skopiowano link zaproszeniowy' });
     }
+  };
+
+  const handleToggleEventActive = async () => {
+    if (!linkedEvent) return;
+    const newActive = !linkedEvent.is_active;
+    const { error } = await supabase
+      .from('events')
+      .update({ is_active: newActive })
+      .eq('id', linkedEvent.id);
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setLinkedEvent({ ...linkedEvent, is_active: newActive });
+    toast({ title: 'Sukces', description: `Wydarzenie ${newActive ? 'włączone' : 'wyłączone'}` });
+  };
+
+  const handleDeleteLinkedEvent = async () => {
+    if (!linkedEvent || !config) return;
+    // Deactivate event and unlink from config
+    await supabase.from('events').update({ is_active: false }).eq('id', linkedEvent.id);
+    await supabase.from('auto_webinar_config').update({ event_id: null, updated_at: new Date().toISOString() }).eq('id', config.id);
+    setLinkedEvent(null);
+    setConfig({ ...config, event_id: null });
+    toast({ title: 'Usunięto', description: 'Wydarzenie zostało wyłączone i odpięte' });
   };
 
   const handleSaveVideo = async () => {
@@ -397,9 +431,38 @@ export const AutoWebinarManagement: React.FC = () => {
                     Slug: <code className="text-xs bg-muted px-1 py-0.5 rounded">{linkedEvent.slug}</code>
                   </p>
                 </div>
-                <Badge variant={linkedEvent.is_active ? 'default' : 'secondary'}>
-                  {linkedEvent.is_active ? 'Aktywne' : 'Nieaktywne'}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Power className={cn("h-4 w-4", linkedEvent.is_active ? "text-green-500" : "text-muted-foreground")} />
+                    <Switch 
+                      checked={linkedEvent.is_active} 
+                      onCheckedChange={handleToggleEventActive}
+                    />
+                  </div>
+                  <Badge variant={linkedEvent.is_active ? 'default' : 'secondary'}>
+                    {linkedEvent.is_active ? 'Aktywne' : 'Nieaktywne'}
+                  </Badge>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="icon" className="h-8 w-8">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Usuń wydarzenie auto-webinar</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Wydarzenie zostanie wyłączone i odpięte od systemu auto-webinarów. 
+                          Użytkownicy nie będą go widzieć. Możesz później utworzyć nowe wydarzenie.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteLinkedEvent}>Usuń</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
 
               <div>
