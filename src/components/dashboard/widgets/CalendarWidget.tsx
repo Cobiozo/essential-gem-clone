@@ -308,10 +308,10 @@ ${signUpLabel}: ${inviteUrl}
         <Button
           size="sm"
           variant="outline"
-          className="h-6 text-xs"
+          className="h-8 text-xs touch-action-manipulation"
           onClick={() => registerForEvent(event.id, occurrenceIndex)}
         >
-          <Calendar className="h-3 w-3 mr-1" />
+          <Calendar className="h-3.5 w-3.5 mr-1" />
           {tf('events.addToCalendar', 'Dodaj do kalendarza')}
         </Button>
       );
