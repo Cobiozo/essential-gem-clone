@@ -623,6 +623,44 @@ export type Database = {
           },
         ]
       }
+      auto_webinar_invitation_clicks: {
+        Row: {
+          clicked_at: string | null
+          event_id: string
+          id: string
+          ref_code: string
+          tracking_code: string
+          user_agent: string | null
+          visitor_ip: string | null
+        }
+        Insert: {
+          clicked_at?: string | null
+          event_id: string
+          id?: string
+          ref_code: string
+          tracking_code: string
+          user_agent?: string | null
+          visitor_ip?: string | null
+        }
+        Update: {
+          clicked_at?: string | null
+          event_id?: string
+          id?: string
+          ref_code?: string
+          tracking_code?: string
+          user_agent?: string | null
+          visitor_ip?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_webinar_invitation_clicks_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_webinar_videos: {
         Row: {
           cover_image_url: string | null
