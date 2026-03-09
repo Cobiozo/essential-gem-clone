@@ -607,6 +607,10 @@ export const EventsManagement: React.FC = () => {
             <Settings className="h-4 w-4 shrink-0" />
             {t('admin.events.settings')}
           </TabsTrigger>
+          <TabsTrigger value="auto-webinar" className="flex items-center gap-1.5 px-3 text-sm">
+            <Radio className="h-4 w-4 shrink-0" />
+            Auto-Webinary
+          </TabsTrigger>
         </TabsList>
 
         {/* Webinars Tab */}
