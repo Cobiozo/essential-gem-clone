@@ -247,7 +247,7 @@ ${signUpLabel}: ${inviteUrl}
             <Button
               size="sm"
               variant="secondary"
-              className="h-6 text-xs text-destructive hover:text-destructive"
+              className="h-8 text-xs text-destructive hover:text-destructive touch-action-manipulation"
               onClick={async () => {
                 const confirmed = window.confirm(tf('events.confirmCancelMeeting', 'Czy na pewno chcesz anulować to spotkanie? Obie strony otrzymają powiadomienie email.'));
                 if (!confirmed) return;
@@ -266,7 +266,7 @@ ${signUpLabel}: ${inviteUrl}
                 }
               }}
             >
-              <X className="h-3 w-3 mr-1" />
+              <X className="h-3.5 w-3.5 mr-1" />
               {tf('events.cancelMeeting', 'Anuluj spotkanie')}
             </Button>
           );
