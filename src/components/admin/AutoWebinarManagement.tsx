@@ -216,6 +216,8 @@ export const AutoWebinarManagement: React.FC = () => {
       room_show_schedule_info: roomForm.room_show_schedule_info,
       room_logo_url: roomForm.room_logo_url || null,
       countdown_label: roomForm.countdown_label || 'Następny webinar za',
+      room_custom_section_title: roomForm.room_custom_section_title || null,
+      room_custom_section_content: roomForm.room_custom_section_content || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -231,6 +233,41 @@ export const AutoWebinarManagement: React.FC = () => {
 
     setConfig({ ...cfg, ...updates });
     toast({ title: 'Zapisano', description: 'Wygląd pokoju zaktualizowany' });
+  };
+
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[ąàáâãäå]/g, 'a').replace(/[ćčç]/g, 'c').replace(/[ďđ]/g, 'd')
+      .replace(/[ęèéêëě]/g, 'e').replace(/[ìíîï]/g, 'i').replace(/[łľ]/g, 'l')
+      .replace(/[ńňñ]/g, 'n').replace(/[óòôõö]/g, 'o').replace(/[řŕ]/g, 'r')
+      .replace(/[śšş]/g, 's').replace(/[ťţ]/g, 't').replace(/[ůùúûü]/g, 'u')
+      .replace(/[ýÿ]/g, 'y').replace(/[źżž]/g, 'z')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 50);
+  };
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const fileName = `auto-webinar-logo-${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('cms-images')
+      .upload(fileName, file, { upsert: true });
+
+    if (uploadError) {
+      toast({ title: 'Błąd uploadu', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('cms-images').getPublicUrl(fileName);
+    setRoomForm(prev => ({ ...prev, room_logo_url: urlData.publicUrl }));
+    toast({ title: 'Logo przesłane' });
   };
 
   const handleCreateLinkedEvent = async () => {
