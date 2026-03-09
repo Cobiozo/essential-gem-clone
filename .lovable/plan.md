@@ -1,22 +1,24 @@
 
-# Dodanie uploadu wideo z komputera do playlisty auto-webinarów
 
-## Problem
-Dialog "Dodaj nowe wideo" ma tylko pole tekstowe na URL. Brak możliwości przesłania pliku MP4 z komputera.
+## Plan zmian
 
-## Rozwiązanie
-Zintegrować komponent `MediaUpload` (który już obsługuje upload na VPS, auto-detekcję czasu trwania i walidację) w dialogu dodawania wideo.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Zmiany w `AutoWebinarManagement.tsx`
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-1. Dodać import `MediaUpload` (jeśli brak)
-2. W dialogu "Dodaj nowe wideo" — zastąpić pole `Input` dla URL wideo komponentem `MediaUpload` z `allowedTypes={['video']}`:
-   - Callback `onMediaUploaded` automatycznie ustawi `videoForm.video_url` i `videoForm.duration_seconds`
-   - Zachować też możliwość ręcznego wklejenia URL (MediaUpload to obsługuje natywnie — ma zakładkę "Wklej URL")
-3. Usunąć osobne pole "Czas trwania (sekundy)" — MediaUpload automatycznie wykrywa czas trwania i przekazuje go w callbacku `durationSeconds`
-4. Jeśli czas trwania = 0 (fallback), zostawić pole do ręcznej korekty
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-## Efekt
-Admin może dodać wideo do playlisty auto-webinarów na 2 sposoby:
-- Prześlij plik z komputera (upload na VPS, auto-detekcja czasu trwania)
-- Wklej URL ręcznie
+### 2. Złote ikony dla datetime-local (index.css)
+
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+
+### Zakres: 2 pliki, ~10 linii zmian
+

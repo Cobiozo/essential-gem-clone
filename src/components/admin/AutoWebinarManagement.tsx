@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { MediaUpload } from '@/components/MediaUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -1020,24 +1021,37 @@ export const AutoWebinarManagement: React.FC = () => {
               />
             </div>
             <div>
-              <Label>URL wideo (MP4) *</Label>
-              <Input
-                value={videoForm.video_url}
-                onChange={(e) => setVideoForm(prev => ({ ...prev, video_url: e.target.value }))}
-                placeholder="https://purelife.info.pl/uploads/..."
+              <Label>Plik wideo (MP4) *</Label>
+              <MediaUpload
+                onMediaUploaded={(url, type, altText, durationSeconds) => {
+                  setVideoForm(prev => ({
+                    ...prev,
+                    video_url: url,
+                    duration_seconds: durationSeconds || prev.duration_seconds
+                  }));
+                }}
+                currentMediaUrl={videoForm.video_url}
+                currentMediaType="video"
+                allowedTypes={['video']}
+                compact
               />
-            </div>
-            <div>
-              <Label>Czas trwania (sekundy)</Label>
-              <Input
-                type="number"
-                value={videoForm.duration_seconds}
-                onChange={(e) => setVideoForm(prev => ({ ...prev, duration_seconds: parseInt(e.target.value) || 0 }))}
-                placeholder="3600"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Np. 3600 = 60 minut. Ważne do synchronizacji odtwarzania.
-              </p>
+              {videoForm.video_url && videoForm.duration_seconds > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Wykryty czas: {Math.floor(videoForm.duration_seconds / 60)}:{String(videoForm.duration_seconds % 60).padStart(2, '0')}
+                </p>
+              )}
+              {videoForm.video_url && videoForm.duration_seconds === 0 && (
+                <div className="mt-2">
+                  <Label className="text-xs">Czas trwania (sekundy) — nie wykryto automatycznie</Label>
+                  <Input
+                    type="number"
+                    value={videoForm.duration_seconds}
+                    onChange={(e) => setVideoForm(prev => ({ ...prev, duration_seconds: parseInt(e.target.value) || 0 }))}
+                    placeholder="3600"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              )}
             </div>
             <div>
               <Label>URL miniaturki (opcjonalnie)</Label>
