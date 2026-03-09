@@ -82,16 +82,24 @@ export const AutoWebinarManagement: React.FC = () => {
 
   const handleToggleEnabled = async () => {
     const cfg = await ensureConfig();
+    const newEnabled = !cfg.is_enabled;
     const { error } = await supabase
       .from('auto_webinar_config')
-      .update({ is_enabled: !cfg.is_enabled, updated_at: new Date().toISOString() })
+      .update({ is_enabled: newEnabled, updated_at: new Date().toISOString() })
       .eq('id', cfg.id);
     if (error) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
-    setConfig({ ...cfg, is_enabled: !cfg.is_enabled });
-    toast({ title: 'Sukces', description: `Auto-webinary ${!cfg.is_enabled ? 'włączone' : 'wyłączone'}` });
+    // Sync linked event's is_active with config is_enabled
+    if (cfg.event_id) {
+      await supabase.from('events').update({ is_active: newEnabled }).eq('id', cfg.event_id);
+      if (linkedEvent) {
+        setLinkedEvent({ ...linkedEvent, is_active: newEnabled });
+      }
+    }
+    setConfig({ ...cfg, is_enabled: newEnabled });
+    toast({ title: 'Sukces', description: `Auto-webinary ${newEnabled ? 'włączone' : 'wyłączone'}` });
   };
 
   const handleUpdateConfig = async (updates: Partial<AutoWebinarConfig>) => {
@@ -131,6 +139,7 @@ export const AutoWebinarManagement: React.FC = () => {
           visible_to_specjalista: true,
           visible_to_clients: true,
           requires_registration: true,
+          allow_invites: true,
           created_by: user.id,
           slug,
           is_published: true,

@@ -1,28 +1,24 @@
 
 
-# Naprawa widoczności auto-webinaru w kalendarzu + zaproszenia partnerów
+## Plan zmian
 
-## Problem 1: Auto-webinar widoczny mimo wyłączenia systemu
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Gdy admin wyłącza system auto-webinarów (`is_enabled = false`), powiązane wydarzenie w tabeli `events` pozostaje `is_active = true`. Kalendarz pobiera wszystkie aktywne wydarzenia bez sprawdzania konfiguracji auto-webinaru.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-**Rozwiązanie:** W `handleToggleEnabled` w `AutoWebinarManagement.tsx` — synchronizować `events.is_active` z `auto_webinar_config.is_enabled`. Gdy system wyłączany → `events.is_active = false`. Gdy włączany → `events.is_active = true`.
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-**Plik:** `src/components/admin/AutoWebinarManagement.tsx`
-- W `handleToggleEnabled`: po update config, jeśli istnieje `event_id`, zaktualizować `events.is_active` na tę samą wartość co nowy `is_enabled`
+### 2. Złote ikony dla datetime-local (index.css)
 
-## Problem 2: Partnerzy nie mogą zapraszać na auto-webinar
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Dwa braki:
-1. Wydarzenie tworzone bez `allow_invites: true` — partner nie widzi przycisku kopiowania zaproszenia
-2. W `CalendarWidget.tsx` przycisk "Zaproś" jest ograniczony do `event_type === 'webinar'` (linia 526) — trzeba dodać `auto_webinar`
-3. W `EventCardCompact.tsx` i `EventCard.tsx` — przycisk zaproszenia sprawdza `allow_invites` ale nie filtruje po typie, więc powinno działać po ustawieniu flagi
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-**Zmiany:**
-
-| Plik | Zmiana |
-|------|--------|
-| `AutoWebinarManagement.tsx` | 1) `handleToggleEnabled` — sync `events.is_active` z `is_enabled`; 2) `handleCreateLinkedEvent` — dodać `allow_invites: true` |
-| `CalendarWidget.tsx` | Linia 526: rozszerzyć warunek z `event_type === 'webinar'` na `['webinar', 'auto_webinar'].includes(event_type)` |
-| Migracja SQL | Update istniejącego wydarzenia auto-webinar: `UPDATE events SET allow_invites = true WHERE event_type = 'auto_webinar'` |
+### Zakres: 2 pliki, ~10 linii zmian
 

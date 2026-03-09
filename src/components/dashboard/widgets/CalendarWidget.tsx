@@ -523,7 +523,7 @@ ${signUpLabel}: ${inviteUrl}
                            <Info className="h-3.5 w-3.5 mr-1" />
                            {tf('events.details', 'Szczegóły')}
                         </Button>
-                        {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
+                        {['webinar', 'auto_webinar'].includes(event.event_type) && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
                           <Button
                             size="sm"
                             variant="ghost"

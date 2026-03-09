@@ -1,0 +1,1 @@
+UPDATE events SET allow_invites = true WHERE event_type = 'auto_webinar' AND (allow_invites IS NULL OR allow_invites = false);
