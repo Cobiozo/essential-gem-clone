@@ -179,10 +179,10 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestData: WebinarConfirmationRequest = await req.json();
-    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder } = requestData;
+    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder, isAutoWebinar, nextSlotTime, nextSlotTimeFormatted, minutesToNextSlot, roomLink, videoHostName, videoCoverImageUrl, videoDescription } = requestData;
     
     const emailType = isReminder ? 'reminder' : 'confirmation';
-    console.log(`[send-webinar-confirmation] Processing ${emailType} for: ${email}, event: ${eventTitle}`);
+    console.log(`[send-webinar-confirmation] Processing ${emailType} for: ${email}, event: ${eventTitle}, isAutoWebinar: ${isAutoWebinar}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
