@@ -464,14 +464,22 @@ const EventGuestRegistration: React.FC = () => {
                   </div>
                 </>
               )}
-              {event.host_name && (
+              {/* Show host from video data for auto-webinar, or from event */}
+              {(isAutoWebinar && autoWebinarVideo?.host_name) ? (
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">Prowadzący: {autoWebinarVideo.host_name}</p>
+                  </div>
+                </div>
+              ) : event.host_name ? (
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />
                   <div>
                     <p className="font-medium">Prowadzący: {event.host_name}</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {isPast ? (
