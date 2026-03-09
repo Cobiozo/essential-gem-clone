@@ -200,11 +200,12 @@ const EventGuestRegistration: React.FC = () => {
 
   if (!event) return null;
 
+  const isAutoWebinar = event.event_type === 'auto_webinar';
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
-  const isPast = new Date() > endDate;
+  const isPast = !isAutoWebinar && new Date() > endDate;
   const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
-  const isAfterCutoff = new Date() > registrationCutoff && !isPast;
+  const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
   if (success || alreadyRegistered) {
