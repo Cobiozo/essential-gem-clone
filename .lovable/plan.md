@@ -1,43 +1,24 @@
 
 
-# Kompaktowy widok Auto-Webinar — 3 kolumny dni z godzinami
+## Plan zmian
 
-## Obecny problem
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Widok pokazuje długą listę wszystkich godzin jednego dnia, co zajmuje dużo miejsca. Użytkownik chce kompaktowy layout z 3 kolumnami (dziś + 2 kolejne dni), gdzie godziny wyświetlają się pod każdym dniem, a po kliknięciu godziny pojawia się przycisk kopiowania zaproszenia.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-## Nowy layout
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-```text
-┌─────────────────────────────────────────────────────┐
-│  [Grafika]  Szansa Biznesowa       Webinar · Co 30m │
-│             Podejmij świadomą...                     │
-├─────────────────────────────────────────────────────┤
-│  Pon, 9 marca    │  Wt, 10 marca   │  Śr, 11 marca │
-│  ──────────────  │  ──────────────  │  ────────────  │
-│  08:00 zakończ.  │  08:00          │  08:00         │
-│  08:30 zakończ.  │  08:30          │  08:30         │
-│  ...             │  ...            │  ...           │
-│  ● 12:00 TRWA   │  12:00          │  12:00         │
-│  12:30           │  12:30          │  12:30         │
-│  ...             │  ...            │  ...           │
-└─────────────────────────────────────────────────────┘
+### 2. Złote ikony dla datetime-local (index.css)
 
-Po kliknięciu godziny → podświetlenie + przycisk:
-  [📋 Kopiuj zaproszenie na wt, 10 marca 08:30]
-```
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-## Zmiany
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-| Element | Szczegóły |
-|---------|-----------|
-| **Header** | Kompaktowy — grafika mniejsza (thumbnail obok tytułu) zamiast pełnego baneru aspect-video |
-| **3 kolumny dni** | `grid grid-cols-3`. Dziś + jutro + pojutrze. Nagłówek: skrócona nazwa dnia + data |
-| **Godziny w kolumnach** | Kompaktowe wiersze. Dla dzisiejszego dnia: przeszłe wyszarzone, bieżąca podświetlona. Dla przyszłych dni: wszystkie aktywne |
-| **Selekcja godziny** | Stan `selectedSlot: {date, time}`. Kliknięcie godziny podświetla ją. Pod siatką pojawia się przycisk "Kopiuj zaproszenie" z datą i godziną |
-| **Kopiowanie** | Tekst zaproszenia zawiera wybraną datę (nie tylko dziś) i godzinę |
-
-## Plik do edycji
-
-`src/components/auto-webinar/AutoWebinarEventView.tsx` — pełna przebudowa komponentu
+### Zakres: 2 pliki, ~10 linii zmian
 

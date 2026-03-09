@@ -2,13 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Video, Clock, Copy, Check, Radio, CalendarDays } from 'lucide-react';
+import { Video, Clock, Copy, Check, Radio } from 'lucide-react';
 import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { supabase } from '@/integrations/supabase/client';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { copyToClipboard } from '@/lib/clipboardUtils';
 
@@ -18,12 +18,9 @@ interface LinkedEvent {
   slug: string;
 }
 
-interface TimeSlot {
+interface SlotKey {
+  dayIndex: number;
   time: string;
-  hour: number;
-  minute: number;
-  isPast: boolean;
-  isNow: boolean;
 }
 
 export const AutoWebinarEventView: React.FC = () => {
@@ -32,14 +29,11 @@ export const AutoWebinarEventView: React.FC = () => {
   const { toast } = useToast();
   const [linkedEvent, setLinkedEvent] = React.useState<LinkedEvent | null>(null);
   const [loadingEvent, setLoadingEvent] = React.useState(true);
-  const [copiedSlot, setCopiedSlot] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<SlotKey | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  // Fetch the linked event to get slug
   React.useEffect(() => {
-    if (!config?.event_id) {
-      setLoadingEvent(false);
-      return;
-    }
+    if (!config?.event_id) { setLoadingEvent(false); return; }
     const fetchEvent = async () => {
       const { data } = await supabase
         .from('events')
@@ -52,65 +46,83 @@ export const AutoWebinarEventView: React.FC = () => {
     fetchEvent();
   }, [config?.event_id]);
 
-  // Generate time slots based on config
-  const slots = useMemo<TimeSlot[]>(() => {
-    if (!config) return [];
+  const days = useMemo(() => {
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const intervalMin = config.interval_minutes || 60;
-    const result: TimeSlot[] = [];
+    return Array.from({ length: 3 }, (_, i) => {
+      const date = addDays(now, i);
+      return {
+        index: i,
+        date,
+        label: format(date, 'EEE, d MMM', { locale: pl }),
+        fullLabel: format(date, 'EEEE, d MMMM', { locale: pl }),
+        isToday: i === 0,
+      };
+    });
+  }, []);
 
+  const timeSlots = useMemo(() => {
+    if (!config) return [];
+    const intervalMin = config.interval_minutes || 60;
+    const slots: string[] = [];
     for (let m = config.start_hour * 60; m < config.end_hour * 60; m += intervalMin) {
-      const hour = Math.floor(m / 60);
-      const minute = m % 60;
-      const slotEndMinutes = m + intervalMin;
-      const isPast = currentMinutes >= slotEndMinutes;
-      const isNow = currentMinutes >= m && currentMinutes < slotEndMinutes;
-      result.push({
-        time: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
-        hour,
-        minute,
-        isPast,
-        isNow,
-      });
+      const h = Math.floor(m / 60);
+      const min = m % 60;
+      slots.push(`${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`);
     }
-    return result;
+    return slots;
   }, [config]);
 
-  const handleCopyInvitation = async (slot: TimeSlot) => {
-    const title = config?.invitation_title || config?.room_title || 'Webinar';
-    const description = config?.invitation_description || '';
+  const getSlotStatus = (dayIndex: number, time: string) => {
+    if (dayIndex > 0) return 'future';
+    const now = new Date();
+    const [h, m] = time.split(':').map(Number);
+    const intervalMin = config?.interval_minutes || 60;
+    const slotStart = h * 60 + m;
+    const slotEnd = slotStart + intervalMin;
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+    if (currentMin >= slotStart && currentMin < slotEnd) return 'now';
+    if (currentMin >= slotEnd) return 'past';
+    return 'future';
+  };
+
+  const handleCopy = async () => {
+    if (!selectedSlot || !config) return;
+    const day = days[selectedSlot.dayIndex];
+    const title = config.invitation_title || config.room_title || 'Webinar';
+    const description = config.invitation_description || '';
     const eqId = profile?.eq_id;
     const slug = linkedEvent?.slug;
     const baseUrl = 'https://purelife.info.pl';
-
     const inviteUrl = slug
       ? `${baseUrl}/e/${slug}${eqId ? `?ref=${eqId}` : ''}`
       : baseUrl;
 
-    const today = format(new Date(), 'PPP', { locale: pl });
+    const dateStr = format(day.date, 'EEEE, d MMMM', { locale: pl });
 
     const invitationText = `🎥 Zaproszenie na webinar: ${title}
 
-📅 Data: ${today}
-⏰ Godzina: ${slot.time}
+📅 Data: ${dateStr}
+⏰ Godzina: ${selectedSlot.time}
 ${description ? `\n${description}\n` : ''}
 Zapisz się tutaj: ${inviteUrl}`.trim();
 
     const success = await copyToClipboard(invitationText);
     if (success) {
-      setCopiedSlot(slot.time);
-      setTimeout(() => setCopiedSlot(null), 2000);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
       toast({
         title: 'Skopiowano!',
-        description: `Zaproszenie na godzinę ${slot.time} skopiowane do schowka`,
+        description: `Zaproszenie na ${dateStr}, godz. ${selectedSlot.time}`,
       });
     }
   };
 
+  const isSelected = (dayIndex: number, time: string) =>
+    selectedSlot?.dayIndex === dayIndex && selectedSlot?.time === time;
+
   if (configLoading || loadingEvent) {
     return (
-      <div className="flex items-center justify-center min-h-[300px]">
+      <div className="flex items-center justify-center min-h-[200px]">
         <LoadingSpinner />
       </div>
     );
@@ -118,10 +130,10 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
 
   if (!config?.is_enabled) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[300px] text-center">
-        <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Auto-webinary są wyłączone</h2>
-        <p className="text-muted-foreground">Sprawdź ponownie później</p>
+      <div className="flex flex-col items-center justify-center min-h-[200px] text-center">
+        <Radio className="h-10 w-10 text-muted-foreground mb-3" />
+        <h2 className="text-lg font-semibold mb-1">Auto-webinary są wyłączone</h2>
+        <p className="text-sm text-muted-foreground">Sprawdź ponownie później</p>
       </div>
     );
   }
@@ -129,111 +141,109 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
   const imageUrl = config.invitation_image_url || config.room_logo_url;
   const title = config.invitation_title || config.room_title || 'Webinar';
   const description = config.invitation_description || config.room_subtitle || '';
-  const todayFormatted = format(new Date(), 'EEEE, d MMMM', { locale: pl });
 
   return (
-    <div className="max-w-3xl mx-auto space-y-4">
+    <div className="max-w-3xl mx-auto space-y-3">
       <Card className="overflow-hidden border-0 shadow-lg">
-        {/* Banner image */}
-        {imageUrl && (
-          <div className="relative aspect-video bg-muted overflow-hidden">
-            <img
-              src={imageUrl}
-              alt={title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          </div>
-        )}
-
-        <CardContent className="p-5 space-y-4">
-          {/* Badge + title */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="gap-1">
-                <Video className="h-3 w-3" />
-                Webinar
-              </Badge>
-              <Badge variant="outline" className="gap-1 text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                Co {config.interval_minutes || 60} min
-              </Badge>
-            </div>
-            <h2 className="text-xl font-bold">{title}</h2>
-            {description && (
-              <p className="text-sm text-muted-foreground whitespace-pre-line">{description}</p>
+        <CardContent className="p-4 space-y-4">
+          {/* Compact header */}
+          <div className="flex gap-3 items-start">
+            {imageUrl && (
+              <img
+                src={imageUrl}
+                alt={title}
+                className="w-20 h-14 rounded-lg object-cover shrink-0"
+                loading="lazy"
+              />
             )}
-          </div>
-
-          {/* Time slots */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
-              Dostępne sesje — {todayFormatted}
-            </h3>
-
-            <div className="grid gap-1.5">
-              {slots.map((slot) => (
-                <div
-                  key={slot.time}
-                  className={`flex items-center justify-between rounded-lg px-3 py-2 transition-colors ${
-                    slot.isNow
-                      ? 'bg-primary/10 border border-primary/30'
-                      : slot.isPast
-                        ? 'bg-muted/40'
-                        : 'bg-muted/20 hover:bg-muted/40'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full ${
-                        slot.isNow
-                          ? 'bg-primary animate-pulse'
-                          : slot.isPast
-                            ? 'bg-muted-foreground/30'
-                            : 'bg-primary/50'
-                      }`}
-                    />
-                    <span
-                      className={`font-mono text-sm font-medium ${
-                        slot.isPast ? 'text-muted-foreground/50 line-through' : ''
-                      }`}
-                    >
-                      {slot.time}
-                    </span>
-                    {slot.isNow && (
-                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0 h-4 animate-pulse">
-                        TRWA
-                      </Badge>
-                    )}
-                  </div>
-
-                  {slot.isPast ? (
-                    <span className="text-xs text-muted-foreground/50">Zakończone</span>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs gap-1.5"
-                      onClick={() => handleCopyInvitation(slot)}
-                    >
-                      {copiedSlot === slot.time ? (
-                        <>
-                          <Check className="h-3 w-3" />
-                          Skopiowano
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="h-3 w-3" />
-                          Kopiuj zaproszenie
-                        </>
-                      )}
-                    </Button>
-                  )}
-                </div>
-              ))}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="secondary" className="gap-1 text-[10px] px-1.5 py-0 h-5">
+                  <Video className="h-3 w-3" />
+                  Webinar
+                </Badge>
+                <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0 h-5 text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  Co {config.interval_minutes || 60} min
+                </Badge>
+              </div>
+              <h2 className="text-base font-bold leading-tight truncate">{title}</h2>
+              {description && (
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{description}</p>
+              )}
             </div>
           </div>
+
+          {/* 3-column day grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {days.map((day) => (
+              <div key={day.index} className="space-y-1">
+                <div className={`text-xs font-semibold text-center py-1.5 rounded-lg ${
+                  day.isToday
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted/50 text-muted-foreground'
+                }`}>
+                  {day.label}
+                </div>
+                <div className="space-y-0.5">
+                  {timeSlots.map((time) => {
+                    const status = getSlotStatus(day.index, time);
+                    const selected = isSelected(day.index, time);
+                    const isPast = status === 'past';
+                    const isNow = status === 'now';
+
+                    return (
+                      <button
+                        key={time}
+                        disabled={isPast}
+                        onClick={() => setSelectedSlot(
+                          selected ? null : { dayIndex: day.index, time }
+                        )}
+                        className={`w-full flex items-center justify-center gap-1 rounded-md px-1 py-1 text-xs font-mono transition-colors ${
+                          selected
+                            ? 'bg-primary text-primary-foreground'
+                            : isNow
+                              ? 'bg-primary/10 border border-primary/30 text-foreground'
+                              : isPast
+                                ? 'text-muted-foreground/40 line-through cursor-not-allowed'
+                                : 'hover:bg-muted/60 text-foreground'
+                        }`}
+                      >
+                        {isNow && !selected && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        )}
+                        {time}
+                        {isNow && !selected && (
+                          <span className="text-[9px] font-sans font-semibold text-destructive">LIVE</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Copy button */}
+          {selectedSlot && (
+            <Button
+              variant="action"
+              className="w-full gap-2"
+              onClick={handleCopy}
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4" />
+                  Skopiowano!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  Kopiuj zaproszenie — {days[selectedSlot.dayIndex].fullLabel}, {selectedSlot.time}
+                </>
+              )}
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>
