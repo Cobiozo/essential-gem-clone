@@ -196,7 +196,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         return (
           <Button
             size="sm"
-            className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
             asChild
           >
             <a href={`/meeting-room/${(event as any).meeting_room_id}`} target="_blank" rel="noopener noreferrer">
@@ -213,7 +213,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         return (
           <Button
             size="sm"
-            className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
             asChild
           >
             <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
@@ -231,7 +231,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
       return (
         <Button
           size="sm"
-          className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+          className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
           onClick={() => setDetailsEvent(event)}
         >
           {/* Pulsing red dot - recording indicator */}
@@ -263,10 +263,10 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         <Button
           size="sm"
           variant="outline"
-          className="h-6 px-2 text-xs"
+          className="h-8 px-3 text-xs touch-action-manipulation"
           onClick={() => navigate(detailsPath)}
         >
-          <Info className="h-3 w-3 mr-1" />
+          <Info className="h-3.5 w-3.5 mr-1" />
            {tf('events.details', 'Szczegóły')}
         </Button>
       );
@@ -275,14 +275,14 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     // For individual meetings (tripartite, partner_consultation) - show "Szczegóły" button
     if (['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)) {
       return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="h-6 px-2 text-xs"
+            className="h-8 px-3 text-xs touch-action-manipulation"
             onClick={() => setDetailsEvent(event)}
           >
-            <Info className="h-3 w-3 mr-1" />
+            <Info className="h-3.5 w-3.5 mr-1" />
             {tf('events.details', 'Szczegóły')}
           </Button>
           {/* Cancel button (more than 2 hours before) */}
@@ -290,11 +290,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="h-8 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 touch-action-manipulation"
               onClick={() => handleCancelMeeting(event)}
               disabled={cancellingEventId === event.id}
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>
@@ -307,11 +307,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 px-2 text-xs"
+          className="h-8 px-3 text-xs touch-action-manipulation"
           asChild
         >
           <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3 w-3 mr-1" />
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
             {isHost ? (tf('events.start', 'Rozpocznij')) : 'Zoom'}
           </a>
         </Button>
@@ -325,11 +325,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="h-8 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 touch-action-manipulation"
           onClick={() => handleCancelMeeting(event)}
           disabled={cancellingEventId === event.id}
         >
-          <X className="h-3 w-3 mr-1" />
+          <X className="h-3.5 w-3.5 mr-1" />
           {tf('common.cancel', 'Anuluj')}
         </Button>
       );
@@ -392,7 +392,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium truncate flex-1">{event.title}</span>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="text-xs text-muted-foreground">
                             {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'd MMM HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
                           </span>

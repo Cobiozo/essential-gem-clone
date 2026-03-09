@@ -452,27 +452,27 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-sm">{code.code}</span>
                         <TooltipProvider delayDuration={300}>
-                          <div className="flex gap-0.5">
+                          <div className="flex gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyCode(code.code)}>
-                                  <Copy className="w-3 h-3" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 touch-action-manipulation" onClick={() => handleCopyCode(code.code)}>
+                                  <Copy className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Kopiuj kod</TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyInfoLinkLink(code)}>
-                                  <Link2 className="w-3 h-3" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 touch-action-manipulation" onClick={() => handleCopyInfoLinkLink(code)}>
+                                  <Link2 className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Kopiuj link</TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyInfoLinkMessage(code)}>
-                                  <MessageSquare className="w-3 h-3" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 touch-action-manipulation" onClick={() => handleCopyInfoLinkMessage(code)}>
+                                  <MessageSquare className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Kopiuj wiadomość</TooltipContent>
@@ -532,27 +532,27 @@ export const CombinedOtpCodesWidget: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-sm">{code.code}</span>
                         <TooltipProvider delayDuration={300}>
-                          <div className="flex gap-0.5">
+                          <div className="flex gap-1">
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyCode(code.code)}>
-                                  <Copy className="w-3 h-3" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 touch-action-manipulation" onClick={() => handleCopyCode(code.code)}>
+                                  <Copy className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Kopiuj kod</TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyHkLink(code)}>
-                                  <Link2 className="w-3 h-3" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 touch-action-manipulation" onClick={() => handleCopyHkLink(code)}>
+                                  <Link2 className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Kopiuj link</TooltipContent>
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopyHkMessage(code)}>
-                                  <MessageSquare className="w-3 h-3" />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 touch-action-manipulation" onClick={() => handleCopyHkMessage(code)}>
+                                  <MessageSquare className="w-3.5 h-3.5" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent>Kopiuj wiadomość</TooltipContent>
