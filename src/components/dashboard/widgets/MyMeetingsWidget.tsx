@@ -263,10 +263,10 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         <Button
           size="sm"
           variant="outline"
-          className="h-6 px-2 text-xs"
+          className="h-8 px-3 text-xs touch-action-manipulation"
           onClick={() => navigate(detailsPath)}
         >
-          <Info className="h-3 w-3 mr-1" />
+          <Info className="h-3.5 w-3.5 mr-1" />
            {tf('events.details', 'Szczegóły')}
         </Button>
       );
