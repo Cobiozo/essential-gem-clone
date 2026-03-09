@@ -20,7 +20,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
     <SidebarProvider defaultOpen={true}>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-[hsl(225,50%,6%)] via-[hsl(225,40%,8%)] to-[hsl(230,35%,5%)] dark:from-[hsl(225,50%,6%)] dark:via-[hsl(225,40%,8%)] dark:to-[hsl(230,35%,5%)]">
         <DashboardSidebar />
-        <SidebarInset className="flex flex-col flex-1">
+        <SidebarInset className="flex flex-col flex-1 h-dvh overflow-hidden">
           <DashboardTopbar 
             title={title} 
             isUserMenuOpen={isUserMenuOpen}
