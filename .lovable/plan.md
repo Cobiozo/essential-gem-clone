@@ -1,26 +1,24 @@
 
 
-# Zakładka "Webinary Biznesowe 24h/live" w widoku Webinary
+## Plan zmian
 
-## Cel
-Dodać do strony `/events/webinars` (WebinarsPage) zakładkę z Tabs, która pozwala przełączać się między:
-- **Webinary** — obecna lista nadchodzących/zakończonych webinarów
-- **Webinary Biznesowe 24h/live** — osadzony pokój auto-webinarowy (treść z `AutoWebinarRoom`, ale bez duplikowania `DashboardLayout`)
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Zmiany
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### `src/pages/WebinarsPage.tsx`
-- Dodać `Tabs` / `TabsList` / `TabsContent` z dwoma zakładkami
-- Tab 1 ("Webinary"): obecna zawartość strony (lista wydarzeń)
-- Tab 2 ("Webinary Biznesowe 24h/live"): nowy komponent `AutoWebinarEmbed` — pokój auto-webinaru bez otoczki `DashboardLayout`
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-### Nowy: `src/components/auto-webinar/AutoWebinarEmbed.tsx`
-- Wyciągnięcie zawartości z `AutoWebinarRoom` (logika odtwarzania, countdown, sekcja własna) do komponentu **bez** `DashboardLayout`
-- Komponent renderuje: header z logo/tytułem, odtwarzacz wideo lub countdown, sekcję własną
-- `AutoWebinarRoom.tsx` importuje `AutoWebinarEmbed` i opakowuje go w `DashboardLayout` (zachowanie route `/auto-webinar`)
+### 2. Złote ikony dla datetime-local (index.css)
 
-### `src/components/auto-webinar/AutoWebinarRoom.tsx`
-- Refaktor: delegacja do `AutoWebinarEmbed` wewnątrz `DashboardLayout`
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Zakładka "Webinary Biznesowe 24h/live" będzie widoczna tylko gdy system auto-webinarów jest włączony (`config.is_enabled`). Gdy wyłączony — zakładka się nie pojawia i strona działa jak dotychczas.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+
+### Zakres: 2 pliki, ~10 linii zmian
 
