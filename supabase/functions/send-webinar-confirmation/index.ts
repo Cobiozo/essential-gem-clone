@@ -555,7 +555,6 @@ const handler = async (req: Request): Promise<Response> => {
           </body>
           </html>
         `;
-      }
     }
 
     try {
