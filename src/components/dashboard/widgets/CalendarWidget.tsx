@@ -280,10 +280,10 @@ ${signUpLabel}: ${inviteUrl}
           <Button
             size="sm"
             variant="secondary"
-            className="h-6 text-xs"
+            className="h-8 text-xs touch-action-manipulation"
             onClick={() => cancelRegistration(event.id, occurrenceIndex)}
           >
-            <X className="h-3 w-3 mr-1" />
+            <X className="h-3.5 w-3.5 mr-1" />
             {tf('events.removeFromCalendar', 'Usuń z kalendarza')}
           </Button>
         );
