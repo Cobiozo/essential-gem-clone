@@ -106,6 +106,7 @@ const EventGuestRegistration: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
+  const [autoWebinarVideo, setAutoWebinarVideo] = useState<AutoWebinarVideoData | null>(null);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
