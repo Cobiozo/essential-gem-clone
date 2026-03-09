@@ -880,8 +880,8 @@ const Training = () => {
                         )}
                       </div>
 
-                      {/* Certificate Section - Only show when 100% completed */}
-                      {progress === 100 && (() => {
+                      {/* Certificate Section - Only show when 100% completed and no new lessons to catch up */}
+                      {progress === 100 && !module.has_new_lessons && (() => {
                         const cert = certificates[module.id];
                         const formatDate = (d: string | null) => d ? new Date(d).toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' }) : 'data nieznana';
                         
