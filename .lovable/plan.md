@@ -1,24 +1,28 @@
 
 
-## Plan zmian
+# Zmiana adnotacji na stronie rejestracji auto-webinaru
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Co się zmieni
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Na stronie `EventGuestRegistration.tsx`, w sekcji pod "Webinar online", zamiast "Dołącz w dowolnym momencie" pojawi się dynamiczna informacja o najbliższym slocie webinarowym oraz zasadach dołączenia.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Implementacja
 
-### 2. Złote ikony dla datetime-local (index.css)
+### Plik: `src/pages/EventGuestRegistration.tsx`
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+1. **Pobranie konfiguracji auto-webinaru** — po załadowaniu eventu, jeśli `event_type === 'auto_webinar'`, wykonaj dodatkowe zapytanie do `auto_webinar_config` (po `event_id`) aby pobrać `start_hour`, `end_hour`, `interval_minutes`.
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+2. **Obliczenie najbliższego slotu** — na podstawie aktualnego czasu i konfiguracji, wyznacz najbliższy przyszły slot (dzisiaj lub jutro jeśli dzisiejsze godziny się skończyły).
 
-### Zakres: 2 pliki, ~10 linii zmian
+3. **Wyświetlenie informacji** — zamiast "Dołącz w dowolnym momencie":
+   - Linia 1: **dzień i godzina** najbliższego webinaru, np. "Poniedziałek, 10 marca • godz. 14:00"
+   - Linia 2: "Pokój otworzy się 5 minut przed planowanym rozpoczęciem" (jeśli `interval_minutes >= 30`) lub "Pokój otworzy się punktualnie o wyznaczonej godzinie" (jeśli interwał krótszy)
+
+4. **Aktualizacja sekcji po rejestracji (success)** — analogiczna zmiana w widoku potwierdzenia (linia ~231), zastąpienie "Możesz dołączyć do webinaru w dowolnym momencie w godzinach emisji" na konkretny termin.
+
+### Zmiany techniczne
+- Nowy state: `autoWebinarConfig` z polami `start_hour`, `end_hour`, `interval_minutes`
+- Nowy `useEffect` pobierający config gdy `isAutoWebinar`
+- Helper function `getNextSlot(config)` zwracająca `{ date: Date, time: string }`
+- Dodanie importu `addDays` z `date-fns`
 
