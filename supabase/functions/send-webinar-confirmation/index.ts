@@ -20,6 +20,15 @@ interface WebinarConfirmationRequest {
   zoomLink?: string;
   hostName?: string;
   isReminder?: boolean;
+  // Auto-webinar specific
+  isAutoWebinar?: boolean;
+  nextSlotTime?: string;
+  nextSlotTimeFormatted?: string;
+  minutesToNextSlot?: number;
+  roomLink?: string;
+  videoHostName?: string;
+  videoCoverImageUrl?: string;
+  videoDescription?: string;
 }
 
 interface SmtpSettings {
