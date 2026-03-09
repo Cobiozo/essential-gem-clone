@@ -32,40 +32,32 @@ const ResetPassword = () => {
       }
     });
 
-    // Check URL hash for recovery indicators
-    const hash = window.location.hash;
-    const hasRecoveryParams = hash.includes('type=recovery') || hash.includes('type=magiclink');
+    // Fallback: Supabase clears the URL hash after consuming the token,
+    // so we can't rely on window.location.hash.
+    // Instead, check if a session already exists — if user landed here
+    // with a session, it's from a recovery link.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session && !resolved) {
+        console.log("[ResetPassword] Session exists, treating as recovery");
+        resolved = true;
+        setIsRecoverySession(true);
+        setSessionChecked(true);
+        clearTimeout(timeoutId);
+      }
+    });
 
-    if (hasRecoveryParams) {
-      // Fallback: PASSWORD_RECOVERY event may have fired before this component mounted
-      // (race condition with AuthContext capturing SIGNED_IN first)
-      // Check if session already exists — if so, treat as valid recovery session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session && !resolved) {
-          console.log("[ResetPassword] Fallback: session already exists, treating as recovery");
-          resolved = true;
-          setIsRecoverySession(true);
+    // Final timeout — one last session check
+    timeoutId = setTimeout(() => {
+      if (!resolved) {
+        console.log("[ResetPassword] Timeout reached, final session check");
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            setIsRecoverySession(true);
+          }
           setSessionChecked(true);
-          clearTimeout(timeoutId);
-        }
-      });
-
-      // Final timeout fallback — one last getSession attempt
-      timeoutId = setTimeout(() => {
-        if (!resolved) {
-          console.log("[ResetPassword] Timeout reached, final session check");
-          supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) {
-              setIsRecoverySession(true);
-            }
-            setSessionChecked(true);
-          });
-        }
-      }, 5000);
-    } else {
-      // No recovery params in URL — not a valid recovery link
-      setSessionChecked(true);
-    }
+        });
+      }
+    }, 3000);
 
     return () => {
       subscription.unsubscribe();
