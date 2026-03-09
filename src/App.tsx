@@ -363,6 +363,7 @@ const AppContent = () => {
               <Route path="/leader" element={<LeaderPanel />} />
               <Route path="/omega-base" element={<OmegaBasePage />} />
               <Route path="/landing-preview" element={<LeaderLandingPage />} />
+              <Route path="/auto-webinar" element={<AutoWebinarPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
