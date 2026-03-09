@@ -19,6 +19,14 @@ export default defineConfig(({ mode }) => ({
       gzipSize: true,
       filename: "dist/stats.html",
     }),
+    mode === "production" && {
+      name: 'generate-version-json',
+      closeBundle() {
+        const version = Date.now().toString();
+        writeFileSync('./dist/version.json', JSON.stringify({ version, buildTime: Date.now() }));
+        console.log(`[version] Generated version.json: ${version}`);
+      },
+    },
   ].filter(Boolean),
   resolve: {
     alias: {

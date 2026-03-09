@@ -169,7 +169,8 @@ const ChatWidgetsWrapper = () => {
 
 const AppContent = () => {
   useDynamicMetaTags();
-  useSecurityPreventions(false); // Global: disable right-click, allow text selection
+  useSecurityPreventions(false);
+  useVersionPolling();
   const { toast } = useToast();
   const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista } = useAuth();
   const { isModern } = useDashboardPreference();
