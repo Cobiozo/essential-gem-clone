@@ -20,15 +20,6 @@ interface VideoControlsProps {
   bufferedRanges?: { start: number; end: number }[];
   // NEW: Network quality indicator
   networkQuality?: 'good' | 'slow' | 'offline';
-  // NEW: Extended diagnostics props (for admins)
-  showDiagnostics?: boolean;
-  videoSrc?: string;
-  retryCount?: number;
-  smartBufferingActive?: boolean;
-  bufferedAheadSeconds?: number;
-  connectionType?: string;
-  downlink?: number;
-  rtt?: number;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
