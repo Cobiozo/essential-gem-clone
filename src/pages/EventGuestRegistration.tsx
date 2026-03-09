@@ -228,14 +228,29 @@ const EventGuestRegistration: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h3 className="font-semibold">{event.title}</h3>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{format(startDate, 'PPP', { locale: pl })}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
-              </div>
+              {isAutoWebinar ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Webinary dostępne codziennie</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Sesje co godzinę od {startDate.getHours()}:00 do {endDate.getHours()}:00</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{format(startDate, 'PPP', { locale: pl })}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
+                  </div>
+                </>
+              )}
               {event.host_name && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="h-4 w-4" />
@@ -244,16 +259,19 @@ const EventGuestRegistration: React.FC = () => {
               )}
             </div>
             <p className="text-sm text-muted-foreground text-center">
-              {(() => {
-                const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
-                if (hoursUntilEvent > 24) {
-                  return "Otrzymasz przypomnienia: 24 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
-                } else if (hoursUntilEvent > 1) {
-                  return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
-                } else {
-                  return "Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.";
-                }
-              })()}
+              {isAutoWebinar
+                ? 'Dziękujemy za rejestrację! Możesz dołączyć do webinaru w dowolnym momencie w godzinach emisji.'
+                : (() => {
+                    const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+                    if (hoursUntilEvent > 24) {
+                      return "Otrzymasz przypomnienia: 24 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                    } else if (hoursUntilEvent > 1) {
+                      return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                    } else {
+                      return "Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.";
+                    }
+                  })()
+              }
             </p>
           </CardContent>
         </Card>
