@@ -131,6 +131,7 @@ const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ChangeTempPassword = lazyWithRetry(() => import("./pages/ChangeTempPassword"));
 const OmegaBasePage = lazyWithRetry(() => import("./pages/OmegaBasePage"));
 const LeaderLandingPage = lazyWithRetry(() => import("./pages/LeaderLandingPage"));
+const AutoWebinarPage = lazyWithRetry(() => import("./pages/AutoWebinarPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -362,6 +363,7 @@ const AppContent = () => {
               <Route path="/leader" element={<LeaderPanel />} />
               <Route path="/omega-base" element={<OmegaBasePage />} />
               <Route path="/landing-preview" element={<LeaderLandingPage />} />
+              <Route path="/auto-webinar" element={<AutoWebinarPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

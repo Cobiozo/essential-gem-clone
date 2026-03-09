@@ -103,7 +103,8 @@ export type EventType =
   | 'meeting_private' 
   | 'team_training'
   | 'tripartite_meeting'
-  | 'partner_consultation';
+  | 'partner_consultation'
+  | 'auto_webinar';
 
 // Webinar form data with new fields
 export type WebinarFormData = {

@@ -39,7 +39,8 @@ import { TeamTrainingForm } from './TeamTrainingForm';
 import { TeamTrainingList } from './TeamTrainingList';
 import { IndividualMeetingsManagement } from './IndividualMeetingsManagement';
 import ZoomIntegrationSettings from './ZoomIntegrationSettings';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Radio } from 'lucide-react';
+import { AutoWebinarManagement } from './AutoWebinarManagement';
 
 export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
@@ -570,11 +571,14 @@ export const EventsManagement: React.FC = () => {
               <SelectItem value="settings">
                 <span className="flex items-center gap-2"><Settings className="h-4 w-4" /> {t('admin.events.settings')}</span>
               </SelectItem>
+              <SelectItem value="auto-webinar">
+                <span className="flex items-center gap-2"><Radio className="h-4 w-4" /> Auto-Webinary</span>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
         {/* Desktop: tabs */}
-        <TabsList className="hidden md:grid md:grid-cols-7 gap-1">
+        <TabsList className="hidden md:grid md:grid-cols-8 gap-1">
           <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-3 text-sm">
             <Video className="h-4 w-4 shrink-0" />
             {t('admin.events.webinars')}
@@ -602,6 +606,10 @@ export const EventsManagement: React.FC = () => {
           <TabsTrigger value="settings" className="flex items-center gap-1.5 px-3 text-sm">
             <Settings className="h-4 w-4 shrink-0" />
             {t('admin.events.settings')}
+          </TabsTrigger>
+          <TabsTrigger value="auto-webinar" className="flex items-center gap-1.5 px-3 text-sm">
+            <Radio className="h-4 w-4 shrink-0" />
+            Auto-Webinary
           </TabsTrigger>
         </TabsList>
 
@@ -810,6 +818,11 @@ export const EventsManagement: React.FC = () => {
 
           {/* Zoom Integration Settings */}
           <ZoomIntegrationSettings />
+        </TabsContent>
+
+        {/* Auto-Webinar Tab */}
+        <TabsContent value="auto-webinar" className="space-y-4 mt-6">
+          <AutoWebinarManagement />
         </TabsContent>
       </Tabs>
 

@@ -522,6 +522,101 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_webinar_config: {
+        Row: {
+          chat_enabled: boolean
+          created_at: string
+          end_hour: number
+          event_id: string | null
+          id: string
+          interval_minutes: number
+          is_enabled: boolean
+          playlist_mode: string
+          show_participant_count: boolean
+          start_hour: number
+          updated_at: string
+          welcome_message: string | null
+        }
+        Insert: {
+          chat_enabled?: boolean
+          created_at?: string
+          end_hour?: number
+          event_id?: string | null
+          id?: string
+          interval_minutes?: number
+          is_enabled?: boolean
+          playlist_mode?: string
+          show_participant_count?: boolean
+          start_hour?: number
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Update: {
+          chat_enabled?: boolean
+          created_at?: string
+          end_hour?: number
+          event_id?: string | null
+          id?: string
+          interval_minutes?: number
+          is_enabled?: boolean
+          playlist_mode?: string
+          show_participant_count?: boolean
+          start_hour?: number
+          updated_at?: string
+          welcome_message?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_webinar_config_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_webinar_videos: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_seconds: number
+          id: string
+          is_active: boolean
+          sort_order: number
+          thumbnail_url: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string | null
+          video_url: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string
+          uploaded_by?: string | null
+          video_url: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_seconds?: number
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          video_url?: string
+        }
+        Relationships: []
+      }
       banner_interactions: {
         Row: {
           action_after_banner: string | null
