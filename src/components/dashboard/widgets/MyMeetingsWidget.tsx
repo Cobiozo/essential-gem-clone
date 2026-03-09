@@ -392,7 +392,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium truncate flex-1">{event.title}</span>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0">
                           <span className="text-xs text-muted-foreground">
                             {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'd MMM HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
                           </span>

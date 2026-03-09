@@ -546,7 +546,7 @@ ${signUpLabel}: ${inviteUrl}
                               key={`btn-${index}`}
                               variant={variant}
                               size="sm"
-                              className="h-6 text-xs"
+                              className="h-8 text-xs touch-action-manipulation"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 window.open(btn.url, '_blank');
