@@ -757,6 +757,27 @@ export const AutoWebinarManagement: React.FC = () => {
                   onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
                 />
               </div>
+              {/* Custom section */}
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-sm font-semibold">Sekcja własna (pod harmonogramem)</Label>
+                <div>
+                  <Label>Tytuł sekcji</Label>
+                  <Input
+                    value={roomForm.room_custom_section_title}
+                    onChange={(e) => setRoomForm(prev => ({ ...prev, room_custom_section_title: e.target.value }))}
+                    placeholder="np. O czym jest ten webinar?"
+                  />
+                </div>
+                <div>
+                  <Label>Treść sekcji</Label>
+                  <Textarea
+                    value={roomForm.room_custom_section_content}
+                    onChange={(e) => setRoomForm(prev => ({ ...prev, room_custom_section_content: e.target.value }))}
+                    placeholder="Opisz treść wyświetlaną uczestnikom..."
+                    rows={3}
+                  />
+                </div>
+              </div>
               <Button onClick={handleSaveRoom}>
                 Zapisz wygląd pokoju
               </Button>
