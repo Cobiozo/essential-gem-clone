@@ -1190,11 +1190,15 @@ export const AutoWebinarManagement: React.FC = () => {
               />
             </div>
             <div>
-              <Label>Okładka webinaru (URL)</Label>
-              <Input
-                value={videoForm.cover_image_url}
-                onChange={(e) => setVideoForm(prev => ({ ...prev, cover_image_url: e.target.value }))}
-                placeholder="https://..."
+              <Label>Okładka webinaru</Label>
+              <MediaUpload
+                onMediaUploaded={(url) => {
+                  setVideoForm(prev => ({ ...prev, cover_image_url: url }));
+                }}
+                currentMediaUrl={videoForm.cover_image_url}
+                currentMediaType="image"
+                allowedTypes={['image']}
+                compact
               />
               {videoForm.cover_image_url && (
                 <img src={videoForm.cover_image_url} alt="Okładka" className="mt-2 w-full h-32 object-cover rounded border" />
