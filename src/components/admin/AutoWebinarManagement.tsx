@@ -401,6 +401,8 @@ export const AutoWebinarManagement: React.FC = () => {
           video_url: videoForm.video_url,
           duration_seconds: videoForm.duration_seconds,
           thumbnail_url: videoForm.thumbnail_url || null,
+          host_name: videoForm.host_name || null,
+          cover_image_url: videoForm.cover_image_url || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingVideo.id);
