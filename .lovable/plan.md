@@ -1,37 +1,24 @@
 
 
-# Fix: Wyświetlanie EventCardCompact na iPadzie — ucięty tekst i brak grafiki
+## Plan zmian
 
-## Problem
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Na iPadzie sidebar jest otwarty (256px), zostawiając ~500px na treść. Nagłówek karty wydarzenia (`CollapsibleTrigger`, linia 611) wyświetla w jednym wierszu: miniaturkę (80px) + tytuł + datę/godzinę + badge statusu + chevron. Na tablecie to za dużo elementów w jednym rzędzie — tekst jest `truncate` (ucięty), a data/czas widoczna od `md:` (768px) zabiera dodatkowe miejsce.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-## Rozwiązanie
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-### 1. `src/components/events/EventCardCompact.tsx` — nagłówek karty
+### 2. Złote ikony dla datetime-local (index.css)
 
-**Zmiana breakpointu daty/czasu:** Przenieść widoczność daty z `md:flex` na `lg:flex` (1024px+). Na iPadzie (768-1023px z otwartym sidebarem) data będzie ukryta w nagłówku, ale widoczna po rozwinięciu karty (tak jak na mobile).
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-```
-Linia 636: hidden md:flex → hidden lg:flex
-```
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-**Zmiana truncate tytułu:** Zamienić `truncate` (jednoliniowe ucięcie) na `line-clamp-2` aby tytuł mógł zająć 2 linie zamiast być ucinany.
-
-```
-Linia 629: truncate → line-clamp-2
-```
-
-**Dodanie daty na tablet w rozwiniętej sekcji:** Zmienić `md:hidden` na `lg:hidden` w sekcji mobile date/time (linia 674), aby data była widoczna po rozwinięciu karty zarówno na mobile jak i tablecie.
-
-```
-Linia 674: md:hidden → lg:hidden
-```
-
-### 2. `src/components/events/EventCardCompact.tsx` — opis w rozwiniętej karcie
-
-Sprawdzić i dodać `overflow-hidden break-words` do kontenera opisu, aby długi tekst HTML nie wychodził poza kartę.
-
-### Pliki do edycji:
-- `src/components/events/EventCardCompact.tsx` — 3 zmiany breakpointów + line-clamp
+### Zakres: 2 pliki, ~10 linii zmian
 
