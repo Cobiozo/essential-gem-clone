@@ -226,6 +226,13 @@ export const useTeamContacts = () => {
     if (!user) return false;
     
     try {
+      // Cancel linked guest registrations before soft-deleting the contact
+      await supabase
+        .from('guest_event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('team_contact_id', id)
+        .eq('status', 'registered');
+
       // Soft delete
       const { error } = await supabase
         .from('team_contacts')
