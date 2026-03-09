@@ -6,7 +6,7 @@ import { usePublicEvents } from '@/hooks/usePublicEvents';
 import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
 import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
+import { AutoWebinarEventView } from '@/components/auto-webinar/AutoWebinarEventView';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Video, CalendarX, Radio } from 'lucide-react';
 
