@@ -200,8 +200,14 @@ export const useOrganizationTree = () => {
     }
   }, [settingsLoading, profile?.eq_id, fetchTree]);
 
-  // Realtime subscription: refresh tree when profiles.is_active changes (e.g. admin unblocks)
+  // Stable ref for fetchTree used by realtime
+  const fetchTreeRef = useRef(fetchTree);
+  fetchTreeRef.current = fetchTree;
+
+  // Realtime subscription with debounce — stable deps
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const channel = supabase
       .channel('org-tree-profiles-realtime')
       .on('postgres_changes', {
@@ -209,23 +215,30 @@ export const useOrganizationTree = () => {
         schema: 'public',
         table: 'profiles',
       }, () => {
-        hasFetchedRef.current = false;
-        fetchTree();
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          hasFetchedRef.current = false;
+          fetchTreeRef.current();
+        }, 2000);
       })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'user_blocks',
       }, () => {
-        hasFetchedRef.current = false;
-        fetchTree();
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          hasFetchedRef.current = false;
+          fetchTreeRef.current();
+        }, 1000);
       })
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [fetchTree]);
+  }, []);
 
   return {
     tree,
