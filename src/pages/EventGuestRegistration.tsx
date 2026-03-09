@@ -37,6 +37,7 @@ interface EventData {
   duration_minutes: number | null;
   is_active: boolean;
   is_published: boolean;
+  event_type: string | null;
 }
 
 // UUID validation helper
