@@ -31,6 +31,15 @@ export const useOrganizationTree = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasFetchedRef = useRef(false);
+  const isInitialLoadRef = useRef(true);
+
+  // Stable refs to avoid dependency churn
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  const canAccessTreeRef = useRef(canAccessTree);
+  canAccessTreeRef.current = canAccessTree;
+  const getMaxDepthForRoleRef = useRef(getMaxDepthForRole);
+  getMaxDepthForRoleRef.current = getMaxDepthForRole;
 
   const fetchTree = useCallback(async () => {
     if (settingsLoading) return;
@@ -41,18 +50,20 @@ export const useOrganizationTree = () => {
       return;
     }
     
-    if (!canAccessTree()) {
+    if (!canAccessTreeRef.current()) {
       setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
+      // Only show spinner on initial load
+      if (isInitialLoadRef.current) {
+        setLoading(true);
+      }
       setError(null);
 
-      const maxDepth = getMaxDepthForRole();
+      const maxDepth = getMaxDepthForRoleRef.current();
       
-      // Fetch downline tree using the recursive function
       const { data: downlineData, error: downlineError } = await supabase
         .rpc('get_organization_tree', {
           p_root_eq_id: profile.eq_id,
@@ -67,8 +78,7 @@ export const useOrganizationTree = () => {
 
       setTreeData(downlineData || []);
 
-      // Fetch upline (1 level up) if setting enabled
-      if (settings?.show_upline && profile.upline_eq_id) {
+      if (settingsRef.current?.show_upline && profile.upline_eq_id) {
         const { data: uplineData, error: uplineError } = await supabase
           .from('profiles')
           .select('user_id, first_name, last_name, eq_id, upline_eq_id, role, avatar_url, email, phone_number, is_active')
@@ -96,9 +106,10 @@ export const useOrganizationTree = () => {
       console.error('Error:', err);
       setError('Nie udało się pobrać struktury organizacji');
     } finally {
+      isInitialLoadRef.current = false;
       setLoading(false);
     }
-  }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading, canAccessTree, getMaxDepthForRole, settings?.show_upline]);
+  }, [profile?.eq_id, profile?.upline_eq_id, settingsLoading]);
 
   // Build tree structure from flat data
   const buildTree = useCallback((members: OrganizationMember[]): OrganizationTreeNode | null => {
@@ -189,8 +200,14 @@ export const useOrganizationTree = () => {
     }
   }, [settingsLoading, profile?.eq_id, fetchTree]);
 
-  // Realtime subscription: refresh tree when profiles.is_active changes (e.g. admin unblocks)
+  // Stable ref for fetchTree used by realtime
+  const fetchTreeRef = useRef(fetchTree);
+  fetchTreeRef.current = fetchTree;
+
+  // Realtime subscription with debounce — stable deps
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const channel = supabase
       .channel('org-tree-profiles-realtime')
       .on('postgres_changes', {
@@ -198,23 +215,30 @@ export const useOrganizationTree = () => {
         schema: 'public',
         table: 'profiles',
       }, () => {
-        hasFetchedRef.current = false;
-        fetchTree();
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          hasFetchedRef.current = false;
+          fetchTreeRef.current();
+        }, 2000);
       })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'user_blocks',
       }, () => {
-        hasFetchedRef.current = false;
-        fetchTree();
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          hasFetchedRef.current = false;
+          fetchTreeRef.current();
+        }, 1000);
       })
       .subscribe();
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [fetchTree]);
+  }, []);
 
   return {
     tree,

@@ -1,71 +1,24 @@
 
 
-# Naprawa ciągłego przeładowywania widoku struktury w Panelu Lidera
+## Plan zmian
 
-## Zidentyfikowane problemy
+### 1. Logo na ekranie ładowania (App.tsx)
 
-W `useOrganizationTree.ts` są **3 powiązane przyczyny** ciągłego przeładowywania:
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### 1. Realtime subscription nasłuchuje WSZYSTKICH zmian w `profiles`
-Kanał `postgres_changes` reaguje na każdy UPDATE dowolnego profilu w systemie (np. `last_seen`, `updated_at`). Każde takie zdarzenie resetuje `hasFetchedRef = false` i wywołuje `fetchTree()` z pełnym spinnerem ładowania (`setLoading(true)`).
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-### 2. Niestabilne referencje callbacków powodują teardown subskrypcji
-- `canAccessTree()` i `getMaxDepthForRole()` zależą od obiektu `settings` (nowa referencja po każdym setState)
-- `fetchTree` zależy od tych callbacków → zmiana referencji
-- Efekt realtime (linia 194) zależy od `fetchTree` → unsubscribe/resubscribe przy każdej zmianie
+### 2. Złote ikony dla datetime-local (index.css)
 
-### 3. Brak debounce'a na zdarzeniach realtime
-Nawet uzasadnione zdarzenia (np. admin zmienia `is_active`) mogą przyjść seriami, powodując wielokrotne pełne przeładowania.
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-## Plan naprawy — `src/hooks/useOrganizationTree.ts`
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-1. **Stabilizacja callbacków** — użyć `useRef` dla `settings` i `userRole`, aby `canAccessTree`/`getMaxDepthForRole`/`fetchTree` miały stałe referencje
-2. **Rozdzielić initial load od refresh** — `setLoading(true)` tylko przy pierwszym ładowaniu; przy odświeżaniu realtime dane aktualizują się w tle bez spinnera
-3. **Debounce realtime** — 2-sekundowy debounce na zdarzeniach z `profiles` i `user_blocks`, żeby serie zdarzeń nie powodowały wielokrotnych fetchów
-4. **Usunąć `fetchTree` z zależności efektu realtime** — użyć `ref` do przechowywania aktualnej wersji `fetchTree`
-
-### Konkretne zmiany w kodzie:
-
-```typescript
-// Refs for stable callbacks
-const settingsRef = useRef(settings);
-settingsRef.current = settings;
-
-const fetchTreeRef = useRef(fetchTree);
-fetchTreeRef.current = fetchTree;
-
-// fetchTree — no setLoading(true) on refetch
-const isInitialLoadRef = useRef(true);
-// In fetchTree: setLoading only when isInitialLoadRef.current is true
-// After first successful fetch: isInitialLoadRef.current = false
-
-// Realtime effect — stable, no fetchTree in deps
-useEffect(() => {
-  const debounceTimer = { current: null as any };
-  const channel = supabase
-    .channel('org-tree-profiles-realtime')
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles' }, () => {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(() => {
-        hasFetchedRef.current = false;
-        fetchTreeRef.current();
-      }, 2000);
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_blocks' }, () => {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = setTimeout(() => {
-        hasFetchedRef.current = false;
-        fetchTreeRef.current();
-      }, 1000);
-    })
-    .subscribe();
-
-  return () => {
-    clearTimeout(debounceTimer.current);
-    supabase.removeChannel(channel);
-  };
-}, []); // Empty deps — stable subscription
-```
-
-Plik do edycji: **`src/hooks/useOrganizationTree.ts`**
+### Zakres: 2 pliki, ~10 linii zmian
 
