@@ -267,7 +267,7 @@ export const AutoWebinarManagement: React.FC = () => {
 
     const { error: uploadError } = await supabase.storage
       .from('cms-images')
-      .upload(fileName, file, { upsert: true });
+      .upload(fileName, file, { cacheControl: '3600' });
 
     if (uploadError) {
       toast({ title: 'Błąd uploadu', description: uploadError.message, variant: 'destructive' });
