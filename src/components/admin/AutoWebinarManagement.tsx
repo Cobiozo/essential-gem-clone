@@ -698,7 +698,7 @@ export const AutoWebinarManagement: React.FC = () => {
                 <div className="p-4 space-y-2">
                   <Badge variant="secondary" className="text-xs">Webinar</Badge>
                   <h3 className="font-semibold text-lg">
-                    {invitationForm.invitation_title || 'Webinar Automatyczny'}
+                    {invitationForm.invitation_title || 'Uzupełnij tytuł zaproszenia'}
                   </h3>
                   <p className="text-sm text-muted-foreground line-clamp-3">
                     {invitationForm.invitation_description || 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę.'}
