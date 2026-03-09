@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
+import { cn } from '@/lib/utils';
 
 interface LinkedEvent {
   id: string;
