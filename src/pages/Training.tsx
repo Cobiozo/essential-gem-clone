@@ -470,6 +470,7 @@ const Training = () => {
               .eq('user_id', user.id)
               .eq('module_id', mod.id)
               .eq('is_completed', true)
+              .then()
           );
           // Delete invalid certificate
           if (certMap[mod.id]) {
@@ -478,6 +479,7 @@ const Training = () => {
                 .from('certificates')
                 .delete()
                 .eq('id', certMap[mod.id].id)
+                .then()
             );
             delete certMap[mod.id];
           }
