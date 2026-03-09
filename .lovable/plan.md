@@ -1,25 +1,24 @@
 
 
-# Naprawa: auto-webinar nie powinien się pokazywać w kalendarzu
+## Plan zmian
 
-## Problem
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Hook `useEvents.ts` (używany przez Dashboard → CalendarWidget i MyMeetingsWidget) pobiera wszystkie wydarzenia z `is_active = true`, ale **nie filtruje po `is_published`**. Auto-webinar jest tworzony z `is_published: false`, ale `is_active: true`, więc pojawia się w kalendarzu mimo wyłączonej opcji "Widoczne w kalendarzu".
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-## Rozwiązanie
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-W `src/hooks/useEvents.ts` (linia ~40) dodać filtr `.eq('is_published', true)` do zapytania Supabase, analogicznie jak w `usePublicEvents.ts` (linia 26).
+### 2. Złote ikony dla datetime-local (index.css)
 
-```
-.eq('is_active', true)
-.eq('is_published', true)   // ← dodać
-```
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Dzięki temu wydarzenia z `is_published: false` (w tym auto-webinary bez włączonej widoczności w kalendarzu) nie pojawią się w widżecie kalendarza ani w "Moje spotkania" na Dashboardzie.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-## Plik do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/useEvents.ts` | Dodać `.eq('is_published', true)` do query |
+### Zakres: 2 pliki, ~10 linii zmian
 

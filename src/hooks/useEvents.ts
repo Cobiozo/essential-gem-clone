@@ -38,6 +38,7 @@ export const useEvents = () => {
         .from('events')
         .select('*')
         .eq('is_active', true)
+        .eq('is_published', true)
         .or(`end_time.gte.${recentCutoff},occurrences.not.is.null`)
         .order('start_time', { ascending: true });
 
