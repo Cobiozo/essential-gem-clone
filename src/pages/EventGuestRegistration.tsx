@@ -28,12 +28,32 @@ interface AutoWebinarVideoData {
   thumbnail_url: string | null;
 }
 
-const getNextSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } => {
+const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
   const totalMinutes = currentHour * 60 + currentMin;
   const interval = config.interval_minutes;
+
+  // If a preferred time is provided (from URL slot param), use it
+  if (preferredTime && /^\d{2}:\d{2}$/.test(preferredTime)) {
+    const [ph, pm] = preferredTime.split(':').map(Number);
+    const preferredMin = ph * 60 + pm;
+    // Check if this time is a valid slot
+    if (ph >= config.start_hour && ph < config.end_hour && preferredMin % interval === (config.start_hour * 60) % interval) {
+      const slotDate = new Date(now);
+      if (preferredMin > totalMinutes) {
+        // Today
+        slotDate.setHours(ph, pm, 0, 0);
+      } else {
+        // Tomorrow
+        const tomorrow = addDays(now, 1);
+        tomorrow.setHours(ph, pm, 0, 0);
+        return { date: tomorrow, time: preferredTime };
+      }
+      return { date: slotDate, time: preferredTime };
+    }
+  }
 
   // Generate slots for today
   for (let h = config.start_hour; h < config.end_hour; h++) {
