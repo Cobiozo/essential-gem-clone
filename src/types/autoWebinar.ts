@@ -34,6 +34,8 @@ export interface AutoWebinarConfig {
   invitation_title: string | null;
   invitation_description: string | null;
   invitation_image_url: string | null;
+  room_custom_section_title: string | null;
+  room_custom_section_content: string | null;
   countdown_label: string | null;
   created_at: string;
   updated_at: string;
