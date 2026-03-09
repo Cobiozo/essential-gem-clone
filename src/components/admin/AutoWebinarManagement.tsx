@@ -515,7 +515,7 @@ export const AutoWebinarManagement: React.FC = () => {
             <Switch checked={config?.is_enabled ?? false} onCheckedChange={handleToggleEnabled} />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <Label>Godzina startu</Label>
               <Select
@@ -545,6 +545,19 @@ export const AutoWebinarManagement: React.FC = () => {
               </Select>
             </div>
             <div>
+              <Label>Interwał odtwarzania</Label>
+              <Select
+                value={String(config?.interval_minutes ?? 60)}
+                onValueChange={(v) => handleUpdateConfig({ interval_minutes: parseInt(v) })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">Co 30 minut</SelectItem>
+                  <SelectItem value="60">Co 1 godzinę</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Tryb playlisty</Label>
               <Select
                 value={config?.playlist_mode ?? 'sequential'}
@@ -557,6 +570,52 @@ export const AutoWebinarManagement: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Role visibility */}
+          <div className="border-t pt-4 space-y-3">
+            <Label className="text-sm font-semibold">Widoczność dla ról</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Partnerzy</Label>
+                <Switch
+                  checked={config?.visible_to_partners ?? true}
+                  onCheckedChange={(v) => handleUpdateConfig({ visible_to_partners: v })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Specjaliści</Label>
+                <Switch
+                  checked={config?.visible_to_specjalista ?? true}
+                  onCheckedChange={(v) => handleUpdateConfig({ visible_to_specjalista: v })}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Klienci</Label>
+                <Switch
+                  checked={config?.visible_to_clients ?? true}
+                  onCheckedChange={(v) => handleUpdateConfig({ visible_to_clients: v })}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Calendar visibility */}
+          <div className="flex items-center justify-between border-t pt-4">
+            <div>
+              <Label>Widoczne w kalendarzu</Label>
+              <p className="text-sm text-muted-foreground">Pokazuj wydarzenie w kalendarzu i liście wydarzeń</p>
+            </div>
+            <Switch
+              checked={config?.show_in_calendar ?? false}
+              onCheckedChange={async (v) => {
+                await handleUpdateConfig({ show_in_calendar: v });
+                if (config?.event_id) {
+                  await supabase.from('events').update({ is_published: v }).eq('id', config.event_id);
+                }
+              }}
+              disabled={!config?.event_id}
+            />
           </div>
 
           <div>
