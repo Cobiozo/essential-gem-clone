@@ -200,38 +200,67 @@ const EventGuestRegistration: React.FC = () => {
     setError(null);
 
     try {
-      // Check if already registered
-      const { data: existing } = await supabase
+      // Check if already registered (exclude cancelled)
+      const { data: existingActive } = await supabase
         .from('guest_event_registrations')
-        .select('id')
+        .select('id, status')
         .eq('event_id', eventId)
         .eq('email', data.email)
+        .neq('status', 'cancelled')
         .maybeSingle();
 
-      if (existing) {
+      if (existingActive) {
         setAlreadyRegistered(true);
         return;
       }
 
-      // Insert registration
-      const { error: insertError } = await supabase
+      // Check if there's a cancelled registration to reactivate
+      const { data: cancelledReg } = await supabase
         .from('guest_event_registrations')
-        .insert({
-          event_id: eventId,
-          email: data.email,
-          first_name: data.first_name,
-          last_name: data.last_name || null,
-          phone: data.phone || null,
-          invited_by_user_id: invitedBy || null,
-          source: 'webinar_form',
-        });
+        .select('id')
+        .eq('event_id', eventId)
+        .eq('email', data.email)
+        .eq('status', 'cancelled')
+        .maybeSingle();
 
-      if (insertError) {
-        if (insertError.code === '23505') {
-          setAlreadyRegistered(true);
-          return;
+      if (cancelledReg) {
+        // Reactivate cancelled registration
+        const { error: updateError } = await supabase
+          .from('guest_event_registrations')
+          .update({
+            status: 'registered',
+            cancelled_at: null,
+            first_name: data.first_name,
+            last_name: data.last_name || null,
+            phone: data.phone || null,
+            invited_by_user_id: invitedBy || null,
+            confirmation_sent: false,
+            confirmation_sent_at: null,
+          })
+          .eq('id', cancelledReg.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Insert new registration
+        const { error: insertError } = await supabase
+          .from('guest_event_registrations')
+          .insert({
+            event_id: eventId,
+            email: data.email,
+            first_name: data.first_name,
+            last_name: data.last_name || null,
+            phone: data.phone || null,
+            invited_by_user_id: invitedBy || null,
+            source: 'webinar_form',
+          });
+
+        if (insertError) {
+          if (insertError.code === '23505') {
+            setAlreadyRegistered(true);
+            return;
+          }
+          throw insertError;
         }
-        throw insertError;
       }
 
       // Call edge function to send confirmation email and add to contacts

@@ -198,16 +198,17 @@ const handler = async (req: Request): Promise<Response> => {
       
       const sourceNote = `Dane pozyskane z formularza webinar: "${eventTitle}" (${formattedDate})`;
       
-      // Check if contact already exists for this user
+      // Check if contact already exists for this user (including inactive)
       const { data: existingContact } = await supabase
         .from('team_contacts')
-        .select('id')
+        .select('id, is_active')
         .eq('user_id', invitedByUserId)
         .eq('email', email)
         .eq('contact_type', 'private')
         .maybeSingle();
 
       if (!existingContact) {
+        // Create new contact
         const { data: newContact, error: contactError } = await supabase
           .from('team_contacts')
           .insert({
@@ -228,7 +229,6 @@ const handler = async (req: Request): Promise<Response> => {
         if (contactError) {
           console.error('[send-webinar-confirmation] Error creating contact:', contactError);
         } else if (newContact) {
-          // Update guest registration with contact ID
           await supabase
             .from('guest_event_registrations')
             .update({ team_contact_id: newContact.id })
@@ -238,7 +238,22 @@ const handler = async (req: Request): Promise<Response> => {
           console.log(`[send-webinar-confirmation] Created team contact: ${newContact.id}`);
         }
       } else {
-        console.log(`[send-webinar-confirmation] Contact already exists: ${existingContact.id}`);
+        // Reactivate inactive contact if needed
+        if (!existingContact.is_active) {
+          await supabase
+            .from('team_contacts')
+            .update({
+              is_active: true,
+              first_name: firstName,
+              last_name: lastName || '',
+              phone_number: phone || null,
+              notes: sourceNote,
+            })
+            .eq('id', existingContact.id);
+          console.log(`[send-webinar-confirmation] Reactivated contact: ${existingContact.id}`);
+        } else {
+          console.log(`[send-webinar-confirmation] Contact already active: ${existingContact.id}`);
+        }
         // Update guest registration with existing contact ID
         await supabase
           .from('guest_event_registrations')
