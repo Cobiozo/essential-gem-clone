@@ -610,7 +610,7 @@ Zapisz się tutaj: ${inviteUrl}
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors rounded-lg">
           {/* Thumbnail */}
-          <div className={`rounded-lg overflow-hidden flex-shrink-0 bg-muted transition-all duration-300 ${isOpen ? 'w-32 h-32' : 'w-20 h-20'}`}>
+          <div className={`rounded-lg overflow-hidden flex-shrink-0 bg-muted transition-all duration-300 ${isOpen ? 'w-32 h-32' : 'w-20 h-20'}`}n-all duration-300 ${isOpen ? 'w-32 h-32' : 'w-20 h-20'}`}>
             {event.image_url ? (
               <img
                 src={event.image_url}
