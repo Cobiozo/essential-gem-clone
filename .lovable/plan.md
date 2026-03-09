@@ -1,24 +1,36 @@
 
 
-## Plan zmian
+# Fix: Ucięcie prawego boku strony na iPadzie
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Zidentyfikowałem 3 przyczyny:
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+1. **Literówka w CSS** — linia 629 w `EventCardCompact.tsx` ma klasę `line-clamp-2mp-2mp-2` zamiast `line-clamp-2`. To powoduje, że klasa nie działa i tytuł nie jest poprawnie ograniczany.
 
-### 2. Złote ikony dla datetime-local (index.css)
+2. **Brak overflow na opisie** — opis wydarzenia (HTML z `dangerouslySetInnerHTML`, linia 697-700) ma klasę `prose` ale brak `overflow-hidden break-words`. Długi tekst z pogrubieniami i bez spacji może wychodzić poza kontener.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+3. **Brak overflow na karcie** — sam kontener karty (`border rounded-lg bg-card`, linia 608) nie ma `overflow-hidden`, więc nic nie obcina zawartości wychodzącej poza granice.
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+## Rozwiązanie
 
-### Zakres: 2 pliki, ~10 linii zmian
+### `src/components/events/EventCardCompact.tsx`:
+
+**Linia 608** — dodać `overflow-hidden` do kontenera karty:
+```
+className={`border rounded-lg bg-card overflow-hidden transition-all ...`}
+```
+
+**Linia 629** — naprawić literówkę:
+```
+line-clamp-2mp-2mp-2 → line-clamp-2
+```
+
+**Linia 698** — dodać overflow do opisu:
+```
+className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert overflow-hidden break-words"
+```
+
+### Pliki do edycji:
+- `src/components/events/EventCardCompact.tsx` — 3 poprawki (literówka, overflow na karcie, overflow na opisie)
 
