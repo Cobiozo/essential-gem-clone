@@ -161,34 +161,25 @@ serve(async (req) => {
 
     const now = new Date();
     
-    // Define time windows for reminders (24h + 12h + 2h + 1h + 15min)
+    // Define time windows for all 5 reminder types
     const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
     const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
     
-    // 12h reminder (prospect only): between 11h and 13h before event
     const reminder12hStart = new Date(now.getTime() + 11 * 60 * 60 * 1000);
     const reminder12hEnd = new Date(now.getTime() + 13 * 60 * 60 * 1000);
     
-    // 2h reminder (prospect only): between 110min and 130min before event
     const reminder2hStart = new Date(now.getTime() + 110 * 60 * 1000);
     const reminder2hEnd = new Date(now.getTime() + 130 * 60 * 1000);
     
-    // 1h reminder: between 50min and 70min before event
     const reminder1hStart = new Date(now.getTime() + 50 * 60 * 1000);
     const reminder1hEnd = new Date(now.getTime() + 70 * 60 * 1000);
     
-    // 15min reminder: between 10min and 20min before event
     const reminder15minStart = new Date(now.getTime() + 10 * 60 * 1000);
     const reminder15minEnd = new Date(now.getTime() + 20 * 60 * 1000);
 
     console.log('[send-meeting-reminders] Checking for meetings needing reminders...');
-    console.log(`[send-meeting-reminders] 24h window: ${reminder24hStart.toISOString()} - ${reminder24hEnd.toISOString()}`);
-    console.log(`[send-meeting-reminders] 12h window: ${reminder12hStart.toISOString()} - ${reminder12hEnd.toISOString()}`);
-    console.log(`[send-meeting-reminders] 2h window: ${reminder2hStart.toISOString()} - ${reminder2hEnd.toISOString()}`);
-    console.log(`[send-meeting-reminders] 1h window: ${reminder1hStart.toISOString()} - ${reminder1hEnd.toISOString()}`);
-    console.log(`[send-meeting-reminders] 15min window: ${reminder15minStart.toISOString()} - ${reminder15minEnd.toISOString()}`);
 
-    // Get meetings in the reminder windows (including meeting_private)
+    // Get meetings in any of the 5 reminder windows
     const { data: meetings, error: meetingsError } = await supabase
       .from('events')
       .select(`
@@ -244,26 +235,28 @@ serve(async (req) => {
       from_name: smtpData.sender_name,
     };
 
-    // Get email templates (24h + 1h + 15min)
+    // Get all 5 email templates
     const { data: templates } = await supabase
       .from('email_templates')
       .select('*')
-      .in('internal_name', ['meeting_reminder_24h', 'meeting_reminder_1h', 'meeting_reminder_15min']);
+      .in('internal_name', [
+        'meeting_reminder_24h', 'meeting_reminder_12h', 'meeting_reminder_2h',
+        'meeting_reminder_1h', 'meeting_reminder_15min'
+      ]);
 
-    const template24h = templates?.find(t => t.internal_name === 'meeting_reminder_24h');
-    const template1h = templates?.find(t => t.internal_name === 'meeting_reminder_1h');
-    const template15min = templates?.find(t => t.internal_name === 'meeting_reminder_15min');
+    const templateMap: Record<string, typeof templates extends (infer T)[] | null ? T : never> = {};
+    templates?.forEach(t => { templateMap[t.internal_name] = t; });
 
-    if (!template1h || !template15min) {
-      console.error('[send-meeting-reminders] Missing email templates (1h or 15min)');
-      return new Response(
-        JSON.stringify({ success: false, error: "Missing email templates (meeting_reminder_1h or meeting_reminder_15min)" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-    
-    if (!template24h) {
-      console.warn('[send-meeting-reminders] Missing meeting_reminder_24h template, 24h reminders will be skipped');
+    // Verify required templates exist
+    const requiredTemplates = ['meeting_reminder_1h', 'meeting_reminder_15min'];
+    for (const name of requiredTemplates) {
+      if (!templateMap[name]) {
+        console.error(`[send-meeting-reminders] Missing required template: ${name}`);
+        return new Response(
+          JSON.stringify({ success: false, error: `Missing email template: ${name}` }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
     }
 
     let sentCount = 0;
@@ -272,41 +265,40 @@ serve(async (req) => {
     for (const meeting of meetings) {
       const meetingStart = new Date(meeting.start_time);
       const minutesUntil = (meetingStart.getTime() - now.getTime()) / (1000 * 60);
-      
-      // Determine reminder type (for registered users: 24h, 1h, 15min; for prospects: 24h, 12h, 2h, 15min)
-      let reminderType: '24h' | '12h' | '2h' | '1h' | '15min';
-      let template: typeof template1h;
-      let isProspectOnlyWindow = false;
-      
       const hoursUntil = minutesUntil / 60;
+      
+      // Determine reminder type — same 5 windows for everyone
+      let reminderType: '24h' | '12h' | '2h' | '1h' | '15min';
+      let templateName: string;
+      
       if (hoursUntil >= 23 && hoursUntil <= 25) {
         reminderType = '24h';
-        if (!template24h) {
-          console.log(`[send-meeting-reminders] Skipping 24h reminder - no template`);
-          continue;
-        }
-        template = template24h;
+        templateName = 'meeting_reminder_24h';
       } else if (hoursUntil >= 11 && hoursUntil <= 13) {
         reminderType = '12h';
-        isProspectOnlyWindow = true;
-        template = template24h; // placeholder, not used for registered users
+        templateName = 'meeting_reminder_12h';
       } else if (minutesUntil >= 110 && minutesUntil <= 130) {
         reminderType = '2h';
-        isProspectOnlyWindow = true;
-        template = template1h; // placeholder, not used for registered users
+        templateName = 'meeting_reminder_2h';
       } else if (minutesUntil >= 50 && minutesUntil <= 70) {
         reminderType = '1h';
-        template = template1h;
+        templateName = 'meeting_reminder_1h';
       } else if (minutesUntil >= 10 && minutesUntil <= 20) {
         reminderType = '15min';
-        template = template15min;
+        templateName = 'meeting_reminder_15min';
       } else {
+        continue;
+      }
+
+      const template = templateMap[templateName];
+      if (!template) {
+        console.log(`[send-meeting-reminders] Skipping ${reminderType} reminder — no template ${templateName}`);
         continue;
       }
 
       console.log(`[send-meeting-reminders] Processing meeting ${meeting.id} for ${reminderType} reminder`);
 
-      // Format date/time (needed for both prospect and registered user emails)
+      // Format date/time
       const dateStr = meetingStart.toLocaleDateString('pl-PL', { 
         weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Warsaw'
       });
@@ -315,7 +307,7 @@ serve(async (req) => {
       });
 
       // === Send prospect email for tripartite meetings ===
-      if (meeting.event_type === 'tripartite_meeting' && ['24h', '12h', '2h', '15min'].includes(reminderType)) {
+      if (meeting.event_type === 'tripartite_meeting') {
         try {
           const desc = meeting.description ? JSON.parse(meeting.description) : {};
           const prospectEmail = desc.prospect_email;
@@ -365,10 +357,7 @@ serve(async (req) => {
         }
       }
 
-      // Skip registered-user reminders for prospect-only windows (12h, 2h)
-      if (isProspectOnlyWindow) continue;
-
-      // Get participants for this meeting
+      // === Send reminders to registered users (all 5 windows) ===
       const { data: registrations } = await supabase
         .from('event_registrations')
         .select('user_id')
@@ -393,8 +382,6 @@ serve(async (req) => {
         .in('user_id', userIds);
 
       if (!profiles) continue;
-
-      // dateStr and timeStr already defined above
 
       // Send reminder to each participant
       for (const profile of profiles) {
@@ -423,7 +410,6 @@ serve(async (req) => {
         const isBooker = profile.user_id === meeting.created_by && profile.user_id !== meeting.host_user_id;
 
         // Build variables
-        // Find host and booker profiles for email variables
         const hostProfile = profiles.find(p => p.user_id === meeting.host_user_id);
         const bookerProfile = profiles.find(p => p.user_id === meeting.created_by);
 
@@ -447,7 +433,6 @@ serve(async (req) => {
             '<strong>⚠️ Przypomnienie:</strong> Jeśli zapraszasz osobę zewnętrzną na to spotkanie, ' +
             'skontaktuj się z nią teraz, aby upewnić się, że nic w planach się nie zmieniło. ' +
             'Prześlij jej link do spotkania - pokój będzie otwarty 5 minut przed czasem.</p>';
-          console.log(`[send-meeting-reminders] Adding tripartite note for booker ${profile.email}`);
         } else {
           variables['adnotacja_trojstronna'] = '';
         }
@@ -458,7 +443,6 @@ serve(async (req) => {
         // Append tripartite note if exists
         if (variables['adnotacja_trojstronna']) {
           htmlBody = htmlBody.replace('</body>', variables['adnotacja_trojstronna'] + '</body>');
-          // Also try to add before footer if no </body>
           if (!htmlBody.includes('</body>')) {
             htmlBody += variables['adnotacja_trojstronna'];
           }
@@ -468,13 +452,17 @@ serve(async (req) => {
 
         if (result.success) {
           // Mark reminder as sent
-          await supabase
+          const { error: insertError } = await supabase
             .from('meeting_reminders_sent')
             .insert({
               event_id: meeting.id,
               user_id: profile.user_id,
               reminder_type: reminderType,
             });
+
+          if (insertError) {
+            console.error(`[send-meeting-reminders] Failed to mark reminder as sent:`, insertError);
+          }
 
           // Log to email_logs
           await supabase.from('email_logs').insert({
@@ -493,26 +481,31 @@ serve(async (req) => {
 
           // Send Push notification (best effort)
           try {
+            const pushTitle = reminderType === '24h' ? "Spotkanie jutro"
+              : reminderType === '12h' ? "Spotkanie dziś"
+              : reminderType === '2h' ? "Spotkanie za 2 godziny"
+              : reminderType === '1h' ? "Spotkanie za godzinę"
+              : "Spotkanie za 15 minut";
+
             await supabase.functions.invoke("send-push-notification", {
               body: {
                 userId: profile.user_id,
-                title: reminderType === '24h' 
-                  ? "Spotkanie jutro"
-                  : reminderType === '1h' 
-                    ? "Spotkanie za godzinę" 
-                    : "Spotkanie za 15 minut",
+                title: pushTitle,
                 body: `${meeting.title || 'Spotkanie indywidualne'} — ${timeStr} (Warsaw)`,
                 url: `/events/individual-meetings?event=${meeting.id}`,
                 tag: `meeting-${reminderType}-${meeting.id}`
               }
             });
-            console.log(`[send-meeting-reminders] Push sent for ${reminderType} reminder to ${profile.email}`);
           } catch (pushErr) {
             console.warn(`[send-meeting-reminders] Push failed (non-blocking):`, pushErr);
           }
 
           // In-app notification
-          const reminderLabel = reminderType === '24h' ? 'jutro' : reminderType === '1h' ? 'za godzinę' : 'za 15 minut';
+          const reminderLabel = reminderType === '24h' ? 'jutro'
+            : reminderType === '12h' ? 'dziś'
+            : reminderType === '2h' ? 'za 2 godziny'
+            : reminderType === '1h' ? 'za godzinę'
+            : 'za 15 minut';
           try {
             await supabase.from('user_notifications').insert({
               user_id: profile.user_id,
@@ -523,7 +516,6 @@ serve(async (req) => {
               link: `/events/individual-meetings?event=${meeting.id}`,
               metadata: { event_id: meeting.id, reminder_type: reminderType },
             });
-            console.log(`[send-meeting-reminders] In-app notification sent to ${profile.email}`);
           } catch (inAppErr) {
             console.warn(`[send-meeting-reminders] In-app notification failed:`, inAppErr);
           }
