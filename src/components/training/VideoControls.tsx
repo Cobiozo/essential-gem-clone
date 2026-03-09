@@ -42,28 +42,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-  
-  // Function to copy diagnostics to clipboard (for admins)
-  const copyDiagnostics = () => {
-    const diagnostics = {
-      timestamp: new Date().toISOString(),
-      networkQuality,
-      connectionType: connectionType || 'unknown',
-      downlink: downlink ? `${downlink} Mbps` : 'n/a',
-      rtt: rtt ? `${rtt}ms` : 'n/a',
-      bufferProgress: bufferProgress?.toFixed(1) || 0,
-      bufferedAhead: bufferedAheadSeconds?.toFixed(1) || 0,
-      currentTime: formatTime(currentTime),
-      duration: formatTime(duration),
-      retryCount,
-      isPlaying,
-      isBuffering,
-      smartBufferingActive,
-    };
-    navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2))
-      .then(() => toast.success('Skopiowano dane diagnostyczne'))
-      .catch(() => toast.error('Nie udało się skopiować'));
-  };
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
 
