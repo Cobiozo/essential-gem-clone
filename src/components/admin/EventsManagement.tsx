@@ -578,7 +578,7 @@ export const EventsManagement: React.FC = () => {
           </Select>
         </div>
         {/* Desktop: tabs */}
-        <TabsList className="hidden md:grid md:grid-cols-7 gap-1">
+        <TabsList className="hidden md:grid md:grid-cols-8 gap-1">
           <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-3 text-sm">
             <Video className="h-4 w-4 shrink-0" />
             {t('admin.events.webinars')}
