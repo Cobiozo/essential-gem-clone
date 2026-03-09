@@ -1,27 +1,24 @@
 
 
-# Naprawa: ponowna rejestracja po anulowaniu zapisu na webinar
+## Plan zmian
 
-## Problem
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Gdy admin anuluje rejestrację gościa (status → `cancelled`), rekord w `guest_event_registrations` pozostaje. Przy ponownej rejestracji:
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-1. **Sprawdzenie duplikatu** (linia 204-209 w `EventGuestRegistration.tsx`) szuka DOWOLNEGO rekordu z tym samym `event_id + email` — znajduje anulowany i pokazuje "Już jesteś zapisany"
-2. **Kontakt prywatny** (`team_contacts`) został ustawiony na `is_active: false`, więc nie jest widoczny
-3. **UNIQUE constraint** `(event_id, email)` blokuje INSERT nawet gdyby sprawdzenie przeszło
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-## Rozwiązanie
+### 2. Złote ikony dla datetime-local (index.css)
 
-### 1. `EventGuestRegistration.tsx` — sprawdzenie tylko aktywnych rejestracji
-Zmienić query sprawdzające duplikat: dodać `.neq('status', 'cancelled')`. Jeśli istnieje anulowany rekord, zamiast INSERT wykonać UPDATE (przywrócić status na `registered`, wyczyścić `cancelled_at`, zaktualizować dane).
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-### 2. Edge function `send-webinar-confirmation` — re-aktywacja kontaktu
-Przy dodawaniu do kontaktów prywatnych, jeśli kontakt z tym emailem już istnieje ale jest `is_active: false`, zaktualizować go zamiast tworzyć nowy.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|---|---|
-| `src/pages/EventGuestRegistration.tsx` | Sprawdzenie tylko niecancelowanych + UPDATE zamiast INSERT dla anulowanych |
-| `supabase/functions/send-webinar-confirmation/index.ts` | Reaktywacja istniejącego kontaktu `is_active: false` |
+### Zakres: 2 pliki, ~10 linii zmian
 
