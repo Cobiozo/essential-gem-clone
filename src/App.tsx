@@ -131,6 +131,7 @@ const ResetPassword = lazyWithRetry(() => import("./pages/ResetPassword"));
 const ChangeTempPassword = lazyWithRetry(() => import("./pages/ChangeTempPassword"));
 const OmegaBasePage = lazyWithRetry(() => import("./pages/OmegaBasePage"));
 const LeaderLandingPage = lazyWithRetry(() => import("./pages/LeaderLandingPage"));
+const AutoWebinarPage = lazyWithRetry(() => import("./pages/AutoWebinarPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
