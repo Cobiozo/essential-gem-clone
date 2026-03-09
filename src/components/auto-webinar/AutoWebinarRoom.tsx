@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, Radio } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '@/hooks/useAutoWebinar';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -76,23 +76,32 @@ export const AutoWebinarRoom: React.FC = () => {
     );
   }
 
+  const roomTitle = config.room_title || 'Webinar NA ŻYWO';
+  const roomSubtitle = config.room_subtitle || `Automatyczne odtwarzanie co godzinę (${config.start_hour}:00 – ${config.end_hour}:00)`;
+  const bgColor = config.room_background_color || '#000000';
+  const showLiveBadge = config.room_show_live_badge !== false;
+  const showScheduleInfo = config.room_show_schedule_info !== false;
+  const countdownLabel = config.countdown_label || 'Następny webinar za';
+
   return (
     <DashboardLayout>
       <div className="space-y-4 max-w-5xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-destructive/10">
-              <Radio className="h-5 w-5 text-destructive" />
-            </div>
+            {config.room_logo_url ? (
+              <img src={config.room_logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
+            ) : (
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <Radio className="h-5 w-5 text-destructive" />
+              </div>
+            )}
             <div>
-              <h1 className="text-xl font-bold">Auto-Webinar</h1>
-              <p className="text-sm text-muted-foreground">
-                Automatyczne odtwarzanie co godzinę ({config.start_hour}:00 – {config.end_hour}:00)
-              </p>
+              <h1 className="text-xl font-bold">{roomTitle}</h1>
+              <p className="text-sm text-muted-foreground">{roomSubtitle}</p>
             </div>
           </div>
-          {isInActiveHours && currentVideo && startOffset >= 0 && (
+          {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && (
             <Badge variant="destructive" className="animate-pulse gap-1.5">
               <span className="w-2 h-2 rounded-full bg-background" />
               NA ŻYWO
@@ -104,7 +113,7 @@ export const AutoWebinarRoom: React.FC = () => {
         {isInActiveHours && currentVideo && startOffset >= 0 ? (
           <Card className="overflow-hidden border-0 shadow-lg">
             <CardContent className="p-0">
-              <div className="relative bg-black aspect-video">
+              <div className="relative aspect-video" style={{ backgroundColor: bgColor }}>
                 <video
                   ref={videoRef}
                   className="w-full h-full"
@@ -126,7 +135,7 @@ export const AutoWebinarRoom: React.FC = () => {
         ) : (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
-              <AutoWebinarCountdown secondsToNext={secondsToNext} />
+              <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
               {config.welcome_message && (
                 <p className="mt-6 text-center text-muted-foreground max-w-md">
                   {config.welcome_message}
@@ -137,18 +146,20 @@ export const AutoWebinarRoom: React.FC = () => {
         )}
 
         {/* Info */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Harmonogram</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm">
-              Webinary automatyczne odbywają się co {config.interval_minutes} minut, 
-              od godziny {config.start_hour}:00 do {config.end_hour}:00. 
-              W playliście jest {activeVideos.length} {activeVideos.length === 1 ? 'film' : 'filmów'}.
-            </p>
-          </CardContent>
-        </Card>
+        {showScheduleInfo && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Harmonogram</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm">
+                Webinary automatyczne odbywają się co {config.interval_minutes} minut, 
+                od godziny {config.start_hour}:00 do {config.end_hour}:00. 
+                W playliście jest {activeVideos.length} {activeVideos.length === 1 ? 'film' : 'filmów'}.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </DashboardLayout>
   );
