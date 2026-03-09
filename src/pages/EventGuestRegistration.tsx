@@ -148,7 +148,7 @@ const EventGuestRegistration: React.FC = () => {
     fetchEvent();
   }, [eventId]);
 
-  // Fetch auto-webinar config when event is auto_webinar
+  // Fetch auto-webinar config and first video when event is auto_webinar
   useEffect(() => {
     if (!event || event.event_type !== 'auto_webinar') return;
     const fetchConfig = async () => {
@@ -158,6 +158,16 @@ const EventGuestRegistration: React.FC = () => {
         .eq('event_id', event.id)
         .maybeSingle();
       if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+
+      // Fetch first active video for display data
+      const { data: videoData } = await supabase
+        .from('auto_webinar_videos')
+        .select('title, description, host_name, cover_image_url, thumbnail_url')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (videoData) setAutoWebinarVideo(videoData as AutoWebinarVideoData);
     };
     fetchConfig();
   }, [event]);
