@@ -605,7 +605,7 @@ Zapisz się tutaj: ${inviteUrl}
   return (
     <div 
       ref={cardRef}
-      className={`border rounded-lg bg-card overflow-hidden overflow-hidden overflow-hidden transition-all ${isLive ? 'ring-2 ring-red-500' : ''} ${defaultOpen ? 'ring-2 ring-primary/50' : ''}`}
+      className={`border rounded-lg bg-card overflow-hidden transition-all ${isLive ? 'ring-2 ring-red-500' : ''} ${defaultOpen ? 'ring-2 ring-primary/50' : ''}`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors rounded-lg">
