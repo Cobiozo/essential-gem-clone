@@ -695,7 +695,8 @@ Zapisz się tutaj: ${inviteUrl}
             {/* Description */}
             {event.description && (
               <div 
-                className="text-sm text-muted-foreground prose prose-sm max-w-none dark:pros overflow-hidden break-wordse-ine-invert overflow-hidden break-wordsInnerHTML={{ __html: event.description }}
+                className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert overflow-hidden break-words"
+                dangerouslySetInnerHTML={{ __html: event.description }}
               />
             )}
 
