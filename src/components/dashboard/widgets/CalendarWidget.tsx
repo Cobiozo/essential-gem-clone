@@ -321,7 +321,7 @@ ${signUpLabel}: ${inviteUrl}
       <Button
         size="sm"
         variant="outline"
-        className="h-6 text-xs"
+        className="h-8 text-xs touch-action-manipulation"
         onClick={() => registerForEvent(event.id, occurrenceIndex)}
       >
         {tf('events.registerButton', 'Zapisz się')}
