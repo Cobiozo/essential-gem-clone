@@ -316,6 +316,8 @@ export const AutoWebinarManagement: React.FC = () => {
           created_by: user.id,
           slug,
           is_published: false,
+        })
+        .select('id, title, slug, is_active')
         .single();
 
       if (eventError) throw eventError;
