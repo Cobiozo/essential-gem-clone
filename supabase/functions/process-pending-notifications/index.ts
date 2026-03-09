@@ -324,8 +324,8 @@ serve(async (req) => {
       const { data: upcomingWebinars, error: webinarError } = await supabase
         .from("events")
         .select("id, title, start_time, zoom_link, host_name, location")
-        .gte("start_time", twentyFourHoursFromNow)
-        .lte("start_time", thirtyHoursFromNow)
+        .gte("start_time", twentyThreeAndHalfHoursFromNow)
+        .lte("start_time", twentyFiveHoursFromNow)
         .eq("is_active", true)
         .eq("event_type", "webinar");
 
