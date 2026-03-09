@@ -819,6 +819,11 @@ export const EventsManagement: React.FC = () => {
           {/* Zoom Integration Settings */}
           <ZoomIntegrationSettings />
         </TabsContent>
+
+        {/* Auto-Webinar Tab */}
+        <TabsContent value="auto-webinar" className="space-y-4 mt-6">
+          <AutoWebinarManagement />
+        </TabsContent>
       </Tabs>
 
       {/* Topic Dialog */}
