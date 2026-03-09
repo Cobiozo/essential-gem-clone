@@ -52,6 +52,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const getEventIcon = (type: string) => {
     switch (type) {
       case 'webinar':
+      case 'auto_webinar':
         return <Video className="h-4 w-4 text-blue-500" />;
       case 'meeting_public':
       case 'team_training':
