@@ -509,32 +509,32 @@ ${signUpLabel}: ${inviteUrl}
                       <span className="text-xs text-muted-foreground">
                         {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} - {formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm')} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
                       </span>
-                      <div className="flex items-center gap-1 flex-wrap justify-end">
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-6 px-2"
+                          className="h-8 px-3 touch-action-manipulation"
                           onClick={(e) => {
                             e.stopPropagation();
                             setDetailsEvent(event);
                           }}
                            title={tf('events.details', 'Szczegóły')}
                          >
-                           <Info className="h-3 w-3 mr-1" />
+                           <Info className="h-3.5 w-3.5 mr-1" />
                            {tf('events.details', 'Szczegóły')}
                         </Button>
                         {event.event_type === 'webinar' && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-6 px-2"
+                            className="h-8 px-3 touch-action-manipulation"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleCopyInvitation(event);
                             }}
                             title="Zaproś Gościa"
                           >
-                            <UserPlus className="h-3 w-3" />
+                            <UserPlus className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {/* Custom action buttons - zawsze widoczne */}
