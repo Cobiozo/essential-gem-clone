@@ -320,23 +320,13 @@ const EventGuestRegistration: React.FC = () => {
             {/* Event Details */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
               {isAutoWebinar ? (
-                <>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">Webinary dostępne codziennie</p>
-                    </div>
+                <div className="flex items-center gap-3">
+                  <Video className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">Webinar online</p>
+                    <p className="text-sm text-muted-foreground">Dołącz w dowolnym momencie</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">
-                        Sesje od {startDate.getHours()}:00 do {endDate.getHours()}:00
-                      </p>
-                      <p className="text-sm text-muted-foreground">Nowe sesje startują co godzinę</p>
-                    </div>
-                  </div>
-                </>
+                </div>
               ) : (
                 <>
                   <div className="flex items-center gap-3">
