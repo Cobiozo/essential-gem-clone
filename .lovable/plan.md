@@ -1,24 +1,66 @@
 
 
-## Plan zmian
+# Rozszerzenie konfiguracji Auto-Webinarów
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Zakres
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Dodanie nowych sekcji w panelu admina do pełnej personalizacji auto-webinaru: treść zaproszenia, wygląd pokoju, podgląd obu widoków.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## 1. Nowe kolumny w `auto_webinar_config`
 
-### 2. Złote ikony dla datetime-local (index.css)
+Migracja SQL dodająca:
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+| Kolumna | Typ | Default | Opis |
+|---------|-----|---------|------|
+| `room_title` | text | 'Webinar NA ŻYWO' | Tytuł wyświetlany w pokoju |
+| `room_subtitle` | text | null | Podtytuł/opis pod tytułem |
+| `room_background_color` | text | '#000000' | Kolor tła pokoju wideo |
+| `room_show_live_badge` | boolean | true | Czy pokazywać badge "NA ŻYWO" |
+| `room_show_schedule_info` | boolean | true | Czy pokazywać sekcję harmonogramu |
+| `room_logo_url` | text | null | Logo wyświetlane w pokoju |
+| `invitation_title` | text | null | Tytuł wydarzenia (nadpisuje domyślny) |
+| `invitation_description` | text | null | Opis zaproszenia |
+| `invitation_image_url` | text | null | Obraz/baner zaproszenia |
+| `countdown_label` | text | 'Następny webinar za' | Etykieta odliczania |
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+## 2. Aktualizacja typu TypeScript
 
-### Zakres: 2 pliki, ~10 linii zmian
+Rozszerzenie `AutoWebinarConfig` w `src/types/autoWebinar.ts` o nowe pola.
+
+## 3. Nowe sekcje w `AutoWebinarManagement.tsx`
+
+### Sekcja "Treść zaproszenia"
+- Pola: tytuł zaproszenia, opis, URL obrazu/banera
+- Przycisk "Zapisz" aktualizujący zarówno `auto_webinar_config` jak i powiązane `events.title` / `events.description`
+- **Podgląd zaproszenia** — karta z podglądem jak wygląda zaproszenie (tytuł, opis, obraz, godziny)
+
+### Sekcja "Wygląd pokoju"
+- Pola: tytuł pokoju, podtytuł, kolor tła, URL logo, etykieta odliczania
+- Switche: badge "NA ŻYWO", sekcja harmonogramu
+- **Podgląd pokoju** — miniaturowa symulacja pokoju z zastosowanymi ustawieniami (aspect-video z tytułem, badge, overlay)
+
+## 4. Aktualizacja `AutoWebinarRoom.tsx`
+
+Zamiast hardkodowanych tekstów, czytanie z config:
+- `config.room_title` zamiast "Auto-Webinar"
+- `config.room_subtitle` zamiast opisu godzin
+- `config.room_background_color` jako tło video
+- `config.room_show_live_badge` warunkowe renderowanie badge
+- `config.room_show_schedule_info` warunkowe renderowanie karty harmonogramu
+- `config.room_logo_url` wyświetlane w pokoju
+- `config.countdown_label` przekazywane do `AutoWebinarCountdown`
+
+## 5. Synchronizacja z wydarzeniem
+
+Gdy admin zmienia `invitation_title` lub `invitation_description`, automatycznie aktualizować `events.title` i `events.description` powiązanego wydarzenia — aby zaproszenia widziane przez partnerów odzwierciedlały zmiany.
+
+## Pliki do edycji
+
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | Nowe kolumny w `auto_webinar_config` |
+| `src/types/autoWebinar.ts` | Nowe pola w interfejsie |
+| `src/components/admin/AutoWebinarManagement.tsx` | 2 nowe sekcje Card + podglądy |
+| `src/components/auto-webinar/AutoWebinarRoom.tsx` | Użycie config zamiast hardkodowanych tekstów |
+| `src/components/auto-webinar/AutoWebinarCountdown.tsx` | Bez zmian (już przyjmuje `label` prop) |
 
