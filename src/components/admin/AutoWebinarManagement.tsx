@@ -836,7 +836,7 @@ export const AutoWebinarManagement: React.FC = () => {
             Wydarzenie i zaproszenia
           </CardTitle>
           <CardDescription>
-            Powiąż auto-webinar z wydarzeniem, aby umożliwić rejestrację i zaproszenia
+            Utwórz wydarzenie, aby partnerzy mogli zapraszać gości. Link zaproszeniowy pojawi się automatycznie w panelu partnera (karta wydarzenia → „Kopiuj zaproszenie").
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

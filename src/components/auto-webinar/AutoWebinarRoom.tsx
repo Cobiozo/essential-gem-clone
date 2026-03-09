@@ -139,22 +139,6 @@ export const AutoWebinarRoom: React.FC = () => {
           </Card>
         )}
 
-        {/* Info */}
-        {showScheduleInfo && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Harmonogram</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm">
-                Webinary automatyczne odbywają się co {config.interval_minutes} minut, 
-                od godziny {config.start_hour}:00 do {config.end_hour}:00. 
-                W playliście jest {activeVideos.length} {activeVideos.length === 1 ? 'film' : 'filmów'}.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Custom section */}
         {config.room_custom_section_title && config.room_custom_section_content && (
           <Card>
