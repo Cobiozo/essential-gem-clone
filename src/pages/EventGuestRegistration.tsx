@@ -351,6 +351,13 @@ const EventGuestRegistration: React.FC = () => {
                 ? (() => {
                     if (autoWebinarConfig) {
                       const slot = getNextSlot(autoWebinarConfig);
+                      const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
+                      const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
+                      
+                      if (minutesToSlot <= 15) {
+                        return 'Sprawdź swoją skrzynkę email — wysłaliśmy Ci link do natychmiastowego dołączenia! 🔴';
+                      }
+                      
                       const accessNote = autoWebinarConfig.interval_minutes >= 30
                         ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
                         : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.';
