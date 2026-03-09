@@ -482,6 +482,17 @@ export const EventRegistrationsManagement: React.FC = () => {
 
       if (error) throw error;
 
+      // If cancelling, also deactivate linked team_contact
+      if (newStatus === 'cancelled') {
+        const reg = guestRegistrations.find(r => r.id === registrationId);
+        if (reg?.team_contact_id) {
+          await supabase
+            .from('team_contacts')
+            .update({ is_active: false })
+            .eq('id', reg.team_contact_id);
+        }
+      }
+
       setGuestRegistrations(prev => 
         prev.map(r => r.id === registrationId ? { ...r, status: newStatus } : r)
       );
