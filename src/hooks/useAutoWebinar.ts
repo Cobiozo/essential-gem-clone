@@ -41,7 +41,7 @@ export function useAutoWebinarVideos() {
 
 /**
  * Calculate which video should be playing and at what time offset,
- * synchronized to the current hour.
+ * synchronized based on interval_minutes from start_hour.
  */
 export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebinarConfig | null) {
   const [currentVideo, setCurrentVideo] = useState<AutoWebinarVideo | null>(null);
@@ -65,17 +65,14 @@ export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebin
     const calculate = () => {
       const now = new Date();
       const currentHour = now.getHours();
-      const minutesPastHour = now.getMinutes();
-      const secondsPastHour = minutesPastHour * 60 + now.getSeconds();
+      const secondsPastHour = now.getMinutes() * 60 + now.getSeconds();
 
       // Check if within active hours
       if (currentHour < config.start_hour || currentHour >= config.end_hour) {
         setIsInActiveHours(false);
         setCurrentVideo(null);
-        // Calculate seconds until next active period
         let nextStartHour = config.start_hour;
         if (currentHour >= config.end_hour) {
-          // Next day
           nextStartHour = config.start_hour + 24;
         }
         const hoursUntil = nextStartHour - currentHour;
@@ -85,29 +82,31 @@ export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebin
 
       setIsInActiveHours(true);
 
-      // Determine which video in the playlist
-      const hoursSinceStart = currentHour - config.start_hour;
+      const intervalSeconds = (config.interval_minutes || 60) * 60;
+      const secondsSinceStart = (currentHour - config.start_hour) * 3600 + secondsPastHour;
+      const currentSlotIndex = Math.floor(secondsSinceStart / intervalSeconds);
+      const secondsIntoSlot = secondsSinceStart % intervalSeconds;
+
+      // Determine which video
       let videoIndex: number;
       if (config.playlist_mode === 'sequential') {
-        videoIndex = hoursSinceStart % activeVideos.length;
+        videoIndex = currentSlotIndex % activeVideos.length;
       } else {
-        // Pseudo-random but deterministic for the same hour
-        const seed = currentHour * 1000 + now.getDate() * 31 + now.getMonth() * 367;
+        const seed = currentSlotIndex * 1000 + now.getDate() * 31 + now.getMonth() * 367;
         videoIndex = seed % activeVideos.length;
       }
 
       const video = activeVideos[videoIndex];
       setCurrentVideo(video);
 
-      // Calculate offset: how many seconds into this hour
-      if (video.duration_seconds > 0 && secondsPastHour < video.duration_seconds) {
-        setStartOffset(secondsPastHour);
+      if (video.duration_seconds > 0 && secondsIntoSlot < video.duration_seconds) {
+        setStartOffset(secondsIntoSlot);
         setSecondsToNext(0);
       } else if (video.duration_seconds > 0) {
-        // Video already finished for this hour
-        setStartOffset(-1); // Signal that video ended
-        const interval = config.interval_minutes * 60;
-        setSecondsToNext(interval - secondsPastHour);
+        // Video already finished for this slot
+        setStartOffset(-1);
+        const nextSlotStart = (currentSlotIndex + 1) * intervalSeconds;
+        setSecondsToNext(nextSlotStart - secondsSinceStart);
       } else {
         setStartOffset(0);
       }

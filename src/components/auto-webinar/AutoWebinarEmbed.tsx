@@ -12,10 +12,24 @@ export const AutoWebinarEmbed: React.FC = () => {
   const { currentVideo, startOffset, isInActiveHours, secondsToNext } = useAutoWebinarSync(videos, config);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+
+  // Welcome message overlay — show for 30 seconds on initial load
+  useEffect(() => {
+    if (!config?.welcome_message || !isInActiveHours || !currentVideo || startOffset < 0) {
+      setShowWelcome(false);
+      return;
+    }
+    setShowWelcome(true);
+    const timer = setTimeout(() => setShowWelcome(false), 30000);
+    return () => clearTimeout(timer);
+    // Only trigger on first join (config load)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.id, isInActiveHours]);
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !currentVideo || startOffset < 0) return;
+    if (!video || !currentVideo || startOffset < 0 || showWelcome) return;
 
     const handleCanPlay = () => {
       if (!hasStarted && startOffset > 0) {
@@ -31,7 +45,7 @@ export const AutoWebinarEmbed: React.FC = () => {
     return () => {
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, [currentVideo, startOffset, hasStarted]);
+  }, [currentVideo, startOffset, hasStarted, showWelcome]);
 
   useEffect(() => {
     setHasStarted(false);
@@ -68,7 +82,7 @@ export const AutoWebinarEmbed: React.FC = () => {
   }
 
   const roomTitle = config.room_title || 'Webinar NA ŻYWO';
-  const roomSubtitle = config.room_subtitle || `Automatyczne odtwarzanie co godzinę (${config.start_hour}:00 – ${config.end_hour}:00)`;
+  const roomSubtitle = config.room_subtitle || `Automatyczne odtwarzanie co ${config.interval_minutes || 60} min (${config.start_hour}:00 – ${config.end_hour}:00)`;
   const bgColor = config.room_background_color || '#000000';
   const showLiveBadge = config.room_show_live_badge !== false;
   const showScheduleInfo = config.room_show_schedule_info !== false;
@@ -91,7 +105,7 @@ export const AutoWebinarEmbed: React.FC = () => {
             <p className="text-sm text-muted-foreground">{roomSubtitle}</p>
           </div>
         </div>
-        {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && (
+        {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
           <Badge variant="destructive" className="animate-pulse gap-1.5">
             <span className="w-2 h-2 rounded-full bg-background" />
             NA ŻYWO
@@ -99,8 +113,25 @@ export const AutoWebinarEmbed: React.FC = () => {
         )}
       </div>
 
-      {/* Video player or countdown */}
-      {isInActiveHours && currentVideo && startOffset >= 0 ? (
+      {/* Welcome message overlay or Video player or countdown */}
+      {showWelcome && config.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              <Radio className="h-12 w-12 text-white/60 mb-6 animate-pulse" />
+              <p className="text-white text-xl md:text-2xl font-semibold max-w-2xl leading-relaxed">
+                {config.welcome_message}
+              </p>
+              <p className="text-white/50 text-sm mt-6">
+                Transmisja rozpocznie się za chwilę...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : isInActiveHours && currentVideo && startOffset >= 0 ? (
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div className="relative aspect-video" style={{ backgroundColor: bgColor }}>

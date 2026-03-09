@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventCardCompact } from '@/components/events/EventCardCompact';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
 import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
+import { useAuth } from '@/contexts/AuthContext';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -14,8 +15,20 @@ const WebinarsPage: React.FC = () => {
   const highlightedEventId = searchParams.get('event');
   const { upcomingEvents, pastEvents, loading, refetch } = usePublicEvents('webinar');
   const { config, loading: configLoading } = useAutoWebinarConfig();
+  const { userRole } = useAuth();
 
-  const showAutoTab = !configLoading && config?.is_enabled;
+  // Check if current user role has access to auto-webinar tab
+  const role = userRole?.role;
+  const hasAutoAccess = (() => {
+    if (!config?.is_enabled) return false;
+    if (role === 'admin') return true;
+    if (role === 'partner' && config.visible_to_partners) return true;
+    if (role === 'specjalista' && config.visible_to_specjalista) return true;
+    if ((role === 'client' || role === 'user') && config.visible_to_clients) return true;
+    return false;
+  })();
+
+  const showAutoTab = !configLoading && hasAutoAccess;
 
   if (loading) {
     return (
@@ -100,7 +113,7 @@ const WebinarsPage: React.FC = () => {
               </TabsTrigger>
               <TabsTrigger value="auto" className="gap-1.5">
                 <Radio className="h-4 w-4" />
-                Webinary Biznesowe 24h/live
+                {config?.room_title || 'Webinary Biznesowe 24h/live'}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="list">{webinarListContent}</TabsContent>

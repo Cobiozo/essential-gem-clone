@@ -544,9 +544,13 @@ export type Database = {
           room_show_schedule_info: boolean | null
           room_subtitle: string | null
           room_title: string | null
+          show_in_calendar: boolean | null
           show_participant_count: boolean
           start_hour: number
           updated_at: string
+          visible_to_clients: boolean | null
+          visible_to_partners: boolean | null
+          visible_to_specjalista: boolean | null
           welcome_message: string | null
         }
         Insert: {
@@ -570,9 +574,13 @@ export type Database = {
           room_show_schedule_info?: boolean | null
           room_subtitle?: string | null
           room_title?: string | null
+          show_in_calendar?: boolean | null
           show_participant_count?: boolean
           start_hour?: number
           updated_at?: string
+          visible_to_clients?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
           welcome_message?: string | null
         }
         Update: {
@@ -596,9 +604,13 @@ export type Database = {
           room_show_schedule_info?: boolean | null
           room_subtitle?: string | null
           room_title?: string | null
+          show_in_calendar?: boolean | null
           show_participant_count?: boolean
           start_hour?: number
           updated_at?: string
+          visible_to_clients?: boolean | null
+          visible_to_partners?: boolean | null
+          visible_to_specjalista?: boolean | null
           welcome_message?: string | null
         }
         Relationships: [
