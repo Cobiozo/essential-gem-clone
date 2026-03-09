@@ -97,6 +97,7 @@ interface EventData {
   is_active: boolean;
   is_published: boolean;
   event_type: string | null;
+  slug: string | null;
 }
 
 // UUID validation helper
