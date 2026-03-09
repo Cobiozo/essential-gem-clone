@@ -37,11 +37,29 @@ const ResetPassword = () => {
     const hasRecoveryParams = hash.includes('type=recovery') || hash.includes('type=magiclink');
 
     if (hasRecoveryParams) {
-      // Give Supabase time to process the hash tokens
+      // Fallback: PASSWORD_RECOVERY event may have fired before this component mounted
+      // (race condition with AuthContext capturing SIGNED_IN first)
+      // Check if session already exists — if so, treat as valid recovery session
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session && !resolved) {
+          console.log("[ResetPassword] Fallback: session already exists, treating as recovery");
+          resolved = true;
+          setIsRecoverySession(true);
+          setSessionChecked(true);
+          clearTimeout(timeoutId);
+        }
+      });
+
+      // Final timeout fallback — one last getSession attempt
       timeoutId = setTimeout(() => {
         if (!resolved) {
-          console.log("[ResetPassword] Timeout reached, no PASSWORD_RECOVERY event received");
-          setSessionChecked(true);
+          console.log("[ResetPassword] Timeout reached, final session check");
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) {
+              setIsRecoverySession(true);
+            }
+            setSessionChecked(true);
+          });
         }
       }, 5000);
     } else {
