@@ -525,13 +525,23 @@ export type Database = {
       auto_webinar_config: {
         Row: {
           chat_enabled: boolean
+          countdown_label: string | null
           created_at: string
           end_hour: number
           event_id: string | null
           id: string
           interval_minutes: number
+          invitation_description: string | null
+          invitation_image_url: string | null
+          invitation_title: string | null
           is_enabled: boolean
           playlist_mode: string
+          room_background_color: string | null
+          room_logo_url: string | null
+          room_show_live_badge: boolean | null
+          room_show_schedule_info: boolean | null
+          room_subtitle: string | null
+          room_title: string | null
           show_participant_count: boolean
           start_hour: number
           updated_at: string
@@ -539,13 +549,23 @@ export type Database = {
         }
         Insert: {
           chat_enabled?: boolean
+          countdown_label?: string | null
           created_at?: string
           end_hour?: number
           event_id?: string | null
           id?: string
           interval_minutes?: number
+          invitation_description?: string | null
+          invitation_image_url?: string | null
+          invitation_title?: string | null
           is_enabled?: boolean
           playlist_mode?: string
+          room_background_color?: string | null
+          room_logo_url?: string | null
+          room_show_live_badge?: boolean | null
+          room_show_schedule_info?: boolean | null
+          room_subtitle?: string | null
+          room_title?: string | null
           show_participant_count?: boolean
           start_hour?: number
           updated_at?: string
@@ -553,13 +573,23 @@ export type Database = {
         }
         Update: {
           chat_enabled?: boolean
+          countdown_label?: string | null
           created_at?: string
           end_hour?: number
           event_id?: string | null
           id?: string
           interval_minutes?: number
+          invitation_description?: string | null
+          invitation_image_url?: string | null
+          invitation_title?: string | null
           is_enabled?: boolean
           playlist_mode?: string
+          room_background_color?: string | null
+          room_logo_url?: string | null
+          room_show_live_badge?: boolean | null
+          room_show_schedule_info?: boolean | null
+          room_subtitle?: string | null
+          room_title?: string | null
           show_participant_count?: boolean
           start_hour?: number
           updated_at?: string
