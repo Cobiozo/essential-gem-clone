@@ -458,6 +458,39 @@ const Training = () => {
         };
       });
 
+      // Auto-repair: reset is_completed and delete certificate when new lessons detected
+      const repairPromises: PromiseLike<any>[] = [];
+      modulesWithProgress.forEach((mod: any) => {
+        if (mod.has_new_lessons && user) {
+          // Reset assignment completion
+          repairPromises.push(
+            supabase
+              .from('training_assignments')
+              .update({ is_completed: false, completed_at: null })
+              .eq('user_id', user.id)
+              .eq('module_id', mod.id)
+              .eq('is_completed', true)
+              .then()
+          );
+          // Delete invalid certificate
+          if (certMap[mod.id]) {
+            repairPromises.push(
+              supabase
+                .from('certificates')
+                .delete()
+                .eq('id', certMap[mod.id].id)
+                .then()
+            );
+            delete certMap[mod.id];
+          }
+        }
+      });
+
+      if (repairPromises.length > 0) {
+        await Promise.allSettled(repairPromises);
+        setCertificates({ ...certMap });
+      }
+
       setModules(modulesWithProgress);
     } catch (error) {
       console.error('Error fetching training modules:', error);
@@ -849,8 +882,8 @@ const Training = () => {
                         )}
                       </div>
 
-                      {/* Certificate Section - Only show when 100% completed */}
-                      {progress === 100 && (() => {
+                      {/* Certificate Section - Only show when 100% completed and no new lessons to catch up */}
+                      {progress === 100 && !module.has_new_lessons && (() => {
                         const cert = certificates[module.id];
                         const formatDate = (d: string | null) => d ? new Date(d).toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' }) : 'data nieznana';
                         
