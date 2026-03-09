@@ -62,6 +62,8 @@ export const AutoWebinarManagement: React.FC = () => {
     room_show_schedule_info: true,
     room_logo_url: '',
     countdown_label: 'Następny webinar za',
+    room_custom_section_title: '',
+    room_custom_section_content: '',
   });
 
   useEffect(() => {
