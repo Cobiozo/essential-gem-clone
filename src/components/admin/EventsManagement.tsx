@@ -578,36 +578,36 @@ export const EventsManagement: React.FC = () => {
           </Select>
         </div>
         {/* Desktop: tabs */}
-        <TabsList className="hidden md:grid md:grid-cols-8 gap-1">
-          <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-3 text-sm">
+        <TabsList className="hidden md:flex md:flex-wrap gap-1 h-auto p-1">
+          <TabsTrigger value="webinars" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <Video className="h-4 w-4 shrink-0" />
-            {t('admin.events.webinars')}
+            Webinary
           </TabsTrigger>
-          <TabsTrigger value="team-training" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="team-training" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <BookOpen className="h-4 w-4 shrink-0" />
-            {t('admin.events.teamMeeting')}
+            Szkolenia
           </TabsTrigger>
-          <TabsTrigger value="individual-meetings" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="individual-meetings" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <UserRound className="h-4 w-4 shrink-0" />
-            {t('admin.events.individualMeeting')}
+            Indywidualne
           </TabsTrigger>
-          <TabsTrigger value="sms-logs" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="sms-logs" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <MessageSquare className="h-4 w-4 shrink-0" />
-            {t('admin.events.smsLogs')}
+            SMS
           </TabsTrigger>
-          <TabsTrigger value="topics" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="topics" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <Calendar className="h-4 w-4 shrink-0" />
-            {t('admin.events.topics')}
+            Tematy
           </TabsTrigger>
-          <TabsTrigger value="leaders" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="leaders" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <Users className="h-4 w-4 shrink-0" />
-            {t('admin.events.leaders')}
+            Liderzy
           </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="settings" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <Settings className="h-4 w-4 shrink-0" />
-            {t('admin.events.settings')}
+            Ustawienia
           </TabsTrigger>
-          <TabsTrigger value="auto-webinar" className="flex items-center gap-1.5 px-3 text-sm">
+          <TabsTrigger value="auto-webinar" className="flex items-center gap-1.5 px-3 text-sm whitespace-nowrap">
             <Radio className="h-4 w-4 shrink-0" />
             Auto-Webinary
           </TabsTrigger>
