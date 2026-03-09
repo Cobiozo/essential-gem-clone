@@ -459,7 +459,7 @@ const Training = () => {
       });
 
       // Auto-repair: reset is_completed and delete certificate when new lessons detected
-      const repairPromises: Promise<any>[] = [];
+      const repairPromises: PromiseLike<any>[] = [];
       modulesWithProgress.forEach((mod: any) => {
         if (mod.has_new_lessons && user) {
           // Reset assignment completion
