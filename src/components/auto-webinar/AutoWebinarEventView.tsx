@@ -194,27 +194,30 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                     const isPast = status === 'past';
                     const isNow = status === 'now';
 
+                    const isUnavailable = isPast || isNow;
+
                     return (
                       <button
                         key={time}
-                        onClick={() => setSelectedSlot(
+                        disabled={isUnavailable}
+                        onClick={() => !isUnavailable && setSelectedSlot(
                           selected ? null : { dayIndex: day.index, time }
                         )}
                         className={`w-full flex items-center justify-center gap-1 rounded-md px-1 py-1 text-xs font-mono transition-colors ${
                           selected
                             ? 'bg-primary text-primary-foreground'
                             : isNow
-                              ? 'bg-primary/10 border border-primary/30 text-foreground'
+                              ? 'bg-primary/10 border border-primary/30 text-foreground cursor-not-allowed'
                               : isPast
-                                ? 'text-muted-foreground/50 hover:bg-muted/40'
+                                ? 'text-muted-foreground/50 line-through cursor-not-allowed'
                                 : 'hover:bg-muted/60 text-foreground'
                         }`}
                       >
-                        {isNow && !selected && (
+                        {isNow && (
                           <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                         )}
                         {time}
-                        {isNow && !selected && (
+                        {isNow && (
                           <span className="text-[9px] font-sans font-semibold text-destructive">LIVE</span>
                         )}
                       </button>
