@@ -139,6 +139,7 @@ export const AutoWebinarManagement: React.FC = () => {
           visible_to_specjalista: true,
           visible_to_clients: true,
           requires_registration: true,
+          allow_invites: true,
           created_by: user.id,
           slug,
           is_published: true,
