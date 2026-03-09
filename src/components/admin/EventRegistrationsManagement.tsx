@@ -324,6 +324,26 @@ export const EventRegistrationsManagement: React.FC = () => {
     return registrations.filter(r => r.status === statusFilter);
   }, [registrations, statusFilter]);
 
+  // Group registrations by user_id to avoid showing duplicates for multi-occurrence events
+  const groupedRegistrations = useMemo(() => {
+    const groups = new Map<string, EventRegistration[]>();
+    for (const reg of filteredRegistrations) {
+      const existing = groups.get(reg.user_id) || [];
+      existing.push(reg);
+      groups.set(reg.user_id, existing);
+    }
+    return Array.from(groups.entries()).map(([userId, regs]) => {
+      // Sort by registered_at to get earliest
+      const sorted = [...regs].sort((a, b) => new Date(a.registered_at).getTime() - new Date(b.registered_at).getTime());
+      return {
+        ...sorted[0],
+        allRegistrations: sorted,
+        occurrenceCount: regs.length,
+        activeCount: regs.filter(r => r.status === 'registered').length,
+      };
+    });
+  }, [filteredRegistrations]);
+
   const filteredGuestRegistrations = useMemo(() => {
     if (statusFilter === 'all') return guestRegistrations;
     return guestRegistrations.filter(r => r.status === statusFilter);
