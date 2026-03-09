@@ -571,6 +571,9 @@ export const EventsManagement: React.FC = () => {
               <SelectItem value="settings">
                 <span className="flex items-center gap-2"><Settings className="h-4 w-4" /> {t('admin.events.settings')}</span>
               </SelectItem>
+              <SelectItem value="auto-webinar">
+                <span className="flex items-center gap-2"><Radio className="h-4 w-4" /> Auto-Webinary</span>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
