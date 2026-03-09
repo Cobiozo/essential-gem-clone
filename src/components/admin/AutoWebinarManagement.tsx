@@ -476,13 +476,15 @@ export const AutoWebinarManagement: React.FC = () => {
       video_url: video.video_url,
       duration_seconds: video.duration_seconds,
       thumbnail_url: video.thumbnail_url || '',
+      host_name: video.host_name || '',
+      cover_image_url: video.cover_image_url || '',
     });
     setVideoDialogOpen(true);
   };
 
   const resetVideoForm = () => {
     setEditingVideo(null);
-    setVideoForm({ title: '', description: '', video_url: '', duration_seconds: 0, thumbnail_url: '' });
+    setVideoForm({ title: '', description: '', video_url: '', duration_seconds: 0, thumbnail_url: '', host_name: '', cover_image_url: '' });
   };
 
   const formatDuration = (seconds: number) => {
