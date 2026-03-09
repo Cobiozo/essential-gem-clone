@@ -36,14 +36,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   onRetry,
   bufferedRanges,
   networkQuality,
-  showDiagnostics = false,
-  videoSrc,
-  retryCount = 0,
-  smartBufferingActive = false,
-  bufferedAheadSeconds = 0,
-  connectionType,
-  downlink,
-  rtt
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
