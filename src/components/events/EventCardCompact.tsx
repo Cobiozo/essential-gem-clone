@@ -610,7 +610,7 @@ Zapisz się tutaj: ${inviteUrl}
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors rounded-lg">
           {/* Thumbnail */}
-          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+          <div className={`rounded-lg overflow-hidden flex-shrink-0 bg-muted transition-all duration-300 ${isOpen ? 'w-32 h-32' : 'w-20 h-20'}`}>
             {event.image_url ? (
               <img
                 src={event.image_url}
@@ -682,16 +682,6 @@ Zapisz się tutaj: ${inviteUrl}
               </div>
             </div>
 
-            {/* Expanded image preview */}
-            {event.image_url && (
-              <div className="w-full max-h-64 rounded-lg overflow-hidden bg-muted">
-                <img
-                  src={event.image_url}
-                  alt={event.title}
-                  className="w-full h-full object-cover max-h-64"
-                />
-              </div>
-            )}
 
             {/* External platform banner */}
             {isExternalPlatform && isUpcoming && (

@@ -1,20 +1,24 @@
 
 
-# Powiększenie miniaturki po rozwinięciu karty
+## Plan zmian
 
-## Problem
-Dodano oddzielną dużą grafikę w rozwiniętej sekcji, a użytkownik chciał efektu powiększenia istniejącej miniaturki (80x80px → większa) po rozwinięciu karty.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Rozwiązanie
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### `src/components/events/EventCardCompact.tsx`
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-1. **Usunąć** dodatkowy blok "Expanded image preview" (linie 685-694)
-2. **Powiększyć miniaturkę** w nagłówku gdy karta jest otwarta — zmienić rozmiar z `w-20 h-20` na `w-32 h-32` (128px) z płynną animacją `transition-all duration-300`:
+### 2. Złote ikony dla datetime-local (index.css)
 
-```tsx
-<div className={`rounded-lg overflow-hidden flex-shrink-0 bg-muted transition-all duration-300 ${isOpen ? 'w-32 h-32' : 'w-20 h-20'}`}>
-```
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Miniaturka będzie płynnie rosła/malała przy otwieraniu/zamykaniu karty, bez dodatkowego elementu graficznego.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+
+### Zakres: 2 pliki, ~10 linii zmian
 
