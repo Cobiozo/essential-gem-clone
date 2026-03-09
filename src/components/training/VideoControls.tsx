@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, HelpCircle, Settings, Copy, RotateCcw } from 'lucide-react';
-import { toast } from 'sonner';
+import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 
@@ -21,15 +20,6 @@ interface VideoControlsProps {
   bufferedRanges?: { start: number; end: number }[];
   // NEW: Network quality indicator
   networkQuality?: 'good' | 'slow' | 'offline';
-  // NEW: Extended diagnostics props (for admins)
-  showDiagnostics?: boolean;
-  videoSrc?: string;
-  retryCount?: number;
-  smartBufferingActive?: boolean;
-  bufferedAheadSeconds?: number;
-  connectionType?: string;
-  downlink?: number;
-  rtt?: number;
 }
 
 export const VideoControls: React.FC<VideoControlsProps> = ({
@@ -46,41 +36,11 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
   onRetry,
   bufferedRanges,
   networkQuality,
-  showDiagnostics = false,
-  videoSrc,
-  retryCount = 0,
-  smartBufferingActive = false,
-  bufferedAheadSeconds = 0,
-  connectionType,
-  downlink,
-  rtt
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-  
-  // Function to copy diagnostics to clipboard (for admins)
-  const copyDiagnostics = () => {
-    const diagnostics = {
-      timestamp: new Date().toISOString(),
-      networkQuality,
-      connectionType: connectionType || 'unknown',
-      downlink: downlink ? `${downlink} Mbps` : 'n/a',
-      rtt: rtt ? `${rtt}ms` : 'n/a',
-      bufferProgress: bufferProgress?.toFixed(1) || 0,
-      bufferedAhead: bufferedAheadSeconds?.toFixed(1) || 0,
-      currentTime: formatTime(currentTime),
-      duration: formatTime(duration),
-      retryCount,
-      isPlaying,
-      isBuffering,
-      smartBufferingActive,
-    };
-    navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2))
-      .then(() => toast.success('Skopiowano dane diagnostyczne'))
-      .catch(() => toast.error('Nie udało się skopiować'));
   };
 
   const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
@@ -225,60 +185,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
               <span className="hidden sm:inline">Napraw</span>
             </Button>
           )}
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              // Podstawowa pomoc + diagnostyka dla adminów
-              const helpContent = (
-                <div className="space-y-2">
-                  <p className="font-medium">Problem z wideo?</p>
-                  <ol className="text-sm list-decimal list-inside space-y-1">
-                    <li>Sprawdź połączenie internetowe</li>
-                    <li>Kliknij przycisk "Napraw"</li>
-                    <li>Odśwież stronę (F5)</li>
-                    <li>Spróbuj innej przeglądarki</li>
-                  </ol>
-                  {showDiagnostics && (
-                    <div className="mt-3 pt-2 border-t border-muted text-xs space-y-1">
-                      <p className="font-medium text-muted-foreground">🔧 Diagnostyka admina:</p>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        <p>Sieć: {networkQuality === 'good' ? '✅ Dobra' : networkQuality === 'slow' ? '⚠️ Wolna' : '❌ Offline'}</p>
-                        <p>Typ: {connectionType || 'brak danych'}</p>
-                        <p>Downlink: {downlink ? `${downlink} Mbps` : 'n/a'}</p>
-                        <p>RTT: {rtt ? `${rtt}ms` : 'n/a'}</p>
-                        <p>Bufor: {bufferProgress?.toFixed(0) || 0}%</p>
-                        <p>Bufor ahead: {bufferedAheadSeconds?.toFixed(1) || 0}s</p>
-                        <p>Pozycja: {formatTime(currentTime)}</p>
-                        <p>Całkowity: {formatTime(duration)}</p>
-                        <p>Próby: {retryCount}/5</p>
-                        <p>Smart buf: {smartBufferingActive ? '🔴 Aktywny' : '🟢 Nie'}</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={copyDiagnostics}
-                        className="mt-2 h-6 text-[10px] w-full"
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Kopiuj dane diagnostyczne
-                      </Button>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Jeśli problem się powtarza, skontaktuj się z zespołem wsparcia.
-                  </p>
-                </div>
-              );
-              toast.info(helpContent, { duration: showDiagnostics ? 20000 : 15000 });
-            }}
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-            title={showDiagnostics ? "Diagnostyka wideo" : "Pomoc z problemami z wideo"}
-          >
-            <HelpCircle className="h-3 w-3 mr-1" />
-            {showDiagnostics ? 'Diagnostyka' : 'Pomoc'}
-          </Button>
           
           {onFullscreen && (
             <Button
