@@ -1,37 +1,24 @@
 
 
-# Naprawa: natychmiastowy email z linkiem + poprawka tekstu sukcesu
+## Plan zmian
 
-## Problem 1 — Edge Function ignoruje `isImmediateJoin`
+### 1. Logo na ekranie ładowania (App.tsx)
 
-W `supabase/functions/send-webinar-confirmation/index.ts`, linia 370: `if (template)` — gdy szablon `webinar_confirmation` istnieje w bazie, funkcja używa go ZAMIAST specjalnego emaila z linkiem. Logika `isImmediateJoin` jest tylko w bloku `else` (fallback).
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### Rozwiązanie
-Zmienić kolejność — gdy `isImmediateJoin && isAutoWebinar`, ZAWSZE użyj hardcoded szablonu z linkiem do pokoju, niezależnie od istnienia szablonu w bazie. Szablon DB stosować tylko dla zwykłych webinarów lub auto-webinarów z >15 min do slotu.
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-```
-if (isImmediateJoin && displayRoomLink) {
-  // Zawsze hardcoded email z linkiem — ignoruj szablon DB
-  subject = '🔴 Dołącz teraz: ...';
-  htmlBody = '... z przyciskiem Dołącz ...';
-} else if (template) {
-  // Standardowy szablon z DB
-} else {
-  // Fallback
-}
-```
+### 2. Złote ikony dla datetime-local (index.css)
 
-## Problem 2 — Tekst sukcesu na stronie rejestracji
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-W `EventGuestRegistration.tsx`, linia 350-360: dla auto-webinarów tekst mówi tylko o najbliższym slocie i zasadach dołączenia, ale nie rozróżnia sytuacji gdy slot jest za ≤15 min (powinien informować o wysłanym emailu z linkiem) vs >15 min.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-### Rozwiązanie
-Dodać warunek: jeśli `slotDiffMinutes <= 15`, wyświetl: "Sprawdź swoją skrzynkę email — wysłaliśmy Ci link do natychmiastowego dołączenia!" Jeśli >15 min, wyświetl obecny tekst z datą i godziną slotu (bez wzmianki o przypomnieniach 24h/1h, bo auto-webinary ich nie wysyłają).
-
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|---|---|
-| `supabase/functions/send-webinar-confirmation/index.ts` | Priorytet `isImmediateJoin` nad szablonem DB |
-| `src/pages/EventGuestRegistration.tsx` | Warunkowy tekst sukcesu dla ≤15 min |
+### Zakres: 2 pliki, ~10 linii zmian
 

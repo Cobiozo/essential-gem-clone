@@ -366,28 +366,10 @@ const handler = async (req: Request): Promise<Response> => {
     let subject: string;
     let htmlBody: string;
 
-    // Use template from database if available, otherwise use fallback
-    if (template) {
-      console.log(`[send-webinar-confirmation] Using template: ${template.internal_name}`);
+    // PRIORITY: Immediate join email for auto-webinars (≤15 min) ALWAYS takes precedence over DB template
+    if (isImmediateJoin && displayRoomLink) {
+      console.log(`[send-webinar-confirmation] IMMEDIATE JOIN: isImmediateJoin=${isImmediateJoin}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
       
-      // Replace template variables
-      const replaceVariables = (text: string): string => {
-        return text
-          .replace(/\{\{imię\}\}/gi, firstName)
-          .replace(/\{\{event_title\}\}/gi, eventTitle)
-          .replace(/\{\{event_date\}\}/gi, displayDate)
-          .replace(/\{\{event_time\}\}/gi, displayTime)
-          .replace(/\{\{host_name\}\}/gi, displayHost)
-          .replace(/\{\{zoom_link\}\}/gi, displayZoomLink);
-      };
-
-      subject = replaceVariables(template.subject);
-      htmlBody = replaceVariables(template.body_html);
-    } else {
-      // Fallback to hardcoded templates
-      console.log(`[send-webinar-confirmation] Template not found, using fallback for ${emailType}, isImmediateJoin: ${isImmediateJoin}`);
-      
-      if (isImmediateJoin && displayRoomLink) {
         // AUTO-WEBINAR: Immediate join email (≤15 min to next slot)
         subject = `🔴 Dołącz teraz: ${eventTitle}`;
         htmlBody = `
@@ -442,7 +424,23 @@ const handler = async (req: Request): Promise<Response> => {
           </body>
           </html>
         `;
-      } else if (isReminder) {
+    } else if (template) {
+      // Use template from database (for non-immediate auto-webinars and regular webinars)
+      console.log(`[send-webinar-confirmation] Using template: ${template.internal_name}`);
+      
+      const replaceVariables = (text: string): string => {
+        return text
+          .replace(/\{\{imię\}\}/gi, firstName)
+          .replace(/\{\{event_title\}\}/gi, eventTitle)
+          .replace(/\{\{event_date\}\}/gi, displayDate)
+          .replace(/\{\{event_time\}\}/gi, displayTime)
+          .replace(/\{\{host_name\}\}/gi, displayHost)
+          .replace(/\{\{zoom_link\}\}/gi, displayZoomLink);
+      };
+
+      subject = replaceVariables(template.subject);
+      htmlBody = replaceVariables(template.body_html);
+    } else if (isReminder) {
         subject = `⏰ Przypomnienie: ${eventTitle} - już jutro!`;
         htmlBody = `
           <!DOCTYPE html>
@@ -557,7 +555,6 @@ const handler = async (req: Request): Promise<Response> => {
           </body>
           </html>
         `;
-      }
     }
 
     try {
