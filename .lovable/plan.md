@@ -1,24 +1,37 @@
 
 
-## Plan zmian
+# Zmiany: podgląd zaproszenia + link rejestracyjny
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## 1. Usunięcie "Codziennie 8:00–22:00" z podglądu zaproszenia
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+W `AutoWebinarManagement.tsx` (linie 710-713) usunąć blok z `Codziennie X:00 – Y:00`.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## 2. Dodanie linku rejestracyjnego w podglądzie zaproszenia
 
-### 2. Złote ikony dla datetime-local (index.css)
+W podglądzie zaproszenia (po opisie) dodać widoczny link do rejestracji:
+```
+🔗 Zapisz się: https://purelife.info.pl/e/{slug}
+```
+Link będzie wyświetlany tylko gdy istnieje powiązane wydarzenie (`linkedEvent?.slug`). Będzie to klikalny link w podglądzie.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+## 3. Usunięcie "Codziennie" z formularza rejestracji gości
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+W `EventGuestRegistration.tsx` usunąć/zmienić tekst "Webinary dostępne codziennie" (linie 233-235, 331-334) na bardziej neutralny, np. "Webinary dostępne w ciągu dnia". Usunąć też szczegóły godzin z widoku rejestracji.
 
-### Zakres: 2 pliki, ~10 linii zmian
+## Co już działa (nie wymaga zmian)
+
+Istniejący system **już obsługuje** pełen flow:
+- **Formularz rejestracyjny** — `EventGuestRegistration.tsx` zapisuje dane do `guest_event_registrations`
+- **Zapis do kontaktów prywatnych** — edge function `send-webinar-confirmation` dodaje gościa do `team_contacts` z adnotacją o wydarzeniu
+- **Email z potwierdzeniem** — ten sam edge function wysyła email z linkiem do spotkania
+- **Powiadomienia/przypomnienia** — system `process-pending-notifications` obsługuje harmonogram przypomnień dla zarejestrowanych gości
+
+Jedyne co brakuje to **widoczność linku** w sekcji zaproszenia w panelu admina.
+
+## Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/AutoWebinarManagement.tsx` | Usunąć "Codziennie X:00–Y:00", dodać link rejestracyjny w podglądzie |
+| `src/pages/EventGuestRegistration.tsx` | Usunąć "Webinary dostępne codziennie" i szczegóły godzinowe |
 
