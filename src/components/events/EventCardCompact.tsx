@@ -608,9 +608,9 @@ Zapisz się tutaj: ${inviteUrl}
       className={`border rounded-lg bg-card overflow-hidden 2 ring-red-500' : ''} ${defaultOpen ? 'ring-2 ring-primary/50' : ''}`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-        <CollapsibleTrigger className={`w-full p-3 hover:bg-muted/50 transition-colors rounded-lg ${isOpen ? 'flex flex-col items-start gap-3' : 'flex items-center gap-3'}`}ol items-start gap-3' : 'flex items-center gap-3'}`}ol items-start gap-3' : 'flex items-center gap-3'}`}>
+        <CollapsibleTrigger className={`w-full p-3 hover:bg-muted/50 transition-colors rounded-lg ${isOpen ? 'flex flex-col items-start gap-3' : 'flex items-center gap-3'}`}>
           {/* Thumbnail */}
-          <div fullassName={`rounded-lg overflow-hidden flex-shrink-0fullg-muted transition-all duration-300 ${isOpen ? 'w-48 h-48' : 'w-20 h-20'}`}>
+          <div className={`rounded-lg overflow-hidden flex-shrink-0 bg-muted transition-all duration-300 ${isOpen ? 'w-full h-48' : 'w-20 h-20'}`}>
             {event.image_url ? (
               <img
                 src={event.image_url}
