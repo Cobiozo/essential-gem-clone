@@ -1069,6 +1069,24 @@ export const AutoWebinarManagement: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Logo Picker Dialog */}
+      <Dialog open={logoPickerOpen} onOpenChange={setLogoPickerOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Wybierz logo z biblioteki mediów</DialogTitle>
+          </DialogHeader>
+          <AdminMediaLibrary
+            mode="picker"
+            allowedTypes={['image']}
+            onSelect={(file) => {
+              setRoomForm(prev => ({ ...prev, room_logo_url: file.file_url }));
+              setLogoPickerOpen(false);
+              toast({ title: 'Logo wybrane' });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
