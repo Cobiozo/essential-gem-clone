@@ -177,7 +177,6 @@ export const AutoWebinarManagement: React.FC = () => {
       setTimeout(() => setCopiedLink(false), 2000);
       toast({ title: 'Skopiowano link zaproszeniowy' });
     } catch {
-      // Fallback for iOS
       const textarea = document.createElement('textarea');
       textarea.value = link;
       document.body.appendChild(textarea);
@@ -188,6 +187,31 @@ export const AutoWebinarManagement: React.FC = () => {
       setTimeout(() => setCopiedLink(false), 2000);
       toast({ title: 'Skopiowano link zaproszeniowy' });
     }
+  };
+
+  const handleToggleEventActive = async () => {
+    if (!linkedEvent) return;
+    const newActive = !linkedEvent.is_active;
+    const { error } = await supabase
+      .from('events')
+      .update({ is_active: newActive })
+      .eq('id', linkedEvent.id);
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setLinkedEvent({ ...linkedEvent, is_active: newActive });
+    toast({ title: 'Sukces', description: `Wydarzenie ${newActive ? 'włączone' : 'wyłączone'}` });
+  };
+
+  const handleDeleteLinkedEvent = async () => {
+    if (!linkedEvent || !config) return;
+    // Deactivate event and unlink from config
+    await supabase.from('events').update({ is_active: false }).eq('id', linkedEvent.id);
+    await supabase.from('auto_webinar_config').update({ event_id: null, updated_at: new Date().toISOString() }).eq('id', config.id);
+    setLinkedEvent(null);
+    setConfig({ ...config, event_id: null });
+    toast({ title: 'Usunięto', description: 'Wydarzenie zostało wyłączone i odpięte' });
   };
 
   const handleSaveVideo = async () => {
