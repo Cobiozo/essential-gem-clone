@@ -10,9 +10,40 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
+
+interface AutoWebinarSlotConfig {
+  start_hour: number;
+  end_hour: number;
+  interval_minutes: number;
+}
+
+const getNextSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+  const totalMinutes = currentHour * 60 + currentMin;
+  const interval = config.interval_minutes;
+
+  // Generate slots for today
+  for (let h = config.start_hour; h < config.end_hour; h++) {
+    for (let m = 0; m < 60; m += interval) {
+      const slotMin = h * 60 + m;
+      if (slotMin > totalMinutes) {
+        const slotDate = new Date(now);
+        slotDate.setHours(h, m, 0, 0);
+        return { date: slotDate, time: format(slotDate, 'HH:mm') };
+      }
+    }
+  }
+
+  // No future slot today — return first slot tomorrow
+  const tomorrow = addDays(now, 1);
+  tomorrow.setHours(config.start_hour, 0, 0, 0);
+  return { date: tomorrow, time: format(tomorrow, 'HH:mm') };
+};
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 const registrationSchema = z.object({
@@ -66,6 +97,7 @@ const EventGuestRegistration: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -106,6 +138,20 @@ const EventGuestRegistration: React.FC = () => {
 
     fetchEvent();
   }, [eventId]);
+
+  // Fetch auto-webinar config when event is auto_webinar
+  useEffect(() => {
+    if (!event || event.event_type !== 'auto_webinar') return;
+    const fetchConfig = async () => {
+      const { data } = await supabase
+        .from('auto_webinar_config')
+        .select('start_hour, end_hour, interval_minutes')
+        .eq('event_id', event.id)
+        .maybeSingle();
+      if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+    };
+    fetchConfig();
+  }, [event]);
 
   const onSubmit = async (data: RegistrationFormData) => {
     if (!eventId) return;
@@ -228,10 +274,28 @@ const EventGuestRegistration: React.FC = () => {
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h3 className="font-semibold">{event.title}</h3>
               {isAutoWebinar ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Video className="h-4 w-4" />
-                  <span>Webinar online</span>
-                </div>
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Video className="h-4 w-4" />
+                    <span>Webinar online</span>
+                  </div>
+                  {autoWebinarConfig && (() => {
+                    const slot = getNextSlot(autoWebinarConfig);
+                    return (
+                      <>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>{format(slot.date, 'EEEE, d MMMM', { locale: pl })} • godz. {slot.time}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {autoWebinarConfig.interval_minutes >= 30
+                            ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
+                            : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.'}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </>
               ) : (
                 <>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -253,7 +317,16 @@ const EventGuestRegistration: React.FC = () => {
             </div>
             <p className="text-sm text-muted-foreground text-center">
               {isAutoWebinar
-                ? 'Dziękujemy za rejestrację! Możesz dołączyć do webinaru w dowolnym momencie w godzinach emisji.'
+                ? (() => {
+                    if (autoWebinarConfig) {
+                      const slot = getNextSlot(autoWebinarConfig);
+                      const accessNote = autoWebinarConfig.interval_minutes >= 30
+                        ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
+                        : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.';
+                      return `Najbliższy webinar: ${format(slot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${slot.time}. ${accessNote}`;
+                    }
+                    return 'Dziękujemy za rejestrację!';
+                  })()
                 : (() => {
                     const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
                     if (hoursUntilEvent > 24) {
@@ -319,12 +392,31 @@ const EventGuestRegistration: React.FC = () => {
             {/* Event Details */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
               {isAutoWebinar ? (
-                <div className="flex items-center gap-3">
-                  <Video className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium">Webinar online</p>
-                    <p className="text-sm text-muted-foreground">Dołącz w dowolnym momencie</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Video className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Webinar online</p>
+                    </div>
                   </div>
+                  {autoWebinarConfig && (() => {
+                    const slot = getNextSlot(autoWebinarConfig);
+                    return (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium">{format(slot.date, 'EEEE, d MMMM', { locale: pl })} • godz. {slot.time}</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground ml-8">
+                          {autoWebinarConfig.interval_minutes >= 30
+                            ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem spotkania.'
+                            : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.'}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 <>
