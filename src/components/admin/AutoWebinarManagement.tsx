@@ -275,7 +275,8 @@ export const AutoWebinarManagement: React.FC = () => {
     setCreatingEvent(true);
     try {
       const cfg = await ensureConfig();
-      const slug = 'auto-webinar-' + Date.now().toString(36);
+      const titleForSlug = invitationForm.invitation_title || roomForm.room_title || 'auto-webinar';
+      const slug = slugify(titleForSlug) + '-' + Math.random().toString(36).substring(2, 6);
       const now = new Date();
       const farFuture = new Date(now.getFullYear() + 10, 0, 1);
 
