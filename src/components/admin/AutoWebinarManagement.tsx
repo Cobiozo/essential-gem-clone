@@ -1027,7 +1027,9 @@ export const AutoWebinarManagement: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">Lp.</TableHead>
+                  <TableHead className="w-16">Miniaturka</TableHead>
                   <TableHead>Tytuł</TableHead>
+                  <TableHead>Prowadzący</TableHead>
                   <TableHead>Czas</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Akcje</TableHead>
@@ -1042,7 +1044,21 @@ export const AutoWebinarManagement: React.FC = () => {
                         {idx + 1}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      {(video.thumbnail_url || video.cover_image_url) ? (
+                        <img
+                          src={video.thumbnail_url || video.cover_image_url || ''}
+                          alt={video.title}
+                          className="w-14 h-10 object-cover rounded border"
+                        />
+                      ) : (
+                        <div className="w-14 h-10 rounded border bg-muted flex items-center justify-center">
+                          <Video className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{video.title}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{video.host_name || '—'}</TableCell>
                     <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
                     <TableCell>
                       <Badge
