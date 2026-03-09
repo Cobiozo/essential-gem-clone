@@ -371,7 +371,7 @@ const EventGuestRegistration: React.FC = () => {
               {isAutoWebinar
                 ? (() => {
                     if (autoWebinarConfig) {
-                      const slot = getNextSlot(autoWebinarConfig);
+                       const slot = getNextSlot(autoWebinarConfig, slotParam);
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
