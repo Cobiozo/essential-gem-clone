@@ -86,6 +86,8 @@ export const AutoWebinarManagement: React.FC = () => {
         room_show_schedule_info: config.room_show_schedule_info !== false,
         room_logo_url: config.room_logo_url || '',
         countdown_label: config.countdown_label || 'Następny webinar za',
+        room_custom_section_title: config.room_custom_section_title || '',
+        room_custom_section_content: config.room_custom_section_content || '',
       });
     }
   }, [config]);
