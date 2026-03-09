@@ -747,19 +747,15 @@ export const AutoWebinarManagement: React.FC = () => {
                   onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_live_badge: v }))}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Sekcja harmonogramu</Label>
-                  <p className="text-xs text-muted-foreground">Pokaż kartę z informacjami o harmonogramie</p>
-                </div>
-                <Switch
-                  checked={roomForm.room_show_schedule_info}
-                  onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
-                />
-              </div>
               {/* Custom section */}
               <div className="border-t pt-4 space-y-3">
-                <Label className="text-sm font-semibold">Sekcja własna (pod harmonogramem)</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Sekcja własna</Label>
+                  <Switch
+                    checked={roomForm.room_show_schedule_info}
+                    onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
+                  />
+                </div>
                 <div>
                   <Label>Tytuł sekcji</Label>
                   <Input
