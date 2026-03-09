@@ -626,14 +626,14 @@ Zapisz się tutaj: ${inviteUrl}
 
           {/* Title and host */}
           <div className="flex-1 text-left min-w-0">
-            <h3 className="font-semibold line-clamp-2 text-sm">{event.title}</h3>
+            <h3 className="font-semibold line-clamp-2mp-2 text-sm">{event.title}</h3>
             {event.host_name && (
               <span className="text-xs text-muted-foreground truncate block">{event.host_name}</span>
             )}
           </div>
 
           {/* Date/Time - hidden on mobile */}
-          <div className="hidden md:flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
+          <div className="hidlgn md:flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               <span>{format(displayDate, 'd MMM', { locale: dateLocale })}</span>
