@@ -709,12 +709,33 @@ export const AutoWebinarManagement: React.FC = () => {
                 </div>
               </div>
               <div>
-                <Label>URL logo (opcjonalnie)</Label>
-                <Input
-                  value={roomForm.room_logo_url}
-                  onChange={(e) => setRoomForm(prev => ({ ...prev, room_logo_url: e.target.value }))}
-                  placeholder="https://..."
-                />
+                <Label>Logo pokoju (opcjonalnie)</Label>
+                {roomForm.room_logo_url ? (
+                  <div className="flex items-center gap-3 mt-2">
+                    <img src={roomForm.room_logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-cover border" />
+                    <Button variant="ghost" size="icon" onClick={() => setRoomForm(prev => ({ ...prev, room_logo_url: '' }))}>
+                      <X className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-1">
+                    <Button variant="outline" size="sm" onClick={() => setLogoPickerOpen(true)}>
+                      <ImageIcon className="h-4 w-4 mr-1" />
+                      Z biblioteki
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => logoFileRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-1" />
+                      Z komputera
+                    </Button>
+                    <input
+                      ref={logoFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleUploadLogo}
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>
