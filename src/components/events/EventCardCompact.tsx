@@ -624,8 +624,8 @@ Zapisz się tutaj: ${inviteUrl}
             )}
           </div>
 
-    {`text-left min-w-0 ${isOpen ? 'w-full' : 'flex-1'}`}/}
-          <div className="flex-1 text-left min-w-0">
+          {/* Title and host */}
+          <div className={`text-left min-w-0 ${isOpen ? 'w-full' : 'flex-1'}`}>
             <h3 className="font-semibold line-clamp-2 text-sm">{event.title}</h3>
             {event.host_name && (
               <span className="text-xs text-muted-foreground truncate block">{event.host_name}</span>
