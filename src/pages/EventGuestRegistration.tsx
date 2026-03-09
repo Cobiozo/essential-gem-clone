@@ -332,7 +332,7 @@ const EventGuestRegistration: React.FC = () => {
                     <span>Webinar online</span>
                   </div>
                   {autoWebinarConfig && (() => {
-                    const slot = getNextSlot(autoWebinarConfig);
+                     const slot = getNextSlot(autoWebinarConfig, slotParam);
                     return (
                       <>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
