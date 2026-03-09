@@ -20,6 +20,14 @@ interface AutoWebinarSlotConfig {
   interval_minutes: number;
 }
 
+interface AutoWebinarVideoData {
+  title: string;
+  description: string | null;
+  host_name: string | null;
+  cover_image_url: string | null;
+  thumbnail_url: string | null;
+}
+
 const getNextSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } => {
   const now = new Date();
   const currentHour = now.getHours();
