@@ -307,21 +307,43 @@ const EventGuestRegistration: React.FC = () => {
           <CardContent className="space-y-6">
             {/* Event Details */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">{format(startDate, 'PPPP', { locale: pl })}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">
-                    {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
-                    {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
-                  </p>
-                </div>
-              </div>
+              {isAutoWebinar ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Webinary dostępne codziennie</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">
+                        Sesje od {startDate.getHours()}:00 do {endDate.getHours()}:00
+                      </p>
+                      <p className="text-sm text-muted-foreground">Nowe sesje startują co godzinę</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">{format(startDate, 'PPPP', { locale: pl })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">
+                        {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+                        {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
               {event.host_name && (
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />
