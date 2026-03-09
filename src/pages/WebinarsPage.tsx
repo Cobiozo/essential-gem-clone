@@ -18,12 +18,13 @@ const WebinarsPage: React.FC = () => {
   const { userRole } = useAuth();
 
   // Check if current user role has access to auto-webinar tab
+  const role = userRole?.role;
   const hasAutoAccess = (() => {
     if (!config?.is_enabled) return false;
-    if (userRole === 'admin') return true;
-    if (userRole === 'partner' && config.visible_to_partners) return true;
-    if (userRole === 'specjalista' && config.visible_to_specjalista) return true;
-    if ((userRole === 'client' || userRole === 'user') && config.visible_to_clients) return true;
+    if (role === 'admin') return true;
+    if (role === 'partner' && config.visible_to_partners) return true;
+    if (role === 'specjalista' && config.visible_to_specjalista) return true;
+    if ((role === 'client' || role === 'user') && config.visible_to_clients) return true;
     return false;
   })();
 
