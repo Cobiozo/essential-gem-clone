@@ -1,24 +1,38 @@
 
 
-## Plan zmian
+# Fix: RLS policy blocks auto-webinar registration for anonymous users
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+The RLS policy `events_public_registration_access` on the `events` table requires **all three conditions** for anonymous (anon) users:
+- `is_active = true`
+- `is_published = true` 
+- `requires_registration = true`
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+The auto-webinar event has `is_published = false` (hidden from calendar), so the anon SELECT query returns 0 rows → PGRST116 error.
 
-### 2. Złote ikony dla datetime-local (index.css)
+The previous fix removed `is_published` from the **application query**, but the **database RLS policy** still enforces it at the Postgres level.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+## Solution
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+Update the RLS policy to allow anon users to SELECT active events regardless of `is_published`. The `is_published` flag should only control calendar/dashboard visibility in the app, not database-level access for registration.
 
-### Zakres: 2 pliki, ~10 linii zmian
+**SQL migration:**
+```sql
+DROP POLICY IF EXISTS "events_public_registration_access" ON public.events;
+
+CREATE POLICY "events_public_registration_access"
+ON public.events
+FOR SELECT
+TO anon
+USING (is_active = true);
+```
+
+This allows the registration page to load any active event for anonymous guests, whether it's published in the calendar or not. Security is maintained because `is_active` still controls overall availability, and the anon role can only SELECT — no writes.
+
+| File | Change |
+|------|--------|
+| SQL migration | Update `events_public_registration_access` policy — remove `is_published` and `requires_registration` checks |
+
+One SQL change, no code file changes needed.
 
