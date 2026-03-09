@@ -275,14 +275,14 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     // For individual meetings (tripartite, partner_consultation) - show "Szczegóły" button
     if (['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)) {
       return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
-            className="h-6 px-2 text-xs"
+            className="h-8 px-3 text-xs touch-action-manipulation"
             onClick={() => setDetailsEvent(event)}
           >
-            <Info className="h-3 w-3 mr-1" />
+            <Info className="h-3.5 w-3.5 mr-1" />
             {tf('events.details', 'Szczegóły')}
           </Button>
           {/* Cancel button (more than 2 hours before) */}
@@ -290,11 +290,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              className="h-8 px-3 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 touch-action-manipulation"
               onClick={() => handleCancelMeeting(event)}
               disabled={cancellingEventId === event.id}
             >
-              <X className="h-3 w-3" />
+              <X className="h-3.5 w-3.5" />
             </Button>
           )}
         </div>
