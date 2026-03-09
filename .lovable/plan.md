@@ -1,32 +1,24 @@
 
 
-# Większa grafika po rozwinięciu karty wydarzenia
+## Plan zmian
 
-## Problem
-Po rozwinięciu karty webinaru/spotkania grafika pozostaje w rozmiarze miniaturki (80x80px) z nagłówka. Brak większego podglądu obrazu w rozwiniętej sekcji — treść opisu zaczyna się bezpośrednio, bez kontekstu wizualnego.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-## Rozwiązanie
-Dodać większą wersję grafiki w rozwiniętej sekcji (`CollapsibleContent`), zaraz po dacie mobilnej, a przed opisem. Grafika będzie wyświetlana w pełnej szerokości z zaokrąglonymi rogami i ograniczoną maksymalną wysokością.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### `src/components/events/EventCardCompact.tsx`
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-Po sekcji "Mobile date/time" (linia 683), przed "External platform banner" (linia 686), dodać blok z większą grafiką:
+### 2. Złote ikony dla datetime-local (index.css)
 
-```tsx
-{/* Expanded image */}
-{event.image_url && (
-  <div className="w-full max-h-64 rounded-lg overflow-hidden bg-muted">
-    <img
-      src={event.image_url}
-      alt={event.title}
-      className="w-full h-full object-cover max-h-64"
-    />
-  </div>
-)}
-```
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Grafika zajmie pełną szerokość karty, z `max-h-64` (256px) jako ograniczeniem wysokości i `object-cover` dla zachowania proporcji.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-### Pliki do edycji:
-- `src/components/events/EventCardCompact.tsx` — dodanie większej grafiki w rozwiniętej sekcji
+### Zakres: 2 pliki, ~10 linii zmian
 
