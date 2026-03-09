@@ -818,11 +818,6 @@ export const AutoWebinarManagement: React.FC = () => {
                     <Radio className="h-8 w-8 text-white/30 mx-auto" />
                     <p className="text-white/40 text-xs">Obszar wideo</p>
                   </div>
-                  <div className="absolute top-2 left-2">
-                    <Badge variant="secondary" className="bg-background/80 text-[10px]">
-                      Tytuł filmu
-                    </Badge>
-                  </div>
                 </div>
                 {/* Schedule info preview */}
                 {roomForm.room_show_schedule_info && (
@@ -831,6 +826,13 @@ export const AutoWebinarManagement: React.FC = () => {
                     <p className="text-[10px] text-muted-foreground">
                       Co {config?.interval_minutes ?? 60} min, {config?.start_hour ?? 8}:00 – {config?.end_hour ?? 22}:00
                     </p>
+                  </div>
+                )}
+                {/* Custom section preview */}
+                {roomForm.room_custom_section_title && roomForm.room_custom_section_content && (
+                  <div className="p-3 border-t">
+                    <p className="text-[10px] font-medium mb-1">{roomForm.room_custom_section_title}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-3">{roomForm.room_custom_section_content}</p>
                   </div>
                 )}
               </div>
