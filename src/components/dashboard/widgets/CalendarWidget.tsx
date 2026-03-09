@@ -224,9 +224,9 @@ ${signUpLabel}: ${inviteUrl}
       }
       if (event.zoom_link) {
         return (
-          <Button size="sm" className="h-6 text-xs bg-emerald-600 hover:bg-emerald-700" asChild>
+          <Button size="sm" className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 touch-action-manipulation" asChild>
             <a href={event.zoom_link} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3 w-3 mr-1" />
+              <ExternalLink className="h-3.5 w-3.5 mr-1" />
               {tf('events.join', 'WEJDŹ')}
             </a>
           </Button>
