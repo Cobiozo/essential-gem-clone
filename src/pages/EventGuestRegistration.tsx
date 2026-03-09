@@ -392,12 +392,31 @@ const EventGuestRegistration: React.FC = () => {
             {/* Event Details */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
               {isAutoWebinar ? (
-                <div className="flex items-center gap-3">
-                  <Video className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="font-medium">Webinar online</p>
-                    <p className="text-sm text-muted-foreground">Dołącz w dowolnym momencie</p>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Video className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Webinar online</p>
+                    </div>
                   </div>
+                  {autoWebinarConfig && (() => {
+                    const slot = getNextSlot(autoWebinarConfig);
+                    return (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <Calendar className="h-5 w-5 text-primary" />
+                          <div>
+                            <p className="font-medium">{format(slot.date, 'EEEE, d MMMM', { locale: pl })} • godz. {slot.time}</p>
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground ml-8">
+                          {autoWebinarConfig.interval_minutes >= 30
+                            ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem spotkania.'
+                            : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.'}
+                        </p>
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 <>
