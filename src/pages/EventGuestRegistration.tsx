@@ -139,6 +139,20 @@ const EventGuestRegistration: React.FC = () => {
     fetchEvent();
   }, [eventId]);
 
+  // Fetch auto-webinar config when event is auto_webinar
+  useEffect(() => {
+    if (!event || event.event_type !== 'auto_webinar') return;
+    const fetchConfig = async () => {
+      const { data } = await supabase
+        .from('auto_webinar_config')
+        .select('start_hour, end_hour, interval_minutes')
+        .eq('event_id', event.id)
+        .maybeSingle();
+      if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+    };
+    fetchConfig();
+  }, [event]);
+
   const onSubmit = async (data: RegistrationFormData) => {
     if (!eventId) return;
     
