@@ -123,12 +123,6 @@ export const AutoWebinarRoom: React.FC = () => {
                 >
                   <source src={currentVideo.video_url} type="video/mp4" />
                 </video>
-                {/* Overlay with title */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-                  <Badge variant="secondary" className="bg-background/80 backdrop-blur-sm text-xs">
-                    {currentVideo.title}
-                  </Badge>
-                </div>
               </div>
             </CardContent>
           </Card>
