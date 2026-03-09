@@ -208,60 +208,6 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             </Button>
           )}
           
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              // Podstawowa pomoc + diagnostyka dla adminów
-              const helpContent = (
-                <div className="space-y-2">
-                  <p className="font-medium">Problem z wideo?</p>
-                  <ol className="text-sm list-decimal list-inside space-y-1">
-                    <li>Sprawdź połączenie internetowe</li>
-                    <li>Kliknij przycisk "Napraw"</li>
-                    <li>Odśwież stronę (F5)</li>
-                    <li>Spróbuj innej przeglądarki</li>
-                  </ol>
-                  {showDiagnostics && (
-                    <div className="mt-3 pt-2 border-t border-muted text-xs space-y-1">
-                      <p className="font-medium text-muted-foreground">🔧 Diagnostyka admina:</p>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                        <p>Sieć: {networkQuality === 'good' ? '✅ Dobra' : networkQuality === 'slow' ? '⚠️ Wolna' : '❌ Offline'}</p>
-                        <p>Typ: {connectionType || 'brak danych'}</p>
-                        <p>Downlink: {downlink ? `${downlink} Mbps` : 'n/a'}</p>
-                        <p>RTT: {rtt ? `${rtt}ms` : 'n/a'}</p>
-                        <p>Bufor: {bufferProgress?.toFixed(0) || 0}%</p>
-                        <p>Bufor ahead: {bufferedAheadSeconds?.toFixed(1) || 0}s</p>
-                        <p>Pozycja: {formatTime(currentTime)}</p>
-                        <p>Całkowity: {formatTime(duration)}</p>
-                        <p>Próby: {retryCount}/5</p>
-                        <p>Smart buf: {smartBufferingActive ? '🔴 Aktywny' : '🟢 Nie'}</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={copyDiagnostics}
-                        className="mt-2 h-6 text-[10px] w-full"
-                      >
-                        <Copy className="h-3 w-3 mr-1" />
-                        Kopiuj dane diagnostyczne
-                      </Button>
-                    </div>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Jeśli problem się powtarza, skontaktuj się z zespołem wsparcia.
-                  </p>
-                </div>
-              );
-              toast.info(helpContent, { duration: showDiagnostics ? 20000 : 15000 });
-            }}
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-            title={showDiagnostics ? "Diagnostyka wideo" : "Pomoc z problemami z wideo"}
-          >
-            <HelpCircle className="h-3 w-3 mr-1" />
-            {showDiagnostics ? 'Diagnostyka' : 'Pomoc'}
-          </Button>
-          
           {onFullscreen && (
             <Button
               variant="ghost"

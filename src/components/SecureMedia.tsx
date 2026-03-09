@@ -1725,15 +1725,6 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onRetry={handleRetry}
             bufferedRanges={bufferedRanges}
             networkQuality={networkQuality}
-            // Admin diagnostics props
-            showDiagnostics={isAdmin}
-            videoSrc={mediaTokenRef.current ? `[protected] token:${mediaTokenRef.current.slice(0,8)}...` : undefined}
-            retryCount={retryCount}
-            smartBufferingActive={isSmartBuffering}
-            bufferedAheadSeconds={bufferedAhead}
-            connectionType={connectionDetails.type}
-            downlink={connectionDetails.downlink}
-            rtt={connectionDetails.rtt}
           />
         </div>
       );
