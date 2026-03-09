@@ -80,7 +80,9 @@ export const AutoWebinarEventView: React.FC = () => {
     const slotStart = h * 60 + m;
     const slotEnd = slotStart + intervalMin;
     const currentMin = now.getHours() * 60 + now.getMinutes();
-    if (currentMin >= slotStart && currentMin < slotEnd) return 'now';
+    // LIVE only during first 2 minutes of the slot
+    if (currentMin >= slotStart && currentMin < slotStart + 2) return 'now';
+    if (currentMin >= slotStart + 2 && currentMin < slotEnd) return 'past';
     if (currentMin >= slotEnd) return 'past';
     return 'future';
   };
