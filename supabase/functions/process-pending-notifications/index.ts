@@ -332,7 +332,7 @@ serve(async (req) => {
       if (webinarError) {
         console.error("[CRON] Error fetching upcoming webinars (24h):", webinarError);
       } else if (upcomingWebinars && upcomingWebinars.length > 0) {
-        console.log(`[CRON] Found ${upcomingWebinars.length} webinars starting in 24-30 hours`);
+        console.log(`[CRON] Found ${upcomingWebinars.length} webinars starting in 23.5-25 hours`);
         
         for (const webinar of upcomingWebinars) {
           if (isTimeoutApproaching()) {
