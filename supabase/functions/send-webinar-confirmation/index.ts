@@ -420,7 +420,6 @@ const handler = async (req: Request): Promise<Response> => {
                   ${displayVideoDescription ? `<p style="margin-top: 10px; color: #666;">${displayVideoDescription}</p>` : ''}
                   <p style="margin-top: 20px;"><strong>🔗 Dołącz do webinaru:</strong></p>
                   <a href="${displayRoomLink}" class="join-button">Dołącz teraz</a>
-                  <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayRoomLink}</p>
                 </div>
                 
                 <p><strong>Wskazówki:</strong></p>
@@ -490,7 +489,6 @@ const handler = async (req: Request): Promise<Response> => {
                   ${displayZoomLink ? `
                     <p style="margin-top: 20px;"><strong>🔗 Link do dołączenia:</strong></p>
                     <a href="${displayZoomLink}" class="join-button">Dołącz do webinaru</a>
-                    <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayZoomLink}</p>
                   ` : ''}
                 </div>
                 

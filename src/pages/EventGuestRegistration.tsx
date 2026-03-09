@@ -97,6 +97,7 @@ interface EventData {
   is_active: boolean;
   is_published: boolean;
   event_type: string | null;
+  slug: string | null;
 }
 
 // UUID validation helper
@@ -147,7 +148,7 @@ const EventGuestRegistration: React.FC = () => {
         console.log('Fetching event with ID:', eventId);
         const { data, error } = await supabase
           .from('events')
-          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type')
+          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type, slug')
           .eq('id', eventId)
           .eq('is_active', true)
           .single();
@@ -284,7 +285,7 @@ const EventGuestRegistration: React.FC = () => {
             nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
             nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${nextSlot.time}` : undefined,
             minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
-            roomLink: isAutoWebinar && event?.id ? `https://purelife.info.pl/auto-webinar` : undefined,
+            roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/e/${event.slug}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
             videoHostName: autoWebinarVideo?.host_name || undefined,
             videoCoverImageUrl: autoWebinarVideo?.cover_image_url || undefined,
             videoDescription: autoWebinarVideo?.description || undefined,
