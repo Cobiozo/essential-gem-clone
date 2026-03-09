@@ -575,7 +575,11 @@ export const AutoWebinarManagement: React.FC = () => {
           {/* Role visibility */}
           <div className="border-t pt-4 space-y-3">
             <Label className="text-sm font-semibold">Widoczność dla ról</Label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Administrator</Label>
+                <Switch checked={true} disabled />
+              </div>
               <div className="flex items-center justify-between">
                 <Label className="text-sm">Partnerzy</Label>
                 <Switch
