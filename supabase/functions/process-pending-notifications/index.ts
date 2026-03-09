@@ -315,11 +315,11 @@ serve(async (req) => {
 
     // 5. Process webinar reminders (24h before event) - skip if stopped early
     if (!results.stoppedEarly) {
-      console.log("[CRON] Finding webinars starting in next 24-30 hours (24h reminders)...");
+      console.log("[CRON] Finding webinars starting in next 23.5-25 hours (24h reminders)...");
       
       const now = new Date();
-      const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-      const thirtyHoursFromNow = new Date(now.getTime() + 30 * 60 * 60 * 1000).toISOString();
+      const twentyThreeAndHalfHoursFromNow = new Date(now.getTime() + 23.5 * 60 * 60 * 1000).toISOString();
+      const twentyFiveHoursFromNow = new Date(now.getTime() + 25 * 60 * 60 * 1000).toISOString();
       
       const { data: upcomingWebinars, error: webinarError } = await supabase
         .from("events")
