@@ -1,24 +1,19 @@
 
 
-## Plan zmian
+# Przywrócenie stałego rozmiaru 192px miniaturki
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
+Poprzednia zmiana ustawiła `w-full h-48` dla otwartej miniaturki, co rozciąga ją na pełną szerokość. Użytkownik chce zachować stały rozmiar 192px (`w-48 h-48`) po rozwinięciu, ale z układem pionowym (tytuł pod grafiką).
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+## Zmiana
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+**Plik: `src/components/events/EventCardCompact.tsx`, linia 613**
 
-### 2. Złote ikony dla datetime-local (index.css)
+Zmienić `w-full h-48` z powrotem na `w-48 h-48`:
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+```tsx
+<div className={`rounded-lg overflow-hidden flex-shrink-0 bg-muted transition-all duration-300 ${isOpen ? 'w-48 h-48' : 'w-20 h-20'}`}>
+```
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
+Układ pionowy (`flex-col`) z linii 611 pozostaje — tytuł nadal będzie pod grafiką na mobile.
 
