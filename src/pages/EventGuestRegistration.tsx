@@ -110,6 +110,7 @@ const EventGuestRegistration: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams] = useSearchParams();
   const invitedByRaw = searchParams.get('invited_by');
+  const slotParam = searchParams.get('slot');
   
   // Validate UUID format - if invalid, set to null
   const invitedBy = isValidUUID(invitedByRaw) ? invitedByRaw : null;
