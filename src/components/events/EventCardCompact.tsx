@@ -633,7 +633,7 @@ Zapisz się tutaj: ${inviteUrl}
           </div>
 
           {/* Date/Time - hidden on mobile */}
-          <div className=lgidlgn md:flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
+          <div className="hidden lg:flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
               <span>{format(displayDate, 'd MMM', { locale: dateLocale })}</span>
