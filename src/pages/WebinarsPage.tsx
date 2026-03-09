@@ -118,7 +118,7 @@ const WebinarsPage: React.FC = () => {
             </TabsList>
             <TabsContent value="list">{webinarListContent}</TabsContent>
             <TabsContent value="auto">
-              <AutoWebinarEmbed />
+              <AutoWebinarEventView />
             </TabsContent>
           </Tabs>
         ) : (
