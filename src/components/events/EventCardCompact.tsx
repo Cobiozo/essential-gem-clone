@@ -626,7 +626,7 @@ Zapisz się tutaj: ${inviteUrl}
 
           {/* Title and host */}
           <div className="flex-1 text-left min-w-0">
-            <h3 classnt-semib-clamp-2mp-2mp-2 text-sm">{event.title}</h3>
+            <h3 className="font-semibold line-clamp-2 text-sm">{event.title}</h3>
             {event.host_name && (
               <span className="text-xs text-muted-foreground truncate block">{event.host_name}</span>
             )}
