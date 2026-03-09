@@ -108,12 +108,20 @@ export const AutoWebinarManagement: React.FC = () => {
 
     // Load linked event if exists
     if (cfg?.event_id) {
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('id, title, slug, is_active')
-        .eq('id', cfg.event_id)
-        .single();
+      const [eventRes, clicksRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id, title, slug, is_active')
+          .eq('id', cfg.event_id)
+          .single(),
+        supabase
+          .from('auto_webinar_invitation_clicks')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_id', cfg.event_id),
+      ]);
+      const eventData = eventRes.data;
       setLinkedEvent(eventData as LinkedEvent | null);
+      setInvitationClickCount(clicksRes.count || 0);
 
       // Auto-fix: if system is disabled but event is still active, deactivate it
       if (eventData && !cfg.is_enabled && eventData.is_active) {
@@ -122,6 +130,7 @@ export const AutoWebinarManagement: React.FC = () => {
       }
     } else {
       setLinkedEvent(null);
+      setInvitationClickCount(0);
     }
     setLoading(false);
   };
