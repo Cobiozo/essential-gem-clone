@@ -1,17 +1,21 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EventCardCompact } from '@/components/events/EventCardCompact';
 import { usePublicEvents } from '@/hooks/usePublicEvents';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { Video, CalendarX } from 'lucide-react';
+import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Video, CalendarX, Radio } from 'lucide-react';
 
 const WebinarsPage: React.FC = () => {
-  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const highlightedEventId = searchParams.get('event');
   const { upcomingEvents, pastEvents, loading, refetch } = usePublicEvents('webinar');
+  const { config, loading: configLoading } = useAutoWebinarConfig();
+
+  const showAutoTab = !configLoading && config?.is_enabled;
 
   if (loading) {
     return (
@@ -23,6 +27,56 @@ const WebinarsPage: React.FC = () => {
     );
   }
 
+  const webinarListContent = (
+    <div className="space-y-6">
+      {/* Upcoming Webinars */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+          Nadchodzące webinary
+        </h2>
+        
+        {upcomingEvents.length > 0 ? (
+          <div className="space-y-2">
+            {upcomingEvents.map((event) => (
+              <EventCardCompact 
+                key={event.id} 
+                event={event} 
+                onRegister={refetch}
+                defaultOpen={event.id === highlightedEventId}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-muted/30 rounded-lg border border-dashed">
+            <CalendarX className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-muted-foreground">Brak zaplanowanych webinarów</p>
+            <p className="text-sm text-muted-foreground mt-1">Sprawdź ponownie później</p>
+          </div>
+        )}
+      </section>
+
+      {/* Past Webinars */}
+      {pastEvents.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
+            Zakończone webinary
+          </h2>
+          <div className="space-y-2 opacity-70">
+            {pastEvents.slice(0, 6).map((event) => (
+              <EventCardCompact 
+                key={event.id} 
+                event={event} 
+                showRegistration={false}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -33,61 +87,29 @@ const WebinarsPage: React.FC = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Webinary</h1>
-            <p className="text-muted-foreground">
-              Zaplanowane wydarzenia online
-            </p>
+            <p className="text-muted-foreground">Zaplanowane wydarzenia online</p>
           </div>
         </div>
 
-        {/* Upcoming Webinars */}
-        <section>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            Nadchodzące webinary
-          </h2>
-          
-          {upcomingEvents.length > 0 ? (
-            <div className="space-y-2">
-              {upcomingEvents.map((event) => (
-                <EventCardCompact 
-                  key={event.id} 
-                  event={event} 
-                  onRegister={refetch}
-                  defaultOpen={event.id === highlightedEventId}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-muted/30 rounded-lg border border-dashed">
-              <CalendarX className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
-              <p className="text-muted-foreground">
-                Brak zaplanowanych webinarów
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Sprawdź ponownie później
-              </p>
-            </div>
-          )}
-        </section>
-
-        {/* Past Webinars */}
-        {pastEvents.length > 0 && (
-          <section>
-            <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-muted-foreground"></span>
-              Zakończone webinary
-            </h2>
-            
-            <div className="space-y-2 opacity-70">
-              {pastEvents.slice(0, 6).map((event) => (
-                <EventCardCompact 
-                  key={event.id} 
-                  event={event} 
-                  showRegistration={false}
-                />
-              ))}
-            </div>
-          </section>
+        {showAutoTab ? (
+          <Tabs defaultValue="list">
+            <TabsList>
+              <TabsTrigger value="list" className="gap-1.5">
+                <Video className="h-4 w-4" />
+                Webinary
+              </TabsTrigger>
+              <TabsTrigger value="auto" className="gap-1.5">
+                <Radio className="h-4 w-4" />
+                Webinary Biznesowe 24h/live
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="list">{webinarListContent}</TabsContent>
+            <TabsContent value="auto">
+              <AutoWebinarEmbed />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          webinarListContent
         )}
       </div>
     </DashboardLayout>
