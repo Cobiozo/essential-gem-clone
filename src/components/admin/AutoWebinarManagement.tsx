@@ -36,6 +36,8 @@ export const AutoWebinarManagement: React.FC = () => {
   const [editingVideo, setEditingVideo] = useState<AutoWebinarVideo | null>(null);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+  const logoFileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
     description: '',
