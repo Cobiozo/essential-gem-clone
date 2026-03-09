@@ -123,12 +123,6 @@ export const AutoWebinarRoom: React.FC = () => {
                 >
                   <source src={currentVideo.video_url} type="video/mp4" />
                 </video>
-                {/* Overlay with title */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-                  <Badge variant="secondary" className="bg-background/80 backdrop-blur-sm text-xs">
-                    {currentVideo.title}
-                  </Badge>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -156,6 +150,20 @@ export const AutoWebinarRoom: React.FC = () => {
                 Webinary automatyczne odbywają się co {config.interval_minutes} minut, 
                 od godziny {config.start_hour}:00 do {config.end_hour}:00. 
                 W playliście jest {activeVideos.length} {activeVideos.length === 1 ? 'film' : 'filmów'}.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Custom section */}
+        {config.room_custom_section_title && config.room_custom_section_content && (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">{config.room_custom_section_title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">
+                {config.room_custom_section_content}
               </p>
             </CardContent>
           </Card>

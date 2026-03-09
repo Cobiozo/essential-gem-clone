@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
+import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
 
 interface LinkedEvent {
   id: string;
@@ -35,6 +36,8 @@ export const AutoWebinarManagement: React.FC = () => {
   const [editingVideo, setEditingVideo] = useState<AutoWebinarVideo | null>(null);
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+  const logoFileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
     description: '',
@@ -59,6 +62,8 @@ export const AutoWebinarManagement: React.FC = () => {
     room_show_schedule_info: true,
     room_logo_url: '',
     countdown_label: 'Następny webinar za',
+    room_custom_section_title: '',
+    room_custom_section_content: '',
   });
 
   useEffect(() => {
@@ -81,6 +86,8 @@ export const AutoWebinarManagement: React.FC = () => {
         room_show_schedule_info: config.room_show_schedule_info !== false,
         room_logo_url: config.room_logo_url || '',
         countdown_label: config.countdown_label || 'Następny webinar za',
+        room_custom_section_title: config.room_custom_section_title || '',
+        room_custom_section_content: config.room_custom_section_content || '',
       });
     }
   }, [config]);
@@ -185,12 +192,21 @@ export const AutoWebinarManagement: React.FC = () => {
     // Sync with linked event
     if (cfg.event_id) {
       const eventUpdates: Record<string, any> = {};
-      if (invitationForm.invitation_title) eventUpdates.title = invitationForm.invitation_title;
+      if (invitationForm.invitation_title) {
+        eventUpdates.title = invitationForm.invitation_title;
+        // Update slug based on title
+        const newSlug = slugify(invitationForm.invitation_title) + '-' + Math.random().toString(36).substring(2, 6);
+        eventUpdates.slug = newSlug;
+      }
       if (invitationForm.invitation_description) eventUpdates.description = invitationForm.invitation_description;
       if (Object.keys(eventUpdates).length > 0) {
         await supabase.from('events').update(eventUpdates).eq('id', cfg.event_id);
-        if (linkedEvent && eventUpdates.title) {
-          setLinkedEvent({ ...linkedEvent, title: eventUpdates.title });
+        if (linkedEvent) {
+          setLinkedEvent({ 
+            ...linkedEvent, 
+            ...(eventUpdates.title ? { title: eventUpdates.title } : {}),
+            ...(eventUpdates.slug ? { slug: eventUpdates.slug } : {}),
+          });
         }
       }
     }
@@ -209,6 +225,8 @@ export const AutoWebinarManagement: React.FC = () => {
       room_show_schedule_info: roomForm.room_show_schedule_info,
       room_logo_url: roomForm.room_logo_url || null,
       countdown_label: roomForm.countdown_label || 'Następny webinar za',
+      room_custom_section_title: roomForm.room_custom_section_title || null,
+      room_custom_section_content: roomForm.room_custom_section_content || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -226,12 +244,48 @@ export const AutoWebinarManagement: React.FC = () => {
     toast({ title: 'Zapisano', description: 'Wygląd pokoju zaktualizowany' });
   };
 
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[ąàáâãäå]/g, 'a').replace(/[ćčç]/g, 'c').replace(/[ďđ]/g, 'd')
+      .replace(/[ęèéêëě]/g, 'e').replace(/[ìíîï]/g, 'i').replace(/[łľ]/g, 'l')
+      .replace(/[ńňñ]/g, 'n').replace(/[óòôõö]/g, 'o').replace(/[řŕ]/g, 'r')
+      .replace(/[śšş]/g, 's').replace(/[ťţ]/g, 't').replace(/[ůùúûü]/g, 'u')
+      .replace(/[ýÿ]/g, 'y').replace(/[źżž]/g, 'z')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .substring(0, 50);
+  };
+
+  const handleUploadLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const fileName = `auto-webinar-logo-${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('cms-images')
+      .upload(fileName, file, { upsert: true });
+
+    if (uploadError) {
+      toast({ title: 'Błąd uploadu', description: uploadError.message, variant: 'destructive' });
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from('cms-images').getPublicUrl(fileName);
+    setRoomForm(prev => ({ ...prev, room_logo_url: urlData.publicUrl }));
+    toast({ title: 'Logo przesłane' });
+  };
+
   const handleCreateLinkedEvent = async () => {
     if (!user) return;
     setCreatingEvent(true);
     try {
       const cfg = await ensureConfig();
-      const slug = 'auto-webinar-' + Date.now().toString(36);
+      const titleForSlug = invitationForm.invitation_title || roomForm.room_title || 'auto-webinar';
+      const slug = slugify(titleForSlug) + '-' + Math.random().toString(36).substring(2, 6);
       const now = new Date();
       const farFuture = new Date(now.getFullYear() + 10, 0, 1);
 
@@ -655,12 +709,33 @@ export const AutoWebinarManagement: React.FC = () => {
                 </div>
               </div>
               <div>
-                <Label>URL logo (opcjonalnie)</Label>
-                <Input
-                  value={roomForm.room_logo_url}
-                  onChange={(e) => setRoomForm(prev => ({ ...prev, room_logo_url: e.target.value }))}
-                  placeholder="https://..."
-                />
+                <Label>Logo pokoju (opcjonalnie)</Label>
+                {roomForm.room_logo_url ? (
+                  <div className="flex items-center gap-3 mt-2">
+                    <img src={roomForm.room_logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-cover border" />
+                    <Button variant="ghost" size="icon" onClick={() => setRoomForm(prev => ({ ...prev, room_logo_url: '' }))}>
+                      <X className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-1">
+                    <Button variant="outline" size="sm" onClick={() => setLogoPickerOpen(true)}>
+                      <ImageIcon className="h-4 w-4 mr-1" />
+                      Z biblioteki
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => logoFileRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-1" />
+                      Z komputera
+                    </Button>
+                    <input
+                      ref={logoFileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleUploadLogo}
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -681,6 +756,27 @@ export const AutoWebinarManagement: React.FC = () => {
                   checked={roomForm.room_show_schedule_info}
                   onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
                 />
+              </div>
+              {/* Custom section */}
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-sm font-semibold">Sekcja własna (pod harmonogramem)</Label>
+                <div>
+                  <Label>Tytuł sekcji</Label>
+                  <Input
+                    value={roomForm.room_custom_section_title}
+                    onChange={(e) => setRoomForm(prev => ({ ...prev, room_custom_section_title: e.target.value }))}
+                    placeholder="np. O czym jest ten webinar?"
+                  />
+                </div>
+                <div>
+                  <Label>Treść sekcji</Label>
+                  <Textarea
+                    value={roomForm.room_custom_section_content}
+                    onChange={(e) => setRoomForm(prev => ({ ...prev, room_custom_section_content: e.target.value }))}
+                    placeholder="Opisz treść wyświetlaną uczestnikom..."
+                    rows={3}
+                  />
+                </div>
               </div>
               <Button onClick={handleSaveRoom}>
                 Zapisz wygląd pokoju
@@ -722,11 +818,6 @@ export const AutoWebinarManagement: React.FC = () => {
                     <Radio className="h-8 w-8 text-white/30 mx-auto" />
                     <p className="text-white/40 text-xs">Obszar wideo</p>
                   </div>
-                  <div className="absolute top-2 left-2">
-                    <Badge variant="secondary" className="bg-background/80 text-[10px]">
-                      Tytuł filmu
-                    </Badge>
-                  </div>
                 </div>
                 {/* Schedule info preview */}
                 {roomForm.room_show_schedule_info && (
@@ -735,6 +826,13 @@ export const AutoWebinarManagement: React.FC = () => {
                     <p className="text-[10px] text-muted-foreground">
                       Co {config?.interval_minutes ?? 60} min, {config?.start_hour ?? 8}:00 – {config?.end_hour ?? 22}:00
                     </p>
+                  </div>
+                )}
+                {/* Custom section preview */}
+                {roomForm.room_custom_section_title && roomForm.room_custom_section_content && (
+                  <div className="p-3 border-t">
+                    <p className="text-[10px] font-medium mb-1">{roomForm.room_custom_section_title}</p>
+                    <p className="text-[10px] text-muted-foreground line-clamp-3">{roomForm.room_custom_section_content}</p>
                   </div>
                 )}
               </div>
@@ -969,6 +1067,24 @@ export const AutoWebinarManagement: React.FC = () => {
               {editingVideo ? 'Zapisz zmiany' : 'Dodaj wideo'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Logo Picker Dialog */}
+      <Dialog open={logoPickerOpen} onOpenChange={setLogoPickerOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Wybierz logo z biblioteki mediów</DialogTitle>
+          </DialogHeader>
+          <AdminMediaLibrary
+            mode="picker"
+            allowedTypes={['image']}
+            onSelect={(file) => {
+              setRoomForm(prev => ({ ...prev, room_logo_url: file.file_url }));
+              setLogoPickerOpen(false);
+              toast({ title: 'Logo wybrane' });
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

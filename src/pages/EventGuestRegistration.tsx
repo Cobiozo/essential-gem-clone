@@ -37,6 +37,7 @@ interface EventData {
   duration_minutes: number | null;
   is_active: boolean;
   is_published: boolean;
+  event_type: string | null;
 }
 
 // UUID validation helper
@@ -84,7 +85,7 @@ const EventGuestRegistration: React.FC = () => {
         console.log('Fetching event with ID:', eventId);
         const { data, error } = await supabase
           .from('events')
-          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published')
+          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type')
           .eq('id', eventId)
           .eq('is_active', true)
           .eq('is_published', true)
@@ -199,11 +200,12 @@ const EventGuestRegistration: React.FC = () => {
 
   if (!event) return null;
 
+  const isAutoWebinar = event.event_type === 'auto_webinar';
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
-  const isPast = new Date() > endDate;
+  const isPast = !isAutoWebinar && new Date() > endDate;
   const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
-  const isAfterCutoff = new Date() > registrationCutoff && !isPast;
+  const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
   if (success || alreadyRegistered) {
@@ -226,14 +228,29 @@ const EventGuestRegistration: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
               <h3 className="font-semibold">{event.title}</h3>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>{format(startDate, 'PPP', { locale: pl })}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4" />
-                <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
-              </div>
+              {isAutoWebinar ? (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Webinary dostępne codziennie</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Sesje co godzinę od {startDate.getHours()}:00 do {endDate.getHours()}:00</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{format(startDate, 'PPP', { locale: pl })}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>{format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}</span>
+                  </div>
+                </>
+              )}
               {event.host_name && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <User className="h-4 w-4" />
@@ -242,16 +259,19 @@ const EventGuestRegistration: React.FC = () => {
               )}
             </div>
             <p className="text-sm text-muted-foreground text-center">
-              {(() => {
-                const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
-                if (hoursUntilEvent > 24) {
-                  return "Otrzymasz przypomnienia: 24 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
-                } else if (hoursUntilEvent > 1) {
-                  return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
-                } else {
-                  return "Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.";
-                }
-              })()}
+              {isAutoWebinar
+                ? 'Dziękujemy za rejestrację! Możesz dołączyć do webinaru w dowolnym momencie w godzinach emisji.'
+                : (() => {
+                    const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
+                    if (hoursUntilEvent > 24) {
+                      return "Otrzymasz przypomnienia: 24 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                    } else if (hoursUntilEvent > 1) {
+                      return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                    } else {
+                      return "Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.";
+                    }
+                  })()
+              }
             </p>
           </CardContent>
         </Card>
@@ -305,21 +325,43 @@ const EventGuestRegistration: React.FC = () => {
           <CardContent className="space-y-6">
             {/* Event Details */}
             <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">{format(startDate, 'PPPP', { locale: pl })}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-primary" />
-                <div>
-                  <p className="font-medium">
-                    {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
-                    {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
-                  </p>
-                </div>
-              </div>
+              {isAutoWebinar ? (
+                <>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">Webinary dostępne codziennie</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">
+                        Sesje od {startDate.getHours()}:00 do {endDate.getHours()}:00
+                      </p>
+                      <p className="text-sm text-muted-foreground">Nowe sesje startują co godzinę</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3">
+                    <Calendar className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">{format(startDate, 'PPPP', { locale: pl })}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Clock className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">
+                        {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+                        {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
               {event.host_name && (
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />

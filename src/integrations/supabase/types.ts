@@ -537,6 +537,8 @@ export type Database = {
           is_enabled: boolean
           playlist_mode: string
           room_background_color: string | null
+          room_custom_section_content: string | null
+          room_custom_section_title: string | null
           room_logo_url: string | null
           room_show_live_badge: boolean | null
           room_show_schedule_info: boolean | null
@@ -561,6 +563,8 @@ export type Database = {
           is_enabled?: boolean
           playlist_mode?: string
           room_background_color?: string | null
+          room_custom_section_content?: string | null
+          room_custom_section_title?: string | null
           room_logo_url?: string | null
           room_show_live_badge?: boolean | null
           room_show_schedule_info?: boolean | null
@@ -585,6 +589,8 @@ export type Database = {
           is_enabled?: boolean
           playlist_mode?: string
           room_background_color?: string | null
+          room_custom_section_content?: string | null
+          room_custom_section_title?: string | null
           room_logo_url?: string | null
           room_show_live_badge?: boolean | null
           room_show_schedule_info?: boolean | null
