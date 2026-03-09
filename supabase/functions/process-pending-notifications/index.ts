@@ -315,24 +315,24 @@ serve(async (req) => {
 
     // 5. Process webinar reminders (24h before event) - skip if stopped early
     if (!results.stoppedEarly) {
-      console.log("[CRON] Finding webinars starting in next 24-30 hours (24h reminders)...");
+      console.log("[CRON] Finding webinars starting in next 23.5-25 hours (24h reminders)...");
       
       const now = new Date();
-      const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-      const thirtyHoursFromNow = new Date(now.getTime() + 30 * 60 * 60 * 1000).toISOString();
+      const twentyThreeAndHalfHoursFromNow = new Date(now.getTime() + 23.5 * 60 * 60 * 1000).toISOString();
+      const twentyFiveHoursFromNow = new Date(now.getTime() + 25 * 60 * 60 * 1000).toISOString();
       
       const { data: upcomingWebinars, error: webinarError } = await supabase
         .from("events")
         .select("id, title, start_time, zoom_link, host_name, location")
-        .gte("start_time", twentyFourHoursFromNow)
-        .lte("start_time", thirtyHoursFromNow)
+        .gte("start_time", twentyThreeAndHalfHoursFromNow)
+        .lte("start_time", twentyFiveHoursFromNow)
         .eq("is_active", true)
         .eq("event_type", "webinar");
 
       if (webinarError) {
         console.error("[CRON] Error fetching upcoming webinars (24h):", webinarError);
       } else if (upcomingWebinars && upcomingWebinars.length > 0) {
-        console.log(`[CRON] Found ${upcomingWebinars.length} webinars starting in 24-30 hours`);
+        console.log(`[CRON] Found ${upcomingWebinars.length} webinars starting in 23.5-25 hours`);
         
         for (const webinar of upcomingWebinars) {
           if (isTimeoutApproaching()) {
@@ -452,7 +452,7 @@ serve(async (req) => {
           }
         }
       } else {
-        console.log("[CRON] No webinars starting in next 24-30 hours");
+        console.log("[CRON] No webinars starting in next 23.5-25 hours");
       }
     }
 

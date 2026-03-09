@@ -1,32 +1,24 @@
 
 
-# Fix: Okno przypomnienia 24h jest za szerokie (24-30h → 24-25h)
+## Plan zmian
 
-## Problem
+### 1. Logo na ekranie ładowania (App.tsx)
 
-W `process-pending-notifications/index.ts` linia 321-322, okno dla 24h reminders to **24-30 godzin** przed startem. CRON uruchamia się co ~30 minut, więc okno 6-godzinne jest niepotrzebnie szerokie. Webinar o 20:00 Warsaw (19:00 UTC) dostaje reminder już o 14:00 Warsaw (13:00 UTC = 30h przed), zamiast ~20:00 dnia poprzedniego.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-## Rozwiązanie
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-Zawęzić okno z 24-30h do **23.5-25h**. Przy CRON co 30 min, okno 1.5h daje pewność złapania eventu, a reminder przyjdzie w okolicy 24h przed startem (±30 min).
+### 2. Złote ikony dla datetime-local (index.css)
 
-### Zmiana w `supabase/functions/process-pending-notifications/index.ts`:
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Linie ~320-322:
-```typescript
-// PRZED:
-const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-const thirtyHoursFromNow = new Date(now.getTime() + 30 * 60 * 60 * 1000).toISOString();
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-// PO:
-const twentyThreeAndHalfHoursFromNow = new Date(now.getTime() + 23.5 * 60 * 60 * 1000).toISOString();
-const twentyFiveHoursFromNow = new Date(now.getTime() + 25 * 60 * 60 * 1000).toISOString();
-```
-
-I odpowiednio zaktualizować zmienne w zapytaniu `.gte()` / `.lte()`.
-
-Analogicznie sprawdzić i zawęzić okna dla reminderów 1h i 15min (jeśli mają podobny problem).
-
-### Pliki do edycji:
-- `supabase/functions/process-pending-notifications/index.ts` — zawężenie okien czasowych dla 24h, 1h i 15min reminderów
+### Zakres: 2 pliki, ~10 linii zmian
 
