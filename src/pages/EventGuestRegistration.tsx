@@ -215,6 +215,9 @@ const EventGuestRegistration: React.FC = () => {
 
       // Call edge function to send confirmation email and add to contacts
       try {
+        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig) : null;
+        const slotDiffMinutes = nextSlot ? (nextSlot.date.getTime() - Date.now()) / (1000 * 60) : null;
+
         await supabase.functions.invoke('send-webinar-confirmation', {
           body: {
             eventId,
@@ -225,7 +228,16 @@ const EventGuestRegistration: React.FC = () => {
             invitedByUserId: invitedBy,
             eventTitle: event?.title,
             eventDate: event?.start_time,
-            eventHost: event?.host_name,
+            eventHost: autoWebinarVideo?.host_name || event?.host_name,
+            // Auto-webinar specific
+            isAutoWebinar,
+            nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
+            nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${nextSlot.time}` : undefined,
+            minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
+            roomLink: isAutoWebinar && event?.id ? `https://purelife.info.pl/auto-webinar` : undefined,
+            videoHostName: autoWebinarVideo?.host_name || undefined,
+            videoCoverImageUrl: autoWebinarVideo?.cover_image_url || undefined,
+            videoDescription: autoWebinarVideo?.description || undefined,
           },
         });
       } catch (emailError) {
