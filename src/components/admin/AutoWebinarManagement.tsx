@@ -267,7 +267,7 @@ export const AutoWebinarManagement: React.FC = () => {
 
     const { error: uploadError } = await supabase.storage
       .from('cms-images')
-      .upload(fileName, file, { upsert: true });
+      .upload(fileName, file, { cacheControl: '3600' });
 
     if (uploadError) {
       toast({ title: 'Błąd uploadu', description: uploadError.message, variant: 'destructive' });
@@ -747,19 +747,15 @@ export const AutoWebinarManagement: React.FC = () => {
                   onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_live_badge: v }))}
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Sekcja harmonogramu</Label>
-                  <p className="text-xs text-muted-foreground">Pokaż kartę z informacjami o harmonogramie</p>
-                </div>
-                <Switch
-                  checked={roomForm.room_show_schedule_info}
-                  onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
-                />
-              </div>
               {/* Custom section */}
               <div className="border-t pt-4 space-y-3">
-                <Label className="text-sm font-semibold">Sekcja własna (pod harmonogramem)</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Sekcja własna</Label>
+                  <Switch
+                    checked={roomForm.room_show_schedule_info}
+                    onCheckedChange={(v) => setRoomForm(prev => ({ ...prev, room_show_schedule_info: v }))}
+                  />
+                </div>
                 <div>
                   <Label>Tytuł sekcji</Label>
                   <Input
@@ -819,17 +815,8 @@ export const AutoWebinarManagement: React.FC = () => {
                     <p className="text-white/40 text-xs">Obszar wideo</p>
                   </div>
                 </div>
-                {/* Schedule info preview */}
-                {roomForm.room_show_schedule_info && (
-                  <div className="p-3 border-t">
-                    <p className="text-[10px] font-medium text-muted-foreground mb-1">Harmonogram</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Co {config?.interval_minutes ?? 60} min, {config?.start_hour ?? 8}:00 – {config?.end_hour ?? 22}:00
-                    </p>
-                  </div>
-                )}
                 {/* Custom section preview */}
-                {roomForm.room_custom_section_title && roomForm.room_custom_section_content && (
+                {roomForm.room_show_schedule_info && roomForm.room_custom_section_title && roomForm.room_custom_section_content && (
                   <div className="p-3 border-t">
                     <p className="text-[10px] font-medium mb-1">{roomForm.room_custom_section_title}</p>
                     <p className="text-[10px] text-muted-foreground line-clamp-3">{roomForm.room_custom_section_content}</p>
@@ -849,7 +836,7 @@ export const AutoWebinarManagement: React.FC = () => {
             Wydarzenie i zaproszenia
           </CardTitle>
           <CardDescription>
-            Powiąż auto-webinar z wydarzeniem, aby umożliwić rejestrację i zaproszenia
+            Utwórz wydarzenie, aby partnerzy mogli zapraszać gości. Link zaproszeniowy pojawi się automatycznie w panelu partnera (karta wydarzenia → „Kopiuj zaproszenie").
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
