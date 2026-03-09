@@ -324,6 +324,26 @@ export const EventRegistrationsManagement: React.FC = () => {
     return registrations.filter(r => r.status === statusFilter);
   }, [registrations, statusFilter]);
 
+  // Group registrations by user_id to avoid showing duplicates for multi-occurrence events
+  const groupedRegistrations = useMemo(() => {
+    const groups = new Map<string, EventRegistration[]>();
+    for (const reg of filteredRegistrations) {
+      const existing = groups.get(reg.user_id) || [];
+      existing.push(reg);
+      groups.set(reg.user_id, existing);
+    }
+    return Array.from(groups.entries()).map(([userId, regs]) => {
+      // Sort by registered_at to get earliest
+      const sorted = [...regs].sort((a, b) => new Date(a.registered_at).getTime() - new Date(b.registered_at).getTime());
+      return {
+        ...sorted[0],
+        allRegistrations: sorted,
+        occurrenceCount: regs.length,
+        activeCount: regs.filter(r => r.status === 'registered').length,
+      };
+    });
+  }, [filteredRegistrations]);
+
   const filteredGuestRegistrations = useMemo(() => {
     if (statusFilter === 'all') return guestRegistrations;
     return guestRegistrations.filter(r => r.status === statusFilter);
@@ -589,7 +609,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                   <div className="flex justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   </div>
-                ) : filteredRegistrations.length === 0 ? (
+                ) : groupedRegistrations.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     Brak rejestracji użytkowników dla wybranego wydarzenia
                   </div>
@@ -602,13 +622,13 @@ export const EventRegistrationsManagement: React.FC = () => {
                           <TableHead>Email</TableHead>
                           <TableHead>Rola</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Termin</TableHead>
+                          <TableHead>Terminy</TableHead>
                           <TableHead>Data zapisu</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredRegistrations.map((registration) => (
-                          <TableRow key={registration.id}>
+                        {groupedRegistrations.map((registration) => (
+                          <TableRow key={registration.user_id}>
                             <TableCell className="font-medium">
                               {registration.profiles.first_name} {registration.profiles.last_name}
                             </TableCell>
@@ -621,7 +641,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                               </Badge>
                             </TableCell>
                             <TableCell>
-                              {registration.status === 'registered' ? (
+                              {registration.activeCount > 0 ? (
                                 <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Zapisany
@@ -636,10 +656,16 @@ export const EventRegistrationsManagement: React.FC = () => {
                             <TableCell>
                               <div className="flex items-center gap-1 text-sm">
                                 <Calendar className="h-3 w-3 text-muted-foreground" />
-                                {getOccurrenceDate(
-                                  registration.events.occurrences,
-                                  registration.occurrence_index,
-                                  registration.events.start_time
+                                {registration.occurrenceCount > 1 ? (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {registration.occurrenceCount} {registration.occurrenceCount >= 5 ? 'terminów' : registration.occurrenceCount >= 2 ? 'terminy' : 'termin'}
+                                  </Badge>
+                                ) : (
+                                  getOccurrenceDate(
+                                    registration.events.occurrences,
+                                    registration.occurrence_index,
+                                    registration.events.start_time
+                                  )
                                 )}
                               </div>
                             </TableCell>
