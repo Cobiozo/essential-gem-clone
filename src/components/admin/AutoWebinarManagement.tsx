@@ -707,10 +707,18 @@ export const AutoWebinarManagement: React.FC = () => {
                   <p className="text-sm text-muted-foreground line-clamp-3">
                     {invitationForm.invitation_description || 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę.'}
                   </p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                    <Radio className="h-3 w-3" />
-                    Codziennie {config?.start_hour ?? 8}:00 – {config?.end_hour ?? 22}:00
-                  </div>
+                  {linkedEvent?.slug && (
+                    <div className="mt-2 pt-2 border-t border-dashed">
+                      <a 
+                        href={`https://purelife.info.pl/e/${linkedEvent.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-primary hover:underline break-all"
+                      >
+                        🔗 Zapisz się: https://purelife.info.pl/e/{linkedEvent.slug}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
