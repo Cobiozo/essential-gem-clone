@@ -80,7 +80,9 @@ export const AutoWebinarEventView: React.FC = () => {
     const slotStart = h * 60 + m;
     const slotEnd = slotStart + intervalMin;
     const currentMin = now.getHours() * 60 + now.getMinutes();
-    if (currentMin >= slotStart && currentMin < slotEnd) return 'now';
+    // LIVE only during first 2 minutes of the slot
+    if (currentMin >= slotStart && currentMin < slotStart + 2) return 'now';
+    if (currentMin >= slotStart + 2 && currentMin < slotEnd) return 'past';
     if (currentMin >= slotEnd) return 'past';
     return 'future';
   };
@@ -195,7 +197,6 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                     return (
                       <button
                         key={time}
-                        disabled={isPast}
                         onClick={() => setSelectedSlot(
                           selected ? null : { dayIndex: day.index, time }
                         )}
@@ -205,7 +206,7 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                             : isNow
                               ? 'bg-primary/10 border border-primary/30 text-foreground'
                               : isPast
-                                ? 'text-muted-foreground/40 line-through cursor-not-allowed'
+                                ? 'text-muted-foreground/50 hover:bg-muted/40'
                                 : 'hover:bg-muted/60 text-foreground'
                         }`}
                       >
