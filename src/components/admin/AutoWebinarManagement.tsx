@@ -65,6 +65,14 @@ export const AutoWebinarManagement: React.FC = () => {
         .eq('id', cfg.event_id)
         .single();
       setLinkedEvent(eventData as LinkedEvent | null);
+
+      // Auto-fix: if system is disabled but event is still active, deactivate it
+      if (eventData && !cfg.is_enabled && eventData.is_active) {
+        await supabase.from('events').update({ is_active: false }).eq('id', eventData.id);
+        setLinkedEvent({ ...(eventData as LinkedEvent), is_active: false });
+      }
+    } else {
+      setLinkedEvent(null);
     }
     setLoading(false);
   };
