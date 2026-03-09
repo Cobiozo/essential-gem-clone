@@ -307,11 +307,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 px-2 text-xs"
+          className="h-8 px-3 text-xs touch-action-manipulation"
           asChild
         >
           <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3 w-3 mr-1" />
+            <ExternalLink className="h-3.5 w-3.5 mr-1" />
             {isHost ? (tf('events.start', 'Rozpocznij')) : 'Zoom'}
           </a>
         </Button>
