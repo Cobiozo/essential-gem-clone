@@ -1,49 +1,24 @@
 
 
-# Unikalne kody śledzenia + upload okładki z dysku
+## Plan zmian
 
-## 1. Tabela `auto_webinar_invitation_clicks` (nowa)
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Nowa tabela do logowania kliknięć w linki zaproszeniowe:
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-```sql
-CREATE TABLE public.auto_webinar_invitation_clicks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id UUID REFERENCES public.events(id) ON DELETE CASCADE NOT NULL,
-  ref_code TEXT NOT NULL,        -- np. "abc123" (EQID partnera)
-  tracking_code TEXT NOT NULL,   -- unikalny kod śledzenia, np. "abc123-EQID"
-  visitor_ip TEXT,
-  user_agent TEXT,
-  clicked_at TIMESTAMPTZ DEFAULT now()
-);
-```
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-RLS: INSERT dla anon (logowanie kliknięć bez auth), SELECT dla authenticated.
+### 2. Złote ikony dla datetime-local (index.css)
 
-## 2. Logowanie kliknięć — `EventRegistrationBySlug.tsx`
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Aktualnie `/e/:slug?ref=EQID` rozwiązuje slug i ref, potem redirectuje. Zmiany:
-- Po rozwiązaniu `ref` → zapisz kliknięcie do `auto_webinar_invitation_clicks` (jeśli event_type = auto_webinar)
-- Tracking code = `ref` value (EQID partnera) — każdy partner ma unikalny EQID
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-## 3. Panel admina — statystyki kliknięć
-
-W sekcji "Link zaproszeniowy" w `AutoWebinarManagement.tsx`:
-- Wyświetl łączną liczbę kliknięć
-- Info: "Każde kliknięcie z parametrem `?ref=EQID` jest logowane"
-
-## 4. Okładka webinaru — upload z dysku
-
-W `AutoWebinarManagement.tsx`, w dialogu edycji wideo (linia ~1172-1182):
-- Zamienić `<Input>` z URL na komponent `<MediaUpload>` z `allowedTypes={['image']}`
-- Zachować podgląd obrazka
-- `onMediaUploaded` → `setVideoForm(prev => ({ ...prev, cover_image_url: url }))`
-
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|---|---|
-| Migracja SQL | Tabela `auto_webinar_invitation_clicks` |
-| `src/pages/EventRegistrationBySlug.tsx` | Logowanie kliknięcia przy ref |
-| `src/components/admin/AutoWebinarManagement.tsx` | MediaUpload dla okładki + statystyki kliknięć |
+### Zakres: 2 pliki, ~10 linii zmian
 

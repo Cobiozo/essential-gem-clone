@@ -38,6 +38,7 @@ export const AutoWebinarManagement: React.FC = () => {
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+  const [invitationClickCount, setInvitationClickCount] = useState<number>(0);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
@@ -107,12 +108,20 @@ export const AutoWebinarManagement: React.FC = () => {
 
     // Load linked event if exists
     if (cfg?.event_id) {
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('id, title, slug, is_active')
-        .eq('id', cfg.event_id)
-        .single();
+      const [eventRes, clicksRes] = await Promise.all([
+        supabase
+          .from('events')
+          .select('id, title, slug, is_active')
+          .eq('id', cfg.event_id)
+          .single(),
+        supabase
+          .from('auto_webinar_invitation_clicks')
+          .select('id', { count: 'exact', head: true })
+          .eq('event_id', cfg.event_id),
+      ]);
+      const eventData = eventRes.data;
       setLinkedEvent(eventData as LinkedEvent | null);
+      setInvitationClickCount(clicksRes.count || 0);
 
       // Auto-fix: if system is disabled but event is still active, deactivate it
       if (eventData && !cfg.is_enabled && eventData.is_active) {
@@ -121,6 +130,7 @@ export const AutoWebinarManagement: React.FC = () => {
       }
     } else {
       setLinkedEvent(null);
+      setInvitationClickCount(0);
     }
     setLoading(false);
   };
@@ -984,6 +994,16 @@ export const AutoWebinarManagement: React.FC = () => {
                   Partnerzy mogą dodać <code>?ref=EQID</code> do linku, aby śledzić zaproszenia.
                   Link jest również dostępny w panelu zaproszeń partnera.
                 </p>
+                {invitationClickCount > 0 && (
+                  <div className="flex items-center gap-2 mt-2 p-2 bg-muted rounded-md">
+                    <Badge variant="secondary" className="text-xs">
+                      {invitationClickCount} kliknięć
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      Każde kliknięcie z parametrem <code>?ref=EQID</code> jest logowane
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -1170,11 +1190,15 @@ export const AutoWebinarManagement: React.FC = () => {
               />
             </div>
             <div>
-              <Label>Okładka webinaru (URL)</Label>
-              <Input
-                value={videoForm.cover_image_url}
-                onChange={(e) => setVideoForm(prev => ({ ...prev, cover_image_url: e.target.value }))}
-                placeholder="https://..."
+              <Label>Okładka webinaru</Label>
+              <MediaUpload
+                onMediaUploaded={(url) => {
+                  setVideoForm(prev => ({ ...prev, cover_image_url: url }));
+                }}
+                currentMediaUrl={videoForm.cover_image_url}
+                currentMediaType="image"
+                allowedTypes={['image']}
+                compact
               />
               {videoForm.cover_image_url && (
                 <img src={videoForm.cover_image_url} alt="Okładka" className="mt-2 w-full h-32 object-cover rounded border" />
