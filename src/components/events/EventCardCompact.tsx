@@ -605,7 +605,7 @@ Zapisz się tutaj: ${inviteUrl}
   return (
     <div 
       ref={cardRef}
-      className={`border rounded-lg bg-card transition-all ${isLive ? 'ring-2 ring-red-500' : ''} ${defaultOpen ? 'ring-2 ring-primary/50' : ''}`}
+      className={`border rounded-lg bg-card overflow-hidden overflow-hidden overflow-hidden transition-all ${isLive ? 'ring-2 ring-red-500' : ''} ${defaultOpen ? 'ring-2 ring-primary/50' : ''}`}
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger className="w-full p-3 flex items-center gap-3 hover:bg-muted/50 transition-colors rounded-lg">
@@ -626,7 +626,7 @@ Zapisz się tutaj: ${inviteUrl}
 
           {/* Title and host */}
           <div className="flex-1 text-left min-w-0">
-            <h3 className="font-semibold line-clamp-2mp-2mp-2 text-sm">{event.title}</h3>
+            <h3 className="font-semibold line-clamp-2 text-sm">{event.title}</h3>
             {event.host_name && (
               <span className="text-xs text-muted-foreground truncate block">{event.host_name}</span>
             )}
@@ -695,7 +695,7 @@ Zapisz się tutaj: ${inviteUrl}
             {/* Description */}
             {event.description && (
               <div 
-                className="text-sm text-muted-foreground prose prose-sm max-w-none dark:prose-invert"
+                className="text-sm text-muted-foreground prose prose-sm max-w-none dark:pros overflow-hidden break-wordse-invert"
                 dangerouslySetInnerHTML={{ __html: event.description }}
               />
             )}
