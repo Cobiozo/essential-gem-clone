@@ -103,6 +103,9 @@ ${signUpLabel}: ${inviteUrl}
       if (activeFilter === 'team_training') {
         return event.event_type === 'team_training' || event.event_type === 'meeting_public';
       }
+      if (activeFilter === 'webinar') {
+        return event.event_type === 'webinar' || event.event_type === 'auto_webinar';
+      }
       return event.event_type === activeFilter;
     });
   }, [expandedEvents, activeFilter]);
