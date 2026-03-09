@@ -286,7 +286,7 @@ All colors MUST be HSL.
   }
 
   /* Prevent text overflow on mobile */
-  @media (max-width: 640px) {
+  @media (max-width: 1024px) {
     p, span, li, td, th {
       overflow-wrap: break-word;
       word-break: break-word;
