@@ -39,7 +39,8 @@ import { TeamTrainingForm } from './TeamTrainingForm';
 import { TeamTrainingList } from './TeamTrainingList';
 import { IndividualMeetingsManagement } from './IndividualMeetingsManagement';
 import ZoomIntegrationSettings from './ZoomIntegrationSettings';
-import { BookOpen } from 'lucide-react';
+import { BookOpen, Radio } from 'lucide-react';
+import { AutoWebinarManagement } from './AutoWebinarManagement';
 
 export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
