@@ -671,7 +671,7 @@ Zapisz się tutaj: ${inviteUrl}
         <CollapsibleContent className="px-4 pb-4 border-t">
           <div className="pt-4 space-y-4">
             {/* Mobile date/time */}
-            <div classNalg="md:hidden flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="lg:hidden flex items-center gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 <span>{format(startDate, 'PPP', { locale: dateLocale })}</span>
