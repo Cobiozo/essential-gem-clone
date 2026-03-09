@@ -10,9 +10,40 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
+
+interface AutoWebinarSlotConfig {
+  start_hour: number;
+  end_hour: number;
+  interval_minutes: number;
+}
+
+const getNextSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMin = now.getMinutes();
+  const totalMinutes = currentHour * 60 + currentMin;
+  const interval = config.interval_minutes;
+
+  // Generate slots for today
+  for (let h = config.start_hour; h < config.end_hour; h++) {
+    for (let m = 0; m < 60; m += interval) {
+      const slotMin = h * 60 + m;
+      if (slotMin > totalMinutes) {
+        const slotDate = new Date(now);
+        slotDate.setHours(h, m, 0, 0);
+        return { date: slotDate, time: format(slotDate, 'HH:mm') };
+      }
+    }
+  }
+
+  // No future slot today — return first slot tomorrow
+  const tomorrow = addDays(now, 1);
+  tomorrow.setHours(config.start_hour, 0, 0, 0);
+  return { date: tomorrow, time: format(tomorrow, 'HH:mm') };
+};
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 const registrationSchema = z.object({
