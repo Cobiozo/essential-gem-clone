@@ -994,6 +994,16 @@ export const AutoWebinarManagement: React.FC = () => {
                   Partnerzy mogą dodać <code>?ref=EQID</code> do linku, aby śledzić zaproszenia.
                   Link jest również dostępny w panelu zaproszeń partnera.
                 </p>
+                {invitationClickCount > 0 && (
+                  <div className="flex items-center gap-2 mt-2 p-2 bg-muted rounded-md">
+                    <Badge variant="secondary" className="text-xs">
+                      {invitationClickCount} kliknięć
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      Każde kliknięcie z parametrem <code>?ref=EQID</code> jest logowane
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
