@@ -196,7 +196,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         return (
           <Button
             size="sm"
-            className="h-6 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
+            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
             asChild
           >
             <a href={`/meeting-room/${(event as any).meeting_room_id}`} target="_blank" rel="noopener noreferrer">
