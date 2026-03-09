@@ -489,7 +489,6 @@ const handler = async (req: Request): Promise<Response> => {
                   ${displayZoomLink ? `
                     <p style="margin-top: 20px;"><strong>🔗 Link do dołączenia:</strong></p>
                     <a href="${displayZoomLink}" class="join-button">Dołącz do webinaru</a>
-                    <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayZoomLink}</p>
                   ` : ''}
                 </div>
                 
