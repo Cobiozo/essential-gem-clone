@@ -23,6 +23,18 @@ export interface AutoWebinarConfig {
   chat_enabled: boolean;
   show_participant_count: boolean;
   welcome_message: string | null;
+  // Room customization
+  room_title: string | null;
+  room_subtitle: string | null;
+  room_background_color: string | null;
+  room_show_live_badge: boolean;
+  room_show_schedule_info: boolean;
+  room_logo_url: string | null;
+  // Invitation customization
+  invitation_title: string | null;
+  invitation_description: string | null;
+  invitation_image_url: string | null;
+  countdown_label: string | null;
   created_at: string;
   updated_at: string;
 }
