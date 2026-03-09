@@ -625,9 +625,11 @@ export type Database = {
       }
       auto_webinar_videos: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           description: string | null
           duration_seconds: number
+          host_name: string | null
           id: string
           is_active: boolean
           sort_order: number
@@ -638,9 +640,11 @@ export type Database = {
           video_url: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           duration_seconds?: number
+          host_name?: string | null
           id?: string
           is_active?: boolean
           sort_order?: number
@@ -651,9 +655,11 @@ export type Database = {
           video_url: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           duration_seconds?: number
+          host_name?: string | null
           id?: string
           is_active?: boolean
           sort_order?: number

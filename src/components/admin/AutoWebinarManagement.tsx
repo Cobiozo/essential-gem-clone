@@ -14,7 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
@@ -45,6 +45,8 @@ export const AutoWebinarManagement: React.FC = () => {
     video_url: '',
     duration_seconds: 0,
     thumbnail_url: '',
+    host_name: '',
+    cover_image_url: '',
   });
 
   // Invitation form state
@@ -399,6 +401,8 @@ export const AutoWebinarManagement: React.FC = () => {
           video_url: videoForm.video_url,
           duration_seconds: videoForm.duration_seconds,
           thumbnail_url: videoForm.thumbnail_url || null,
+          host_name: videoForm.host_name || null,
+          cover_image_url: videoForm.cover_image_url || null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', editingVideo.id);
@@ -416,6 +420,8 @@ export const AutoWebinarManagement: React.FC = () => {
           video_url: videoForm.video_url,
           duration_seconds: videoForm.duration_seconds,
           thumbnail_url: videoForm.thumbnail_url || null,
+          host_name: videoForm.host_name || null,
+          cover_image_url: videoForm.cover_image_url || null,
           sort_order: maxOrder,
           uploaded_by: user?.id,
         });
@@ -474,13 +480,15 @@ export const AutoWebinarManagement: React.FC = () => {
       video_url: video.video_url,
       duration_seconds: video.duration_seconds,
       thumbnail_url: video.thumbnail_url || '',
+      host_name: video.host_name || '',
+      cover_image_url: video.cover_image_url || '',
     });
     setVideoDialogOpen(true);
   };
 
   const resetVideoForm = () => {
     setEditingVideo(null);
-    setVideoForm({ title: '', description: '', video_url: '', duration_seconds: 0, thumbnail_url: '' });
+    setVideoForm({ title: '', description: '', video_url: '', duration_seconds: 0, thumbnail_url: '', host_name: '', cover_image_url: '' });
   };
 
   const formatDuration = (seconds: number) => {
@@ -1019,7 +1027,9 @@ export const AutoWebinarManagement: React.FC = () => {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">Lp.</TableHead>
+                  <TableHead className="w-16">Miniaturka</TableHead>
                   <TableHead>Tytuł</TableHead>
+                  <TableHead>Prowadzący</TableHead>
                   <TableHead>Czas</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Akcje</TableHead>
@@ -1034,7 +1044,21 @@ export const AutoWebinarManagement: React.FC = () => {
                         {idx + 1}
                       </div>
                     </TableCell>
+                    <TableCell>
+                      {(video.thumbnail_url || video.cover_image_url) ? (
+                        <img
+                          src={video.thumbnail_url || video.cover_image_url || ''}
+                          alt={video.title}
+                          className="w-14 h-10 object-cover rounded border"
+                        />
+                      ) : (
+                        <div className="w-14 h-10 rounded border bg-muted flex items-center justify-center">
+                          <Video className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">{video.title}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{video.host_name || '—'}</TableCell>
                     <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
                     <TableCell>
                       <Badge
@@ -1136,6 +1160,25 @@ export const AutoWebinarManagement: React.FC = () => {
                 onChange={(e) => setVideoForm(prev => ({ ...prev, thumbnail_url: e.target.value }))}
                 placeholder="https://..."
               />
+            </div>
+            <div>
+              <Label>Prowadzący</Label>
+              <Input
+                value={videoForm.host_name}
+                onChange={(e) => setVideoForm(prev => ({ ...prev, host_name: e.target.value }))}
+                placeholder="np. Jan Kowalski"
+              />
+            </div>
+            <div>
+              <Label>Okładka webinaru (URL)</Label>
+              <Input
+                value={videoForm.cover_image_url}
+                onChange={(e) => setVideoForm(prev => ({ ...prev, cover_image_url: e.target.value }))}
+                placeholder="https://..."
+              />
+              {videoForm.cover_image_url && (
+                <img src={videoForm.cover_image_url} alt="Okładka" className="mt-2 w-full h-32 object-cover rounded border" />
+              )}
             </div>
           </div>
           <DialogFooter>

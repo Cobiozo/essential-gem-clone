@@ -20,6 +20,14 @@ interface AutoWebinarSlotConfig {
   interval_minutes: number;
 }
 
+interface AutoWebinarVideoData {
+  title: string;
+  description: string | null;
+  host_name: string | null;
+  cover_image_url: string | null;
+  thumbnail_url: string | null;
+}
+
 const getNextSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } => {
   const now = new Date();
   const currentHour = now.getHours();
@@ -98,6 +106,7 @@ const EventGuestRegistration: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
+  const [autoWebinarVideo, setAutoWebinarVideo] = useState<AutoWebinarVideoData | null>(null);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -139,7 +148,7 @@ const EventGuestRegistration: React.FC = () => {
     fetchEvent();
   }, [eventId]);
 
-  // Fetch auto-webinar config when event is auto_webinar
+  // Fetch auto-webinar config and first video when event is auto_webinar
   useEffect(() => {
     if (!event || event.event_type !== 'auto_webinar') return;
     const fetchConfig = async () => {
@@ -149,6 +158,16 @@ const EventGuestRegistration: React.FC = () => {
         .eq('event_id', event.id)
         .maybeSingle();
       if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+
+      // Fetch first active video for display data
+      const { data: videoData } = await supabase
+        .from('auto_webinar_videos')
+        .select('title, description, host_name, cover_image_url, thumbnail_url')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (videoData) setAutoWebinarVideo(videoData as AutoWebinarVideoData);
     };
     fetchConfig();
   }, [event]);
@@ -196,6 +215,9 @@ const EventGuestRegistration: React.FC = () => {
 
       // Call edge function to send confirmation email and add to contacts
       try {
+        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig) : null;
+        const slotDiffMinutes = nextSlot ? (nextSlot.date.getTime() - Date.now()) / (1000 * 60) : null;
+
         await supabase.functions.invoke('send-webinar-confirmation', {
           body: {
             eventId,
@@ -206,7 +228,16 @@ const EventGuestRegistration: React.FC = () => {
             invitedByUserId: invitedBy,
             eventTitle: event?.title,
             eventDate: event?.start_time,
-            eventHost: event?.host_name,
+            eventHost: autoWebinarVideo?.host_name || event?.host_name,
+            // Auto-webinar specific
+            isAutoWebinar,
+            nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
+            nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${nextSlot.time}` : undefined,
+            minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
+            roomLink: isAutoWebinar && event?.id ? `https://purelife.info.pl/auto-webinar` : undefined,
+            videoHostName: autoWebinarVideo?.host_name || undefined,
+            videoCoverImageUrl: autoWebinarVideo?.cover_image_url || undefined,
+            videoDescription: autoWebinarVideo?.description || undefined,
           },
         });
       } catch (emailError) {
@@ -356,8 +387,16 @@ const EventGuestRegistration: React.FC = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <Card className="overflow-hidden">
-          {/* Event Image */}
-          {event.image_url && (
+          {/* Event Image — use cover from video for auto-webinar, or event image */}
+          {(isAutoWebinar && autoWebinarVideo?.cover_image_url) ? (
+            <div className="relative w-full bg-muted/30">
+              <img
+                src={autoWebinarVideo.cover_image_url}
+                alt={event.title}
+                className="w-full h-auto object-contain max-h-[400px]"
+              />
+            </div>
+          ) : event.image_url ? (
             <div className="relative w-full bg-muted/30">
               <img
                 src={event.image_url}
@@ -370,7 +409,7 @@ const EventGuestRegistration: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
 
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
@@ -437,14 +476,22 @@ const EventGuestRegistration: React.FC = () => {
                   </div>
                 </>
               )}
-              {event.host_name && (
+              {/* Show host from video data for auto-webinar, or from event */}
+              {(isAutoWebinar && autoWebinarVideo?.host_name) ? (
+                <div className="flex items-center gap-3">
+                  <User className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">Prowadzący: {autoWebinarVideo.host_name}</p>
+                  </div>
+                </div>
+              ) : event.host_name ? (
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />
                   <div>
                     <p className="font-medium">Prowadzący: {event.host_name}</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
 
             {isPast ? (

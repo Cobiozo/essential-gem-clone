@@ -20,6 +20,15 @@ interface WebinarConfirmationRequest {
   zoomLink?: string;
   hostName?: string;
   isReminder?: boolean;
+  // Auto-webinar specific
+  isAutoWebinar?: boolean;
+  nextSlotTime?: string;
+  nextSlotTimeFormatted?: string;
+  minutesToNextSlot?: number;
+  roomLink?: string;
+  videoHostName?: string;
+  videoCoverImageUrl?: string;
+  videoDescription?: string;
 }
 
 interface SmtpSettings {
@@ -170,10 +179,10 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestData: WebinarConfirmationRequest = await req.json();
-    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder } = requestData;
+    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder, isAutoWebinar, nextSlotTime, nextSlotTimeFormatted, minutesToNextSlot, roomLink, videoHostName, videoCoverImageUrl, videoDescription } = requestData;
     
     const emailType = isReminder ? 'reminder' : 'confirmation';
-    console.log(`[send-webinar-confirmation] Processing ${emailType} for: ${email}, event: ${eventTitle}`);
+    console.log(`[send-webinar-confirmation] Processing ${emailType} for: ${email}, event: ${eventTitle}, isAutoWebinar: ${isAutoWebinar}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -329,22 +338,30 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     // Format date for email
-    const displayDate = eventTime 
-      ? `${eventDate}, godz. ${eventTime}` 
-      : (eventDate 
-        ? new Date(eventDate).toLocaleDateString('pl-PL', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        : '');
+    const displayDate = isAutoWebinar && nextSlotTimeFormatted
+      ? nextSlotTimeFormatted
+      : eventTime 
+        ? `${eventDate}, godz. ${eventTime}` 
+        : (eventDate 
+          ? new Date(eventDate).toLocaleDateString('pl-PL', { 
+              weekday: 'long', 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '');
 
-    const displayHost = hostName || eventHost || 'Zespół Pure Life';
+    const displayHost = videoHostName || hostName || eventHost || 'Zespół Pure Life';
     const displayZoomLink = zoomLink || '';
     const displayTime = eventTime || '';
+    const displayRoomLink = roomLink || '';
+    const displayCoverImage = videoCoverImageUrl || '';
+    const displayVideoDescription = videoDescription || '';
+
+    // Auto-webinar: if ≤15 minutes to next slot, send immediate join email
+    const isImmediateJoin = isAutoWebinar && minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
 
     let subject: string;
     let htmlBody: string;
@@ -368,9 +385,64 @@ const handler = async (req: Request): Promise<Response> => {
       htmlBody = replaceVariables(template.body_html);
     } else {
       // Fallback to hardcoded templates
-      console.log(`[send-webinar-confirmation] Template not found, using fallback for ${emailType}`);
+      console.log(`[send-webinar-confirmation] Template not found, using fallback for ${emailType}, isImmediateJoin: ${isImmediateJoin}`);
       
-      if (isReminder) {
+      if (isImmediateJoin && displayRoomLink) {
+        // AUTO-WEBINAR: Immediate join email (≤15 min to next slot)
+        subject = `🔴 Dołącz teraz: ${eventTitle}`;
+        htmlBody = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="UTF-8">
+            <style>
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+              .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #ef4444; }
+              .content { padding: 30px 0; }
+              .event-box { background: #fef2f2; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #ef4444; }
+              .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+              h1 { color: #dc2626; margin: 0; }
+              .join-button { display: inline-block; background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                ${displayCoverImage ? `<img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;" />` : ''}
+                <h1>🔴 Webinar zaczyna się za chwilę!</h1>
+              </div>
+              <div class="content">
+                <p>Cześć <strong>${firstName}</strong>!</p>
+                <p>Zarejestrowałeś/aś się na webinar, który <strong>rozpoczyna się za ${minutesToNextSlot || 'kilka'} minut</strong>!</p>
+                
+                <div class="event-box">
+                  <h2 style="margin-top: 0;">📅 ${eventTitle}</h2>
+                  <p><strong>Termin:</strong> ${displayDate}</p>
+                  <p><strong>Prowadzący:</strong> ${displayHost}</p>
+                  ${displayVideoDescription ? `<p style="margin-top: 10px; color: #666;">${displayVideoDescription}</p>` : ''}
+                  <p style="margin-top: 20px;"><strong>🔗 Dołącz do webinaru:</strong></p>
+                  <a href="${displayRoomLink}" class="join-button">Dołącz teraz</a>
+                  <p style="font-size: 12px; color: #666;">Lub skopiuj link: ${displayRoomLink}</p>
+                </div>
+                
+                <p><strong>Wskazówki:</strong></p>
+                <ul>
+                  <li>Pokój otworzy się 5 minut przed planowanym rozpoczęciem</li>
+                  <li>Sprawdź swoje połączenie internetowe</li>
+                  <li>Przygotuj notatnik na ważne informacje</li>
+                </ul>
+                
+                <p>Do zobaczenia! 🎉</p>
+              </div>
+              <div class="footer">
+                <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+      } else if (isReminder) {
         subject = `⏰ Przypomnienie: ${eventTitle} - już jutro!`;
         htmlBody = `
           <!DOCTYPE html>
@@ -426,7 +498,10 @@ const handler = async (req: Request): Promise<Response> => {
           </html>
         `;
       } else {
-        subject = `Potwierdzenie rejestracji: ${eventTitle}`;
+        // Standard confirmation (including auto-webinar with >15 min to slot)
+        subject = isAutoWebinar 
+          ? `Potwierdzenie rejestracji: ${eventTitle}` 
+          : `Potwierdzenie rejestracji: ${eventTitle}`;
         htmlBody = `
           <!DOCTYPE html>
           <html>
@@ -446,6 +521,7 @@ const handler = async (req: Request): Promise<Response> => {
           <body>
             <div class="container">
               <div class="header">
+                ${displayCoverImage ? `<img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;" />` : ''}
                 <h1>✅ Rejestracja potwierdzona!</h1>
               </div>
               <div class="content">
@@ -456,12 +532,18 @@ const handler = async (req: Request): Promise<Response> => {
                   <h2 style="margin-top: 0;">${eventTitle}</h2>
                   <p>📅 <strong>Data:</strong> ${displayDate}</p>
                   <p>👤 <strong>Prowadzący:</strong> ${displayHost}</p>
+                  ${displayVideoDescription ? `<p style="margin-top: 10px; color: #666;">${displayVideoDescription}</p>` : ''}
                 </div>
                 
                 <p><strong>Co dalej?</strong></p>
                 <ul>
-                  <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
-                  <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
+                  ${isAutoWebinar ? `
+                    <li>Pokój otworzy się <span class="highlight">5 minut przed planowanym rozpoczęciem</span></li>
+                    <li>Dołącz punktualnie w wyznaczonym terminie</li>
+                  ` : `
+                    <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
+                    <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
+                  `}
                   <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
                 </ul>
                 
