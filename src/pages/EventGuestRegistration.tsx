@@ -236,7 +236,7 @@ const EventGuestRegistration: React.FC = () => {
 
       // Call edge function to send confirmation email and add to contacts
       try {
-        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig) : null;
+        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : null;
         const slotDiffMinutes = nextSlot ? (nextSlot.date.getTime() - Date.now()) / (1000 * 60) : null;
 
         await supabase.functions.invoke('send-webinar-confirmation', {
