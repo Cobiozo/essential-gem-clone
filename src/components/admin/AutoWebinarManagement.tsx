@@ -192,12 +192,21 @@ export const AutoWebinarManagement: React.FC = () => {
     // Sync with linked event
     if (cfg.event_id) {
       const eventUpdates: Record<string, any> = {};
-      if (invitationForm.invitation_title) eventUpdates.title = invitationForm.invitation_title;
+      if (invitationForm.invitation_title) {
+        eventUpdates.title = invitationForm.invitation_title;
+        // Update slug based on title
+        const newSlug = slugify(invitationForm.invitation_title) + '-' + Math.random().toString(36).substring(2, 6);
+        eventUpdates.slug = newSlug;
+      }
       if (invitationForm.invitation_description) eventUpdates.description = invitationForm.invitation_description;
       if (Object.keys(eventUpdates).length > 0) {
         await supabase.from('events').update(eventUpdates).eq('id', cfg.event_id);
-        if (linkedEvent && eventUpdates.title) {
-          setLinkedEvent({ ...linkedEvent, title: eventUpdates.title });
+        if (linkedEvent) {
+          setLinkedEvent({ 
+            ...linkedEvent, 
+            ...(eventUpdates.title ? { title: eventUpdates.title } : {}),
+            ...(eventUpdates.slug ? { slug: eventUpdates.slug } : {}),
+          });
         }
       }
     }
