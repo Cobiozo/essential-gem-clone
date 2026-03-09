@@ -1,47 +1,24 @@
 
 
-# Poukładanie widoczności ról — lepszy layout + rola Administrator
+## Plan zmian
 
-## Zmiana
+### 1. Logo na ekranie ładowania (App.tsx)
 
-W sekcji "Widoczność dla ról" w `AutoWebinarManagement.tsx`:
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-1. **Layout**: Zamienić `grid-cols-3` na pionową listę — każdy wiersz to `flex items-center justify-between` z etykietą po lewej i Switch po prawej (jak sekcja "Widoczne w kalendarzu" poniżej). Dzięki temu przełącznik jest blisko napisu.
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-2. **Dodać rolę Administrator** jako pierwszy wiersz (domyślnie włączony, zawsze widoczny dla admina).
+### 2. Złote ikony dla datetime-local (index.css)
 
-3. **Kolejność**: Administrator → Partnerzy → Specjaliści → Klienci
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-## Plik: `src/components/admin/AutoWebinarManagement.tsx` (linie 575-601)
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-Nowy układ:
-```tsx
-<div className="border-t pt-4 space-y-3">
-  <Label className="text-sm font-semibold">Widoczność dla ról</Label>
-  <div className="space-y-3">
-    {/* Administrator */}
-    <div className="flex items-center justify-between">
-      <Label className="text-sm">Administrator</Label>
-      <Switch checked={true} disabled />
-    </div>
-    {/* Partnerzy */}
-    <div className="flex items-center justify-between">
-      <Label className="text-sm">Partnerzy</Label>
-      <Switch checked={...} onCheckedChange={...} />
-    </div>
-    {/* Specjaliści */}
-    <div className="flex items-center justify-between">
-      <Label className="text-sm">Specjaliści</Label>
-      <Switch checked={...} onCheckedChange={...} />
-    </div>
-    {/* Klienci */}
-    <div className="flex items-center justify-between">
-      <Label className="text-sm">Klienci</Label>
-      <Switch checked={...} onCheckedChange={...} />
-    </div>
-  </div>
-</div>
-```
-
-Administrator Switch jest zawsze włączony i disabled — admin zawsze widzi auto-webinary.
+### Zakres: 2 pliki, ~10 linii zmian
 
