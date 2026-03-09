@@ -1,24 +1,26 @@
 
 
-## Plan zmian
+# Fix: Wszystkie sloty powinny być klikalne do kopiowania zaproszeń
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Po upływie 2 minut od rozpoczęcia slotu (np. 22:02), slot 22:00 staje się bezużyteczny dla zaproszenia — nikt już nie dołączy (reguła 2 minut). Ale system nadal oznacza go jako "LIVE" zamiast pozwolić na przejście do następnego.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+Dodatkowo, przeszłe sloty dzisiejszego dnia nie powinny być wyłączone, bo partner może chcieć skopiować zaproszenie na tę samą godzinę **na jutro lub pojutrze** (klikając odpowiednią kolumnę).
 
-### 2. Złote ikony dla datetime-local (index.css)
+## Rozwiązanie
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+1. **Żaden slot nie będzie disabled** — usunięcie `disabled={isPast}`. Cel widoku to kopiowanie zaproszeń, nie dołączanie do pokoju. Każdy slot w każdej z 3 kolumn jest klikalny.
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+2. **Slot LIVE po 2 minutach** → wizualnie zmiana na "przeszły" (wyszarzony), bo nikt już nie dołączy. Następny slot staje się podświetlony jako najbliższy.
 
-### Zakres: 2 pliki, ~10 linii zmian
+3. **Przeszłe sloty dzisiaj** → wyszarzone ale nadal klikalne (bez `disabled`, bez `cursor-not-allowed`). Partner może je wybrać i skopiować zaproszenie.
+
+## Zmiana w pliku
+
+`src/components/auto-webinar/AutoWebinarEventView.tsx`:
+
+- `getSlotStatus`: slot 'now' po 2 minutach → traktuj jako 'past' 
+- Usunięcie `disabled={isPast}` z `<button>`
+- Przeszłe sloty: wyszarzone ale klikalne (zmiana stylu z `cursor-not-allowed` na `opacity-50`)
 
