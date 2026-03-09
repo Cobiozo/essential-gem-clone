@@ -80,9 +80,8 @@ export const AutoWebinarEventView: React.FC = () => {
     const slotStart = h * 60 + m;
     const slotEnd = slotStart + intervalMin;
     const currentMin = now.getHours() * 60 + now.getMinutes();
-    // LIVE only during first 2 minutes of the slot
     if (currentMin >= slotStart && currentMin < slotStart + 2) return 'now';
-    if (currentMin >= slotStart + 2 && currentMin < slotEnd) return 'past';
+    if (currentMin >= slotStart + 2 && currentMin < slotEnd) return 'ongoing';
     if (currentMin >= slotEnd) return 'past';
     return 'future';
   };
@@ -193,8 +192,10 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                     const selected = isSelected(day.index, time);
                     const isPast = status === 'past';
                     const isNow = status === 'now';
+                    const isOngoing = status === 'ongoing';
+                    const isLive = isNow || isOngoing;
 
-                    const isUnavailable = isPast || isNow;
+                    const isUnavailable = isPast || isLive;
 
                     return (
                       <button
@@ -203,22 +204,29 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                         onClick={() => !isUnavailable && setSelectedSlot(
                           selected ? null : { dayIndex: day.index, time }
                         )}
-                        className={`w-full flex items-center justify-center gap-1 rounded-md px-1 py-1 text-xs font-mono transition-colors ${
+                        className={`w-full flex items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-mono transition-colors ${
                           selected
                             ? 'bg-primary text-primary-foreground'
-                            : isNow
+                            : isLive
                               ? 'bg-primary/10 border border-primary/30 text-foreground cursor-not-allowed'
                               : isPast
                                 ? 'text-muted-foreground/50 line-through cursor-not-allowed'
                                 : 'hover:bg-muted/60 text-foreground'
                         }`}
                       >
-                        {isNow && (
-                          <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        {isOngoing && (
+                          <span className="text-[9px] font-sans font-semibold text-destructive">TRWA</span>
                         )}
-                        {time}
-                        {isNow && (
-                          <span className="text-[9px] font-sans font-semibold text-destructive">LIVE</span>
+                        {isNow && <span className="w-0" />}
+                        {!isLive && !isPast && <span className="w-0" />}
+                        <span>{time}</span>
+                        {isLive ? (
+                          <span className="flex items-center gap-0.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
+                            <span className="text-[9px] font-sans font-semibold text-destructive">LIVE</span>
+                          </span>
+                        ) : (
+                          <span className="w-0" />
                         )}
                       </button>
                     );
