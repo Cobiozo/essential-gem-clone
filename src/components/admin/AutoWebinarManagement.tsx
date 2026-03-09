@@ -45,6 +45,8 @@ export const AutoWebinarManagement: React.FC = () => {
     video_url: '',
     duration_seconds: 0,
     thumbnail_url: '',
+    host_name: '',
+    cover_image_url: '',
   });
 
   // Invitation form state
