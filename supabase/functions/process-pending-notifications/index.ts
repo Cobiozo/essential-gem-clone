@@ -452,7 +452,7 @@ serve(async (req) => {
           }
         }
       } else {
-        console.log("[CRON] No webinars starting in next 24-30 hours");
+        console.log("[CRON] No webinars starting in next 23.5-25 hours");
       }
     }
 
