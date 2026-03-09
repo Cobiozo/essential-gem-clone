@@ -147,6 +147,18 @@ export const AutoWebinarEmbed: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+      ) : secondsToNext > 0 && secondsToNext <= 300 ? (
+        /* Countdown 5 minutes before next slot */
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16">
+            <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
+            {config.welcome_message && (
+              <p className="mt-6 text-center text-muted-foreground max-w-md">
+                {config.welcome_message}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">

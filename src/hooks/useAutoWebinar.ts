@@ -65,27 +65,43 @@ export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebin
     const calculate = () => {
       const now = new Date();
       const currentHour = now.getHours();
-      const secondsPastHour = now.getMinutes() * 60 + now.getSeconds();
+      const currentMinute = now.getMinutes();
+      const currentSecond = now.getSeconds();
+      const secondsPastMidnight = currentHour * 3600 + currentMinute * 60 + currentSecond;
 
-      // Check if within active hours
-      if (currentHour < config.start_hour || currentHour >= config.end_hour) {
+      const activeStartSeconds = config.start_hour * 3600;
+      const activeEndSeconds = config.end_hour * 3600;
+      const intervalSeconds = (config.interval_minutes || 60) * 60;
+
+      // Pre-entry window: 5 minutes (300 seconds) before start_hour
+      const preEntryWindow = 300;
+
+      // Check if we're in the pre-entry window before active hours
+      if (secondsPastMidnight >= activeStartSeconds - preEntryWindow && secondsPastMidnight < activeStartSeconds) {
         setIsInActiveHours(false);
         setCurrentVideo(null);
-        let nextStartHour = config.start_hour;
-        if (currentHour >= config.end_hour) {
-          nextStartHour = config.start_hour + 24;
+        setSecondsToNext(activeStartSeconds - secondsPastMidnight);
+        return;
+      }
+
+      // Check if outside active hours entirely
+      if (secondsPastMidnight < activeStartSeconds - preEntryWindow || secondsPastMidnight >= activeEndSeconds) {
+        setIsInActiveHours(false);
+        setCurrentVideo(null);
+        let nextStartSeconds = activeStartSeconds - preEntryWindow;
+        if (secondsPastMidnight >= activeEndSeconds) {
+          nextStartSeconds = activeStartSeconds - preEntryWindow + 86400;
         }
-        const hoursUntil = nextStartHour - currentHour;
-        setSecondsToNext(hoursUntil * 3600 - secondsPastHour);
+        setSecondsToNext(nextStartSeconds - secondsPastMidnight);
         return;
       }
 
       setIsInActiveHours(true);
 
-      const intervalSeconds = (config.interval_minutes || 60) * 60;
-      const secondsSinceStart = (currentHour - config.start_hour) * 3600 + secondsPastHour;
+      const secondsSinceStart = secondsPastMidnight - activeStartSeconds;
       const currentSlotIndex = Math.floor(secondsSinceStart / intervalSeconds);
       const secondsIntoSlot = secondsSinceStart % intervalSeconds;
+      const nextSlotStartSec = activeStartSeconds + (currentSlotIndex + 1) * intervalSeconds;
 
       // Determine which video
       let videoIndex: number;
@@ -103,10 +119,12 @@ export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebin
         setStartOffset(secondsIntoSlot);
         setSecondsToNext(0);
       } else if (video.duration_seconds > 0) {
-        // Video already finished for this slot
+        // Video finished — show countdown to next slot (5 min before next)
         setStartOffset(-1);
-        const nextSlotStart = (currentSlotIndex + 1) * intervalSeconds;
-        setSecondsToNext(nextSlotStart - secondsSinceStart);
+        const countdownTarget = nextSlotStartSec;
+        const secsToNext = countdownTarget - secondsPastMidnight;
+        // Only show countdown if within 5 minutes
+        setSecondsToNext(secsToNext <= preEntryWindow ? secsToNext : secsToNext);
       } else {
         setStartOffset(0);
       }
