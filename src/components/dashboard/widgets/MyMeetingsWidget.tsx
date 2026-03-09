@@ -71,6 +71,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const getEventTypeName = (type: string) => {
     switch (type) {
       case 'webinar':
+      case 'auto_webinar':
         return tf('events.type.webinars', 'Webinary');
       case 'team_training':
         return tf('events.type.teamMeeting', 'Spotkanie zespołu');

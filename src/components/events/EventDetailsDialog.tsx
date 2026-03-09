@@ -152,6 +152,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const getEventTypeBadge = () => {
     switch (event.event_type) {
       case 'webinar':
+      case 'auto_webinar':
         return <Badge className="bg-blue-500">Webinar</Badge>;
       case 'meeting_public':
       case 'team_training':

@@ -137,6 +137,7 @@ ${signUpLabel}: ${inviteUrl}
   const getEventColor = (type: string) => {
     switch (type) {
       case 'webinar':
+      case 'auto_webinar':
         return 'bg-blue-500';
       case 'meeting_public':
       case 'team_training':
