@@ -338,22 +338,30 @@ const handler = async (req: Request): Promise<Response> => {
     };
 
     // Format date for email
-    const displayDate = eventTime 
-      ? `${eventDate}, godz. ${eventTime}` 
-      : (eventDate 
-        ? new Date(eventDate).toLocaleDateString('pl-PL', { 
-            weekday: 'long', 
-            day: 'numeric', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
-        : '');
+    const displayDate = isAutoWebinar && nextSlotTimeFormatted
+      ? nextSlotTimeFormatted
+      : eventTime 
+        ? `${eventDate}, godz. ${eventTime}` 
+        : (eventDate 
+          ? new Date(eventDate).toLocaleDateString('pl-PL', { 
+              weekday: 'long', 
+              day: 'numeric', 
+              month: 'long', 
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })
+          : '');
 
-    const displayHost = hostName || eventHost || 'Zespół Pure Life';
+    const displayHost = videoHostName || hostName || eventHost || 'Zespół Pure Life';
     const displayZoomLink = zoomLink || '';
     const displayTime = eventTime || '';
+    const displayRoomLink = roomLink || '';
+    const displayCoverImage = videoCoverImageUrl || '';
+    const displayVideoDescription = videoDescription || '';
+
+    // Auto-webinar: if ≤15 minutes to next slot, send immediate join email
+    const isImmediateJoin = isAutoWebinar && minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
 
     let subject: string;
     let htmlBody: string;
