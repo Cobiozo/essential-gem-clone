@@ -37,7 +37,8 @@ const EventRegistrationBySlug: React.FC = () => {
 
       // 2. Resolve ref (eq_id) → user_id
       const ref = searchParams.get('ref');
-      let invitedByParam = '';
+      const slot = searchParams.get('slot');
+      const redirectParams = new URLSearchParams();
 
       if (ref) {
         // Log click for auto_webinar events
@@ -60,12 +61,17 @@ const EventRegistrationBySlug: React.FC = () => {
           .maybeSingle();
 
         if (profile?.user_id) {
-          invitedByParam = `?invited_by=${profile.user_id}`;
+          redirectParams.set('invited_by', profile.user_id);
         }
       }
 
+      if (slot) {
+        redirectParams.set('slot', slot);
+      }
+
       // 3. Redirect to existing registration page
-      navigate(`/events/register/${event.id}${invitedByParam}`, { replace: true });
+      const qs = redirectParams.toString();
+      navigate(`/events/register/${event.id}${qs ? `?${qs}` : ''}`, { replace: true });
     };
 
     resolve();

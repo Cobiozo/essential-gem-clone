@@ -94,8 +94,11 @@ export const AutoWebinarEventView: React.FC = () => {
     const eqId = profile?.eq_id;
     const slug = linkedEvent?.slug;
     const baseUrl = 'https://purelife.info.pl';
+    const params = new URLSearchParams();
+    if (eqId) params.set('ref', eqId);
+    params.set('slot', selectedSlot.time);
     const inviteUrl = slug
-      ? `${baseUrl}/e/${slug}${eqId ? `?ref=${eqId}` : ''}`
+      ? `${baseUrl}/e/${slug}?${params.toString()}`
       : baseUrl;
 
     const dateStr = format(day.date, 'EEEE, d MMMM', { locale: pl });

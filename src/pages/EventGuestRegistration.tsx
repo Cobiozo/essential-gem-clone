@@ -28,12 +28,32 @@ interface AutoWebinarVideoData {
   thumbnail_url: string | null;
 }
 
-const getNextSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } => {
+const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
   const totalMinutes = currentHour * 60 + currentMin;
   const interval = config.interval_minutes;
+
+  // If a preferred time is provided (from URL slot param), use it
+  if (preferredTime && /^\d{2}:\d{2}$/.test(preferredTime)) {
+    const [ph, pm] = preferredTime.split(':').map(Number);
+    const preferredMin = ph * 60 + pm;
+    // Check if this time is a valid slot
+    if (ph >= config.start_hour && ph < config.end_hour && preferredMin % interval === (config.start_hour * 60) % interval) {
+      const slotDate = new Date(now);
+      if (preferredMin > totalMinutes) {
+        // Today
+        slotDate.setHours(ph, pm, 0, 0);
+      } else {
+        // Tomorrow
+        const tomorrow = addDays(now, 1);
+        tomorrow.setHours(ph, pm, 0, 0);
+        return { date: tomorrow, time: preferredTime };
+      }
+      return { date: slotDate, time: preferredTime };
+    }
+  }
 
   // Generate slots for today
   for (let h = config.start_hour; h < config.end_hour; h++) {
@@ -90,6 +110,7 @@ const EventGuestRegistration: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const [searchParams] = useSearchParams();
   const invitedByRaw = searchParams.get('invited_by');
+  const slotParam = searchParams.get('slot');
   
   // Validate UUID format - if invalid, set to null
   const invitedBy = isValidUUID(invitedByRaw) ? invitedByRaw : null;
@@ -215,7 +236,7 @@ const EventGuestRegistration: React.FC = () => {
 
       // Call edge function to send confirmation email and add to contacts
       try {
-        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig) : null;
+        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : null;
         const slotDiffMinutes = nextSlot ? (nextSlot.date.getTime() - Date.now()) / (1000 * 60) : null;
 
         await supabase.functions.invoke('send-webinar-confirmation', {
@@ -311,7 +332,7 @@ const EventGuestRegistration: React.FC = () => {
                     <span>Webinar online</span>
                   </div>
                   {autoWebinarConfig && (() => {
-                    const slot = getNextSlot(autoWebinarConfig);
+                     const slot = getNextSlot(autoWebinarConfig, slotParam);
                     return (
                       <>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -350,7 +371,7 @@ const EventGuestRegistration: React.FC = () => {
               {isAutoWebinar
                 ? (() => {
                     if (autoWebinarConfig) {
-                      const slot = getNextSlot(autoWebinarConfig);
+                       const slot = getNextSlot(autoWebinarConfig, slotParam);
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
@@ -446,7 +467,7 @@ const EventGuestRegistration: React.FC = () => {
                     </div>
                   </div>
                   {autoWebinarConfig && (() => {
-                    const slot = getNextSlot(autoWebinarConfig);
+                    const slot = getNextSlot(autoWebinarConfig, slotParam);
                     return (
                       <>
                         <div className="flex items-center gap-3">
