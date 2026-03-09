@@ -1161,6 +1161,25 @@ export const AutoWebinarManagement: React.FC = () => {
                 placeholder="https://..."
               />
             </div>
+            <div>
+              <Label>Prowadzący</Label>
+              <Input
+                value={videoForm.host_name}
+                onChange={(e) => setVideoForm(prev => ({ ...prev, host_name: e.target.value }))}
+                placeholder="np. Jan Kowalski"
+              />
+            </div>
+            <div>
+              <Label>Okładka webinaru (URL)</Label>
+              <Input
+                value={videoForm.cover_image_url}
+                onChange={(e) => setVideoForm(prev => ({ ...prev, cover_image_url: e.target.value }))}
+                placeholder="https://..."
+              />
+              {videoForm.cover_image_url && (
+                <img src={videoForm.cover_image_url} alt="Okładka" className="mt-2 w-full h-32 object-cover rounded border" />
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVideoDialogOpen(false)}>Anuluj</Button>
