@@ -422,9 +422,38 @@ export const AutoWebinarManagement: React.FC = () => {
                     Slug: <code className="text-xs bg-muted px-1 py-0.5 rounded">{linkedEvent.slug}</code>
                   </p>
                 </div>
-                <Badge variant={linkedEvent.is_active ? 'default' : 'secondary'}>
-                  {linkedEvent.is_active ? 'Aktywne' : 'Nieaktywne'}
-                </Badge>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Power className={cn("h-4 w-4", linkedEvent.is_active ? "text-green-500" : "text-muted-foreground")} />
+                    <Switch 
+                      checked={linkedEvent.is_active} 
+                      onCheckedChange={handleToggleEventActive}
+                    />
+                  </div>
+                  <Badge variant={linkedEvent.is_active ? 'default' : 'secondary'}>
+                    {linkedEvent.is_active ? 'Aktywne' : 'Nieaktywne'}
+                  </Badge>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" size="icon" className="h-8 w-8">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Usuń wydarzenie auto-webinar</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Wydarzenie zostanie wyłączone i odpięte od systemu auto-webinarów. 
+                          Użytkownicy nie będą go widzieć. Możesz później utworzyć nowe wydarzenie.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Anuluj</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteLinkedEvent}>Usuń</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
 
               <div>
