@@ -1,24 +1,51 @@
 
 
-## Plan zmian
+# Automatyczne wykrywanie nowej wersji aplikacji — Version Polling
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Obecny mechanizm (`SWUpdateBanner`) działa tylko gdy zmieni się sam plik `sw-push.js`. Gdy zmieniają się pliki aplikacji (nowe chunki JS), Service Worker się nie aktualizuje i użytkownik nie dostaje powiadomienia o nowej wersji.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Rozwiązanie
 
-### 2. Złote ikony dla datetime-local (index.css)
+Dodać mechanizm **version polling** — aplikacja co 60 sekund sprawdza plik `/version.json` (generowany przy buildzie). Jeśli wersja się zmieni, użytkownik zobaczy baner z wymuszeniem odświeżenia.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+### Nowe pliki
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+**1. `public/version.json`** — plik wersji (statyczny placeholder, nadpisywany przy buildzie):
+```json
+{ "version": "1.0.0", "buildTime": 0 }
+```
 
-### Zakres: 2 pliki, ~10 linii zmian
+**2. Skrypt build w `vite.config.ts`** — plugin generujący `version.json` z timestampem przy każdym buildzie (`closeBundle` hook). Dzięki temu każdy deploy = nowa wersja.
+
+**3. `src/hooks/useVersionPolling.ts`** — hook sprawdzający `/version.json` co 60s:
+- Przy pierwszym załadowaniu zapisuje aktualną wersję
+- Przy kolejnych porównuje — jeśli się zmieniła, dispatchuje event `appVersionChanged`
+- Sprawdza tylko gdy zakładka jest aktywna (`visibilitychange`)
+
+### Zmiany w istniejących plikach
+
+**4. `src/components/pwa/SWUpdateBanner.tsx`** — rozszerzyć o nasłuchiwanie `appVersionChanged` (oprócz istniejącego `swUpdateAvailable`). Dodać opcję auto-reload po 30s z odliczaniem — jeśli użytkownik nie kliknie "Odśwież", aplikacja odświeży się sama.
+
+**5. `src/App.tsx`** — dodać `useVersionPolling()` w głównym komponencie.
+
+### Przepływ
+
+```text
+Build → generuje version.json z timestampem
+  ↓
+Użytkownik otwiera stronę → hook zapisuje wersję
+  ↓
+Co 60s → fetch /version.json (cache-bust)
+  ↓
+Wersja inna? → baner "Nowa wersja" + auto-reload po 30s
+```
+
+### Pliki do edycji/utworzenia:
+- `public/version.json` — nowy (placeholder)
+- `vite.config.ts` — dodać plugin generujący version.json
+- `src/hooks/useVersionPolling.ts` — nowy hook
+- `src/components/pwa/SWUpdateBanner.tsx` — rozszerzyć o version polling + auto-reload countdown
+- `src/App.tsx` — dodać useVersionPolling()
 
