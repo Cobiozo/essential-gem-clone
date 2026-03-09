@@ -197,10 +197,10 @@ ${signUpLabel}: ${inviteUrl}
         : `+${overtimeMinutes} min`;
 
       if (event.is_registered && meetingRoomId) {
-        return (
-          <Button size="sm" className="h-6 text-xs bg-amber-600 hover:bg-amber-700" asChild>
+          return (
+          <Button size="sm" className="h-8 text-xs bg-amber-600 hover:bg-amber-700 touch-action-manipulation" asChild>
             <a href={`/meeting-room/${meetingRoomId}`}>
-              <Video className="h-3 w-3 mr-1" />
+              <Video className="h-3.5 w-3.5 mr-1" />
               {tf('events.join', 'WEJDŹ')} ({overtimeLabel})
             </a>
           </Button>
