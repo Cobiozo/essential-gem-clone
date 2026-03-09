@@ -140,7 +140,7 @@ export const AutoWebinarRoom: React.FC = () => {
         )}
 
         {/* Custom section */}
-        {config.room_custom_section_title && config.room_custom_section_content && (
+        {showScheduleInfo && config.room_custom_section_title && config.room_custom_section_content && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium">{config.room_custom_section_title}</CardTitle>
