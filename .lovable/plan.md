@@ -1,24 +1,46 @@
 
 
-## Plan zmian
+# Naprawa: usunięcie kontaktu powinno anulować rejestrację gościa
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Gdy użytkownik usuwa kontakt prywatny (CRM) powiązany z rejestracją gościa na wydarzenie, rejestracja w `guest_event_registrations` pozostaje ze statusem `registered`. Gdy gość próbuje się ponownie zarejestrować, sprawdzenie duplikatów w `EventGuestRegistration.tsx` (linia 203-210) znajduje aktywną rejestrację i blokuje — bez emaila, bez kontaktu.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Rozwiązanie
 
-### 2. Złote ikony dla datetime-local (index.css)
+### 1. `useTeamContacts.ts` → `deleteContact` — anuluj powiązane rejestracje gości
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+Przy soft-delete kontaktu (is_active: false), sprawdzić czy kontakt ma powiązane rejestracje gości (`guest_event_registrations.team_contact_id = id`). Jeśli tak — ustawić ich status na `cancelled` i `cancelled_at = now()`.
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+```typescript
+// Before soft-deleting the contact, cancel linked guest registrations
+await supabase
+  .from('guest_event_registrations')
+  .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+  .eq('team_contact_id', id)
+  .eq('status', 'registered');
+```
 
-### Zakres: 2 pliki, ~10 linii zmian
+### 2. Admin panel — `EventRegistrationsManagement.tsx` → handleUpdateGuestStatus
+
+Gdy admin zmienia status gościa na `cancelled`, również deaktywować powiązany kontakt prywatny (jeśli istnieje):
+
+```typescript
+if (newStatus === 'cancelled') {
+  // Also deactivate linked team_contact
+  const reg = guestRegistrations.find(r => r.id === registrationId);
+  if (reg?.team_contact_id) {
+    await supabase.from('team_contacts')
+      .update({ is_active: false })
+      .eq('id', reg.team_contact_id);
+  }
+}
+```
+
+## Pliki do zmiany
+
+| Plik | Zmiana |
+|---|---|
+| `src/hooks/useTeamContacts.ts` | W `deleteContact` — anuluj powiązane rejestracje gości |
+| `src/components/admin/EventRegistrationsManagement.tsx` | Przy cancel — deaktywuj powiązany kontakt |
 
