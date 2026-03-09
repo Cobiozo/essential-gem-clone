@@ -375,8 +375,16 @@ const EventGuestRegistration: React.FC = () => {
 
       <main className="container mx-auto px-4 py-8 max-w-2xl">
         <Card className="overflow-hidden">
-          {/* Event Image */}
-          {event.image_url && (
+          {/* Event Image — use cover from video for auto-webinar, or event image */}
+          {(isAutoWebinar && autoWebinarVideo?.cover_image_url) ? (
+            <div className="relative w-full bg-muted/30">
+              <img
+                src={autoWebinarVideo.cover_image_url}
+                alt={event.title}
+                className="w-full h-auto object-contain max-h-[400px]"
+              />
+            </div>
+          ) : event.image_url ? (
             <div className="relative w-full bg-muted/30">
               <img
                 src={event.image_url}
@@ -389,7 +397,7 @@ const EventGuestRegistration: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
 
           <CardHeader>
             <div className="flex items-center gap-2 mb-2">
