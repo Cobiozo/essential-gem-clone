@@ -317,7 +317,16 @@ const EventGuestRegistration: React.FC = () => {
             </div>
             <p className="text-sm text-muted-foreground text-center">
               {isAutoWebinar
-                ? 'Dziękujemy za rejestrację! Możesz dołączyć do webinaru w dowolnym momencie w godzinach emisji.'
+                ? (() => {
+                    if (autoWebinarConfig) {
+                      const slot = getNextSlot(autoWebinarConfig);
+                      const accessNote = autoWebinarConfig.interval_minutes >= 30
+                        ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
+                        : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.';
+                      return `Najbliższy webinar: ${format(slot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${slot.time}. ${accessNote}`;
+                    }
+                    return 'Dziękujemy za rejestrację!';
+                  })()
                 : (() => {
                     const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
                     if (hoursUntilEvent > 24) {
