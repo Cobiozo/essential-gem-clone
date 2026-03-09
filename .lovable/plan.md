@@ -1,24 +1,45 @@
 
 
-## Plan zmian
+# Ukrycie informacji o auto-webinarze + zarządzanie wydarzeniami
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Wymagania
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+1. **Tylko admin wie, że to "auto-webinar"** — dla użytkowników wyświetla się jako zwykły "Webinar"
+2. **Przyciski włącz/wyłącz/usuń** w sekcji "Wydarzenie i zaproszenia" w panelu admina
+3. **System wyłączony = zero widoczności** auto-webinarowych wydarzeń
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Zmiany
 
-### 2. Złote ikony dla datetime-local (index.css)
+### 1. Ukrycie typu `auto_webinar` przed użytkownikami
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+W komponentach wyświetlających typ wydarzenia, `auto_webinar` powinien być traktowany identycznie jak `webinar`:
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+| Plik | Zmiana |
+|------|--------|
+| `CalendarWidget.tsx` (getEventColor) | `case 'auto_webinar':` → zwraca ten sam kolor co `webinar` |
+| `CalendarWidget.tsx` (legendItems) | Bez zmian — `auto_webinar` nie ma osobnej pozycji w legendzie |
+| `MyMeetingsWidget.tsx` (getEventIcon, getEventTypeName) | `case 'auto_webinar':` → ten sam icon i label co `webinar` |
+| `EventDetailsDialog.tsx` (getEventTypeBadge) | `case 'auto_webinar':` → badge "Webinar" (nie "Auto-Webinar") |
 
-### Zakres: 2 pliki, ~10 linii zmian
+### 2. Przyciski zarządzania w sekcji "Wydarzenie i zaproszenia"
+
+W `AutoWebinarManagement.tsx`, w bloku `linkedEvent`, dodać:
+- **Switch włącz/wyłącz** — toggle `events.is_active` dla powiązanego wydarzenia (niezależnie od głównego systemu)
+- **Przycisk Usuń** — usunięcie powiązanego wydarzenia (`events.is_active = false` + `auto_webinar_config.event_id = null`) z potwierdzeniem AlertDialog
+
+### 3. System wyłączony = brak widoczności
+
+To już częściowo działa (wcześniejsza poprawka synchronizuje `events.is_active` z `is_enabled`). Dodatkowo:
+
+- W `useEvents.ts` → `fetchEvents`: filtrować `auto_webinar` eventy sprawdzając `is_active` (już jest `.eq('is_active', true)`) — OK
+- Upewnić się, że przy wyłączeniu systemu, `is_active` powiązanych eventów jest ustawiane na `false` — już zaimplementowane
+
+Jedyny brakujący element: jeśli admin wyłączy system, a powiązane wydarzenie jest nadal `is_active = true` z powodu legacy danych. Rozwiązanie: przy ładowaniu panelu admina (`loadData`), sprawdzić spójność i naprawić automatycznie.
+
+### Pliki do edycji
+
+1. **`src/components/admin/AutoWebinarManagement.tsx`** — dodać przyciski toggle/delete dla linked event
+2. **`src/components/dashboard/widgets/CalendarWidget.tsx`** — dodać `auto_webinar` do case `webinar` w getEventColor
+3. **`src/components/dashboard/widgets/MyMeetingsWidget.tsx`** — dodać `auto_webinar` do case `webinar` w getEventIcon i getEventTypeName
+4. **`src/components/events/EventDetailsDialog.tsx`** — dodać `auto_webinar` do case `webinar` w getEventTypeBadge
 
