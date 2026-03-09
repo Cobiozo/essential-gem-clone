@@ -197,7 +197,6 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                     return (
                       <button
                         key={time}
-                        disabled={isPast}
                         onClick={() => setSelectedSlot(
                           selected ? null : { dayIndex: day.index, time }
                         )}
@@ -207,7 +206,7 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                             : isNow
                               ? 'bg-primary/10 border border-primary/30 text-foreground'
                               : isPast
-                                ? 'text-muted-foreground/40 line-through cursor-not-allowed'
+                                ? 'text-muted-foreground/50 hover:bg-muted/40'
                                 : 'hover:bg-muted/60 text-foreground'
                         }`}
                       >
