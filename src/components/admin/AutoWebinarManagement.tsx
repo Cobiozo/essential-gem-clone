@@ -12,17 +12,27 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Upload, Settings, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
+
+interface LinkedEvent {
+  id: string;
+  title: string;
+  slug: string | null;
+  is_active: boolean;
+}
 
 export const AutoWebinarManagement: React.FC = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [videos, setVideos] = useState<AutoWebinarVideo[]>([]);
   const [config, setConfig] = useState<AutoWebinarConfig | null>(null);
+  const [linkedEvent, setLinkedEvent] = useState<LinkedEvent | null>(null);
   const [loading, setLoading] = useState(true);
   const [videoDialogOpen, setVideoDialogOpen] = useState(false);
   const [editingVideo, setEditingVideo] = useState<AutoWebinarVideo | null>(null);
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [videoForm, setVideoForm] = useState({
     title: '',
     description: '',
@@ -42,7 +52,18 @@ export const AutoWebinarManagement: React.FC = () => {
       supabase.from('auto_webinar_config').select('*').limit(1).maybeSingle(),
     ]);
     setVideos((videosRes.data as AutoWebinarVideo[]) || []);
-    setConfig((configRes.data as AutoWebinarConfig | null));
+    const cfg = configRes.data as AutoWebinarConfig | null;
+    setConfig(cfg);
+
+    // Load linked event if exists
+    if (cfg?.event_id) {
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('id, title, slug, is_active')
+        .eq('id', cfg.event_id)
+        .single();
+      setLinkedEvent(eventData as LinkedEvent | null);
+    }
     setLoading(false);
   };
 
@@ -85,6 +106,78 @@ export const AutoWebinarManagement: React.FC = () => {
     }
     setConfig({ ...cfg, ...updates });
     toast({ title: 'Zapisano' });
+  };
+
+  const handleCreateLinkedEvent = async () => {
+    if (!user) return;
+    setCreatingEvent(true);
+    try {
+      const cfg = await ensureConfig();
+      const slug = 'auto-webinar-' + Date.now().toString(36);
+      const now = new Date();
+      const farFuture = new Date(now.getFullYear() + 10, 0, 1);
+
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .insert({
+          title: 'Webinar Automatyczny',
+          description: 'Dołącz do automatycznych webinarów — nowe sesje startują co godzinę. Nie wymaga rejestracji na konkretny termin.',
+          event_type: 'auto_webinar',
+          start_time: now.toISOString(),
+          end_time: farFuture.toISOString(),
+          is_active: true,
+          visible_to_everyone: true,
+          visible_to_partners: true,
+          visible_to_specjalista: true,
+          visible_to_clients: true,
+          requires_registration: true,
+          created_by: user.id,
+          slug,
+          is_published: true,
+        })
+        .select('id, title, slug, is_active')
+        .single();
+
+      if (eventError) throw eventError;
+
+      // Link event to config
+      const { error: linkError } = await supabase
+        .from('auto_webinar_config')
+        .update({ event_id: eventData.id, updated_at: new Date().toISOString() })
+        .eq('id', cfg.id);
+
+      if (linkError) throw linkError;
+
+      setLinkedEvent(eventData as LinkedEvent);
+      setConfig({ ...cfg, event_id: eventData.id });
+      toast({ title: 'Sukces', description: 'Wydarzenie auto-webinar utworzone i powiązane' });
+    } catch (err: any) {
+      toast({ title: 'Błąd', description: err.message, variant: 'destructive' });
+    } finally {
+      setCreatingEvent(false);
+    }
+  };
+
+  const copyInviteLink = async () => {
+    if (!linkedEvent?.slug) return;
+    const link = `https://purelife.info.pl/e/${linkedEvent.slug}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast({ title: 'Skopiowano link zaproszeniowy' });
+    } catch {
+      // Fallback for iOS
+      const textarea = document.createElement('textarea');
+      textarea.value = link;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+      toast({ title: 'Skopiowano link zaproszeniowy' });
+    }
   };
 
   const handleSaveVideo = async () => {
@@ -271,6 +364,64 @@ export const AutoWebinarManagement: React.FC = () => {
               rows={2}
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Event Linking Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="h-5 w-5" />
+            Wydarzenie i zaproszenia
+          </CardTitle>
+          <CardDescription>
+            Powiąż auto-webinar z wydarzeniem, aby umożliwić rejestrację i zaproszenia
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {linkedEvent ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                <div>
+                  <p className="font-medium">{linkedEvent.title}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Slug: <code className="text-xs bg-muted px-1 py-0.5 rounded">{linkedEvent.slug}</code>
+                  </p>
+                </div>
+                <Badge variant={linkedEvent.is_active ? 'default' : 'secondary'}>
+                  {linkedEvent.is_active ? 'Aktywne' : 'Nieaktywne'}
+                </Badge>
+              </div>
+
+              <div>
+                <Label className="text-sm">Link zaproszeniowy</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    readOnly
+                    value={`https://purelife.info.pl/e/${linkedEvent.slug}`}
+                    className="font-mono text-sm"
+                  />
+                  <Button variant="outline" size="icon" onClick={copyInviteLink}>
+                    {copiedLink ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Partnerzy mogą dodać <code>?ref=EQID</code> do linku, aby śledzić zaproszenia.
+                  Link jest również dostępny w panelu zaproszeń partnera.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-6 space-y-3">
+              <p className="text-muted-foreground">
+                Brak powiązanego wydarzenia. Utwórz wydarzenie, aby partnerzy mogli zapraszać gości na auto-webinary.
+              </p>
+              <Button onClick={handleCreateLinkedEvent} disabled={creatingEvent}>
+                <Plus className="h-4 w-4 mr-2" />
+                {creatingEvent ? 'Tworzenie...' : 'Utwórz wydarzenie Auto-Webinar'}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
