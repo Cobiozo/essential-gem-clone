@@ -499,7 +499,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   }, [coHostUserIds, roomId]);
 
   // Test a single TURN server entry for reachability (returns true if relay candidate found within timeout)
-  const testTurnServer = useCallback((server: RTCIceServer, timeoutMs = 3000): Promise<boolean> => {
+  const testTurnServer = useCallback((server: RTCIceServer, timeoutMs = 1500): Promise<boolean> => {
     return new Promise((resolve) => {
       let resolved = false;
       const done = (result: boolean) => { if (!resolved) { resolved = true; resolve(result); } };
