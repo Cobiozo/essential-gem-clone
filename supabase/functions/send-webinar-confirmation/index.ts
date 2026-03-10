@@ -375,8 +375,8 @@ const handler = async (req: Request): Promise<Response> => {
     const displayCoverImage = videoCoverImageUrl || '';
     const displayVideoDescription = videoDescription || '';
 
-    // Auto-webinar: if ≤15 minutes to next slot, send immediate join email
-    const isImmediateJoin = isAutoWebinar && minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
+    // Auto-webinar: ALWAYS show join link (regardless of time to slot)
+    const isImmediateJoin = isAutoWebinar && displayRoomLink;
 
     let subject: string;
     let htmlBody: string;
