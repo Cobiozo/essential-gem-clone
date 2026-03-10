@@ -602,7 +602,67 @@ const handler = async (req: Request): Promise<Response> => {
       });
 
       console.log(`[send-webinar-confirmation] ${isReminder ? 'Reminder' : 'Confirmation'} email sent to ${email}`);
-      
+
+      // === IMMEDIATE REMINDER: If registration is < 15 min before start, send zoom link immediately ===
+      if (!isReminder && eventId && !isAutoWebinar) {
+        try {
+          const { data: eventData } = await supabase
+            .from("events")
+            .select("start_time, zoom_link, location")
+            .eq("id", eventId)
+            .single();
+
+          if (eventData) {
+            const eventStartTime = new Date(eventData.start_time);
+            const minutesUntilStart = (eventStartTime.getTime() - Date.now()) / 60000;
+
+            if (minutesUntilStart > 0 && minutesUntilStart <= 15) {
+              console.log(`[send-webinar-confirmation] Registration < 15 min before start (${Math.round(minutesUntilStart)} min). Sending immediate reminder with zoom link.`);
+
+              const immediateZoomLink = eventData.zoom_link || eventData.location || '';
+              if (immediateZoomLink) {
+                // Fire-and-forget call to send-webinar-email for immediate 15min reminder
+                await supabase.functions.invoke("send-webinar-email", {
+                  body: {
+                    type: "reminder_15min",
+                    email: email,
+                    firstName: firstName,
+                    eventTitle: eventTitle,
+                    eventDate: displayDate,
+                    eventTime: displayTime || formattedTime || '',
+                    zoomLink: immediateZoomLink,
+                    hostName: hostName || eventHost || 'Zespół Pure Life',
+                    eventId: eventId,
+                  }
+                });
+
+                // Mark all reminder flags as sent since event is imminent
+                await supabase
+                  .from('guest_event_registrations')
+                  .update({
+                    reminder_sent: true,
+                    reminder_sent_at: new Date().toISOString(),
+                    reminder_12h_sent: true,
+                    reminder_12h_sent_at: new Date().toISOString(),
+                    reminder_2h_sent: true,
+                    reminder_2h_sent_at: new Date().toISOString(),
+                    reminder_1h_sent: true,
+                    reminder_1h_sent_at: new Date().toISOString(),
+                    reminder_15min_sent: true,
+                    reminder_15min_sent_at: new Date().toISOString(),
+                  })
+                  .eq('event_id', eventId)
+                  .eq('email', email);
+
+                console.log(`[send-webinar-confirmation] Immediate 15min reminder sent to ${email}`);
+              }
+            }
+          }
+        } catch (immErr) {
+          console.warn("[send-webinar-confirmation] Immediate reminder failed (non-blocking):", immErr);
+        }
+      }
+
       return new Response(
         JSON.stringify({ success: true, message: `${isReminder ? 'Reminder' : 'Confirmation'} email sent` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
