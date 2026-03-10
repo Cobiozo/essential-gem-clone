@@ -23,9 +23,13 @@ interface Attachment {
 }
 
 function base64Encode(str: string): string {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  return btoa(String.fromCharCode(...data));
+  const data = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < data.length; i += 8192) {
+    const chunk = data.subarray(i, i + 8192);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 function base64EncodeAscii(str: string): string {
