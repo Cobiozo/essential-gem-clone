@@ -1780,25 +1780,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     reacquireCooldownRef.current = now;
     console.log('[VideoRoom] Attempting to re-acquire local stream...');
     try {
-      let stream: MediaStream;
-      try {
-        const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-        const videoConstraints: MediaTrackConstraints = isMob
-          ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-        stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
-      } catch {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-        } catch {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          } catch {
-            console.error('[VideoRoom] reacquireLocalStream: all getUserMedia attempts failed');
-            toast({ title: 'Brak dostępu do multimediów', description: 'Sprawdź uprawnienia przeglądarki lub odśwież stronę.', variant: 'destructive' });
-            return null;
-          }
-        }
+      const wantVideo = !isCameraOffRef.current;
+      const wantAudio = !isMutedRef.current;
+      let stream = await acquireMediaByPreference(wantVideo, wantAudio);
+      if (!stream) {
+        console.error('[VideoRoom] reacquireLocalStream: all getUserMedia attempts failed');
+        toast({ title: 'Brak dostępu do multimediów', description: 'Sprawdź uprawnienia przeglądarki lub odśwież stronę.', variant: 'destructive' });
+        return null;
       }
 
       // Preserve user's mute/camera state on fresh tracks
