@@ -571,6 +571,15 @@ export const EventRegistrationsManagement: React.FC = () => {
             </div>
           </div>
 
+          {/* Report section */}
+          {selectedEventId && !isLoadingRegistrations && !isLoadingGuests && (
+            <EventRegistrationReport
+              registrations={registrations}
+              guestRegistrations={guestRegistrations}
+              eventTitle={selectedEvent?.title || ''}
+            />
+          )}
+
           {/* Tabs for users/guests */}
           {selectedEventId && (
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'users' | 'guests')}>
