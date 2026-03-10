@@ -489,7 +489,11 @@ export const CronJobsManagement: React.FC = () => {
                           <TableHead>Status</TableHead>
                           <TableHead className="text-center whitespace-nowrap">Czas</TableHead>
                           <TableHead className="text-center whitespace-nowrap">Welcome</TableHead>
-                          <TableHead className="text-center whitespace-nowrap">Training</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">24h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">12h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">2h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">1h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">15m</TableHead>
                           <TableHead className="text-center whitespace-nowrap">Retry</TableHead>
                           <TableHead>Uwagi</TableHead>
                         </TableRow>
@@ -512,7 +516,19 @@ export const CronJobsManagement: React.FC = () => {
                                 {formatDetailCategory(details?.welcomeEmails)}
                               </TableCell>
                               <TableCell className="text-center">
-                                {formatDetailCategory(details?.trainingNotifications)}
+                                {formatDetailCategory(details?.webinarReminders24h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders12h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders2h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders1h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders15min)}
                               </TableCell>
                               <TableCell className="text-center">
                                 {formatDetailCategory(details?.retries)}
