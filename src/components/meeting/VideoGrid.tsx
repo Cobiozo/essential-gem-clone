@@ -592,6 +592,7 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
         try { val.source.disconnect(); } catch {}
       });
       analysersRef.current.clear();
+      streamIdMapRef.current.clear();
       if (audioContextRef.current?.state !== 'closed') {
         try { audioContextRef.current?.close(); } catch {}
       }
