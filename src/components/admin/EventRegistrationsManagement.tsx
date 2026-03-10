@@ -715,14 +715,24 @@ export const EventRegistrationsManagement: React.FC = () => {
                   )}
                 </TabsList>
 
-                <Button 
-                  onClick={activeTab === 'users' ? handleExportUsersCSV : handleExportGuestsCSV} 
-                  variant="outline" 
-                  disabled={activeTab === 'users' ? filteredRegistrations.length === 0 : filteredGuestRegistrations.length === 0}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Eksport CSV
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setFollowUpDialogOpen(true)}
+                    variant="default"
+                    disabled={totalFollowUpRecipients === 0}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Email po webinarze
+                  </Button>
+                  <Button 
+                    onClick={activeTab === 'users' ? handleExportUsersCSV : handleExportGuestsCSV} 
+                    variant="outline" 
+                    disabled={activeTab === 'users' ? filteredRegistrations.length === 0 : filteredGuestRegistrations.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Eksport CSV
+                  </Button>
+                </div>
               </div>
 
               {/* Users tab */}
