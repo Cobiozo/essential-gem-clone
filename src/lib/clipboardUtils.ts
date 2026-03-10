@@ -17,7 +17,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     const textArea = document.createElement('textarea');
     textArea.value = text;
-    // Must NOT use display:none — iOS Safari ignores hidden elements
     textArea.style.position = 'fixed';
     textArea.style.top = '-9999px';
     textArea.style.left = '-9999px';
@@ -26,7 +25,6 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     textArea.setAttribute('readonly', '');
     document.body.appendChild(textArea);
 
-    // iOS requires setSelectionRange instead of select()
     textArea.focus();
     textArea.setSelectionRange(0, text.length);
 
@@ -35,5 +33,39 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     return success;
   } catch (_err) {
     return false;
+  }
+}
+
+/**
+ * Copy text to clipboard after an async operation (iOS Safari safe).
+ * Uses ClipboardItem with a pending Blob so the clipboard write is initiated
+ * synchronously in the user-gesture call stack, while the actual content
+ * resolves asynchronously.
+ */
+export async function copyAfterAsync(
+  asyncFn: () => Promise<string>
+): Promise<{ success: boolean; text: string }> {
+  // Modern approach: ClipboardItem with pending blob (iOS Safari 15.4+)
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    try {
+      const textPromise = asyncFn();
+      const item = new ClipboardItem({
+        'text/plain': textPromise.then(t => new Blob([t], { type: 'text/plain' }))
+      });
+      const text = await textPromise;
+      await navigator.clipboard.write([item]);
+      return { success: true, text };
+    } catch (_err) {
+      // ClipboardItem approach failed — try fallback
+    }
+  }
+
+  // Fallback: run async first, then try legacy copy
+  try {
+    const text = await asyncFn();
+    const success = await copyToClipboard(text);
+    return { success, text };
+  } catch (_err) {
+    return { success: false, text: '' };
   }
 }

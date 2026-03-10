@@ -134,8 +134,13 @@ const HealthyKnowledgePage: React.FC = () => {
 
       const { clipboard_message, otp_code } = response.data;
       
-      await navigator.clipboard.writeText(clipboard_message);
-      toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otp_code} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
+      const { copyToClipboard } = await import('@/lib/clipboardUtils');
+      const success = await copyToClipboard(clipboard_message);
+      if (success) {
+        toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otp_code} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
+      } else {
+        toast.info(`${tf('hk.codeGenerated', 'Kod')}: ${otp_code} — ${tf('hk.copyManually', 'skopiuj ręcznie z pola poniżej')}`, { duration: 8000 });
+      }
       setShareDialogOpen(false);
       
       window.dispatchEvent(new CustomEvent('hkOtpCodeGenerated'));

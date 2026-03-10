@@ -1,63 +1,24 @@
 
 
-# Fix: Clipboard error on iOS Safari after async OTP generation
+## Plan zmian
 
-## Problem
-On iOS Safari, `navigator.clipboard.writeText()` (and even the textarea fallback) fails when called **after** an async operation (API call). Safari requires clipboard writes to happen in the **synchronous call stack** of a user gesture. The async `supabase.functions.invoke()` breaks this chain.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Error: *"The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission."*
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-## Affected files
-1. `src/pages/HealthyKnowledge.tsx` — `handleGenerateAndCopy` (line 137)
-2. `src/components/dashboard/widgets/InfoLinksWidget.tsx` — `handleCopy` (line 82)
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-## Solution: ClipboardItem with pending Blob
+### 2. Złote ikony dla datetime-local (index.css)
 
-Use the `ClipboardItem` API with a **Promise-based Blob** — this is the only approach that works on modern iOS Safari after async operations. The `ClipboardItem` is created synchronously (preserving user gesture), but its content is resolved asynchronously.
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-```typescript
-// Create ClipboardItem synchronously (in user gesture stack)
-const clipboardItem = new ClipboardItem({
-  'text/plain': fetchOtp().then(text => new Blob([text], { type: 'text/plain' }))
-});
-await navigator.clipboard.write([clipboardItem]);
-```
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-Fallback: If `ClipboardItem` is not available (older browsers), fall back to showing the text in a selectable textarea with a "Copy manually" instruction + toast.
-
-### Changes per file
-
-**HealthyKnowledge.tsx** — Refactor `handleGenerateAndCopy`:
-- Create `ClipboardItem` with pending blob synchronously
-- Resolve blob content from the API response
-- Fallback: display text in the textarea (already in dialog) and prompt manual copy
-
-**InfoLinksWidget.tsx** — Refactor `handleCopy` for OTP links:
-- Same ClipboardItem pattern
-- Fallback: show toast with the OTP code and a "tap to copy" action
-
-### Shared utility
-Add a new function `copyAfterAsync` to `src/lib/clipboardUtils.ts`:
-```typescript
-export async function copyAfterAsync(
-  asyncFn: () => Promise<string>
-): Promise<{ success: boolean; text: string }> {
-  // Modern approach: ClipboardItem with pending blob
-  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
-    const textPromise = asyncFn();
-    const item = new ClipboardItem({
-      'text/plain': textPromise.then(t => new Blob([t], { type: 'text/plain' }))
-    });
-    const text = await textPromise;
-    await navigator.clipboard.write([item]);
-    return { success: true, text };
-  }
-  // Fallback: run async, then try legacy copy
-  const text = await asyncFn();
-  const success = await copyToClipboard(text);
-  return { success, text };
-}
-```
-
-Both components will use this utility and handle the `success: false` case with a user-facing fallback (showing the text to copy manually).
+### Zakres: 2 pliki, ~10 linii zmian
 
