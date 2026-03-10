@@ -1,24 +1,32 @@
 
 
-## Plan zmian
+# Aktualizacja szablonu webinar_followup + załączniki
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## 1. Aktualizacja treści szablonu w bazie danych
+Użycie insert tool (UPDATE) aby nadpisać `body_html` szablonu `webinar_followup` nową pełną treścią w formacie HTML PureLife (żółty header z logo, biały body). Treść zawiera cały tekst podany przez użytkownika z formatowaniem HTML (nagłówki, listy, emoji, wyróżnione sekcje).
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Zmienna `{{custom_message}}` pozostaje w szablonie — admin może dodać dodatkowy blok (np. link do nagrania).
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## 2. Obsługa załączników w UI (`EventRegistrationsManagement.tsx`)
+Dodanie do dialogu follow-up:
+- Input file (multiple) akceptujący `.pdf, .doc, .docx, .jpg, .jpeg`
+- Max 3 pliki, max 5MB każdy
+- Lista wybranych plików z przyciskiem usunięcia
+- Pliki konwertowane do base64 i wysyłane w body requestu jako `attachments: [{filename, content_base64, content_type}]`
 
-### 2. Złote ikony dla datetime-local (index.css)
+Stan: nowy `useState` dla `followUpAttachments`.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+## 3. Obsługa załączników w Edge Function (`send-post-webinar-email`)
+- Nowy parametr `attachments` w request body
+- Zmiana formatu SMTP z `multipart/alternative` na `multipart/mixed`:
+  - Zagnieżdżony `multipart/alternative` (text + html)
+  - Następnie każdy attachment jako osobna część MIME z `Content-Disposition: attachment; filename="..."`
+  - Content-Transfer-Encoding: base64
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
+### Zmienione pliki
+| Plik | Zmiana |
+|------|--------|
+| DB `email_templates` | UPDATE body_html szablonu webinar_followup |
+| `src/components/admin/EventRegistrationsManagement.tsx` | Dodanie file input + konwersja base64 |
+| `supabase/functions/send-post-webinar-email/index.ts` | Obsługa attachments w SMTP multipart/mixed |
 
