@@ -1,0 +1,11 @@
+UPDATE email_templates SET blocks_json = $json$[
+  {"id":"block-wf-1","type":"header","content":{"text":"Dziękujemy za udział!","backgroundColor":"#D4A017","textColor":"#ffffff","showLogo":true},"position":0},
+  {"id":"block-wf-2","type":"text","content":{"html":"<p>Cześć <strong>{{imię}}</strong>,</p><p>bardzo dziękujemy za uczestnictwo w naszym ostatnim webinarze. Cieszymy się, że tak ważny temat zgromadził osoby, które chcą świadomie zadbać o swoje zdrowie i komfort życia.</p><p>W ramach podziękowania za wspólnie spędzony czas przygotowaliśmy dla Ciebie obiecywany materiał.</p>"},"position":1},
+  {"id":"block-wf-3","type":"box","content":{"variant":"success","title":"Materiał do pobrania","content":"PDF: Twój Osobisty Protokół Zdrowia: Endometrioza i Stan Zapalny (plik w załączniku lub link od admina poniżej)"},"position":2},
+  {"id":"block-wf-4","type":"text","content":{"html":"{{custom_message}}"},"position":3},
+  {"id":"block-wf-5","type":"text","content":{"html":"<p>Mamy nadzieję, że zawarte w nim wskazówki będą cennym wsparciem w Twojej codziennej drodze do lepszego samopoczucia.</p>"},"position":4},
+  {"id":"block-wf-6","type":"text","content":{"html":"<p><strong>Jak możesz działać dalej?</strong></p><p>Jeśli chcesz wdrożyć zdobytą wiedzę w życie, zapraszamy do kontaktu z osobą, która zaprosiła Cię na nasze wydarzenie.</p><ul><li><strong>Nabyć najwyższej jakości kwasy Omega-3</strong>, kluczowe w walce ze stanem zapalnym.</li><li><strong>Uzyskać dostęp do naszej platformy edukacyjnej</strong>.</li><li><strong>Brać udział w zamkniętych spotkaniach zdrowotnych</strong>.</li></ul>"},"position":5},
+  {"id":"block-wf-7","type":"box","content":{"variant":"warning","title":"Kontakt","content":"Skontaktuj się ze swoim opiekunem (osobą zapraszającą) już dziś, aby uzyskać dostęp do materiałów i narzędzi."},"position":6},
+  {"id":"block-wf-8","type":"text","content":{"html":"<p>Życzymy ogromu zdrowia!</p><p><strong>Zmieniamy życie ludzi na lepsze.</strong></p>"},"position":7},
+  {"id":"block-wf-9","type":"footer","content":{"html":"<p style='text-align: center; color: #6b7280; font-size: 12px;'>© 2025 Pure Life - Wszystkie prawa zastrzeżone</p>"},"position":8}
+]$json$::jsonb WHERE internal_name = 'webinar_followup';
