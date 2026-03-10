@@ -23,9 +23,13 @@ interface Attachment {
 }
 
 function base64Encode(str: string): string {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(str);
-  return btoa(String.fromCharCode(...data));
+  const data = new TextEncoder().encode(str);
+  let binary = '';
+  for (let i = 0; i < data.length; i += 8192) {
+    const chunk = data.subarray(i, i + 8192);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
 }
 
 function base64EncodeAscii(str: string): string {
@@ -72,8 +76,8 @@ async function sendSmtpEmail(
   const decoder = new TextDecoder();
 
   async function readResponse(): Promise<string> {
-    const buf = new Uint8Array(4096);
-    const n = await conn.read(buf);
+    const buf = new Uint8Array(8192);
+    const n = await withTimeout(conn.read(buf), 30000, "SMTP read timeout");
     return n === null ? "" : decoder.decode(buf.subarray(0, n));
   }
 
@@ -185,7 +189,11 @@ async function sendSmtpEmail(
     }
 
     const emailContent = parts.join("\r\n");
-    const dataRes = await sendCommand(emailContent);
+    const emailBytes = encoder.encode(emailContent + "\r\n");
+    for (let i = 0; i < emailBytes.length; i += 16384) {
+      await conn.write(emailBytes.subarray(i, i + 16384));
+    }
+    const dataRes = await withTimeout(readResponse(), 30000, "SMTP DATA timeout");
     if (!dataRes.includes("250") && !dataRes.includes("OK")) {
       throw new Error(`Send failed: ${dataRes}`);
     }
