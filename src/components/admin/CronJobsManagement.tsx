@@ -44,6 +44,11 @@ interface DetailedResults {
   welcomeEmails?: CategoryDetails;
   trainingNotifications?: CategoryDetails;
   retries?: CategoryDetails;
+  webinarReminders24h?: CategoryDetails;
+  webinarReminders12h?: CategoryDetails;
+  webinarReminders2h?: CategoryDetails;
+  webinarReminders1h?: CategoryDetails;
+  webinarReminders15min?: CategoryDetails;
   stoppedEarly?: boolean;
   reason?: string;
 }
