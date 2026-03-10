@@ -1905,6 +1905,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       stream.getAudioTracks().forEach(t => t.enabled = !isMutedRef.current);
       stream.getVideoTracks().forEach(t => t.enabled = !isCameraOffRef.current);
 
+      // Sync state if requested tracks are missing after fallback
+      if (!isCameraOffRef.current && stream.getVideoTracks().filter(t => t.readyState === 'live').length === 0) {
+        console.warn('[VideoRoom] reacquire: wanted video but no live video tracks — syncing isCameraOff=true');
+        isCameraOffRef.current = true;
+        setIsCameraOff(true);
+      }
+      if (!isMutedRef.current && stream.getAudioTracks().filter(t => t.readyState === 'live').length === 0) {
+        console.warn('[VideoRoom] reacquire: wanted audio but no live audio tracks — syncing isMuted=true');
+        isMutedRef.current = true;
+        setIsMuted(true);
+      }
+
       localStreamRef.current = stream;
       setLocalStream(stream);
       updateRawStream(stream);
