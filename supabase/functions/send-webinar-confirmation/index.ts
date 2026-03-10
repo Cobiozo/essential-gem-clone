@@ -629,7 +629,7 @@ const handler = async (req: Request): Promise<Response> => {
                     firstName: firstName,
                     eventTitle: eventTitle,
                     eventDate: displayDate,
-                    eventTime: displayTime || formattedTime || '',
+                    eventTime: displayTime || eventTime || '',
                     zoomLink: immediateZoomLink,
                     hostName: hostName || eventHost || 'Zespół Pure Life',
                     eventId: eventId,
