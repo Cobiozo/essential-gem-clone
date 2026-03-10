@@ -44,6 +44,11 @@ interface DetailedResults {
   welcomeEmails?: CategoryDetails;
   trainingNotifications?: CategoryDetails;
   retries?: CategoryDetails;
+  webinarReminders24h?: CategoryDetails;
+  webinarReminders12h?: CategoryDetails;
+  webinarReminders2h?: CategoryDetails;
+  webinarReminders1h?: CategoryDetails;
+  webinarReminders15min?: CategoryDetails;
   stoppedEarly?: boolean;
   reason?: string;
 }
@@ -426,7 +431,7 @@ export const CronJobsManagement: React.FC = () => {
                             {getStatusBadge(log.status)}
                           </div>
                           
-                          <div className="grid grid-cols-4 gap-2 text-center">
+                          <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="space-y-1">
                               <div className="text-[10px] text-muted-foreground uppercase">Czas</div>
                               <div className="text-xs font-medium">
@@ -438,12 +443,30 @@ export const CronJobsManagement: React.FC = () => {
                               <div>{formatDetailCategory(details?.welcomeEmails)}</div>
                             </div>
                             <div className="space-y-1">
-                              <div className="text-[10px] text-muted-foreground uppercase">Training</div>
-                              <div>{formatDetailCategory(details?.trainingNotifications)}</div>
-                            </div>
-                            <div className="space-y-1">
                               <div className="text-[10px] text-muted-foreground uppercase">Retry</div>
                               <div>{formatDetailCategory(details?.retries)}</div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-5 gap-1 text-center">
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">24h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders24h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">12h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders12h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">2h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders2h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">1h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders1h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">15m</div>
+                              <div>{formatDetailCategory(details?.webinarReminders15min)}</div>
                             </div>
                           </div>
                           
@@ -466,7 +489,11 @@ export const CronJobsManagement: React.FC = () => {
                           <TableHead>Status</TableHead>
                           <TableHead className="text-center whitespace-nowrap">Czas</TableHead>
                           <TableHead className="text-center whitespace-nowrap">Welcome</TableHead>
-                          <TableHead className="text-center whitespace-nowrap">Training</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">24h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">12h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">2h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">1h</TableHead>
+                          <TableHead className="text-center whitespace-nowrap">15m</TableHead>
                           <TableHead className="text-center whitespace-nowrap">Retry</TableHead>
                           <TableHead>Uwagi</TableHead>
                         </TableRow>
@@ -489,7 +516,19 @@ export const CronJobsManagement: React.FC = () => {
                                 {formatDetailCategory(details?.welcomeEmails)}
                               </TableCell>
                               <TableCell className="text-center">
-                                {formatDetailCategory(details?.trainingNotifications)}
+                                {formatDetailCategory(details?.webinarReminders24h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders12h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders2h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders1h)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {formatDetailCategory(details?.webinarReminders15min)}
                               </TableCell>
                               <TableCell className="text-center">
                                 {formatDetailCategory(details?.retries)}
