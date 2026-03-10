@@ -138,6 +138,7 @@ const VideoTile: React.FC<{
     if (!video || !participant.stream) return;
 
     video.srcObject = participant.stream;
+    video.muted = !!participant.isLocal;
 
     playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
 
@@ -153,6 +154,7 @@ const VideoTile: React.FC<{
     const heartbeat = setInterval(() => {
       if (video.paused && video.srcObject && !participant.isLocal) {
         console.log(`[VideoTile] Resuming paused video for ${participant.peerId}`);
+        video.muted = !!participant.isLocal;
         playVideoSafe(video, false, onAudioBlocked);
       }
     }, 3000);
@@ -162,6 +164,7 @@ const VideoTile: React.FC<{
       if (video.srcObject && !participant.isLocal) {
         setTimeout(() => {
           if (video.paused && video.srcObject) {
+            video.muted = !!participant.isLocal;
             playVideoSafe(video, false, onAudioBlocked);
           }
         }, 100);
@@ -178,6 +181,11 @@ const VideoTile: React.FC<{
   }, [participant.stream, onAudioBlocked]);
 
   // Observe track changes within existing stream (reconnect scenarios)
+  // Imperative muted sync — prevents echo on re-renders in Speaker/Multi-speaker modes
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = !!participant.isLocal;
+  }, [participant.isLocal]);
+
   useEffect(() => {
     const stream = participant.stream;
     const video = videoRef.current;
@@ -185,6 +193,7 @@ const VideoTile: React.FC<{
 
     const handleTrackChange = () => {
       if (video.srcObject !== stream) video.srcObject = stream;
+      video.muted = !!participant.isLocal;
       playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
     };
 
