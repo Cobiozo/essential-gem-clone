@@ -685,6 +685,7 @@ const DraggableFloatingPiP: React.FC<{
         autoPlay
         playsInline
         muted={!!participant.isLocal}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
       />
       {!showVideo && (
