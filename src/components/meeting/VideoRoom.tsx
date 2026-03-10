@@ -609,12 +609,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       channelRef.current = null;
     }
 
-    // Update participant record
+    // Update participant record — filter by peer_id to avoid deactivating a new session after refresh
+    const cleanupPeerId = peerId; // already cached above (line 603)
     if (guestMode && guestTokenId) {
       try {
-        await supabase.from('meeting_room_participants')
+        const guestQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
+        if (cleanupPeerId) guestQ.eq('peer_id', cleanupPeerId);
+        await guestQ;
         await supabase.from('meeting_guest_analytics')
           .update({ left_at: new Date().toISOString() })
           .eq('guest_token_id', guestTokenId)
@@ -636,9 +639,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       } catch (e) { console.warn('[VideoRoom] Failed to update guest status:', e); }
     } else if (user) {
       try {
-        await supabase.from('meeting_room_participants')
+        const userQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('user_id', user.id);
+        if (cleanupPeerId) userQ.eq('peer_id', cleanupPeerId);
+        await userQ;
       } catch (e) { console.warn('[VideoRoom] Failed to update participant status:', e); }
     }
 
@@ -1813,6 +1818,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stream.getAudioTracks().forEach((t) => (t.enabled = isMuted));
     const newMuted = !isMuted;
     setIsMuted(newMuted);
+    // Persist to sessionStorage for auto-rejoin
+    if (roomId) {
+      try {
+        const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+        if (raw) { const s = JSON.parse(raw); s.audioEnabled = !newMuted; sessionStorage.setItem(`meeting_session_${roomId}`, JSON.stringify(s)); }
+      } catch {}
+    }
     if (channelRef.current && peerRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted: newMuted, isCameraOff } });
     }
@@ -1833,6 +1845,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stream.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
     const newCameraOff = !isCameraOff;
     setIsCameraOff(newCameraOff);
+    // Persist to sessionStorage for auto-rejoin
+    if (roomId) {
+      try {
+        const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+        if (raw) { const s = JSON.parse(raw); s.videoEnabled = !newCameraOff; sessionStorage.setItem(`meeting_session_${roomId}`, JSON.stringify(s)); }
+      } catch {}
+    }
     if (channelRef.current && peerRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
     }
