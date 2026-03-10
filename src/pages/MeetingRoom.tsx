@@ -89,8 +89,6 @@ const MeetingRoomPage: React.FC = () => {
 
   const tryAutoRejoin = (): boolean => {
     if (!roomId) return false;
-    // On mobile/PWA, never auto-rejoin — force lobby for fresh getUserMedia gesture
-    if (isMobileOrPWA()) return false;
     const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
     if (!raw) return false;
     try {
