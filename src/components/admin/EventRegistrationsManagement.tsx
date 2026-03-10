@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw, Send } from 'lucide-react';
+import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw, Send, Paperclip, X, FileText } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -138,6 +139,7 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [followUpMessage, setFollowUpMessage] = useState('');
   const [followUpSending, setFollowUpSending] = useState(false);
   const [followUpProgress, setFollowUpProgress] = useState(0);
+  const [followUpAttachments, setFollowUpAttachments] = useState<File[]>([]);
 
   const selectedEvent = useMemo(() => 
     events.find(e => e.id === selectedEventId), 
@@ -545,11 +547,29 @@ export const EventRegistrationsManagement: React.FC = () => {
     setFollowUpProgress(10);
 
     try {
+      // Convert files to base64
+      const attachments = await Promise.all(
+        followUpAttachments.map(async (file) => {
+          const buffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          return {
+            filename: file.name,
+            content_base64: btoa(binary),
+            content_type: file.type || 'application/octet-stream',
+          };
+        })
+      );
+
       setFollowUpProgress(30);
       const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
         body: {
           event_id: selectedEventId,
           custom_message: followUpMessage.trim() || undefined,
+          attachments: attachments.length > 0 ? attachments : undefined,
         },
       });
 
@@ -564,6 +584,7 @@ export const EventRegistrationsManagement: React.FC = () => {
 
       setFollowUpDialogOpen(false);
       setFollowUpMessage('');
+      setFollowUpAttachments([]);
     } catch (error: any) {
       console.error('Error sending follow-up:', error);
       toast({
@@ -614,6 +635,59 @@ export const EventRegistrationsManagement: React.FC = () => {
               <p className="text-xs text-muted-foreground">
                 Treść pojawi się w emailu jako wyróżniony blok tekstu.
               </p>
+            </div>
+
+            {/* Attachments */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1.5">
+                <Paperclip className="h-4 w-4" />
+                Załączniki (opcjonalnie)
+              </label>
+              <Input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.jpg,.jpeg"
+                disabled={followUpSending || followUpAttachments.length >= 3}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+                  const validFiles = files.filter(f => {
+                    if (f.size > MAX_SIZE) {
+                      toast({ title: `Plik "${f.name}" przekracza 5MB`, variant: 'destructive' });
+                      return false;
+                    }
+                    return true;
+                  });
+                  const total = [...followUpAttachments, ...validFiles].slice(0, 3);
+                  setFollowUpAttachments(total);
+                  e.target.value = '';
+                }}
+                className="text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Max 3 pliki, do 5MB każdy. PDF, DOC, JPG.</p>
+
+              {followUpAttachments.length > 0 && (
+                <div className="space-y-1.5 mt-2">
+                  {followUpAttachments.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded-md bg-muted text-sm">
+                      <span className="flex items-center gap-1.5 truncate">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate">{file.name}</span>
+                        <span className="text-muted-foreground shrink-0">({(file.size / 1024).toFixed(0)} KB)</span>
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => setFollowUpAttachments(prev => prev.filter((_, i) => i !== idx))}
+                        disabled={followUpSending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {followUpSending && (
