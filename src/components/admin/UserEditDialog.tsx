@@ -111,7 +111,25 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
 
     setLoading(true);
     try {
-      // 1. Update basic user data
+      // 1. Handle email change if needed
+      const emailChanged = email.trim().toLowerCase() !== originalEmail.toLowerCase();
+      if (emailChanged) {
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('admin-update-user-email', {
+          body: { userId: user.user_id, newEmail: email.trim() },
+        });
+
+        if (emailError) throw emailError;
+        if (emailResult?.error) {
+          const msg = emailResult.error === 'Email already in use'
+            ? 'Ten adres email jest już zajęty przez innego użytkownika'
+            : emailResult.error;
+          toast({ title: 'Błąd', description: msg, variant: 'destructive' });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Update basic user data
       const { error: updateError } = await supabase.rpc('admin_update_user_data', {
         p_user_id: user.user_id,
         p_first_name: firstName.trim(),
