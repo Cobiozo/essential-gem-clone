@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { EventRegistrationReport } from './EventRegistrationReport';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -569,6 +570,15 @@ export const EventRegistrationsManagement: React.FC = () => {
               </Select>
             </div>
           </div>
+
+          {/* Report section */}
+          {selectedEventId && !isLoadingRegistrations && !isLoadingGuests && (
+            <EventRegistrationReport
+              registrations={registrations}
+              guestRegistrations={guestRegistrations}
+              eventTitle={selectedEvent?.title || ''}
+            />
+          )}
 
           {/* Tabs for users/guests */}
           {selectedEventId && (
