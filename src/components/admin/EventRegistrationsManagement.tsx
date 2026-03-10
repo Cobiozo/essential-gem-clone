@@ -537,12 +537,62 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
-  const totalFollowUpRecipients = useMemo(() => {
-    const activeUsers = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
-    const activeGuests = guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').map(r => r.email);
-    const allEmails = new Set([...activeUsers, ...activeGuests.map(e => e.toLowerCase())]);
-    return allEmails.size;
+  // Build recipient lists for the follow-up
+  const followUpRecipientLists = useMemo(() => {
+    const activeUserEmails = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
+    const activeGuestEmails = guestRegistrations
+      .filter(r => r.status === 'registered' || r.status === 'attended')
+      .map(r => r.email);
+    const allEmails = new Set([...activeUserEmails, ...activeGuestEmails.map(e => e.toLowerCase())]);
+
+    // Build list for single-recipient selector
+    const singleOptions: { value: string; label: string; type: 'user' | 'guest'; email: string; firstName: string }[] = [];
+    const seenEmails = new Set<string>();
+
+    registrations.filter(r => r.status === 'registered').forEach(r => {
+      const email = r.profiles.email?.toLowerCase();
+      if (email && !seenEmails.has(email)) {
+        seenEmails.add(email);
+        singleOptions.push({
+          value: `user:${email}`,
+          label: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''} (${r.profiles.email})`.trim(),
+          type: 'user',
+          email: r.profiles.email,
+          firstName: r.profiles.first_name || 'Uczestnik',
+        });
+      }
+    });
+
+    guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').forEach(r => {
+      const email = r.email?.toLowerCase();
+      if (email && !seenEmails.has(email)) {
+        seenEmails.add(email);
+        singleOptions.push({
+          value: `guest:${email}`,
+          label: `${r.first_name || ''} ${r.last_name || ''} (${r.email})`.trim(),
+          type: 'guest',
+          email: r.email,
+          firstName: r.first_name || 'Uczestnik',
+        });
+      }
+    });
+
+    return {
+      totalAll: allEmails.size,
+      totalUsers: activeUserEmails.size,
+      totalGuests: new Set(activeGuestEmails.map(e => e.toLowerCase())).size,
+      singleOptions,
+    };
   }, [registrations, guestRegistrations]);
+
+  const totalFollowUpRecipients = useMemo(() => {
+    switch (followUpRecipientGroup) {
+      case 'all': return followUpRecipientLists.totalAll;
+      case 'users': return followUpRecipientLists.totalUsers;
+      case 'guests': return followUpRecipientLists.totalGuests;
+      case 'single': return followUpSingleRecipient ? 1 : 0;
+    }
+  }, [followUpRecipientGroup, followUpRecipientLists, followUpSingleRecipient]);
 
   const handleSendFollowUp = async () => {
     if (!selectedEventId) return;
