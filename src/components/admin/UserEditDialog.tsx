@@ -194,6 +194,7 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
   };
 
   const guardianChanged = (guardian?.eq_id || null) !== originalGuardianEqId;
+  const emailChanged = email.trim().toLowerCase() !== originalEmail.toLowerCase();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -201,11 +202,22 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Edytuj dane użytkownika</DialogTitle>
           <DialogDescription>
-            {user?.email}
+            ID: {user?.user_id?.slice(0, 8)}...
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Adres email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@example.com"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">Imię *</Label>
