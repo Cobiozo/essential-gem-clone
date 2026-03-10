@@ -167,10 +167,15 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
         }
       }
 
+      const changes = [
+        emailChanged && 'email',
+        guardianChanged && 'opiekun',
+      ].filter(Boolean);
+
       toast({
         title: 'Sukces',
-        description: guardianChanged 
-          ? 'Dane użytkownika i opiekun zostali zaktualizowani'
+        description: changes.length > 0
+          ? `Dane użytkownika zaktualizowane (w tym: ${changes.join(', ')})`
           : 'Dane użytkownika zostały zaktualizowane',
       });
 
