@@ -532,7 +532,50 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
-  return (
+  const totalFollowUpRecipients = useMemo(() => {
+    const activeUsers = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
+    const activeGuests = guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').map(r => r.email);
+    const allEmails = new Set([...activeUsers, ...activeGuests.map(e => e.toLowerCase())]);
+    return allEmails.size;
+  }, [registrations, guestRegistrations]);
+
+  const handleSendFollowUp = async () => {
+    if (!selectedEventId) return;
+    setFollowUpSending(true);
+    setFollowUpProgress(10);
+
+    try {
+      setFollowUpProgress(30);
+      const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
+        body: {
+          event_id: selectedEventId,
+          custom_message: followUpMessage.trim() || undefined,
+        },
+      });
+
+      setFollowUpProgress(100);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Wysyłka zakończona',
+        description: `Wysłano ${data.sent} z ${data.total} emaili${data.failed > 0 ? ` (${data.failed} błędów)` : ''}`,
+      });
+
+      setFollowUpDialogOpen(false);
+      setFollowUpMessage('');
+    } catch (error: any) {
+      console.error('Error sending follow-up:', error);
+      toast({
+        title: 'Błąd wysyłki',
+        description: error.message || 'Nie udało się wysłać emaili follow-up',
+        variant: 'destructive',
+      });
+    } finally {
+      setFollowUpSending(false);
+      setFollowUpProgress(0);
+    }
+  };
     <div className="space-y-6">
       <Card>
         <CardHeader>
