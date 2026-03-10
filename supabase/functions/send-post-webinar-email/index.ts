@@ -16,6 +16,12 @@ interface SmtpSettings {
   sender_name: string;
 }
 
+interface Attachment {
+  filename: string;
+  content_base64: string;
+  content_type: string;
+}
+
 function base64Encode(str: string): string {
   const encoder = new TextEncoder();
   const data = encoder.encode(str);
@@ -45,7 +51,8 @@ async function sendSmtpEmail(
   settings: SmtpSettings,
   to: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  attachments?: Attachment[]
 ): Promise<void> {
   let conn: Deno.TcpConn | Deno.TlsConn;
 
@@ -97,31 +104,87 @@ async function sendSmtpEmail(
     await sendCommand(`RCPT TO:<${to}>`);
     await sendCommand("DATA");
 
-    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const emailContent = [
+    const hasAttachments = attachments && attachments.length > 0;
+    const mixedBoundary = `----=_Mixed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const altBoundary = `----=_Alt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    const headers = [
       `From: "${settings.sender_name}" <${settings.sender_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
       `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="${boundary}"`,
       `Date: ${new Date().toUTCString()}`,
-      ``,
-      `--${boundary}`,
-      `Content-Type: text/plain; charset=UTF-8`,
-      `Content-Transfer-Encoding: base64`,
-      ``,
-      base64Encode(htmlBody.replace(/<[^>]*>/g, "")),
-      ``,
-      `--${boundary}`,
-      `Content-Type: text/html; charset=UTF-8`,
-      `Content-Transfer-Encoding: base64`,
-      ``,
-      base64Encode(htmlBody),
-      ``,
-      `--${boundary}--`,
-      `.`,
-    ].join("\r\n");
+    ];
 
+    const parts: string[] = [];
+
+    if (hasAttachments) {
+      headers.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`);
+      parts.push(...headers, ``);
+
+      // Alternative part (text + html)
+      parts.push(`--${mixedBoundary}`);
+      parts.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      parts.push(``);
+
+      // Plain text
+      parts.push(`--${altBoundary}`);
+      parts.push(`Content-Type: text/plain; charset=UTF-8`);
+      parts.push(`Content-Transfer-Encoding: base64`);
+      parts.push(``);
+      parts.push(base64Encode(htmlBody.replace(/<[^>]*>/g, "")));
+      parts.push(``);
+
+      // HTML
+      parts.push(`--${altBoundary}`);
+      parts.push(`Content-Type: text/html; charset=UTF-8`);
+      parts.push(`Content-Transfer-Encoding: base64`);
+      parts.push(``);
+      parts.push(base64Encode(htmlBody));
+      parts.push(``);
+      parts.push(`--${altBoundary}--`);
+
+      // Attachments
+      for (const att of attachments!) {
+        parts.push(``);
+        parts.push(`--${mixedBoundary}`);
+        parts.push(`Content-Type: ${att.content_type}; name="=?UTF-8?B?${base64Encode(att.filename)}?="`);
+        parts.push(`Content-Transfer-Encoding: base64`);
+        parts.push(`Content-Disposition: attachment; filename="=?UTF-8?B?${base64Encode(att.filename)}?="`);
+        parts.push(``);
+        // Split base64 into 76-char lines
+        const b64 = att.content_base64;
+        for (let i = 0; i < b64.length; i += 76) {
+          parts.push(b64.substring(i, i + 76));
+        }
+      }
+
+      parts.push(``);
+      parts.push(`--${mixedBoundary}--`);
+      parts.push(`.`);
+    } else {
+      // No attachments — simple multipart/alternative
+      headers.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      parts.push(...headers, ``);
+
+      parts.push(`--${altBoundary}`);
+      parts.push(`Content-Type: text/plain; charset=UTF-8`);
+      parts.push(`Content-Transfer-Encoding: base64`);
+      parts.push(``);
+      parts.push(base64Encode(htmlBody.replace(/<[^>]*>/g, "")));
+      parts.push(``);
+
+      parts.push(`--${altBoundary}`);
+      parts.push(`Content-Type: text/html; charset=UTF-8`);
+      parts.push(`Content-Transfer-Encoding: base64`);
+      parts.push(``);
+      parts.push(base64Encode(htmlBody));
+      parts.push(``);
+      parts.push(`--${altBoundary}--`);
+      parts.push(`.`);
+    }
+
+    const emailContent = parts.join("\r\n");
     const dataRes = await sendCommand(emailContent);
     if (!dataRes.includes("250") && !dataRes.includes("OK")) {
       throw new Error(`Send failed: ${dataRes}`);
@@ -139,10 +202,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { event_id, custom_message } = await req.json();
+    const { event_id, custom_message, attachments } = await req.json();
     if (!event_id) throw new Error("event_id is required");
 
-    console.log(`[send-post-webinar-email] Starting for event: ${event_id}`);
+    console.log(`[send-post-webinar-email] Starting for event: ${event_id}, attachments: ${attachments?.length || 0}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -249,6 +312,13 @@ const handler = async (req: Request): Promise<Response> => {
       ? `<div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;"><p style="color: #444; font-size: 15px; line-height: 1.6; margin: 0;">${custom_message.replace(/\n/g, '<br>')}</p></div>`
       : '';
 
+    // Parse attachments
+    const parsedAttachments: Attachment[] = (attachments || []).map((a: any) => ({
+      filename: a.filename,
+      content_base64: a.content_base64,
+      content_type: a.content_type,
+    }));
+
     let sent = 0;
     let failed = 0;
     const BATCH_SIZE = 10;
@@ -268,7 +338,7 @@ const handler = async (req: Request): Promise<Response> => {
           const finalBody = replaceTemplateVariables(template.body_html, vars);
 
           try {
-            await sendSmtpEmail(smtp, recipient.email, finalSubject, finalBody);
+            await sendSmtpEmail(smtp, recipient.email, finalSubject, finalBody, parsedAttachments);
 
             await supabase.from("email_logs").insert({
               recipient_email: recipient.email,
@@ -282,6 +352,7 @@ const handler = async (req: Request): Promise<Response> => {
                 event_id,
                 source: recipient.source,
                 event_title: event.title,
+                attachments_count: parsedAttachments.length,
               },
             });
 
