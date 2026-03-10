@@ -251,7 +251,10 @@ const VideoTile: React.FC<{
     stream.addEventListener('removetrack', bump);
     // Also re-attach when tracks change
     stream.addEventListener('addtrack', attach);
+    // Delayed bump to catch tracks already in 'live' state on mobile
+    const initialCheck = setTimeout(() => bump(), 1000);
     return () => {
+      clearTimeout(initialCheck);
       stream.getTracks().forEach(t => {
         t.removeEventListener('mute', bump);
         t.removeEventListener('unmute', bump);
