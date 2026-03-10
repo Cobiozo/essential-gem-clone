@@ -76,6 +76,18 @@ const MeetingRoomPage: React.FC = () => {
   const statusRef = useRef(status);
   statusRef.current = status;
 
+  // On auto-rejoin (savedSession exists), mark user as interacted immediately
+  // so remote audio won't be blocked by autoplay policy
+  useEffect(() => {
+    if (savedSession) {
+      setUserHasInteracted();
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        ctx.resume().then(() => ctx.close()).catch(() => ctx.close());
+      } catch {}
+    }
+  }, []);
+
   const displayName = guestData
     ? guestData.displayName
     : profile

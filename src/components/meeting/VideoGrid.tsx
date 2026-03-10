@@ -59,22 +59,34 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
   try {
     await video.play();
   } catch {
-    video.muted = true;
-    try {
-      await video.play();
-      console.warn('[VideoGrid] Autoplay blocked — playing muted');
-      if (!userHasInteracted) onAudioBlocked?.();
-    } catch (e2) {
-      console.error('[VideoGrid] Even muted play() failed:', e2);
-    }
-    // Schedule unmuted retry after 2s — user may have interacted by then
-    if (video.muted && !isLocal && userHasInteracted) {
+    if (userHasInteracted) {
+      // User already interacted (e.g. lobby join or auto-rejoin) — retry unmuted after short delay
       setTimeout(() => {
-        if (video.muted && video.srcObject) {
-          video.muted = false;
-          video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
-        }
-      }, 2000);
+        video.play().catch(() => {
+          // Last resort: muted fallback
+          video.muted = true;
+          video.play().catch(() => {});
+          console.warn('[VideoGrid] Autoplay blocked even after interaction — muted fallback');
+        });
+      }, 500);
+    } else {
+      video.muted = true;
+      try {
+        await video.play();
+        console.warn('[VideoGrid] Autoplay blocked — playing muted');
+        onAudioBlocked?.();
+      } catch (e2) {
+        console.error('[VideoGrid] Even muted play() failed:', e2);
+      }
+      // Schedule unmuted retry after 2s — user may have interacted by then
+      if (video.muted && !isLocal) {
+        setTimeout(() => {
+          if (video.muted && video.srcObject && userHasInteracted) {
+            video.muted = false;
+            video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
+          }
+        }, 2000);
+      }
     }
   }
 };
