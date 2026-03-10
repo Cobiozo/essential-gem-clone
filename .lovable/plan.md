@@ -1,29 +1,24 @@
 
 
-# Dodanie szablonów webinar_reminder_12h i webinar_reminder_2h
+## Plan zmian
 
-## Co trzeba dodać
+### 1. Logo na ekranie ładowania (App.tsx)
 
-### 1. Dwa rekordy w `email_event_types`
-- `webinar_reminder_12h`
-- `webinar_reminder_2h`
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### 2. Dwa rekordy w `email_templates`
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-**webinar_reminder_12h** — "Przypomnienie o webinarze (12h przed)"
-- Subject: `⏰ Za 12 godzin! Webinar: {{event_title}}`
-- Body: Styl identyczny z szablonem 24h (niebieski przycisk Zoom, info o dacie/godzinie/prowadzącym)
-- Tekst główny: "za 12 godzin odbędzie się webinar"
-- Bez wyróżnionego linku Zoom w treści (link dostępny ale nie jest głównym CTA — zgodnie z logiką bulk function: 12h nie includeLink)
+### 2. Złote ikony dla datetime-local (index.css)
 
-**webinar_reminder_2h** — "Przypomnienie o webinarze (2h przed)"
-- Subject: `🔔 Za 2 godziny! Webinar: {{event_title}}`
-- Body: Styl podobny do 1h (zielony przycisk), ale z tekstem "za 2 godziny"
-- Również bez wyróżnionego linku Zoom (2h nie includeLink w bulk function)
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-### 3. Zmienne szablonów
-Identyczne jak istniejące: `imię`, `event_title`, `event_date`, `event_time`, `host_name`, `zoom_link`
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-## Implementacja
-Użyję narzędzia insert do dodania 4 rekordów (2 event types + 2 templates) bezpośrednio do bazy danych. Szablony HTML będą bazować na istniejącym designie (żółty header z logo Pure Life Center, biały content, szary footer).
+### Zakres: 2 pliki, ~10 linii zmian
 
