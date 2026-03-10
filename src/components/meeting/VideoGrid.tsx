@@ -496,20 +496,35 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
       if (!currentIds.has(key)) {
         try { val.source.disconnect(); } catch {}
         analysersRef.current.delete(key);
+        streamIdMapRef.current.delete(key);
       }
     });
 
     // Create analysers for ALL participants (including local for mic indicator)
     participants.forEach((p) => {
-      if (!p.stream || analysersRef.current.has(p.peerId)) return;
+      if (!p.stream) return;
       const audioTracks = p.stream.getAudioTracks();
       if (audioTracks.length === 0) return;
+
+      const currentStreamId = p.stream.id;
+      const existingStreamId = streamIdMapRef.current.get(p.peerId);
+
+      // Skip if analyser already exists for THIS exact stream
+      if (analysersRef.current.has(p.peerId) && existingStreamId === currentStreamId) return;
+
+      // Disconnect old analyser if stream changed
+      if (analysersRef.current.has(p.peerId)) {
+        try { analysersRef.current.get(p.peerId)!.source.disconnect(); } catch {}
+        analysersRef.current.delete(p.peerId);
+      }
+
       try {
         const source = ctx.createMediaStreamSource(p.stream);
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 256;
         source.connect(analyser);
         analysersRef.current.set(p.peerId, { analyser, source });
+        streamIdMapRef.current.set(p.peerId, currentStreamId);
       } catch (e) {
         console.warn('[VideoGrid] Failed to create analyser for', p.peerId, e);
       }
