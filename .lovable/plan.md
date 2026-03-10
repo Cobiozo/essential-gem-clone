@@ -1,47 +1,24 @@
 
 
-# Fix: fałszywy przycisk "Dotknij aby włączyć dźwięk" + echo w trybie Mówca/Wielu mówców
+## Plan zmian
 
-## Diagnoza
+### 1. Logo na ekranie ładowania (App.tsx)
 
-### Echo (słychać siebie)
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-**Przyczyna**: W VideoRoom.tsx jest globalny handler `unlockAudio` (linia 368-381) uruchamiany przy każdym touch/click, który odmucza WSZYSTKIE elementy `<video>` z wyjątkiem tych oznaczonych `data-local-video="true"`. 
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-Problem: atrybut `data-local-video="true"` jest ustawiony **tylko** w `VideoTile` (linia 242). Elementy `ThumbnailTile`, `MiniVideo` i `DraggableFloatingPiP` **nie mają** tego atrybutu, mimo że mogą renderować lokalny strumień.
+### 2. Złote ikony dla datetime-local (index.css)
 
-Efekt:
-- **Galeria**: używa tylko `VideoTile` (ma `data-local-video`) → lokalny element poprawnie pomijany → brak echa ✓
-- **Mówca**: lokalny użytkownik renderowany jako `ThumbnailTile` (brak `data-local-video`) → `unlockAudio` odmucza go → echo ✗
-- **Wielu mówców**: lokalny może być jako `MiniVideo` (brak `data-local-video`) → ten sam problem ✗
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-### Przycisk "Dotknij aby włączyć dźwięk"
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-**Przyczyna**: Przy zmianie widoku, React odmontowuje i montuje nowe `VideoTile`. Nowe elementy wywołują `playVideoSafe`, które na mobile może chwilowo napotkać błąd autoplay (transient). Fallback mutuje i woła `onAudioBlocked()`, co ustawia `audioBlocked=true` i pokazuje przycisk — mimo że użytkownik już wcześniej wchodził w interakcję ze stroną.
-
-## Plan naprawy
-
-### 1. Dodanie `data-local-video` do wszystkich komponentów video (VideoGrid.tsx)
-
-Dodać `data-local-video={participant.isLocal ? 'true' : undefined}` do elementów `<video>` w:
-- `ThumbnailTile` (linia 332-337)
-- `MiniVideo` (linia 607)
-- `DraggableFloatingPiP` (linia 681-686)
-
-### 2. Sprawdzenie `userHasInteracted` w `playVideoSafe` (VideoGrid.tsx)
-
-Przed wywołaniem `onAudioBlocked?.()` sprawdzić `userHasInteracted`. Jeśli użytkownik już wchodził w interakcję, nie triggerować bannera — to chwilowy problem z remountem, nie prawdziwy blok autoplay.
-
-```typescript
-// W playVideoSafe, linia 66:
-if (!userHasInteracted) {
-  onAudioBlocked?.();
-}
-```
-
-### Pliki do zmiany
-
-| Plik | Zmiana |
-|---|---|
-| `src/components/meeting/VideoGrid.tsx` | Dodać `data-local-video` do ThumbnailTile, MiniVideo, DraggableFloatingPiP; guard `onAudioBlocked` w `playVideoSafe` |
+### Zakres: 2 pliki, ~10 linii zmian
 

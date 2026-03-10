@@ -63,7 +63,7 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
     try {
       await video.play();
       console.warn('[VideoGrid] Autoplay blocked — playing muted');
-      onAudioBlocked?.();
+      if (!userHasInteracted) onAudioBlocked?.();
     } catch (e2) {
       console.error('[VideoGrid] Even muted play() failed:', e2);
     }
@@ -334,6 +334,7 @@ const ThumbnailTile: React.FC<{
         autoPlay
         playsInline
         muted={!playAudio}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
       />
       {!showVideo && (
@@ -605,6 +606,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   return (
     <>
       <video ref={ref} autoPlay playsInline muted={!playAudio}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`} />
       {!showVideo && <User className="h-5 w-5 text-zinc-500" />}
     </>
@@ -683,6 +685,7 @@ const DraggableFloatingPiP: React.FC<{
         autoPlay
         playsInline
         muted={!!participant.isLocal}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
       />
       {!showVideo && (
