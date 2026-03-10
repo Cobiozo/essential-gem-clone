@@ -134,6 +134,10 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'users' | 'guests'>('users');
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
+  const [followUpMessage, setFollowUpMessage] = useState('');
+  const [followUpSending, setFollowUpSending] = useState(false);
+  const [followUpProgress, setFollowUpProgress] = useState(0);
 
   const selectedEvent = useMemo(() => 
     events.find(e => e.id === selectedEventId), 
