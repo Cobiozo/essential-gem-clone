@@ -149,48 +149,54 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Sync participant count to background processor for adaptive quality
   useEffect(() => { setBgParticipantCount(participants.length); }, [participants.length, setBgParticipantCount]);
 
-  // === Local stream freeze detection + background processor stall recovery ===
+   // === Local stream freeze detection + background processor stall recovery ===
   useEffect(() => {
     if (!localStreamRef.current) return;
-    let freezeCheckInterval: ReturnType<typeof setInterval> | null = null;
-    let lastFrameCount = 0;
     let frozenChecks = 0;
+    let lastVideoTime = -1;
 
-    // Monitor local video for frozen frames using requestVideoFrameCallback or fallback
-    const videoEl = document.querySelector('video[data-local-video="true"]') as HTMLVideoElement | null;
-    
     const isMobilePWA = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-    if (videoEl && 'requestVideoFrameCallback' in videoEl) {
-      let frameCounter = 0;
-      const countFrame = () => {
-        frameCounter++;
-        if (localStreamRef.current) {
-          (videoEl as any).requestVideoFrameCallback(countFrame);
-        }
-      };
-      (videoEl as any).requestVideoFrameCallback(countFrame);
-      
-      freezeCheckInterval = setInterval(() => {
-        if (document.hidden) return; // Don't check while hidden
-        if (frameCounter === lastFrameCount) {
-          frozenChecks++;
-          if (frozenChecks >= 2) { // 2 checks × 3s = 6s frozen
-            frozenChecks = 0;
-            if (isMobilePWA) {
-              console.warn('[VideoRoom] Local video frozen 6s (mobile) — showing toast');
-              toast({ title: 'Kamera się zawiesiła', description: 'Dotknij ikony kamery, aby ją ponownie włączyć.', variant: 'destructive' });
-            } else {
-              console.warn('[VideoRoom] Local video frozen for 6s, reacquiring...');
-              reacquireLocalStream();
-            }
+    // Dynamically query the current local video element each interval
+    // This prevents false positives when React remounts video elements during layout changes
+    const freezeCheckInterval = setInterval(() => {
+      if (document.hidden) return;
+
+      // Always query fresh — element may have been remounted by layout change
+      const videoEl = document.querySelector('video[data-local-video="true"]') as HTMLVideoElement | null;
+      if (!videoEl || !localStreamRef.current) {
+        frozenChecks = 0;
+        lastVideoTime = -1;
+        return;
+      }
+
+      const currentTime = videoEl.currentTime;
+      if (currentTime === lastVideoTime && currentTime > 0) {
+        frozenChecks++;
+      } else {
+        frozenChecks = 0;
+      }
+      lastVideoTime = currentTime;
+
+      if (frozenChecks >= 2) { // 2 checks × 3s = 6s frozen
+        frozenChecks = 0;
+        // Verify the underlying track is actually dead before acting
+        const track = localStreamRef.current?.getVideoTracks()[0];
+        if (!track || track.readyState === 'ended' || track.muted) {
+          // Track is genuinely dead — real freeze
+          if (isMobilePWA) {
+            console.warn('[VideoRoom] Local video frozen 6s (mobile, track dead) — showing toast');
+            toast({ title: 'Kamera się zawiesiła', description: 'Dotknij ikony kamery, aby ją ponownie włączyć.', variant: 'destructive' });
+          } else {
+            console.warn('[VideoRoom] Local video frozen for 6s (track dead), reacquiring...');
+            reacquireLocalStream();
           }
         } else {
-          frozenChecks = 0;
+          // Track is alive — false alarm from layout remount, ignore
+          console.log('[VideoRoom] Freeze check: video.currentTime stale but track alive — layout change, ignoring');
         }
-        lastFrameCount = frameCounter;
-      }, 3000);
-    }
+      }
+    }, 3000);
 
     // Listen for background processor stall events (with cooldown + hidden check)
     const handleStall = () => {
