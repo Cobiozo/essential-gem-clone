@@ -742,6 +742,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // === Local miss counter for graceful pruning ===
   const peerMissCountRef = useRef<Map<string, number>>(new Map());
+  // === Retry counter for peer-unavailable errors ===
+  const peerRetryCountRef = useRef<Map<string, number>>(new Map());
 
   // === Zmiana E: Self-healing heartbeat + graceful local pruning (NO global deactivation) ===
   useEffect(() => {
