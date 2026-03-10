@@ -1040,6 +1040,16 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     const init = async () => {
       // Mark interaction for all entry paths (lobby, auto-rejoin, mobile)
       setUserHasInteracted();
+      // Try unlocking iOS audio session even without gesture (best-effort)
+      try {
+        const silence = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+        silence.play().catch(() => {});
+      } catch {}
+      // Show mobile hint for auto-rejoin (no lobby gesture)
+      const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      if (isMob && !audioUnlockedRef.current) {
+        toast({ title: 'Dotknij ekranu, aby odblokować dźwięk', description: 'iOS/Android wymaga interakcji użytkownika' });
+      }
       try {
         let stream: MediaStream | null = null;
         // Try to reuse the lobby stream (preserves user gesture context)

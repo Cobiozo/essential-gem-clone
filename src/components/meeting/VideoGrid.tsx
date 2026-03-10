@@ -48,6 +48,9 @@ if (typeof document !== 'undefined') {
 export const setUserHasInteracted = () => { userHasInteracted = true; };
 export const getUserHasInteracted = () => userHasInteracted;
 
+// Silent audio data URI for iOS audio session unlock
+const SILENCE_DATA_URI = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+
 // Helper: play video with muted fallback for mobile autoplay policy
 const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioBlocked?: () => void) => {
   if (isLocal) {
@@ -60,7 +63,11 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
     await video.play();
   } catch {
     if (userHasInteracted) {
-      // User already interacted (e.g. lobby join or auto-rejoin) — retry unmuted after short delay
+      // Try unlocking iOS audio session with silent audio first, then retry unmuted
+      try {
+        const silence = new Audio(SILENCE_DATA_URI);
+        await silence.play().catch(() => {});
+      } catch {}
       setTimeout(() => {
         video.play().catch(() => {
           // Last resort: muted fallback
@@ -68,7 +75,7 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
           video.play().catch(() => {});
           console.warn('[VideoGrid] Autoplay blocked even after interaction — muted fallback');
         });
-      }, 500);
+      }, 300);
     } else {
       video.muted = true;
       try {
@@ -82,6 +89,8 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
       if (video.muted && !isLocal) {
         setTimeout(() => {
           if (video.muted && video.srcObject && userHasInteracted) {
+            // Try silent audio unlock before unmuting
+            try { new Audio(SILENCE_DATA_URI).play().catch(() => {}); } catch {}
             video.muted = false;
             video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
           }

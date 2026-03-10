@@ -244,8 +244,12 @@ const MeetingRoomPage: React.FC = () => {
   };
 
   const handleJoin = (audio: boolean, video: boolean, settings?: import('@/components/meeting/MeetingSettingsDialog').MeetingSettings, stream?: MediaStream) => {
-    // Pre-warm AudioContext in user gesture context to bypass mobile autoplay policy
+    // Pre-warm AudioContext + unlock iOS audio session in user gesture context
     setUserHasInteracted();
+    try {
+      const silence = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+      silence.play().catch(() => {});
+    } catch {}
     try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); ctx.resume().then(() => ctx.close()).catch(() => ctx.close()); } catch {}
     setAudioEnabled(audio);
     setVideoEnabled(video);
