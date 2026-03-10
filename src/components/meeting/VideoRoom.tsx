@@ -1818,6 +1818,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stream.getAudioTracks().forEach((t) => (t.enabled = isMuted));
     const newMuted = !isMuted;
     setIsMuted(newMuted);
+    // Persist to sessionStorage for auto-rejoin
+    if (roomId) {
+      try {
+        const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+        if (raw) { const s = JSON.parse(raw); s.audioEnabled = !newMuted; sessionStorage.setItem(`meeting_session_${roomId}`, JSON.stringify(s)); }
+      } catch {}
+    }
     if (channelRef.current && peerRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted: newMuted, isCameraOff } });
     }
