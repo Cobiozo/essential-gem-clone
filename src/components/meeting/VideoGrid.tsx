@@ -63,7 +63,7 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
     try {
       await video.play();
       console.warn('[VideoGrid] Autoplay blocked — playing muted');
-      onAudioBlocked?.();
+      if (!userHasInteracted) onAudioBlocked?.();
     } catch (e2) {
       console.error('[VideoGrid] Even muted play() failed:', e2);
     }
