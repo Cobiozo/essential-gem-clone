@@ -1101,46 +1101,23 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
               .eq('guest_token_id', guestTokenId)
               .is('joined_at', null);
           } else if (user) {
-            const { error: participantError } = await supabase
-              .from('meeting_room_participants')
-              .upsert(
-                { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
-                { onConflict: 'room_id,user_id' }
-              );
-            if (participantError) {
-              console.error('[VideoRoom] Failed to register participant (upsert):', participantError);
-              // Retry upsert once
-              const { error: retryError } = await supabase.from('meeting_room_participants').upsert(
-                { room_id: roomId, user_id: user.id, peer_id: peerId, display_name: displayName, is_active: true, left_at: null, joined_at: new Date().toISOString() },
-                { onConflict: 'room_id,user_id' }
-              );
-              if (retryError) {
-                console.error('[VideoRoom] Retry upsert also failed:', retryError);
-              }
-            }
-
-            // Verify participant record exists
-            const { data: verifyParticipant } = await supabase
-              .from('meeting_room_participants')
-              .select('id')
+            // Delete + insert instead of upsert (partial index incompatible with onConflict)
+            await supabase.from('meeting_room_participants')
+              .delete()
               .eq('room_id', roomId)
-              .eq('user_id', user.id)
-              .maybeSingle();
+              .eq('user_id', user.id);
 
-            if (!verifyParticipant) {
-              console.warn('[VideoRoom] Participant record missing after upsert, trying plain insert...');
-              const { error: insertError } = await supabase.from('meeting_room_participants').insert({
-                room_id: roomId,
-                user_id: user.id,
-                peer_id: peerId,
-                display_name: displayName,
-                is_active: true,
-                joined_at: new Date().toISOString(),
-              });
-              if (insertError) {
-                console.error('[VideoRoom] Plain insert also failed:', insertError);
-                toast({ title: 'Błąd dołączania', description: 'Nie udało się zarejestrować w spotkaniu. Spróbuj odświeżyć stronę.', variant: 'destructive' });
-              }
+            const { error: insertError } = await supabase.from('meeting_room_participants').insert({
+              room_id: roomId,
+              user_id: user.id,
+              peer_id: peerId,
+              display_name: displayName,
+              is_active: true,
+              joined_at: new Date().toISOString(),
+            });
+            if (insertError) {
+              console.error('[VideoRoom] Failed to register participant:', insertError);
+              toast({ title: 'Błąd dołączania', description: 'Nie udało się zarejestrować w spotkaniu. Spróbuj odświeżyć stronę.', variant: 'destructive' });
             }
           }
 

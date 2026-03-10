@@ -678,15 +678,14 @@ const DraggableFloatingPiP: React.FC<{
       onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
       onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
     >
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={!!participant.isLocal}
-          className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
-        />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={!!participant.isLocal}
+        className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
+      />
+      {!showVideo && (
         <div className="w-full h-full flex flex-col items-center justify-center gap-1">
           <div className="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
             {participant.avatarUrl ? (
