@@ -602,11 +602,12 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
     ? participant.stream && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
 
-  if (!showVideo) return <User className="h-5 w-5 text-zinc-500" />;
-
   return (
-    <video ref={ref} autoPlay playsInline muted={!playAudio}
-      className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`} />
+    <>
+      <video ref={ref} autoPlay playsInline muted={!playAudio}
+        className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`} />
+      {!showVideo && <User className="h-5 w-5 text-zinc-500" />}
+    </>
   );
 };
 
