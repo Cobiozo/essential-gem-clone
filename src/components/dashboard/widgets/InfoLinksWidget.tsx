@@ -31,6 +31,7 @@ export const InfoLinksWidget: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [generatingOtp, setGeneratingOtp] = useState<string | null>(null);
+  const otpInfoRef = React.useRef<{ code: string; validityHours: number } | null>(null);
 
   useEffect(() => {
     const fetchLinks = async () => {
