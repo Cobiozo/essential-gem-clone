@@ -709,14 +709,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       };
       if (authToken) authHeaders['Authorization'] = `Bearer ${authToken}`;
 
+      // Fix: include peer_id in the filter so the unload PATCH only deactivates
+      // the OLD record and doesn't race with the new session's INSERT after refresh
+      const peerIdAtUnload = peerRef.current?.id;
       if (user) {
-        const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
+        let url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
+        if (peerIdAtUnload) url += `&peer_id=eq.${peerIdAtUnload}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
         try {
           fetch(url, { method: 'PATCH', headers: authHeaders, body, keepalive: true }).catch(() => {});
         } catch {}
       } else if (guestTokenId) {
-        const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&guest_token_id=eq.${guestTokenId}`;
+        let url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&guest_token_id=eq.${guestTokenId}`;
+        if (peerIdAtUnload) url += `&peer_id=eq.${peerIdAtUnload}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
         try {
           fetch(url, { method: 'PATCH', headers: authHeaders, body, keepalive: true }).catch(() => {});
@@ -737,6 +742,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
   // === Local miss counter for graceful pruning ===
   const peerMissCountRef = useRef<Map<string, number>>(new Map());
+  // === Retry counter for peer-unavailable errors ===
+  const peerRetryCountRef = useRef<Map<string, number>>(new Map());
 
   // === Zmiana E: Self-healing heartbeat + graceful local pruning (NO global deactivation) ===
   useEffect(() => {
@@ -747,14 +754,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         // 1. Self-healing heartbeat: always set is_active=true, left_at=null (no .eq('is_active', true) condition)
         const now = new Date().toISOString();
         const peerIdValue = peerRef.current?.id || null;
+        // Fix: guard heartbeat with peer_id so it won't resurrect an old/stale record
         if (guestTokenId) {
-          await supabase.from('meeting_room_participants')
+          const q = supabase.from('meeting_room_participants')
             .update({ updated_at: now, is_active: true, left_at: null, ...(peerIdValue ? { peer_id: peerIdValue } : {}) })
             .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
+          if (peerIdValue) q.eq('peer_id', peerIdValue);
+          await q;
         } else if (user) {
-          await supabase.from('meeting_room_participants')
+          const q = supabase.from('meeting_room_participants')
             .update({ updated_at: now, is_active: true, left_at: null, ...(peerIdValue ? { peer_id: peerIdValue } : {}) })
             .eq('room_id', roomId).eq('user_id', user.id);
+          if (peerIdValue) q.eq('peer_id', peerIdValue);
+          await q;
         }
 
         // 2. Sync participants from DB - graceful local pruning (NO deactivation of others in DB)
@@ -1415,7 +1427,35 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           console.error('[VideoRoom] Peer error:', err);
           if (err.type === 'peer-unavailable') {
             const failedPeerId = (err as any).message?.match(/peer\s+(\S+)/)?.[1];
-            if (failedPeerId) removePeer(failedPeerId);
+            if (failedPeerId) {
+              // Fix: retry instead of immediately removing — peer may not be registered yet
+              const retryCount = (peerRetryCountRef.current.get(failedPeerId) || 0) + 1;
+              peerRetryCountRef.current.set(failedPeerId, retryCount);
+              if (retryCount <= 3) {
+                console.log(`[VideoRoom] peer-unavailable for ${failedPeerId}, retry ${retryCount}/3 in ${retryCount * 3}s`);
+                setTimeout(async () => {
+                  if (cancelled || cleanupDoneRef.current) return;
+                  // Verify peer is still active in DB before retrying
+                  const { data } = await supabase
+                    .from('meeting_room_participants')
+                    .select('peer_id, display_name, user_id, guest_token_id')
+                    .eq('room_id', roomId)
+                    .eq('peer_id', failedPeerId)
+                    .eq('is_active', true)
+                    .maybeSingle();
+                  if (data && peerRef.current && localStreamRef.current) {
+                    console.log(`[VideoRoom] Retrying call to ${failedPeerId}`);
+                    callPeer(failedPeerId, data.display_name || 'Uczestnik', localStreamRef.current, undefined, data.user_id || undefined);
+                  } else {
+                    peerRetryCountRef.current.delete(failedPeerId);
+                  }
+                }, retryCount * 3000);
+              } else {
+                console.log(`[VideoRoom] peer-unavailable for ${failedPeerId}, max retries reached — removing`);
+                peerRetryCountRef.current.delete(failedPeerId);
+                removePeer(failedPeerId);
+              }
+            }
           } else if (err.type === 'disconnected') {
             try { peer.reconnect(); } catch {}
           } else {
@@ -1472,6 +1512,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       // Zmiana 5: Clear reconnecting flag on successful stream
       reconnectingPeersRef.current.delete(call.peer);
       reconnectAttemptsRef.current.delete(call.peer);
+      // Fix: Reset peer-unavailable retry counter on successful stream
+      peerRetryCountRef.current.delete(call.peer);
       // Apply bitrate limits after connection established
       applyBitrateLimits(call, participantsRef.current.length + 1);
       setParticipants((prev) => {
