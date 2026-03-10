@@ -416,7 +416,7 @@ const ThumbnailTile: React.FC<{
   const _trackRev = trackRevision;
 
    const showVideo = participant.isLocal
-    ? participant.stream && !isCameraOff
+    ? participant.stream?.getVideoTracks().some(t => t.readyState === 'live') && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
