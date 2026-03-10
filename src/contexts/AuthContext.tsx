@@ -396,6 +396,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      // Mark as user-initiated BEFORE calling signOut
+      userInitiatedSignOutRef.current = true;
+      
       // NPROC fix: Cleanup all realtime channels before signing out
       try {
         const channels = supabase.getChannels();
