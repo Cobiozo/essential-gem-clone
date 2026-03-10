@@ -709,14 +709,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       };
       if (authToken) authHeaders['Authorization'] = `Bearer ${authToken}`;
 
+      // Fix: include peer_id in the filter so the unload PATCH only deactivates
+      // the OLD record and doesn't race with the new session's INSERT after refresh
+      const peerIdAtUnload = peerRef.current?.id;
       if (user) {
-        const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
+        let url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&user_id=eq.${user.id}`;
+        if (peerIdAtUnload) url += `&peer_id=eq.${peerIdAtUnload}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
         try {
           fetch(url, { method: 'PATCH', headers: authHeaders, body, keepalive: true }).catch(() => {});
         } catch {}
       } else if (guestTokenId) {
-        const url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&guest_token_id=eq.${guestTokenId}`;
+        let url = `${supabaseUrl}/rest/v1/meeting_room_participants?room_id=eq.${roomId}&guest_token_id=eq.${guestTokenId}`;
+        if (peerIdAtUnload) url += `&peer_id=eq.${peerIdAtUnload}`;
         const body = JSON.stringify({ is_active: false, left_at: new Date().toISOString() });
         try {
           fetch(url, { method: 'PATCH', headers: authHeaders, body, keepalive: true }).catch(() => {});
