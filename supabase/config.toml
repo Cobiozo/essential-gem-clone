@@ -224,3 +224,6 @@ verify_jwt = false
 
 [functions.audit-storage-files]
 verify_jwt = false
+
+[functions.send-bulk-webinar-reminders]
+verify_jwt = false
