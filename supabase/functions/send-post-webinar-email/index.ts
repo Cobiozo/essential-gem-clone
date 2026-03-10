@@ -210,7 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { event_id, custom_message, attachments, recipient_group, single_recipient } = await req.json();
+    const { event_id, custom_message, attachments, recipient_group, single_recipient, selected_recipients } = await req.json();
     if (!event_id) throw new Error("event_id is required");
 
     console.log(`[send-post-webinar-email] Starting for event: ${event_id}, group: ${recipient_group || 'all'}, attachments: ${attachments?.length || 0}`);
