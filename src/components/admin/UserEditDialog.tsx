@@ -59,6 +59,8 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
       setFirstName(user.first_name || '');
       setLastName(user.last_name || '');
       setEqId(user.eq_id || '');
+      setEmail(user.email || '');
+      setOriginalEmail(user.email || '');
       setOriginalGuardianEqId(user.upline_eq_id || null);
       
       // Load current guardian data if exists
