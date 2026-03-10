@@ -1,0 +1,11 @@
+INSERT INTO public.email_templates (internal_name, name, subject, body_html, body_text, is_active, variables)
+VALUES (
+  'webinar_followup',
+  'Follow-up po webinarze',
+  '🎉 Dziękujemy za udział! {{event_title}}',
+  '<div style="background-color: #ffc105; padding: 20px; text-align: center;"><img src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/training-media/1766508615455-8wv0cee7jwr.png" alt="Pure Life Center" style="max-height: 50px; margin-bottom: 10px;" /><h1 style="color: #ffffff; margin: 0; font-size: 24px;">Dziękujemy za udział w webinarze!</h1></div><!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head><body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff;"><tr><td style="padding: 40px 30px;"><h2 style="color: #16a34a; margin-bottom: 20px;">🎉 Dziękujemy za udział!</h2><p style="color: #444; font-size: 16px; line-height: 1.6;">Cześć <strong>{{imię}}</strong>!</p><p style="color: #444; font-size: 16px; line-height: 1.6;">Bardzo się cieszymy, że wziąłeś/wzięłaś udział w naszym webinarze:</p><div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;"><h3 style="color: #1a1a1a; margin: 0 0 10px 0;">{{event_title}}</h3><p style="color: #444; font-size: 15px; line-height: 1.8; margin: 0;">📅 Data: <strong>{{event_date}}</strong></p></div>{{custom_message}}<p style="color: #444; font-size: 15px; margin-top: 25px;">Mamy nadzieję, że webinar był dla Ciebie wartościowy. Jeśli masz pytania — pisz śmiało!</p><p style="color: #444; font-size: 15px; margin-top: 25px;">Pozdrawiamy serdecznie! 💚<br><strong>Zespół Pure Life</strong></p></td></tr><tr><td style="padding: 20px 30px; background-color: #f8f8f8; text-align: center;"><p style="color: #888; font-size: 12px; margin: 0;">Pure Life Center | purelife.info.pl</p></td></tr></table></body></html>',
+  NULL,
+  true,
+  '["imię", "event_title", "event_date", "custom_message"]'::jsonb
+)
+ON CONFLICT DO NOTHING;
