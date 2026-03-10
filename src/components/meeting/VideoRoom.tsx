@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Peer, { MediaConnection } from 'peerjs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { VideoGrid, setUserHasInteracted } from './VideoGrid';
+import { VideoGrid, setUserHasInteracted, getUserHasInteracted } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
 import { MeetingChat } from './MeetingChat';
 import { ParticipantsPanel } from './ParticipantsPanel';

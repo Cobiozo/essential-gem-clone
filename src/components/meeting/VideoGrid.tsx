@@ -376,7 +376,10 @@ const ThumbnailTile: React.FC<{
     stream.addEventListener('addtrack', bump);
     stream.addEventListener('removetrack', bump);
     stream.addEventListener('addtrack', attach);
+    // Delayed bump to catch tracks already in 'live' state on mobile
+    const initialCheck = setTimeout(() => bump(), 1000);
     return () => {
+      clearTimeout(initialCheck);
       stream.getTracks().forEach(t => {
         t.removeEventListener('mute', bump);
         t.removeEventListener('unmute', bump);
