@@ -1,24 +1,41 @@
 
 
-## Plan zmian
+# Plan: Raport i statystyki rejestracji + Ranking partnerów
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Co dodajemy
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Nowy komponent `EventRegistrationReport.tsx` wyświetlany po wybraniu wydarzenia, zawierający:
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### 1. Karty statystyk
+- Łącznie zapisanych (użytkownicy + goście)
+- Aktywnych (status = registered)
+- Anulowanych
+- Goście (liczba guest registrations)
 
-### 2. Złote ikony dla datetime-local (index.css)
+### 2. Wykresy (recharts)
+- **Kołowy**: użytkownicy vs goście
+- **Kołowy**: rozkład ról (admin/partner/specjalista/klient)
+- **Słupkowy**: rejestracje w czasie (po dniach)
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+### 3. Ranking Top 10 partnerów — skuteczność zapraszania
+Tabela posortowana po liczbie zaproszonych gości (`invited_by_user_id`), pokazująca:
+- Pozycja
+- Imię i nazwisko partnera
+- Liczba zaproszonych gości
+- Liczba aktywnych (status=registered)
+- % skuteczności (aktywni / zaproszeni)
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+Dane obliczane z `guestRegistrations` — grupowanie po `invited_by_user_id`, join z profilem zapraszającego.
 
-### Zakres: 2 pliki, ~10 linii zmian
+### 4. Eksport XLSX pełnego raportu
+Przycisk eksportujący statystyki + dane rejestracji do pliku Excel.
+
+## Pliki
+
+| Plik | Akcja |
+|---|---|
+| `src/components/admin/EventRegistrationReport.tsx` | Nowy — karty, wykresy, ranking, eksport |
+| `src/components/admin/EventRegistrationsManagement.tsx` | Import + render raportu między wyborem wydarzenia a tabelami |
+
+Wszystkie dane już są pobierane — obliczenia po stronie klienta w `useMemo`.
 
