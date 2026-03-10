@@ -387,7 +387,7 @@ const handler = async (req: Request): Promise<Response> => {
       console.log(`[send-webinar-confirmation] AUTO-WEBINAR JOIN: isStartingSoon=${isStartingSoon}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
       
         // AUTO-WEBINAR: Immediate join email (≤15 min to next slot)
-        subject = `🔴 Dołącz teraz: ${eventTitle}`;
+        subject = isStartingSoon ? `🔴 Dołącz teraz: ${eventTitle}` : `✅ Potwierdzenie rejestracji: ${eventTitle}`;
         htmlBody = `
           <!DOCTYPE html>
           <html>
