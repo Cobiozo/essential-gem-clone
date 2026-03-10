@@ -1093,9 +1093,56 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
         stream.getAudioTracks().forEach(t => (t.enabled = initialAudio));
         stream.getVideoTracks().forEach(t => (t.enabled = initialVideo));
+
+        // Sync UI state with actual track composition after fallback
+        const hasLiveVideo = stream.getVideoTracks().filter(t => t.readyState === 'live').length > 0;
+        const hasLiveAudio = stream.getAudioTracks().filter(t => t.readyState === 'live').length > 0;
+        if (initialVideo && !hasLiveVideo) {
+          console.warn('[VideoRoom] init: wanted video but no live video tracks — syncing isCameraOff=true');
+          setIsCameraOff(true);
+        }
+        if (initialAudio && !hasLiveAudio) {
+          console.warn('[VideoRoom] init: wanted audio but no live audio tracks — syncing isMuted=true');
+          setIsMuted(true);
+        }
+
         localStreamRef.current = stream;
         setLocalStream(stream);
         updateRawStream(stream);
+
+        // Delayed retry: if video was requested but unavailable, retry after 2s
+        if (initialVideo && !hasLiveVideo) {
+          setTimeout(async () => {
+            if (cleanupDoneRef.current) return;
+            try {
+              const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+              const retryVideoConstraints: MediaTrackConstraints = isMob
+                ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+                : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+              const retryStream = await navigator.mediaDevices.getUserMedia({ video: retryVideoConstraints });
+              const videoTrack = retryStream.getVideoTracks()[0];
+              if (videoTrack && localStreamRef.current) {
+                localStreamRef.current.addTrack(videoTrack);
+                setIsCameraOff(false);
+                setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
+                // Replace track on existing peer connections
+                connectionsRef.current.forEach((conn) => {
+                  try {
+                    const senders = (conn as any).peerConnection?.getSenders() as RTCRtpSender[] | undefined;
+                    if (senders) {
+                      const videoSender = senders.find(s => s.track?.kind === 'video');
+                      if (videoSender) videoSender.replaceTrack(videoTrack);
+                    }
+                  } catch (e) { console.warn('[VideoRoom] retry replaceTrack failed:', e); }
+                });
+                console.log('[VideoRoom] Delayed video retry succeeded');
+                toast({ title: 'Kamera przywrócona' });
+              }
+            } catch {
+              console.log('[VideoRoom] Delayed video retry failed — camera still unavailable');
+            }
+          }, 2000);
+        }
 
         // Track ended listeners for auto re-acquire (desktop only; mobile needs user gesture)
         const isMob = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -1857,6 +1904,18 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       // Preserve user's mute/camera state on fresh tracks
       stream.getAudioTracks().forEach(t => t.enabled = !isMutedRef.current);
       stream.getVideoTracks().forEach(t => t.enabled = !isCameraOffRef.current);
+
+      // Sync state if requested tracks are missing after fallback
+      if (!isCameraOffRef.current && stream.getVideoTracks().filter(t => t.readyState === 'live').length === 0) {
+        console.warn('[VideoRoom] reacquire: wanted video but no live video tracks — syncing isCameraOff=true');
+        isCameraOffRef.current = true;
+        setIsCameraOff(true);
+      }
+      if (!isMutedRef.current && stream.getAudioTracks().filter(t => t.readyState === 'live').length === 0) {
+        console.warn('[VideoRoom] reacquire: wanted audio but no live audio tracks — syncing isMuted=true');
+        isMutedRef.current = true;
+        setIsMuted(true);
+      }
 
       localStreamRef.current = stream;
       setLocalStream(stream);
