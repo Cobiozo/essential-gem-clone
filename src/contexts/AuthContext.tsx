@@ -102,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPageHiddenRef = useRef(false);
   // Ref to track setTimeout for cleanup
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+  // Ref to track user-initiated sign out vs unexpected token failure
+  const userInitiatedSignOutRef = useRef(false);
   
   // Keep profileRef in sync with state
   useEffect(() => { profileRef.current = profile; }, [profile]);
