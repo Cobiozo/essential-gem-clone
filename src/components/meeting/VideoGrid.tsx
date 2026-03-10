@@ -606,6 +606,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   return (
     <>
       <video ref={ref} autoPlay playsInline muted={!playAudio}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`} />
       {!showVideo && <User className="h-5 w-5 text-zinc-500" />}
     </>
