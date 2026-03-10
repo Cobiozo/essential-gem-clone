@@ -471,6 +471,11 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
     });
 
     const interval = setInterval(() => {
+      // Ensure AudioContext is active — may still be suspended if no user gesture yet
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+        return; // skip this tick — no audio data available yet
+      }
       let maxLevel = 25; // raised threshold to reduce false triggers
       let maxIndex = -1;
       const newLevels = new Map<string, number>();
