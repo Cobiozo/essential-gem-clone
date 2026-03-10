@@ -471,26 +471,14 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
   const analysersRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
   const streamIdMapRef = useRef<Map<string, string>>(new Map());
   const lastSpeakerChangeRef = useRef(0);
+  const participantsRef = useRef(participants);
+  participantsRef.current = participants;
 
+  // Sync analysers when participants/streams change — without restarting the interval
   useEffect(() => {
-    if (!audioContextRef.current) {
-      try { audioContextRef.current = new AudioContext(); } catch { return; }
-    }
+    if (!audioContextRef.current) return;
     const ctx = audioContextRef.current;
-    // Resume AudioContext — on mobile it stays suspended until a user gesture
-    if (ctx.state === 'suspended') {
-      ctx.resume().catch(() => {});
-      // Register one-shot gesture listeners to retry resume on mobile
-      const resumeOnGesture = () => {
-        if (ctx.state === 'suspended') {
-          ctx.resume().catch(() => {});
-        }
-        document.removeEventListener('click', resumeOnGesture);
-        document.removeEventListener('touchstart', resumeOnGesture);
-      };
-      document.addEventListener('click', resumeOnGesture, { once: true });
-      document.addEventListener('touchstart', resumeOnGesture, { once: true });
-    }
+    if (ctx.state === 'closed') return;
 
     const currentIds = new Set(participants.map(p => p.peerId));
     analysersRef.current.forEach((val, key) => {
@@ -501,24 +489,17 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
       }
     });
 
-    // Create analysers for ALL participants (including local for mic indicator)
     participants.forEach((p) => {
       if (!p.stream) return;
       const audioTracks = p.stream.getAudioTracks();
       if (audioTracks.length === 0) return;
-
       const currentStreamId = p.stream.id;
       const existingStreamId = streamIdMapRef.current.get(p.peerId);
-
-      // Skip if analyser already exists for THIS exact stream
       if (analysersRef.current.has(p.peerId) && existingStreamId === currentStreamId) return;
-
-      // Disconnect old analyser if stream changed
       if (analysersRef.current.has(p.peerId)) {
         try { analysersRef.current.get(p.peerId)!.source.disconnect(); } catch {}
         analysersRef.current.delete(p.peerId);
       }
-
       try {
         const source = ctx.createMediaStreamSource(p.stream);
         const analyser = ctx.createAnalyser();
@@ -530,31 +511,62 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
         console.warn('[VideoGrid] Failed to create analyser for', p.peerId, e);
       }
     });
+  }, [participants]);
+
+  // One-time setup: AudioContext + detection interval (never restarts on participant changes)
+  useEffect(() => {
+    if (!audioContextRef.current) {
+      try { audioContextRef.current = new AudioContext(); } catch { return; }
+    }
+    const ctx = audioContextRef.current;
+
+    // Immediately resume if user already interacted (e.g. clicked "Join")
+    const tryResume = () => {
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    };
+    tryResume();
+    // Also try with a silent audio trick for mobile PWA
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.001);
+      tryResume();
+    } catch {}
+
+    // Fallback gesture listeners
+    const resumeOnGesture = () => {
+      tryResume();
+      document.removeEventListener('click', resumeOnGesture);
+      document.removeEventListener('touchstart', resumeOnGesture);
+    };
+    document.addEventListener('click', resumeOnGesture, { once: true });
+    document.addEventListener('touchstart', resumeOnGesture, { once: true });
 
     const interval = setInterval(() => {
-      // Ensure AudioContext is active — may still be suspended if no user gesture yet
       if (ctx.state === 'suspended') {
         ctx.resume().catch(() => {});
-        return; // skip this tick — no audio data available yet
+        return;
       }
-      let maxLevel = 25; // raised threshold to reduce false triggers
+      const pts = participantsRef.current;
+      let maxLevel = 15; // lowered threshold for quieter mics
       let maxIndex = -1;
       const newLevels = new Map<string, number>();
 
-      participants.forEach((p, index) => {
+      pts.forEach((p, index) => {
         const entry = analysersRef.current.get(p.peerId);
         if (!entry) {
           newLevels.set(p.peerId, 0);
           return;
         }
-
         const data = new Uint8Array(entry.analyser.frequencyBinCount);
         entry.analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        const normalized = Math.min(avg / 80, 1); // normalize to 0-1
+        const normalized = Math.min(avg / 80, 1);
         newLevels.set(p.peerId, normalized);
-
-        // Allow local user to be active speaker too
         if (avg > maxLevel) {
           maxLevel = avg;
           maxIndex = index;
@@ -564,16 +576,13 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
       setAudioLevels(newLevels);
 
       const now = Date.now();
-      // Hold time: 2.5s minimum before switching speaker + hysteresis
       if (maxIndex !== -1 && now - lastSpeakerChangeRef.current > 2500) {
         setSpeakingIndex((prev) => {
           if (prev !== maxIndex) {
-            // Hysteresis: only switch if new speaker is significantly louder
-            const prevLevel = prev >= 0 && prev < participants.length
-              ? newLevels.get(participants[prev].peerId) || 0
+            const prevLevel = prev >= 0 && prev < pts.length
+              ? newLevels.get(pts[prev].peerId) || 0
               : 0;
-            const newLevel = newLevels.get(participants[maxIndex].peerId) || 0;
-            // Only switch if new speaker is at least 0.08 louder (normalized) or prev is silent
+            const newLevel = newLevels.get(pts[maxIndex].peerId) || 0;
             if (newLevel > prevLevel + 0.08 || prevLevel < 0.05) {
               lastSpeakerChangeRef.current = now;
               return maxIndex;
@@ -582,10 +591,14 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
           return prev;
         });
       }
-    }, 250); // slightly slower polling
+    }, 250);
 
-    return () => clearInterval(interval);
-  }, [participants]);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('click', resumeOnGesture);
+      document.removeEventListener('touchstart', resumeOnGesture);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     return () => {
