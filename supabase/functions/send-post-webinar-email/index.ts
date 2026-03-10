@@ -205,7 +205,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { event_id, custom_message, attachments, recipient_group, single_recipient } = await req.json();
     if (!event_id) throw new Error("event_id is required");
 
-    console.log(`[send-post-webinar-email] Starting for event: ${event_id}, attachments: ${attachments?.length || 0}`);
+    console.log(`[send-post-webinar-email] Starting for event: ${event_id}, group: ${recipient_group || 'all'}, attachments: ${attachments?.length || 0}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
