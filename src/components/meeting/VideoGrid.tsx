@@ -138,6 +138,7 @@ const VideoTile: React.FC<{
     if (!video || !participant.stream) return;
 
     video.srcObject = participant.stream;
+    video.muted = !!participant.isLocal;
 
     playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
 
