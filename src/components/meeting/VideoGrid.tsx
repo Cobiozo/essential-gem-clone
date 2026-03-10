@@ -424,8 +424,8 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
         const normalized = Math.min(avg / 80, 1); // normalize to 0-1
         newLevels.set(p.peerId, normalized);
 
-        // Only consider non-local for speaker switching
-        if (!p.isLocal && avg > maxLevel) {
+        // Allow local user to be active speaker too
+        if (avg > maxLevel) {
           maxLevel = avg;
           maxIndex = index;
         }

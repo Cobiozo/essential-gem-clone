@@ -1626,11 +1626,33 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   const reconnectToPeer = useCallback(async (peerId: string) => {
     const attempts = reconnectAttemptsRef.current.get(peerId) || 0;
     if (attempts >= 3) {
-      console.warn(`[VideoRoom] Max reconnect attempts (3) reached for ${peerId}, marking locally unreachable`);
+      console.warn(`[VideoRoom] Max reconnect attempts (3) reached for ${peerId}, checking DB for new peer_id`);
+      // Check if participant reconnected with a new peer_id
+      const participant = participantsRef.current.find(p => p.peerId === peerId);
+      if (participant?.userId) {
+        try {
+          const { data } = await supabase
+            .from('meeting_room_participants')
+            .select('peer_id, display_name')
+            .eq('room_id', roomId)
+            .eq('user_id', participant.userId)
+            .eq('is_active', true)
+            .neq('peer_id', peerId)
+            .maybeSingle();
+          if (data?.peer_id && !connectionsRef.current.has(data.peer_id)) {
+            console.log(`[VideoRoom] Found new peer_id ${data.peer_id} for user ${participant.userId}, reconnecting`);
+            reconnectingPeersRef.current.delete(peerId);
+            reconnectAttemptsRef.current.delete(peerId);
+            setParticipants(prev => prev.filter(p => p.peerId !== peerId));
+            callPeer(data.peer_id, data.display_name || 'Uczestnik', localStreamRef.current!, undefined, participant.userId);
+            return;
+          }
+        } catch (e) {
+          console.warn('[VideoRoom] DB lookup for new peer_id failed:', e);
+        }
+      }
       reconnectAttemptsRef.current.delete(peerId);
-      // Zmiana 5: Clear reconnecting flag before final removal
       reconnectingPeersRef.current.delete(peerId);
-      // Only remove locally - do NOT update DB for remote peer
       removePeer(peerId);
       return;
     }
