@@ -752,14 +752,19 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         // 1. Self-healing heartbeat: always set is_active=true, left_at=null (no .eq('is_active', true) condition)
         const now = new Date().toISOString();
         const peerIdValue = peerRef.current?.id || null;
+        // Fix: guard heartbeat with peer_id so it won't resurrect an old/stale record
         if (guestTokenId) {
-          await supabase.from('meeting_room_participants')
+          const q = supabase.from('meeting_room_participants')
             .update({ updated_at: now, is_active: true, left_at: null, ...(peerIdValue ? { peer_id: peerIdValue } : {}) })
             .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
+          if (peerIdValue) q.eq('peer_id', peerIdValue);
+          await q;
         } else if (user) {
-          await supabase.from('meeting_room_participants')
+          const q = supabase.from('meeting_room_participants')
             .update({ updated_at: now, is_active: true, left_at: null, ...(peerIdValue ? { peer_id: peerIdValue } : {}) })
             .eq('room_id', roomId).eq('user_id', user.id);
+          if (peerIdValue) q.eq('peer_id', peerIdValue);
+          await q;
         }
 
         // 2. Sync participants from DB - graceful local pruning (NO deactivation of others in DB)
