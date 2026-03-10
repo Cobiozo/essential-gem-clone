@@ -403,7 +403,15 @@ const ThumbnailTile: React.FC<{
       />
       {!showVideo && (
         <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-          <User className="h-5 w-5 text-zinc-500" />
+          <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+            {participant.avatarUrl ? (
+              <img src={participant.avatarUrl} alt={participant.displayName} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-semibold text-zinc-300">
+                {participant.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+              </span>
+            )}
+          </div>
         </div>
       )}
       <div className="absolute bottom-0.5 right-0.5">
