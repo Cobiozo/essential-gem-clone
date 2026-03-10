@@ -375,18 +375,19 @@ const handler = async (req: Request): Promise<Response> => {
     const displayCoverImage = videoCoverImageUrl || '';
     const displayVideoDescription = videoDescription || '';
 
-    // Auto-webinar: if ≤15 minutes to next slot, send immediate join email
-    const isImmediateJoin = isAutoWebinar && minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
+    // Auto-webinar: ALWAYS show join link (regardless of time to slot)
+    const isImmediateJoin = isAutoWebinar && displayRoomLink;
 
     let subject: string;
     let htmlBody: string;
 
-    // PRIORITY: Immediate join email for auto-webinars (≤15 min) ALWAYS takes precedence over DB template
-    if (isImmediateJoin && displayRoomLink) {
-      console.log(`[send-webinar-confirmation] IMMEDIATE JOIN: isImmediateJoin=${isImmediateJoin}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
+    // PRIORITY: Auto-webinar email with join link ALWAYS takes precedence over DB template
+    if (isImmediateJoin) {
+      const isStartingSoon = minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
+      console.log(`[send-webinar-confirmation] AUTO-WEBINAR JOIN: isStartingSoon=${isStartingSoon}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
       
         // AUTO-WEBINAR: Immediate join email (≤15 min to next slot)
-        subject = `🔴 Dołącz teraz: ${eventTitle}`;
+        subject = isStartingSoon ? `🔴 Dołącz teraz: ${eventTitle}` : `✅ Potwierdzenie rejestracji: ${eventTitle}`;
         htmlBody = `
           <!DOCTYPE html>
           <html>
@@ -407,11 +408,14 @@ const handler = async (req: Request): Promise<Response> => {
             <div class="container">
               <div class="header">
                 ${displayCoverImage ? `<img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;" />` : ''}
-                <h1>🔴 Webinar zaczyna się za chwilę!</h1>
+                <h1>${isStartingSoon ? '🔴 Webinar zaczyna się za chwilę!' : '✅ Rejestracja potwierdzona!'}</h1>
               </div>
               <div class="content">
                 <p>Cześć <strong>${firstName}</strong>!</p>
-                <p>Zarejestrowałeś/aś się na webinar, który <strong>rozpoczyna się za ${minutesToNextSlot || 'kilka'} minut</strong>!</p>
+                <p>${isStartingSoon 
+                  ? `Zarejestrowałeś/aś się na webinar, który <strong>rozpoczyna się za ${minutesToNextSlot || 'kilka'} minut</strong>!`
+                  : `Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia i link do dołączenia:`
+                }</p>
                 
                 <div class="event-box">
                   <h2 style="margin-top: 0;">📅 ${eventTitle}</h2>
@@ -419,7 +423,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <p><strong>Prowadzący:</strong> ${displayHost}</p>
                   ${displayVideoDescription ? `<p style="margin-top: 10px; color: #666;">${displayVideoDescription}</p>` : ''}
                   <p style="margin-top: 20px;"><strong>🔗 Dołącz do webinaru:</strong></p>
-                  <a href="${displayRoomLink}" class="join-button">Dołącz teraz</a>
+                  <a href="${displayRoomLink}" class="join-button">${isStartingSoon ? 'Dołącz teraz' : 'Dołącz w wyznaczonym terminie'}</a>
                 </div>
                 
                 <p><strong>Wskazówki:</strong></p>
