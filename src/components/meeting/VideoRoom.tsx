@@ -1845,6 +1845,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     stream.getVideoTracks().forEach((t) => (t.enabled = newEnabled));
     const newCameraOff = !isCameraOff;
     setIsCameraOff(newCameraOff);
+    // Persist to sessionStorage for auto-rejoin
+    if (roomId) {
+      try {
+        const raw = sessionStorage.getItem(`meeting_session_${roomId}`);
+        if (raw) { const s = JSON.parse(raw); s.videoEnabled = !newCameraOff; sessionStorage.setItem(`meeting_session_${roomId}`, JSON.stringify(s)); }
+      } catch {}
+    }
     if (channelRef.current && peerRef.current) {
       channelRef.current.send({ type: 'broadcast', event: 'media-state-changed', payload: { peerId: peerRef.current.id, isMuted, isCameraOff: newCameraOff } });
     }
