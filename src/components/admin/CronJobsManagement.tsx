@@ -431,7 +431,7 @@ export const CronJobsManagement: React.FC = () => {
                             {getStatusBadge(log.status)}
                           </div>
                           
-                          <div className="grid grid-cols-4 gap-2 text-center">
+                          <div className="grid grid-cols-3 gap-2 text-center">
                             <div className="space-y-1">
                               <div className="text-[10px] text-muted-foreground uppercase">Czas</div>
                               <div className="text-xs font-medium">
@@ -443,12 +443,30 @@ export const CronJobsManagement: React.FC = () => {
                               <div>{formatDetailCategory(details?.welcomeEmails)}</div>
                             </div>
                             <div className="space-y-1">
-                              <div className="text-[10px] text-muted-foreground uppercase">Training</div>
-                              <div>{formatDetailCategory(details?.trainingNotifications)}</div>
-                            </div>
-                            <div className="space-y-1">
                               <div className="text-[10px] text-muted-foreground uppercase">Retry</div>
                               <div>{formatDetailCategory(details?.retries)}</div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-5 gap-1 text-center">
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">24h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders24h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">12h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders12h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">2h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders2h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">1h</div>
+                              <div>{formatDetailCategory(details?.webinarReminders1h)}</div>
+                            </div>
+                            <div className="space-y-1">
+                              <div className="text-[10px] text-muted-foreground uppercase">15m</div>
+                              <div>{formatDetailCategory(details?.webinarReminders15min)}</div>
                             </div>
                           </div>
                           
