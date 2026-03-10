@@ -8,6 +8,7 @@ interface VideoParticipant {
   displayName: string;
   stream: MediaStream | null;
   isMuted?: boolean;
+  isCameraOff?: boolean;
   isLocal?: boolean;
   avatarUrl?: string;
 }
@@ -290,9 +291,9 @@ const VideoTile: React.FC<{
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const _trackRev = trackRevision; // ensure React uses the state
 
-  const showVideo = participant.isLocal
+   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
-    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
     <div className={`relative bg-zinc-900 overflow-hidden flex items-center justify-center ${className}`}>
@@ -414,9 +415,9 @@ const ThumbnailTile: React.FC<{
 
   const _trackRev = trackRevision;
 
-  const showVideo = participant.isLocal
+   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
-    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
     <button
@@ -729,9 +730,9 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
     if (ref.current) ref.current.muted = !playAudio;
   }, [playAudio]);
 
-  const showVideo = participant.isLocal
+   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
-    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
     <>
@@ -808,9 +809,9 @@ const DraggableFloatingPiP: React.FC<{
     };
   }, [pos]);
 
-  const showVideo = participant.isLocal
+   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
-    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
     <div
