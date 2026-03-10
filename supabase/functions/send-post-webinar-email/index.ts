@@ -76,8 +76,8 @@ async function sendSmtpEmail(
   const decoder = new TextDecoder();
 
   async function readResponse(): Promise<string> {
-    const buf = new Uint8Array(4096);
-    const n = await conn.read(buf);
+    const buf = new Uint8Array(8192);
+    const n = await withTimeout(conn.read(buf), 30000, "SMTP read timeout");
     return n === null ? "" : decoder.decode(buf.subarray(0, n));
   }
 
