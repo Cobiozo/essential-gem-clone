@@ -630,13 +630,13 @@ export const EventRegistrationsManagement: React.FC = () => {
 
       setFollowUpProgress(30);
 
-      // Build single_recipient if needed
-      let singleRecipientData: { email: string; first_name: string } | undefined;
-      if (followUpRecipientGroup === 'single' && followUpSingleRecipient) {
-        const found = followUpRecipientLists.singleOptions.find(o => o.value === followUpSingleRecipient);
-        if (found) {
-          singleRecipientData = { email: found.email, first_name: found.firstName };
-        }
+      // Build selected_recipients if needed
+      let selectedRecipientsData: { email: string; first_name: string }[] | undefined;
+      if (followUpRecipientGroup === 'selected' && followUpSelectedRecipients.length > 0) {
+        selectedRecipientsData = followUpSelectedRecipients
+          .map(val => followUpRecipientLists.singleOptions.find(o => o.value === val))
+          .filter(Boolean)
+          .map(o => ({ email: o!.email, first_name: o!.firstName }));
       }
 
       const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
@@ -645,7 +645,7 @@ export const EventRegistrationsManagement: React.FC = () => {
           custom_message: followUpMessage.trim() || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
           recipient_group: followUpRecipientGroup,
-          single_recipient: singleRecipientData,
+          selected_recipients: selectedRecipientsData,
         },
       });
 
