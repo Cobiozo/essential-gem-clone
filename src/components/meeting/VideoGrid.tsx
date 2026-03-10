@@ -67,6 +67,15 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
     } catch (e2) {
       console.error('[VideoGrid] Even muted play() failed:', e2);
     }
+    // Schedule unmuted retry after 2s — user may have interacted by then
+    if (video.muted && !isLocal && userHasInteracted) {
+      setTimeout(() => {
+        if (video.muted && video.srcObject) {
+          video.muted = false;
+          video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
+        }
+      }, 2000);
+    }
   }
 };
 
