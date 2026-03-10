@@ -347,6 +347,37 @@ const ThumbnailTile: React.FC<{
     if (videoRef.current) videoRef.current.muted = !playAudio;
   }, [playAudio]);
 
+  // Force re-render when track state changes
+  const [trackRevision, setTrackRevision] = useState(0);
+  useEffect(() => {
+    const stream = participant.stream;
+    if (!stream) return;
+    const bump = () => setTrackRevision(r => r + 1);
+    const attach = () => {
+      stream.getTracks().forEach(t => {
+        t.addEventListener('mute', bump);
+        t.addEventListener('unmute', bump);
+        t.addEventListener('ended', bump);
+      });
+    };
+    attach();
+    stream.addEventListener('addtrack', bump);
+    stream.addEventListener('removetrack', bump);
+    stream.addEventListener('addtrack', attach);
+    return () => {
+      stream.getTracks().forEach(t => {
+        t.removeEventListener('mute', bump);
+        t.removeEventListener('unmute', bump);
+        t.removeEventListener('ended', bump);
+      });
+      stream.removeEventListener('addtrack', bump);
+      stream.removeEventListener('removetrack', bump);
+      stream.removeEventListener('addtrack', attach);
+    };
+  }, [participant.stream]);
+
+  const _trackRev = trackRevision;
+
   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
