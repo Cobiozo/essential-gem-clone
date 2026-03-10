@@ -35,9 +35,16 @@ const EventRegistrationBySlug: React.FC = () => {
         return;
       }
 
-      // 2. Resolve ref (eq_id) → user_id
+      // 2. For auto_webinar without ref param → redirect to public watch page
       const ref = searchParams.get('ref');
       const slot = searchParams.get('slot');
+
+      if (event.event_type === 'auto_webinar' && !ref) {
+        // Guest already registered, coming from email — go directly to watch page
+        navigate(`/auto-webinar/watch/${slug}`, { replace: true });
+        return;
+      }
+
       const redirectParams = new URLSearchParams();
 
       if (ref) {

@@ -36,6 +36,7 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/change-password', // Temp password change page
     '/reset-password',  // Password reset page
     '/landing-preview', // Leader landing page preview
+    '/auto-webinar/watch/', // Public auto-webinar watch page
   ];
   
   // Sprawdź czy ścieżka jest publiczna
