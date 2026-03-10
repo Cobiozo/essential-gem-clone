@@ -1,64 +1,24 @@
 
 
-# Fix: Speaker view doesn't switch video to active speaker
+## Plan zmian
 
-## Root Cause
+### 1. Logo na ekranie ładowania (App.tsx)
 
-In `useActiveSpeakerDetection` (VideoGrid.tsx line 503):
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-```typescript
-if (!p.stream || analysersRef.current.has(p.peerId)) return;
-```
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-Analysers are created once per `peerId` and **never recreated when the stream changes**. After reconnection, stream re-acquire, or any WebRTC renegotiation, the participant gets a new `MediaStream` object, but the analyser remains connected to the old (dead) stream. The old stream produces silence → no speaker is ever detected → view never switches.
+### 2. Złote ikony dla datetime-local (index.css)
 
-## Fix
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Track stream IDs alongside analysers. When a participant's stream ID changes, disconnect the old analyser and create a new one for the current stream.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-### Change: `useActiveSpeakerDetection` in `VideoGrid.tsx`
-
-1. Add a `streamIdMap` ref to track which stream ID each analyser was created for.
-2. In the participant loop, compare current `p.stream.id` against stored stream ID — if different, disconnect old analyser and recreate.
-
-```typescript
-// Add ref:
-const streamIdMapRef = useRef<Map<string, string>>(new Map());
-
-// Replace the guard in the participant loop:
-participants.forEach((p) => {
-  if (!p.stream) return;
-  const audioTracks = p.stream.getAudioTracks();
-  if (audioTracks.length === 0) return;
-  
-  const currentStreamId = p.stream.id;
-  const existingStreamId = streamIdMapRef.current.get(p.peerId);
-  
-  // Skip if analyser already exists for THIS stream
-  if (analysersRef.current.has(p.peerId) && existingStreamId === currentStreamId) return;
-  
-  // Disconnect old analyser if stream changed
-  if (analysersRef.current.has(p.peerId)) {
-    try { analysersRef.current.get(p.peerId)!.source.disconnect(); } catch {}
-    analysersRef.current.delete(p.peerId);
-  }
-  
-  try {
-    const source = ctx.createMediaStreamSource(p.stream);
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-    source.connect(analyser);
-    analysersRef.current.set(p.peerId, { analyser, source });
-    streamIdMapRef.current.set(p.peerId, currentStreamId);
-  } catch (e) {
-    console.warn('[VideoGrid] Failed to create analyser for', p.peerId, e);
-  }
-});
-```
-
-Also clean up `streamIdMapRef` entries alongside `analysersRef` when participants leave.
-
-| File | Change |
-|---|---|
-| `VideoGrid.tsx` | Track stream IDs, recreate analysers when stream changes |
+### Zakres: 2 pliki, ~10 linii zmian
 
