@@ -1,45 +1,24 @@
 
 
-# Wybór grupy odbiorców + konkretna osoba w dialogu follow-up
+## Plan zmian
 
-## Zmiany
+### 1. Logo na ekranie ładowania (App.tsx)
 
-### 1. UI dialogu (`EventRegistrationsManagement.tsx`)
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-Dodanie sekcji wyboru odbiorców między info-barem a polem wiadomości:
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-**a) Radio group / Select z 4 opcjami:**
-- `all` — Wszyscy (użytkownicy + goście) — domyślne
-- `users` — Tylko użytkownicy platformy
-- `guests` — Tylko goście
-- `single` — Konkretna osoba
+### 2. Złote ikony dla datetime-local (index.css)
 
-**b) Tryb "Konkretna osoba":**
-- Gdy wybrano `single`, pojawia się Select/Combobox z listą wszystkich uczestników (użytkownicy + goście) danego wydarzenia
-- Każdy wpis: `Imię Nazwisko (email)` z badge `Użytkownik`/`Gość`
-- Lista budowana z istniejących `registrations` + `guestRegistrations` (dane już pobrane)
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-**c) Dynamiczne przeliczenie odbiorców:**
-- `all` → count unikalnych emaili (jak teraz)
-- `users` → count aktywnych użytkowników
-- `guests` → count aktywnych gości
-- `single` → 1
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-**Nowe stany:**
-- `followUpRecipientGroup: 'all' | 'users' | 'guests' | 'single'`
-- `followUpSingleRecipient: { email: string; firstName: string; type: 'user' | 'guest' } | null`
-
-### 2. Edge Function (`send-post-webinar-email/index.ts`)
-
-Dodanie parametru `recipient_group` i `single_recipient`:
-- `recipient_group: 'all' | 'users' | 'guests' | 'single'`
-- `single_recipient?: { email: string; first_name: string }` — używane gdy group = 'single'
-- Filtrowanie: `users` → tylko `event_registrations`, `guests` → tylko `guest_event_registrations`, `single` → pomija query, używa podanego emaila
-
-### Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/EventRegistrationsManagement.tsx` | Radio group odbiorców, combobox konkretnej osoby, dynamiczny count, przekazanie parametrów |
-| `supabase/functions/send-post-webinar-email/index.ts` | Obsługa `recipient_group` i `single_recipient` |
+### Zakres: 2 pliki, ~10 linii zmian
 

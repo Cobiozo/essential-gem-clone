@@ -202,10 +202,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { event_id, custom_message, attachments } = await req.json();
+    const { event_id, custom_message, attachments, recipient_group, single_recipient } = await req.json();
     if (!event_id) throw new Error("event_id is required");
 
-    console.log(`[send-post-webinar-email] Starting for event: ${event_id}, attachments: ${attachments?.length || 0}`);
+    console.log(`[send-post-webinar-email] Starting for event: ${event_id}, group: ${recipient_group || 'all'}, attachments: ${attachments?.length || 0}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -256,47 +256,61 @@ const handler = async (req: Request): Promise<Response> => {
       sender_name: smtpData.sender_name,
     };
 
-    // Collect all recipients
+    // Collect all recipients based on recipient_group
+    const group = recipient_group || 'all';
     interface Recipient { email: string; firstName: string; source: string }
     const recipients: Recipient[] = [];
     const seenEmails = new Set<string>();
 
-    // 1. Platform users from event_registrations
-    const { data: regs } = await supabase
-      .from("event_registrations")
-      .select("user_id")
-      .eq("event_id", event_id)
-      .eq("status", "registered");
+    if (group === 'single' && single_recipient) {
+      // Single recipient mode — skip DB queries
+      recipients.push({
+        email: single_recipient.email,
+        firstName: single_recipient.first_name || 'Uczestnik',
+        source: 'single',
+      });
+    } else {
+      // 1. Platform users from event_registrations (if group is 'all' or 'users')
+      if (group === 'all' || group === 'users') {
+        const { data: regs } = await supabase
+          .from("event_registrations")
+          .select("user_id")
+          .eq("event_id", event_id)
+          .eq("status", "registered");
 
-    if (regs && regs.length > 0) {
-      const userIds = [...new Set(regs.map(r => r.user_id))];
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, email, first_name")
-        .in("user_id", userIds);
+        if (regs && regs.length > 0) {
+          const userIds = [...new Set(regs.map(r => r.user_id))];
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, email, first_name")
+            .in("user_id", userIds);
 
-      if (profiles) {
-        for (const p of profiles) {
-          if (p.email && !seenEmails.has(p.email.toLowerCase())) {
-            seenEmails.add(p.email.toLowerCase());
-            recipients.push({ email: p.email, firstName: p.first_name || 'Uczestnik', source: 'user' });
+          if (profiles) {
+            for (const p of profiles) {
+              if (p.email && !seenEmails.has(p.email.toLowerCase())) {
+                seenEmails.add(p.email.toLowerCase());
+                recipients.push({ email: p.email, firstName: p.first_name || 'Uczestnik', source: 'user' });
+              }
+            }
           }
         }
       }
-    }
 
-    // 2. Guests from guest_event_registrations
-    const { data: guests } = await supabase
-      .from("guest_event_registrations")
-      .select("email, first_name, status")
-      .eq("event_id", event_id)
-      .in("status", ["registered", "attended"]);
+      // 2. Guests from guest_event_registrations (if group is 'all' or 'guests')
+      if (group === 'all' || group === 'guests') {
+        const { data: guests } = await supabase
+          .from("guest_event_registrations")
+          .select("email, first_name, status")
+          .eq("event_id", event_id)
+          .in("status", ["registered", "attended"]);
 
-    if (guests) {
-      for (const g of guests) {
-        if (g.email && !seenEmails.has(g.email.toLowerCase())) {
-          seenEmails.add(g.email.toLowerCase());
-          recipients.push({ email: g.email, firstName: g.first_name || 'Uczestnik', source: 'guest' });
+        if (guests) {
+          for (const g of guests) {
+            if (g.email && !seenEmails.has(g.email.toLowerCase())) {
+              seenEmails.add(g.email.toLowerCase());
+              recipients.push({ email: g.email, firstName: g.first_name || 'Uczestnik', source: 'guest' });
+            }
+          }
         }
       }
     }

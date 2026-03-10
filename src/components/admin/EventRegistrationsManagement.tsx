@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw, Send, Paperclip, X, FileText } from 'lucide-react';
@@ -140,7 +142,8 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [followUpSending, setFollowUpSending] = useState(false);
   const [followUpProgress, setFollowUpProgress] = useState(0);
   const [followUpAttachments, setFollowUpAttachments] = useState<File[]>([]);
-
+  const [followUpRecipientGroup, setFollowUpRecipientGroup] = useState<'all' | 'users' | 'guests' | 'single'>('all');
+  const [followUpSingleRecipient, setFollowUpSingleRecipient] = useState<string>('');
   const selectedEvent = useMemo(() => 
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
@@ -534,12 +537,62 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
-  const totalFollowUpRecipients = useMemo(() => {
-    const activeUsers = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
-    const activeGuests = guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').map(r => r.email);
-    const allEmails = new Set([...activeUsers, ...activeGuests.map(e => e.toLowerCase())]);
-    return allEmails.size;
+  // Build recipient lists for the follow-up
+  const followUpRecipientLists = useMemo(() => {
+    const activeUserEmails = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
+    const activeGuestEmails = guestRegistrations
+      .filter(r => r.status === 'registered' || r.status === 'attended')
+      .map(r => r.email);
+    const allEmails = new Set([...activeUserEmails, ...activeGuestEmails.map(e => e.toLowerCase())]);
+
+    // Build list for single-recipient selector
+    const singleOptions: { value: string; label: string; type: 'user' | 'guest'; email: string; firstName: string }[] = [];
+    const seenEmails = new Set<string>();
+
+    registrations.filter(r => r.status === 'registered').forEach(r => {
+      const email = r.profiles.email?.toLowerCase();
+      if (email && !seenEmails.has(email)) {
+        seenEmails.add(email);
+        singleOptions.push({
+          value: `user:${email}`,
+          label: `${r.profiles.first_name || ''} ${r.profiles.last_name || ''} (${r.profiles.email})`.trim(),
+          type: 'user',
+          email: r.profiles.email,
+          firstName: r.profiles.first_name || 'Uczestnik',
+        });
+      }
+    });
+
+    guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').forEach(r => {
+      const email = r.email?.toLowerCase();
+      if (email && !seenEmails.has(email)) {
+        seenEmails.add(email);
+        singleOptions.push({
+          value: `guest:${email}`,
+          label: `${r.first_name || ''} ${r.last_name || ''} (${r.email})`.trim(),
+          type: 'guest',
+          email: r.email,
+          firstName: r.first_name || 'Uczestnik',
+        });
+      }
+    });
+
+    return {
+      totalAll: allEmails.size,
+      totalUsers: activeUserEmails.size,
+      totalGuests: new Set(activeGuestEmails.map(e => e.toLowerCase())).size,
+      singleOptions,
+    };
   }, [registrations, guestRegistrations]);
+
+  const totalFollowUpRecipients = useMemo(() => {
+    switch (followUpRecipientGroup) {
+      case 'all': return followUpRecipientLists.totalAll;
+      case 'users': return followUpRecipientLists.totalUsers;
+      case 'guests': return followUpRecipientLists.totalGuests;
+      case 'single': return followUpSingleRecipient ? 1 : 0;
+    }
+  }, [followUpRecipientGroup, followUpRecipientLists, followUpSingleRecipient]);
 
   const handleSendFollowUp = async () => {
     if (!selectedEventId) return;
@@ -565,11 +618,23 @@ export const EventRegistrationsManagement: React.FC = () => {
       );
 
       setFollowUpProgress(30);
+
+      // Build single_recipient if needed
+      let singleRecipientData: { email: string; first_name: string } | undefined;
+      if (followUpRecipientGroup === 'single' && followUpSingleRecipient) {
+        const found = followUpRecipientLists.singleOptions.find(o => o.value === followUpSingleRecipient);
+        if (found) {
+          singleRecipientData = { email: found.email, first_name: found.firstName };
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
         body: {
           event_id: selectedEventId,
           custom_message: followUpMessage.trim() || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
+          recipient_group: followUpRecipientGroup,
+          single_recipient: singleRecipientData,
         },
       });
 
@@ -585,6 +650,8 @@ export const EventRegistrationsManagement: React.FC = () => {
       setFollowUpDialogOpen(false);
       setFollowUpMessage('');
       setFollowUpAttachments([]);
+      setFollowUpRecipientGroup('all');
+      setFollowUpSingleRecipient('');
     } catch (error: any) {
       console.error('Error sending follow-up:', error);
       toast({
@@ -611,15 +678,74 @@ export const EventRegistrationsManagement: React.FC = () => {
               Wyślij email po webinarze
             </DialogTitle>
             <DialogDescription>
-              Email follow-up zostanie wysłany do wszystkich zapisanych uczestników (użytkownicy + goście).
+              Email follow-up zostanie wysłany do wybranej grupy uczestników.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Recipient group selection */}
+            <div className="space-y-3">
+              <label className="text-sm font-semibold">Odbiorcy</label>
+              <RadioGroup
+                value={followUpRecipientGroup}
+                onValueChange={(val) => {
+                  setFollowUpRecipientGroup(val as any);
+                  if (val !== 'single') setFollowUpSingleRecipient('');
+                }}
+                className="grid grid-cols-2 gap-2"
+                disabled={followUpSending}
+              >
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="all" id="rg-all" />
+                  <Label htmlFor="rg-all" className="text-sm cursor-pointer flex-1">
+                    Wszyscy ({followUpRecipientLists.totalAll})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="users" id="rg-users" />
+                  <Label htmlFor="rg-users" className="text-sm cursor-pointer flex-1">
+                    Użytkownicy ({followUpRecipientLists.totalUsers})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="guests" id="rg-guests" />
+                  <Label htmlFor="rg-guests" className="text-sm cursor-pointer flex-1">
+                    Goście ({followUpRecipientLists.totalGuests})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="single" id="rg-single" />
+                  <Label htmlFor="rg-single" className="text-sm cursor-pointer flex-1">
+                    Konkretna osoba
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {followUpRecipientGroup === 'single' && (
+                <Select value={followUpSingleRecipient} onValueChange={setFollowUpSingleRecipient}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz osobę..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {followUpRecipientLists.singleOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="flex items-center gap-2">
+                          {opt.label}
+                          <Badge variant={opt.type === 'user' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                            {opt.type === 'user' ? 'Użytkownik' : 'Gość'}
+                          </Badge>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
               <Mail className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
-                Odbiorcy: <strong>{totalFollowUpRecipients}</strong> osób
+                Odbiorcy: <strong>{totalFollowUpRecipients}</strong> {totalFollowUpRecipients === 1 ? 'osoba' : 'osób'}
               </span>
             </div>
 
