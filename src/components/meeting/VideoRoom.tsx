@@ -1034,6 +1034,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     cleanupDoneRef.current = false;
 
     const init = async () => {
+      // Mark interaction for all entry paths (lobby, auto-rejoin, mobile)
+      setUserHasInteracted();
       try {
         let stream: MediaStream | null = null;
         // Try to reuse the lobby stream (preserves user gesture context)
