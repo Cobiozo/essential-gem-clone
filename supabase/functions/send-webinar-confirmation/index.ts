@@ -408,11 +408,14 @@ const handler = async (req: Request): Promise<Response> => {
             <div class="container">
               <div class="header">
                 ${displayCoverImage ? `<img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;" />` : ''}
-                <h1>🔴 Webinar zaczyna się za chwilę!</h1>
+                <h1>${isStartingSoon ? '🔴 Webinar zaczyna się za chwilę!' : '✅ Rejestracja potwierdzona!'}</h1>
               </div>
               <div class="content">
                 <p>Cześć <strong>${firstName}</strong>!</p>
-                <p>Zarejestrowałeś/aś się na webinar, który <strong>rozpoczyna się za ${minutesToNextSlot || 'kilka'} minut</strong>!</p>
+                <p>${isStartingSoon 
+                  ? `Zarejestrowałeś/aś się na webinar, który <strong>rozpoczyna się za ${minutesToNextSlot || 'kilka'} minut</strong>!`
+                  : `Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia i link do dołączenia:`
+                }</p>
                 
                 <div class="event-box">
                   <h2 style="margin-top: 0;">📅 ${eventTitle}</h2>
