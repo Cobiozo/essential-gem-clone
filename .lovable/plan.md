@@ -1,24 +1,48 @@
 
 
-## Plan zmian
+# Fix: Hearing own audio in Speaker/Multi-speaker modes
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Root Cause
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+`VideoTile` (used for the main/large video in Speaker and Multi-speaker modes) lacks **imperative muted enforcement**. Unlike `ThumbnailTile` and `MiniVideo` which both have:
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+```typescript
+useEffect(() => {
+  if (videoRef.current) videoRef.current.muted = !playAudio;
+}, [playAudio]);
+```
 
-### 2. Złote ikony dla datetime-local (index.css)
+...and set `video.muted` explicitly before calling `play()`, `VideoTile` relies solely on React's `muted` prop (`muted={!!participant.isLocal}`). React's `muted` prop is notoriously unreliable — it can desync during re-renders, which happen frequently in Speaker/Multi-speaker modes due to active speaker switching.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+Additionally, the `playVideoSafe` calls in VideoTile's heartbeat (line 153-157) and pause handler (line 161-168) call `play()` without re-asserting `video.muted` first. On mobile browsers, calling `play()` can reset the muted state.
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+Gallery mode works because `VideoTile` renders are stable (no active speaker switching triggers re-renders), so the React prop stays in sync.
 
-### Zakres: 2 pliki, ~10 linii zmian
+## Fix (1 file)
+
+**`src/components/meeting/VideoGrid.tsx` — `VideoTile` component:**
+
+1. Set `video.muted = !!participant.isLocal` imperatively in the stream useEffect BEFORE calling `playVideoSafe`
+2. Add a dedicated `useEffect` for continuous muted sync (same pattern as ThumbnailTile)
+3. In heartbeat and pause handlers, re-assert `video.muted` before calling `playVideoSafe`
+
+```typescript
+// In stream useEffect (line 140, before playVideoSafe):
+video.srcObject = participant.stream;
+video.muted = !!participant.isLocal;  // ← ADD: imperative mute before play
+playVideoSafe(video, !!participant.isLocal, onAudioBlocked);
+
+// In heartbeat (line 154):
+video.muted = !!participant.isLocal;  // ← ADD
+playVideoSafe(video, false, onAudioBlocked);
+
+// In pause handler (line 165):
+video.muted = !!participant.isLocal;  // ← ADD  
+playVideoSafe(video, false, onAudioBlocked);
+
+// NEW useEffect after line 198:
+useEffect(() => {
+  if (videoRef.current) videoRef.current.muted = !!participant.isLocal;
+}, [participant.isLocal]);
+```
 
