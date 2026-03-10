@@ -1,42 +1,24 @@
 
 
-# Multi-select odbiorców w dialogu follow-up
+## Plan zmian
 
-## Zmiana koncepcji
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Zamiast `single` (jedna osoba) → opcja `selected` (wybrane osoby) z checkboxami i wyszukiwarką.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-## Zmiany
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-### 1. Frontend (`EventRegistrationsManagement.tsx`)
+### 2. Złote ikony dla datetime-local (index.css)
 
-**Stan:**
-- `followUpSingleRecipient: string` → `followUpSelectedRecipients: string[]` (tablica wartości z `singleOptions`)
-- Radio option `Konkretna osoba` → `Wybrane osoby`
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-**UI po wybraniu "Wybrane osoby":**
-- Input tekstowy jako wyszukiwarka (filtrowanie po imieniu/nazwisku/email)
-- Lista checkboxów pod spodem (max-height ze scrollem) z badge Użytkownik/Gość
-- Nad listą: "Zaznaczono: X osób" + przycisk "Odznacz wszystko"
-- Każdy element: Checkbox + imię nazwisko (email) + badge typu
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-**Logika wysyłki (`handleSendFollowUp`):**
-- Gdy `followUpRecipientGroup === 'selected'` → buduje tablicę `selected_recipients` z danych `singleOptions` i przekazuje do edge function
-- Nie używa `single_recipient` — nowy parametr `selected_recipients: Array<{email, first_name}>`
-
-**Licznik odbiorców:**
-- `selected` → `followUpSelectedRecipients.length`
-
-### 2. Edge Function (`send-post-webinar-email/index.ts`)
-
-- Nowy parametr `selected_recipients?: Array<{email: string; first_name: string}>`
-- Nowa grupa `'selected'`: pomija query do bazy, iteruje po `selected_recipients`
-- Zachowana kompatybilność wsteczna z `single_recipient`
-
-### Pliki do edycji
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/EventRegistrationsManagement.tsx` | Multi-select z checkboxami, wyszukiwarka, nowy stan |
-| `supabase/functions/send-post-webinar-email/index.ts` | Obsługa `selected_recipients` |
+### Zakres: 2 pliki, ~10 linii zmian
 

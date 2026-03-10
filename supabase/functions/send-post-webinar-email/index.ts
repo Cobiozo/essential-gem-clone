@@ -210,7 +210,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { event_id, custom_message, attachments, recipient_group, single_recipient } = await req.json();
+    const { event_id, custom_message, attachments, recipient_group, single_recipient, selected_recipients } = await req.json();
     if (!event_id) throw new Error("event_id is required");
 
     console.log(`[send-post-webinar-email] Starting for event: ${event_id}, group: ${recipient_group || 'all'}, attachments: ${attachments?.length || 0}`);
@@ -270,8 +270,20 @@ const handler = async (req: Request): Promise<Response> => {
     const recipients: Recipient[] = [];
     const seenEmails = new Set<string>();
 
-    if (group === 'single' && single_recipient) {
-      // Single recipient mode — skip DB queries
+    if (group === 'selected' && selected_recipients && Array.isArray(selected_recipients)) {
+      // Selected recipients mode — use provided array
+      for (const sr of selected_recipients) {
+        if (sr.email && !seenEmails.has(sr.email.toLowerCase())) {
+          seenEmails.add(sr.email.toLowerCase());
+          recipients.push({
+            email: sr.email,
+            firstName: sr.first_name || 'Uczestnik',
+            source: 'selected',
+          });
+        }
+      }
+    } else if (group === 'single' && single_recipient) {
+      // Single recipient mode (backward compat)
       recipients.push({
         email: single_recipient.email,
         firstName: single_recipient.first_name || 'Uczestnik',
