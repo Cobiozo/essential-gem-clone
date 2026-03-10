@@ -609,12 +609,15 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       channelRef.current = null;
     }
 
-    // Update participant record
+    // Update participant record — filter by peer_id to avoid deactivating a new session after refresh
+    const cleanupPeerId = peerId; // already cached above (line 603)
     if (guestMode && guestTokenId) {
       try {
-        await supabase.from('meeting_room_participants')
+        const guestQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
+        if (cleanupPeerId) guestQ.eq('peer_id', cleanupPeerId);
+        await guestQ;
         await supabase.from('meeting_guest_analytics')
           .update({ left_at: new Date().toISOString() })
           .eq('guest_token_id', guestTokenId)
