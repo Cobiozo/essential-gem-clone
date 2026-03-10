@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { setUserHasInteracted } from '@/components/meeting/VideoGrid';
 import { MeetingLobby } from '@/components/meeting/MeetingLobby';
 import { GuestAccessForm } from '@/components/meeting/GuestAccessForm';
 import { VideoRoom } from '@/components/meeting/VideoRoom';
@@ -242,6 +243,9 @@ const MeetingRoomPage: React.FC = () => {
   };
 
   const handleJoin = (audio: boolean, video: boolean, settings?: import('@/components/meeting/MeetingSettingsDialog').MeetingSettings, stream?: MediaStream) => {
+    // Pre-warm AudioContext in user gesture context to bypass mobile autoplay policy
+    setUserHasInteracted();
+    try { const ctx = new (window.AudioContext || (window as any).webkitAudioContext)(); ctx.resume().then(() => ctx.close()).catch(() => ctx.close()); } catch {}
     setAudioEnabled(audio);
     setVideoEnabled(video);
     if (settings) setInitialSettings(settings);

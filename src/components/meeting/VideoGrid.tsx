@@ -67,6 +67,15 @@ const playVideoSafe = async (video: HTMLVideoElement, isLocal: boolean, onAudioB
     } catch (e2) {
       console.error('[VideoGrid] Even muted play() failed:', e2);
     }
+    // Schedule unmuted retry after 2s — user may have interacted by then
+    if (video.muted && !isLocal && userHasInteracted) {
+      setTimeout(() => {
+        if (video.muted && video.srcObject) {
+          video.muted = false;
+          video.play().catch(() => { video.muted = true; video.play().catch(() => {}); });
+        }
+      }, 2000);
+    }
   }
 };
 
@@ -242,7 +251,10 @@ const VideoTile: React.FC<{
     stream.addEventListener('removetrack', bump);
     // Also re-attach when tracks change
     stream.addEventListener('addtrack', attach);
+    // Delayed bump to catch tracks already in 'live' state on mobile
+    const initialCheck = setTimeout(() => bump(), 1000);
     return () => {
+      clearTimeout(initialCheck);
       stream.getTracks().forEach(t => {
         t.removeEventListener('mute', bump);
         t.removeEventListener('unmute', bump);
@@ -364,7 +376,10 @@ const ThumbnailTile: React.FC<{
     stream.addEventListener('addtrack', bump);
     stream.addEventListener('removetrack', bump);
     stream.addEventListener('addtrack', attach);
+    // Delayed bump to catch tracks already in 'live' state on mobile
+    const initialCheck = setTimeout(() => bump(), 1000);
     return () => {
+      clearTimeout(initialCheck);
       stream.getTracks().forEach(t => {
         t.removeEventListener('mute', bump);
         t.removeEventListener('unmute', bump);
