@@ -65,39 +65,49 @@ export const InfoLinksWidget: React.FC = () => {
     if (link.link_type === 'infolink' && link.requires_otp) {
       setGeneratingOtp(link.id);
       try {
-        const { data, error } = await supabase.functions.invoke('generate-infolink-otp', {
-          body: { reflink_id: link.id },
+        // Use copyAfterAsync to preserve user gesture for iOS Safari
+        const { success, text } = await copyAfterAsync(async () => {
+          const { data, error } = await supabase.functions.invoke('generate-infolink-otp', {
+            body: { reflink_id: link.id },
+          });
+
+          if (error || !data?.success) {
+            throw new Error(data?.error || 'Nie udało się wygenerować kodu');
+          }
+
+          // Emit custom event for immediate ActiveOtpCodesWidget update
+          window.dispatchEvent(new CustomEvent('otpCodeGenerated', { 
+            detail: { code: data.otp_code, reflinkId: link.id } 
+          }));
+
+          // Store OTP info for toast
+          otpInfoRef.current = { code: data.otp_code, validityHours: data.validity_hours };
+
+          return data.clipboard_message as string;
         });
 
-        if (error || !data?.success) {
-          console.error('OTP generation error:', error || data?.error);
+        setCopiedId(link.id);
+        const info = otpInfoRef.current;
+        if (success) {
           toast({
-            title: 'Błąd',
-            description: data?.error || 'Nie udało się wygenerować kodu',
-            variant: 'destructive',
+            title: 'Skopiowano!',
+            description: `Kod OTP: ${info?.code} (ważny ${info?.validityHours}h)`,
           });
-          return;
+        } else {
+          // Fallback: show the text to copy manually
+          toast({
+            title: `Kod OTP: ${info?.code}`,
+            description: 'Nie udało się skopiować automatycznie. Przytrzymaj palcem powyższy kod, aby skopiować.',
+            duration: 10000,
+          });
         }
 
-        // Copy the formatted message with OTP
-        await navigator.clipboard.writeText(data.clipboard_message);
-        setCopiedId(link.id);
-        toast({
-          title: 'Skopiowano!',
-          description: `Kod OTP: ${data.otp_code} (ważny ${data.validity_hours}h)`,
-        });
-        
-        // Emit custom event for immediate ActiveOtpCodesWidget update
-        window.dispatchEvent(new CustomEvent('otpCodeGenerated', { 
-          detail: { code: data.otp_code, reflinkId: link.id } 
-        }));
-        
         setTimeout(() => setCopiedId(null), 3000);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to generate OTP:', error);
         toast({
           title: 'Błąd',
-          description: 'Wystąpił błąd podczas generowania kodu',
+          description: error?.message || 'Wystąpił błąd podczas generowania kodu',
           variant: 'destructive',
         });
       } finally {
@@ -111,13 +121,15 @@ export const InfoLinksWidget: React.FC = () => {
     if (!textToCopy) return;
 
     try {
-      await navigator.clipboard.writeText(textToCopy);
-      setCopiedId(link.id);
-      toast({
-        title: t('dashboard.copied'),
-        description: link.title,
-      });
-      setTimeout(() => setCopiedId(null), 2000);
+      const success = await copyToClipboard(textToCopy);
+      if (success) {
+        setCopiedId(link.id);
+        toast({
+          title: t('dashboard.copied'),
+          description: link.title,
+        });
+        setTimeout(() => setCopiedId(null), 2000);
+      }
     } catch (error) {
       console.error('Failed to copy:', error);
     }
