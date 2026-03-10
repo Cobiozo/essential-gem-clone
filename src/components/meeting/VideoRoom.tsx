@@ -1576,6 +1576,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         });
       });
 
+      // Auto-unlock muted videos on mobile (gesture was in lobby)
+      if (getUserHasInteracted()) {
+        setTimeout(() => {
+          document.querySelectorAll('video').forEach(v => {
+            const video = v as HTMLVideoElement;
+            if (video.muted && video.getAttribute('data-local-video') !== 'true' && video.srcObject) {
+              video.muted = false;
+              video.play().catch(() => {});
+            }
+          });
+          setAudioBlocked(false);
+        }, 500);
+      }
+
       // If we're screen sharing, also send screen stream to this new participant
       if (isScreenSharingRef.current && screenShareStreamRef.current && peerRef.current) {
         const myPeerId = peerRef.current.id;
