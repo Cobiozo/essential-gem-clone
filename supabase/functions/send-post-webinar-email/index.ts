@@ -270,8 +270,20 @@ const handler = async (req: Request): Promise<Response> => {
     const recipients: Recipient[] = [];
     const seenEmails = new Set<string>();
 
-    if (group === 'single' && single_recipient) {
-      // Single recipient mode — skip DB queries
+    if (group === 'selected' && selected_recipients && Array.isArray(selected_recipients)) {
+      // Selected recipients mode — use provided array
+      for (const sr of selected_recipients) {
+        if (sr.email && !seenEmails.has(sr.email.toLowerCase())) {
+          seenEmails.add(sr.email.toLowerCase());
+          recipients.push({
+            email: sr.email,
+            firstName: sr.first_name || 'Uczestnik',
+            source: 'selected',
+          });
+        }
+      }
+    } else if (group === 'single' && single_recipient) {
+      // Single recipient mode (backward compat)
       recipients.push({
         email: single_recipient.email,
         firstName: single_recipient.first_name || 'Uczestnik',

@@ -702,7 +702,10 @@ export const EventRegistrationsManagement: React.FC = () => {
                 value={followUpRecipientGroup}
                 onValueChange={(val) => {
                   setFollowUpRecipientGroup(val as any);
-                  if (val !== 'single') setFollowUpSingleRecipient('');
+                  if (val !== 'selected') {
+                    setFollowUpSelectedRecipients([]);
+                    setFollowUpSearchQuery('');
+                  }
                 }}
                 className="grid grid-cols-2 gap-2"
                 disabled={followUpSending}
@@ -726,31 +729,99 @@ export const EventRegistrationsManagement: React.FC = () => {
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
-                  <RadioGroupItem value="single" id="rg-single" />
-                  <Label htmlFor="rg-single" className="text-sm cursor-pointer flex-1">
-                    Konkretna osoba
+                  <RadioGroupItem value="selected" id="rg-selected" />
+                  <Label htmlFor="rg-selected" className="text-sm cursor-pointer flex-1">
+                    Wybrane osoby
                   </Label>
                 </div>
               </RadioGroup>
 
-              {followUpRecipientGroup === 'single' && (
-                <Select value={followUpSingleRecipient} onValueChange={setFollowUpSingleRecipient}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wybierz osobę..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {followUpRecipientLists.singleOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <span className="flex items-center gap-2">
-                          {opt.label}
-                          <Badge variant={opt.type === 'user' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
-                            {opt.type === 'user' ? 'Użytkownik' : 'Gość'}
-                          </Badge>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {followUpRecipientGroup === 'selected' && (
+                <div className="space-y-2">
+                  {/* Search input */}
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj po imieniu, nazwisku lub email..."
+                      value={followUpSearchQuery}
+                      onChange={(e) => setFollowUpSearchQuery(e.target.value)}
+                      className="pl-9"
+                      disabled={followUpSending}
+                    />
+                  </div>
+
+                  {/* Select/Deselect all */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">
+                      Zaznaczono: <strong>{followUpSelectedRecipients.length}</strong> z {followUpRecipientLists.singleOptions.length}
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setFollowUpSelectedRecipients(followUpRecipientLists.singleOptions.map(o => o.value))}
+                        disabled={followUpSending}
+                      >
+                        Zaznacz wszystkich
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setFollowUpSelectedRecipients([])}
+                        disabled={followUpSending}
+                      >
+                        Odznacz
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Checkbox list */}
+                  <ScrollArea className="h-[200px] border rounded-md">
+                    <div className="p-2 space-y-1">
+                      {filteredSingleOptions.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">Nie znaleziono osób</p>
+                      ) : (
+                        filteredSingleOptions.map((opt) => {
+                          const isChecked = followUpSelectedRecipients.includes(opt.value);
+                          return (
+                            <div
+                              key={opt.value}
+                              className={`flex items-center gap-2.5 p-2 rounded-md cursor-pointer transition-colors ${
+                                isChecked ? 'bg-primary/10' : 'hover:bg-muted/50'
+                              }`}
+                              onClick={() => {
+                                if (followUpSending) return;
+                                setFollowUpSelectedRecipients(prev =>
+                                  prev.includes(opt.value)
+                                    ? prev.filter(v => v !== opt.value)
+                                    : [...prev, opt.value]
+                                );
+                              }}
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                disabled={followUpSending}
+                                onCheckedChange={() => {
+                                  setFollowUpSelectedRecipients(prev =>
+                                    prev.includes(opt.value)
+                                      ? prev.filter(v => v !== opt.value)
+                                      : [...prev, opt.value]
+                                  );
+                                }}
+                              />
+                              <span className="text-sm truncate flex-1">{opt.label}</span>
+                              <Badge variant={opt.type === 'user' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0 shrink-0">
+                                {opt.type === 'user' ? 'Użytkownik' : 'Gość'}
+                              </Badge>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </ScrollArea>
+                </div>
               )}
             </div>
 
