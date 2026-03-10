@@ -329,15 +329,14 @@ const ThumbnailTile: React.FC<{
           : 'border-transparent hover:border-zinc-500'
       }`}
     >
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={!playAudio}
-          className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`}
-        />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={!playAudio}
+        className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
+      />
+      {!showVideo && (
         <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
           <User className="h-5 w-5 text-zinc-500" />
         </div>
