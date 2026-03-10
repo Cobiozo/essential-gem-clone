@@ -124,6 +124,19 @@ export const getTemplateBlocks = (internalName: string): EmailBlock[] => {
         { id: `block-${timestamp}-6`, type: 'footer', content: { html: '<p style="text-align: center; color: #6b7280; font-size: 12px;">© 2024 Pure Life / Eqology. Wszelkie prawa zastrzeżone.</p>' }, position: 5 },
       ];
 
+    case 'webinar_followup':
+      return [
+        { id: `block-${timestamp}-1`, type: 'header', content: { text: '🎉 Dziękujemy za udział!', backgroundColor: '#D4A017', textColor: '#ffffff', showLogo: true }, position: 0 },
+        { id: `block-${timestamp}-2`, type: 'text', content: { html: '<p>Cześć <strong>{{imię}}</strong>,</p><p>bardzo dziękujemy za uczestnictwo w naszym ostatnim webinarze pt. „<strong>{{event_title}}</strong>". Cieszymy się, że tak ważny temat zgromadził osoby, które chcą świadomie zadbać o swoje zdrowie i komfort życia.</p><p>W ramach podziękowania za wspólnie spędzony czas przygotowaliśmy dla Ciebie obiecywany materiał. Poniżej znajdziesz link do pobrania pliku:</p>' }, position: 1 },
+        { id: `block-${timestamp}-3`, type: 'box', content: { variant: 'success', title: 'Materiał do pobrania', content: '📄 PDF: Twój Osobisty Protokół Zdrowia: Endometrioza i Stan Zapalny (plik w załączniku lub link od admina poniżej)' }, position: 2 },
+        { id: `block-${timestamp}-4`, type: 'text', content: { html: '{{custom_message}}' }, position: 3 },
+        { id: `block-${timestamp}-5`, type: 'text', content: { html: '<p>Mamy nadzieję, że zawarte w nim wskazówki będą cennym wsparciem w Twojej codziennej drodze do lepszego samopoczucia.</p>' }, position: 4 },
+        { id: `block-${timestamp}-6`, type: 'text', content: { html: '<h3 style="color:#D4A017;border-bottom:2px solid #D4A017;padding-bottom:8px;">Jak możesz działać dalej?</h3><p>Jeśli chcesz wdrożyć zdobytą wiedzę w życie i zależy Ci na sprawdzonych rozwiązaniach, zapraszamy do kontaktu z osobą, która zaprosiła Cię na nasze wydarzenie. U niej dowiesz się, jak:</p><ul><li><strong>Nabyć najwyższej jakości kwasy Omega-3</strong>, kluczowe w walce ze stanem zapalnym.</li><li><strong>Uzyskać dostęp do naszej platformy edukacyjnej</strong>, która zawiera bogatą bazę specjalistycznej wiedzy.</li><li><strong>Brać udział w zamkniętych spotkaniach zdrowotnych</strong>, prowadzonych przez wybitnych ekspertów.</li></ul><p>U tej samej osoby możesz również poprosić o <strong>bezpłatny dostęp do nagrania</strong> z wykładu dr inż. Karoliny Kowalczyk („Endometrioza. Jak odzyskać kontrolę i poprawić jakość życia"), aby w dowolnej chwili wrócić do najważniejszych informacji.</p>' }, position: 5 },
+        { id: `block-${timestamp}-7`, type: 'box', content: { variant: 'warning', title: 'Kontakt', content: '👉 Skontaktuj się ze swoim opiekunem (osobą zapraszającą) już dziś, aby uzyskać dostęp do tych wszystkich materiałów i narzędzi.' }, position: 6 },
+        { id: `block-${timestamp}-8`, type: 'text', content: { html: '<p>Życzymy ogromu zdrowia!</p><p style="color:#D4A017;font-weight:bold;">Zmieniamy życie ludzi na lepsze. 💛</p>' }, position: 7 },
+        { id: `block-${timestamp}-9`, type: 'footer', content: { html: '<p style="text-align: center; color: #6b7280; font-size: 12px;">© 2025 Pure Life · Wszystkie prawa zastrzeżone</p>' }, position: 8 },
+      ];
+
     default:
       return createDefaultBlocks();
   }

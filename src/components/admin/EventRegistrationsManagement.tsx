@@ -638,11 +638,14 @@ export const EventRegistrationsManagement: React.FC = () => {
             </div>
 
             {/* Attachments */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-1.5">
+            <div className="space-y-2 p-3 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5">
+              <label className="text-sm font-semibold flex items-center gap-2 text-primary">
                 <Paperclip className="h-4 w-4" />
-                Załączniki (opcjonalnie)
+                📎 Załączniki do emaila (opcjonalnie)
               </label>
+              <p className="text-xs text-muted-foreground">
+                Dodaj pliki PDF, DOC lub JPG — zostaną wysłane jako załączniki do każdego odbiorcy.
+              </p>
               <Input
                 type="file"
                 multiple
@@ -664,7 +667,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                 }}
                 className="text-sm"
               />
-              <p className="text-xs text-muted-foreground">Max 3 pliki, do 5MB każdy. PDF, DOC, JPG.</p>
+              <p className="text-xs text-muted-foreground">Max 3 pliki, do 5MB każdy.</p>
 
               {followUpAttachments.length > 0 && (
                 <div className="space-y-1.5 mt-2">
