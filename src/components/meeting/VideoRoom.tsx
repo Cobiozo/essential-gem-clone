@@ -905,9 +905,20 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           if (user && newRow.user_id === user.id) return;
           if (guestTokenId && newRow.guest_token_id === guestTokenId) return;
           // Only call if not already connected
-          if (!connectionsRef.current.has(newRow.peer_id) && localStreamRef.current) {
-            console.log(`[VideoRoom] DB INSERT detected new peer: ${newRow.peer_id}, calling...`);
-            callPeer(newRow.peer_id, newRow.display_name || 'Uczestnik', localStreamRef.current!, undefined, newRow.user_id || undefined);
+          if (!connectionsRef.current.has(newRow.peer_id)) {
+            if (localStreamRef.current) {
+              console.log(`[VideoRoom] DB INSERT detected new peer: ${newRow.peer_id}, calling...`);
+              callPeer(newRow.peer_id, newRow.display_name || 'Uczestnik', localStreamRef.current!, undefined, newRow.user_id || undefined);
+            } else {
+              // Stream not ready yet — retry in 2s
+              console.log(`[VideoRoom] DB INSERT: localStream not ready for ${newRow.peer_id}, retrying in 2s...`);
+              setTimeout(() => {
+                if (!connectionsRef.current.has(newRow.peer_id) && localStreamRef.current) {
+                  console.log(`[VideoRoom] DB INSERT retry: calling peer ${newRow.peer_id}`);
+                  callPeer(newRow.peer_id, newRow.display_name || 'Uczestnik', localStreamRef.current!, undefined, newRow.user_id || undefined);
+                }
+              }, 2000);
+            }
           }
         }
       )
