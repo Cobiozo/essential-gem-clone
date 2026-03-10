@@ -618,11 +618,23 @@ export const EventRegistrationsManagement: React.FC = () => {
       );
 
       setFollowUpProgress(30);
+
+      // Build single_recipient if needed
+      let singleRecipientData: { email: string; first_name: string } | undefined;
+      if (followUpRecipientGroup === 'single' && followUpSingleRecipient) {
+        const found = followUpRecipientLists.singleOptions.find(o => o.value === followUpSingleRecipient);
+        if (found) {
+          singleRecipientData = { email: found.email, first_name: found.firstName };
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
         body: {
           event_id: selectedEventId,
           custom_message: followUpMessage.trim() || undefined,
           attachments: attachments.length > 0 ? attachments : undefined,
+          recipient_group: followUpRecipientGroup,
+          single_recipient: singleRecipientData,
         },
       });
 
