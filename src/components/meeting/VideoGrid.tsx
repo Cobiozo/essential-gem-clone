@@ -886,10 +886,10 @@ export const VideoGrid: React.FC<VideoGridProps> = ({
   const [manualActiveIndex, setManualActiveIndex] = useState<number | null>(null);
   const manualTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const allParticipants: VideoParticipant[] = [
+  const allParticipants = useMemo<VideoParticipant[]>(() => [
     { peerId: 'local', displayName: localDisplayName, stream: localStream, isMuted, isLocal: true, avatarUrl: localAvatarUrl },
     ...participants,
-  ];
+  ], [localDisplayName, localStream, isMuted, localAvatarUrl, participants]);
 
   const { speakingIndex, audioLevels } = useActiveSpeakerDetection(allParticipants);
 
