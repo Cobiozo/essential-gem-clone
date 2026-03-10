@@ -423,7 +423,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <p><strong>Prowadzący:</strong> ${displayHost}</p>
                   ${displayVideoDescription ? `<p style="margin-top: 10px; color: #666;">${displayVideoDescription}</p>` : ''}
                   <p style="margin-top: 20px;"><strong>🔗 Dołącz do webinaru:</strong></p>
-                  <a href="${displayRoomLink}" class="join-button">Dołącz teraz</a>
+                  <a href="${displayRoomLink}" class="join-button">${isStartingSoon ? 'Dołącz teraz' : 'Dołącz w wyznaczonym terminie'}</a>
                 </div>
                 
                 <p><strong>Wskazówki:</strong></p>
