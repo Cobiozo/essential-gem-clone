@@ -1510,6 +1510,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       if (connectionsRef.current.get(call.peer) !== call) return;
       console.warn('[VideoRoom] Connection timeout for peer:', call.peer);
       connectionsRef.current.delete(call.peer);
+      reconnectToPeer(call.peer);
     }, 15000);
 
     call.on('stream', (remoteStream) => {
