@@ -499,7 +499,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   }, [coHostUserIds, roomId]);
 
   // Test a single TURN server entry for reachability (returns true if relay candidate found within timeout)
-  const testTurnServer = useCallback((server: RTCIceServer, timeoutMs = 3000): Promise<boolean> => {
+  const testTurnServer = useCallback((server: RTCIceServer, timeoutMs = 1500): Promise<boolean> => {
     return new Promise((resolve) => {
       let resolved = false;
       const done = (result: boolean) => { if (!resolved) { resolved = true; resolve(result); } };
@@ -561,9 +561,23 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return [...stunServers, ...reachable];
   }, [testTurnServer]);
 
-  // Fetch TURN credentials
+  // Fetch TURN credentials (with sessionStorage cache, TTL 4min)
   const getTurnCredentials = useCallback(async () => {
     try {
+      // Check cache first
+      const cacheKey = `turn_credentials_cache_${roomId}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const { iceServers: cachedServers, cachedAt } = JSON.parse(cached);
+          if (Date.now() - cachedAt < 4 * 60 * 1000) {
+            console.log('[VideoRoom] Using cached TURN credentials');
+            return cachedServers as RTCIceServer[];
+          }
+        } catch {}
+        sessionStorage.removeItem(cacheKey);
+      }
+
       let iceServers: RTCIceServer[];
       if (guestMode && guestTokenId) {
         const response = await fetch(
@@ -588,6 +602,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       // Health check: filter out unreachable TURN servers
       const filtered = await filterReachableTurnServers(iceServers);
+      
+      // Cache the result
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ iceServers: filtered, cachedAt: Date.now() }));
+      } catch {}
+      
       return filtered;
     } catch (err) {
       console.error('[VideoRoom] Failed to get TURN credentials:', err);
@@ -596,7 +616,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         { urls: 'stun:stun1.l.google.com:19302' },
       ];
     }
-  }, [guestMode, guestTokenId, filterReachableTurnServers]);
+  }, [guestMode, guestTokenId, filterReachableTurnServers, roomId]);
 
   // Cleanup function with guard
   const cleanup = useCallback(async () => {
@@ -1051,6 +1071,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         toast({ title: 'Dotknij ekranu, aby odblokować dźwięk', description: 'iOS/Android wymaga interakcji użytkownika' });
       }
       try {
+        // Start TURN fetch immediately (parallel with media acquisition)
+        const iceServersPromise = getTurnCredentials();
+
         let stream: MediaStream | null = null;
         // Try to reuse the lobby stream (preserves user gesture context)
         const lobbyStreamAlive = initialStream?.getTracks().some(t => t.readyState === 'live');
@@ -1089,15 +1112,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           });
         });
 
-        // Non-blocking TURN: start PeerJS immediately with full server list, filter in background
-        const iceServersPromise = getTurnCredentials();
-        // Use basic STUN to start immediately, upgrade ICE config when TURN test finishes
+        // TURN was fetching in parallel — now resolve with short timeout (likely already ready)
         const fallbackIce: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
         let iceServers: RTCIceServer[];
-        // Race: use TURN if ready within 500ms, otherwise start with STUN
+        // Race: use TURN if ready within 200ms, otherwise start with STUN
         const raceResult = await Promise.race([
           iceServersPromise.then(s => ({ type: 'turn' as const, servers: s })),
-          new Promise<{ type: 'fallback'; servers: RTCIceServer[] }>(r => setTimeout(() => r({ type: 'fallback', servers: fallbackIce }), 500)),
+          new Promise<{ type: 'fallback'; servers: RTCIceServer[] }>(r => setTimeout(() => r({ type: 'fallback', servers: fallbackIce }), 200)),
         ]);
         iceServers = raceResult.servers;
         const startedWithFallback = raceResult.type === 'fallback';
