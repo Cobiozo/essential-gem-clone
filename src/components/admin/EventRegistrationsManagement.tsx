@@ -576,7 +576,75 @@ export const EventRegistrationsManagement: React.FC = () => {
       setFollowUpProgress(0);
     }
   };
+
+  return (
+    <>
     <div className="space-y-6">
+
+      {/* Follow-up Email Dialog */}
+      <Dialog open={followUpDialogOpen} onOpenChange={setFollowUpDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Wyślij email po webinarze
+            </DialogTitle>
+            <DialogDescription>
+              Email follow-up zostanie wysłany do wszystkich zapisanych uczestników (użytkownicy + goście).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">
+                Odbiorcy: <strong>{totalFollowUpRecipients}</strong> osób
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Dodatkowa wiadomość (opcjonalnie)</label>
+              <Textarea
+                value={followUpMessage}
+                onChange={(e) => setFollowUpMessage(e.target.value)}
+                placeholder="np. Link do nagrania: https://..."
+                rows={4}
+                disabled={followUpSending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Treść pojawi się w emailu jako wyróżniony blok tekstu.
+              </p>
+            </div>
+
+            {followUpSending && (
+              <div className="space-y-2">
+                <Progress value={followUpProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-center">Wysyłanie emaili...</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFollowUpDialogOpen(false)} disabled={followUpSending}>
+              Anuluj
+            </Button>
+            <Button onClick={handleSendFollowUp} disabled={followUpSending || totalFollowUpRecipients === 0}>
+              {followUpSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Wysyłanie...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Wyślij do {totalFollowUpRecipients} osób
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
