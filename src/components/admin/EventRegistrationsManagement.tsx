@@ -650,6 +650,8 @@ export const EventRegistrationsManagement: React.FC = () => {
       setFollowUpDialogOpen(false);
       setFollowUpMessage('');
       setFollowUpAttachments([]);
+      setFollowUpRecipientGroup('all');
+      setFollowUpSingleRecipient('');
     } catch (error: any) {
       console.error('Error sending follow-up:', error);
       toast({
