@@ -1058,31 +1058,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           console.log('[VideoRoom] Reusing lobby stream');
           stream = initialStream;
         } else {
-          try {
-            const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-            const videoConstraints: MediaTrackConstraints = isMob
-              ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-              : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-            stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
-          } catch {
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-            } catch {
-              try {
-                const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-                const videoConstraints2: MediaTrackConstraints = isMob2
-                  ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-                  : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-                stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
-              } catch (mediaErr) {
-                console.warn('[VideoRoom] All getUserMedia attempts failed:', mediaErr);
-                // Allow joining without media — create empty stream
-                stream = new MediaStream();
-                setIsMuted(true);
-                setIsCameraOff(true);
-                toast({ title: 'Brak dostępu do kamery/mikrofonu', description: 'Dołączasz bez kamery. Kliknij ikonę kamery, aby spróbować ponownie.', variant: 'destructive' });
-              }
-            }
+          stream = await acquireMediaByPreference(initialVideo, initialAudio);
+          if (!stream) {
+            stream = new MediaStream();
+            setIsMuted(true);
+            setIsCameraOff(true);
+            toast({ title: 'Brak dostępu do kamery/mikrofonu', description: 'Dołączasz bez kamery. Kliknij ikonę kamery, aby spróbować ponownie.', variant: 'destructive' });
           }
         }
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
@@ -1787,6 +1768,50 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return () => { supabase.removeChannel(channel); };
   }, [roomId]);
 
+  // Preference-aware media acquisition: prioritizes tracks the user actually wants
+  const acquireMediaByPreference = async (wantVideo: boolean, wantAudio: boolean): Promise<MediaStream | null> => {
+    const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const videoConstraints: MediaTrackConstraints = isMob
+      ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
+      : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
+
+    // Build ordered fallback list based on what the user actually needs
+    type MediaReq = { audio?: MediaTrackConstraints | boolean; video?: MediaTrackConstraints | boolean };
+    const attempts: MediaReq[] = [];
+
+    if (wantVideo && wantAudio) {
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: videoConstraints }); // A/V
+      attempts.push({ audio: false, video: videoConstraints });              // video-only (prioritize video)
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: false });             // audio-only
+    } else if (wantVideo && !wantAudio) {
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: videoConstraints }); // A/V (get audio track for later toggle)
+      attempts.push({ audio: false, video: videoConstraints });              // video-only
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: false });             // audio-only last resort
+    } else if (!wantVideo && wantAudio) {
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: videoConstraints }); // A/V (get video for later toggle)
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: false });             // audio-only
+      attempts.push({ audio: false, video: videoConstraints });              // video-only
+    } else {
+      // Both off — still try to get tracks for quick toggle later
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
+      attempts.push({ audio: AUDIO_CONSTRAINTS, video: false });
+      attempts.push({ audio: false, video: videoConstraints });
+    }
+
+    for (const constraints of attempts) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('[VideoRoom] acquireMedia: got', stream.getAudioTracks().length, 'audio,', stream.getVideoTracks().length, 'video tracks');
+        return stream;
+      } catch (e) {
+        console.warn('[VideoRoom] acquireMedia attempt failed:', constraints, e);
+      }
+    }
+
+    console.warn('[VideoRoom] All acquireMediaByPreference attempts failed');
+    return null;
+  };
+
 
   // === reacquireLocalStream: re-acquire media when stream is lost (mobile bg, etc.) ===
   const reacquireLocalStream = useCallback(async (): Promise<MediaStream | null> => {
@@ -1799,25 +1824,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     reacquireCooldownRef.current = now;
     console.log('[VideoRoom] Attempting to re-acquire local stream...');
     try {
-      let stream: MediaStream;
-      try {
-        const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-        const videoConstraints: MediaTrackConstraints = isMob
-          ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-        stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
-      } catch {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-        } catch {
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          } catch {
-            console.error('[VideoRoom] reacquireLocalStream: all getUserMedia attempts failed');
-            toast({ title: 'Brak dostępu do multimediów', description: 'Sprawdź uprawnienia przeglądarki lub odśwież stronę.', variant: 'destructive' });
-            return null;
-          }
-        }
+      const wantVideo = !isCameraOffRef.current;
+      const wantAudio = !isMutedRef.current;
+      let stream = await acquireMediaByPreference(wantVideo, wantAudio);
+      if (!stream) {
+        console.error('[VideoRoom] reacquireLocalStream: all getUserMedia attempts failed');
+        toast({ title: 'Brak dostępu do multimediów', description: 'Sprawdź uprawnienia przeglądarki lub odśwież stronę.', variant: 'destructive' });
+        return null;
       }
 
       // Preserve user's mute/camera state on fresh tracks

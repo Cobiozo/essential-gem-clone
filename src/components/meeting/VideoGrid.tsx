@@ -292,7 +292,7 @@ const VideoTile: React.FC<{
   const _trackRev = trackRevision; // ensure React uses the state
 
    const showVideo = participant.isLocal
-    ? participant.stream && !isCameraOff
+    ? participant.stream?.getVideoTracks().some(t => t.readyState === 'live') && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
@@ -416,7 +416,7 @@ const ThumbnailTile: React.FC<{
   const _trackRev = trackRevision;
 
    const showVideo = participant.isLocal
-    ? participant.stream && !isCameraOff
+    ? participant.stream?.getVideoTracks().some(t => t.readyState === 'live') && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
@@ -731,7 +731,7 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
   }, [playAudio]);
 
    const showVideo = participant.isLocal
-    ? participant.stream && !isCameraOff
+    ? participant.stream?.getVideoTracks().some(t => t.readyState === 'live') && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
@@ -810,7 +810,7 @@ const DraggableFloatingPiP: React.FC<{
   }, [pos]);
 
    const showVideo = participant.isLocal
-    ? participant.stream && !isCameraOff
+    ? participant.stream?.getVideoTracks().some(t => t.readyState === 'live') && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
