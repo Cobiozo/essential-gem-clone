@@ -939,6 +939,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 
