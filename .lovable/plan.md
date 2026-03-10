@@ -1,24 +1,39 @@
 
 
-## Plan zmian
+# Fix: Black screen instead of avatar when camera is turned off
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Root Cause
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+When a user turns off their camera via the bottom controls, they set `track.enabled = false` on their local video track. However, **WebRTC does not propagate `track.enabled` to the remote side**. The remote peer's track remains `enabled: true` and `readyState: 'live'` — it just sends black frames.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+The `showVideo` logic for remote participants currently checks:
+```typescript
+participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live')
+```
 
-### 2. Złote ikony dla datetime-local (index.css)
+This returns `true` even when the remote user has their camera off, because the track appears live and enabled on the receiving end. Result: black video is shown instead of the avatar/initials fallback.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+Meanwhile, the `isCameraOff` state **is** correctly broadcast via Supabase channel (`media-state-changed` event) and stored on the `participant` object. It's just never used in the remote `showVideo` calculation.
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+## Fix
 
-### Zakres: 2 pliki, ~10 linii zmian
+In all three `showVideo` calculations (VideoTile, ThumbnailTile, MiniVideo), incorporate `participant.isCameraOff` for remote participants:
+
+```typescript
+const showVideo = participant.isLocal
+  ? participant.stream && !isCameraOff
+  : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
+```
+
+This ensures that when the broadcast `isCameraOff: true` is received, the avatar/initials fallback is displayed immediately — regardless of what WebRTC reports about the track state.
+
+### Files to change
+
+| File | Lines | Change |
+|---|---|---|
+| `VideoGrid.tsx` | ~293-295 | Add `&& !participant.isCameraOff` to remote branch in VideoTile |
+| `VideoGrid.tsx` | ~417-419 | Same fix in ThumbnailTile |
+| `VideoGrid.tsx` | ~732-734 | Same fix in MiniVideo |
+
+Three one-line changes, all in the same file.
 
