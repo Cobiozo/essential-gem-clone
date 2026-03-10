@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { globalEditingStateRef } from './EditingContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface Profile {
   id: string;
@@ -81,6 +82,7 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { toast } = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -100,6 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isPageHiddenRef = useRef(false);
   // Ref to track setTimeout for cleanup
   const timeoutIdRef = useRef<NodeJS.Timeout | null>(null);
+  // Ref to track user-initiated sign out vs unexpected token failure
+  const userInitiatedSignOutRef = useRef(false);
   
   // Keep profileRef in sync with state
   useEffect(() => { profileRef.current = profile; }, [profile]);
@@ -261,6 +265,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               });
             }
           }, 0);
+        } else if (event === 'SIGNED_OUT') {
+          if (userInitiatedSignOutRef.current) {
+            // User-initiated sign out — clear state normally
+            userInitiatedSignOutRef.current = false;
+            setProfile(null);
+            setUserRole(null);
+            setRolesReady(true);
+            setLoading(false);
+            setInitialized(true);
+          } else {
+            // Unexpected SIGNED_OUT (token refresh failure) — attempt recovery
+            console.warn('[Auth] Unexpected SIGNED_OUT detected, attempting session recovery...');
+            // Use setTimeout to avoid blocking onAuthStateChange processing
+            setTimeout(async () => {
+              try {
+                const { data } = await supabase.auth.getSession();
+                if (data.session) {
+                  console.log('[Auth] Session still valid, ignoring SIGNED_OUT event');
+                  // Session is still valid — restore state
+                  setSession(data.session);
+                  setUser(data.session.user);
+                  return;
+                }
+              } catch (e) {
+                console.error('[Auth] Session recovery failed:', e);
+              }
+              // No valid session — show toast and clear state
+              console.log('[Auth] No valid session found, clearing state');
+              toast({
+                title: 'Sesja wygasła',
+                description: 'Zostałeś wylogowany z powodu wygaśnięcia sesji. Zaloguj się ponownie.',
+                duration: 8000,
+              });
+              setProfile(null);
+              setUserRole(null);
+              setRolesReady(true);
+              setLoading(false);
+              setInitialized(true);
+            }, 0);
+          }
         } else {
           setProfile(null);
           setUserRole(null);
@@ -352,6 +396,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      // Mark as user-initiated BEFORE calling signOut
+      userInitiatedSignOutRef.current = true;
+      
       // NPROC fix: Cleanup all realtime channels before signing out
       try {
         const channels = supabase.getChannels();

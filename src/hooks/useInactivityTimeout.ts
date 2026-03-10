@@ -132,8 +132,11 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
         }
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         
-        // Add 1-minute buffer to prevent immediate logout on tab return
-        const timeoutWithBuffer = INACTIVITY_TIMEOUT_MS + 60000;
+        // Add buffer to prevent immediate logout on tab return
+        // 5 minutes for active meetings (passive viewing), 1 minute otherwise
+        const timeoutWithBuffer = isMeetingActiveRef.current
+          ? INACTIVITY_TIMEOUT_MS + 5 * 60 * 1000
+          : INACTIVITY_TIMEOUT_MS + 60000;
         
         // If user was away longer than timeout + buffer, logout immediately
         if (timeSinceLastActivity >= timeoutWithBuffer) {
