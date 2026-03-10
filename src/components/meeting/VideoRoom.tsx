@@ -1427,7 +1427,35 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           console.error('[VideoRoom] Peer error:', err);
           if (err.type === 'peer-unavailable') {
             const failedPeerId = (err as any).message?.match(/peer\s+(\S+)/)?.[1];
-            if (failedPeerId) removePeer(failedPeerId);
+            if (failedPeerId) {
+              // Fix: retry instead of immediately removing — peer may not be registered yet
+              const retryCount = (peerRetryCountRef.current.get(failedPeerId) || 0) + 1;
+              peerRetryCountRef.current.set(failedPeerId, retryCount);
+              if (retryCount <= 3) {
+                console.log(`[VideoRoom] peer-unavailable for ${failedPeerId}, retry ${retryCount}/3 in ${retryCount * 3}s`);
+                setTimeout(async () => {
+                  if (cancelled || cleanupDoneRef.current) return;
+                  // Verify peer is still active in DB before retrying
+                  const { data } = await supabase
+                    .from('meeting_room_participants')
+                    .select('peer_id, display_name, user_id, guest_token_id')
+                    .eq('room_id', roomId)
+                    .eq('peer_id', failedPeerId)
+                    .eq('is_active', true)
+                    .maybeSingle();
+                  if (data && peerRef.current && localStreamRef.current) {
+                    console.log(`[VideoRoom] Retrying call to ${failedPeerId}`);
+                    callPeer(failedPeerId, data.display_name || 'Uczestnik', localStreamRef.current, undefined, data.user_id || undefined);
+                  } else {
+                    peerRetryCountRef.current.delete(failedPeerId);
+                  }
+                }, retryCount * 3000);
+              } else {
+                console.log(`[VideoRoom] peer-unavailable for ${failedPeerId}, max retries reached — removing`);
+                peerRetryCountRef.current.delete(failedPeerId);
+                removePeer(failedPeerId);
+              }
+            }
           } else if (err.type === 'disconnected') {
             try { peer.reconnect(); } catch {}
           } else {
