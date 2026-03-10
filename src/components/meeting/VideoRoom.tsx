@@ -1058,31 +1058,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           console.log('[VideoRoom] Reusing lobby stream');
           stream = initialStream;
         } else {
-          try {
-            const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-            const videoConstraints: MediaTrackConstraints = isMob
-              ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-              : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-            stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS, video: videoConstraints });
-          } catch {
-            try {
-              stream = await navigator.mediaDevices.getUserMedia({ audio: AUDIO_CONSTRAINTS });
-            } catch {
-              try {
-                const isMob2 = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-                const videoConstraints2: MediaTrackConstraints = isMob2
-                  ? { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15, max: 20 } }
-                  : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24, max: 30 } };
-                stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints2 });
-              } catch (mediaErr) {
-                console.warn('[VideoRoom] All getUserMedia attempts failed:', mediaErr);
-                // Allow joining without media — create empty stream
-                stream = new MediaStream();
-                setIsMuted(true);
-                setIsCameraOff(true);
-                toast({ title: 'Brak dostępu do kamery/mikrofonu', description: 'Dołączasz bez kamery. Kliknij ikonę kamery, aby spróbować ponownie.', variant: 'destructive' });
-              }
-            }
+          stream = await acquireMediaByPreference(initialVideo, initialAudio);
+          if (!stream) {
+            stream = new MediaStream();
+            setIsMuted(true);
+            setIsCameraOff(true);
+            toast({ title: 'Brak dostępu do kamery/mikrofonu', description: 'Dołączasz bez kamery. Kliknij ikonę kamery, aby spróbować ponownie.', variant: 'destructive' });
           }
         }
         if (cancelled) { stream.getTracks().forEach(t => t.stop()); return; }
