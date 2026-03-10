@@ -547,11 +547,29 @@ export const EventRegistrationsManagement: React.FC = () => {
     setFollowUpProgress(10);
 
     try {
+      // Convert files to base64
+      const attachments = await Promise.all(
+        followUpAttachments.map(async (file) => {
+          const buffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          return {
+            filename: file.name,
+            content_base64: btoa(binary),
+            content_type: file.type || 'application/octet-stream',
+          };
+        })
+      );
+
       setFollowUpProgress(30);
       const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
         body: {
           event_id: selectedEventId,
           custom_message: followUpMessage.trim() || undefined,
+          attachments: attachments.length > 0 ? attachments : undefined,
         },
       });
 
