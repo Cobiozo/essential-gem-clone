@@ -154,6 +154,7 @@ const VideoTile: React.FC<{
     const heartbeat = setInterval(() => {
       if (video.paused && video.srcObject && !participant.isLocal) {
         console.log(`[VideoTile] Resuming paused video for ${participant.peerId}`);
+        video.muted = !!participant.isLocal;
         playVideoSafe(video, false, onAudioBlocked);
       }
     }, 3000);
