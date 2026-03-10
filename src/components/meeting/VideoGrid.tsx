@@ -358,9 +358,19 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
       try { audioContextRef.current = new AudioContext(); } catch { return; }
     }
     const ctx = audioContextRef.current;
-    // Resume AudioContext if suspended (browsers block until user interaction)
+    // Resume AudioContext — on mobile it stays suspended until a user gesture
     if (ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
+      // Register one-shot gesture listeners to retry resume on mobile
+      const resumeOnGesture = () => {
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
+        document.removeEventListener('click', resumeOnGesture);
+        document.removeEventListener('touchstart', resumeOnGesture);
+      };
+      document.addEventListener('click', resumeOnGesture, { once: true });
+      document.addEventListener('touchstart', resumeOnGesture, { once: true });
     }
 
     const currentIds = new Set(participants.map(p => p.peerId));
