@@ -685,7 +685,17 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
       <video ref={ref} autoPlay playsInline muted={!playAudio}
         data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`} />
-      {!showVideo && <User className="h-5 w-5 text-zinc-500" />}
+      {!showVideo && (
+        <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
+          {participant.avatarUrl ? (
+            <img src={participant.avatarUrl} alt={participant.displayName} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-xs font-semibold text-zinc-300">
+              {participant.displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+            </span>
+          )}
+        </div>
+      )}
     </>
   );
 };
