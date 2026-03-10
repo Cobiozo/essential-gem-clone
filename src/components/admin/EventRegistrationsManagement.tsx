@@ -678,15 +678,74 @@ export const EventRegistrationsManagement: React.FC = () => {
               Wyślij email po webinarze
             </DialogTitle>
             <DialogDescription>
-              Email follow-up zostanie wysłany do wszystkich zapisanych uczestników (użytkownicy + goście).
+              Email follow-up zostanie wysłany do wybranej grupy uczestników.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Recipient group selection */}
+            <div className="space-y-3">
+              <label className="text-sm font-semibold">Odbiorcy</label>
+              <RadioGroup
+                value={followUpRecipientGroup}
+                onValueChange={(val) => {
+                  setFollowUpRecipientGroup(val as any);
+                  if (val !== 'single') setFollowUpSingleRecipient('');
+                }}
+                className="grid grid-cols-2 gap-2"
+                disabled={followUpSending}
+              >
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="all" id="rg-all" />
+                  <Label htmlFor="rg-all" className="text-sm cursor-pointer flex-1">
+                    Wszyscy ({followUpRecipientLists.totalAll})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="users" id="rg-users" />
+                  <Label htmlFor="rg-users" className="text-sm cursor-pointer flex-1">
+                    Użytkownicy ({followUpRecipientLists.totalUsers})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="guests" id="rg-guests" />
+                  <Label htmlFor="rg-guests" className="text-sm cursor-pointer flex-1">
+                    Goście ({followUpRecipientLists.totalGuests})
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2 p-2 rounded-md border border-border hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="single" id="rg-single" />
+                  <Label htmlFor="rg-single" className="text-sm cursor-pointer flex-1">
+                    Konkretna osoba
+                  </Label>
+                </div>
+              </RadioGroup>
+
+              {followUpRecipientGroup === 'single' && (
+                <Select value={followUpSingleRecipient} onValueChange={setFollowUpSingleRecipient}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wybierz osobę..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {followUpRecipientLists.singleOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="flex items-center gap-2">
+                          {opt.label}
+                          <Badge variant={opt.type === 'user' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                            {opt.type === 'user' ? 'Użytkownik' : 'Gość'}
+                          </Badge>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
               <Mail className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm">
-                Odbiorcy: <strong>{totalFollowUpRecipients}</strong> osób
+                Odbiorcy: <strong>{totalFollowUpRecipients}</strong> {totalFollowUpRecipients === 1 ? 'osoba' : 'osób'}
               </span>
             </div>
 
