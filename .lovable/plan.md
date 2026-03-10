@@ -1,24 +1,22 @@
 
 
-## Plan zmian
+# Problemy i rozwiązanie
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem 1: Edytor szablonu pokazuje domyślne bloki zamiast rzeczywistej treści
+Szablon `webinar_followup` ma wypełnione `body_html` (migracja), ale **nie ma `blocks_json`** ani wpisu w `getTemplateBlocks()`. Gdy admin otwiera szablon w edytorze blokowym, system widzi brak bloków i generuje domyślne (generyczne "Cześć {{imię}}, Tutaj wpisz treść..."). Dlatego edytor pokazuje zupełnie inną treść niż podgląd.
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+**Rozwiązanie**: Dodać case `webinar_followup` do `getTemplateBlocks()` w `defaultBlocks.ts` z blokami odpowiadającymi rzeczywistej treści szablonu (nagłówek PureLife, pełny tekst o endometriozie, sekcja "Jak możesz działać dalej?", stopka). Dodatkowo zaktualizować migrację, aby ustawić `blocks_json` w bazie.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Problem 2: Brak widocznej opcji załączników
+Funkcja załączników **istnieje** w dialogu "Email po webinarze" (przycisk w zakładce rejestracji wydarzeń), ale admin szuka jej w edytorze szablonów email — który jest innym widokiem i nie obsługuje załączników. To jest kwestia UX — admin musi wiedzieć gdzie kliknąć.
 
-### 2. Złote ikony dla datetime-local (index.css)
+**Rozwiązanie**: Nie trzeba przenosić załączników do edytora szablonów (szablony to wzorce, załączniki to dane per-wysyłka). Natomiast trzeba upewnić się, że przycisk "Email po webinarze" i sekcja załączników w dialogu są dobrze widoczne. Dodam wyraźniejszy label/informację w dialogu follow-up.
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+## Zmiany w plikach
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
+| Plik | Zmiana |
+|------|--------|
+| `src/components/admin/email-editor/defaultBlocks.ts` | Dodanie case `webinar_followup` z blokami odpowiadającymi treści szablonu |
+| Migracja SQL | UPDATE `blocks_json` dla szablonu `webinar_followup` |
+| `src/components/admin/EventRegistrationsManagement.tsx` | Drobne poprawki UX dialogu — wyraźniejsza informacja o załącznikach |
 
