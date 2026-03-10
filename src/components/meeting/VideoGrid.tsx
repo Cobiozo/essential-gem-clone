@@ -468,6 +468,7 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
   const [audioLevels, setAudioLevels] = useState<Map<string, number>>(new Map());
   const audioContextRef = useRef<AudioContext | null>(null);
   const analysersRef = useRef<Map<string, { analyser: AnalyserNode; source: MediaStreamAudioSourceNode }>>(new Map());
+  const streamIdMapRef = useRef<Map<string, string>>(new Map());
   const lastSpeakerChangeRef = useRef(0);
 
   useEffect(() => {
