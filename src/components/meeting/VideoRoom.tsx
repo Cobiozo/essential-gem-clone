@@ -561,9 +561,23 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     return [...stunServers, ...reachable];
   }, [testTurnServer]);
 
-  // Fetch TURN credentials
+  // Fetch TURN credentials (with sessionStorage cache, TTL 4min)
   const getTurnCredentials = useCallback(async () => {
     try {
+      // Check cache first
+      const cacheKey = `turn_credentials_cache_${roomId}`;
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const { iceServers: cachedServers, cachedAt } = JSON.parse(cached);
+          if (Date.now() - cachedAt < 4 * 60 * 1000) {
+            console.log('[VideoRoom] Using cached TURN credentials');
+            return cachedServers as RTCIceServer[];
+          }
+        } catch {}
+        sessionStorage.removeItem(cacheKey);
+      }
+
       let iceServers: RTCIceServer[];
       if (guestMode && guestTokenId) {
         const response = await fetch(
@@ -588,6 +602,12 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
       // Health check: filter out unreachable TURN servers
       const filtered = await filterReachableTurnServers(iceServers);
+      
+      // Cache the result
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ iceServers: filtered, cachedAt: Date.now() }));
+      } catch {}
+      
       return filtered;
     } catch (err) {
       console.error('[VideoRoom] Failed to get TURN credentials:', err);
@@ -596,7 +616,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         { urls: 'stun:stun1.l.google.com:19302' },
       ];
     }
-  }, [guestMode, guestTokenId, filterReachableTurnServers]);
+  }, [guestMode, guestTokenId, filterReachableTurnServers, roomId]);
 
   // Cleanup function with guard
   const cleanup = useCallback(async () => {
