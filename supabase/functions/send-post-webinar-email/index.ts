@@ -189,7 +189,11 @@ async function sendSmtpEmail(
     }
 
     const emailContent = parts.join("\r\n");
-    const dataRes = await sendCommand(emailContent);
+    const emailBytes = encoder.encode(emailContent + "\r\n");
+    for (let i = 0; i < emailBytes.length; i += 16384) {
+      await conn.write(emailBytes.subarray(i, i + 16384));
+    }
+    const dataRes = await withTimeout(readResponse(), 30000, "SMTP DATA timeout");
     if (!dataRes.includes("250") && !dataRes.includes("OK")) {
       throw new Error(`Send failed: ${dataRes}`);
     }
