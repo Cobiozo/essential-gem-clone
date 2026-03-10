@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { setUserHasInteracted } from '@/components/meeting/VideoGrid';
 import { MeetingLobby } from '@/components/meeting/MeetingLobby';
 import { GuestAccessForm } from '@/components/meeting/GuestAccessForm';
 import { VideoRoom } from '@/components/meeting/VideoRoom';
