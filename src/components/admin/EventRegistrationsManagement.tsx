@@ -144,8 +144,9 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [followUpSending, setFollowUpSending] = useState(false);
   const [followUpProgress, setFollowUpProgress] = useState(0);
   const [followUpAttachments, setFollowUpAttachments] = useState<File[]>([]);
-  const [followUpRecipientGroup, setFollowUpRecipientGroup] = useState<'all' | 'users' | 'guests' | 'single'>('all');
-  const [followUpSingleRecipient, setFollowUpSingleRecipient] = useState<string>('');
+  const [followUpRecipientGroup, setFollowUpRecipientGroup] = useState<'all' | 'users' | 'guests' | 'selected'>('all');
+  const [followUpSelectedRecipients, setFollowUpSelectedRecipients] = useState<string[]>([]);
+  const [followUpSearchQuery, setFollowUpSearchQuery] = useState('');
   const selectedEvent = useMemo(() => 
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
