@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.admin-reset-password]
 verify_jwt = true
 
+[functions.admin-update-user-email]
+verify_jwt = false
+
 [functions.get-certificate-url]
 verify_jwt = false
 
