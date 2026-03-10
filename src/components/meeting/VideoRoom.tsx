@@ -845,6 +845,17 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             });
             setParticipants(prev => prev.filter(p => !toRemove.includes(p.peerId)));
           }
+
+          // Heartbeat reconnect: call peers active in DB but missing from connectionsRef
+          for (const p of activeParticipants) {
+            if (!p.peer_id) continue;
+            if (user && p.user_id === user.id) continue;
+            if (guestTokenId && p.guest_token_id === guestTokenId) continue;
+            if (!connectionsRef.current.has(p.peer_id) && localStreamRef.current && peerRef.current) {
+              console.log(`[VideoRoom] Heartbeat: reconnecting to missing peer ${p.peer_id}`);
+              callPeer(p.peer_id, p.display_name || 'Uczestnik', localStreamRef.current, undefined, p.user_id || undefined);
+            }
+          }
         }
 
         // 3. Channel health check - verify signaling channel is alive
