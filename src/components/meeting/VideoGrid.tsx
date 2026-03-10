@@ -434,8 +434,8 @@ function useActiveSpeakerDetection(participants: VideoParticipant[]): SpeakerDet
               ? newLevels.get(participants[prev].peerId) || 0
               : 0;
             const newLevel = newLevels.get(participants[maxIndex].peerId) || 0;
-            // Only switch if new speaker is at least 0.15 louder (normalized) or prev is silent
-            if (newLevel > prevLevel + 0.15 || prevLevel < 0.05) {
+            // Only switch if new speaker is at least 0.08 louder (normalized) or prev is silent
+            if (newLevel > prevLevel + 0.08 || prevLevel < 0.05) {
               lastSpeakerChangeRef.current = now;
               return maxIndex;
             }
