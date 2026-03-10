@@ -227,3 +227,6 @@ verify_jwt = false
 
 [functions.send-bulk-webinar-reminders]
 verify_jwt = false
+
+[functions.send-post-webinar-email]
+verify_jwt = false
