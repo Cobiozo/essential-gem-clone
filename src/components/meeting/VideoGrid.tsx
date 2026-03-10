@@ -329,15 +329,14 @@ const ThumbnailTile: React.FC<{
           : 'border-transparent hover:border-zinc-500'
       }`}
     >
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={!playAudio}
-          className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`}
-        />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={!playAudio}
+        className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
+      />
+      {!showVideo && (
         <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
           <User className="h-5 w-5 text-zinc-500" />
         </div>
@@ -603,11 +602,12 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
     ? participant.stream && !isCameraOff
     : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
 
-  if (!showVideo) return <User className="h-5 w-5 text-zinc-500" />;
-
   return (
-    <video ref={ref} autoPlay playsInline muted={!playAudio}
-      className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''}`} />
+    <>
+      <video ref={ref} autoPlay playsInline muted={!playAudio}
+        className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`} />
+      {!showVideo && <User className="h-5 w-5 text-zinc-500" />}
+    </>
   );
 };
 
@@ -678,15 +678,14 @@ const DraggableFloatingPiP: React.FC<{
       onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
       onTouchStart={(e) => handleStart(e.touches[0].clientX, e.touches[0].clientY)}
     >
-      {showVideo ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted={!!participant.isLocal}
-          className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''}`}
-        />
-      ) : (
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={!!participant.isLocal}
+        className={`w-full h-full object-cover ${participant.isLocal ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
+      />
+      {!showVideo && (
         <div className="w-full h-full flex flex-col items-center justify-center gap-1">
           <div className="w-12 h-12 rounded-full bg-zinc-700 flex items-center justify-center overflow-hidden">
             {participant.avatarUrl ? (
