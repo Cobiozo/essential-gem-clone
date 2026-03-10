@@ -381,9 +381,10 @@ const handler = async (req: Request): Promise<Response> => {
     let subject: string;
     let htmlBody: string;
 
-    // PRIORITY: Immediate join email for auto-webinars (≤15 min) ALWAYS takes precedence over DB template
-    if (isImmediateJoin && displayRoomLink) {
-      console.log(`[send-webinar-confirmation] IMMEDIATE JOIN: isImmediateJoin=${isImmediateJoin}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
+    // PRIORITY: Auto-webinar email with join link ALWAYS takes precedence over DB template
+    if (isImmediateJoin) {
+      const isStartingSoon = minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
+      console.log(`[send-webinar-confirmation] AUTO-WEBINAR JOIN: isStartingSoon=${isStartingSoon}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
       
         // AUTO-WEBINAR: Immediate join email (≤15 min to next slot)
         subject = `🔴 Dołącz teraz: ${eventTitle}`;
