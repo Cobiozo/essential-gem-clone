@@ -729,9 +729,9 @@ const MiniVideo: React.FC<{ participant: VideoParticipant; isCameraOff?: boolean
     if (ref.current) ref.current.muted = !playAudio;
   }, [playAudio]);
 
-  const showVideo = participant.isLocal
+   const showVideo = participant.isLocal
     ? participant.stream && !isCameraOff
-    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live');
+    : participant.stream?.getVideoTracks().some(t => t.enabled && t.readyState === 'live') && !participant.isCameraOff;
 
   return (
     <>
