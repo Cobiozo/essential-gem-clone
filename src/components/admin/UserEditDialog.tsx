@@ -47,6 +47,8 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [eqId, setEqId] = useState('');
+  const [email, setEmail] = useState('');
+  const [originalEmail, setOriginalEmail] = useState('');
   const [guardian, setGuardian] = useState<Guardian | null>(null);
   const [originalGuardianEqId, setOriginalGuardianEqId] = useState<string | null>(null);
   const [loadingGuardian, setLoadingGuardian] = useState(false);
@@ -57,6 +59,8 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
       setFirstName(user.first_name || '');
       setLastName(user.last_name || '');
       setEqId(user.eq_id || '');
+      setEmail(user.email || '');
+      setOriginalEmail(user.email || '');
       setOriginalGuardianEqId(user.upline_eq_id || null);
       
       // Load current guardian data if exists
@@ -107,7 +111,25 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
 
     setLoading(true);
     try {
-      // 1. Update basic user data
+      // 1. Handle email change if needed
+      const emailChanged = email.trim().toLowerCase() !== originalEmail.toLowerCase();
+      if (emailChanged) {
+        const { data: emailResult, error: emailError } = await supabase.functions.invoke('admin-update-user-email', {
+          body: { userId: user.user_id, newEmail: email.trim() },
+        });
+
+        if (emailError) throw emailError;
+        if (emailResult?.error) {
+          const msg = emailResult.error === 'Email already in use'
+            ? 'Ten adres email jest już zajęty przez innego użytkownika'
+            : emailResult.error;
+          toast({ title: 'Błąd', description: msg, variant: 'destructive' });
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Update basic user data
       const { error: updateError } = await supabase.rpc('admin_update_user_data', {
         p_user_id: user.user_id,
         p_first_name: firstName.trim(),
@@ -145,10 +167,15 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
         }
       }
 
+      const changes = [
+        emailChanged && 'email',
+        guardianChanged && 'opiekun',
+      ].filter(Boolean);
+
       toast({
         title: 'Sukces',
-        description: guardianChanged 
-          ? 'Dane użytkownika i opiekun zostali zaktualizowani'
+        description: changes.length > 0
+          ? `Dane użytkownika zaktualizowane (w tym: ${changes.join(', ')})`
           : 'Dane użytkownika zostały zaktualizowane',
       });
 
@@ -167,6 +194,7 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
   };
 
   const guardianChanged = (guardian?.eq_id || null) !== originalGuardianEqId;
+  const emailChanged = email.trim().toLowerCase() !== originalEmail.toLowerCase();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -174,11 +202,22 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Edytuj dane użytkownika</DialogTitle>
           <DialogDescription>
-            {user?.email}
+            ID: {user?.user_id?.slice(0, 8)}...
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Adres email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@example.com"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">Imię *</Label>
@@ -223,6 +262,15 @@ export const UserEditDialog: React.FC<UserEditDialogProps> = ({
               />
             )}
           </div>
+
+          {emailChanged && (
+            <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
+                <strong>Zmiana adresu email</strong> — email zostanie zaktualizowany w systemie logowania i profilu użytkownika.
+              </AlertDescription>
+            </Alert>
+          )}
 
           {guardianChanged && (
             <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/20">
