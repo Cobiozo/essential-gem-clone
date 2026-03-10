@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -131,6 +134,10 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'users' | 'guests'>('users');
   const [sendingReminder, setSendingReminder] = useState<string | null>(null);
+  const [followUpDialogOpen, setFollowUpDialogOpen] = useState(false);
+  const [followUpMessage, setFollowUpMessage] = useState('');
+  const [followUpSending, setFollowUpSending] = useState(false);
+  const [followUpProgress, setFollowUpProgress] = useState(0);
 
   const selectedEvent = useMemo(() => 
     events.find(e => e.id === selectedEventId), 
@@ -525,8 +532,119 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
+  const totalFollowUpRecipients = useMemo(() => {
+    const activeUsers = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
+    const activeGuests = guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').map(r => r.email);
+    const allEmails = new Set([...activeUsers, ...activeGuests.map(e => e.toLowerCase())]);
+    return allEmails.size;
+  }, [registrations, guestRegistrations]);
+
+  const handleSendFollowUp = async () => {
+    if (!selectedEventId) return;
+    setFollowUpSending(true);
+    setFollowUpProgress(10);
+
+    try {
+      setFollowUpProgress(30);
+      const { data, error } = await supabase.functions.invoke('send-post-webinar-email', {
+        body: {
+          event_id: selectedEventId,
+          custom_message: followUpMessage.trim() || undefined,
+        },
+      });
+
+      setFollowUpProgress(100);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Wysyłka zakończona',
+        description: `Wysłano ${data.sent} z ${data.total} emaili${data.failed > 0 ? ` (${data.failed} błędów)` : ''}`,
+      });
+
+      setFollowUpDialogOpen(false);
+      setFollowUpMessage('');
+    } catch (error: any) {
+      console.error('Error sending follow-up:', error);
+      toast({
+        title: 'Błąd wysyłki',
+        description: error.message || 'Nie udało się wysłać emaili follow-up',
+        variant: 'destructive',
+      });
+    } finally {
+      setFollowUpSending(false);
+      setFollowUpProgress(0);
+    }
+  };
+
   return (
+    <>
     <div className="space-y-6">
+
+      {/* Follow-up Email Dialog */}
+      <Dialog open={followUpDialogOpen} onOpenChange={setFollowUpDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-5 w-5" />
+              Wyślij email po webinarze
+            </DialogTitle>
+            <DialogDescription>
+              Email follow-up zostanie wysłany do wszystkich zapisanych uczestników (użytkownicy + goście).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-muted">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm">
+                Odbiorcy: <strong>{totalFollowUpRecipients}</strong> osób
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Dodatkowa wiadomość (opcjonalnie)</label>
+              <Textarea
+                value={followUpMessage}
+                onChange={(e) => setFollowUpMessage(e.target.value)}
+                placeholder="np. Link do nagrania: https://..."
+                rows={4}
+                disabled={followUpSending}
+              />
+              <p className="text-xs text-muted-foreground">
+                Treść pojawi się w emailu jako wyróżniony blok tekstu.
+              </p>
+            </div>
+
+            {followUpSending && (
+              <div className="space-y-2">
+                <Progress value={followUpProgress} className="h-2" />
+                <p className="text-xs text-muted-foreground text-center">Wysyłanie emaili...</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFollowUpDialogOpen(false)} disabled={followUpSending}>
+              Anuluj
+            </Button>
+            <Button onClick={handleSendFollowUp} disabled={followUpSending || totalFollowUpRecipients === 0}>
+              {followUpSending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Wysyłanie...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Wyślij do {totalFollowUpRecipients} osób
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -597,14 +715,24 @@ export const EventRegistrationsManagement: React.FC = () => {
                   )}
                 </TabsList>
 
-                <Button 
-                  onClick={activeTab === 'users' ? handleExportUsersCSV : handleExportGuestsCSV} 
-                  variant="outline" 
-                  disabled={activeTab === 'users' ? filteredRegistrations.length === 0 : filteredGuestRegistrations.length === 0}
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Eksport CSV
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setFollowUpDialogOpen(true)}
+                    variant="default"
+                    disabled={totalFollowUpRecipients === 0}
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Email po webinarze
+                  </Button>
+                  <Button 
+                    onClick={activeTab === 'users' ? handleExportUsersCSV : handleExportGuestsCSV} 
+                    variant="outline" 
+                    disabled={activeTab === 'users' ? filteredRegistrations.length === 0 : filteredGuestRegistrations.length === 0}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Eksport CSV
+                  </Button>
+                </div>
               </div>
 
               {/* Users tab */}
@@ -821,6 +949,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 };
 
