@@ -1071,6 +1071,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         toast({ title: 'Dotknij ekranu, aby odblokować dźwięk', description: 'iOS/Android wymaga interakcji użytkownika' });
       }
       try {
+        // Start TURN fetch immediately (parallel with media acquisition)
+        const iceServersPromise = getTurnCredentials();
+
         let stream: MediaStream | null = null;
         // Try to reuse the lobby stream (preserves user gesture context)
         const lobbyStreamAlive = initialStream?.getTracks().some(t => t.readyState === 'live');
@@ -1109,15 +1112,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           });
         });
 
-        // Non-blocking TURN: start PeerJS immediately with full server list, filter in background
-        const iceServersPromise = getTurnCredentials();
-        // Use basic STUN to start immediately, upgrade ICE config when TURN test finishes
+        // TURN was fetching in parallel — now resolve with short timeout (likely already ready)
         const fallbackIce: RTCIceServer[] = [{ urls: 'stun:stun.l.google.com:19302' }];
         let iceServers: RTCIceServer[];
-        // Race: use TURN if ready within 500ms, otherwise start with STUN
+        // Race: use TURN if ready within 200ms, otherwise start with STUN
         const raceResult = await Promise.race([
           iceServersPromise.then(s => ({ type: 'turn' as const, servers: s })),
-          new Promise<{ type: 'fallback'; servers: RTCIceServer[] }>(r => setTimeout(() => r({ type: 'fallback', servers: fallbackIce }), 500)),
+          new Promise<{ type: 'fallback'; servers: RTCIceServer[] }>(r => setTimeout(() => r({ type: 'fallback', servers: fallbackIce }), 200)),
         ]);
         iceServers = raceResult.servers;
         const startedWithFallback = raceResult.type === 'fallback';
