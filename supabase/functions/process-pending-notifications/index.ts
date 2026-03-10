@@ -327,11 +327,11 @@ serve(async (req) => {
         type: string;
         minMinutes: number;
         maxMinutes: number;
-        resultKey: 'webinarReminders24h' | 'webinarReminders1h' | 'webinarReminders15min';
+        resultKey: 'webinarReminders24h' | 'webinarReminders12h' | 'webinarReminders2h' | 'webinarReminders1h' | 'webinarReminders15min';
       }> = [
         { type: "24h", minMinutes: 23.5 * 60, maxMinutes: 25 * 60, resultKey: "webinarReminders24h" },
-        { type: "12h", minMinutes: 11.5 * 60, maxMinutes: 12.5 * 60, resultKey: "webinarReminders24h" },
-        { type: "2h", minMinutes: 110, maxMinutes: 130, resultKey: "webinarReminders24h" },
+        { type: "12h", minMinutes: 11.5 * 60, maxMinutes: 12.5 * 60, resultKey: "webinarReminders12h" },
+        { type: "2h", minMinutes: 110, maxMinutes: 130, resultKey: "webinarReminders2h" },
         { type: "1h", minMinutes: 50, maxMinutes: 70, resultKey: "webinarReminders1h" },
         { type: "15min", minMinutes: 10, maxMinutes: 20, resultKey: "webinarReminders15min" },
       ];
