@@ -81,6 +81,8 @@ serve(async (req) => {
     trainingReminders: { processed: 0, success: 0, failed: 0 },
     retries: { processed: 0, success: 0, failed: 0 },
     webinarReminders24h: { processed: 0, success: 0, failed: 0 },
+    webinarReminders12h: { processed: 0, success: 0, failed: 0 },
+    webinarReminders2h: { processed: 0, success: 0, failed: 0 },
     webinarReminders1h: { processed: 0, success: 0, failed: 0 },
     webinarReminders15min: { processed: 0, success: 0, failed: 0 },
     pushReminders: { processed: 0, success: 0, failed: 0 },
