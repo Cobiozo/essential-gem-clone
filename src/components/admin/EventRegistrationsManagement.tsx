@@ -588,14 +588,22 @@ export const EventRegistrationsManagement: React.FC = () => {
     };
   }, [registrations, guestRegistrations]);
 
+  const filteredSingleOptions = useMemo(() => {
+    if (!followUpSearchQuery.trim()) return followUpRecipientLists.singleOptions;
+    const q = followUpSearchQuery.toLowerCase();
+    return followUpRecipientLists.singleOptions.filter(o => 
+      o.label.toLowerCase().includes(q) || o.email.toLowerCase().includes(q)
+    );
+  }, [followUpRecipientLists.singleOptions, followUpSearchQuery]);
+
   const totalFollowUpRecipients = useMemo(() => {
     switch (followUpRecipientGroup) {
       case 'all': return followUpRecipientLists.totalAll;
       case 'users': return followUpRecipientLists.totalUsers;
       case 'guests': return followUpRecipientLists.totalGuests;
-      case 'single': return followUpSingleRecipient ? 1 : 0;
+      case 'selected': return followUpSelectedRecipients.length;
     }
-  }, [followUpRecipientGroup, followUpRecipientLists, followUpSingleRecipient]);
+  }, [followUpRecipientGroup, followUpRecipientLists, followUpSelectedRecipients]);
 
   const handleSendFollowUp = async () => {
     if (!selectedEventId) return;
