@@ -334,6 +334,7 @@ const ThumbnailTile: React.FC<{
         autoPlay
         playsInline
         muted={!playAudio}
+        data-local-video={participant.isLocal ? 'true' : undefined}
         className={`w-full h-full object-cover ${participant.isLocal && !isCameraOff ? 'scale-x-[-1]' : ''} ${showVideo ? '' : 'hidden'}`}
       />
       {!showVideo && (
