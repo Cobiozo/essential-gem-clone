@@ -178,7 +178,7 @@ serve(async (req) => {
     console.log("[CRON] Created job log:", jobLogId);
 
     // Update cron_settings with current run info
-    const intervalMinutes = cronSettings?.interval_minutes || 180;
+    const intervalMinutes = cronSettings?.interval_minutes || 5;
     await supabase
       .from("cron_settings")
       .update({ 
