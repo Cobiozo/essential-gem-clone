@@ -8,6 +8,7 @@ interface VideoParticipant {
   displayName: string;
   stream: MediaStream | null;
   isMuted?: boolean;
+  isCameraOff?: boolean;
   isLocal?: boolean;
   avatarUrl?: string;
 }
