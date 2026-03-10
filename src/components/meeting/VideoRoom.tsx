@@ -1512,6 +1512,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       // Zmiana 5: Clear reconnecting flag on successful stream
       reconnectingPeersRef.current.delete(call.peer);
       reconnectAttemptsRef.current.delete(call.peer);
+      // Fix: Reset peer-unavailable retry counter on successful stream
+      peerRetryCountRef.current.delete(call.peer);
       // Apply bitrate limits after connection established
       applyBitrateLimits(call, participantsRef.current.length + 1);
       setParticipants((prev) => {
