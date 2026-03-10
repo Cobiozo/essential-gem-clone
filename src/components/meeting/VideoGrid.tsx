@@ -164,6 +164,7 @@ const VideoTile: React.FC<{
       if (video.srcObject && !participant.isLocal) {
         setTimeout(() => {
           if (video.paused && video.srcObject) {
+            video.muted = !!participant.isLocal;
             playVideoSafe(video, false, onAudioBlocked);
           }
         }, 100);
