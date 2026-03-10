@@ -1417,17 +1417,32 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             .eq('room_id', roomId).eq('is_active', true);
 
           if (existing && !cancelled) {
-            for (const p of existing) {
-              if (user && p.user_id === user.id) continue;
-              if (guestTokenId && p.guest_token_id === guestTokenId) continue;
-              if (p.peer_id) {
-                let avatarUrl: string | undefined;
-                if (p.user_id) {
-                  const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('user_id', p.user_id).single();
-                  avatarUrl = profile?.avatar_url || undefined;
+            // Immediately call all peers without waiting for avatars
+            const peersToCall = existing.filter(p => {
+              if (user && p.user_id === user.id) return false;
+              if (guestTokenId && p.guest_token_id === guestTokenId) return false;
+              return !!p.peer_id;
+            });
+
+            // Start all calls immediately (no avatar blocking)
+            for (const p of peersToCall) {
+              callPeer(p.peer_id!, p.display_name || 'Uczestnik', localStreamRef.current || stream, undefined, p.user_id || undefined);
+            }
+
+            // Batch-fetch avatars in background and update participants
+            const userIds = peersToCall.map(p => p.user_id).filter(Boolean) as string[];
+            if (userIds.length > 0) {
+              supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds).then(({ data: profiles }) => {
+                if (profiles && !cancelled) {
+                  const avatarMap = new Map(profiles.map(pr => [pr.user_id, pr.avatar_url]));
+                  setParticipants(prev => prev.map(p => {
+                    if (p.userId && avatarMap.has(p.userId) && !p.avatarUrl) {
+                      return { ...p, avatarUrl: avatarMap.get(p.userId) || undefined };
+                    }
+                    return p;
+                  }));
                 }
-                callPeer(p.peer_id, p.display_name || 'Uczestnik', localStreamRef.current || stream, avatarUrl, p.user_id || undefined);
-              }
+              });
             }
           }
         });
@@ -1479,24 +1494,6 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
           let callerUserId: string | undefined = meta.userId;
           let callerAvatar: string | undefined = meta.avatarUrl;
 
-          if (!callerUserId) {
-            const { data } = await supabase
-              .from('meeting_room_participants')
-              .select('display_name, user_id')
-              .eq('room_id', roomId)
-              .eq('peer_id', call.peer)
-              .maybeSingle();
-            if (data) {
-              name = data.display_name || name;
-              callerUserId = data.user_id || undefined;
-            }
-          }
-          if (callerUserId && !callerAvatar) {
-            const { data: prof } = await supabase.from('profiles')
-              .select('avatar_url').eq('user_id', callerUserId).single();
-            callerAvatar = prof?.avatar_url || undefined;
-          }
-
           // Deduplikacja po userId: usun stare wpisy tego samego uzytkownika przed przyjęciem nowego połączenia
           if (callerUserId) {
             setParticipants(prev => {
@@ -1511,8 +1508,55 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             });
           }
 
+          // CRITICAL: Answer immediately — don't block ICE negotiation with DB queries
           call.answer(localStreamRef.current || stream);
           handleCall(call, name, callerAvatar, callerUserId);
+
+          // Fetch missing metadata asynchronously and update participant after connection is established
+          if (!callerUserId || !callerAvatar) {
+            (async () => {
+              try {
+                let fetchedName = name;
+                let fetchedUserId = callerUserId;
+                let fetchedAvatar = callerAvatar;
+
+                if (!fetchedUserId) {
+                  const { data } = await supabase
+                    .from('meeting_room_participants')
+                    .select('display_name, user_id')
+                    .eq('room_id', roomId)
+                    .eq('peer_id', call.peer)
+                    .maybeSingle();
+                  if (data) {
+                    fetchedName = data.display_name || fetchedName;
+                    fetchedUserId = data.user_id || undefined;
+                  }
+                }
+                if (fetchedUserId && !fetchedAvatar) {
+                  const { data: prof } = await supabase.from('profiles')
+                    .select('avatar_url').eq('user_id', fetchedUserId).single();
+                  fetchedAvatar = prof?.avatar_url || undefined;
+                }
+
+                // Update participant metadata after fetch
+                if (fetchedName !== name || fetchedUserId || fetchedAvatar) {
+                  setParticipants(prev => prev.map(p => {
+                    if (p.peerId === call.peer) {
+                      return {
+                        ...p,
+                        displayName: fetchedName,
+                        userId: fetchedUserId || p.userId,
+                        avatarUrl: fetchedAvatar || p.avatarUrl,
+                      };
+                    }
+                    return p;
+                  }));
+                }
+              } catch (e) {
+                console.warn('[VideoRoom] Async metadata fetch failed for', call.peer, e);
+              }
+            })();
+          }
         });
 
         peer.on('error', (err) => {

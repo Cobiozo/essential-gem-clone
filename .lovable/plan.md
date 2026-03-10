@@ -1,43 +1,24 @@
 
 
-# Fix: Opóźnienie w łapaniu sygnału video/audio uczestników
-
-## Diagnoza
-
-Zidentyfikowałem dwa główne wąskie gardła w sygnalizacji WebRTC:
-
-### Problem 1: `call.answer()` wykonywany PO zapytaniach do bazy (krytyczne)
-W `peer.on('call')` (linia 1435-1516) system wykonuje **2 sekwencyjne zapytania do Supabase** (lookup uczestnika + avatar) **ZANIM** odpowie na połączenie WebRTC (`call.answer()`). Każde zapytanie to ~100-300ms RTT, co daje **200-600ms opóźnienia** przed rozpoczęciem negocjacji ICE.
-
-```text
-TERAZ (wolne):
-incoming call → query participant → query avatar → call.answer() → ICE negotiation
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                      200-600ms opóźnienia
-
-PO NAPRAWIE (szybkie):
-incoming call → call.answer() → ICE negotiation (natychmiast)
-                    ↘ query participant + avatar (async, update metadata później)
-```
-
-### Problem 2: Sekwencyjne pobieranie avatarów istniejących uczestników
-W `peer.on('open')` (linie 1420-1432) pętla `for...of` pobiera avatar każdego uczestnika **sekwencyjnie** — 3 uczestników = 3 × ~150ms = 450ms. Dopiero po tym callPeer() jest wywoływany.
-
 ## Plan zmian
 
-### 1. Natychmiastowy `call.answer()` przed DB lookupami (`peer.on('call')`)
-Przenieść `call.answer()` na początek handlera, przed zapytania do bazy. Metadane (nazwa, avatar) zaktualizować asynchronicznie przez `setParticipants` po ich pobraniu.
+### 1. Logo na ekranie ładowania (App.tsx)
 
-### 2. Równoległe pobieranie avatarów + natychmiastowy `callPeer()` 
-Zamiast sekwencyjnego `for...of` z `await` na avatar, uruchomić `callPeer()` natychmiast z tymczasową nazwą, a avatar pobrać w tle i zaktualizować przez `setParticipants`.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-### 3. Batch avatar fetch (opcjonalnie)
-Zamiast N osobnych zapytań do `profiles`, jedno zapytanie `WHERE user_id IN (...)`.
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-| Plik | Zmiana |
-|---|---|
-| `VideoRoom.tsx` linie ~1435-1516 | `call.answer()` natychmiast, DB lookups async |
-| `VideoRoom.tsx` linie ~1413-1432 | Równoległe callPeer + async avatar fetch |
+### 2. Złote ikony dla datetime-local (index.css)
 
-Łączny efekt: **~300-800ms szybsze nawiązanie połączenia** per uczestnik.
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+
+### Zakres: 2 pliki, ~10 linii zmian
 
