@@ -1417,17 +1417,32 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
             .eq('room_id', roomId).eq('is_active', true);
 
           if (existing && !cancelled) {
-            for (const p of existing) {
-              if (user && p.user_id === user.id) continue;
-              if (guestTokenId && p.guest_token_id === guestTokenId) continue;
-              if (p.peer_id) {
-                let avatarUrl: string | undefined;
-                if (p.user_id) {
-                  const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('user_id', p.user_id).single();
-                  avatarUrl = profile?.avatar_url || undefined;
+            // Immediately call all peers without waiting for avatars
+            const peersToCall = existing.filter(p => {
+              if (user && p.user_id === user.id) return false;
+              if (guestTokenId && p.guest_token_id === guestTokenId) return false;
+              return !!p.peer_id;
+            });
+
+            // Start all calls immediately (no avatar blocking)
+            for (const p of peersToCall) {
+              callPeer(p.peer_id!, p.display_name || 'Uczestnik', localStreamRef.current || stream, undefined, p.user_id || undefined);
+            }
+
+            // Batch-fetch avatars in background and update participants
+            const userIds = peersToCall.map(p => p.user_id).filter(Boolean) as string[];
+            if (userIds.length > 0) {
+              supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds).then(({ data: profiles }) => {
+                if (profiles && !cancelled) {
+                  const avatarMap = new Map(profiles.map(pr => [pr.user_id, pr.avatar_url]));
+                  setParticipants(prev => prev.map(p => {
+                    if (p.userId && avatarMap.has(p.userId) && !p.avatarUrl) {
+                      return { ...p, avatarUrl: avatarMap.get(p.userId) || undefined };
+                    }
+                    return p;
+                  }));
                 }
-                callPeer(p.peer_id, p.display_name || 'Uczestnik', localStreamRef.current || stream, avatarUrl, p.user_id || undefined);
-              }
+              });
             }
           }
         });
