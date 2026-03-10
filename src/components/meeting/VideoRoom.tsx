@@ -1034,6 +1034,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     cleanupDoneRef.current = false;
 
     const init = async () => {
+      // Mark interaction for all entry paths (lobby, auto-rejoin, mobile)
+      setUserHasInteracted();
       try {
         let stream: MediaStream | null = null;
         // Try to reuse the lobby stream (preserves user gesture context)
@@ -1641,6 +1643,24 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
           if (state === 'connected' || state === 'completed') {
             reconnectAttemptsRef.current.delete(call.peer);
+            // Verify local tracks are live — fix race when stream re-acquired before ICE connected
+            try {
+              const senders = pc.getSenders();
+              const audioSender = senders.find(s => s.track?.kind === 'audio');
+              const currentAudioTrack = localStreamRef.current?.getAudioTracks()[0];
+              if (audioSender && currentAudioTrack &&
+                  (audioSender.track?.readyState === 'ended' || !audioSender.track)) {
+                audioSender.replaceTrack(currentAudioTrack).catch(() => {});
+                console.log(`[VideoRoom] Replaced dead audio track for ${call.peer}`);
+              }
+              const videoSender = senders.find(s => s.track?.kind === 'video');
+              const currentVideoTrack = localStreamRef.current?.getVideoTracks()[0];
+              if (videoSender && currentVideoTrack &&
+                  (videoSender.track?.readyState === 'ended' || !videoSender.track)) {
+                videoSender.replaceTrack(currentVideoTrack).catch(() => {});
+                console.log(`[VideoRoom] Replaced dead video track for ${call.peer}`);
+              }
+            } catch (e) { /* ignore */ }
           } else if (state === 'disconnected') {
             const timer = setTimeout(() => {
               iceDisconnectTimersRef.current.delete(call.peer);
