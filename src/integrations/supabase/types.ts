@@ -6613,6 +6613,7 @@ export type Database = {
           contact_upline_first_name: string | null
           contact_upline_last_name: string | null
           created_at: string | null
+          deleted_at: string | null
           email: string | null
           eq_id: string | null
           first_contact_annotation: string | null
@@ -6623,6 +6624,7 @@ export type Database = {
           last_name: string
           linked_user_deleted_at: string | null
           linked_user_id: string | null
+          moved_to_own_list: boolean | null
           next_contact_date: string | null
           notes: string | null
           partner_status: string | null
@@ -6653,6 +6655,7 @@ export type Database = {
           contact_upline_first_name?: string | null
           contact_upline_last_name?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           eq_id?: string | null
           first_contact_annotation?: string | null
@@ -6663,6 +6666,7 @@ export type Database = {
           last_name: string
           linked_user_deleted_at?: string | null
           linked_user_id?: string | null
+          moved_to_own_list?: boolean | null
           next_contact_date?: string | null
           notes?: string | null
           partner_status?: string | null
@@ -6693,6 +6697,7 @@ export type Database = {
           contact_upline_first_name?: string | null
           contact_upline_last_name?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
           eq_id?: string | null
           first_contact_annotation?: string | null
@@ -6703,6 +6708,7 @@ export type Database = {
           last_name?: string
           linked_user_deleted_at?: string | null
           linked_user_id?: string | null
+          moved_to_own_list?: boolean | null
           next_contact_date?: string | null
           notes?: string | null
           partner_status?: string | null
