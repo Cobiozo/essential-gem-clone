@@ -339,7 +339,7 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   // ============ CMS ITEMS ============
   let itemsQuery = supabase
     .from('cms_items')
-    .select('id, title, description, cells')
+    .select('id, title, description, cells, updated_at')
     .eq('is_active', true);
   
   if (page_id) {
@@ -367,9 +367,13 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   const existingItemIds = new Set(existingItemTranslations?.map(t => t.item_id) || []);
 
   // Filter items based on mode
-  const itemsToTranslate = job.mode === 'all' 
+  let itemsToTranslate = job.mode === 'all' 
     ? translatableItems 
     : translatableItems.filter(item => !existingItemIds.has(item.id));
+
+  if (job._outdatedOnly) {
+    itemsToTranslate = await filterOutdatedItems(supabase, translatableItems, 'cms_item_translations', 'item_id', target_language);
+  }
 
   // ============ CMS SECTIONS ============
   let sectionsQuery = supabase
