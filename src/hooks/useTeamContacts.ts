@@ -484,7 +484,8 @@ export const useTeamContacts = () => {
   useEffect(() => {
     fetchContacts();
     fetchEventContactIds();
-  }, [fetchContacts, fetchEventContactIds]);
+    fetchDeletedContacts();
+  }, [fetchContacts, fetchEventContactIds, fetchDeletedContacts]);
 
   // Compute grouped data
   const { groups: eventGroupedContacts, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
