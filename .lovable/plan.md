@@ -1,24 +1,40 @@
 
 
-## Plan zmian
+# Fix: Cancelled registrations showing as active event groups
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Root Cause
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+Database query confirmed: `byk1023@wp.pl` has 3 records in `guest_event_registrations`:
+- **Szansa Biznesowa**: 1 cancelled record (from deleted contact) — `team_contact_id` still points to the reactivated contact
+- **Prezentacja możliwości biznesowych**: 1 cancelled + 1 registered (re-registration after delete)
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+The `fetchEventContactIds` query fetches ALL statuses. After deduplication, the cancelled record for "Szansa Biznesowa" survives (only record for that contact+event pair), creating a phantom event group.
 
-### 2. Złote ikony dla datetime-local (index.css)
+## Fix
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+### File: `src/hooks/useTeamContacts.ts`
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+In `fetchEventContactIds` — after deduplication, **skip records where `status = 'cancelled'`** when building the event groups and details map. Only add to `ids` and `detailsMap` if the best (deduplicated) record has `status = 'registered'`.
 
-### Zakres: 2 pliki, ~10 linii zmian
+The attempt counter still counts ALL records (including cancelled) — this is correct for showing "Ponowna próba ×N".
+
+```typescript
+// After deduplication loop, when iterating seenContactEvent.values():
+for (const r of seenContactEvent.values()) {
+  // Skip cancelled-only entries — they shouldn't create event groups
+  if (r.status === 'cancelled') continue;
+  
+  const contactId = r.team_contact_id as string;
+  // ... rest of logic
+}
+```
+
+This single change fixes both issues:
+- No phantom event groups for cancelled registrations
+- No "Zapisany na 2 wydarzeń" badge (since only 1 active registration exists)
+- Attempt count stays correct (counts all records including cancelled)
+
+| File | Change |
+|------|--------|
+| `src/hooks/useTeamContacts.ts` | Skip `status = 'cancelled'` records when building event groups |
 
