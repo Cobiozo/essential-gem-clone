@@ -80,7 +80,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events' | 'deleted'>('own');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
