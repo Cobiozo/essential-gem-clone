@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
+import { getRegistrationLabels, getDateLocale } from '@/utils/invitationTemplates';
 
 interface AutoWebinarSlotConfig {
   start_hour: number;
