@@ -342,12 +342,12 @@ const EventGuestRegistration: React.FC = () => {
                       <>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span>{format(slot.date, 'EEEE, d MMMM', { locale: pl })} • godz. {slot.time}</span>
+                          <span>{format(slot.date, 'EEEE, d MMMM', { locale: dateLocale })} • {slot.time}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {autoWebinarConfig.interval_minutes >= 30
-                            ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
-                            : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.'}
+                            ? labels.roomOpens5min
+                            : labels.roomOpensOnTime}
                         </p>
                       </>
                     );
