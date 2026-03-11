@@ -75,6 +75,8 @@ export interface EventRegistrationInfo {
   event_title: string;
   event_start_time: string;
   guest_status: string;
+  registered_at: string;
+  registration_attempts?: number;
 }
 
 export interface EventGroup {

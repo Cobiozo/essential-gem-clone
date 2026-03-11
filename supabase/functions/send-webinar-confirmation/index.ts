@@ -352,25 +352,33 @@ const handler = async (req: Request): Promise<Response> => {
       sender_name: smtpData.sender_name,
     };
 
-    // Format date for email
+    // Format date for email — always use Europe/Warsaw timezone
+    const warsawDateOptions: Intl.DateTimeFormatOptions = {
+      timeZone: 'Europe/Warsaw',
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    };
+
+    // Extract time in Warsaw TZ from eventDate for DB template {{event_time}}
+    const warsawTimeFromDate = eventDate
+      ? new Date(eventDate).toLocaleTimeString('pl-PL', { timeZone: 'Europe/Warsaw', hour: '2-digit', minute: '2-digit' })
+      : '';
+
     const displayDate = isAutoWebinar && nextSlotTimeFormatted
       ? nextSlotTimeFormatted
-      : eventTime 
-        ? `${eventDate}, godz. ${eventTime}` 
-        : (eventDate 
-          ? new Date(eventDate).toLocaleDateString('pl-PL', { 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long', 
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })
+      : eventTime
+        ? `${eventDate}, godz. ${eventTime}`
+        : (eventDate
+          ? new Date(eventDate).toLocaleDateString('pl-PL', warsawDateOptions)
           : '');
 
     const displayHost = videoHostName || hostName || eventHost || 'Zespół Pure Life';
     const displayZoomLink = zoomLink || '';
-    const displayTime = eventTime || '';
+    const displayTime = eventTime || warsawTimeFromDate;
     const displayRoomLink = roomLink || '';
     const displayCoverImage = videoCoverImageUrl || '';
     const displayVideoDescription = videoDescription || '';
