@@ -296,7 +296,10 @@ const EventGuestRegistration: React.FC = () => {
         <Card className="max-w-lg w-full">
           <CardHeader className="text-center">
             <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
-            <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
+            {alreadyRegistered 
+              ? <AlertCircle className="h-16 w-16 mx-auto text-amber-500 mb-4" />
+              : <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
+            }
             <CardTitle className="text-2xl">
               {alreadyRegistered ? 'Jesteś już zarejestrowany/a!' : 'Rejestracja zakończona!'}
             </CardTitle>

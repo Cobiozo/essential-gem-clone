@@ -1,28 +1,24 @@
 
 
-# Plan: Remove "Komunikacja" tab from My Account + Verify registration flow
+## Plan zmian
 
-## 1. Remove "Komunikacja" tab from MyAccount
+### 1. Logo na ekranie ładowania (App.tsx)
 
-### File: `src/pages/MyAccount.tsx`
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-- Line 237: Change `communication: true` → `communication: false`
-- This hides the tab and its TabsContent. No other changes needed — the sidebar chat remains the single communication hub.
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-## 2. Registration flow verification
+### 2. Złote ikony dla datetime-local (index.css)
 
-After reviewing the code:
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-- **First registration**: RPC inserts new row, returns `{status: 'registered'}` → shows "Rejestracja zakończona!" with green check and confirmation email details. This is correct.
-- **Subsequent attempts**: RPC catches `unique_violation`, increments `registration_attempts`, returns `{status: 'already_registered'}` → shows "Jesteś już zarejestrowany/a!" with message about checking email/spam and contacting the inviter. This is correct.
-- **RPC function**: Properly uses `SECURITY DEFINER`, matches on `lower(trim(email))`, only updates non-cancelled records.
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-One visual issue: the "already registered" state shows a **green CheckCircle** icon (line 299), which could be confusing — it looks like success rather than a warning. I'll change it to an **info/warning icon** (e.g., `AlertCircle` in amber) to better communicate "you're already on the list."
-
-## Changes summary
-
-| File | Change |
-|------|--------|
-| `src/pages/MyAccount.tsx` | Set `communication: false` in `visibleTabs` |
-| `src/pages/EventGuestRegistration.tsx` | Change icon from green CheckCircle to amber AlertCircle for `alreadyRegistered` state |
+### Zakres: 2 pliki, ~10 linii zmian
 
