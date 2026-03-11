@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X } from 'lucide-react';
+import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X, UserPlus, Copy } from 'lucide-react';
 import { Widget3DIcon } from './Widget3DIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { subMinutes, isAfter, isBefore, differenceInMinutes } from 'date-fns';
+import { subMinutes, isAfter, isBefore, differenceInMinutes, format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import type { EventWithRegistration } from '@/types/events';
@@ -18,11 +18,15 @@ import { WidgetInfoButton } from '../WidgetInfoButton';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { expandEventsForCalendar } from '@/hooks/useOccurrences';
 import { useMeetingRoomStatus } from '@/hooks/useMeetingRoomStatus';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
+import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
 
 interface MyMeetingsWidgetProps {
   events?: EventWithRegistration[];
   eventsLoading?: boolean;
 }
+
+const GROUP_EVENT_TYPES = ['webinar', 'auto_webinar', 'meeting_public', 'team_training'];
 
 export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   events: sharedEvents,
@@ -35,18 +39,18 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
+  const [inviteLang, setInviteLang] = useState('pl');
 
   const locale = language === 'pl' ? pl : enUS;
 
-  // Filter user's registered events from shared data
   const userEvents = useMemo(() => {
     if (!sharedEvents) return [];
     const expanded = expandEventsForCalendar(sharedEvents);
     return expanded.filter(e => e.is_registered);
   }, [sharedEvents]);
 
-  const toggleExpand = (type: string) => {
-    setExpandedTypes(prev => ({ ...prev, [type]: !prev[type] }));
+  const toggleExpand = (key: string) => {
+    setExpandedTypes(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
   const getEventIcon = (type: string) => {
@@ -88,6 +92,15 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     }
   };
 
+  const getDetailsPath = (event: EventWithRegistration) => {
+    if (event.event_type === 'webinar' || event.event_type === 'auto_webinar') {
+      return `/events/webinars?event=${event.id}`;
+    }
+    if (event.event_type === 'meeting_public' || event.event_type === 'team_training') {
+      return `/events/team-meetings?event=${event.id}`;
+    }
+    return null;
+  };
 
   // Collect meeting room IDs for real-time status tracking
   const meetingRoomIds = useMemo(() => {
@@ -98,13 +111,11 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
 
   const activeRoomIds = useMeetingRoomStatus(meetingRoomIds);
 
-  // Filter to show only upcoming events, excluding ended internal meetings
+  // Filter to show only upcoming events
   const upcomingEvents = userEvents.filter(e => {
     const now = new Date();
     const endTime = new Date(e.end_time);
-    // If end_time already passed, skip
     if (endTime <= now) return false;
-    // If it's an internal meeting and the room is no longer active, hide it
     const roomId = (e as any).meeting_room_id;
     if (roomId && !activeRoomIds.has(roomId) && new Date(e.start_time) <= now) {
       return false;
@@ -112,17 +123,62 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     return true;
   });
 
-  // Group events by type
-  const groupedEvents = upcomingEvents.reduce((acc, event) => {
-    const type = event.event_type;
-    if (!acc[type]) {
-      acc[type] = [];
+  // Group by day, then by type within each day
+  const groupedByDay = useMemo(() => {
+    const dayMap: Record<string, Record<string, EventWithRegistration[]>> = {};
+    
+    for (const event of upcomingEvents) {
+      const dayKey = format(new Date(event.start_time), 'yyyy-MM-dd');
+      if (!dayMap[dayKey]) dayMap[dayKey] = {};
+      const type = event.event_type;
+      if (!dayMap[dayKey][type]) dayMap[dayKey][type] = [];
+      dayMap[dayKey][type].push(event);
     }
-    acc[type].push(event);
-    return acc;
-  }, {} as Record<string, EventWithRegistration[]>);
 
-  // Handle meeting cancellation via Edge Function (bypasses RLS)
+    // Sort days chronologically
+    return Object.entries(dayMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, types]) => ({ day, types }));
+  }, [upcomingEvents]);
+
+  // Handle invitation copy
+  const handleCopyInvitation = (event: EventWithRegistration) => {
+    const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
+    const startDate = new Date(event.start_time);
+    const endDate = new Date(event.end_time);
+    
+    const baseUrl = window.location.origin;
+    const eventSlug = (event as any).slug;
+    let inviteUrl: string;
+    if (eventSlug) {
+      const params = new URLSearchParams();
+      if (inviteLang !== 'pl') params.set('lang', inviteLang);
+      const qs = params.toString();
+      inviteUrl = `${baseUrl}/e/${eventSlug}${qs ? `?${qs}` : ''}`;
+    } else {
+      inviteUrl = `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    }
+
+    const labels = getInvitationLabels(inviteLang);
+    const invLocale = getDateLocale(inviteLang);
+    const invitationText = `
+🎥 ${labels.webinarInvitation}: ${event.title}
+
+📅 ${labels.date}: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: invLocale })}
+⏰ ${labels.time}: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
+${event.host_name ? `👤 ${labels.host}: ${event.host_name}` : ''}
+
+${labels.signUp}: ${inviteUrl}
+    `.trim();
+
+    navigator.clipboard.writeText(invitationText);
+    toast({
+      title: labels.copied,
+      description: labels.invitationCopied,
+    });
+  };
+
+  // Handle meeting cancellation via Edge Function
   const handleCancelMeeting = async (event: EventWithRegistration) => {
     if (!user) return;
     
@@ -132,33 +188,20 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     setCancellingEventId(event.id);
 
     try {
-      console.log('[MyMeetingsWidget] Cancelling meeting via Edge Function:', event.id);
-      
       const { data, error } = await supabase.functions.invoke('cancel-individual-meeting', {
         body: { event_id: event.id }
       });
 
-      if (error) {
-        console.error('[MyMeetingsWidget] Edge function error:', error);
-        throw new Error(error.message || tf('common.error', 'Błąd wywołania funkcji'));
-      }
-
-      if (!data?.success) {
-        console.error('[MyMeetingsWidget] Cancellation failed:', data?.error);
-        throw new Error(data?.error || tf('events.cancelFailed', 'Nie udało się anulować spotkania'));
-      }
-
-      console.log('[MyMeetingsWidget] Meeting cancelled successfully:', data);
+      if (error) throw new Error(error.message || tf('common.error', 'Błąd wywołania funkcji'));
+      if (!data?.success) throw new Error(data?.error || tf('events.cancelFailed', 'Nie udało się anulować spotkania'));
 
       toast({
         title: tf('events.meetingCancelled', 'Spotkanie anulowane'),
         description: `${tf('events.emailNotificationsSent', 'Powiadomienia email wysłane')} (${data.emails_sent}/${data.total_participants}).`,
       });
 
-      // Dispatch event for other widgets to refresh (useEvents in Dashboard will refetch)
       window.dispatchEvent(new CustomEvent('eventRegistrationChange'));
     } catch (error: any) {
-      console.error('[MyMeetingsWidget] Error cancelling meeting:', error);
       toast({
         title: tf('common.error', 'Błąd'),
         description: error.message || tf('events.cancelFailed', 'Nie udało się anulować spotkania'),
@@ -177,90 +220,106 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     const fifteenMinutesBefore = subMinutes(eventStart, 15);
     const minutesUntilEvent = differenceInMinutes(eventStart, now);
     
-    // Event already ended
-    if (isAfter(now, eventEnd)) {
-      return null;
-    }
+    if (isAfter(now, eventEnd)) return null;
     
-    // Check if event is webinar or team training
-    const isWebinarOrTeamMeeting = event.event_type === 'webinar' || event.event_type === 'team_training';
-    
-    // Determine which URL to use - host gets start_url if available
+    const isGroupEvent = GROUP_EVENT_TYPES.includes(event.event_type);
     const eventAny = event as any;
-    const isHost = event.host_user_id === user?.id || (event as any).created_by === user?.id;
+    const isHost = event.host_user_id === user?.id || eventAny.created_by === user?.id;
     const zoomUrl = isHost && eventAny.zoom_start_url ? eventAny.zoom_start_url : event.zoom_link;
-    const buttonLabel = isHost && eventAny.zoom_start_url ? (tf('events.start', 'Rozpocznij')) : (tf('events.join', 'WEJDŹ'));
+    const buttonLabel = isHost && eventAny.zoom_start_url ? tf('events.start', 'Rozpocznij') : tf('events.join', 'WEJDŹ');
     
-    // 15 min before or during event - show WEJDŹ button with pulsing red dot
+    const detailsPath = getDetailsPath(event);
+
+    // Helper: details button for group events
+    const detailsButton = isGroupEvent && detailsPath ? (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-8 px-3 text-xs touch-action-manipulation"
+        onClick={() => navigate(detailsPath)}
+      >
+        <Info className="h-3.5 w-3.5 mr-1" />
+        {tf('events.details', 'Szczegóły')}
+      </Button>
+    ) : null;
+
+    // 15 min before or during event - show WEJDŹ button
     if (isAfter(now, fifteenMinutesBefore) && isBefore(now, eventEnd)) {
       // Internal WebRTC meeting
-      if ((event as any).use_internal_meeting && (event as any).meeting_room_id) {
+      if (eventAny.use_internal_meeting && eventAny.meeting_room_id) {
         return (
-          <Button
-            size="sm"
-            className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
-            asChild
-          >
-            <a href={`/meeting-room/${(event as any).meeting_room_id}`} target="_blank" rel="noopener noreferrer">
-              <span className="relative flex h-2 w-2 mr-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              </span>
-              {tf('events.join', 'WEJDŹ')}
-            </a>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
+              asChild
+            >
+              <a href={`/meeting-room/${eventAny.meeting_room_id}`} target="_blank" rel="noopener noreferrer">
+                <span className="relative flex h-2 w-2 mr-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                </span>
+                {tf('events.join', 'WEJDŹ')}
+              </a>
+            </Button>
+            {detailsButton}
+          </div>
         );
       }
       if (zoomUrl) {
         return (
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
+              asChild
+            >
+              <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
+                <span className="relative flex h-2 w-2 mr-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                </span>
+                {buttonLabel}
+              </a>
+            </Button>
+            {detailsButton}
+          </div>
+        );
+      }
+      // No zoom link
+      return (
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
-            asChild
+            onClick={() => setDetailsEvent(event)}
           >
-            <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
-              {/* Pulsing red dot - recording indicator */}
-              <span className="relative flex h-2 w-2 mr-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              </span>
-              {buttonLabel}
-            </a>
+            <span className="relative flex h-2 w-2 mr-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+            </span>
+            {tf('events.join', 'Wejdź')}
           </Button>
-        );
-      }
-      // No zoom link - show "Wejdź" button that opens details dialog
-      return (
-        <Button
-          size="sm"
-          className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium touch-action-manipulation"
-          onClick={() => setDetailsEvent(event)}
-        >
-          {/* Pulsing red dot - recording indicator */}
-          <span className="relative flex h-2 w-2 mr-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-          </span>
-           {tf('events.join', 'Wejdź')}
-        </Button>
-      );
-    }
-    
-    // More than 15 min until event - show countdown or details button
-    if (minutesUntilEvent <= 60 && minutesUntilEvent > 15) {
-      return (
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          {tf('events.inMinutes', 'Za')} {minutesUntilEvent} min
+          {detailsButton}
         </div>
       );
     }
     
-    // For webinars and team meetings - show "Szczegóły" button instead of Zoom
-    if (isWebinarOrTeamMeeting) {
-      const detailsPath = event.event_type === 'webinar' 
-        ? `/events/webinars?event=${event.id}` 
-        : `/events/team-meetings?event=${event.id}`;
+    // Countdown within 60 min
+    if (minutesUntilEvent <= 60 && minutesUntilEvent > 15) {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            {tf('events.inMinutes', 'Za')} {minutesUntilEvent} min
+          </div>
+          {detailsButton}
+        </div>
+      );
+    }
+    
+    // Group events (webinars/team meetings) - show details
+    if (isGroupEvent && detailsPath) {
       return (
         <Button
           size="sm"
@@ -269,12 +328,12 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
           onClick={() => navigate(detailsPath)}
         >
           <Info className="h-3.5 w-3.5 mr-1" />
-           {tf('events.details', 'Szczegóły')}
+          {tf('events.details', 'Szczegóły')}
         </Button>
       );
     }
     
-    // For individual meetings (tripartite, partner_consultation) - show "Szczegóły" button
+    // Individual meetings
     if (['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type)) {
       return (
         <div className="flex items-center gap-2">
@@ -287,7 +346,6 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
             <Info className="h-3.5 w-3.5 mr-1" />
             {tf('events.details', 'Szczegóły')}
           </Button>
-          {/* Cancel button (more than 2 hours before) */}
           {minutesUntilEvent > 120 && (
             <Button
               size="sm"
@@ -314,13 +372,13 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         >
           <a href={zoomUrl} target="_blank" rel="noopener noreferrer">
             <ExternalLink className="h-3.5 w-3.5 mr-1" />
-            {isHost ? (tf('events.start', 'Rozpocznij')) : 'Zoom'}
+            {isHost ? tf('events.start', 'Rozpocznij') : 'Zoom'}
           </a>
         </Button>
       );
     }
     
-    // For individual meetings without zoom link - show cancel button if > 2 hours before
+    // Cancel button for individual meetings without zoom
     if (['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && 
         minutesUntilEvent > 120) {
       return (
@@ -363,9 +421,9 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     <Card variant="premium" className="relative" data-tour="my-meetings-widget">
       <WidgetInfoButton description="Twoje nadchodzące spotkania - zapisane webinary i zaplanowane konsultacje" />
       <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-3">
-            <Widget3DIcon icon={Video} variant="emerald" size="md" />
-            {tf('events.myMeetings', 'Moje spotkania')}
+        <CardTitle className="text-base font-semibold flex items-center gap-3">
+          <Widget3DIcon icon={Video} variant="emerald" size="md" />
+          {tf('events.myMeetings', 'Moje spotkania')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -377,64 +435,101 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {Object.entries(groupedEvents).map(([type, events]) => (
-              <div key={type} className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                  {getEventIcon(type)}
-                  {getEventTypeName(type)}
-                  <Badge variant="secondary" className="text-xs ml-1">{events.length}</Badge>
-                </h4>
-                
-                <div className="space-y-1.5">
-                  {(expandedTypes[type] ? events : events.slice(0, 3)).map((event, idx) => (
-                    <div
-                      key={`${event.id}-${(event as any)._occurrence_index ?? idx}`}
-                      className="p-2 rounded-lg bg-muted/50 space-y-1"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium truncate flex-1">{event.title}</span>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-xs text-muted-foreground">
-                            {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'd MMM HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
-                          </span>
-                          {getActionButton(event)}
-                        </div>
-                      </div>
+          <div className="space-y-5">
+            {groupedByDay.map(({ day, types }) => (
+              <div key={day} className="space-y-3">
+                {/* Day header */}
+                <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">
+                  {format(new Date(day + 'T00:00:00'), 'EEEE, d MMMM yyyy', { locale })}
+                </h3>
 
-                      {/* Info for individual meetings - compact */}
-                      {['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && (
-                        <div className="text-xs text-muted-foreground">
-                          {event.host_profile && event.host_user_id !== user?.id && (
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {event.host_profile.first_name} {event.host_profile.last_name}
-                            </span>
-                          )}
-                          {event.participant_profile && event.host_user_id === user?.id && (
-                            <span className="flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {event.participant_profile.first_name} {event.participant_profile.last_name}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                {Object.entries(types).map(([type, events]) => {
+                  const expandKey = `${day}-${type}`;
+                  const isGroupEvent = GROUP_EVENT_TYPES.includes(type);
+
+                  return (
+                    <div key={type} className="space-y-2 pl-2">
+                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        {getEventIcon(type)}
+                        {getEventTypeName(type)}
+                        <Badge variant="secondary" className="text-xs ml-1">{events.length}</Badge>
+                      </h4>
+
+                      <div className="space-y-1.5">
+                        {(expandedTypes[expandKey] ? events : events.slice(0, 3)).map((event, idx) => (
+                          <div
+                            key={`${event.id}-${(event as any)._occurrence_index ?? idx}`}
+                            className="p-2 rounded-lg bg-muted/50 space-y-1.5"
+                          >
+                            {/* Title row - full title */}
+                            <div className="text-sm font-medium">{event.title}</div>
+
+                            {/* Time + action buttons */}
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-xs text-muted-foreground">
+                                {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })} - {formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
+                              </span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {getActionButton(event)}
+                              </div>
+                            </div>
+
+                            {/* Info for individual meetings */}
+                            {['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && (
+                              <div className="text-xs text-muted-foreground">
+                                {event.host_profile && event.host_user_id !== user?.id && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    {event.host_profile.first_name} {event.host_profile.last_name}
+                                  </span>
+                                )}
+                                {event.participant_profile && event.host_user_id === user?.id && (
+                                  <span className="flex items-center gap-1">
+                                    <User className="h-3 w-3" />
+                                    {event.participant_profile.first_name} {event.participant_profile.last_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Invite guest row for group events */}
+                            {isGroupEvent && (
+                              <div className="flex items-center gap-1 pt-0.5">
+                                <InvitationLanguageSelect
+                                  value={inviteLang}
+                                  onValueChange={setInviteLang}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground touch-action-manipulation"
+                                  onClick={() => handleCopyInvitation(event)}
+                                  title={tf('events.inviteGuest', 'Zaproś gościa')}
+                                >
+                                  <UserPlus className="h-3.5 w-3.5 mr-1" />
+                                  {tf('events.invite', 'Zaproś')}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {events.length > 3 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs text-muted-foreground hover:text-foreground h-6"
+                            onClick={() => toggleExpand(expandKey)}
+                          >
+                            {expandedTypes[expandKey]
+                              ? tf('common.collapse', 'Zwiń')
+                              : `+${events.length - 3} ${tf('common.more', 'więcej')}`}
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  ))}
-                  
-                  {events.length > 3 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full text-xs text-muted-foreground hover:text-foreground h-6"
-                      onClick={() => toggleExpand(type)}
-                    >
-                       {expandedTypes[type] 
-                        ? (tf('common.collapse', 'Zwiń'))
-                        : `+${events.length - 3} ${tf('common.more', 'więcej')}`}
-                    </Button>
-                  )}
-                </div>
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -446,7 +541,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
         event={detailsEvent}
         open={!!detailsEvent}
         onOpenChange={(open) => !open && setDetailsEvent(null)}
-        onRegister={() => {}} // Already registered
+        onRegister={() => {}}
         onCancelRegistration={(eventId) => {
           const event = userEvents.find(e => e.id === eventId);
           if (event) handleCancelMeeting(event);
