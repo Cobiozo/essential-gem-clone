@@ -390,7 +390,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               isSupabaseUrlRef.current = false;
               return;
             }
-            setSignedUrl(data.signedUrl);
+            setSignedUrl(data.signedUrl || '');
             // Ustaw czas wygaśnięcia (55 minut = 3300000ms, zostawić 5 min bufora)
             setUrlExpiryTime(Date.now() + 3300000);
             return;
