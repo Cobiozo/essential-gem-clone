@@ -123,12 +123,8 @@ const HealthyKnowledgePage: React.FC = () => {
     
     setGenerating(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error(tf('common.mustBeLoggedIn', 'Musisz być zalogowany'));
-        return;
-      }
-
+      // NOTE: No await before copyAfterAsync — any await here breaks
+      // the user-gesture context on iOS Safari, causing clipboard.write to fail.
       let otpCode = '';
       let fullMessage = '';
 
