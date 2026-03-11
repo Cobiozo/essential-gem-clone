@@ -15,9 +15,10 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Plus, Trash2, Pencil, Languages, Globe, Search, Download, Upload, 
-  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2, FileText, XCircle, CheckCircle2
+  Star, ChevronRight, FileJson, AlertTriangle, RefreshCw, Bot, Loader2, FileText, XCircle, CheckCircle2, Clock, Zap
 } from 'lucide-react';
 import { useTranslationsAdmin, I18nLanguage, TranslationsMap, LanguageTranslations } from '@/hooks/useTranslations';
 import { useTranslationJobs } from '@/hooks/useTranslationJobs';
