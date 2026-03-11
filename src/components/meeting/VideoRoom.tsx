@@ -350,6 +350,28 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     };
   }, []);
 
+  // Poll meeting status every 30s as fallback for missed broadcast 'meeting-ended'
+  useEffect(() => {
+    if (isHost || !roomId) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('events')
+          .select('end_time')
+          .eq('meeting_room_id', roomId)
+          .maybeSingle();
+        if (data?.end_time && new Date(data.end_time) < new Date()) {
+          console.log('[VideoRoom] Meeting ended detected via polling, ejecting participant');
+          toast({ title: 'Spotkanie zakończone', description: 'Prowadzący zakończył spotkanie.' });
+          handleLeave();
+        }
+      } catch (e) {
+        console.warn('[VideoRoom] Meeting status poll failed:', e);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [roomId, isHost]);
+
   // Persistent audio/video unlock on user gesture (mobile autoplay policy)
   const audioUnlockedRef = useRef(false);
   useEffect(() => {
@@ -697,6 +719,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       dbParticipantChannelRef.current = null;
     }
 
+    // Stop raw camera stream from background processor before stopping background
+    const rawStream = getRawStream();
+    if (rawStream && rawStream !== localStreamRef.current) {
+      rawStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    }
     // Cleanup background processor
     stopBackground();
 
@@ -721,6 +748,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         } catch {}
       }
 
+      // Stop raw camera stream from background processor
+      const rawStream = getRawStream();
+      if (rawStream) rawStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
       localStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
       screenShareStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
       connectionsRef.current.forEach(conn => { try { conn.close(); } catch {} });
