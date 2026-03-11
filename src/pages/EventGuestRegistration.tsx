@@ -112,6 +112,7 @@ const EventGuestRegistration: React.FC = () => {
   const [searchParams] = useSearchParams();
   const invitedByRaw = searchParams.get('invited_by');
   const slotParam = searchParams.get('slot');
+  const lang = searchParams.get('lang') || 'pl';
   
   // Validate UUID format - if invalid, set to null
   const invitedBy = isValidUUID(invitedByRaw) ? invitedByRaw : null;
@@ -120,6 +121,16 @@ const EventGuestRegistration: React.FC = () => {
   if (invitedByRaw && !invitedBy) {
     console.warn('Invalid invited_by UUID format, ignoring:', invitedByRaw);
   }
+
+  const labels = useMemo(() => getRegistrationLabels(lang), [lang]);
+  const dateLocale = useMemo(() => getDateLocale(lang), [lang]);
+
+  const registrationSchema = useMemo(() => z.object({
+    email: z.string().email(labels.emailError),
+    first_name: z.string().min(2, labels.nameError),
+    last_name: z.string().optional(),
+    phone: z.string().optional(),
+  }), [labels]);
   
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
