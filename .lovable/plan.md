@@ -1,23 +1,29 @@
 
 
-# Poprawka: Przycisk zaproszenia tylko gdy administrator włączył tę opcję
+## Analiza systemu powiadomień — wynik
 
-## Problem
-Flaga języka i przycisk "Zaproś" wyświetlają się dla **wszystkich** wydarzeń grupowych, niezależnie od ustawienia `allow_invites` w bazie danych. Administrator kontroluje tę opcję przy tworzeniu wydarzenia przełącznikiem "Zezwól na zapraszanie gości".
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-## Rozwiązanie
-**Plik:** `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+### Zmiany:
 
-Linia 511 — zmienić warunek z:
-```typescript
-{isGroupType && (
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
+
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
+
+### Flow gościa (po zmianach):
 ```
-na:
-```typescript
-{isGroupType && (event as any).allow_invites === true && (
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
 ```
-
-Pole `allow_invites` jest już dostępne w obiekcie `event` (pochodzi z tabeli `events` i jest częścią `EventWithRegistration`). Tak samo jest to zaimplementowane w `EventCard.tsx` i `EventCardCompact.tsx`.
-
-Jedna linia do zmiany.
-
