@@ -208,6 +208,10 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     reminderNote1: 'You will receive reminders: 1 hour and 15 minutes before the webinar with a meeting link.',
     reminderNote15min: 'You will receive a reminder 15 minutes before the webinar with a meeting link.',
     thanksForRegistration: 'Thank you for registering!',
+    placeholderEmail: 'john@example.com',
+    placeholderFirstName: 'John',
+    placeholderLastName: 'Smith',
+    placeholderPhone: '+1 555 123 4567',
   },
   de: {
     formTitle: 'Zum Webinar anmelden',
