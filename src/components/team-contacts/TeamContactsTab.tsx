@@ -203,8 +203,8 @@ export const TeamContactsTab: React.FC = () => {
 
   // Filter contacts by type for display
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
-  const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id));
-  const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id));
+  const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id) || (c as any).moved_to_own_list);
+  const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id) && !(c as any).moved_to_own_list);
   
   const filteredContacts = (() => {
     if (activeTab === 'private') {
