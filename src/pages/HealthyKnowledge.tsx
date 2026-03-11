@@ -415,40 +415,59 @@ const HealthyKnowledgePage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">
                   {tf('hk.codeValidFor', 'Kod ważny przez')} {selectedMaterial.otp_validity_hours || 24} {tf('hk.hours', 'godzin')}
                 </p>
+                {generatedCode && (
+                  <p className="text-sm font-mono font-bold mt-1">
+                    {tf('hk.codeGenerated', 'Kod')}: {generatedCode}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="text-sm font-medium">{tf('hk.messagePreview', 'Podgląd wiadomości')}</label>
+                <label className="text-sm font-medium">
+                  {generatedMessage 
+                    ? tf('hk.generatedMessage', 'Wygenerowana wiadomość') 
+                    : tf('hk.messagePreview', 'Podgląd wiadomości')}
+                </label>
                 <Textarea
-                  value={shareMessage}
+                  value={generatedMessage || shareMessage}
                   readOnly
                   rows={8}
-                  className="mt-1 text-sm bg-muted"
+                  className="mt-1 text-sm bg-muted select-all"
+                  onClick={(e) => (e.target as HTMLTextAreaElement).select()}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {tf('hk.linkAndCodeNote', 'Link i kod zostaną automatycznie uzupełnione po wygenerowaniu')}
-                </p>
+                {!generatedMessage && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {tf('hk.linkAndCodeNote', 'Link i kod zostaną automatycznie uzupełnione po wygenerowaniu')}
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
               {tf('common.cancel', 'Anuluj')}
             </Button>
-            <Button onClick={handleGenerateAndCopy} disabled={generating}>
-              {generating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {tf('hk.generating', 'Generowanie...')}
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 mr-2" />
-                  {tf('hk.generateAndCopy', 'Generuj kod i kopiuj')}
-                </>
-              )}
-            </Button>
+            {generatedMessage ? (
+              <Button onClick={handleManualCopy}>
+                <Copy className="w-4 h-4 mr-2" />
+                {tf('hk.copyMessage', 'Kopiuj wiadomość')}
+              </Button>
+            ) : (
+              <Button onClick={handleGenerateAndCopy} disabled={generating}>
+                {generating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {tf('hk.generating', 'Generowanie...')}
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    {tf('hk.generateAndCopy', 'Generuj kod i kopiuj')}
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
