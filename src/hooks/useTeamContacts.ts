@@ -305,7 +305,19 @@ export const useTeamContacts = () => {
         }
       }
       
+      // Deduplicate: keep best record per contact+event (prefer 'registered', then latest)
+      const seenContactEvent = new Map<string, any>();
       for (const r of (data || [])) {
+        const dedupeKey = `${r.team_contact_id}::${r.event_id}`;
+        const prev = seenContactEvent.get(dedupeKey);
+        if (!prev ||
+            (r.status === 'registered' && prev.status !== 'registered') ||
+            (r.status === prev.status && (r.registered_at || '') > (prev.registered_at || ''))) {
+          seenContactEvent.set(dedupeKey, r);
+        }
+      }
+
+      for (const r of seenContactEvent.values()) {
         const contactId = r.team_contact_id as string;
         ids.add(contactId);
         
