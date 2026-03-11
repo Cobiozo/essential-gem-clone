@@ -1775,7 +1775,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           controlsList="nodownload"
           className="absolute inset-0 w-full h-full object-contain rounded-lg"
           style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-          preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
+          preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : 'metadata'}
           playsInline
           // @ts-ignore - webkit-playsinline for older iOS
           webkit-playsinline="true"
