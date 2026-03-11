@@ -248,7 +248,8 @@ const handler = async (req: Request): Promise<Response> => {
               first_name: firstName,
               last_name: lastName || '',
               phone_number: phone || null,
-              notes: sourceNote,
+              contact_source: contactSourceLabel,
+              deleted_at: null,
             })
             .eq('id', existingContact.id);
           console.log(`[send-webinar-confirmation] Reactivated contact: ${existingContact.id}`);
