@@ -270,20 +270,22 @@ export const EventCard: React.FC<EventCardProps> = ({
   const handleCopyInvitation = () => {
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
     const inviteUrl = buildInviteUrl();
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
     const invitationText = `
-🎥 Zaproszenie na webinar: ${event.title}
+🎥 ${labels.webinarInvitation}: ${event.title}
 
-📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
-${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
+📅 ${labels.date}: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale })}
+⏰ ${labels.time}: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
+${event.host_name ? `👤 ${labels.host}: ${event.host_name}` : ''}
 
-Zapisz się tutaj: ${inviteUrl}
+${labels.signUp}: ${inviteUrl}
     `.trim();
     
     navigator.clipboard.writeText(invitationText);
     toast({ 
-      title: 'Skopiowano!', 
-      description: 'Zaproszenie zostało skopiowane do schowka' 
+      title: labels.copied, 
+      description: labels.invitationCopied
     });
   };
 
