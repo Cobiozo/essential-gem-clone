@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X, UserPlus, Copy } from 'lucide-react';
+import { Calendar, Video, Users, User, ExternalLink, Clock, Info, X, UserPlus, Copy, ChevronDown, ChevronRight } from 'lucide-react';
 import { Widget3DIcon } from './Widget3DIcon';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
