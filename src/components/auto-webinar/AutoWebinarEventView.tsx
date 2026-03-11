@@ -33,6 +33,8 @@ export const AutoWebinarEventView: React.FC = () => {
   const [loadingEvent, setLoadingEvent] = React.useState(true);
   const [selectedSlot, setSelectedSlot] = useState<SlotKey | null>(null);
   const [copied, setCopied] = useState(false);
+  const { language } = useLanguage();
+  const [inviteLang, setInviteLang] = useState(language);
 
   React.useEffect(() => {
     if (!config?.event_id) { setLoadingEvent(false); return; }
