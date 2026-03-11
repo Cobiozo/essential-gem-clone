@@ -431,7 +431,13 @@ const HealthyKnowledgePage: React.FC = () => {
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{tf('hk.shareMaterial', 'Udostępnij materiał')}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{tf('hk.shareMaterial', 'Udostępnij materiał')}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-normal">{tf('hk.messageLanguage', 'Język wiadomości')}:</span>
+                <InvitationLanguageSelect value={messageLang} onValueChange={setMessageLang} />
+              </div>
+            </DialogTitle>
             <DialogDescription>
               {tf('hk.generateCodeDesc', 'Wygeneruj kod dostępu i skopiuj wiadomość do wysłania')}
             </DialogDescription>

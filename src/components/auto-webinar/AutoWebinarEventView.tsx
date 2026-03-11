@@ -265,7 +265,8 @@ ${labels.signUp}: ${inviteUrl}`.trim();
                   Kopiuj zaproszenie — {days[selectedSlot.dayIndex].fullLabel}, {selectedSlot.time}
                 </>
               )}
-            </Button>
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

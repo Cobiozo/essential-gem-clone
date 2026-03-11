@@ -578,15 +578,17 @@ ${labels.signUp}: ${inviteUrl}
     // Only show invite button if admin enabled allow_invites for this event
     if (isUpcoming && !isPastEvent && (event as any).allow_invites === true) {
       buttons.push(
-        <Button
-          key="invite-guest"
-          variant="outline"
-          size="sm"
-          onClick={handleCopyInvitation}
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Zaproś
-        </Button>
+        <React.Fragment key="invite-guest">
+          <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyInvitation}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Zaproś
+          </Button>
+        </React.Fragment>
       );
     }
 
