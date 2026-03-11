@@ -136,9 +136,21 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
                       {(eventContactDetails.get(contact.id) || []).map((ev) => (
-                        <Badge key={ev.event_id} variant="outline" className="text-xs font-normal">
-                          📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
-                        </Badge>
+                        <React.Fragment key={`${ev.event_id}-${ev.registered_at}`}>
+                          <Badge variant="outline" className="text-xs font-normal">
+                            📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
+                            {ev.registered_at && (
+                              <span className="ml-1 text-muted-foreground">
+                                (zapis: {new Date(ev.registered_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})
+                              </span>
+                            )}
+                          </Badge>
+                          {ev.registration_attempts && ev.registration_attempts > 1 && (
+                            <Badge variant="destructive" className="text-xs font-normal">
+                              🔄 Ponowna próba ×{ev.registration_attempts}
+                            </Badge>
+                          )}
+                        </React.Fragment>
                       ))}
                     </div>
                   </TableCell>
