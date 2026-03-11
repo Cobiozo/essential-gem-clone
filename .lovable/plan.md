@@ -1,24 +1,45 @@
 
 
-## Plan zmian
+# Fix: Formularz OTP — placeholder z myślnikiem + walidacja nie normalizuje kodów
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+1. **Placeholder** wciąż pokazuje `XXXX-XX` (z myślnikiem) i `maxLength=7` — powinno być `XXXXXX` i `maxLength=6`
+2. **Edge function `validate-hk-otp`** — normalizacja kodu robi tylko `toUpperCase().trim()`, ale nie usuwa dodatkowych myślników. Stare kody w bazie mają format `ZW-XXXX-XX`, a frontend wysyła `ZW-XXXXXX` — brak dopasowania = błąd 401.
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+## Zmiany
 
-### 2. Złote ikony dla datetime-local (index.css)
+### 1. `src/pages/HealthyKnowledgePublicPage.tsx` (linie 335-336)
+- Placeholder: `"XXXX-XX"` → `"XXXXXX"`
+- maxLength: `7` → `6`
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+### 2. `supabase/functions/validate-hk-otp/index.ts` (linia 40)
+Normalizacja kodu musi usunąć wszystkie myślniki po prefiksie `ZW-`, żeby obsługiwać zarówno stare (`ZW-XXXX-XX`) jak i nowe (`ZW-XXXXXX`) kody:
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+```typescript
+// Normalize: strip all hyphens after ZW- prefix, uppercase
+const rawCode = otp_code.toUpperCase().trim();
+const stripped = rawCode.replace(/^ZW-?/, '').replace(/-/g, '');
+const normalizedCode = `ZW-${stripped}`;
+```
 
-### Zakres: 2 pliki, ~10 linii zmian
+Oraz zmienić lookup w bazie — porównywać po stripped 6 znakach zamiast exact match, albo lepiej: znormalizować obie strony. Najprostsze rozwiązanie: szukać po obu formatach:
+
+```typescript
+const { data: otpCodeRecord } = await supabase
+  .from('hk_otp_codes')
+  .select('*')
+  .in('code', [normalizedCode, `ZW-${stripped.slice(0,4)}-${stripped.slice(4)}`])
+  .eq('knowledge_id', knowledge.id)
+  .eq('is_invalidated', false)
+  .gt('expires_at', new Date().toISOString())
+  .single();
+```
+
+### 3. Deploy `validate-hk-otp`
+
+### Pliki
+1. `src/pages/HealthyKnowledgePublicPage.tsx` — placeholder + maxLength
+2. `supabase/functions/validate-hk-otp/index.ts` — normalizacja kodu OTP
+3. Deploy edge function
 
