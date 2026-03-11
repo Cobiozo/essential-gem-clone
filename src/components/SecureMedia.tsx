@@ -1603,7 +1603,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
+              preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : 'metadata'}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
