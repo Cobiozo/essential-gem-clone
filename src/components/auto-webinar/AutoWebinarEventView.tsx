@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Video, Clock, Copy, Check, Radio } from 'lucide-react';
 import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { supabase } from '@/integrations/supabase/client';
