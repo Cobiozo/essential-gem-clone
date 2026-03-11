@@ -123,6 +123,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
   // Migration state
   const [migrating, setMigrating] = useState(false);
   const [migrationProgress, setMigrationProgress] = useState({ current: 0, total: 0 });
+  const [forceSyncing, setForceSyncing] = useState(false);
 
   // Group translations by namespace and key
   const groupedTranslations = useMemo(() => {
