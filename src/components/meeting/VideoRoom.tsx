@@ -1665,6 +1665,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
   // Zmiana 6: callPeer uses ref for localAvatarUrl to avoid stale closure
   const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
+    // Guard: never call yourself
+    if (remotePeerId === peerRef.current.id) return;
     const activeStream = localStreamRef.current || stream;
     const call = peerRef.current.call(remotePeerId, activeStream, {
       metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrlRef.current },
