@@ -70,9 +70,16 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
     const eventSlug = (event as any).slug;
     const eqId = profile?.eq_id;
     
-    const inviteUrl = eventSlug
-      ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
-      : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    let inviteUrl: string;
+    if (eventSlug) {
+      const params = new URLSearchParams();
+      if (eqId) params.set('ref', eqId);
+      if (inviteLang !== 'pl') params.set('lang', inviteLang);
+      const qs = params.toString();
+      inviteUrl = `${baseUrl}/e/${eventSlug}${qs ? `?${qs}` : ''}`;
+    } else {
+      inviteUrl = `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
+    }
     
     const labels = getInvitationLabels(inviteLang);
     const locale = getDateLocale(inviteLang);

@@ -102,6 +102,7 @@ export const AutoWebinarEventView: React.FC = () => {
     const params = new URLSearchParams();
     if (eqId) params.set('ref', eqId);
     params.set('slot', selectedSlot.time);
+    if (inviteLang !== 'pl') params.set('lang', inviteLang);
     const inviteUrl = slug
       ? `${baseUrl}/e/${slug}?${params.toString()}`
       : baseUrl;

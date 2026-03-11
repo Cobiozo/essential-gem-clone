@@ -77,6 +77,10 @@ const EventRegistrationBySlug: React.FC = () => {
         redirectParams.set('slot', slot);
       }
 
+      if (lang) {
+        redirectParams.set('lang', lang);
+      }
+
       // 3. Redirect to existing registration page
       const qs = redirectParams.toString();
       navigate(`/events/register/${event.id}${qs ? `?${qs}` : ''}`, { replace: true });
