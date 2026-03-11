@@ -1,50 +1,29 @@
 
 
-# Fallback: ostrzeżenie do admina gdy brak linku w wydarzeniu
+## Analiza systemu powiadomień — wynik
 
-## Problem
-Jeśli wydarzenie ma puste `zoom_link` i `location`, uczestnicy nie otrzymają linku do dołączenia — ale nikt nie zostaje o tym powiadomiony.
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-## Rozwiązanie
-W trzech kluczowych miejscach dodać sprawdzenie: jeśli `zoom_link` i `location` są puste, wysłać powiadomienie do wszystkich adminów (`user_notifications`) z ostrzeżeniem i linkiem do edycji wydarzenia.
+### Zmiany:
 
-### Zmiana 1: `send-webinar-confirmation/index.ts`
-W bloku immediate reminder (linia ~632), gdy `immediateZoomLink` jest pusty — zamiast po cichu pomijać, wstawić insert do `user_notifications` dla adminów:
-```typescript
-if (!immediateZoomLink) {
-  // Warn admins: event has no join link
-  const { data: admins } = await supabase
-    .from('user_roles')
-    .select('user_id')
-    .eq('role', 'admin');
-  if (admins?.length) {
-    await supabase.from('user_notifications').insert(
-      admins.map(a => ({
-        user_id: a.user_id,
-        notification_type: 'system',
-        source_module: 'events',
-        title: 'Brak linku do wydarzenia!',
-        message: `Wydarzenie "${eventTitle}" (ID: ${eventId}) nie ma skonfigurowanego linku Zoom ani lokalizacji. Uczestnik ${firstName} (${email}) zarejestrował się, ale nie otrzymał linku do dołączenia.`,
-        link: '/admin/events',
-        metadata: { event_id: eventId, severity: 'warning' }
-      }))
-    );
-}
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
+
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
+
+### Flow gościa (po zmianach):
 ```
-
-### Zmiana 2: `send-bulk-webinar-reminders/index.ts`
-Po linii ~340 (`const zoomLink = ...`), jeśli `zoomLink` jest pusty i `config.includeLink` jest true, wysłać analogiczne ostrzeżenie do adminów:
-```typescript
-if (!zoomLink && config.includeLink) {
-  // Insert admin warning notification
-}
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
 ```
-
-### Zmiana 3: `process-pending-notifications/index.ts`
-Analogiczny check przy wysyłaniu przypomnień z linkiem — jeśli event nie ma linku, powiadomić adminów.
-
-### Pliki do edycji
-1. `supabase/functions/send-webinar-confirmation/index.ts` — warning przy pustym linku w immediate reminder
-2. `supabase/functions/send-bulk-webinar-reminders/index.ts` — warning przy pustym linku w bulk reminders
-3. `supabase/functions/process-pending-notifications/index.ts` — warning przy pustym linku w CRON reminders
-
