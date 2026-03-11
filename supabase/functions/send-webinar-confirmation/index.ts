@@ -556,8 +556,8 @@ const handler = async (req: Request): Promise<Response> => {
                     <li>Pokój otworzy się <span class="highlight">5 minut przed planowanym rozpoczęciem</span></li>
                     <li>Dołącz punktualnie w wyznaczonym terminie</li>
                   ` : `
-                    <li>Otrzymasz przypomnienie <span class="highlight">24 godziny przed webinarem</span></li>
-                    <li>Link do dołączenia otrzymasz w wiadomości przypominającej</li>
+                    <li>Wyślemy Ci przypomnienia: <span class="highlight">24h, 12h, 2h, 1h i 15 min</span> przed webinarem</li>
+                    <li>Link do dołączenia otrzymasz w wiadomościach przypominających</li>
                   `}
                   <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
                 </ul>

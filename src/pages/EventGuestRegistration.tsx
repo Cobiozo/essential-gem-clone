@@ -419,7 +419,11 @@ const EventGuestRegistration: React.FC = () => {
                 : (() => {
                     const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
                     if (hoursUntilEvent > 24) {
-                      return "Otrzymasz przypomnienia: 24 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                      return "Otrzymasz przypomnienia: 24 godziny, 12 godzin, 2 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                    } else if (hoursUntilEvent > 12) {
+                      return "Otrzymasz przypomnienia: 12 godzin, 2 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                    } else if (hoursUntilEvent > 2) {
+                      return "Otrzymasz przypomnienia: 2 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
                     } else if (hoursUntilEvent > 1) {
                       return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
                     } else {
