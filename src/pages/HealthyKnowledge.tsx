@@ -132,7 +132,7 @@ const HealthyKnowledgePage: React.FC = () => {
 
       const { success } = await copyAfterAsync(async () => {
         const response = await supabase.functions.invoke('generate-hk-otp', {
-          body: { knowledge_id: selectedMaterial.id },
+          body: { knowledge_id: selectedMaterial.id, message_language: messageLang },
         });
         if (response.error) {
           throw new Error(response.error.message || tf('hk.generateError', 'Błąd generowania kodu'));
