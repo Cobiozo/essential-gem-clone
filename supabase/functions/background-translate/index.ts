@@ -14,7 +14,35 @@ function hasTranslatedContent(obj: any, fields: string[]): boolean {
   return fields.some(f => obj[f] && typeof obj[f] === 'string' && obj[f].trim() !== '');
 }
 const PAGE_SIZE = 1000;
-const MAX_EXECUTION_TIME = 25000; // 25 seconds (Supabase limit is 30s)
+const MAX_EXECUTION_TIME = 25000;
+
+// Filters items to only those updated after their existing translation
+async function filterOutdatedItems(
+  supabase: any,
+  items: any[],
+  translationTable: string,
+  fkColumn: string,
+  targetLanguage: string
+): Promise<any[]> {
+  if (items.length === 0) return [];
+  
+  const ids = items.map(i => i.id);
+  const { data: translations } = await supabase
+    .from(translationTable)
+    .select(`${fkColumn}, updated_at`)
+    .eq('language_code', targetLanguage)
+    .in(fkColumn, ids);
+  
+  if (!translations || translations.length === 0) return []; // No existing translations = nothing is "outdated"
+  
+  const translationMap = new Map(translations.map((t: any) => [t[fkColumn], t.updated_at]));
+  
+  return items.filter(item => {
+    const tUpdated = translationMap.get(item.id);
+    if (!tUpdated) return false; // No translation exists — handled by 'missing' mode
+    return new Date(item.updated_at) > new Date(tUpdated);
+  });
+}
 
 // Paginated fetch to overcome Supabase's 1000 row limit
 async function fetchAllRows(
