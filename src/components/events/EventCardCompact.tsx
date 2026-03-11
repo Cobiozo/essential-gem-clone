@@ -153,6 +153,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [registering, setRegistering] = useState(false);
+  const [inviteLang, setInviteLang] = useState(language);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
   const [registeredOccurrences, setRegisteredOccurrences] = useState<Set<number | null>>(
     event.registered_occurrences || new Set()
