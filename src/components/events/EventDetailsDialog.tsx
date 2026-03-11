@@ -132,8 +132,10 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   const overtimeLabel = overtimeMinutes >= 60
     ? `+${Math.floor(overtimeMinutes / 60)}h ${overtimeMinutes % 60}min`
     : `+${overtimeMinutes} min`;
-  const canJoin = event.is_registered && isLive && (effectiveZoomLink || useInternalMeeting);
-  const showMeetingLink = event.is_registered && (effectiveZoomLink || useInternalMeeting) && !isEnded;
+  // Group events: hide meeting link and join button in details dialog
+  const isGroupEvent = ['webinar', 'auto_webinar', 'meeting_public', 'team_training'].includes(event.event_type);
+  const canJoin = event.is_registered && isLive && (effectiveZoomLink || useInternalMeeting) && !isGroupEvent;
+  const showMeetingLink = event.is_registered && (effectiveZoomLink || useInternalMeeting) && !isEnded && !(isGroupEvent && event.is_registered);
   
   // Cancel allowed if more than 2 hours before meeting for individual meetings
   const minutesUntilEvent = (eventStart.getTime() - now.getTime()) / (1000 * 60);

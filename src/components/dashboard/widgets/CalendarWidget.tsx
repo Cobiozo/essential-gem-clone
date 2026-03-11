@@ -288,6 +288,12 @@ ${labels.signUp}: ${inviteUrl}
         return <Badge variant="secondary" className="text-xs">{tf('events.registered', 'Zapisany/a')}</Badge>;
       }
       
+      // Grupowe wydarzenia (webinary, spotkania zespołu) — tylko Badge "Jesteś zapisany/a"
+      const isGroupEvent = ['webinar', 'auto_webinar', 'meeting_public', 'team_training'].includes(event.event_type);
+      if (isGroupEvent) {
+        return <Badge variant="secondary" className="text-xs">{tf('events.registered', 'Zapisany/a')}</Badge>;
+      }
+
       if (isExternalPlatform) {
         return (
           <Button
@@ -536,23 +542,6 @@ ${labels.signUp}: ${inviteUrl}
                            <Info className="h-3.5 w-3.5 mr-1" />
                            {tf('events.details', 'Szczegóły')}
                         </Button>
-                        {['webinar', 'auto_webinar'].includes(event.event_type) && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
-                          <>
-                            <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-8 px-3 touch-action-manipulation"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleCopyInvitation(event);
-                              }}
-                              title="Zaproś Gościa"
-                            >
-                              <UserPlus className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        )}
                         {/* Custom action buttons - zawsze widoczne */}
                         {event.buttons && event.buttons.length > 0 && event.buttons.map((btn: EventButton, index: number) => {
                           const variant = btn.style === 'primary' ? 'default' : 
