@@ -586,7 +586,7 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.lastNameLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="Kowalski" {...field} />
+                              <Input placeholder={labels.placeholderLastName} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
