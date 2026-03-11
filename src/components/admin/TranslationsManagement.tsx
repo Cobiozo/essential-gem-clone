@@ -528,8 +528,39 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
           </AlertDescription>
         </Alert>
       )}
-      
-      <Card>
+
+      {/* Daily Auto-Sync Info */}
+      <Alert className="mb-4 border-muted">
+        <Clock className="w-4 h-4" />
+        <AlertDescription className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm">
+              <strong>Automatyczna synchronizacja:</strong> codziennie o 3:00 w nocy — tłumaczenie brakujących i zmienionych treści
+            </span>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            disabled={forceSyncing}
+            onClick={async () => {
+              setForceSyncing(true);
+              try {
+                const { error } = await supabase.functions.invoke('scheduled-translate-sync');
+                if (error) throw error;
+                toast({ title: 'Synchronizacja uruchomiona', description: 'Zadania tłumaczeń zostały utworzone w tle.' });
+              } catch (err: any) {
+                toast({ title: 'Błąd', description: err.message || 'Nie udało się uruchomić synchronizacji', variant: 'destructive' });
+              } finally {
+                setForceSyncing(false);
+              }
+            }}
+          >
+            {forceSyncing ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Zap className="w-4 h-4 mr-1" />}
+            Wymuś sync teraz
+          </Button>
+        </AlertDescription>
+      </Alert>
+
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
