@@ -1,24 +1,40 @@
 
 
-## Plan zmian
+# Fix: Deduplikacja gości w widoku wydarzeń
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
+Gdy gość ma wiele rejestracji na to samo wydarzenie (np. anulowana + nowa), system dodaje go wielokrotnie do listy kontaktów w grupie wydarzenia. Wystarczy jeden wpis z informacją o liczbie prób.
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+## Zmiana
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### Plik: `src/hooks/useTeamContacts.ts`
 
-### 2. Złote ikony dla datetime-local (index.css)
+W `fetchEventContactIds` (linie 308-328): Zamiast iterować po wszystkich wierszach rejestracji i dodawać każdy jako osobny wpis, najpierw deduplikować po kluczu `contactId::eventId` — zachować tylko najnowszą aktywną rejestrację, ale policzyć wszystkie próby (attemptCounter już to robi poprawnie).
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+```typescript
+// Zamiast:
+for (const r of (data || [])) {
+  // ... dodaje KAŻDY wiersz jako osobny wpis
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+// Nowe podejście:
+const seenContactEvent = new Map<string, row>();
+for (const r of (data || [])) {
+  const dedupeKey = `${r.team_contact_id}::${r.event_id}`;
+  const existing = seenContactEvent.get(dedupeKey);
+  // Preferuj 'registered' nad 'cancelled', potem najnowszy registered_at
+  if (!existing || 
+      (r.status === 'registered' && existing.status !== 'registered') ||
+      (r.status === existing.status && (r.registered_at || '') > (existing.registered_at || ''))) {
+    seenContactEvent.set(dedupeKey, r);
+  }
+}
+// Iteruj po deduplikowanych wierszach
+for (const r of seenContactEvent.values()) { ... }
+```
 
-### Zakres: 2 pliki, ~10 linii zmian
+Efekt: Jeden kontakt = jeden wpis w grupie wydarzenia, z badge "Ponowna próba ×N" jeśli było wiele prób.
+
+| Plik | Zmiana |
+|------|--------|
+| `src/hooks/useTeamContacts.ts` | Deduplikacja rejestracji per contact+event w `fetchEventContactIds` |
 
