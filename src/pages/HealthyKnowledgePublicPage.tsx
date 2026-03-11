@@ -322,7 +322,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Lock className="w-4 h-4" />
-              <span>Kod w formacie: ZW-XXXX-XX</span>
+              <span>Kod w formacie: ZW-XXXXXX</span>
             </div>
             
             <div className="flex items-center gap-2">

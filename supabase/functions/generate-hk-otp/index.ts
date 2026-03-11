@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate OTP code in format ZW-XXXX-XX (ZW = Zdrowa Wiedza)
+// Generate OTP code in format ZW-XXXXXX (ZW = Zdrowa Wiedza)
 function generateOTPCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = 'ZW-';
