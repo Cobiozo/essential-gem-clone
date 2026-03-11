@@ -381,15 +381,16 @@ const EventGuestRegistration: React.FC = () => {
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
                       if (minutesToSlot <= 15) {
-                        return 'Sprawdź swoją skrzynkę email — wysłaliśmy Ci link do natychmiastowego dołączenia! 🔴';
+                        return labels.checkEmail;
                       }
                       
                       const accessNote = autoWebinarConfig.interval_minutes >= 30
-                        ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
-                        : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.';
-                      return `Najbliższy webinar: ${format(slot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${slot.time}. ${accessNote}`;
+                        ? labels.roomOpens5min
+                        : labels.roomOpensOnTime;
+                      const dateStr = format(slot.date, 'EEEE, d MMMM', { locale: dateLocale });
+                      return labels.nextWebinar.replace('{date}', dateStr).replace('{time}', slot.time).replace('{accessNote}', accessNote);
                     }
-                    return 'Dziękujemy za rejestrację!';
+                    return labels.thanksForRegistration;
                   })()
                 : (() => {
                     const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
