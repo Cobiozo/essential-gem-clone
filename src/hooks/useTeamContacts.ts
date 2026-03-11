@@ -430,20 +430,12 @@ export const useTeamContacts = () => {
   const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; duplicates: Map<string, number> } => {
     const groups = new Map<string, EventGroup>();
     const duplicates = new Map<string, number>();
-    // Track contact keys (email/phone) across events
-    const contactEventMap = new Map<string, Set<string>>();
 
     for (const [contactId, registrations] of eventContactDetails.entries()) {
       const contact = allContacts.find(c => c.id === contactId);
       if (!contact) continue;
 
-      // Build duplicate keys
-      const keys: string[] = [];
-      if (contact.email) keys.push(`email:${contact.email.toLowerCase().trim()}`);
-      if (contact.phone_number) keys.push(`phone:${contact.phone_number.replace(/\s+/g, '')}`);
-
       for (const reg of registrations) {
-        // Add to event group
         if (!groups.has(reg.event_id)) {
           groups.set(reg.event_id, {
             event_id: reg.event_id,
@@ -453,28 +445,11 @@ export const useTeamContacts = () => {
           });
         }
         groups.get(reg.event_id)!.contacts.push(contact);
-
-        // Track for duplicates
-        for (const key of keys) {
-          if (!contactEventMap.has(key)) contactEventMap.set(key, new Set());
-          contactEventMap.get(key)!.add(reg.event_id);
-        }
       }
-    }
 
-    // Build duplicate counts per contact id
-    for (const contact of allContacts) {
-      const keys: string[] = [];
-      if (contact.email) keys.push(`email:${contact.email.toLowerCase().trim()}`);
-      if (contact.phone_number) keys.push(`phone:${contact.phone_number.replace(/\s+/g, '')}`);
-      
-      let maxEvents = 0;
-      for (const key of keys) {
-        const evSet = contactEventMap.get(key);
-        if (evSet && evSet.size > maxEvents) maxEvents = evSet.size;
-      }
-      if (maxEvents > 1) {
-        duplicates.set(contact.id, maxEvents);
+      // Per-contact event count — simply count registrations for each contact ID
+      if (registrations.length > 1) {
+        duplicates.set(contactId, registrations.length);
       }
     }
 
