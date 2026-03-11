@@ -1,0 +1,2 @@
+ALTER TABLE guest_event_registrations DROP CONSTRAINT IF EXISTS unique_guest_per_event;
+CREATE UNIQUE INDEX unique_guest_per_event ON guest_event_registrations (event_id, email) WHERE status != 'cancelled';
