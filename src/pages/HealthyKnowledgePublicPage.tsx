@@ -157,8 +157,8 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     setError(null);
 
     try {
-      // Format code as ZW-XXXX-XX
-      const formattedCode = `ZW-${raw.slice(0, 4)}-${raw.slice(4, 6)}`.toUpperCase();
+      // Format code as ZW-XXXXXX
+      const formattedCode = `ZW-${raw}`.toUpperCase();
 
       const response = await supabase.functions.invoke('validate-hk-otp', {
         body: {
