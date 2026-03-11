@@ -910,8 +910,8 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
   const { id: jobId, source_language, target_language } = job;
 
   // Fetch modules and lessons
-  const { data: modules } = await supabase.from('training_modules').select('id, title, description').eq('is_active', true);
-  const { data: lessons } = await supabase.from('training_lessons').select('id, title, content, media_alt_text').eq('is_active', true);
+  const { data: modules } = await supabase.from('training_modules').select('id, title, description, updated_at').eq('is_active', true);
+  const { data: lessons } = await supabase.from('training_lessons').select('id, title, content, media_alt_text, updated_at').eq('is_active', true);
 
   // Get existing translations
   const { data: existModT } = await supabase.from('training_module_translations').select('module_id').eq('language_code', target_language).not('title', 'is', null);
@@ -920,8 +920,14 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
   const existModIds = new Set(existModT?.map((t: any) => t.module_id) || []);
   const existLessIds = new Set(existLessT?.map((t: any) => t.lesson_id) || []);
 
-  const modsToTranslate = job.mode === 'all' ? (modules || []) : (modules || []).filter((m: any) => !existModIds.has(m.id));
-  const lessToTranslate = job.mode === 'all' ? (lessons || []) : (lessons || []).filter((l: any) => !existLessIds.has(l.id));
+  let modsToTranslate = job.mode === 'all' ? (modules || []) : (modules || []).filter((m: any) => !existModIds.has(m.id));
+  let lessToTranslate = job.mode === 'all' ? (lessons || []) : (lessons || []).filter((l: any) => !existLessIds.has(l.id));
+
+  // Handle outdated mode
+  if (job._outdatedOnly) {
+    modsToTranslate = await filterOutdatedItems(supabase, modules || [], 'training_module_translations', 'module_id', target_language);
+    lessToTranslate = await filterOutdatedItems(supabase, lessons || [], 'training_lesson_translations', 'lesson_id', target_language);
+  }
 
   const totalKeys = modsToTranslate.length + lessToTranslate.length;
   await supabase.from('translation_jobs').update({ total_keys: totalKeys, updated_at: new Date().toISOString() }).eq('id', jobId);
