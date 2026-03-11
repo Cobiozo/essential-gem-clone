@@ -64,12 +64,16 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find valid OTP code
-    const normalizedCode = otp_code.toUpperCase().trim();
+    // Find valid OTP code - normalize by stripping hyphens after prefix
+    const rawCode = otp_code.toUpperCase().trim();
+    const stripped = rawCode.replace(/^PL-?/, '').replace(/-/g, '');
+    const normalizedCode = `PL-${stripped}`;
+    const legacyCode = stripped.length === 6 ? `PL-${stripped.slice(0,4)}-${stripped.slice(4)}` : normalizedCode;
+    
     const { data: otpRecord, error: otpError } = await supabase
       .from('infolink_otp_codes')
       .select('*')
-      .eq('code', normalizedCode)
+      .in('code', [normalizedCode, legacyCode])
       .eq('reflink_id', reflink.id)
       .eq('is_invalidated', false)
       .gt('expires_at', new Date().toISOString())

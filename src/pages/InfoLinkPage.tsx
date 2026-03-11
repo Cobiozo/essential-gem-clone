@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator } from '@/components/ui/input-otp';
+import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Lock, Clock, CheckCircle, AlertCircle, Shield } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -208,8 +208,9 @@ export default function InfoLinkPage() {
 
   // Handle OTP submission
   const handleOTPSubmit = async () => {
-    if (otpValue.length < 8) {
-      setOtpError('Wprowadź pełny kod dostępu');
+    const raw = otpValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (raw.length !== 6) {
+      setOtpError('Wprowadź pełny 6-znakowy kod dostępu');
       return;
     }
 
@@ -217,11 +218,7 @@ export default function InfoLinkPage() {
     setOtpError(null);
 
     try {
-      // Format OTP: add dashes if not present
-      let formattedCode = otpValue.toUpperCase();
-      if (!formattedCode.includes('-')) {
-        formattedCode = `${formattedCode.slice(0, 2)}-${formattedCode.slice(2, 6)}-${formattedCode.slice(6, 8)}`;
-      }
+      const formattedCode = `PL-${raw}`;
 
       const { data, error } = await supabase.functions.invoke('validate-infolink-otp', {
         body: {
@@ -449,33 +446,37 @@ export default function InfoLinkPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col items-center space-y-4 text-foreground">
-                  <InputOTP
-                    maxLength={8}
-                    value={otpValue}
-                    onChange={(value) => {
-                      setOtpValue(value);
-                      setOtpError(null);
-                    }}
-                    className="text-foreground"
-                  >
-                    <InputOTPGroup className="text-foreground">
-                      <InputOTPSlot index={0} className="text-foreground" />
-                      <InputOTPSlot index={1} className="text-foreground" />
-                    </InputOTPGroup>
-                    <InputOTPSeparator />
-                    <InputOTPGroup className="text-foreground">
-                      <InputOTPSlot index={2} className="text-foreground" />
-                      <InputOTPSlot index={3} className="text-foreground" />
-                      <InputOTPSlot index={4} className="text-foreground" />
-                      <InputOTPSlot index={5} className="text-foreground" />
-                    </InputOTPGroup>
-                    <InputOTPSeparator />
-                    <InputOTPGroup className="text-foreground">
-                      <InputOTPSlot index={6} className="text-foreground" />
-                      <InputOTPSlot index={7} className="text-foreground" />
-                    </InputOTPGroup>
-                  </InputOTP>
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="flex items-center gap-2 w-full max-w-xs">
+                    <span className="text-lg font-mono font-semibold text-foreground shrink-0">PL-</span>
+                    <Input
+                      value={otpValue}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+                        setOtpValue(val);
+                        setOtpError(null);
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        // Handle pasting full code like "PL-XXXXXX" or "PL-XXXX-XX"
+                        const cleaned = pasted.replace(/^PL/, '').slice(0, 6);
+                        setOtpValue(cleaned);
+                        setOtpError(null);
+                        if (cleaned.length === 6) {
+                          setTimeout(() => handleOTPSubmit(), 100);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleOTPSubmit();
+                      }}
+                      placeholder="XXXXXX"
+                      maxLength={6}
+                      className="text-center text-lg font-mono tracking-widest uppercase"
+                      autoComplete="off"
+                      inputMode="text"
+                    />
+                  </div>
 
                   {otpError && (
                     <p className="text-sm text-destructive">{otpError}</p>
@@ -483,7 +484,7 @@ export default function InfoLinkPage() {
 
                   <Button
                     onClick={handleOTPSubmit}
-                    disabled={validating || otpValue.length < 8}
+                    disabled={validating || otpValue.length < 6}
                     className="w-full max-w-xs"
                   >
                     {validating ? (
