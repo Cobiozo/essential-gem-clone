@@ -318,6 +318,8 @@ export const useTeamContacts = () => {
       }
 
       for (const r of seenContactEvent.values()) {
+        // Skip cancelled-only entries — they shouldn't create event groups
+        if (r.status === 'cancelled') continue;
         const contactId = r.team_contact_id as string;
         ids.add(contactId);
         
