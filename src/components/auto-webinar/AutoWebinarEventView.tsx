@@ -245,13 +245,15 @@ ${labels.signUp}: ${inviteUrl}`.trim();
             ))}
           </div>
 
-          {/* Copy button */}
+          {/* Copy button with language select */}
           {selectedSlot && (
-            <Button
-              variant="action"
-              className="w-full gap-2"
-              onClick={handleCopy}
-            >
+            <div className="flex items-center gap-2">
+              <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
+              <Button
+                variant="action"
+                className="flex-1 gap-2"
+                onClick={handleCopy}
+              >
               {copied ? (
                 <>
                   <Check className="h-4 w-4" />
