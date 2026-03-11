@@ -562,6 +562,7 @@ export const TranslationsManagement: React.FC<TranslationsManagementProps> = ({ 
         </AlertDescription>
       </Alert>
 
+      <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
