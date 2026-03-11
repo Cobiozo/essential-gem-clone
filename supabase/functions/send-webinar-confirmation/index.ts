@@ -626,12 +626,12 @@ const handler = async (req: Request): Promise<Response> => {
             const eventStartTime = new Date(eventData.start_time);
             const minutesUntilStart = (eventStartTime.getTime() - Date.now()) / 60000;
 
-            if (minutesUntilStart > 0 && minutesUntilStart <= 15) {
-              console.log(`[send-webinar-confirmation] Registration < 15 min before start (${Math.round(minutesUntilStart)} min). Sending immediate reminder with zoom link.`);
+            if (minutesUntilStart > 0 && minutesUntilStart <= 60) {
+              console.log(`[send-webinar-confirmation] Registration < 60 min before start (${Math.round(minutesUntilStart)} min). Sending immediate reminder with zoom link.`);
 
               const immediateZoomLink = eventData.zoom_link || eventData.location || '';
               if (immediateZoomLink) {
-                // Fire-and-forget call to send-webinar-email for immediate 15min reminder
+                // Send immediate reminder with zoom link
                 await supabase.functions.invoke("send-webinar-email", {
                   body: {
                     type: "reminder_15min",
@@ -646,7 +646,7 @@ const handler = async (req: Request): Promise<Response> => {
                   }
                 });
 
-                // Mark all reminder flags as sent since event is imminent
+                // Mark all reminder flags as sent to prevent CRON duplicates
                 await supabase
                   .from('guest_event_registrations')
                   .update({
@@ -664,7 +664,7 @@ const handler = async (req: Request): Promise<Response> => {
                   .eq('event_id', eventId)
                   .eq('email', email);
 
-                console.log(`[send-webinar-confirmation] Immediate 15min reminder sent to ${email}`);
+                console.log(`[send-webinar-confirmation] Immediate reminder with link sent to ${email}`);
               }
             }
           }
