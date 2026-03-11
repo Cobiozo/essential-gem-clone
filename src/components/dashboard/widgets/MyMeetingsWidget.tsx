@@ -137,17 +137,14 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     }
 
     // Sort days chronologically
-    const sorted = Object.entries(dayMap)
+    return Object.entries(dayMap)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([day, types]) => ({ day, types }));
-
-    // Auto-expand first day if nothing is expanded
-    if (sorted.length > 0 && expandedDay === null) {
-      setExpandedDay(sorted[0].day);
-    }
-
-    return sorted;
   }, [upcomingEvents]);
+
+  // Auto-expand first day
+  const firstDay = groupedByDay[0]?.day ?? null;
+  const effectiveExpandedDay = expandedDay ?? firstDay;
 
   // Handle invitation copy
   const handleCopyInvitation = (event: EventWithRegistration) => {
