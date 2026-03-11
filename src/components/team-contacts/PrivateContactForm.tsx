@@ -422,6 +422,11 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
         />
       </div>
 
+      {/* Event History (read-only) */}
+      {contact?.email && (
+        <ContactEventHistory email={contact.email} />
+      )}
+
       {/* Error feedback */}
       {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
