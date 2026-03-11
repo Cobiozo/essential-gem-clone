@@ -547,7 +547,7 @@ const EventGuestRegistration: React.FC = () => {
             ) : (
               <>
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Zapisz się na webinar</h3>
+                  <h3 className="text-lg font-semibold mb-4">{labels.formTitle}</h3>
                   
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
