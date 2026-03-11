@@ -1660,7 +1660,7 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }
       cleanup(); 
     };
-  }, [user, roomId, guestMode, guestTokenId]);
+  }, [user?.id, roomId, guestMode, guestTokenId]);
 
   // Zmiana 6: callPeer uses ref for localAvatarUrl to avoid stale closure
   const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
