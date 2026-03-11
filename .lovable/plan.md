@@ -1,24 +1,25 @@
 
 
-## Plan zmian
+# Fix: Kopiowanie wiadomości na mobile nie działa
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
+Dwa problemy z `handleManualCopy` i `handleGenerateAndCopy`:
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+1. **Dynamic import w handlerze**: `await import('@/lib/clipboardUtils')` w `handleManualCopy` (linia 170) i `handleGenerateAndCopy` (linia 131) — nawet jeśli moduł jest cache'owany, `await` przerywa synchroniczny call stack gestu użytkownika na iOS Safari, przez co `navigator.clipboard.writeText` rzuca "NotAllowedError".
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+2. **Brak fallbacku do Web Share API**: Na mobile `navigator.share()` działa zawsze i pozwala wysłać tekst bezpośrednio do WhatsApp/SMS/email — lepsze niż clipboard.
 
-### 2. Złote ikony dla datetime-local (index.css)
+## Zmiany
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+### `src/pages/HealthyKnowledge.tsx`
+1. **Import na górze** — przenieść `import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils'` na top-level zamiast dynamic import w handlerach
+2. **handleManualCopy** — dodać `navigator.share()` jako pierwszą opcję na mobile (tekst wiadomości), fallback do `copyToClipboard`
+3. **handleGenerateAndCopy** — usunąć dynamic import, użyć top-level importu
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+### `src/lib/clipboardUtils.ts`
+- Bez zmian — logika jest poprawna, problem jest w sposobie wywoływania
 
-### Zakres: 2 pliki, ~10 linii zmian
+## Efekt
+- Na mobile: przycisk "Kopiuj wiadomość" spróbuje `navigator.share()` (natywne udostępnianie), potem `copyToClipboard` synchronicznie (bez await na import)
+- Na desktop: `copyToClipboard` działa jak dotychczas
 
