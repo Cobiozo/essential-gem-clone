@@ -105,22 +105,24 @@ export const AutoWebinarEventView: React.FC = () => {
       ? `${baseUrl}/e/${slug}?${params.toString()}`
       : baseUrl;
 
-    const dateStr = format(day.date, 'EEEE, d MMMM', { locale: pl });
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
+    const dateStr = format(day.date, 'EEEE, d MMMM', { locale });
 
-    const invitationText = `🎥 Zaproszenie na webinar: ${title}
+    const invitationText = `🎥 ${labels.webinarInvitation}: ${title}
 
-📅 Data: ${dateStr}
-⏰ Godzina: ${selectedSlot.time}
+📅 ${labels.date}: ${dateStr}
+⏰ ${labels.time}: ${selectedSlot.time}
 ${description ? `\n${description}\n` : ''}
-Zapisz się tutaj: ${inviteUrl}`.trim();
+${labels.signUp}: ${inviteUrl}`.trim();
 
     const success = await copyToClipboard(invitationText);
     if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast({
-        title: 'Skopiowano!',
-        description: `Zaproszenie na ${dateStr}, godz. ${selectedSlot.time}`,
+        title: labels.copied,
+        description: `${labels.invitationCopied}`,
       });
     }
   };
