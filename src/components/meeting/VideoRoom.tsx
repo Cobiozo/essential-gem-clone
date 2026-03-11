@@ -726,6 +726,9 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         } catch {}
       }
 
+      // Stop raw camera stream from background processor
+      const rawStream = getRawStream();
+      if (rawStream) rawStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
       localStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
       screenShareStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
       connectionsRef.current.forEach(conn => { try { conn.close(); } catch {} });

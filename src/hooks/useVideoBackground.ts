@@ -260,6 +260,9 @@ export function useVideoBackground() {
 
   const stopBackground = useCallback(() => {
     processorRef.current?.stop();
+    // Stop raw camera tracks to release hardware (prevents camera LED staying on)
+    rawStreamRef.current?.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    rawStreamRef.current = null;
     setMode('none');
     setSelectedImage(null);
     // Don't clear localStorage — background persists between meetings
