@@ -75,14 +75,13 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
 };
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
-const registrationSchema = z.object({
-  email: z.string().email('Podaj prawidłowy adres email'),
-  first_name: z.string().min(2, 'Imię musi mieć minimum 2 znaki'),
-  last_name: z.string().optional(),
-  phone: z.string().optional(),
-});
-
-type RegistrationFormData = z.infer<typeof registrationSchema>;
+// Schema is created dynamically based on lang — see inside the component
+type RegistrationFormData = {
+  email: string;
+  first_name: string;
+  last_name?: string;
+  phone?: string;
+};
 
 interface EventData {
   id: string;
