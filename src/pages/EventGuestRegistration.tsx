@@ -312,18 +312,18 @@ const EventGuestRegistration: React.FC = () => {
               : <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
             }
             <CardTitle className="text-2xl">
-              {alreadyRegistered ? 'Jesteś już zarejestrowany/a!' : 'Rejestracja zakończona!'}
+              {alreadyRegistered ? labels.alreadyRegisteredTitle : labels.successTitle}
             </CardTitle>
             <CardDescription className={alreadyRegistered ? 'text-left space-y-2' : ''}>
               {alreadyRegistered 
                 ? (
                   <>
-                    <p>Ten adres email widnieje już na liście zaproszonych na to wydarzenie.</p>
-                    <p>Sprawdź swoją skrzynkę email (w tym folder <strong>SPAM/Oferty</strong>).</p>
-                    <p>Jeśli nie możesz znaleźć wiadomości, odezwij się niezwłocznie do osoby, która Cię na to wydarzenie zaprosiła.</p>
+                    <p>{labels.alreadyRegisteredMsg1}</p>
+                    <p>{labels.alreadyRegisteredMsg2}</p>
+                    <p>{labels.alreadyRegisteredMsg3}</p>
                   </>
                 )
-                : 'Dziękujemy za zapisanie się na webinar. Wysłaliśmy potwierdzenie na podany adres email.'
+                : labels.successMessage
               }
             </CardDescription>
           </CardHeader>
