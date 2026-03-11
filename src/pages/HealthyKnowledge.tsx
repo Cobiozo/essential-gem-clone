@@ -50,6 +50,7 @@ const HealthyKnowledgePage: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
+  const [messageLang, setMessageLang] = useState(language);
   
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
