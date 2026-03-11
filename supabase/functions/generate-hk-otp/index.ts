@@ -57,7 +57,8 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     // Parse request body
-    const { knowledge_id, recipient_name, recipient_email } = await req.json();
+    const { knowledge_id, recipient_name, recipient_email, message_language } = await req.json();
+    const lang = message_language || 'pl';
 
     if (!knowledge_id) {
       return new Response(
