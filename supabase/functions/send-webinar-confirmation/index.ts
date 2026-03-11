@@ -630,6 +630,31 @@ const handler = async (req: Request): Promise<Response> => {
               console.log(`[send-webinar-confirmation] Registration < 60 min before start (${Math.round(minutesUntilStart)} min). Sending immediate reminder with zoom link.`);
 
               const immediateZoomLink = eventData.zoom_link || eventData.location || '';
+              if (!immediateZoomLink) {
+                // Warn admins: event has no join link
+                console.warn(`[send-webinar-confirmation] Event "${eventTitle}" has no zoom_link or location. Notifying admins.`);
+                try {
+                  const { data: admins } = await supabase
+                    .from('user_roles')
+                    .select('user_id')
+                    .eq('role', 'admin');
+                  if (admins?.length) {
+                    await supabase.from('user_notifications').insert(
+                      admins.map((a: any) => ({
+                        user_id: a.user_id,
+                        notification_type: 'system',
+                        source_module: 'events',
+                        title: '⚠️ Brak linku do wydarzenia!',
+                        message: `Wydarzenie "${eventTitle}" nie ma skonfigurowanego linku Zoom ani lokalizacji. Uczestnik ${firstName} (${email}) zarejestrował się < 60 min przed startem, ale nie otrzymał linku do dołączenia.`,
+                        link: '/admin/events',
+                        metadata: { event_id: eventId, severity: 'warning', registered_email: email }
+                      }))
+                    );
+                  }
+                } catch (warnErr) {
+                  console.error("[send-webinar-confirmation] Failed to warn admins about missing link:", warnErr);
+                }
+              }
               if (immediateZoomLink) {
                 // Send immediate reminder with zoom link
                 await supabase.functions.invoke("send-webinar-email", {

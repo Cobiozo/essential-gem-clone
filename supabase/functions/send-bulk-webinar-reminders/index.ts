@@ -339,6 +339,32 @@ serve(async (req) => {
 
     const zoomLink = event.zoom_link || event.location || '';
 
+    // 6b. Warn admins if link is missing but this reminder type should include it
+    if (!zoomLink && config.includeLink) {
+      console.warn(`[bulk-reminders] Event "${event.title}" has no zoom_link or location for ${resolvedType} reminder. Notifying admins.`);
+      try {
+        const { data: admins } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role', 'admin');
+        if (admins?.length) {
+          await supabase.from('user_notifications').insert(
+            admins.map((a: any) => ({
+              user_id: a.user_id,
+              notification_type: 'system',
+              source_module: 'events',
+              title: '⚠️ Brak linku do wydarzenia!',
+              message: `Wydarzenie "${event.title}" nie ma skonfigurowanego linku Zoom ani lokalizacji. Przypomnienie ${resolvedType} zostanie wysłane do ${guests?.length || 0} uczestników BEZ linku do dołączenia.`,
+              link: '/admin/events',
+              metadata: { event_id: event_id, severity: 'warning', reminder_type: resolvedType, guests_count: guests?.length || 0 }
+            }))
+          );
+        }
+      } catch (warnErr) {
+        console.error("[bulk-reminders] Failed to warn admins about missing link:", warnErr);
+      }
+    }
+
     // 7. Send emails in batches of 10
     const BATCH_SIZE = 10;
     let sent = 0;
