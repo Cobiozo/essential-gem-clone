@@ -288,6 +288,12 @@ ${labels.signUp}: ${inviteUrl}
         return <Badge variant="secondary" className="text-xs">{tf('events.registered', 'Zapisany/a')}</Badge>;
       }
       
+      // Grupowe wydarzenia (webinary, spotkania zespołu) — tylko Badge "Jesteś zapisany/a"
+      const isGroupEvent = ['webinar', 'auto_webinar', 'meeting_public', 'team_training'].includes(event.event_type);
+      if (isGroupEvent) {
+        return <Badge variant="secondary" className="text-xs">{tf('events.registered', 'Zapisany/a')}</Badge>;
+      }
+
       if (isExternalPlatform) {
         return (
           <Button
