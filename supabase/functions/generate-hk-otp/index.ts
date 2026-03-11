@@ -5,15 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Generate OTP code in format ZW-XXXX-XX (ZW = Zdrowa Wiedza)
+// Generate OTP code in format ZW-XXXXXX (ZW = Zdrowa Wiedza)
 function generateOTPCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = 'ZW-';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  code += '-';
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 6; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
   return code;
@@ -165,14 +161,18 @@ Deno.serve(async (req) => {
     // Use custom template or default
     const template = knowledge.share_message_template || `Cześć!
 
-Mam dla Ciebie ciekawy materiał: "{title}"
+Mam dla Ciebie ciekawy materiał:
+"{title}"
 
 {description}
 
 Wejdź na link poniżej i użyj kodu dostępu:
 
-🔗 Link: {share_url}
-🔑 Kod dostępu: {otp_code}
+🔗 Link:
+{share_url}
+
+🔑 Kod dostępu:
+{otp_code}
 
 ⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.
 

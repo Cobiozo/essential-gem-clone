@@ -103,16 +103,20 @@ export function useContentTypeLabels(): Record<ContentType, string> {
 
 export const DEFAULT_SHARE_MESSAGE_TEMPLATE = `Cześć!
 
-Mam dla Ciebie ciekawy materiał: "{title}"
+Mam dla Ciebie ciekawy materiał:
+"{title}"
 
 {description}
 
 Wejdź na link poniżej i użyj kodu dostępu:
 
-🔗 Link: {share_url}
-🔑 Kod dostępu: {otp_code}
+🔗 Link:
+{share_url}
 
-⏰ Kod ważny przez {validity_hours} godzin.
+🔑 Kod dostępu:
+{otp_code}
+
+⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.
 
 Pozdrawiam,
 {partner_name}`;

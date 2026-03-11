@@ -80,8 +80,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
   };
 
   const formatDisplay = (raw: string): string => {
-    if (raw.length <= 4) return raw;
-    return `${raw.slice(0, 4)}-${raw.slice(4)}`;
+    return raw;
   };
 
   const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -158,8 +157,8 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     setError(null);
 
     try {
-      // Format code as ZW-XXXX-XX
-      const formattedCode = `ZW-${raw.slice(0, 4)}-${raw.slice(4, 6)}`.toUpperCase();
+      // Format code as ZW-XXXXXX
+      const formattedCode = `ZW-${raw}`.toUpperCase();
 
       const response = await supabase.functions.invoke('validate-hk-otp', {
         body: {
@@ -323,7 +322,7 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           <div className="flex flex-col items-center gap-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Lock className="w-4 h-4" />
-              <span>Kod w formacie: ZW-XXXX-XX</span>
+              <span>Kod w formacie: ZW-XXXXXX</span>
             </div>
             
             <div className="flex items-center gap-2">
