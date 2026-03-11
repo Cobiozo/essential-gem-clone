@@ -57,7 +57,8 @@ Deno.serve(async (req) => {
     const userId = claimsData.claims.sub as string;
 
     // Parse request body
-    const { knowledge_id, recipient_name, recipient_email } = await req.json();
+    const { knowledge_id, recipient_name, recipient_email, message_language } = await req.json();
+    const lang = message_language || 'pl';
 
     if (!knowledge_id) {
       return new Response(
@@ -158,26 +159,15 @@ Deno.serve(async (req) => {
     // Generate share URL with proper domain
     const shareUrl = `${baseUrl}/zdrowa-wiedza/${knowledge.slug}`;
     
-    // Use custom template or default
-    const template = knowledge.share_message_template || `Cześć!
+    // Multi-language templates
+    const messageTemplates: Record<string, string> = {
+      pl: `Cześć!\n\nMam dla Ciebie ciekawy materiał:\n"{title}"\n\n{description}\n\nWejdź na link poniżej i użyj kodu dostępu:\n\n🔗 Link:\n{share_url}\n\n🔑 Kod dostępu:\n{otp_code}\n\n⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.\n\nPozdrawiam,\n{partner_name}`,
+      en: `Hi!\n\nI have an interesting material for you:\n"{title}"\n\n{description}\n\nGo to the link below and use the access code:\n\n🔗 Link:\n{share_url}\n\n🔑 Access code:\n{otp_code}\n\n⏰ After first use you have {validity_hours} hours of access.\n\nBest regards,\n{partner_name}`,
+      de: `Hallo!\n\nIch habe ein interessantes Material für dich:\n"{title}"\n\n{description}\n\nGehe zum Link unten und verwende den Zugangscode:\n\n🔗 Link:\n{share_url}\n\n🔑 Zugangscode:\n{otp_code}\n\n⏰ Nach der ersten Nutzung hast du {validity_hours} Stunden Zugang.\n\nMit freundlichen Grüßen,\n{partner_name}`,
+    };
 
-Mam dla Ciebie ciekawy materiał:
-"{title}"
-
-{description}
-
-Wejdź na link poniżej i użyj kodu dostępu:
-
-🔗 Link:
-{share_url}
-
-🔑 Kod dostępu:
-{otp_code}
-
-⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.
-
-Pozdrawiam,
-{partner_name}`;
+    // Use custom template if set, otherwise use language-appropriate template
+    const template = knowledge.share_message_template || messageTemplates[lang] || messageTemplates.pl;
 
     // Replace placeholders in template
     const clipboardMessage = template

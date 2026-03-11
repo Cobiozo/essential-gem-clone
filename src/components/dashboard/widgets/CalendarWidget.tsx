@@ -12,6 +12,8 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import type { EventWithRegistration, EventButton } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
@@ -40,6 +42,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const [selectedDayEvents, setSelectedDayEvents] = useState<EventWithRegistration[]>([]);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [inviteLang, setInviteLang] = useState(language);
   const dateLocale = language === 'pl' ? pl : enUS;
 
   // Collect meeting_room_ids from internal meeting events for overtime detection
@@ -71,23 +74,22 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
       ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
       : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
-    const webinarInvLabel = tf('events.webinarInvitation', 'Zaproszenie na webinar');
-    const hostLabel = tf('events.host', 'Prowadzący');
-    const signUpLabel = tf('events.signUpHere', 'Zapisz się tutaj');
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
     const invitationText = `
-🎥 ${webinarInvLabel}: ${event.title}
+🎥 ${labels.webinarInvitation}: ${event.title}
 
-📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
-${event.host_name ? `👤 ${hostLabel}: ${event.host_name}` : ''}
+📅 ${labels.date}: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale })}
+⏰ ${labels.time}: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
+${event.host_name ? `👤 ${labels.host}: ${event.host_name}` : ''}
 
-${signUpLabel}: ${inviteUrl}
+${labels.signUp}: ${inviteUrl}
     `.trim();
     
     navigator.clipboard.writeText(invitationText);
     toast({ 
-      title: tf('common.copied', 'Skopiowano!'), 
-      description: tf('events.invitationCopied', 'Zaproszenie zostało skopiowane do schowka') 
+      title: labels.copied, 
+      description: labels.invitationCopied
     });
   };
 
@@ -528,18 +530,21 @@ ${signUpLabel}: ${inviteUrl}
                            {tf('events.details', 'Szczegóły')}
                         </Button>
                         {['webinar', 'auto_webinar'].includes(event.event_type) && !isPast(new Date(event.end_time)) && (event as any).allow_invites === true && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 px-3 touch-action-manipulation"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCopyInvitation(event);
-                            }}
-                            title="Zaproś Gościa"
-                          >
-                            <UserPlus className="h-3.5 w-3.5" />
-                          </Button>
+                          <>
+                            <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-3 touch-action-manipulation"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyInvitation(event);
+                              }}
+                              title="Zaproś Gościa"
+                            >
+                              <UserPlus className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         )}
                         {/* Custom action buttons - zawsze widoczne */}
                         {event.buttons && event.buttons.length > 0 && event.buttons.map((btn: EventButton, index: number) => {

@@ -5,12 +5,15 @@ import { Button } from '@/components/ui/button';
 import { Video, Clock, Copy, Check, Radio } from 'lucide-react';
 import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { copyToClipboard } from '@/lib/clipboardUtils';
+import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 
 interface LinkedEvent {
   id: string;
@@ -31,6 +34,8 @@ export const AutoWebinarEventView: React.FC = () => {
   const [loadingEvent, setLoadingEvent] = React.useState(true);
   const [selectedSlot, setSelectedSlot] = useState<SlotKey | null>(null);
   const [copied, setCopied] = useState(false);
+  const { language } = useLanguage();
+  const [inviteLang, setInviteLang] = useState(language);
 
   React.useEffect(() => {
     if (!config?.event_id) { setLoadingEvent(false); return; }
@@ -101,22 +106,24 @@ export const AutoWebinarEventView: React.FC = () => {
       ? `${baseUrl}/e/${slug}?${params.toString()}`
       : baseUrl;
 
-    const dateStr = format(day.date, 'EEEE, d MMMM', { locale: pl });
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
+    const dateStr = format(day.date, 'EEEE, d MMMM', { locale });
 
-    const invitationText = `🎥 Zaproszenie na webinar: ${title}
+    const invitationText = `🎥 ${labels.webinarInvitation}: ${title}
 
-📅 Data: ${dateStr}
-⏰ Godzina: ${selectedSlot.time}
+📅 ${labels.date}: ${dateStr}
+⏰ ${labels.time}: ${selectedSlot.time}
 ${description ? `\n${description}\n` : ''}
-Zapisz się tutaj: ${inviteUrl}`.trim();
+${labels.signUp}: ${inviteUrl}`.trim();
 
     const success = await copyToClipboard(invitationText);
     if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast({
-        title: 'Skopiowano!',
-        description: `Zaproszenie na ${dateStr}, godz. ${selectedSlot.time}`,
+        title: labels.copied,
+        description: `${labels.invitationCopied}`,
       });
     }
   };
@@ -239,13 +246,15 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
             ))}
           </div>
 
-          {/* Copy button */}
+          {/* Copy button with language select */}
           {selectedSlot && (
-            <Button
-              variant="action"
-              className="w-full gap-2"
-              onClick={handleCopy}
-            >
+            <div className="flex items-center gap-2">
+              <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
+              <Button
+                variant="action"
+                className="flex-1 gap-2"
+                onClick={handleCopy}
+              >
               {copied ? (
                 <>
                   <Check className="h-4 w-4" />
@@ -257,7 +266,8 @@ Zapisz się tutaj: ${inviteUrl}`.trim();
                   Kopiuj zaproszenie — {days[selectedSlot.dayIndex].fullLabel}, {selectedSlot.time}
                 </>
               )}
-            </Button>
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

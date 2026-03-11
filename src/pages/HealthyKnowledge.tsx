@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
@@ -49,6 +50,7 @@ const HealthyKnowledgePage: React.FC = () => {
   const [generating, setGenerating] = useState(false);
   const [generatedMessage, setGeneratedMessage] = useState('');
   const [generatedCode, setGeneratedCode] = useState('');
+  const [messageLang, setMessageLang] = useState(language);
   
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
@@ -130,7 +132,7 @@ const HealthyKnowledgePage: React.FC = () => {
 
       const { success } = await copyAfterAsync(async () => {
         const response = await supabase.functions.invoke('generate-hk-otp', {
-          body: { knowledge_id: selectedMaterial.id },
+          body: { knowledge_id: selectedMaterial.id, message_language: messageLang },
         });
         if (response.error) {
           throw new Error(response.error.message || tf('hk.generateError', 'Błąd generowania kodu'));
@@ -429,7 +431,13 @@ const HealthyKnowledgePage: React.FC = () => {
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{tf('hk.shareMaterial', 'Udostępnij materiał')}</DialogTitle>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{tf('hk.shareMaterial', 'Udostępnij materiał')}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground font-normal">{tf('hk.messageLanguage', 'Język wiadomości')}:</span>
+                <InvitationLanguageSelect value={messageLang} onValueChange={setMessageLang} />
+              </div>
+            </DialogTitle>
             <DialogDescription>
               {tf('hk.generateCodeDesc', 'Wygeneruj kod dostępu i skopiuj wiadomość do wysłania')}
             </DialogDescription>

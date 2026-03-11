@@ -11,6 +11,8 @@ import { format, isPast, isFuture, differenceInMinutes, type Locale } from 'date
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE, getUserTimezone } from '@/utils/timezoneHelpers';
+import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import { 
   Calendar, 
   Clock, 
@@ -151,6 +153,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [registering, setRegistering] = useState(false);
+  const [inviteLang, setInviteLang] = useState(language);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
   const [registeredOccurrences, setRegisteredOccurrences] = useState<Set<number | null>>(
     event.registered_occurrences || new Set()
@@ -415,20 +418,22 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
       ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
       : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
     const invitationText = `
-🎥 Zaproszenie na spotkanie: ${event.title}
+🎥 ${labels.meetingInvitation}: ${event.title}
 
-📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
-${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
+📅 ${labels.date}: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale })}
+⏰ ${labels.time}: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
+${event.host_name ? `👤 ${labels.host}: ${event.host_name}` : ''}
 
-Zapisz się tutaj: ${inviteUrl}
+${labels.signUp}: ${inviteUrl}
     `.trim();
     
     navigator.clipboard.writeText(invitationText);
     toast({ 
-      title: 'Skopiowano!', 
-      description: 'Zaproszenie zostało skopiowane do schowka' 
+      title: labels.copied, 
+      description: labels.invitationCopied
     });
   };
 
@@ -573,15 +578,17 @@ Zapisz się tutaj: ${inviteUrl}
     // Only show invite button if admin enabled allow_invites for this event
     if (isUpcoming && !isPastEvent && (event as any).allow_invites === true) {
       buttons.push(
-        <Button
-          key="invite-guest"
-          variant="outline"
-          size="sm"
-          onClick={handleCopyInvitation}
-        >
-          <UserPlus className="h-4 w-4 mr-2" />
-          Zaproś
-        </Button>
+        <React.Fragment key="invite-guest">
+          <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopyInvitation}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Zaproś
+          </Button>
+        </React.Fragment>
       );
     }
 
