@@ -124,6 +124,10 @@ export interface RegistrationLabels {
   reminderNote1: string;
   reminderNote15min: string;
   thanksForRegistration: string;
+  placeholderEmail: string;
+  placeholderFirstName: string;
+  placeholderLastName: string;
+  placeholderPhone: string;
 }
 
 const registrationTemplates: Record<string, RegistrationLabels> = {
@@ -163,6 +167,10 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     reminderNote1: 'Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.',
     reminderNote15min: 'Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.',
     thanksForRegistration: 'Dziękujemy za rejestrację!',
+    placeholderEmail: 'jan@example.com',
+    placeholderFirstName: 'Jan',
+    placeholderLastName: 'Kowalski',
+    placeholderPhone: '+48 123 456 789',
   },
   en: {
     formTitle: 'Sign up for webinar',
@@ -200,6 +208,10 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     reminderNote1: 'You will receive reminders: 1 hour and 15 minutes before the webinar with a meeting link.',
     reminderNote15min: 'You will receive a reminder 15 minutes before the webinar with a meeting link.',
     thanksForRegistration: 'Thank you for registering!',
+    placeholderEmail: 'john@example.com',
+    placeholderFirstName: 'John',
+    placeholderLastName: 'Smith',
+    placeholderPhone: '+1 555 123 4567',
   },
   de: {
     formTitle: 'Zum Webinar anmelden',
@@ -237,6 +249,10 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     reminderNote1: 'Sie erhalten Erinnerungen: 1 Stunde und 15 Minuten vor dem Webinar mit einem Meeting-Link.',
     reminderNote15min: 'Sie erhalten eine Erinnerung 15 Minuten vor dem Webinar mit einem Meeting-Link.',
     thanksForRegistration: 'Vielen Dank für Ihre Registrierung!',
+    placeholderEmail: 'hans@example.com',
+    placeholderFirstName: 'Hans',
+    placeholderLastName: 'Müller',
+    placeholderPhone: '+49 151 1234 5678',
   },
 };
 

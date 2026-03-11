@@ -558,7 +558,7 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.emailLabel} *</FormLabel>
                             <FormControl>
-                              <Input placeholder="jan@example.com" {...field} />
+                              <Input placeholder={labels.placeholderEmail} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -572,7 +572,7 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.firstNameLabel} *</FormLabel>
                             <FormControl>
-                              <Input placeholder="Jan" {...field} />
+                              <Input placeholder={labels.placeholderFirstName} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -586,7 +586,7 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.lastNameLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="Kowalski" {...field} />
+                              <Input placeholder={labels.placeholderLastName} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -600,7 +600,7 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.phoneLabel}</FormLabel>
                             <FormControl>
-                              <Input placeholder="+48 123 456 789" {...field} />
+                              <Input placeholder={labels.placeholderPhone} {...field} />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
