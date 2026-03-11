@@ -21,6 +21,7 @@ import {
 interface EventGroupedContactsProps {
   eventGroups: Map<string, EventGroup>;
   duplicateContactEvents: Map<string, number>;
+  eventContactDetails: Map<string, EventRegistrationInfo[]>;
   loading: boolean;
   onEdit: (contact: TeamContact) => void;
   onDelete: (id: string) => void;
