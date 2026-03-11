@@ -473,7 +473,7 @@ const EventGuestRegistration: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <Video className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="font-medium">Webinar online</p>
+                      <p className="font-medium">{labels.onlineWebinar}</p>
                     </div>
                   </div>
                   {autoWebinarConfig && (() => {
