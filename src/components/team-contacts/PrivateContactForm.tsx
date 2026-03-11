@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { ContactEventHistory } from './ContactEventHistory';
 import type { TeamContact } from './types';
 
 interface PrivateContactFormProps {
