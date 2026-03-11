@@ -230,3 +230,6 @@ verify_jwt = false
 
 [functions.send-post-webinar-email]
 verify_jwt = false
+
+[functions.scheduled-translate-sync]
+verify_jwt = false

@@ -14,7 +14,35 @@ function hasTranslatedContent(obj: any, fields: string[]): boolean {
   return fields.some(f => obj[f] && typeof obj[f] === 'string' && obj[f].trim() !== '');
 }
 const PAGE_SIZE = 1000;
-const MAX_EXECUTION_TIME = 25000; // 25 seconds (Supabase limit is 30s)
+const MAX_EXECUTION_TIME = 25000;
+
+// Filters items to only those updated after their existing translation
+async function filterOutdatedItems(
+  supabase: any,
+  items: any[],
+  translationTable: string,
+  fkColumn: string,
+  targetLanguage: string
+): Promise<any[]> {
+  if (items.length === 0) return [];
+  
+  const ids = items.map(i => i.id);
+  const { data: translations } = await supabase
+    .from(translationTable)
+    .select(`${fkColumn}, updated_at`)
+    .eq('language_code', targetLanguage)
+    .in(fkColumn, ids);
+  
+  if (!translations || translations.length === 0) return []; // No existing translations = nothing is "outdated"
+  
+  const translationMap = new Map(translations.map((t: any) => [t[fkColumn], t.updated_at]));
+  
+  return items.filter(item => {
+    const tUpdated = translationMap.get(item.id);
+    if (!tUpdated) return false; // No translation exists — handled by 'missing' mode
+    return new Date(item.updated_at) > new Date(tUpdated);
+  });
+}
 
 // Paginated fetch to overcome Supabase's 1000 row limit
 async function fetchAllRows(
@@ -129,17 +157,24 @@ async function processTranslationJob(jobId: string) {
       .eq('id', jobId);
 
     const jobType = job.job_type || 'i18n';
+    const jobMode = job.mode || 'missing';
+
+    // For 'outdated' mode, convert to 'all' but only for items that changed
+    // The outdated detection happens here: we override mode to 'all' and filter by updated_at
+    const effectiveJob = jobMode === 'outdated' 
+      ? { ...job, mode: 'all', _outdatedOnly: true } 
+      : job;
 
     if (jobType === 'cms') {
-      await processCMSJob(supabase, job, lovableApiKey);
+      await processCMSJob(supabase, effectiveJob, lovableApiKey);
     } else if (jobType === 'training') {
-      await processTrainingJob(supabase, job, lovableApiKey);
+      await processTrainingJob(supabase, effectiveJob, lovableApiKey);
     } else if (jobType === 'knowledge') {
-      await processKnowledgeJob(supabase, job, lovableApiKey);
+      await processKnowledgeJob(supabase, effectiveJob, lovableApiKey);
     } else if (jobType === 'healthy_knowledge') {
-      await processHealthyKnowledgeJob(supabase, job, lovableApiKey);
+      await processHealthyKnowledgeJob(supabase, effectiveJob, lovableApiKey);
     } else {
-      await processI18nJob(supabase, job, lovableApiKey);
+      await processI18nJob(supabase, effectiveJob, lovableApiKey);
     }
 
   } catch (error) {
@@ -304,7 +339,7 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   // ============ CMS ITEMS ============
   let itemsQuery = supabase
     .from('cms_items')
-    .select('id, title, description, cells')
+    .select('id, title, description, cells, updated_at')
     .eq('is_active', true);
   
   if (page_id) {
@@ -332,14 +367,18 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   const existingItemIds = new Set(existingItemTranslations?.map(t => t.item_id) || []);
 
   // Filter items based on mode
-  const itemsToTranslate = job.mode === 'all' 
+  let itemsToTranslate = job.mode === 'all' 
     ? translatableItems 
     : translatableItems.filter(item => !existingItemIds.has(item.id));
+
+  if (job._outdatedOnly) {
+    itemsToTranslate = await filterOutdatedItems(supabase, translatableItems, 'cms_item_translations', 'item_id', target_language);
+  }
 
   // ============ CMS SECTIONS ============
   let sectionsQuery = supabase
     .from('cms_sections')
-    .select('id, title, description, collapsible_header')
+    .select('id, title, description, collapsible_header, updated_at')
     .eq('is_active', true);
   
   if (page_id) {
@@ -350,15 +389,12 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   if (sectionsError) {
     console.error(`Failed to fetch CMS sections: ${sectionsError.message}`);
-    // Don't throw, continue with items only
   }
 
-  // Filter sections with translatable content
   const translatableSections = (sections || []).filter(section => 
     section.title || section.description || section.collapsible_header
   );
 
-  // Get existing section translations
   const { data: existingSectionTranslations } = await supabase
     .from('cms_section_translations')
     .select('section_id')
@@ -367,10 +403,13 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   const existingSectionIds = new Set(existingSectionTranslations?.map(t => t.section_id) || []);
 
-  // Filter sections based on mode
-  const sectionsToTranslate = job.mode === 'all' 
+  let sectionsToTranslate = job.mode === 'all' 
     ? translatableSections 
     : translatableSections.filter(section => !existingSectionIds.has(section.id));
+
+  if (job._outdatedOnly) {
+    sectionsToTranslate = await filterOutdatedItems(supabase, translatableSections, 'cms_section_translations', 'section_id', target_language);
+  }
 
   // ============ TOTAL COUNT ============
   const totalKeys = itemsToTranslate.length + sectionsToTranslate.length;
@@ -875,8 +914,8 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
   const { id: jobId, source_language, target_language } = job;
 
   // Fetch modules and lessons
-  const { data: modules } = await supabase.from('training_modules').select('id, title, description').eq('is_active', true);
-  const { data: lessons } = await supabase.from('training_lessons').select('id, title, content, media_alt_text').eq('is_active', true);
+  const { data: modules } = await supabase.from('training_modules').select('id, title, description, updated_at').eq('is_active', true);
+  const { data: lessons } = await supabase.from('training_lessons').select('id, title, content, media_alt_text, updated_at').eq('is_active', true);
 
   // Get existing translations
   const { data: existModT } = await supabase.from('training_module_translations').select('module_id').eq('language_code', target_language).not('title', 'is', null);
@@ -885,8 +924,14 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
   const existModIds = new Set(existModT?.map((t: any) => t.module_id) || []);
   const existLessIds = new Set(existLessT?.map((t: any) => t.lesson_id) || []);
 
-  const modsToTranslate = job.mode === 'all' ? (modules || []) : (modules || []).filter((m: any) => !existModIds.has(m.id));
-  const lessToTranslate = job.mode === 'all' ? (lessons || []) : (lessons || []).filter((l: any) => !existLessIds.has(l.id));
+  let modsToTranslate = job.mode === 'all' ? (modules || []) : (modules || []).filter((m: any) => !existModIds.has(m.id));
+  let lessToTranslate = job.mode === 'all' ? (lessons || []) : (lessons || []).filter((l: any) => !existLessIds.has(l.id));
+
+  // Handle outdated mode
+  if (job._outdatedOnly) {
+    modsToTranslate = await filterOutdatedItems(supabase, modules || [], 'training_module_translations', 'module_id', target_language);
+    lessToTranslate = await filterOutdatedItems(supabase, lessons || [], 'training_lesson_translations', 'lesson_id', target_language);
+  }
 
   const totalKeys = modsToTranslate.length + lessToTranslate.length;
   await supabase.from('translation_jobs').update({ total_keys: totalKeys, updated_at: new Date().toISOString() }).eq('id', jobId);
@@ -948,10 +993,14 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
 async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language } = job;
 
-  const { data: resources } = await supabase.from('knowledge_resources').select('id, title, description, context_of_use');
+  const { data: resources } = await supabase.from('knowledge_resources').select('id, title, description, context_of_use, updated_at');
   const { data: existT } = await supabase.from('knowledge_resource_translations').select('resource_id').eq('language_code', target_language).not('title', 'is', null);
   const existIds = new Set(existT?.map((t: any) => t.resource_id) || []);
-  const toTranslate = job.mode === 'all' ? (resources || []) : (resources || []).filter((r: any) => !existIds.has(r.id));
+  let toTranslate = job.mode === 'all' ? (resources || []) : (resources || []).filter((r: any) => !existIds.has(r.id));
+
+  if (job._outdatedOnly) {
+    toTranslate = await filterOutdatedItems(supabase, resources || [], 'knowledge_resource_translations', 'resource_id', target_language);
+  }
 
   await supabase.from('translation_jobs').update({ total_keys: toTranslate.length, updated_at: new Date().toISOString() }).eq('id', jobId);
 
@@ -990,10 +1039,14 @@ async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: strin
 async function processHealthyKnowledgeJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language } = job;
 
-  const { data: items } = await supabase.from('healthy_knowledge').select('id, title, description, text_content').eq('is_active', true);
+  const { data: items } = await supabase.from('healthy_knowledge').select('id, title, description, text_content, updated_at').eq('is_active', true);
   const { data: existT } = await supabase.from('healthy_knowledge_translations').select('item_id').eq('language_code', target_language).not('title', 'is', null);
   const existIds = new Set(existT?.map((t: any) => t.item_id) || []);
-  const toTranslate = job.mode === 'all' ? (items || []) : (items || []).filter((i: any) => !existIds.has(i.id));
+  let toTranslate = job.mode === 'all' ? (items || []) : (items || []).filter((i: any) => !existIds.has(i.id));
+
+  if (job._outdatedOnly) {
+    toTranslate = await filterOutdatedItems(supabase, items || [], 'healthy_knowledge_translations', 'item_id', target_language);
+  }
 
   await supabase.from('translation_jobs').update({ total_keys: toTranslate.length, updated_at: new Date().toISOString() }).eq('id', jobId);
 
