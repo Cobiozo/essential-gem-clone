@@ -332,8 +332,8 @@ const HealthyKnowledgePublicPage: React.FC = () => {
                 onChange={handleCodeChange}
                 onPaste={handleCodePaste} 
                 onKeyDown={(e) => { if (e.key === 'Enter' && otpRaw.length === 6) handleOtpSubmit(); }}
-                placeholder="XXXX-XX"
-                maxLength={7}
+                placeholder="XXXXXX"
+                maxLength={6}
                 autoComplete="off"
                 spellCheck={false}
                 inputMode="text"

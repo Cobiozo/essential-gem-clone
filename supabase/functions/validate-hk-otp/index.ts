@@ -36,8 +36,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Normalize OTP code (uppercase)
-    const normalizedCode = otp_code.toUpperCase().trim();
+    // Normalize OTP code: strip hyphens after ZW- prefix, uppercase
+    const rawCode = otp_code.toUpperCase().trim();
+    const stripped = rawCode.replace(/^ZW-?/, '').replace(/-/g, '');
+    const normalizedCode = `ZW-${stripped}`;
+    // Also build legacy format for backward compatibility (ZW-XXXX-XX)
+    const legacyCode = stripped.length === 6 ? `ZW-${stripped.slice(0,4)}-${stripped.slice(4)}` : normalizedCode;
 
     // Find knowledge by slug
     const { data: knowledge, error: knowledgeError } = await supabase
@@ -59,7 +63,7 @@ Deno.serve(async (req) => {
     const { data: otpCodeRecord, error: otpError } = await supabase
       .from('hk_otp_codes')
       .select('*')
-      .eq('code', normalizedCode)
+      .in('code', [normalizedCode, legacyCode])
       .eq('knowledge_id', knowledge.id)
       .eq('is_invalidated', false)
       .gt('expires_at', new Date().toISOString())
