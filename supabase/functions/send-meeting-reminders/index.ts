@@ -357,6 +357,96 @@ serve(async (req) => {
         }
       }
 
+      // === Send reminders to guest token holders (meeting_guest_tokens) ===
+      if (meeting.event_type === 'meeting_private' || meeting.event_type === 'tripartite_meeting' || meeting.event_type === 'partner_consultation') {
+        try {
+          const { data: guestTokens } = await supabase
+            .from('meeting_guest_tokens')
+            .select('id, email, first_name, last_name, room_id, inviter_user_id')
+            .eq('event_id', meeting.id);
+
+          if (guestTokens && guestTokens.length > 0) {
+            for (const guest of guestTokens) {
+              const guestReminderType = `guest_${reminderType}`;
+
+              // Deduplication check
+              const { data: existingGuestReminder } = await supabase
+                .from('meeting_reminders_sent')
+                .select('id')
+                .eq('event_id', meeting.id)
+                .eq('prospect_email', guest.email)
+                .eq('reminder_type', guestReminderType)
+                .maybeSingle();
+
+              if (existingGuestReminder) {
+                console.log(`[send-meeting-reminders] Guest ${guestReminderType} already sent to ${guest.email}`);
+                continue;
+              }
+
+              // Get inviter name
+              const { data: inviterProfile } = await supabase
+                .from('profiles')
+                .select('first_name, last_name')
+                .eq('user_id', guest.inviter_user_id)
+                .maybeSingle();
+
+              const inviterName = inviterProfile
+                ? `${inviterProfile.first_name || ''} ${inviterProfile.last_name || ''}`.trim()
+                : 'Organizator';
+
+              const includeLink = reminderType === '2h' || reminderType === '1h' || reminderType === '15min';
+              const meetingLink = `https://purelife.lovable.app/meeting/${guest.room_id}`;
+
+              const guestSubject = reminderType === '24h' ? `⏰ Przypomnienie: spotkanie jutro o ${timeStr}`
+                : reminderType === '12h' ? `🔔 Spotkanie dziś o ${timeStr}`
+                : reminderType === '2h' ? `🎯 Spotkanie za 2 godziny — dołącz o ${timeStr}`
+                : reminderType === '1h' ? `⚡ Spotkanie za godzinę — o ${timeStr}`
+                : `⚡ Spotkanie za 15 minut — dołącz teraz!`;
+
+              const guestHtmlBody = buildGuestReminderHtml(
+                reminderType,
+                guest.first_name || '',
+                inviterName,
+                meeting.title || 'Spotkanie',
+                dateStr,
+                timeStr,
+                includeLink ? meetingLink : undefined
+              );
+
+              const guestResult = await sendSmtpEmail(smtpSettings, guest.email, guestSubject, guestHtmlBody);
+
+              if (guestResult.success) {
+                await supabase.from('meeting_reminders_sent').insert({
+                  event_id: meeting.id,
+                  prospect_email: guest.email,
+                  reminder_type: guestReminderType,
+                });
+
+                await supabase.from('email_logs').insert({
+                  recipient_email: guest.email,
+                  subject: guestSubject,
+                  status: 'sent',
+                  sent_at: new Date().toISOString(),
+                  metadata: {
+                    email_type: 'guest_meeting_reminder',
+                    reminder_type: reminderType,
+                    event_id: meeting.id,
+                    guest_name: `${guest.first_name} ${guest.last_name}`,
+                  },
+                });
+
+                sentCount++;
+                console.log(`[send-meeting-reminders] Guest ${reminderType} reminder sent to ${guest.email}`);
+              } else {
+                errors.push(`Guest email failed for ${guest.email}: ${guestResult.error}`);
+              }
+            }
+          }
+        } catch (guestErr) {
+          console.warn(`[send-meeting-reminders] Guest reminders failed:`, guestErr);
+        }
+      }
+
       // === Send reminders to registered users (all 5 windows) ===
       const { data: registrations } = await supabase
         .from('event_registrations')
