@@ -697,6 +697,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       dbParticipantChannelRef.current = null;
     }
 
+    // Stop raw camera stream from background processor before stopping background
+    const rawStream = getRawStream();
+    if (rawStream && rawStream !== localStreamRef.current) {
+      rawStream.getTracks().forEach(t => { try { t.stop(); } catch {} });
+    }
     // Cleanup background processor
     stopBackground();
 
