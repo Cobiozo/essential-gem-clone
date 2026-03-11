@@ -260,7 +260,11 @@ export const EventCard: React.FC<EventCardProps> = ({
     const eqId = profile?.eq_id;
     
     if (eventSlug) {
-      return `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`;
+      const params = new URLSearchParams();
+      if (eqId) params.set('ref', eqId);
+      if (inviteLang !== 'pl') params.set('lang', inviteLang);
+      const qs = params.toString();
+      return `${baseUrl}/e/${eventSlug}${qs ? `?${qs}` : ''}`;
     }
     // Fallback to old format
     return `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;

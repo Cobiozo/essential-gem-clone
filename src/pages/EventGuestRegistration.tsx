@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -13,6 +13,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
+import { getRegistrationLabels, getDateLocale } from '@/utils/invitationTemplates';
 
 interface AutoWebinarSlotConfig {
   start_hour: number;
@@ -74,14 +75,13 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
 };
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
-const registrationSchema = z.object({
-  email: z.string().email('Podaj prawidłowy adres email'),
-  first_name: z.string().min(2, 'Imię musi mieć minimum 2 znaki'),
-  last_name: z.string().optional(),
-  phone: z.string().optional(),
-});
-
-type RegistrationFormData = z.infer<typeof registrationSchema>;
+// Schema is created dynamically based on lang — see inside the component
+type RegistrationFormData = {
+  email: string;
+  first_name: string;
+  last_name?: string;
+  phone?: string;
+};
 
 interface EventData {
   id: string;
@@ -112,6 +112,7 @@ const EventGuestRegistration: React.FC = () => {
   const [searchParams] = useSearchParams();
   const invitedByRaw = searchParams.get('invited_by');
   const slotParam = searchParams.get('slot');
+  const lang = searchParams.get('lang') || 'pl';
   
   // Validate UUID format - if invalid, set to null
   const invitedBy = isValidUUID(invitedByRaw) ? invitedByRaw : null;
@@ -120,6 +121,16 @@ const EventGuestRegistration: React.FC = () => {
   if (invitedByRaw && !invitedBy) {
     console.warn('Invalid invited_by UUID format, ignoring:', invitedByRaw);
   }
+
+  const labels = useMemo(() => getRegistrationLabels(lang), [lang]);
+  const dateLocale = useMemo(() => getDateLocale(lang), [lang]);
+
+  const registrationSchema = useMemo(() => z.object({
+    email: z.string().email(labels.emailError),
+    first_name: z.string().min(2, labels.nameError),
+    last_name: z.string().optional(),
+    phone: z.string().optional(),
+  }), [labels]);
   
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,7 +172,7 @@ const EventGuestRegistration: React.FC = () => {
         setEvent(data);
       } catch (err: any) {
         console.error('Error fetching event:', err?.message || err);
-        setError(`Nie znaleziono wydarzenia lub jest nieaktywne. (${err?.code || 'unknown'})`);
+        setError(`${labels.notFound} (${err?.code || 'unknown'})`);
       } finally {
         setLoading(false);
       }
@@ -238,7 +249,7 @@ const EventGuestRegistration: React.FC = () => {
             // Auto-webinar specific
             isAutoWebinar,
             nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
-            nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${nextSlot.time}` : undefined,
+            nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: dateLocale })} o godz. ${nextSlot.time}` : undefined,
             minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
             roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/auto-webinar/watch/${event.slug}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
             videoHostName: autoWebinarVideo?.host_name || undefined,
@@ -253,7 +264,7 @@ const EventGuestRegistration: React.FC = () => {
       setSuccess(true);
     } catch (err: any) {
       console.error('Registration error:', err?.message || err, err?.code, err?.details);
-      setError(`Wystąpił błąd podczas rejestracji: ${err?.message || 'nieznany błąd'}. Spróbuj ponownie.`);
+      setError(`${labels.registrationError}: ${err?.message || 'unknown'}`);
     } finally {
       setSubmitting(false);
     }
@@ -301,18 +312,18 @@ const EventGuestRegistration: React.FC = () => {
               : <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
             }
             <CardTitle className="text-2xl">
-              {alreadyRegistered ? 'Jesteś już zarejestrowany/a!' : 'Rejestracja zakończona!'}
+              {alreadyRegistered ? labels.alreadyRegisteredTitle : labels.successTitle}
             </CardTitle>
             <CardDescription className={alreadyRegistered ? 'text-left space-y-2' : ''}>
               {alreadyRegistered 
                 ? (
                   <>
-                    <p>Ten adres email widnieje już na liście zaproszonych na to wydarzenie.</p>
-                    <p>Sprawdź swoją skrzynkę email (w tym folder <strong>SPAM/Oferty</strong>).</p>
-                    <p>Jeśli nie możesz znaleźć wiadomości, odezwij się niezwłocznie do osoby, która Cię na to wydarzenie zaprosiła.</p>
+                    <p>{labels.alreadyRegisteredMsg1}</p>
+                    <p>{labels.alreadyRegisteredMsg2}</p>
+                    <p>{labels.alreadyRegisteredMsg3}</p>
                   </>
                 )
-                : 'Dziękujemy za zapisanie się na webinar. Wysłaliśmy potwierdzenie na podany adres email.'
+                : labels.successMessage
               }
             </CardDescription>
           </CardHeader>
@@ -323,7 +334,7 @@ const EventGuestRegistration: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Video className="h-4 w-4" />
-                    <span>Webinar online</span>
+                    <span>{labels.onlineWebinar}</span>
                   </div>
                   {autoWebinarConfig && (() => {
                      const slot = getNextSlot(autoWebinarConfig, slotParam);
@@ -331,12 +342,12 @@ const EventGuestRegistration: React.FC = () => {
                       <>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4" />
-                          <span>{format(slot.date, 'EEEE, d MMMM', { locale: pl })} • godz. {slot.time}</span>
+                          <span>{format(slot.date, 'EEEE, d MMMM', { locale: dateLocale })} • {slot.time}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {autoWebinarConfig.interval_minutes >= 30
-                            ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
-                            : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.'}
+                            ? labels.roomOpens5min
+                            : labels.roomOpensOnTime}
                         </p>
                       </>
                     );
@@ -346,7 +357,7 @@ const EventGuestRegistration: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>{format(startDate, 'PPP', { locale: pl })}</span>
+                    <span>{format(startDate, 'PPP', { locale: dateLocale })}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
@@ -370,28 +381,29 @@ const EventGuestRegistration: React.FC = () => {
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
                       if (minutesToSlot <= 15) {
-                        return 'Sprawdź swoją skrzynkę email — wysłaliśmy Ci link do natychmiastowego dołączenia! 🔴';
+                        return labels.checkEmail;
                       }
                       
                       const accessNote = autoWebinarConfig.interval_minutes >= 30
-                        ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem.'
-                        : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.';
-                      return `Najbliższy webinar: ${format(slot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${slot.time}. ${accessNote}`;
+                        ? labels.roomOpens5min
+                        : labels.roomOpensOnTime;
+                      const dateStr = format(slot.date, 'EEEE, d MMMM', { locale: dateLocale });
+                      return labels.nextWebinar.replace('{date}', dateStr).replace('{time}', slot.time).replace('{accessNote}', accessNote);
                     }
-                    return 'Dziękujemy za rejestrację!';
+                    return labels.thanksForRegistration;
                   })()
                 : (() => {
                     const hoursUntilEvent = (startDate.getTime() - Date.now()) / (1000 * 60 * 60);
                     if (hoursUntilEvent > 24) {
-                      return "Otrzymasz przypomnienia: 24 godziny, 12 godzin, 2 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                      return labels.reminderNote24;
                     } else if (hoursUntilEvent > 12) {
-                      return "Otrzymasz przypomnienia: 12 godzin, 2 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                      return labels.reminderNote12;
                     } else if (hoursUntilEvent > 2) {
-                      return "Otrzymasz przypomnienia: 2 godziny, 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                      return labels.reminderNote2;
                     } else if (hoursUntilEvent > 1) {
-                      return "Otrzymasz przypomnienia: 1 godzinę i 15 minut przed webinarem z linkiem do spotkania.";
+                      return labels.reminderNote1;
                     } else {
-                      return "Otrzymasz przypomnienie 15 minut przed webinarem z linkiem do spotkania.";
+                      return labels.reminderNote15min;
                     }
                   })()
               }
@@ -431,7 +443,7 @@ const EventGuestRegistration: React.FC = () => {
               />
               {isPast && (
                 <div className="absolute top-4 right-4">
-                  <Badge variant="secondary">Zakończone</Badge>
+                  <Badge variant="secondary">{labels.eventFinished}</Badge>
                 </div>
               )}
             </div>
@@ -441,7 +453,7 @@ const EventGuestRegistration: React.FC = () => {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">
                 <Video className="h-3 w-3 mr-1" />
-                Webinar
+                {labels.webinarBadge}
               </Badge>
             </div>
             <CardTitle className="text-2xl">{event.title}</CardTitle>
@@ -461,7 +473,7 @@ const EventGuestRegistration: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <Video className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="font-medium">Webinar online</p>
+                      <p className="font-medium">{labels.onlineWebinar}</p>
                     </div>
                   </div>
                   {autoWebinarConfig && (() => {
@@ -471,13 +483,13 @@ const EventGuestRegistration: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <Calendar className="h-5 w-5 text-primary" />
                           <div>
-                            <p className="font-medium">{format(slot.date, 'EEEE, d MMMM', { locale: pl })} • godz. {slot.time}</p>
+                            <p className="font-medium">{format(slot.date, 'EEEE, d MMMM', { locale: dateLocale })} • {slot.time}</p>
                           </div>
                         </div>
                         <p className="text-sm text-muted-foreground ml-8">
                           {autoWebinarConfig.interval_minutes >= 30
-                            ? 'Pokój otworzy się 5 minut przed planowanym rozpoczęciem spotkania.'
-                            : 'Pokój otworzy się punktualnie o wyznaczonej godzinie.'}
+                            ? labels.roomOpens5min
+                            : labels.roomOpensOnTime}
                         </p>
                       </>
                     );
@@ -488,7 +500,7 @@ const EventGuestRegistration: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <Calendar className="h-5 w-5 text-primary" />
                     <div>
-                      <p className="font-medium">{format(startDate, 'PPPP', { locale: pl })}</p>
+                      <p className="font-medium">{format(startDate, 'PPPP', { locale: dateLocale })}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -507,14 +519,14 @@ const EventGuestRegistration: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-medium">Prowadzący: {autoWebinarVideo.host_name}</p>
+                    <p className="font-medium">{labels.host}: {autoWebinarVideo.host_name}</p>
                   </div>
                 </div>
               ) : event.host_name ? (
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-medium">Prowadzący: {event.host_name}</p>
+                    <p className="font-medium">{labels.host}: {event.host_name}</p>
                   </div>
                 </div>
               ) : null}
@@ -522,20 +534,20 @@ const EventGuestRegistration: React.FC = () => {
 
             {isPast ? (
               <div className="text-center p-4 bg-muted rounded-lg">
-                <p className="text-muted-foreground">Ten webinar już się odbył.</p>
+                <p className="text-muted-foreground">{labels.eventFinished}</p>
               </div>
             ) : isAfterCutoff ? (
               <div className="text-center p-4 bg-destructive/10 rounded-lg space-y-2">
                 <AlertCircle className="h-8 w-8 mx-auto text-destructive" />
-                <p className="text-sm font-medium">Rejestracja zamknięta</p>
+                <p className="text-sm font-medium">{labels.registrationClosed}</p>
                 <p className="text-sm text-muted-foreground">
-                  Zapisanie się na spotkanie było możliwe do godz. {cutoffTimeStr}. Aktualnie spotkanie trwa. W przyszłości, aby uniknąć takiej sytuacji, zapisz się wcześniej przed rozpoczęciem spotkania.
+                  {labels.registrationClosedDetail.replace('{time}', cutoffTimeStr)}
                 </p>
               </div>
             ) : (
               <>
                 <div className="border-t pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Zapisz się na webinar</h3>
+                  <h3 className="text-lg font-semibold mb-4">{labels.formTitle}</h3>
                   
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -544,7 +556,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="email"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email *</FormLabel>
+                            <FormLabel>{labels.emailLabel} *</FormLabel>
                             <FormControl>
                               <Input placeholder="jan@example.com" {...field} />
                             </FormControl>
@@ -558,7 +570,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="first_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Imię *</FormLabel>
+                            <FormLabel>{labels.firstNameLabel} *</FormLabel>
                             <FormControl>
                               <Input placeholder="Jan" {...field} />
                             </FormControl>
@@ -572,7 +584,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="last_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Nazwisko</FormLabel>
+                            <FormLabel>{labels.lastNameLabel}</FormLabel>
                             <FormControl>
                               <Input placeholder="Kowalski" {...field} />
                             </FormControl>
@@ -586,7 +598,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Telefon</FormLabel>
+                            <FormLabel>{labels.phoneLabel}</FormLabel>
                             <FormControl>
                               <Input placeholder="+48 123 456 789" {...field} />
                             </FormControl>
@@ -604,16 +616,16 @@ const EventGuestRegistration: React.FC = () => {
                       <Button type="submit" className="w-full" size="lg" disabled={submitting}>
                         {submitting ? (
                           <>
-                            <LoadingSpinner className="mr-2 h-4 w-4" />
-                            Zapisywanie...
+                             <LoadingSpinner className="mr-2 h-4 w-4" />
+                            {labels.submitting}
                           </>
                         ) : (
-                          'Zapisz się na webinar'
+                          labels.submitButton
                         )}
                       </Button>
 
                       <p className="text-xs text-muted-foreground text-center">
-                        Zapisując się, wyrażasz zgodę na przetwarzanie danych osobowych w celu organizacji webinaru.
+                        {labels.consent}
                       </p>
                     </form>
                   </Form>
@@ -627,7 +639,7 @@ const EventGuestRegistration: React.FC = () => {
       {/* Footer */}
       <footer className="border-t mt-8 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.
+          {labels.footer.replace('{year}', String(new Date().getFullYear()))}
         </div>
       </footer>
     </div>

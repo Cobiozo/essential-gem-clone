@@ -38,6 +38,7 @@ const EventRegistrationBySlug: React.FC = () => {
       // 2. For auto_webinar without ref param → redirect to public watch page
       const ref = searchParams.get('ref');
       const slot = searchParams.get('slot');
+      const lang = searchParams.get('lang');
 
       if (event.event_type === 'auto_webinar' && !ref) {
         // Guest already registered, coming from email — go directly to watch page
@@ -74,6 +75,10 @@ const EventRegistrationBySlug: React.FC = () => {
 
       if (slot) {
         redirectParams.set('slot', slot);
+      }
+
+      if (lang) {
+        redirectParams.set('lang', lang);
       }
 
       // 3. Redirect to existing registration page
