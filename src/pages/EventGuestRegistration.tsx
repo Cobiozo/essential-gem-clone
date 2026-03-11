@@ -264,7 +264,7 @@ const EventGuestRegistration: React.FC = () => {
       setSuccess(true);
     } catch (err: any) {
       console.error('Registration error:', err?.message || err, err?.code, err?.details);
-      setError(`Wystąpił błąd podczas rejestracji: ${err?.message || 'nieznany błąd'}. Spróbuj ponownie.`);
+      setError(`${labels.registrationError}: ${err?.message || 'unknown'}`);
     } finally {
       setSubmitting(false);
     }
