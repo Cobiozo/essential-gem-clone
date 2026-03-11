@@ -296,15 +296,6 @@ export const useTeamContacts = () => {
       const ids = new Set<string>();
       const detailsMap = new Map<string, EventRegistrationInfo[]>();
       
-      // Count attempts per email+event combination
-      const attemptCounter = new Map<string, number>();
-      for (const r of (data || [])) {
-        if (r.email && r.event_id) {
-          const key = `${r.email.toLowerCase().trim()}::${r.event_id}`;
-          attemptCounter.set(key, (attemptCounter.get(key) || 0) + 1);
-        }
-      }
-      
       // Deduplicate: keep best record per contact+event (prefer 'registered', then latest)
       const seenContactEvent = new Map<string, any>();
       for (const r of (data || [])) {
@@ -325,8 +316,7 @@ export const useTeamContacts = () => {
         
         const event = r.events as any;
         if (event) {
-          const attemptKey = r.email ? `${r.email.toLowerCase().trim()}::${r.event_id}` : '';
-          const attempts = attemptKey ? (attemptCounter.get(attemptKey) || 1) : 1;
+          const attempts = (r as any).registration_attempts || 1;
           
           const info: EventRegistrationInfo = {
             event_id: r.event_id,
