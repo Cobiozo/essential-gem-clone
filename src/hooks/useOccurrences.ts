@@ -155,7 +155,7 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
       futureOccurrences.forEach(occ => {
         // Check if user is registered for THIS specific occurrence
         const registrationKey = `${event.id}:${occ.index}`;
-        const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? false;
+        const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? event.is_registered ?? false;
         
         result.push({
           ...event,
