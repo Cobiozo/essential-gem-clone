@@ -168,7 +168,19 @@ const HealthyKnowledgePage: React.FC = () => {
 
   const handleManualCopy = async () => {
     if (!generatedMessage) return;
-    const { copyToClipboard } = await import('@/lib/clipboardUtils');
+    
+    // On mobile, prefer native share (works reliably for WhatsApp, SMS, etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: generatedMessage });
+        toast.success(tf('hk.shared', 'Udostępniono!'));
+        setShareDialogOpen(false);
+        return;
+      } catch (_err) {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+    
     const success = await copyToClipboard(generatedMessage);
     if (success) {
       toast.success(tf('hk.copiedToClipboard', 'Skopiowano do schowka!'));
