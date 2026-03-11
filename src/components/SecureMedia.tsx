@@ -390,7 +390,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               isSupabaseUrlRef.current = false;
               return;
             }
-            setSignedUrl(data.signedUrl);
+            setSignedUrl(data.signedUrl || '');
             // Ustaw czas wygaśnięcia (55 minut = 3300000ms, zostawić 5 min bufora)
             setUrlExpiryTime(Date.now() + 3300000);
             return;
@@ -420,7 +420,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           return;
         }
 
-        setSignedUrl(data.signedUrl);
+        setSignedUrl(data.signedUrl || '');
         // Ustaw czas wygaśnięcia dla URL z Supabase
         setUrlExpiryTime(Date.now() + 3300000);
       } catch (error) {
@@ -1603,13 +1603,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
+              preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : 'metadata'}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
               // @ts-ignore - x5-playsinline for WeChat browser
               x5-playsinline="true"
-              {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+              {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
@@ -1692,14 +1692,14 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               disablePictureInPicture
               className={`w-full h-auto rounded-lg ${isFullscreen ? 'max-h-[85vh] object-contain' : ''} ${className || ''}`}
               style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-              preload={signedUrl.includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
+              preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : bufferConfigRef.current.preloadStrategy}
               playsInline
               // @ts-ignore - webkit-playsinline for older iOS
               webkit-playsinline="true"
               // @ts-ignore - x5-playsinline for WeChat browser
               x5-playsinline="true"
               // Only use crossOrigin for Supabase storage URLs (which support CORS)
-              {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+              {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
@@ -1775,12 +1775,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           controlsList="nodownload"
           className="absolute inset-0 w-full h-full object-contain rounded-lg"
           style={{ opacity: videoReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
-          preload={signedUrl.includes('purelife.info.pl') ? 'auto' : 'metadata'}
+          preload={(signedUrl || '').includes('purelife.info.pl') ? 'auto' : 'metadata'}
           playsInline
           // @ts-ignore - webkit-playsinline for older iOS
           webkit-playsinline="true"
           // Only use crossOrigin for Supabase storage URLs (which support CORS)
-          {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+          {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
         >
           Twoja przeglądarka nie obsługuje odtwarzania wideo.
         </video>
