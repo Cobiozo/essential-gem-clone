@@ -1,48 +1,29 @@
 
 
-# Zmiany w widżecie "Moje spotkania"
+## Analiza systemu powiadomień — wynik
 
-## Zakres zmian
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-**Plik:** `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+### Zmiany:
 
-### 1. Pełny tytuł wydarzenia
-Linia 396: usunąć klasę `truncate` z `<span>` tytułu, aby wyświetlał pełną nazwę zamiast obciętej.
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-### 2. Przycisk "Szczegóły" obok "WEJDŹ" dla webinarów/spotkań zespołu
-W `getActionButton()` (linie 195-247 — blok "15 min before or during event"): dla typów grupowych (`webinar`, `auto_webinar`, `meeting_public`, `team_training`) dodać obok przycisku WEJDŹ przycisk "Szczegóły" nawigujący do odpowiedniej strony z query param `?event=ID`:
-- webinar/auto_webinar → `/events/webinars?event=${event.id}`
-- meeting_public/team_training → `/events/team-meetings?event=${event.id}`
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-Również w bloku linie 260-275 (dalsze spotkania grupowe) — ten przycisk "Szczegóły" już istnieje, bez zmian.
-
-### 3. Flaga języka i przycisk "Zaproś gościa"
-Dodać import `InvitationLanguageSelect` i `UserPlus` + stan `inviteLang`. Przy każdym wydarzeniu grupowym (webinar, team_training) dodać pod tytułem/datą sekcję z:
-- `<InvitationLanguageSelect>` (flaga języka)
-- Przycisk `UserPlus` "Zaproś" kopiujący link zaproszenia
-
-Logika kopiowania analogiczna do `EventCard.tsx` — `copyToClipboard` z szablonem `getInvitationLabels`.
-
-### 4. Grupowanie wg dnia, potem wg typu
-Zmienić logikę grupowania (linie 116-123):
-- Najpierw pogrupować wydarzenia po dacie dnia (format `yyyy-MM-dd`)
-- W ramach każdego dnia pogrupować po `event_type`
-- Sortować dni chronologicznie
-- W renderze: nagłówek dnia (np. "11 marca 2026"), pod nim sekcje typów z ikoną i badge liczbowym
-
-Struktura renderowania:
-```text
-┌─ 11 marca 2026 (środa) ─────────────┐
-│  🎥 WEBINARY (1)                     │
-│    TESTOWY  11 mar 22:10  [WEJDŹ]    │
-│  👥 SPOTKANIE ZESPOŁU (2)            │
-│    Networking...  11 mar 07:00       │
-├─ 12 marca 2026 (czwartek) ───────────┤
-│  👥 SPOTKANIE ZESPOŁU (1)            │
-│    Networking...  12 mar 07:00       │
-└──────────────────────────────────────┘
+### Flow gościa (po zmianach):
 ```
-
-## Pliki do edycji
-1. `src/components/dashboard/widgets/MyMeetingsWidget.tsx` — wszystkie 4 zmiany
-
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```
