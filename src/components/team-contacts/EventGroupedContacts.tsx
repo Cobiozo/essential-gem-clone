@@ -31,6 +31,7 @@ interface EventGroupedContactsProps {
 export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   eventGroups,
   duplicateContactEvents,
+  eventContactDetails,
   loading,
   onEdit,
   onDelete,
