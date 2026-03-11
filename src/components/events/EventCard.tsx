@@ -51,6 +51,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
   const [inviteCount, setInviteCount] = useState<number>(0);
+  const [inviteLang, setInviteLang] = useState(language);
 
   // Fetch count of guests registered via my invitation
   useEffect(() => {
