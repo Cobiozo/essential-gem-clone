@@ -12,6 +12,8 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { formatInTimeZone } from 'date-fns-tz';
 import { pl, enUS } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import type { EventWithRegistration, EventButton } from '@/types/events';
 import { expandEventsForCalendar, isMultiOccurrenceEvent } from '@/hooks/useOccurrences';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
