@@ -38,6 +38,7 @@ export const useTeamContacts = () => {
           )
         `)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .is('linked_user_deleted_at', null) // Hide contacts where linked user was deleted
         .order('created_at', { ascending: false })
         .limit(100); // Performance optimization - most users have <100 contacts
