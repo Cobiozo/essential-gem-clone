@@ -129,17 +129,24 @@ async function processTranslationJob(jobId: string) {
       .eq('id', jobId);
 
     const jobType = job.job_type || 'i18n';
+    const jobMode = job.mode || 'missing';
+
+    // For 'outdated' mode, convert to 'all' but only for items that changed
+    // The outdated detection happens here: we override mode to 'all' and filter by updated_at
+    const effectiveJob = jobMode === 'outdated' 
+      ? { ...job, mode: 'all', _outdatedOnly: true } 
+      : job;
 
     if (jobType === 'cms') {
-      await processCMSJob(supabase, job, lovableApiKey);
+      await processCMSJob(supabase, effectiveJob, lovableApiKey);
     } else if (jobType === 'training') {
-      await processTrainingJob(supabase, job, lovableApiKey);
+      await processTrainingJob(supabase, effectiveJob, lovableApiKey);
     } else if (jobType === 'knowledge') {
-      await processKnowledgeJob(supabase, job, lovableApiKey);
+      await processKnowledgeJob(supabase, effectiveJob, lovableApiKey);
     } else if (jobType === 'healthy_knowledge') {
-      await processHealthyKnowledgeJob(supabase, job, lovableApiKey);
+      await processHealthyKnowledgeJob(supabase, effectiveJob, lovableApiKey);
     } else {
-      await processI18nJob(supabase, job, lovableApiKey);
+      await processI18nJob(supabase, effectiveJob, lovableApiKey);
     }
 
   } catch (error) {
