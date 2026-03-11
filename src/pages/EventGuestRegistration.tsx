@@ -453,7 +453,7 @@ const EventGuestRegistration: React.FC = () => {
             <div className="flex items-center gap-2 mb-2">
               <Badge variant="outline">
                 <Video className="h-3 w-3 mr-1" />
-                Webinar
+                {labels.webinarBadge}
               </Badge>
             </div>
             <CardTitle className="text-2xl">{event.title}</CardTitle>
