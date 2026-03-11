@@ -74,23 +74,22 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
       ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
       : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
-    const webinarInvLabel = tf('events.webinarInvitation', 'Zaproszenie na webinar');
-    const hostLabel = tf('events.host', 'Prowadzący');
-    const signUpLabel = tf('events.signUpHere', 'Zapisz się tutaj');
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
     const invitationText = `
-🎥 ${webinarInvLabel}: ${event.title}
+🎥 ${labels.webinarInvitation}: ${event.title}
 
-📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
-${event.host_name ? `👤 ${hostLabel}: ${event.host_name}` : ''}
+📅 ${labels.date}: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale })}
+⏰ ${labels.time}: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
+${event.host_name ? `👤 ${labels.host}: ${event.host_name}` : ''}
 
-${signUpLabel}: ${inviteUrl}
+${labels.signUp}: ${inviteUrl}
     `.trim();
     
     navigator.clipboard.writeText(invitationText);
     toast({ 
-      title: tf('common.copied', 'Skopiowano!'), 
-      description: tf('events.invitationCopied', 'Zaproszenie zostało skopiowane do schowka') 
+      title: labels.copied, 
+      description: labels.invitationCopied
     });
   };
 
