@@ -1035,10 +1035,14 @@ async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: strin
 async function processHealthyKnowledgeJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language } = job;
 
-  const { data: items } = await supabase.from('healthy_knowledge').select('id, title, description, text_content').eq('is_active', true);
+  const { data: items } = await supabase.from('healthy_knowledge').select('id, title, description, text_content, updated_at').eq('is_active', true);
   const { data: existT } = await supabase.from('healthy_knowledge_translations').select('item_id').eq('language_code', target_language).not('title', 'is', null);
   const existIds = new Set(existT?.map((t: any) => t.item_id) || []);
-  const toTranslate = job.mode === 'all' ? (items || []) : (items || []).filter((i: any) => !existIds.has(i.id));
+  let toTranslate = job.mode === 'all' ? (items || []) : (items || []).filter((i: any) => !existIds.has(i.id));
+
+  if (job._outdatedOnly) {
+    toTranslate = await filterOutdatedItems(supabase, items || [], 'healthy_knowledge_translations', 'item_id', target_language);
+  }
 
   await supabase.from('translation_jobs').update({ total_keys: toTranslate.length, updated_at: new Date().toISOString() }).eq('id', jobId);
 
