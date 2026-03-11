@@ -46,6 +46,8 @@ const HealthyKnowledgePage: React.FC = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<HealthyKnowledge | null>(null);
   const [shareMessage, setShareMessage] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [generatedMessage, setGeneratedMessage] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
   
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
