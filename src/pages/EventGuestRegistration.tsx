@@ -598,7 +598,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Telefon</FormLabel>
+                            <FormLabel>{labels.phoneLabel}</FormLabel>
                             <FormControl>
                               <Input placeholder="+48 123 456 789" {...field} />
                             </FormControl>
