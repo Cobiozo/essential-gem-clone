@@ -192,12 +192,12 @@ async function sendSmtpEmail(
 }
 
 function determineReminderType(minutesUntilStart: number): string | null {
-  // Pick the most appropriate reminder window
-  if (minutesUntilStart <= 20 && minutesUntilStart >= 5) return "15min";
-  if (minutesUntilStart <= 75 && minutesUntilStart >= 40) return "1h";
-  if (minutesUntilStart <= 150 && minutesUntilStart >= 90) return "2h";
-  if (minutesUntilStart <= 780 && minutesUntilStart >= 660) return "12h";
-  if (minutesUntilStart <= 1500 && minutesUntilStart >= 1380) return "24h";
+  // Pick the most appropriate reminder window (aligned with CRON every 5 min)
+  if (minutesUntilStart <= 25 && minutesUntilStart >= 5) return "15min";
+  if (minutesUntilStart <= 75 && minutesUntilStart >= 45) return "1h";
+  if (minutesUntilStart <= 135 && minutesUntilStart >= 105) return "2h";
+  if (minutesUntilStart <= 13 * 60 && minutesUntilStart >= 11 * 60) return "12h";
+  if (minutesUntilStart <= 25 * 60 && minutesUntilStart >= 23 * 60) return "24h";
   return null;
 }
 
