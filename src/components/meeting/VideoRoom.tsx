@@ -691,8 +691,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         const userQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('user_id', user.id);
-        if (cleanupPeerId) userQ.eq('peer_id', cleanupPeerId);
-        await userQ;
+        if (cleanupPeerId) {
+          await userQ.eq('peer_id', cleanupPeerId);
+        } else {
+          await userQ;
+        }
       } catch (e) { console.warn('[VideoRoom] Failed to update participant status:', e); }
     }
 
