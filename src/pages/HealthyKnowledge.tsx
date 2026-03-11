@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
