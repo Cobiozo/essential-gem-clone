@@ -1,24 +1,82 @@
 
 
-## Plan zmian
+# Analiza systemu powiadomień i emaili dla gości na spotkania
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Podsumowanie — 3 ścieżki powiadomień
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+System obsługuje 3 różne typy spotkań/wydarzeń z różnymi ścieżkami powiadomień:
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+```text
+┌──────────────────────────┬─────────────────────────┬──────────────────────────┐
+│  WEBINARY (goście)       │ SPOTKANIA INDYWIDUALNE  │ TRÓJSTRONNE (prospect)   │
+│  guest_event_registr.    │ event_registrations      │ events.description JSON  │
+├──────────────────────────┼─────────────────────────┼──────────────────────────┤
+│ ✅ Potwierdzenie email   │ ✅ Email meeting_booked  │ ❌ BRAK potwierdzenia    │
+│    send-webinar-confirm. │    + meeting_confirmed   │    email do prospekta    │
+│                          │    (send-notif-email)    │                          │
+├──────────────────────────┼─────────────────────────┼──────────────────────────┤
+│ ✅ 5 przypomnień email   │ ✅ 5 przypomnień email   │ ✅ 5 przypomnień email   │
+│    send-bulk-webinar-rem │    send-meeting-remind.  │    send-prospect-meeting │
+│    (via CRON 5min)       │    (via CRON 15min)      │    (via send-mtg-remind) │
+├──────────────────────────┼─────────────────────────┼──────────────────────────┤
+│ ✅ Link Zoom: 1h + 15min │ ✅ Link Zoom: w emailu   │ ✅ Link Zoom: 2h + 15min │
+│    (includeLink flag)    │    (we wszystkich)       │    (z prospect email)    │
+├──────────────────────────┼─────────────────────────┼──────────────────────────┤
+│ ❌ Push — brak           │ ✅ Push: 5 okien         │ ❌ Push — brak (gość     │
+│    (goście nie mają kont)│    + in-app notification │    nie ma konta)         │
+└──────────────────────────┴─────────────────────────┴──────────────────────────┘
+```
 
-### 2. Złote ikony dla datetime-local (index.css)
+## Zidentyfikowane problemy
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
+### Problem 1: Webinary — link Zoom w przypomnieniu 24h, 12h, 2h NIE jest wysyłany
+W `send-bulk-webinar-reminders`, konfiguracja jasno pokazuje:
+- `24h`: `includeLink: false`
+- `12h`: `includeLink: false`  
+- `2h`: `includeLink: false`
+- `1h`: `includeLink: true` ✅
+- `15min`: `includeLink: true` ✅
 
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
+**To jest zamierzone** — link wysyłany jest dopiero 1h i 15min przed startem. Potwierdzenie przy rejestracji też nie zawiera linka (mówi "Link do dołączenia otrzymasz w wiadomościach przypominających"). **OK — zgodne z polityką.**
 
-### Zakres: 2 pliki, ~10 linii zmian
+### Problem 2: Spotkania trójstronne — prospect NIE dostaje potwierdzenia rezerwacji
+Gdy partner rezerwuje spotkanie trójstronne, system:
+- ✅ Wysyła email do lidera (`meeting_booked`)
+- ✅ Wysyła email do rezerwującego (`meeting_confirmed`)
+- ❌ **NIE wysyła emaila do prospekta** (osoby zewnętrznej)
+
+Prospect dostaje dopiero **przypomnienia** (24h, 12h, 2h, 1h, 15min) dzięki logice w `send-meeting-reminders` → `send-prospect-meeting-email`. Ale **nie dostaje początkowego potwierdzenia** z datą i godziną.
+
+**Wpływ**: Prospect dowiaduje się o spotkaniu dopiero 24h przed nim (z pierwszego przypomnienia), zamiast natychmiast po rezerwacji.
+
+### Problem 3: CRON interwał — spotkania indywidualne sprawdzane co 15 minut
+`send-meeting-reminders` jest wywoływane co 15 minut (via `pg_cron`), co jest mniej granularne niż webinary (co 5 minut via `process-pending-notifications`). Przy 15-minutowym oknie (10-20 min), istnieje ryzyko pominięcia okna, ale w praktyce jest to mało prawdopodobne.
+
+### Problem 4: Brak deduplikacji w BookMeetingDialog
+W `BookMeetingDialog.tsx` (linia 242-269) emaile do lidera i rezerwującego są wysyłane przez `send-notification-email` z hardcoded UUID event_type_id. Jeśli te ID nie istnieją w bazie `email_event_types`, emaile mogą się nie wysyłać — ale brak catch/toast na błąd (`.catch` loguje tylko do console).
+
+## Co działa poprawnie
+
+1. **Goście webinarów** — pełny flow: potwierdzenie + 5 przypomnień email z linkiem od 1h
+2. **Zarejestrowani użytkownicy spotkań indywidualnych** — pełny flow: email potwierdzenie + 5 przypomnień + push + in-app
+3. **Deduplikacja przypomnień** — `meeting_reminders_sent` z unikalnym indexem zapobiega powtórzeniom
+4. **Natychmiastowy link** — jeśli gość webinarowy zapisze się <15min przed startem, dostaje link od razu
+
+## Rekomendowany plan naprawy
+
+### Zmiana 1: Email potwierdzenie do prospekta po rezerwacji trójstronnego
+W `useLeaderAvailability.ts` i `PartnerMeetingBooking.tsx`, po utworzeniu spotkania trójstronnego, dodać wywołanie `send-prospect-meeting-email` z `reminder_type: 'booking'`.
+
+`send-prospect-meeting-email` już obsługuje typ `booking` — ma go w `subjectMap`:
+```
+booking: `Zaproszenie na spotkanie — ${meeting_date}`
+```
+Wystarczy dodać wywołanie po stronie klienta.
+
+### Zmiana 2: Brak zmian wymaganych
+Reszta systemu działa poprawnie. Goście webinarowi i użytkownicy spotkań indywidualnych dostają pełen zestaw powiadomień i emaili z linkami.
+
+## Pliki do edycji
+- `src/hooks/useLeaderAvailability.ts` — dodać wywołanie `send-prospect-meeting-email` z type `booking` po utworzeniu spotkania trójstronnego
+- `src/components/events/PartnerMeetingBooking.tsx` — analogicznie
 
