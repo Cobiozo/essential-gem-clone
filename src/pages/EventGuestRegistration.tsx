@@ -201,25 +201,22 @@ const EventGuestRegistration: React.FC = () => {
     setError(null);
 
     try {
-      // Insert new registration (partial unique index allows re-registration after cancelled)
-      const { error: insertError } = await supabase
-        .from('guest_event_registrations')
-        .insert({
-          event_id: eventId,
-          email: data.email,
-          first_name: data.first_name,
-          last_name: data.last_name || null,
-          phone: data.phone || null,
-          invited_by_user_id: invitedBy || null,
-          source: 'webinar_form',
-        });
+      // Use RPC for atomic registration with attempt counting
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('register_event_guest', {
+        p_event_id: eventId,
+        p_email: data.email,
+        p_first_name: data.first_name,
+        p_last_name: data.last_name || null,
+        p_phone: data.phone || null,
+        p_invited_by: invitedBy || null,
+        p_source: 'webinar_form',
+      });
 
-      if (insertError) {
-        if (insertError.code === '23505') {
-          setAlreadyRegistered(true);
-          return;
-        }
-        throw insertError;
+      if (rpcError) throw rpcError;
+
+      if ((rpcResult as any)?.status === 'already_registered') {
+        setAlreadyRegistered(true);
+        return;
       }
 
       // Call edge function to send confirmation email and add to contacts
@@ -301,11 +298,17 @@ const EventGuestRegistration: React.FC = () => {
             <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
             <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
             <CardTitle className="text-2xl">
-              {alreadyRegistered ? 'Już jesteś zapisany!' : 'Rejestracja zakończona!'}
+              {alreadyRegistered ? 'Jesteś już zarejestrowany/a!' : 'Rejestracja zakończona!'}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className={alreadyRegistered ? 'text-left space-y-2' : ''}>
               {alreadyRegistered 
-                ? 'Ten adres email jest już zarejestrowany na to wydarzenie.'
+                ? (
+                  <>
+                    <p>Ten adres email widnieje już na liście zaproszonych na to wydarzenie.</p>
+                    <p>Sprawdź swoją skrzynkę email (w tym folder <strong>SPAM/Oferty</strong>).</p>
+                    <p>Jeśli nie możesz znaleźć wiadomości, odezwij się niezwłocznie do osoby, która Cię na to wydarzenie zaprosiła.</p>
+                  </>
+                )
                 : 'Dziękujemy za zapisanie się na webinar. Wysłaliśmy potwierdzenie na podany adres email.'
               }
             </CardDescription>
