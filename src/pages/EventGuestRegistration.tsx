@@ -249,7 +249,7 @@ const EventGuestRegistration: React.FC = () => {
             // Auto-webinar specific
             isAutoWebinar,
             nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
-            nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: pl })} o godz. ${nextSlot.time}` : undefined,
+            nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: dateLocale })} o godz. ${nextSlot.time}` : undefined,
             minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
             roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/auto-webinar/watch/${event.slug}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
             videoHostName: autoWebinarVideo?.host_name || undefined,
