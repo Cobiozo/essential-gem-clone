@@ -378,7 +378,7 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
   // ============ CMS SECTIONS ============
   let sectionsQuery = supabase
     .from('cms_sections')
-    .select('id, title, description, collapsible_header')
+    .select('id, title, description, collapsible_header, updated_at')
     .eq('is_active', true);
   
   if (page_id) {
@@ -389,15 +389,12 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   if (sectionsError) {
     console.error(`Failed to fetch CMS sections: ${sectionsError.message}`);
-    // Don't throw, continue with items only
   }
 
-  // Filter sections with translatable content
   const translatableSections = (sections || []).filter(section => 
     section.title || section.description || section.collapsible_header
   );
 
-  // Get existing section translations
   const { data: existingSectionTranslations } = await supabase
     .from('cms_section_translations')
     .select('section_id')
@@ -406,10 +403,13 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
 
   const existingSectionIds = new Set(existingSectionTranslations?.map(t => t.section_id) || []);
 
-  // Filter sections based on mode
-  const sectionsToTranslate = job.mode === 'all' 
+  let sectionsToTranslate = job.mode === 'all' 
     ? translatableSections 
     : translatableSections.filter(section => !existingSectionIds.has(section.id));
+
+  if (job._outdatedOnly) {
+    sectionsToTranslate = await filterOutdatedItems(supabase, translatableSections, 'cms_section_translations', 'section_id', target_language);
+  }
 
   // ============ TOTAL COUNT ============
   const totalKeys = itemsToTranslate.length + sectionsToTranslate.length;
