@@ -137,6 +137,19 @@ export const CronJobsManagement: React.FC = () => {
 
       if (error) throw error;
 
+      // Synchronize actual pg_cron schedule with the new interval
+      const { data: cronResult, error: cronError } = await supabase.rpc('update_cron_schedule', {
+        p_job_name: 'process-pending-notifications',
+        p_interval_minutes: intervalMinutes
+      });
+
+      if (cronError) {
+        console.error('Error updating pg_cron schedule:', cronError);
+        toast.warning('Interwał zapisany w ustawieniach, ale harmonogram pg_cron nie został zaktualizowany. Sprawdź logi.');
+      } else if (cronResult === false) {
+        toast.warning('Zadanie pg_cron nie zostało znalezione. Harmonogram może nie być zsynchronizowany.');
+      }
+
       // Odśwież dane z bazy po zapisie
       await fetchData();
       
