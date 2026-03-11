@@ -8037,6 +8037,10 @@ export type Database = {
         Args: { template_id: string }
         Returns: undefined
       }
+      update_cron_schedule: {
+        Args: { p_interval_minutes: number; p_job_name: string }
+        Returns: boolean
+      }
       user_registered_event_ids: { Args: never; Returns: string[] }
     }
     Enums: {
