@@ -639,7 +639,7 @@ const EventGuestRegistration: React.FC = () => {
       {/* Footer */}
       <footer className="border-t mt-8 py-6">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.
+          {labels.footer.replace('{year}', String(new Date().getFullYear()))}
         </div>
       </footer>
     </div>
