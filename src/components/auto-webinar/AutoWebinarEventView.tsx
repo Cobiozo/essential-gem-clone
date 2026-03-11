@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { copyToClipboard } from '@/lib/clipboardUtils';
+import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
+import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 
 interface LinkedEvent {
   id: string;
