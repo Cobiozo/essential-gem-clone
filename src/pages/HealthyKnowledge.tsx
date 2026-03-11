@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
@@ -128,7 +129,6 @@ const HealthyKnowledgePage: React.FC = () => {
         return;
       }
 
-      const { copyAfterAsync } = await import('@/lib/clipboardUtils');
       let otpCode = '';
       let fullMessage = '';
 
@@ -167,7 +167,19 @@ const HealthyKnowledgePage: React.FC = () => {
 
   const handleManualCopy = async () => {
     if (!generatedMessage) return;
-    const { copyToClipboard } = await import('@/lib/clipboardUtils');
+    
+    // On mobile, prefer native share (works reliably for WhatsApp, SMS, etc.)
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: generatedMessage });
+        toast.success(tf('hk.shared', 'Udostępniono!'));
+        setShareDialogOpen(false);
+        return;
+      } catch (_err) {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+    
     const success = await copyToClipboard(generatedMessage);
     if (success) {
       toast.success(tf('hk.copiedToClipboard', 'Skopiowano do schowka!'));
