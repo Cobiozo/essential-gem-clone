@@ -1,24 +1,14 @@
 
 
-## Plan zmian
+# Fix: "Cannot read properties of null (reading 'includes')" in SecureMedia
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
+The error `Cannot read properties of null (reading 'includes')` crashes the page when viewing a video in Zdrowa Wiedza. The `signedUrl` state in `SecureMedia.tsx` is initialized as `''` but can be set to `null` via `setSignedUrl(data.signedUrl)` when Supabase returns `null` for the signed URL, or when `mediaUrl` prop itself is `null`.
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+## Fix
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### `src/components/SecureMedia.tsx`
+Add null-safe access (`signedUrl?.includes` or `(signedUrl || '')`) in all 6 places where `signedUrl.includes(...)` is used in the render JSX (lines 1606, 1612, 1695, 1702, 1778, 1783). This prevents the crash when signedUrl is null/undefined.
 
-### 2. Złote ikony dla datetime-local (index.css)
-
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
-
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
+Additionally, guard `setSignedUrl(data.signedUrl)` calls to never set null: `setSignedUrl(data.signedUrl || '')`.
 
