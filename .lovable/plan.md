@@ -1,29 +1,26 @@
 
 
-## Analiza systemu powiadomień — wynik
+# Problem: Wydarzenie "TESTOWY" nie pojawia się w "Moje spotkania"
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+## Diagnoza
 
-### Zmiany:
+W `expandEventsForCalendar` (useOccurrences.ts, linia 158) dla wydarzeń z wieloma terminami (multi-occurrence) klucz rejestracji to `${event.id}:${occ.index}` (np. `abc:0`). Jeśli użytkownik zarejestrował się z `occurrence_index = null`, klucz w mapie to `abc:null`, a szukany klucz to `abc:0` — brak dopasowania. Wynik: `is_registered = false`, więc widget filtruje to wydarzenie.
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+Dla wydarzeń jednookurencyjnych (linia 176) jest fallback do `event.is_registered`, więc one działają poprawnie.
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+## Rozwiązanie
 
-### Flow gościa (po zmianach):
+**Plik:** `src/hooks/useOccurrences.ts`
+
+Linia 158 — dodać fallback do `event.is_registered` (tak jak dla single-occurrence):
+
+```typescript
+// Obecne:
+const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? false;
+
+// Zmiana na:
+const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? event.is_registered ?? false;
 ```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-```
+
+Dzięki temu, jeśli nie ma per-occurrence rejestracji w mapie, system sprawdzi ogólny status `is_registered` ustawiony wcześniej w `useEvents` (bazujący na `registeredEventIds.has(event.id)`). Wydarzenie, na które użytkownik jest zapisany, zawsze pojawi się w widżecie "Moje spotkania".
+
