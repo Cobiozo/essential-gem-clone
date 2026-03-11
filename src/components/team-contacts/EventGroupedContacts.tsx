@@ -120,6 +120,17 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                     <div className="divide-y">
                       {group.contacts.map((contact) => {
                         const dupCount = duplicateContactEvents.get(contact.id);
+                        // Find registration info for this contact on this event
+                        const contactRegs = eventContactDetails.get(contact.id) || [];
+                        const thisEventReg = contactRegs.find(r => r.event_id === group.event_id);
+                        const regDate = thisEventReg?.registered_at
+                          ? new Date(thisEventReg.registered_at).toLocaleDateString('pl-PL', {
+                              day: '2-digit', month: '2-digit', year: 'numeric',
+                              hour: '2-digit', minute: '2-digit',
+                            })
+                          : null;
+                        const attempts = thisEventReg?.registration_attempts;
+
                         return (
                           <div key={contact.id} className="flex items-center justify-between py-3 gap-4">
                             <div className="flex-1 min-w-0">
@@ -133,10 +144,18 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                     Zapisany na {dupCount} wydarzeń
                                   </Badge>
                                 )}
+                                {attempts && attempts > 1 && (
+                                  <Badge variant="destructive" className="text-xs gap-1">
+                                    🔄 Ponowna próba ×{attempts}
+                                  </Badge>
+                                )}
                               </div>
                               <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                                 {contact.email && <span>{contact.email}</span>}
                                 {contact.phone_number && <span>{contact.phone_number}</span>}
+                                {regDate && (
+                                  <span className="text-xs">📅 Zarejestrowano: {regDate}</span>
+                                )}
                               </div>
                             </div>
                             <div className="flex items-center gap-1">

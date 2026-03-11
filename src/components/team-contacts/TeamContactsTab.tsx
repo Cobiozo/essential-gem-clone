@@ -359,9 +359,10 @@ export const TeamContactsTab: React.FC = () => {
               )}
               
               {privateSubTab === 'events' ? (
-                <EventGroupedContacts
+              <EventGroupedContacts
                   eventGroups={eventGroupedContacts}
                   duplicateContactEvents={duplicateContactEvents}
+                  eventContactDetails={eventContactDetails}
                   loading={loading}
                   onEdit={openEditForm}
                   onDelete={handleDeleteContact}
