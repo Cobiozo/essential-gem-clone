@@ -505,5 +505,9 @@ export const useTeamContacts = () => {
     eventGroupedContacts,
     duplicateContactEvents,
     pendingOfflineCount: pendingCount,
+    deletedContacts,
+    deletedLoading,
+    restoreContact,
+    moveToOwnList,
   };
 };
