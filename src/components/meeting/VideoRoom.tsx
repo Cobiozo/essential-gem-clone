@@ -662,8 +662,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         const guestQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
-        if (cleanupPeerId) guestQ.eq('peer_id', cleanupPeerId);
-        await guestQ;
+        if (cleanupPeerId) {
+          await guestQ.eq('peer_id', cleanupPeerId);
+        } else {
+          await guestQ;
+        }
         await supabase.from('meeting_guest_analytics')
           .update({ left_at: new Date().toISOString() })
           .eq('guest_token_id', guestTokenId)
@@ -688,8 +691,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         const userQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('user_id', user.id);
-        if (cleanupPeerId) userQ.eq('peer_id', cleanupPeerId);
-        await userQ;
+        if (cleanupPeerId) {
+          await userQ.eq('peer_id', cleanupPeerId);
+        } else {
+          await userQ;
+        }
       } catch (e) { console.warn('[VideoRoom] Failed to update participant status:', e); }
     }
 
@@ -1479,6 +1485,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
         peer.on('call', async (call) => {
           if (cancelled) return;
+          // Guard: reject self-calls
+          if (call.peer === peer.id) return;
 
           const meta = call.metadata || {};
 
@@ -1652,11 +1660,13 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
       }
       cleanup(); 
     };
-  }, [user, roomId, guestMode, guestTokenId]);
+  }, [user?.id, roomId, guestMode, guestTokenId]);
 
   // Zmiana 6: callPeer uses ref for localAvatarUrl to avoid stale closure
   const callPeer = useCallback((remotePeerId: string, name: string, stream: MediaStream, avatarUrl?: string, userId?: string) => {
     if (!peerRef.current || connectionsRef.current.has(remotePeerId)) return;
+    // Guard: never call yourself
+    if (remotePeerId === peerRef.current.id) return;
     const activeStream = localStreamRef.current || stream;
     const call = peerRef.current.call(remotePeerId, activeStream, {
       metadata: { displayName, userId: user?.id, avatarUrl: localAvatarUrlRef.current },
