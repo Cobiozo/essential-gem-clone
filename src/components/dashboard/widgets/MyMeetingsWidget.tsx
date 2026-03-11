@@ -443,103 +443,121 @@ ${labels.signUp}: ${inviteUrl}
             </p>
           </div>
         ) : (
-          <div className="space-y-5">
-            {groupedByDay.map(({ day, types }) => (
-              <div key={day} className="space-y-3">
-                {/* Day header */}
-                <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">
-                  {format(new Date(day + 'T00:00:00'), 'EEEE, d MMMM yyyy', { locale })}
-                </h3>
+          <div className="space-y-1">
+            {groupedByDay.map(({ day, types }) => {
+              const isDayExpanded = expandedDay === day;
+              const totalEvents = Object.values(types).reduce((sum, arr) => sum + arr.length, 0);
 
-                {Object.entries(types).map(([type, events]) => {
-                  const expandKey = `${day}-${type}`;
-                  const isGroupEvent = GROUP_EVENT_TYPES.includes(type);
+              return (
+                <div key={day}>
+                  {/* Day header - accordion trigger */}
+                  <button
+                    onClick={() => setExpandedDay(isDayExpanded ? null : day)}
+                    className="w-full flex items-center justify-between py-1.5 px-1 text-sm font-semibold text-foreground hover:bg-muted/50 rounded-md transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {isDayExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                      {format(new Date(day + 'T00:00:00'), 'EEEE, d MMMM', { locale })}
+                    </span>
+                    <Badge variant="secondary" className="text-xs">{totalEvents}</Badge>
+                  </button>
 
-                  return (
-                    <div key={type} className="space-y-2 pl-2">
-                      <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                        {getEventIcon(type)}
-                        {getEventTypeName(type)}
-                        <Badge variant="secondary" className="text-xs ml-1">{events.length}</Badge>
-                      </h4>
+                  {/* Expanded day content */}
+                  {isDayExpanded && (
+                    <div className="space-y-2 pt-1 pb-2">
+                      {Object.entries(types).map(([type, events]) => {
+                        const expandKey = `${day}-${type}`;
+                        const isGroupType = GROUP_EVENT_TYPES.includes(type);
 
-                      <div className="space-y-1.5">
-                        {(expandedTypes[expandKey] ? events : events.slice(0, 3)).map((event, idx) => (
-                          <div
-                            key={`${event.id}-${(event as any)._occurrence_index ?? idx}`}
-                            className="p-2 rounded-lg bg-muted/50 space-y-1.5"
-                          >
-                            {/* Title row - full title */}
-                            <div className="text-sm font-medium">{event.title}</div>
+                        return (
+                          <div key={type} className="space-y-1 pl-2">
+                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                              {getEventIcon(type)}
+                              {getEventTypeName(type)}
+                              <Badge variant="secondary" className="text-xs ml-1">{events.length}</Badge>
+                            </h4>
 
-                            {/* Time + action buttons */}
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <span className="text-xs text-muted-foreground">
-                                {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })} - {formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
-                              </span>
-                              <div className="flex items-center gap-1 shrink-0">
-                                {getActionButton(event)}
-                              </div>
-                            </div>
+                            <div className="space-y-1">
+                              {(expandedTypes[expandKey] ? events : events.slice(0, 3)).map((event, idx) => (
+                                <div
+                                  key={`${event.id}-${(event as any)._occurrence_index ?? idx}`}
+                                  className="p-1.5 rounded-lg bg-muted/50"
+                                >
+                                  {/* Title */}
+                                  <div className="text-sm font-medium mb-0.5">{event.title}</div>
 
-                            {/* Info for individual meetings */}
-                            {['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && (
-                              <div className="text-xs text-muted-foreground">
-                                {event.host_profile && event.host_user_id !== user?.id && (
-                                  <span className="flex items-center gap-1">
-                                    <User className="h-3 w-3" />
-                                    {event.host_profile.first_name} {event.host_profile.last_name}
-                                  </span>
-                                )}
-                                {event.participant_profile && event.host_user_id === user?.id && (
-                                  <span className="flex items-center gap-1">
-                                    <User className="h-3 w-3" />
-                                    {event.participant_profile.first_name} {event.participant_profile.last_name}
-                                  </span>
-                                )}
-                              </div>
-                            )}
+                                  {/* Compact row: time + invite + actions */}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })}-{formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })}
+                                    </span>
 
-                            {/* Invite guest row for group events */}
-                            {isGroupEvent && (
-                              <div className="flex items-center gap-1 pt-0.5">
-                                <InvitationLanguageSelect
-                                  value={inviteLang}
-                                  onValueChange={setInviteLang}
-                                />
+                                    {/* Invite controls for group events */}
+                                    {isGroupType && (
+                                      <>
+                                        <InvitationLanguageSelect
+                                          value={inviteLang}
+                                          onValueChange={setInviteLang}
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground touch-action-manipulation"
+                                          onClick={() => handleCopyInvitation(event)}
+                                          title={tf('events.inviteGuest', 'Zaproś gościa')}
+                                        >
+                                          <UserPlus className="h-3 w-3 mr-0.5" />
+                                          {tf('events.invite', 'Zaproś')}
+                                        </Button>
+                                      </>
+                                    )}
+
+                                    {/* Individual meeting: host/participant info */}
+                                    {['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && (
+                                      <>
+                                        {event.host_profile && event.host_user_id !== user?.id && (
+                                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                            <User className="h-3 w-3" />
+                                            {event.host_profile.first_name} {event.host_profile.last_name}
+                                          </span>
+                                        )}
+                                        {event.participant_profile && event.host_user_id === user?.id && (
+                                          <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                                            <User className="h-3 w-3" />
+                                            {event.participant_profile.first_name} {event.participant_profile.last_name}
+                                          </span>
+                                        )}
+                                      </>
+                                    )}
+
+                                    <div className="ml-auto flex items-center gap-1 shrink-0">
+                                      {getActionButton(event)}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+
+                              {events.length > 3 && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground touch-action-manipulation"
-                                  onClick={() => handleCopyInvitation(event)}
-                                  title={tf('events.inviteGuest', 'Zaproś gościa')}
+                                  className="w-full text-xs text-muted-foreground hover:text-foreground h-6"
+                                  onClick={() => toggleExpand(expandKey)}
                                 >
-                                  <UserPlus className="h-3.5 w-3.5 mr-1" />
-                                  {tf('events.invite', 'Zaproś')}
+                                  {expandedTypes[expandKey]
+                                    ? tf('common.collapse', 'Zwiń')
+                                    : `+${events.length - 3} ${tf('common.more', 'więcej')}`}
                                 </Button>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
-                        ))}
-
-                        {events.length > 3 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full text-xs text-muted-foreground hover:text-foreground h-6"
-                            onClick={() => toggleExpand(expandKey)}
-                          >
-                            {expandedTypes[expandKey]
-                              ? tf('common.collapse', 'Zwiń')
-                              : `+${events.length - 3} ${tf('common.more', 'więcej')}`}
-                          </Button>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </CardContent>
