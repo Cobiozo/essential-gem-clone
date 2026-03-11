@@ -1609,7 +1609,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               webkit-playsinline="true"
               // @ts-ignore - x5-playsinline for WeChat browser
               x5-playsinline="true"
-              {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+              {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
