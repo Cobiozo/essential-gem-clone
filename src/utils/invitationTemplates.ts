@@ -249,6 +249,10 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     reminderNote1: 'Sie erhalten Erinnerungen: 1 Stunde und 15 Minuten vor dem Webinar mit einem Meeting-Link.',
     reminderNote15min: 'Sie erhalten eine Erinnerung 15 Minuten vor dem Webinar mit einem Meeting-Link.',
     thanksForRegistration: 'Vielen Dank für Ihre Registrierung!',
+    placeholderEmail: 'hans@example.com',
+    placeholderFirstName: 'Hans',
+    placeholderLastName: 'Müller',
+    placeholderPhone: '+49 151 1234 5678',
   },
 };
 
