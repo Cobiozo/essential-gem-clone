@@ -147,6 +147,112 @@ function replaceVariables(text: string, variables: Record<string, string>): stri
   return result;
 }
 
+function buildGuestReminderHtml(
+  reminderType: string,
+  guestFirstName: string,
+  inviterName: string,
+  eventTitle: string,
+  meetingDate: string,
+  meetingTime: string,
+  meetingLink?: string
+): string {
+  const logoUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/training-media/1766508615455-8wv0cee7jwr.png';
+
+  const header = `
+    <div style="background-color: #ffc105; padding: 20px; text-align: center;">
+      <img src="${logoUrl}" alt="Pure Life Center" style="max-height: 50px; margin-bottom: 10px;" />
+    </div>`;
+
+  const footer = `
+    <div style="background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280; margin-top: 20px;">
+      <p>Zespół Pure Life Center</p>
+      <p>© ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.</p>
+      <p>Kontakt: support@purelife.info.pl</p>
+    </div>`;
+
+  let content = '';
+
+  switch (reminderType) {
+    case '24h':
+      content = `
+        <h2 style="color: #1a365d;">⏰ Przypomnienie — spotkanie jutro</h2>
+        <p>Cześć${guestFirstName ? ` ${guestFirstName}` : ''},</p>
+        <p>Przypominamy, że <strong>jutro</strong> masz zaplanowane spotkanie z <strong>${inviterName}</strong>:</p>
+        <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 16px 0; border-radius: 4px;">
+          ${eventTitle ? `<p style="margin: 4px 0;"><strong>📋 Temat:</strong> ${eventTitle}</p>` : ''}
+          <p style="margin: 4px 0;"><strong>📅 Data:</strong> ${meetingDate}</p>
+          <p style="margin: 4px 0;"><strong>🕐 Godzina:</strong> ${meetingTime}</p>
+        </div>
+        <p>Link do spotkania otrzymasz 2 godziny przed rozpoczęciem.</p>`;
+      break;
+
+    case '12h':
+      content = `
+        <h2 style="color: #1a365d;">🔔 Spotkanie już dziś!</h2>
+        <p>Cześć${guestFirstName ? ` ${guestFirstName}` : ''},</p>
+        <p>Twoje spotkanie z <strong>${inviterName}</strong> odbędzie się <strong>już dziś</strong>:</p>
+        <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 16px 0; border-radius: 4px;">
+          ${eventTitle ? `<p style="margin: 4px 0;"><strong>📋 Temat:</strong> ${eventTitle}</p>` : ''}
+          <p style="margin: 4px 0;"><strong>📅 Data:</strong> ${meetingDate}</p>
+          <p style="margin: 4px 0;"><strong>🕐 Godzina:</strong> ${meetingTime}</p>
+        </div>
+        <p><strong>2 godziny przed spotkaniem</strong> otrzymasz wiadomość z linkiem do pokoju.</p>`;
+      break;
+
+    case '2h':
+      content = `
+        <h2 style="color: #1a365d;">🎯 Spotkanie za 2 godziny — Twój link</h2>
+        <p>Cześć${guestFirstName ? ` ${guestFirstName}` : ''},</p>
+        <p>Twoje spotkanie z <strong>${inviterName}</strong> rozpocznie się o <strong>${meetingTime}</strong>.</p>
+        ${meetingLink ? `
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${meetingLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            🚀 Dołącz do spotkania
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px;">Link: <a href="${meetingLink}">${meetingLink}</a></p>` : ''}`;
+      break;
+
+    case '1h':
+      content = `
+        <h2 style="color: #1a365d;">⚡ Spotkanie za godzinę!</h2>
+        <p>Cześć${guestFirstName ? ` ${guestFirstName}` : ''},</p>
+        <p>Twoje spotkanie z <strong>${inviterName}</strong> rozpocznie się o <strong>${meetingTime}</strong> — już za godzinę!</p>
+        ${meetingLink ? `
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${meetingLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            🚀 Dołącz do spotkania
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px;">Link: <a href="${meetingLink}">${meetingLink}</a></p>` : ''}`;
+      break;
+
+    case '15min':
+      content = `
+        <h2 style="color: #1a365d;">⚡ Spotkanie za 15 minut!</h2>
+        <p>Cześć${guestFirstName ? ` ${guestFirstName}` : ''},</p>
+        <p>Twoje spotkanie rozpoczyna się <strong>za 15 minut</strong> o godzinie <strong>${meetingTime}</strong>!</p>
+        <p style="font-size: 16px; font-weight: bold; color: #059669;">Bądź punktualnie! 🙌</p>
+        ${meetingLink ? `
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${meetingLink}" style="background-color: #059669; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            🚀 Dołącz teraz
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px;">Link: <a href="${meetingLink}">${meetingLink}</a></p>` : ''}`;
+      break;
+  }
+
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+    <body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #ffffff;">
+      ${header}
+      <div style="max-width: 600px; margin: 0 auto; padding: 30px; line-height: 1.6; color: #333;">
+        ${content}
+      </div>
+      ${footer}
+    </body></html>`;
+}
+
 serve(async (req) => {
   console.log('[send-meeting-reminders] Request received');
   
