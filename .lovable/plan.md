@@ -1,24 +1,18 @@
 
 
-## Plan zmian
+# Fix: Brak komunikatu gdy materiał wideo nie ma pliku
 
-### 1. Logo na ekranie ładowania (App.tsx)
+## Problem
+Materiał "Cichy zabójca — przewlekłe stany zapalne" ma `media_url = null` w bazie. Strona odtwarzacza (`HealthyKnowledgePlayer`) przekazuje `material.media_url!` z non-null assertion do `SecureMedia`, co powoduje crash lub pusty ekran. Brak jakiegokolwiek komunikatu dla użytkownika.
 
-Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
+## Zmiany
 
-**Plik: `src/App.tsx`**
-- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
-- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
-- Zachować tekst "Ładowanie..."
+### 1. `src/pages/HealthyKnowledgePlayer.tsx`
+Dodać warunek po sprawdzeniu `!material` — jeśli `material` istnieje, ale `media_url` jest null/pusty, wyświetlić czytelny komunikat:
 
-### 2. Złote ikony dla datetime-local (index.css)
+- Ikona + tekst: "Ten materiał nie zawiera jeszcze pliku wideo/audio. Skontaktuj się z administratorem lub wróć do listy."
+- Przycisk "Wróć do listy" → `/zdrowa-wiedza`
 
-CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
-
-**Plik: `src/index.css`**
-- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
-- Dodać `input[type="datetime-local"]` do reguły padding-right
-- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
-
-### Zakres: 2 pliki, ~10 linii zmian
+### 2. `src/pages/HealthyKnowledge.tsx` (lista materiałów)
+Na karcie materiału, gdy `content_type` to `video`/`audio` ale `media_url` jest null — nie pokazywać przycisku Play (lub pokazać z etykietą "Wkrótce"). Zapobiegnie to nawigowaniu do odtwarzacza bez pliku.
 
