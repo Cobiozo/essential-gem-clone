@@ -143,7 +143,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 {(contact as any).moved_to_own_list && (
                                   <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1">
                                     <CheckCheck className="w-3 h-3" />
-                                    W Mojej liście
+                                    W mojej liście kontaktów
                                   </Badge>
                                 )}
                                 {dupCount && dupCount > 1 && (
