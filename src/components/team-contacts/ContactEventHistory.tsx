@@ -33,6 +33,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
           .from('guest_event_registrations')
           .select('event_id, status, registered_at, events(title, start_time)')
           .eq('email', email.toLowerCase().trim())
+          .neq('status', 'cancelled')
           .order('registered_at', { ascending: false });
 
         if (error) throw error;

@@ -40,7 +40,8 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
       const { data } = await supabase
         .from('guest_event_registrations')
         .select('id, status, events(title, start_time)')
-        .eq('team_contact_id', contact.id);
+        .eq('team_contact_id', contact.id)
+        .neq('status', 'cancelled');
 
       if (data) {
         const mapped: EventRegistration[] = data.map((r: any) => ({
