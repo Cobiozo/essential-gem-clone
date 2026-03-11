@@ -37,6 +37,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   onEdit,
   onDelete,
   getContactHistory,
+  onMoveToOwnList,
 }) => {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
