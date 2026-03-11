@@ -357,7 +357,7 @@ const EventGuestRegistration: React.FC = () => {
                 <>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="h-4 w-4" />
-                    <span>{format(startDate, 'PPP', { locale: pl })}</span>
+                    <span>{format(startDate, 'PPP', { locale: dateLocale })}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
