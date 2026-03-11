@@ -1485,6 +1485,8 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
 
         peer.on('call', async (call) => {
           if (cancelled) return;
+          // Guard: reject self-calls
+          if (call.peer === peerId) return;
 
           const meta = call.metadata || {};
 
