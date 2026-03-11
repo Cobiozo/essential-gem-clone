@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Calendar, Users, Edit, Trash2, History, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, Users, Edit, Trash2, History, RefreshCw, UserPlus, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,6 +26,7 @@ interface EventGroupedContactsProps {
   onEdit: (contact: TeamContact) => void;
   onDelete: (id: string) => void;
   getContactHistory: (contactId: string) => Promise<TeamContactHistory[]>;
+  onMoveToOwnList?: (id: string) => void;
 }
 
 export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
