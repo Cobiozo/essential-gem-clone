@@ -288,7 +288,7 @@ export const useTeamContacts = () => {
     try {
       const { data, error } = await supabase
         .from('guest_event_registrations')
-        .select('team_contact_id, event_id, first_name, email, status, registered_at, events(title, start_time)')
+        .select('team_contact_id, event_id, first_name, email, status, registered_at, registration_attempts, events(title, start_time)')
         .eq('invited_by_user_id', user.id)
         .not('team_contact_id', 'is', null);
       
