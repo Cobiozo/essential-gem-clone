@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     const { data: otpCodeRecord, error: otpError } = await supabase
       .from('hk_otp_codes')
       .select('*')
-      .eq('code', normalizedCode)
+      .in('code', [normalizedCode, legacyCode])
       .eq('knowledge_id', knowledge.id)
       .eq('is_invalidated', false)
       .gt('expires_at', new Date().toISOString())
