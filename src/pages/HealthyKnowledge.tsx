@@ -147,8 +147,7 @@ const HealthyKnowledgePage: React.FC = () => {
         toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otpCode} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
         setShareDialogOpen(false);
       } else {
-        // Keep dialog open — user can manually copy
-        toast.info(`${tf('hk.codeGenerated', 'Kod')}: ${otpCode} — ${tf('hk.copyManually', 'skopiuj ręcznie przyciskiem poniżej')}`, { duration: 6000 });
+        // Keep dialog open — user can manually copy via button in dialog
       }
       
       window.dispatchEvent(new CustomEvent('hkOtpCodeGenerated'));
