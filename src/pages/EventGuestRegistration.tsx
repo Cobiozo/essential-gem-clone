@@ -625,7 +625,7 @@ const EventGuestRegistration: React.FC = () => {
                       </Button>
 
                       <p className="text-xs text-muted-foreground text-center">
-                        Zapisując się, wyrażasz zgodę na przetwarzanie danych osobowych w celu organizacji webinaru.
+                        {labels.consent}
                       </p>
                     </form>
                   </Form>
