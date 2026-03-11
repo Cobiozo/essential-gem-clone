@@ -369,7 +369,13 @@ export const TeamContactsTab: React.FC = () => {
                 />
               )}
               
-              {privateSubTab === 'events' ? (
+              {privateSubTab === 'deleted' ? (
+                <DeletedContactsList
+                  contacts={deletedContacts}
+                  loading={deletedLoading}
+                  onRestore={restoreContact}
+                />
+              ) : privateSubTab === 'events' ? (
               <EventGroupedContacts
                   eventGroups={eventGroupedContacts}
                   duplicateContactEvents={duplicateContactEvents}
@@ -378,6 +384,7 @@ export const TeamContactsTab: React.FC = () => {
                   onEdit={openEditForm}
                   onDelete={handleDeleteContact}
                   getContactHistory={getContactHistory}
+                  onMoveToOwnList={moveToOwnList}
                 />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
