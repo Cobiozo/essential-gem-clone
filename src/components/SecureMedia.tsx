@@ -420,7 +420,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           return;
         }
 
-        setSignedUrl(data.signedUrl);
+        setSignedUrl(data.signedUrl || '');
         // Ustaw czas wygaśnięcia dla URL z Supabase
         setUrlExpiryTime(Date.now() + 3300000);
       } catch (error) {
