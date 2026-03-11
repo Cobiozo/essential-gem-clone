@@ -443,7 +443,7 @@ const EventGuestRegistration: React.FC = () => {
               />
               {isPast && (
                 <div className="absolute top-4 right-4">
-                  <Badge variant="secondary">Zakończone</Badge>
+                  <Badge variant="secondary">{labels.eventFinished}</Badge>
                 </div>
               )}
             </div>
