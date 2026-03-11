@@ -446,33 +446,37 @@ export default function InfoLinkPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col items-center space-y-4 text-foreground">
-                  <InputOTP
-                    maxLength={8}
-                    value={otpValue}
-                    onChange={(value) => {
-                      setOtpValue(value);
-                      setOtpError(null);
-                    }}
-                    className="text-foreground"
-                  >
-                    <InputOTPGroup className="text-foreground">
-                      <InputOTPSlot index={0} className="text-foreground" />
-                      <InputOTPSlot index={1} className="text-foreground" />
-                    </InputOTPGroup>
-                    <InputOTPSeparator />
-                    <InputOTPGroup className="text-foreground">
-                      <InputOTPSlot index={2} className="text-foreground" />
-                      <InputOTPSlot index={3} className="text-foreground" />
-                      <InputOTPSlot index={4} className="text-foreground" />
-                      <InputOTPSlot index={5} className="text-foreground" />
-                    </InputOTPGroup>
-                    <InputOTPSeparator />
-                    <InputOTPGroup className="text-foreground">
-                      <InputOTPSlot index={6} className="text-foreground" />
-                      <InputOTPSlot index={7} className="text-foreground" />
-                    </InputOTPGroup>
-                  </InputOTP>
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="flex items-center gap-2 w-full max-w-xs">
+                    <span className="text-lg font-mono font-semibold text-foreground shrink-0">PL-</span>
+                    <Input
+                      value={otpValue}
+                      onChange={(e) => {
+                        const val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+                        setOtpValue(val);
+                        setOtpError(null);
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasted = e.clipboardData.getData('text').toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        // Handle pasting full code like "PL-XXXXXX" or "PL-XXXX-XX"
+                        const cleaned = pasted.replace(/^PL/, '').slice(0, 6);
+                        setOtpValue(cleaned);
+                        setOtpError(null);
+                        if (cleaned.length === 6) {
+                          setTimeout(() => handleOTPSubmit(), 100);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleOTPSubmit();
+                      }}
+                      placeholder="XXXXXX"
+                      maxLength={6}
+                      className="text-center text-lg font-mono tracking-widest uppercase"
+                      autoComplete="off"
+                      inputMode="text"
+                    />
+                  </div>
 
                   {otpError && (
                     <p className="text-sm text-destructive">{otpError}</p>
@@ -480,7 +484,7 @@ export default function InfoLinkPage() {
 
                   <Button
                     onClick={handleOTPSubmit}
-                    disabled={validating || otpValue.length < 8}
+                    disabled={validating || otpValue.length < 6}
                     className="w-full max-w-xs"
                   >
                     {validating ? (

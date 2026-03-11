@@ -155,6 +155,7 @@ Deno.serve(async (req) => {
 
     // Format the message for clipboard - strip HTML tags for plain text
     const welcomeMessage = stripHtml(reflink.welcome_message || 'Witaj! Przesyłam Ci link do materiałów informacyjnych:');
+    const validityHours = reflink.otp_validity_hours || 24;
     const validityText = validityHours === 1 
       ? '1 godzinę' 
       : validityHours < 5 
