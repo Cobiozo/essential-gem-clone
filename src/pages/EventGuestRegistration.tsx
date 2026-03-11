@@ -519,7 +519,7 @@ const EventGuestRegistration: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <User className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="font-medium">Prowadzący: {autoWebinarVideo.host_name}</p>
+                    <p className="font-medium">{labels.host}: {autoWebinarVideo.host_name}</p>
                   </div>
                 </div>
               ) : event.host_name ? (
