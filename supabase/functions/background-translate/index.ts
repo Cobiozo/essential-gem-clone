@@ -989,10 +989,14 @@ async function processTrainingJob(supabase: any, job: any, lovableApiKey: string
 async function processKnowledgeJob(supabase: any, job: any, lovableApiKey: string | undefined) {
   const { id: jobId, source_language, target_language } = job;
 
-  const { data: resources } = await supabase.from('knowledge_resources').select('id, title, description, context_of_use');
+  const { data: resources } = await supabase.from('knowledge_resources').select('id, title, description, context_of_use, updated_at');
   const { data: existT } = await supabase.from('knowledge_resource_translations').select('resource_id').eq('language_code', target_language).not('title', 'is', null);
   const existIds = new Set(existT?.map((t: any) => t.resource_id) || []);
-  const toTranslate = job.mode === 'all' ? (resources || []) : (resources || []).filter((r: any) => !existIds.has(r.id));
+  let toTranslate = job.mode === 'all' ? (resources || []) : (resources || []).filter((r: any) => !existIds.has(r.id));
+
+  if (job._outdatedOnly) {
+    toTranslate = await filterOutdatedItems(supabase, resources || [], 'knowledge_resource_translations', 'resource_id', target_language);
+  }
 
   await supabase.from('translation_jobs').update({ total_keys: toTranslate.length, updated_at: new Date().toISOString() }).eq('id', jobId);
 
