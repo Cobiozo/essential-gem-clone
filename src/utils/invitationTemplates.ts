@@ -124,6 +124,10 @@ export interface RegistrationLabels {
   reminderNote1: string;
   reminderNote15min: string;
   thanksForRegistration: string;
+  placeholderEmail: string;
+  placeholderFirstName: string;
+  placeholderLastName: string;
+  placeholderPhone: string;
 }
 
 const registrationTemplates: Record<string, RegistrationLabels> = {
