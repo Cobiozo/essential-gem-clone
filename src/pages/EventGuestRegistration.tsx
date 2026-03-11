@@ -616,11 +616,11 @@ const EventGuestRegistration: React.FC = () => {
                       <Button type="submit" className="w-full" size="lg" disabled={submitting}>
                         {submitting ? (
                           <>
-                            <LoadingSpinner className="mr-2 h-4 w-4" />
-                            Zapisywanie...
+                             <LoadingSpinner className="mr-2 h-4 w-4" />
+                            {labels.submitting}
                           </>
                         ) : (
-                          'Zapisz się na webinar'
+                          labels.submitButton
                         )}
                       </Button>
 
