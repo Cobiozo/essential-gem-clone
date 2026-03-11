@@ -404,9 +404,9 @@ ${labels.signUp}: ${inviteUrl}
             const isSelected = selectedDate && isSameDay(day, selectedDate);
             const today = isToday(day);
 
-            // Split dots: bottom row up to 4, overflow row above the number
+            // Split dots: bottom row up to 4, top row next 4
             const bottomDots = dayEvents.slice(0, 4);
-            const overflowCount = eventCount - 4;
+            const topDots = dayEvents.slice(4, 8);
 
             const isWeekend = getAdjustedDayOfWeek(day) >= 5;
 
@@ -426,11 +426,16 @@ ${labels.signUp}: ${inviteUrl}
                   !hasEvents && "hover:bg-muted/50"
                 )}
               >
-                {/* Overflow indicator above number */}
-                {overflowCount > 0 && (
-                  <span className="absolute top-0.5 text-[8px] font-bold text-muted-foreground leading-none">
-                    +{overflowCount}
-                  </span>
+                {/* Top dots for overflow events */}
+                {topDots.length > 0 && (
+                  <div className="absolute top-0.5 flex gap-0.5">
+                    {topDots.map((event, i) => (
+                      <div
+                        key={i}
+                        className={cn("w-1.5 h-1.5 rounded-full", getEventColor(event.event_type))}
+                      />
+                    ))}
+                  </div>
                 )}
                 <span>{format(day, 'd')}</span>
                 {hasEvents && (
