@@ -172,7 +172,7 @@ const EventGuestRegistration: React.FC = () => {
         setEvent(data);
       } catch (err: any) {
         console.error('Error fetching event:', err?.message || err);
-        setError(`Nie znaleziono wydarzenia lub jest nieaktywne. (${err?.code || 'unknown'})`);
+        setError(`${labels.notFound} (${err?.code || 'unknown'})`);
       } finally {
         setLoading(false);
       }
