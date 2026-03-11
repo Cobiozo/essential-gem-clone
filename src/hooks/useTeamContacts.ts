@@ -38,6 +38,7 @@ export const useTeamContacts = () => {
           )
         `)
         .eq('is_active', true)
+        .is('deleted_at', null)
         .is('linked_user_deleted_at', null) // Hide contacts where linked user was deleted
         .order('created_at', { ascending: false })
         .limit(100); // Performance optimization - most users have <100 contacts
@@ -226,17 +227,10 @@ export const useTeamContacts = () => {
     if (!user) return false;
     
     try {
-      // Cancel linked guest registrations before soft-deleting the contact
-      await supabase
-        .from('guest_event_registrations')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('team_contact_id', id)
-        .eq('status', 'registered');
-
-      // Soft delete
+      // Soft delete with deleted_at timestamp (30-day retention)
       const { error } = await supabase
         .from('team_contacts')
-        .update({ is_active: false })
+        .update({ deleted_at: new Date().toISOString() })
         .eq('id', id);
 
       if (error) throw error;
@@ -249,17 +243,110 @@ export const useTeamContacts = () => {
       });
 
       toast({
-        title: 'Sukces',
-        description: 'Kontakt został usunięty',
+        title: 'Kontakt przeniesiony do usuniętych',
+        description: 'Możesz go przywrócić w zakładce "Usunięte" przez 30 dni',
       });
 
       fetchContacts();
+      fetchDeletedContacts();
       return true;
     } catch (error: any) {
       console.error('Error deleting contact:', error);
       toast({
         title: 'Błąd',
         description: 'Nie udało się usunąć kontaktu',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  // Fetch soft-deleted contacts (within 30 days)
+  const [deletedContacts, setDeletedContacts] = useState<TeamContact[]>([]);
+  const [deletedLoading, setDeletedLoading] = useState(false);
+
+  const fetchDeletedContacts = useCallback(async () => {
+    if (!user) return;
+    setDeletedLoading(true);
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from('team_contacts')
+        .select('*')
+        .eq('is_active', true)
+        .not('deleted_at', 'is', null)
+        .gte('deleted_at', thirtyDaysAgo.toISOString())
+        .order('deleted_at', { ascending: false });
+
+      if (error) throw error;
+      setDeletedContacts((data || []) as TeamContact[]);
+    } catch (error) {
+      console.error('Error fetching deleted contacts:', error);
+    } finally {
+      setDeletedLoading(false);
+    }
+  }, [user]);
+
+  const restoreContact = async (id: string) => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('team_contacts')
+        .update({ deleted_at: null })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Re-activate linked guest registrations
+      await supabase
+        .from('guest_event_registrations')
+        .update({ status: 'registered', cancelled_at: null })
+        .eq('team_contact_id', id)
+        .eq('status', 'cancelled');
+
+      toast({
+        title: 'Kontakt przywrócony',
+        description: 'Kontakt został przywrócony do listy',
+      });
+
+      fetchContacts();
+      fetchDeletedContacts();
+      return true;
+    } catch (error: any) {
+      console.error('Error restoring contact:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się przywrócić kontaktu',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  const moveToOwnList = async (id: string) => {
+    if (!user) return false;
+    try {
+      const { error } = await supabase
+        .from('team_contacts')
+        .update({ moved_to_own_list: true })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Przeniesiono',
+        description: 'Kontakt został przeniesiony do Mojej listy kontaktów',
+      });
+
+      fetchContacts();
+      return true;
+    } catch (error: any) {
+      console.error('Error moving contact:', error);
+      toast({
+        title: 'Błąd',
+        description: 'Nie udało się przenieść kontaktu',
         variant: 'destructive',
       });
       return false;
@@ -397,7 +484,8 @@ export const useTeamContacts = () => {
   useEffect(() => {
     fetchContacts();
     fetchEventContactIds();
-  }, [fetchContacts, fetchEventContactIds]);
+    fetchDeletedContacts();
+  }, [fetchContacts, fetchEventContactIds, fetchDeletedContacts]);
 
   // Compute grouped data
   const { groups: eventGroupedContacts, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
@@ -417,5 +505,9 @@ export const useTeamContacts = () => {
     eventGroupedContacts,
     duplicateContactEvents,
     pendingOfflineCount: pendingCount,
+    deletedContacts,
+    deletedLoading,
+    restoreContact,
+    moveToOwnList,
   };
 };

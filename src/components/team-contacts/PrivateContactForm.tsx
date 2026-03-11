@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { ContactEventHistory } from './ContactEventHistory';
 import type { TeamContact } from './types';
 
 interface PrivateContactFormProps {
@@ -420,6 +421,11 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           rows={3}
         />
       </div>
+
+      {/* Event History (read-only) */}
+      {contact?.email && (
+        <ContactEventHistory email={contact.email} />
+      )}
 
       {/* Error feedback */}
       {error && (

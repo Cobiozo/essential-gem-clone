@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
@@ -23,6 +23,7 @@ import { TeamMap } from './TeamMap';
 import { SpecialistSearch } from './SpecialistSearch';
 import { OrganizationChart, OrganizationList } from './organization';
 import { EventGroupedContacts } from './EventGroupedContacts';
+import { DeletedContactsList } from './DeletedContactsList';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
@@ -63,7 +64,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactDetails, eventGroupedContacts, duplicateContactEvents, pendingOfflineCount } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactDetails, eventGroupedContacts, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, moveToOwnList } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
@@ -80,7 +81,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events' | 'deleted'>('own');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -203,8 +204,8 @@ export const TeamContactsTab: React.FC = () => {
 
   // Filter contacts by type for display
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
-  const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id));
-  const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id));
+  const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id) || (c as any).moved_to_own_list);
+  const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id) && !(c as any).moved_to_own_list);
   
   const filteredContacts = (() => {
     if (activeTab === 'private') {
@@ -347,6 +348,17 @@ export const TeamContactsTab: React.FC = () => {
                   Z zaproszeń na wydarzenia
                   <Badge variant="secondary" className="ml-2">{eventContacts.length}</Badge>
                 </Button>
+                <Button
+                  variant={privateSubTab === 'deleted' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('deleted')}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Usunięte
+                  {deletedContacts.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">{deletedContacts.length}</Badge>
+                  )}
+                </Button>
               </div>
 
               {showFilters && (
@@ -358,7 +370,13 @@ export const TeamContactsTab: React.FC = () => {
                 />
               )}
               
-              {privateSubTab === 'events' ? (
+              {privateSubTab === 'deleted' ? (
+                <DeletedContactsList
+                  contacts={deletedContacts}
+                  loading={deletedLoading}
+                  onRestore={restoreContact}
+                />
+              ) : privateSubTab === 'events' ? (
               <EventGroupedContacts
                   eventGroups={eventGroupedContacts}
                   duplicateContactEvents={duplicateContactEvents}
@@ -367,6 +385,7 @@ export const TeamContactsTab: React.FC = () => {
                   onEdit={openEditForm}
                   onDelete={handleDeleteContact}
                   getContactHistory={getContactHistory}
+                  onMoveToOwnList={moveToOwnList}
                 />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion

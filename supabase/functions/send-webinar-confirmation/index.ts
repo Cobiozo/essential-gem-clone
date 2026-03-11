@@ -196,7 +196,7 @@ const handler = async (req: Request): Promise<Response> => {
         ? new Date(eventDate).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
         : '';
       
-      const sourceNote = `Dane pozyskane z formularza webinar: "${eventTitle}" (${formattedDate})`;
+      const contactSourceLabel = `Formularz webinar: "${eventTitle}" (${formattedDate})`;
       
       // Check if contact already exists for this user (including inactive)
       const { data: existingContact } = await supabase
@@ -220,7 +220,8 @@ const handler = async (req: Request): Promise<Response> => {
             contact_type: 'private',
             role: 'client',
             relationship_status: 'observation',
-            notes: sourceNote,
+            notes: null,
+            contact_source: contactSourceLabel,
             is_active: true,
           })
           .select('id')
@@ -247,7 +248,8 @@ const handler = async (req: Request): Promise<Response> => {
               first_name: firstName,
               last_name: lastName || '',
               phone_number: phone || null,
-              notes: sourceNote,
+              contact_source: contactSourceLabel,
+              deleted_at: null,
             })
             .eq('id', existingContact.id);
           console.log(`[send-webinar-confirmation] Reactivated contact: ${existingContact.id}`);
