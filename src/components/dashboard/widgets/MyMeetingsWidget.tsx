@@ -442,7 +442,7 @@ ${labels.signUp}: ${inviteUrl}
         ) : (
           <div className="space-y-1">
             {groupedByDay.map(({ day, types }) => {
-              const isDayExpanded = expandedDay === day;
+              const isDayExpanded = effectiveExpandedDay === day;
               const totalEvents = Object.values(types).reduce((sum, arr) => sum + arr.length, 0);
 
               return (
