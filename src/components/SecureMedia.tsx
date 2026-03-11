@@ -1780,7 +1780,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
           // @ts-ignore - webkit-playsinline for older iOS
           webkit-playsinline="true"
           // Only use crossOrigin for Supabase storage URLs (which support CORS)
-          {...(signedUrl.includes('supabase.co') && { crossOrigin: "anonymous" })}
+          {...((signedUrl || '').includes('supabase.co') && { crossOrigin: "anonymous" })}
         >
           Twoja przeglądarka nie obsługuje odtwarzania wideo.
         </video>
