@@ -347,6 +347,17 @@ export const TeamContactsTab: React.FC = () => {
                   Z zaproszeń na wydarzenia
                   <Badge variant="secondary" className="ml-2">{eventContacts.length}</Badge>
                 </Button>
+                <Button
+                  variant={privateSubTab === 'deleted' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('deleted')}
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Usunięte
+                  {deletedContacts.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">{deletedContacts.length}</Badge>
+                  )}
+                </Button>
               </div>
 
               {showFilters && (
