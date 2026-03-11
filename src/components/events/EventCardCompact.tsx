@@ -418,20 +418,22 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
       ? `${baseUrl}/e/${eventSlug}${eqId ? `?ref=${eqId}` : ''}`
       : `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     
+    const labels = getInvitationLabels(inviteLang);
+    const locale = getDateLocale(inviteLang);
     const invitationText = `
-🎥 Zaproszenie na spotkanie: ${event.title}
+🎥 ${labels.meetingInvitation}: ${event.title}
 
-📅 Data: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale: dateLocale })}
-⏰ Godzina: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
-${event.host_name ? `👤 Prowadzący: ${event.host_name}` : ''}
+📅 ${labels.date}: ${formatInTimeZone(startDate, eventTz, 'PPP', { locale })}
+⏰ ${labels.time}: ${formatInTimeZone(startDate, eventTz, 'HH:mm')} - ${formatInTimeZone(endDate, eventTz, 'HH:mm')} (${getTimezoneAbbr(eventTz)})
+${event.host_name ? `👤 ${labels.host}: ${event.host_name}` : ''}
 
-Zapisz się tutaj: ${inviteUrl}
+${labels.signUp}: ${inviteUrl}
     `.trim();
     
     navigator.clipboard.writeText(invitationText);
     toast({ 
-      title: 'Skopiowano!', 
-      description: 'Zaproszenie zostało skopiowane do schowka' 
+      title: labels.copied, 
+      description: labels.invitationCopied
     });
   };
 
