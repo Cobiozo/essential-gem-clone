@@ -36,6 +36,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
