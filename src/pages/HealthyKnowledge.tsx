@@ -309,12 +309,30 @@ const HealthyKnowledgePage: React.FC = () => {
                       className="absolute inset-0 flex items-center justify-center cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/zdrowa-wiedza/player/${material.id}`);
+                        if (material.media_url) {
+                          navigate(`/zdrowa-wiedza/player/${material.id}`);
+                        } else {
+                          toast.info(tf('hk.noMediaTitle', 'Brak pliku multimedialnego'));
+                        }
                       }}
                     >
-                      <div className="p-2 sm:p-3 rounded-full bg-black/50 backdrop-blur-sm group-hover:bg-primary/80 transition-colors">
-                        <Play className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                      <div className={cn(
+                        "p-2 sm:p-3 rounded-full backdrop-blur-sm transition-colors",
+                        material.media_url 
+                          ? "bg-black/50 group-hover:bg-primary/80" 
+                          : "bg-black/30"
+                      )}>
+                        {material.media_url ? (
+                          <Play className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
+                        ) : (
+                          <Clock className="w-4 h-4 sm:w-6 sm:h-6 text-white/70" />
+                        )}
                       </div>
+                      {!material.media_url && (
+                        <span className="absolute bottom-2 text-xs text-white/80 bg-black/50 px-2 py-0.5 rounded">
+                          {tf('hk.comingSoon', 'Wkrótce')}
+                        </span>
+                      )}
                     </div>
                   )}
                   

@@ -183,6 +183,40 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
     );
   }
 
+  if (!material.media_url) {
+    return (
+      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
+        <div className="space-y-4 max-w-5xl mx-auto">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/zdrowa-wiedza')}
+            className="gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            {tf('hk.backToListShort', 'Powrót do listy')}
+          </Button>
+          <Card className="border-dashed">
+            <CardContent className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+              <div className="p-4 rounded-full bg-muted">
+                <Heart className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <div className="space-y-2 max-w-md">
+                <h2 className="text-xl font-semibold">{tf('hk.noMediaTitle', 'Brak pliku multimedialnego')}</h2>
+                <p className="text-muted-foreground">
+                  {tf('hk.noMediaDescription', 'Ten materiał nie zawiera jeszcze pliku wideo/audio. Skontaktuj się z administratorem lub wróć do listy materiałów.')}
+                </p>
+              </div>
+              <Button onClick={() => navigate('/zdrowa-wiedza')} className="mt-2">
+                {tf('hk.backToList', 'Wróć do listy')}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
   return (
     <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
       <div className="space-y-4 max-w-5xl mx-auto">
