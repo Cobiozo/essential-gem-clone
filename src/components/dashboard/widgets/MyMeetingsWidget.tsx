@@ -486,28 +486,8 @@ ${labels.signUp}: ${inviteUrl}
                                   {/* Compact row: time + invite + actions */}
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                      {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })}-{formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })}
+                                      {formatInTimeZone(new Date(event.start_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })}-{formatInTimeZone(new Date(event.end_time), event.timezone || DEFAULT_EVENT_TIMEZONE, 'HH:mm', { locale })} ({getTimezoneAbbr(event.timezone || DEFAULT_EVENT_TIMEZONE)})
                                     </span>
-
-                                    {/* Invite controls for group events */}
-                                    {isGroupType && (
-                                      <>
-                                        <InvitationLanguageSelect
-                                          value={inviteLang}
-                                          onValueChange={setInviteLang}
-                                        />
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground touch-action-manipulation"
-                                          onClick={() => handleCopyInvitation(event)}
-                                          title={tf('events.inviteGuest', 'Zaproś gościa')}
-                                        >
-                                          <UserPlus className="h-3 w-3 mr-0.5" />
-                                          {tf('events.invite', 'Zaproś')}
-                                        </Button>
-                                      </>
-                                    )}
 
                                     {/* Individual meeting: host/participant info */}
                                     {['tripartite_meeting', 'partner_consultation', 'meeting_private'].includes(event.event_type) && (
@@ -528,6 +508,24 @@ ${labels.signUp}: ${inviteUrl}
                                     )}
 
                                     <div className="ml-auto flex items-center gap-1 shrink-0">
+                                      {isGroupType && (
+                                        <>
+                                          <InvitationLanguageSelect
+                                            value={inviteLang}
+                                            onValueChange={setInviteLang}
+                                          />
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-1.5 text-xs text-muted-foreground hover:text-foreground touch-action-manipulation"
+                                            onClick={() => handleCopyInvitation(event)}
+                                            title={tf('events.inviteGuest', 'Zaproś gościa')}
+                                          >
+                                            <UserPlus className="h-3 w-3 mr-0.5" />
+                                            {tf('events.invite', 'Zaproś')}
+                                          </Button>
+                                        </>
+                                      )}
                                       {getActionButton(event)}
                                     </div>
                                   </div>
