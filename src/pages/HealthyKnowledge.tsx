@@ -103,6 +103,8 @@ const HealthyKnowledgePage: React.FC = () => {
 
   const handleOpenShare = (material: HealthyKnowledge) => {
     setSelectedMaterial(material);
+    setGeneratedMessage('');
+    setGeneratedCode('');
     const template = material.share_message_template || DEFAULT_SHARE_MESSAGE_TEMPLATE;
     const previewMessage = template
       .replace('{title}', material.title)
