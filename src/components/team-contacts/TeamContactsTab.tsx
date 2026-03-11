@@ -63,7 +63,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactDetails, eventGroupedContacts, duplicateContactEvents, pendingOfflineCount } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactDetails, eventGroupedContacts, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, moveToOwnList } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
