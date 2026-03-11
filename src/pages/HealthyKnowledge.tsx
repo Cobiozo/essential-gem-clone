@@ -124,22 +124,24 @@ const HealthyKnowledgePage: React.FC = () => {
         return;
       }
 
-      const response = await supabase.functions.invoke('generate-hk-otp', {
-        body: { knowledge_id: selectedMaterial.id },
+      const { copyAfterAsync } = await import('@/lib/clipboardUtils');
+      let otpCode = '';
+
+      const { success } = await copyAfterAsync(async () => {
+        const response = await supabase.functions.invoke('generate-hk-otp', {
+          body: { knowledge_id: selectedMaterial.id },
+        });
+        if (response.error) {
+          throw new Error(response.error.message || tf('hk.generateError', 'Błąd generowania kodu'));
+        }
+        otpCode = response.data.otp_code;
+        return response.data.clipboard_message as string;
       });
 
-      if (response.error) {
-        throw new Error(response.error.message || tf('hk.generateError', 'Błąd generowania kodu'));
-      }
-
-      const { clipboard_message, otp_code } = response.data;
-      
-      const { copyToClipboard } = await import('@/lib/clipboardUtils');
-      const success = await copyToClipboard(clipboard_message);
       if (success) {
-        toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otp_code} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
+        toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otpCode} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
       } else {
-        toast.info(`${tf('hk.codeGenerated', 'Kod')}: ${otp_code} — ${tf('hk.copyManually', 'skopiuj ręcznie z pola poniżej')}`, { duration: 8000 });
+        toast.info(`${tf('hk.codeGenerated', 'Kod')}: ${otpCode} — ${tf('hk.copyManually', 'skopiuj ręcznie z pola poniżej')}`, { duration: 8000 });
       }
       setShareDialogOpen(false);
       

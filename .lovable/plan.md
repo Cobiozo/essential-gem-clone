@@ -1,56 +1,24 @@
 
 
-# Fix: Udostępnianie na mobile — użycie `copyAfterAsync`
+## Plan zmian
 
-## Problem
+### 1. Logo na ekranie ładowania (App.tsx)
 
-Na mobile (iOS Safari) kopiowanie nie działa, bo `handleGenerateAndCopy` w `HealthyKnowledge.tsx` najpierw wywołuje async edge function (`generate-hk-otp`), a dopiero potem próbuje `copyToClipboard`. Do tego momentu kontekst gestu użytkownika jest utracony i Safari blokuje zapis do schowka.
+Ekran ładowania ról (linia 294-308 w `App.tsx`) używa generycznego spinnera CSS bez logo. Trzeba dodać import nowego logo `pure-life-droplet-new.png` i wyświetlić je na ekranie ładowania — analogicznie do tego, co widać na screenshocie (logo + tekst "Ładowanie...").
 
-Widget `InfoLinksWidget` działa poprawnie, bo używa `copyAfterAsync` — który rejestruje `ClipboardItem` synchronicznie w kontekście gestu, a treść rozwiązuje asynchronicznie.
+**Plik: `src/App.tsx`**
+- Dodać import: `import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';`
+- Zamienić spinner CSS na obrazek logo + animowany spinner pod spodem
+- Zachować tekst "Ładowanie..."
 
-## Rozwiązanie
+### 2. Złote ikony dla datetime-local (index.css)
 
-**Plik:** `src/pages/HealthyKnowledge.tsx`, funkcja `handleGenerateAndCopy` (~linie 116-153)
+CSS w `index.css` celuje tylko w `input[type="date"]` i `input[type="time"]`, ale w aplikacji większość selektorów dat to `type="datetime-local"`. Dlatego ikony w formularzach (np. tworzenie wydarzeń) nie mają złotego koloru.
 
-Zamienić obecne podejście (async call → copyToClipboard) na `copyAfterAsync`, identycznie jak w `InfoLinksWidget`:
+**Plik: `src/index.css`**
+- Dodać `input[type="datetime-local"]::-webkit-calendar-picker-indicator` do istniejącej reguły golden icon
+- Dodać `input[type="datetime-local"]` do reguły padding-right
+- Dodać `.dark input[type="datetime-local"]` do reguły color-scheme
 
-```typescript
-const handleGenerateAndCopy = async () => {
-  if (!selectedMaterial) return;
-  setGenerating(true);
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      toast.error(tf('common.mustBeLoggedIn', 'Musisz być zalogowany'));
-      return;
-    }
-
-    const { copyAfterAsync } = await import('@/lib/clipboardUtils');
-    let otpCode = '';
-    
-    const { success } = await copyAfterAsync(async () => {
-      const response = await supabase.functions.invoke('generate-hk-otp', {
-        body: { knowledge_id: selectedMaterial.id },
-      });
-      if (response.error) throw new Error(response.error.message);
-      otpCode = response.data.otp_code;
-      return response.data.clipboard_message as string;
-    });
-
-    if (success) {
-      toast.success(`Kod ${otpCode} wygenerowany i skopiowany do schowka!`);
-    } else {
-      toast.error('Nie udało się skopiować. Spróbuj ponownie.');
-    }
-    setShareDialogOpen(false);
-    window.dispatchEvent(new CustomEvent('hkOtpCodeGenerated'));
-  } catch (error: any) {
-    toast.error(error.message || 'Nie udało się wygenerować kodu');
-  } finally {
-    setGenerating(false);
-  }
-};
-```
-
-Kluczowa zmiana: `copyAfterAsync` rejestruje zapis do schowka synchronicznie w momencie kliknięcia, a treść (OTP + wiadomość) pobierana jest asynchronicznie. Działa identycznie na desktop i mobile.
+### Zakres: 2 pliki, ~10 linii zmian
 
