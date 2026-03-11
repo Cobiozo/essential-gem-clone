@@ -140,6 +140,12 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 <span className="font-medium text-foreground">
                                   {contact.first_name} {contact.last_name}
                                 </span>
+                                {(contact as any).moved_to_own_list && (
+                                  <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1">
+                                    <CheckCheck className="w-3 h-3" />
+                                    W Mojej liście
+                                  </Badge>
+                                )}
                                 {dupCount && dupCount > 1 && (
                                   <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 gap-1">
                                     <RefreshCw className="w-3 h-3" />
@@ -161,6 +167,16 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
+                              {onMoveToOwnList && !(contact as any).moved_to_own_list && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => onMoveToOwnList(contact.id)}
+                                  title="Przenieś do Mojej listy"
+                                >
+                                  <UserPlus className="w-4 h-4 text-primary" />
+                                </Button>
+                              )}
                               <ContactEventInfoButton contact={contact} />
                               <Button
                                 variant="ghost"
