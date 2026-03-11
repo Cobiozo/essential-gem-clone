@@ -508,7 +508,7 @@ ${labels.signUp}: ${inviteUrl}
                                     )}
 
                                     <div className="ml-auto flex items-center gap-1 shrink-0">
-                                      {isGroupType && (
+                                      {isGroupType && (event as any).allow_invites === true && (
                                         <>
                                           <InvitationLanguageSelect
                                             value={inviteLang}
