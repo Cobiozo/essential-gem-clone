@@ -662,8 +662,11 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
         const guestQ = supabase.from('meeting_room_participants')
           .update({ is_active: false, left_at: new Date().toISOString() })
           .eq('room_id', roomId).eq('guest_token_id', guestTokenId);
-        if (cleanupPeerId) guestQ.eq('peer_id', cleanupPeerId);
-        await guestQ;
+        if (cleanupPeerId) {
+          await guestQ.eq('peer_id', cleanupPeerId);
+        } else {
+          await guestQ;
+        }
         await supabase.from('meeting_guest_analytics')
           .update({ left_at: new Date().toISOString() })
           .eq('guest_token_id', guestTokenId)
