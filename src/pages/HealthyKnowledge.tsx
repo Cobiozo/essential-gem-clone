@@ -46,6 +46,8 @@ const HealthyKnowledgePage: React.FC = () => {
   const [selectedMaterial, setSelectedMaterial] = useState<HealthyKnowledge | null>(null);
   const [shareMessage, setShareMessage] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [generatedMessage, setGeneratedMessage] = useState('');
+  const [generatedCode, setGeneratedCode] = useState('');
   
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
   const [previewMaterial, setPreviewMaterial] = useState<HealthyKnowledge | null>(null);
@@ -101,6 +103,8 @@ const HealthyKnowledgePage: React.FC = () => {
 
   const handleOpenShare = (material: HealthyKnowledge) => {
     setSelectedMaterial(material);
+    setGeneratedMessage('');
+    setGeneratedCode('');
     const template = material.share_message_template || DEFAULT_SHARE_MESSAGE_TEMPLATE;
     const previewMessage = template
       .replace('{title}', material.title)
@@ -126,6 +130,7 @@ const HealthyKnowledgePage: React.FC = () => {
 
       const { copyAfterAsync } = await import('@/lib/clipboardUtils');
       let otpCode = '';
+      let fullMessage = '';
 
       const { success } = await copyAfterAsync(async () => {
         const response = await supabase.functions.invoke('generate-hk-otp', {
@@ -135,15 +140,20 @@ const HealthyKnowledgePage: React.FC = () => {
           throw new Error(response.error.message || tf('hk.generateError', 'Błąd generowania kodu'));
         }
         otpCode = response.data.otp_code;
-        return response.data.clipboard_message as string;
+        fullMessage = response.data.clipboard_message as string;
+        return fullMessage;
       });
+
+      setGeneratedCode(otpCode);
+      setGeneratedMessage(fullMessage);
 
       if (success) {
         toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otpCode} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
+        setShareDialogOpen(false);
       } else {
-        toast.info(`${tf('hk.codeGenerated', 'Kod')}: ${otpCode} — ${tf('hk.copyManually', 'skopiuj ręcznie z pola poniżej')}`, { duration: 8000 });
+        // Keep dialog open — user can manually copy
+        toast.info(`${tf('hk.codeGenerated', 'Kod')}: ${otpCode} — ${tf('hk.copyManually', 'skopiuj ręcznie przyciskiem poniżej')}`, { duration: 6000 });
       }
-      setShareDialogOpen(false);
       
       window.dispatchEvent(new CustomEvent('hkOtpCodeGenerated'));
       
@@ -152,6 +162,18 @@ const HealthyKnowledgePage: React.FC = () => {
       toast.error(error.message || tf('hk.generateFailed', 'Nie udało się wygenerować kodu'));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleManualCopy = async () => {
+    if (!generatedMessage) return;
+    const { copyToClipboard } = await import('@/lib/clipboardUtils');
+    const success = await copyToClipboard(generatedMessage);
+    if (success) {
+      toast.success(tf('hk.copiedToClipboard', 'Skopiowano do schowka!'));
+      setShareDialogOpen(false);
+    } else {
+      toast.error(tf('hk.copyFailed', 'Nie udało się skopiować. Zaznacz tekst ręcznie i skopiuj.'));
     }
   };
 
@@ -393,40 +415,59 @@ const HealthyKnowledgePage: React.FC = () => {
                 <p className="text-sm text-muted-foreground">
                   {tf('hk.codeValidFor', 'Kod ważny przez')} {selectedMaterial.otp_validity_hours || 24} {tf('hk.hours', 'godzin')}
                 </p>
+                {generatedCode && (
+                  <p className="text-sm font-mono font-bold mt-1">
+                    {tf('hk.codeGenerated', 'Kod')}: {generatedCode}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="text-sm font-medium">{tf('hk.messagePreview', 'Podgląd wiadomości')}</label>
+                <label className="text-sm font-medium">
+                  {generatedMessage 
+                    ? tf('hk.generatedMessage', 'Wygenerowana wiadomość') 
+                    : tf('hk.messagePreview', 'Podgląd wiadomości')}
+                </label>
                 <Textarea
-                  value={shareMessage}
+                  value={generatedMessage || shareMessage}
                   readOnly
                   rows={8}
-                  className="mt-1 text-sm bg-muted"
+                  className="mt-1 text-sm bg-muted select-all"
+                  onClick={(e) => (e.target as HTMLTextAreaElement).select()}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  {tf('hk.linkAndCodeNote', 'Link i kod zostaną automatycznie uzupełnione po wygenerowaniu')}
-                </p>
+                {!generatedMessage && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {tf('hk.linkAndCodeNote', 'Link i kod zostaną automatycznie uzupełnione po wygenerowaniu')}
+                  </p>
+                )}
               </div>
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => setShareDialogOpen(false)}>
               {tf('common.cancel', 'Anuluj')}
             </Button>
-            <Button onClick={handleGenerateAndCopy} disabled={generating}>
-              {generating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {tf('hk.generating', 'Generowanie...')}
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4 mr-2" />
-                  {tf('hk.generateAndCopy', 'Generuj kod i kopiuj')}
-                </>
-              )}
-            </Button>
+            {generatedMessage ? (
+              <Button onClick={handleManualCopy}>
+                <Copy className="w-4 h-4 mr-2" />
+                {tf('hk.copyMessage', 'Kopiuj wiadomość')}
+              </Button>
+            ) : (
+              <Button onClick={handleGenerateAndCopy} disabled={generating}>
+                {generating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    {tf('hk.generating', 'Generowanie...')}
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    {tf('hk.generateAndCopy', 'Generuj kod i kopiuj')}
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
