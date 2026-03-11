@@ -208,8 +208,9 @@ export default function InfoLinkPage() {
 
   // Handle OTP submission
   const handleOTPSubmit = async () => {
-    if (otpValue.length < 8) {
-      setOtpError('Wprowadź pełny kod dostępu');
+    const raw = otpValue.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (raw.length !== 6) {
+      setOtpError('Wprowadź pełny 6-znakowy kod dostępu');
       return;
     }
 
@@ -217,11 +218,7 @@ export default function InfoLinkPage() {
     setOtpError(null);
 
     try {
-      // Format OTP: add dashes if not present
-      let formattedCode = otpValue.toUpperCase();
-      if (!formattedCode.includes('-')) {
-        formattedCode = `${formattedCode.slice(0, 2)}-${formattedCode.slice(2, 6)}-${formattedCode.slice(6, 8)}`;
-      }
+      const formattedCode = `PL-${raw}`;
 
       const { data, error } = await supabase.functions.invoke('validate-infolink-otp', {
         body: {
