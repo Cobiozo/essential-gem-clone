@@ -350,6 +350,28 @@ export const VideoRoom: React.FC<VideoRoomProps> = ({
     };
   }, []);
 
+  // Poll meeting status every 30s as fallback for missed broadcast 'meeting-ended'
+  useEffect(() => {
+    if (isHost || !roomId) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase
+          .from('events')
+          .select('end_time')
+          .eq('meeting_room_id', roomId)
+          .maybeSingle();
+        if (data?.end_time && new Date(data.end_time) < new Date()) {
+          console.log('[VideoRoom] Meeting ended detected via polling, ejecting participant');
+          toast({ title: 'Spotkanie zakończone', description: 'Prowadzący zakończył spotkanie.' });
+          handleLeave();
+        }
+      } catch (e) {
+        console.warn('[VideoRoom] Meeting status poll failed:', e);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [roomId, isHost]);
+
   // Persistent audio/video unlock on user gesture (mobile autoplay policy)
   const audioUnlockedRef = useRef(false);
   useEffect(() => {
