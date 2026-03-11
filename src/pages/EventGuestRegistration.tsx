@@ -570,7 +570,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="first_name"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Imię *</FormLabel>
+                            <FormLabel>{labels.firstNameLabel} *</FormLabel>
                             <FormControl>
                               <Input placeholder="Jan" {...field} />
                             </FormControl>
