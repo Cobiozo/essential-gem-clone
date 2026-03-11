@@ -88,21 +88,27 @@ export async function copyAfterAsync(
   asyncFn: () => Promise<string>
 ): Promise<{ success: boolean; text: string }> {
   // Modern approach: ClipboardItem with pending blob (iOS Safari 15.4+)
+  // CRITICAL: clipboard.write() must be called synchronously in the user-gesture
+  // call stack. The ClipboardItem resolves the content asynchronously via Promise.
   if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
     try {
       const textPromise = asyncFn();
-      const item = new ClipboardItem({
-        'text/plain': textPromise.then(t => new Blob([t], { type: 'text/plain' }))
-      });
+      const blobPromise = textPromise.then(t => new Blob([t], { type: 'text/plain' }));
+      const item = new ClipboardItem({ 'text/plain': blobPromise });
+      // Call write() IMMEDIATELY — before any await — to preserve transient activation
+      const writePromise = navigator.clipboard.write([item]);
       const text = await textPromise;
-      await navigator.clipboard.write([item]);
+      await writePromise;
       return { success: true, text };
     } catch (_err) {
-      // ClipboardItem approach failed — try fallback
+      // ClipboardItem approach failed — try fallback below
+      // But we need the text, so re-run is unavoidable only if textPromise also threw
     }
   }
 
   // Fallback: run async first, then try legacy copy
+  // NOTE: This will likely fail on iOS Safari due to lost gesture context,
+  // but works on desktop and Android Chrome.
   try {
     const text = await asyncFn();
     const success = await copyToClipboard(text);

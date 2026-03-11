@@ -164,7 +164,15 @@ const HealthyKnowledgePage: React.FC = () => {
   const handleManualCopy = async () => {
     if (!generatedMessage) return;
     
-    // On mobile, prefer native share (works reliably for WhatsApp, SMS, etc.)
+    // First try clipboard (synchronous in gesture context)
+    const success = await copyToClipboard(generatedMessage);
+    if (success) {
+      toast.success(tf('hk.copiedToClipboard', 'Skopiowano do schowka!'));
+      setShareDialogOpen(false);
+      return;
+    }
+    
+    // Fallback: native share on mobile
     if (navigator.share) {
       try {
         await navigator.share({ text: generatedMessage });
@@ -172,17 +180,11 @@ const HealthyKnowledgePage: React.FC = () => {
         setShareDialogOpen(false);
         return;
       } catch (_err) {
-        // User cancelled or share failed — fall through to clipboard
+        // User cancelled — keep dialog open
       }
     }
     
-    const success = await copyToClipboard(generatedMessage);
-    if (success) {
-      toast.success(tf('hk.copiedToClipboard', 'Skopiowano do schowka!'));
-      setShareDialogOpen(false);
-    } else {
-      toast.error(tf('hk.copyFailed', 'Nie udało się skopiować. Zaznacz tekst ręcznie i skopiuj.'));
-    }
+    toast.error(tf('hk.copyFailed', 'Nie udało się skopiować. Zaznacz tekst ręcznie i skopiuj.'));
   };
 
   const handleViewMaterial = (material: HealthyKnowledge) => {
