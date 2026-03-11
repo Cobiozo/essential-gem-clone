@@ -129,7 +129,6 @@ const HealthyKnowledgePage: React.FC = () => {
         return;
       }
 
-      const { copyAfterAsync } = await import('@/lib/clipboardUtils');
       let otpCode = '';
       let fullMessage = '';
 
