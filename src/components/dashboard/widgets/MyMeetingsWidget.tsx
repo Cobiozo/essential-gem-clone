@@ -116,12 +116,15 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const upcomingEvents = userEvents.filter(e => {
     const now = new Date();
     const endTime = new Date(e.end_time);
-    if (endTime <= now) return false;
     const roomId = (e as any).meeting_room_id;
-    if (roomId && !activeRoomIds.has(roomId) && new Date(e.start_time) <= now) {
-      return false;
-    }
-    return true;
+
+    // Event still in future or in progress → always show
+    if (endTime > now) return true;
+
+    // Event ended: keep only if room is still active (overtime)
+    if (roomId && activeRoomIds.has(roomId)) return true;
+
+    return false;
   });
 
   // Group by day, then by type within each day
