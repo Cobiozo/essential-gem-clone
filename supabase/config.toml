@@ -236,3 +236,12 @@ verify_jwt = false
 
 [functions.track-login]
 verify_jwt = false
+
+[functions.send-mfa-code]
+verify_jwt = false
+
+[functions.verify-mfa-code]
+verify_jwt = false
+
+[functions.send-security-report]
+verify_jwt = false
