@@ -4703,6 +4703,10 @@ const Admin = () => {
           <TabsContent value="data-cleanup">
             <DataCleanupManagement />
           </TabsContent>
+
+          <TabsContent value="security">
+            <SecurityModule />
+          </TabsContent>
         </Tabs>
       </div>
 

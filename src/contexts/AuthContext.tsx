@@ -370,6 +370,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) {
       // Jeśli błąd - usuń flagę
       sessionStorage.removeItem('fresh_login');
+    } else {
+      // Track login for security module (fire and forget)
+      try {
+        const components = [
+          navigator.userAgent,
+          navigator.language,
+          screen.width + 'x' + screen.height,
+          screen.colorDepth?.toString() || '',
+          Intl.DateTimeFormat().resolvedOptions().timeZone,
+          navigator.hardwareConcurrency?.toString() || '',
+        ];
+        const str = components.join('|');
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash |= 0;
+        }
+        const deviceHash = 'dh_' + Math.abs(hash).toString(36);
+
+        supabase.functions.invoke('track-login', {
+          body: { device_hash: deviceHash, user_agent: navigator.userAgent },
+        }).catch(() => {});
+      } catch {}
     }
     return { error };
   };
