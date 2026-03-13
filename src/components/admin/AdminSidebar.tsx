@@ -257,6 +257,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     dataCleanup: 'Czyszczenie danych',
     leaderPanel: 'Panel Lidera',
     platformTeams: 'Zespoły platformy',
+    security: 'Bezpieczeństwo',
   };
 
   const getLabel = (key: string): string => {

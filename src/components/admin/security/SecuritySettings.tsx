@@ -51,7 +51,7 @@ export const SecuritySettings: React.FC = () => {
             setMfaEnforcement(s.setting_value === true);
             break;
           case 'mfa_required_roles':
-            setMfaRoles(Array.isArray(s.setting_value) ? s.setting_value : []);
+            setMfaRoles(Array.isArray(s.setting_value) ? (s.setting_value as string[]) : []);
             break;
         }
       }
