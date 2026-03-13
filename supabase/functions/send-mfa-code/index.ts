@@ -6,6 +6,113 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface SmtpSettings {
+  host: string;
+  port: number;
+  encryption: string;
+  username: string;
+  password: string;
+  from_email: string;
+  from_name: string;
+}
+
+function base64Encode(str: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(str);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64EncodeAscii(str: string): string {
+  return btoa(str);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  const timeout = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]);
+}
+
+async function sendSmtpEmail(
+  settings: SmtpSettings,
+  to: string,
+  subject: string,
+  htmlBody: string
+): Promise<{ success: boolean; error?: string }> {
+  console.log(`[SMTP] Sending MFA code to ${to}`);
+  let conn: Deno.Conn | null = null;
+  try {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    if (settings.encryption === 'ssl') {
+      conn = await withTimeout(Deno.connectTls({ hostname: settings.host, port: settings.port }), 30000);
+    } else {
+      conn = await withTimeout(Deno.connect({ hostname: settings.host, port: settings.port }), 30000);
+    }
+
+    const readResponse = async (): Promise<string> => {
+      const buffer = new Uint8Array(4096);
+      const n = await conn!.read(buffer);
+      if (n === null) return '';
+      return decoder.decode(buffer.subarray(0, n));
+    };
+
+    const sendCommand = async (command: string, hideLog = false): Promise<string> => {
+      if (!hideLog) console.log('[SMTP] Sending:', command.trim());
+      else console.log('[SMTP] Sending: [HIDDEN]');
+      await conn!.write(encoder.encode(command + '\r\n'));
+      return await readResponse();
+    };
+
+    await readResponse();
+    await sendCommand(`EHLO ${settings.host}`);
+
+    if (settings.encryption === 'starttls') {
+      await sendCommand('STARTTLS');
+      conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
+      await sendCommand(`EHLO ${settings.host}`);
+    }
+
+    await sendCommand('AUTH LOGIN');
+    await sendCommand(base64EncodeAscii(settings.username), true);
+    const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
+    if (!authResponse.startsWith('235')) throw new Error(`Auth failed: ${authResponse}`);
+
+    await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    await sendCommand(`RCPT TO:<${to}>`);
+    await sendCommand('DATA');
+
+    const emailContent = [
+      `From: ${settings.from_name} <${settings.from_email}>`,
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      'MIME-Version: 1.0',
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      base64Encode(htmlBody),
+      '.',
+    ].join('\r\n');
+
+    const dataResponse = await sendCommand(emailContent);
+    if (!dataResponse.startsWith('250')) throw new Error(`Send failed: ${dataResponse}`);
+
+    await sendCommand('QUIT');
+    conn.close();
+    return { success: true };
+  } catch (error) {
+    console.error('[SMTP] Error:', error);
+    return { success: false, error: error.message };
+  } finally {
+    if (conn) { try { conn.close(); } catch {} }
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -36,7 +143,7 @@ serve(async (req) => {
 
     // Generate 6-digit code
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min TTL
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // Invalidate old unused codes
     await supabaseAdmin.from('mfa_email_codes').update({ used: true })
@@ -50,16 +157,15 @@ serve(async (req) => {
     });
 
     // Get SMTP settings
-    const { data: smtpSettings } = await supabaseAdmin
-      .from('smtp_settings').select('*').limit(1).single();
+    const { data: smtpData } = await supabaseAdmin
+      .from('smtp_settings').select('*').eq('is_active', true).limit(1).single();
 
-    if (!smtpSettings) {
+    if (!smtpData) {
       return new Response(JSON.stringify({ error: 'SMTP not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Get user email from profile
     const userEmail = user.email;
     if (!userEmail) {
       return new Response(JSON.stringify({ error: 'No email' }), {
@@ -67,7 +173,16 @@ serve(async (req) => {
       });
     }
 
-    // Send email via SMTP
+    const smtpSettings: SmtpSettings = {
+      host: smtpData.smtp_host,
+      port: smtpData.smtp_port || 587,
+      encryption: smtpData.smtp_encryption || 'starttls',
+      username: smtpData.smtp_username,
+      password: smtpData.smtp_password,
+      from_email: smtpData.sender_email,
+      from_name: smtpData.sender_name || 'System',
+    };
+
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
         <h2 style="color: #1a1a2e; text-align: center;">Kod weryfikacyjny MFA</h2>
@@ -81,28 +196,10 @@ serve(async (req) => {
       </div>
     `;
 
-    const smtpHost = smtpSettings.host;
-    const smtpPort = smtpSettings.port || 587;
-    const smtpUser = smtpSettings.username;
-    const smtpPass = smtpSettings.password;
-    const fromEmail = smtpSettings.from_email || smtpUser;
-    const fromName = smtpSettings.from_name || 'System';
+    const result = await sendSmtpEmail(smtpSettings, userEmail, `Kod MFA: ${code}`, emailHtml);
 
-    // Use fetch to send via SMTP relay or fallback
-    // For simplicity, use Supabase's built-in email or a simple SMTP POST
-    // We'll use a basic SMTP approach via the existing send-single-email pattern
-    const { error: sendError } = await supabaseAdmin.functions.invoke('send-single-email', {
-      body: {
-        to: userEmail,
-        subject: `Kod MFA: ${code}`,
-        html: emailHtml,
-        from_name: fromName,
-      },
-    });
-
-    if (sendError) {
-      console.error('Failed to send MFA email:', sendError);
-      // Still return success - code is saved, user can retry
+    if (!result.success) {
+      console.error('Failed to send MFA email:', result.error);
     }
 
     return new Response(JSON.stringify({ success: true, email: userEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') }), {

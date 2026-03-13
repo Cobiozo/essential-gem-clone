@@ -476,9 +476,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMfaPending(false);
   }, []);
 
-  // Check MFA enforcement after profile+role are loaded on fresh login
+  // Check MFA enforcement whenever user+role are ready (both fresh login AND session restore)
+  const mfaCheckedRef = useRef(false);
+  
   useEffect(() => {
-    if (!user || !rolesReady || !userRole || !loginComplete) return;
+    // Reset MFA check flag when user changes
+    if (!user) {
+      mfaCheckedRef.current = false;
+      return;
+    }
+    
+    if (!rolesReady || !userRole) return;
+    if (mfaCheckedRef.current) return; // Already checked for this session
     
     const checkMfaEnforcement = async () => {
       try {
@@ -516,13 +525,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[Auth] MFA enforcement active for role:', currentRole);
           setMfaPending(true);
         }
+        
+        mfaCheckedRef.current = true;
       } catch (err) {
         console.error('[Auth] MFA enforcement check failed:', err);
       }
     };
     
     checkMfaEnforcement();
-  }, [user, rolesReady, userRole, loginComplete]);
+  }, [user, rolesReady, userRole]);
 
   const isAdmin = userRole?.role === 'admin' || profile?.role === 'admin';
   const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
