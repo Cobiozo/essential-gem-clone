@@ -27,6 +27,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, timeout]);
 }
 
+function generateMessageId(domain: string): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 12);
+  return `<${timestamp}.${random}@${domain}>`;
+}
+
+function formatSmtpDate(): string {
+  const d = new Date();
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const offset = -d.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offset);
+  const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const mins = String(absOffset % 60).padStart(2, '0');
+  return `${days[d.getUTCDay()]}, ${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()} ${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')} ${sign}${hours}${mins}`;
+}
+
 interface SmtpSettings {
   host: string;
   port: number;
@@ -66,10 +84,14 @@ async function sendSmtpEmail(
       if (!hideLog) console.log('[SMTP] Sending:', command.trim().substring(0, 100));
       else console.log('[SMTP] Sending: [HIDDEN]');
       await conn!.write(encoder.encode(command + '\r\n'));
-      return await readResponse();
+      const response = await readResponse();
+      console.log('[SMTP] Response:', response.trim().substring(0, 200));
+      return response;
     };
 
-    await readResponse();
+    const greeting = await readResponse();
+    console.log('[SMTP] Greeting:', greeting.trim().substring(0, 200));
+
     await sendCommand(`EHLO ${settings.host}`);
 
     if (settings.encryption === 'starttls') {
@@ -83,24 +105,35 @@ async function sendSmtpEmail(
     const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
     if (!authResponse.startsWith('235')) throw new Error(`Auth failed: ${authResponse}`);
 
-    await sendCommand(`MAIL FROM:<${settings.from_email}>`);
-    await sendCommand(`RCPT TO:<${to}>`);
-    await sendCommand('DATA');
+    const mailFromResp = await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
+
+    const rcptToResp = await sendCommand(`RCPT TO:<${to}>`);
+    if (!rcptToResp.startsWith('250')) throw new Error(`RCPT TO rejected (recipient ${to}): ${rcptToResp}`);
+
+    const dataResp = await sendCommand('DATA');
+    if (!dataResp.startsWith('354')) throw new Error(`DATA command rejected: ${dataResp}`);
+
+    // Extract domain from sender email for Message-ID
+    const senderDomain = settings.from_email.split('@')[1] || 'localhost';
 
     const emailContent = [
+      `Message-ID: ${generateMessageId(senderDomain)}`,
+      `Date: ${formatSmtpDate()}`,
       `From: ${settings.from_name} <${settings.from_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
       'MIME-Version: 1.0',
       'Content-Type: text/html; charset=UTF-8',
       'Content-Transfer-Encoding: base64',
+      `X-Mailer: PureLife-MFA/1.0`,
       '',
       base64Encode(htmlBody),
       '.',
     ].join('\r\n');
 
-    const dataResponse = await sendCommand(emailContent);
-    if (!dataResponse.startsWith('250')) throw new Error(`Send failed: ${dataResponse}`);
+    const sendResp = await sendCommand(emailContent);
+    if (!sendResp.startsWith('250')) throw new Error(`Send failed: ${sendResp}`);
 
     await sendCommand('QUIT');
     conn.close();
@@ -131,7 +164,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user from token
     const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -149,11 +181,9 @@ serve(async (req) => {
       });
     }
 
-    // Generate 6-digit code
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    // Invalidate old unused codes
     const { error: invalidateError } = await supabaseAdmin.from('mfa_email_codes')
       .update({ used: true })
       .eq('user_id', user.id).eq('used', false);
@@ -162,7 +192,6 @@ serve(async (req) => {
       console.error('[MFA] Failed to invalidate old codes:', invalidateError);
     }
 
-    // Insert new code
     const { error: insertError } = await supabaseAdmin.from('mfa_email_codes').insert({
       user_id: user.id,
       code,
@@ -176,7 +205,6 @@ serve(async (req) => {
       });
     }
 
-    // Get SMTP settings
     const { data: smtpData } = await supabaseAdmin
       .from('smtp_settings').select('*').eq('is_active', true).limit(1).single();
 
@@ -198,7 +226,7 @@ serve(async (req) => {
 
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-        <h2 style="color: #1a1a2e; text-align: center;">Kod weryfikacyjny MFA</h2>
+        <h2 style="color: #1a1a2e; text-align: center;">Weryfikacja logowania</h2>
         <p style="color: #555; text-align: center;">Twój jednorazowy kod weryfikacyjny:</p>
         <div style="background: #f0f4f8; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
           <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1a1a2e;">${code}</span>
@@ -206,10 +234,14 @@ serve(async (req) => {
         <p style="color: #888; text-align: center; font-size: 13px;">
           Kod jest ważny przez 5 minut. Nie udostępniaj go nikomu.
         </p>
+        <p style="color: #aaa; text-align: center; font-size: 11px; margin-top: 24px;">
+          Jeśli nie próbujesz się zalogować, zignoruj tę wiadomość.
+        </p>
       </div>
     `;
 
-    const result = await sendSmtpEmail(smtpSettings, userEmail, `Kod MFA: ${code}`, emailHtml);
+    // Subject without the code for security and spam score
+    const result = await sendSmtpEmail(smtpSettings, userEmail, 'Weryfikacja logowania — Pure Life', emailHtml);
 
     if (!result.success) {
       console.error('[MFA] Failed to send email:', result.error);

@@ -4253,6 +4253,30 @@ export type Database = {
         }
         Relationships: []
       }
+      mfa_exempt_users: {
+        Row: {
+          created_at: string
+          exempted_by: string | null
+          id: string
+          reason: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          exempted_by?: string | null
+          id?: string
+          reason?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          exempted_by?: string | null
+          id?: string
+          reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       news_ticker_items: {
         Row: {
           content: string
