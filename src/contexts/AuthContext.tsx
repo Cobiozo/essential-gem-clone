@@ -63,8 +63,10 @@ interface AuthContextType {
   isSpecjalista: boolean;
   loginTrigger: number;
   isFreshLogin: boolean;
-  loginComplete: boolean; // NEW: Flag for safe navigation after login
+  loginComplete: boolean;
+  mfaPending: boolean;
   setIsFreshLogin: React.Dispatch<React.SetStateAction<boolean>>;
+  completeMfa: () => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -91,7 +93,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [rolesReady, setRolesReady] = useState(false);
   const [loginTrigger, setLoginTrigger] = useState(0);
   const [isFreshLogin, setIsFreshLogin] = useState(false);
-  const [loginComplete, setLoginComplete] = useState(false); // NEW: Safe navigation flag
+  const [loginComplete, setLoginComplete] = useState(false);
+  const [mfaPending, setMfaPending] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
@@ -469,6 +472,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const completeMfa = useCallback(() => {
+    setMfaPending(false);
+  }, []);
+
+  // Check MFA enforcement after profile+role are loaded on fresh login
+  useEffect(() => {
+    if (!user || !rolesReady || !userRole || !loginComplete) return;
+    
+    const checkMfaEnforcement = async () => {
+      try {
+        const { data: settings } = await supabase
+          .from('security_settings')
+          .select('setting_key, setting_value')
+          .in('setting_key', ['mfa_enforcement', 'mfa_required_roles', 'mfa_method']);
+        
+        if (!settings) return;
+        
+        const getValue = (key: string) => {
+          const s = settings.find(s => s.setting_key === key);
+          return s?.setting_value;
+        };
+        
+        const enforcement = getValue('mfa_enforcement');
+        const requiredRoles = getValue('mfa_required_roles');
+        const method = getValue('mfa_method');
+        
+        const isEnforced = enforcement === true || enforcement === 'true';
+        if (!isEnforced || !method) return;
+        
+        // Parse required roles
+        let roles: string[] = [];
+        if (Array.isArray(requiredRoles)) {
+          roles = requiredRoles as string[];
+        } else if (typeof requiredRoles === 'string') {
+          try { roles = JSON.parse(requiredRoles); } catch { roles = []; }
+        } else if (typeof requiredRoles === 'object' && requiredRoles !== null) {
+          roles = Object.values(requiredRoles) as string[];
+        }
+        
+        const currentRole = userRole.role;
+        if (roles.length > 0 && roles.includes(currentRole)) {
+          console.log('[Auth] MFA enforcement active for role:', currentRole);
+          setMfaPending(true);
+        }
+      } catch (err) {
+        console.error('[Auth] MFA enforcement check failed:', err);
+      }
+    };
+    
+    checkMfaEnforcement();
+  }, [user, rolesReady, userRole, loginComplete]);
+
   const isAdmin = userRole?.role === 'admin' || profile?.role === 'admin';
   const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
   const isClient = userRole?.role === 'client' || profile?.role === 'client';
@@ -488,7 +543,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loginTrigger,
     isFreshLogin,
     loginComplete,
+    mfaPending,
     setIsFreshLogin,
+    completeMfa,
     signIn,
     signUp,
     signOut,

@@ -16,6 +16,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { MFAChallenge } from "@/components/auth/MFAChallenge";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
@@ -174,7 +175,7 @@ const AppContent = () => {
   useSecurityPreventions(false);
   useVersionPolling();
   const { toast } = useToast();
-  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista } = useAuth();
+  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista, mfaPending, completeMfa } = useAuth();
   const { isModern } = useDashboardPreference();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
@@ -311,6 +312,17 @@ const AppContent = () => {
             </div>
           </div>
         </BrowserRouter>
+      </TooltipProvider>
+    );
+  }
+
+  // MFA gate: block all app access until MFA is verified
+  if (user && mfaPending) {
+    return (
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <MFAChallenge onVerified={completeMfa} />
       </TooltipProvider>
     );
   }

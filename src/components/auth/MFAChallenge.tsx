@@ -45,13 +45,22 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
         }
       }
 
-      // Set default active method
+      // Set default active method and auto-send email code
       if (method === 'email') {
         setActiveMethod('email');
+        // Auto-send email code when method is email-only
+        setInitializing(false);
+        sendEmailCodeDirect();
+        return;
       } else if (method === 'both') {
-        // If user has TOTP set up, default to that, otherwise email
         const hasTotp = !error && data?.totp?.some(f => f.status === 'verified');
-        setActiveMethod(hasTotp ? 'totp' : 'email');
+        const defaultMethod = hasTotp ? 'totp' : 'email';
+        setActiveMethod(defaultMethod);
+        if (defaultMethod === 'email') {
+          setInitializing(false);
+          sendEmailCodeDirect();
+          return;
+        }
       } else {
         setActiveMethod('totp');
       }
@@ -60,6 +69,21 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     };
     init();
   }, []);
+
+  // Direct send without toast (for auto-trigger on mount)
+  const sendEmailCodeDirect = async () => {
+    setSendingCode(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-mfa-code');
+      if (error) throw error;
+      setMaskedEmail(data?.email || '');
+      setCodeSent(true);
+    } catch {
+      // silent on auto-send
+    } finally {
+      setSendingCode(false);
+    }
+  };
 
   const sendEmailCode = async () => {
     setSendingCode(true);
