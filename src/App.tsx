@@ -16,6 +16,7 @@ import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useDynamicMetaTags } from "@/hooks/useDynamicMetaTags";
 import { useToast } from "@/hooks/use-toast";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { MFAChallenge } from "@/components/auth/MFAChallenge";
 import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
