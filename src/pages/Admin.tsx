@@ -78,6 +78,7 @@ import { BulkUserActions } from '@/components/admin/BulkUserActions';
 import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
 import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
 import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
+import { SecurityModule } from '@/components/admin/SecurityModule';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4701,6 +4702,10 @@ const Admin = () => {
 
           <TabsContent value="data-cleanup">
             <DataCleanupManagement />
+          </TabsContent>
+
+          <TabsContent value="security">
+            <SecurityModule />
           </TabsContent>
         </Tabs>
       </div>

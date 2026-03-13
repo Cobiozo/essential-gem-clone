@@ -233,3 +233,6 @@ verify_jwt = false
 
 [functions.scheduled-translate-sync]
 verify_jwt = false
+
+[functions.track-login]
+verify_jwt = false

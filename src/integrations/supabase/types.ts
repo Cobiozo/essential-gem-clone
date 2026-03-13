@@ -3813,6 +3813,45 @@ export type Database = {
         }
         Relationships: []
       }
+      login_audit_log: {
+        Row: {
+          anomaly_type: string | null
+          city: string | null
+          country: string | null
+          device_hash: string | null
+          id: string
+          ip_address: string | null
+          is_suspicious: boolean | null
+          login_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          anomaly_type?: string | null
+          city?: string | null
+          country?: string | null
+          device_hash?: string | null
+          id?: string
+          ip_address?: string | null
+          is_suspicious?: boolean | null
+          login_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          anomaly_type?: string | null
+          city?: string | null
+          country?: string | null
+          device_hash?: string | null
+          id?: string
+          ip_address?: string | null
+          is_suspicious?: boolean | null
+          login_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       maintenance_mode: {
         Row: {
           bypass_key: string | null
@@ -6104,6 +6143,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      security_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          is_resolved: boolean | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          is_resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          is_resolved?: boolean | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      security_settings: {
+        Row: {
+          id: string
+          setting_key: string
+          setting_value: Json
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          setting_key: string
+          setting_value: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       sidebar_footer_icons: {
         Row: {

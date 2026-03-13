@@ -59,6 +59,7 @@ import {
   Trash2,
   Crown,
   UsersRound,
+  Shield,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
@@ -205,6 +206,7 @@ const navCategories: NavCategory[] = [
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
       { value: 'ai-compass', labelKey: 'compass', icon: Compass },
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
+      { value: 'security', labelKey: 'security', icon: Shield },
     ],
   },
 ];
@@ -255,6 +257,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     dataCleanup: 'Czyszczenie danych',
     leaderPanel: 'Panel Lidera',
     platformTeams: 'Zespoły platformy',
+    security: 'Bezpieczeństwo',
   };
 
   const getLabel = (key: string): string => {
