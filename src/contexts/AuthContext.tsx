@@ -93,7 +93,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [rolesReady, setRolesReady] = useState(false);
   const [loginTrigger, setLoginTrigger] = useState(0);
   const [isFreshLogin, setIsFreshLogin] = useState(false);
-  const [loginComplete, setLoginComplete] = useState(false); // NEW: Safe navigation flag
+  const [loginComplete, setLoginComplete] = useState(false);
+  const [mfaPending, setMfaPending] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
