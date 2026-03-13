@@ -3,10 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Loader2, Mail, Smartphone } from 'lucide-react';
+import { Shield, Loader2, Mail, Smartphone, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-type MfaMethod = 'totp' | 'email' | 'both';
 
 interface MFAChallengeProps {
   onVerified: () => void;
@@ -18,22 +16,22 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [factorId, setFactorId] = useState<string | null>(null);
-  const [mfaMethod, setMfaMethod] = useState<MfaMethod>('totp');
-  const [activeMethod, setActiveMethod] = useState<'totp' | 'email'>('totp');
+  const [mfaMethod, setMfaMethod] = useState<'totp' | 'email' | 'both'>('email');
+  const [activeMethod, setActiveMethod] = useState<'totp' | 'email'>('email');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [initializing, setInitializing] = useState(true);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
-      // Get MFA method from settings
-      const { data: settings } = await supabase
-        .from('security_settings')
-        .select('setting_key, setting_value')
-        .in('setting_key', ['mfa_method']);
-
-      const methodSetting = settings?.find(s => s.setting_key === 'mfa_method');
-      const method = (typeof methodSetting?.setting_value === 'string' ? methodSetting.setting_value : 'totp') as MfaMethod;
+      // Get MFA config from RPC (bypasses RLS)
+      const { data: mfaConfig, error: configError } = await supabase.rpc('get_my_mfa_config');
+      
+      let method: 'totp' | 'email' | 'both' = 'email';
+      if (!configError && mfaConfig?.method) {
+        method = mfaConfig.method as 'totp' | 'email' | 'both';
+      }
       setMfaMethod(method);
 
       // Check for TOTP factors
@@ -48,7 +46,6 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
       // Set default active method and auto-send email code
       if (method === 'email') {
         setActiveMethod('email');
-        // Auto-send email code when method is email-only
         setInitializing(false);
         sendEmailCodeDirect();
         return;
@@ -70,16 +67,18 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     init();
   }, []);
 
-  // Direct send without toast (for auto-trigger on mount)
   const sendEmailCodeDirect = async () => {
     setSendingCode(true);
+    setSendError(null);
     try {
       const { data, error } = await supabase.functions.invoke('send-mfa-code');
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setMaskedEmail(data?.email || '');
       setCodeSent(true);
-    } catch {
-      // silent on auto-send
+    } catch (err: any) {
+      console.error('[MFA] Failed to send code:', err);
+      setSendError(err?.message || 'Nie udało się wysłać kodu. Spróbuj ponownie.');
     } finally {
       setSendingCode(false);
     }
@@ -87,13 +86,16 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
 
   const sendEmailCode = async () => {
     setSendingCode(true);
+    setSendError(null);
     try {
       const { data, error } = await supabase.functions.invoke('send-mfa-code');
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       setMaskedEmail(data?.email || '');
       setCodeSent(true);
       toast({ title: 'Kod wysłany', description: `Sprawdź swoją skrzynkę email (${data?.email || ''})` });
-    } catch (error: any) {
+    } catch (err: any) {
+      setSendError(err?.message || 'Nie udało się wysłać kodu.');
       toast({ title: 'Błąd', description: 'Nie udało się wysłać kodu. Spróbuj ponownie.', variant: 'destructive' });
     } finally {
       setSendingCode(false);
@@ -181,7 +183,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
                 variant={activeMethod === 'totp' ? 'default' : 'outline'}
                 size="sm"
                 className="flex-1"
-                onClick={() => { setActiveMethod('totp'); setCode(''); setCodeSent(false); }}
+                onClick={() => { setActiveMethod('totp'); setCode(''); setCodeSent(false); setSendError(null); }}
               >
                 <Smartphone className="w-4 h-4 mr-1" />
                 Authenticator
@@ -190,7 +192,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
                 variant={activeMethod === 'email' ? 'default' : 'outline'}
                 size="sm"
                 className="flex-1"
-                onClick={() => { setActiveMethod('email'); setCode(''); setCodeSent(false); }}
+                onClick={() => { setActiveMethod('email'); setCode(''); setCodeSent(false); setSendError(null); }}
               >
                 <Mail className="w-4 h-4 mr-1" />
                 Email
@@ -198,16 +200,24 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
             </div>
           )}
 
-          {/* Email: send code button */}
-          {activeMethod === 'email' && !codeSent && (
+          {/* Error message */}
+          {sendError && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{sendError}</span>
+            </div>
+          )}
+
+          {/* Email: send code button (show when not sent yet OR on error) */}
+          {activeMethod === 'email' && (!codeSent || sendError) && (
             <Button onClick={sendEmailCode} disabled={sendingCode} className="w-full">
               {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
-              Wyślij kod na email
+              {sendError ? 'Spróbuj ponownie' : 'Wyślij kod na email'}
             </Button>
           )}
 
           {/* Code input (show for TOTP always, for email only after sent) */}
-          {(activeMethod === 'totp' || codeSent) && (
+          {(activeMethod === 'totp' || (codeSent && !sendError)) && (
             <>
               <Input
                 value={code}
@@ -230,7 +240,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
           )}
 
           {/* Resend for email */}
-          {activeMethod === 'email' && codeSent && (
+          {activeMethod === 'email' && codeSent && !sendError && (
             <Button variant="ghost" size="sm" onClick={sendEmailCode} disabled={sendingCode} className="w-full">
               {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Wyślij kod ponownie

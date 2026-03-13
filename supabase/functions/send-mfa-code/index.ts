@@ -3,18 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
-
-interface SmtpSettings {
-  host: string;
-  port: number;
-  encryption: string;
-  username: string;
-  password: string;
-  from_email: string;
-  from_name: string;
-}
 
 function base64Encode(str: string): string {
   const encoder = new TextEncoder();
@@ -35,6 +25,16 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
   });
   return Promise.race([promise, timeout]);
+}
+
+interface SmtpSettings {
+  host: string;
+  port: number;
+  encryption: string;
+  username: string;
+  password: string;
+  from_email: string;
+  from_name: string;
 }
 
 async function sendSmtpEmail(
@@ -63,7 +63,7 @@ async function sendSmtpEmail(
     };
 
     const sendCommand = async (command: string, hideLog = false): Promise<string> => {
-      if (!hideLog) console.log('[SMTP] Sending:', command.trim());
+      if (!hideLog) console.log('[SMTP] Sending:', command.trim().substring(0, 100));
       else console.log('[SMTP] Sending: [HIDDEN]');
       await conn!.write(encoder.encode(command + '\r\n'));
       return await readResponse();
@@ -104,6 +104,7 @@ async function sendSmtpEmail(
 
     await sendCommand('QUIT');
     conn.close();
+    console.log('[SMTP] MFA email sent successfully');
     return { success: true };
   } catch (error) {
     console.error('[SMTP] Error:', error);
@@ -141,20 +142,39 @@ serve(async (req) => {
       });
     }
 
+    const userEmail = user.email;
+    if (!userEmail) {
+      return new Response(JSON.stringify({ error: 'No email' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Generate 6-digit code
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // Invalidate old unused codes
-    await supabaseAdmin.from('mfa_email_codes').update({ used: true })
+    const { error: invalidateError } = await supabaseAdmin.from('mfa_email_codes')
+      .update({ used: true })
       .eq('user_id', user.id).eq('used', false);
+    
+    if (invalidateError) {
+      console.error('[MFA] Failed to invalidate old codes:', invalidateError);
+    }
 
     // Insert new code
-    await supabaseAdmin.from('mfa_email_codes').insert({
+    const { error: insertError } = await supabaseAdmin.from('mfa_email_codes').insert({
       user_id: user.id,
       code,
       expires_at: expiresAt,
     });
+
+    if (insertError) {
+      console.error('[MFA] Failed to insert code:', insertError);
+      return new Response(JSON.stringify({ error: 'Failed to generate MFA code' }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Get SMTP settings
     const { data: smtpData } = await supabaseAdmin
@@ -163,13 +183,6 @@ serve(async (req) => {
     if (!smtpData) {
       return new Response(JSON.stringify({ error: 'SMTP not configured' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const userEmail = user.email;
-    if (!userEmail) {
-      return new Response(JSON.stringify({ error: 'No email' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -199,10 +212,14 @@ serve(async (req) => {
     const result = await sendSmtpEmail(smtpSettings, userEmail, `Kod MFA: ${code}`, emailHtml);
 
     if (!result.success) {
-      console.error('Failed to send MFA email:', result.error);
+      console.error('[MFA] Failed to send email:', result.error);
+      return new Response(JSON.stringify({ error: 'Failed to send MFA email: ' + result.error }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    return new Response(JSON.stringify({ success: true, email: userEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3') }), {
+    const masked = userEmail.replace(/(.{2})(.*)(@.*)/, '$1***$3');
+    return new Response(JSON.stringify({ success: true, email: masked }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

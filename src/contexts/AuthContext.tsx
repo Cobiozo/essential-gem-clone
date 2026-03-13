@@ -491,38 +491,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const checkMfaEnforcement = async () => {
       try {
-        const { data: settings } = await supabase
-          .from('security_settings')
-          .select('setting_key, setting_value')
-          .in('setting_key', ['mfa_enforcement', 'mfa_required_roles', 'mfa_method']);
+        const { data: mfaConfig, error: mfaError } = await supabase.rpc('get_my_mfa_config');
         
-        if (!settings) return;
-        
-        const getValue = (key: string) => {
-          const s = settings.find(s => s.setting_key === key);
-          return s?.setting_value;
-        };
-        
-        const enforcement = getValue('mfa_enforcement');
-        const requiredRoles = getValue('mfa_required_roles');
-        const method = getValue('mfa_method');
-        
-        const isEnforced = enforcement === true || enforcement === 'true';
-        if (!isEnforced || !method) return;
-        
-        // Parse required roles
-        let roles: string[] = [];
-        if (Array.isArray(requiredRoles)) {
-          roles = requiredRoles as string[];
-        } else if (typeof requiredRoles === 'string') {
-          try { roles = JSON.parse(requiredRoles); } catch { roles = []; }
-        } else if (typeof requiredRoles === 'object' && requiredRoles !== null) {
-          roles = Object.values(requiredRoles) as string[];
+        if (mfaError) {
+          console.error('[Auth] MFA config RPC error:', mfaError);
+          return;
         }
         
-        const currentRole = userRole.role;
-        if (roles.length > 0 && roles.includes(currentRole)) {
-          console.log('[Auth] MFA enforcement active for role:', currentRole);
+        if (mfaConfig && mfaConfig.required) {
+          console.log('[Auth] MFA enforcement active for role:', mfaConfig.role, 'method:', mfaConfig.method);
           setMfaPending(true);
         }
         
