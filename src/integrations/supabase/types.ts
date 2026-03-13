@@ -7947,6 +7947,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_my_mfa_config: { Args: never; Returns: Json }
       get_organization_tree: {
         Args: { p_max_depth?: number; p_root_eq_id: string }
         Returns: {
