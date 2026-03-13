@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2, Mail, Smartphone, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TOTPSetup } from './TOTPSetup';
 
 interface MFAChallengeProps {
   onVerified: () => void;
@@ -22,11 +23,11 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const [codeSent, setCodeSent] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [needsTotpSetup, setNeedsTotpSetup] = useState(false);
   const sendCodeCalledRef = useRef(false);
 
   useEffect(() => {
     const init = async () => {
-      // Get MFA config from RPC (bypasses RLS)
       const { data: mfaConfigRaw, error: configError } = await supabase.rpc('get_my_mfa_config');
       const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
       
@@ -38,11 +39,22 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
 
       // Check for TOTP factors
       const { data, error } = await supabase.auth.mfa.listFactors();
-      if (!error && data?.totp && data.totp.length > 0) {
-        const verified = data.totp.find((f) => f.status === 'verified');
-        if (verified) {
-          setFactorId(verified.id);
+      const hasVerifiedTotp = !error && data?.totp?.some(f => f.status === 'verified');
+      
+      if (hasVerifiedTotp) {
+        const verified = data!.totp.find((f) => f.status === 'verified');
+        if (verified) setFactorId(verified.id);
+      }
+
+      // If method requires TOTP but user hasn't enrolled yet → show setup
+      if ((method === 'totp' || method === 'both') && !hasVerifiedTotp) {
+        if (method === 'totp') {
+          // TOTP only — must setup
+          setNeedsTotpSetup(true);
+          setInitializing(false);
+          return;
         }
+        // 'both' but no TOTP — default to email, allow setup later
       }
 
       // Set default active method and auto-send email code
@@ -55,8 +67,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
         }
         return;
       } else if (method === 'both') {
-        const hasTotp = !error && data?.totp?.some(f => f.status === 'verified');
-        const defaultMethod = hasTotp ? 'totp' : 'email';
+        const defaultMethod = hasVerifiedTotp ? 'totp' : 'email';
         setActiveMethod(defaultMethod);
         if (defaultMethod === 'email') {
           setInitializing(false);
@@ -169,6 +180,24 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     );
   }
 
+  // Show TOTP enrollment if needed
+  if (needsTotpSetup) {
+    return (
+      <TOTPSetup
+        onSetupComplete={onVerified}
+        allowEmailFallback={mfaMethod === 'both'}
+        onSkipToEmail={() => {
+          setNeedsTotpSetup(false);
+          setActiveMethod('email');
+          if (!sendCodeCalledRef.current) {
+            sendCodeCalledRef.current = true;
+            sendEmailCodeDirect();
+          }
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -191,7 +220,13 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
                 variant={activeMethod === 'totp' ? 'default' : 'outline'}
                 size="sm"
                 className="flex-1"
-                onClick={() => { setActiveMethod('totp'); setCode(''); setCodeSent(false); setSendError(null); }}
+                onClick={() => {
+                  if (!factorId) {
+                    setNeedsTotpSetup(true);
+                    return;
+                  }
+                  setActiveMethod('totp'); setCode(''); setCodeSent(false); setSendError(null);
+                }}
               >
                 <Smartphone className="w-4 h-4 mr-1" />
                 Authenticator
@@ -216,7 +251,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
             </div>
           )}
 
-          {/* Email: send code button (show when not sent yet OR on error) */}
+          {/* Email: send code button */}
           {activeMethod === 'email' && (!codeSent || sendError) && (
             <Button onClick={sendEmailCode} disabled={sendingCode} className="w-full">
               {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
@@ -224,7 +259,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
             </Button>
           )}
 
-          {/* Code input (show for TOTP always, for email only after sent) */}
+          {/* Code input */}
           {(activeMethod === 'totp' || (codeSent && !sendError)) && (
             <>
               <Input
