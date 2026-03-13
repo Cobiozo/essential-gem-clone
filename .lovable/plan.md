@@ -1,24 +1,29 @@
 
 
-# Potwierdzenie adresu email przy rejestracji
+## Analiza systemu powiadomień — wynik
 
-## Zmiana
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-Dodanie pola "Potwierdź email" w formularzu rejestracji (`src/pages/Auth.tsx`), zaraz pod polem email. Rejestracja blokowana jeśli adresy się nie zgadzają.
+### Zmiany:
 
-## Szczegóły
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-### `src/pages/Auth.tsx`
-- Nowy state: `confirmEmail` (analogicznie do `confirmPassword`)
-- Nowe pole input pod emailem z labelem "Potwierdź email" i `type="email"`
-- Walidacja w `handleSignUp`: porównanie `email` z `confirmEmail` (case-insensitive trim). Jeśli różne → błąd i przerwanie rejestracji
-- Clear `confirmEmail` po udanej rejestracji (linia 553 area)
-- Opcjonalnie: wizualna informacja pod polem (zielona/czerwona) czy emaile się zgadzają
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-### Tłumaczenia
-- Dodanie kluczy `auth.confirmEmail`, `auth.errors.emailsMismatch` w plikach tłumaczeń (pl/en)
-
-### Pliki: ~3
-- `src/pages/Auth.tsx` — state + pole + walidacja
-- Pliki tłumaczeń (pl, en) — nowe klucze
-
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```
