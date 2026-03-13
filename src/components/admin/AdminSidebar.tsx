@@ -59,6 +59,7 @@ import {
   Trash2,
   Crown,
   UsersRound,
+  Shield,
 } from 'lucide-react';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
