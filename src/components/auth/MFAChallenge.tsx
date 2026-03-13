@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const [codeSent, setCodeSent] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
+  const sendCodeCalledRef = useRef(false);
 
   useEffect(() => {
     const init = async () => {
@@ -48,7 +49,10 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
       if (method === 'email') {
         setActiveMethod('email');
         setInitializing(false);
-        sendEmailCodeDirect();
+        if (!sendCodeCalledRef.current) {
+          sendCodeCalledRef.current = true;
+          sendEmailCodeDirect();
+        }
         return;
       } else if (method === 'both') {
         const hasTotp = !error && data?.totp?.some(f => f.status === 'verified');
@@ -56,7 +60,10 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
         setActiveMethod(defaultMethod);
         if (defaultMethod === 'email') {
           setInitializing(false);
-          sendEmailCodeDirect();
+          if (!sendCodeCalledRef.current) {
+            sendCodeCalledRef.current = true;
+            sendEmailCodeDirect();
+          }
           return;
         }
       } else {

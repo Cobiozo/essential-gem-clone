@@ -1,30 +1,29 @@
 
 
-# Fix: Dashboard Flash Before MFA + Double Email Code
+## Analiza systemu powiadomień — wynik
 
-## Two Problems
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-### 1. Dashboard visible for ~1 second before MFA gate
-**Root cause**: MFA check runs in a separate `useEffect` that triggers AFTER `rolesReady=true`. Timeline:
-- `fetchProfile` completes → `rolesReady=true` → App renders dashboard
-- Then MFA `useEffect` fires → RPC call → `mfaPending=true` → MFA screen
+### Zmiany:
 
-**Fix**: Move MFA check INTO `fetchProfile()`, right after role is fetched. Set `mfaPending=true` BEFORE setting `rolesReady=true`. This way the app never renders dashboard — it goes straight from loading spinner to MFA challenge.
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-### 2. Two email codes sent
-**Root cause**: `MFAChallenge` mounts, calls `sendEmailCodeDirect()` in useEffect. Component unmounts (dashboard flash) and remounts (MFA gate activates), triggering the effect twice. React StrictMode in dev also double-fires effects.
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-**Fix**: Add a `useRef` guard in `MFAChallenge` to ensure `sendEmailCodeDirect` is only called once per mount lifecycle.
-
-## Changes
-
-### `src/contexts/AuthContext.tsx`
-- Remove the separate MFA `useEffect` (lines 480-515) and `mfaCheckedRef`
-- Move MFA check into `fetchProfile()`: after fetching profile + role, call `supabase.rpc('get_my_mfa_config')`. If `required=true`, set `mfaPending(true)` before returning
-- This ensures `mfaPending` is set BEFORE `rolesReady` becomes true, so App never renders dashboard
-
-### `src/components/auth/MFAChallenge.tsx`
-- Add a `sendCodeCalledRef = useRef(false)` guard
-- In `useEffect` init function, check `sendCodeCalledRef.current` before calling `sendEmailCodeDirect()`. Set it to `true` after calling
-- This prevents duplicate emails from StrictMode double-mount or component remounting
-
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```
