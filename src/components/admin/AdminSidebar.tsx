@@ -205,6 +205,7 @@ const navCategories: NavCategory[] = [
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
       { value: 'ai-compass', labelKey: 'compass', icon: Compass },
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
+      { value: 'security', labelKey: 'security', icon: Shield },
     ],
   },
 ];
