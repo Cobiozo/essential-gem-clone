@@ -94,6 +94,13 @@ const BlockEditor: React.FC<{
     case 'hero': return <HeroBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
     case 'text': return <TextBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
     case 'quiz': return <QuizBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} allBlocks={allBlocks} />;
+    case 'image': return <ImageBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'products': return <ProductsBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'cta_button': return <CtaButtonBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'testimonial': return <TestimonialBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'video': return <VideoBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'form': return <FormBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'divider': return <DividerBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
     default: return <GenericBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} blockType={block.type} />;
   }
 };

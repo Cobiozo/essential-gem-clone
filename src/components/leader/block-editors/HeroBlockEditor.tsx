@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ImageUploadField } from './ImageUploadField';
 import type { HeroBlockData } from '@/types/leaderLanding';
 
 interface Props {
@@ -18,7 +19,7 @@ export const HeroBlockEditor: React.FC<Props> = ({ data, onChange }) => {
       <div><Label>Podtytuł</Label><Input value={data.subtitle || ''} onChange={e => update({ subtitle: e.target.value })} /></div>
       <div><Label>Tekst przycisku</Label><Input value={data.cta_text || ''} onChange={e => update({ cta_text: e.target.value })} /></div>
       <div><Label>Link przycisku</Label><Input value={data.cta_link || ''} onChange={e => update({ cta_link: e.target.value })} /></div>
-      <div><Label>URL tła (obrazek)</Label><Input value={data.background_image || ''} onChange={e => update({ background_image: e.target.value })} /></div>
+      <ImageUploadField label="Obrazek tła" value={data.background_image || ''} onChange={url => update({ background_image: url })} />
       <div><Label>Kolor tła</Label>
         <div className="flex gap-2">
           <input type="color" value={data.background_color || '#10b981'} onChange={e => update({ background_color: e.target.value })} className="w-10 h-10 rounded" />

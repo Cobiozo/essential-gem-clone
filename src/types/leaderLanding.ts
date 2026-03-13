@@ -48,9 +48,15 @@ export interface ProductItem {
   link?: string;
 }
 
+export interface ProductsCatalogItem {
+  catalog_id: string;
+  purchase_url?: string;
+}
+
 export interface ProductsBlockData {
   heading?: string;
   items: ProductItem[];
+  catalog_items?: ProductsCatalogItem[];
 }
 
 export interface CtaButtonBlockData {
