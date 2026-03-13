@@ -59,7 +59,7 @@ export const ProductsBlock: React.FC<Props> = ({ data, blockId, pageId, themeCol
           >
             {item.image_url && <img src={item.image_url} alt={item.name} className="w-full h-48 object-cover rounded-lg mb-3" loading="lazy" />}
             <h3 className="font-semibold text-lg">{item.name}</h3>
-            {item.description && <p className="text-sm text-gray-600 mt-1">{item.description}</p>}
+            {item.description && <p className="text-sm text-muted-foreground mt-1">{item.description}</p>}
           </a>
         ))}
       </div>
