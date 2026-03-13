@@ -82,6 +82,7 @@ const getLocalizedErrorMessage = (error: any, t: (key: string) => string): strin
 const Auth = () => {
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [email, setEmail] = useState('');
+  const [confirmEmail, setConfirmEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
