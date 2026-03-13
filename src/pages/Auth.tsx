@@ -352,6 +352,19 @@ const Auth = () => {
     setLoading(true);
     setError('');
 
+    // Check if emails match
+    if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+      const errorMsg = t('auth.errors.emailsMismatch');
+      setError(errorMsg);
+      toast({
+        title: t('auth.toast.registrationError'),
+        description: errorMsg,
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     // Check password requirements
     if (!isPasswordValid) {
       const errorMsg = t('auth.errors.weakPassword');
