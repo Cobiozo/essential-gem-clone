@@ -566,6 +566,7 @@ const Auth = () => {
         // Clear form after successful registration
         setPassword('');
         setConfirmPassword('');
+        setConfirmEmail('');
         setFirstName('');
         setLastName('');
         setLocalPhoneNumber('');
