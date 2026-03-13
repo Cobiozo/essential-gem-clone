@@ -183,11 +183,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserRole(roleResult.data);
       }
       
-      // Mark roles as ready immediately after fetch completes
+      // Check MFA enforcement BEFORE marking roles as ready
+      try {
+        const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
+        if (!mfaError) {
+          const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
+          if (mfaConfig && mfaConfig.required) {
+            console.log('[Auth] MFA enforcement active for role:', mfaConfig.role, 'method:', mfaConfig.method);
+            setMfaPending(true);
+          }
+        } else {
+          console.error('[Auth] MFA config RPC error:', mfaError);
+        }
+      } catch (mfaErr) {
+        console.error('[Auth] MFA enforcement check failed:', mfaErr);
+      }
+
+      // Mark roles as ready AFTER MFA check
       setRolesReady(true);
     } catch (error) {
       console.error('Error fetching profile:', error);
-      setRolesReady(true); // Still mark as ready to prevent infinite loading
+      setRolesReady(true);
     }
   }, []);
 
