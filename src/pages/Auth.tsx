@@ -864,6 +864,31 @@ const Auth = () => {
                     />
                   </div>
                   
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-email">{t('auth.confirmEmail')}</Label>
+                    <Input
+                      id="confirm-email"
+                      type="email"
+                      value={confirmEmail}
+                      onChange={(e) => setConfirmEmail(e.target.value)}
+                      required
+                      disabled={loading}
+                      onPaste={(e) => e.preventDefault()}
+                    />
+                    {confirmEmail && email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase() && (
+                      <p className="text-xs text-destructive flex items-center gap-1">
+                        <X className="h-3 w-3" />
+                        {t('auth.errors.emailsMismatch')}
+                      </p>
+                    )}
+                    {confirmEmail && email.trim().toLowerCase() === confirmEmail.trim().toLowerCase() && (
+                      <p className="text-xs text-green-600 flex items-center gap-1">
+                        <Check className="h-3 w-3" />
+                        {t('auth.emailsMatch')}
+                      </p>
+                    )}
+                  </div>
+                  
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
                       <Label htmlFor="first-name">{t('auth.firstName')} *</Label>
