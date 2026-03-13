@@ -24,6 +24,13 @@ import { DEFAULT_BLOCK_DATA as DEFAULTS } from '@/types/leaderLanding';
 import { HeroBlockEditor } from './block-editors/HeroBlockEditor';
 import { TextBlockEditor } from './block-editors/TextBlockEditor';
 import { QuizBlockEditor } from './block-editors/QuizBlockEditor';
+import { ImageBlockEditor } from './block-editors/ImageBlockEditor';
+import { ProductsBlockEditor } from './block-editors/ProductsBlockEditor';
+import { CtaButtonBlockEditor } from './block-editors/CtaButtonBlockEditor';
+import { TestimonialBlockEditor } from './block-editors/TestimonialBlockEditor';
+import { VideoBlockEditor } from './block-editors/VideoBlockEditor';
+import { FormBlockEditor } from './block-editors/FormBlockEditor';
+import { DividerBlockEditor } from './block-editors/DividerBlockEditor';
 import { GenericBlockEditor } from './block-editors/GenericBlockEditor';
 
 const BLOCK_TYPES: { type: LandingBlockType; label: string; icon: React.ElementType }[] = [
