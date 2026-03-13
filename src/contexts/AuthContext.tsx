@@ -63,8 +63,10 @@ interface AuthContextType {
   isSpecjalista: boolean;
   loginTrigger: number;
   isFreshLogin: boolean;
-  loginComplete: boolean; // NEW: Flag for safe navigation after login
+  loginComplete: boolean;
+  mfaPending: boolean;
   setIsFreshLogin: React.Dispatch<React.SetStateAction<boolean>>;
+  completeMfa: () => void;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
