@@ -175,7 +175,7 @@ const AppContent = () => {
   useSecurityPreventions(false);
   useVersionPolling();
   const { toast } = useToast();
-  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista } = useAuth();
+  const { loginTrigger, profile, user, rolesReady, isFreshLogin, setIsFreshLogin, isAdmin, isClient, isPartner, isSpecjalista, mfaPending, completeMfa } = useAuth();
   const { isModern } = useDashboardPreference();
   
   // Banner display state - SIGNAL first, then INFO banners sequentially
