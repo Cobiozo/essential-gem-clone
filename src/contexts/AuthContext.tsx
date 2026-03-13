@@ -491,12 +491,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const checkMfaEnforcement = async () => {
       try {
-        const { data: mfaConfig, error: mfaError } = await supabase.rpc('get_my_mfa_config');
+        const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
         
         if (mfaError) {
           console.error('[Auth] MFA config RPC error:', mfaError);
           return;
         }
+        
+        const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
         
         if (mfaConfig && mfaConfig.required) {
           console.log('[Auth] MFA enforcement active for role:', mfaConfig.role, 'method:', mfaConfig.method);

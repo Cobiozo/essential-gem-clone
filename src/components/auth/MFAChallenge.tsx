@@ -26,7 +26,8 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   useEffect(() => {
     const init = async () => {
       // Get MFA config from RPC (bypasses RLS)
-      const { data: mfaConfig, error: configError } = await supabase.rpc('get_my_mfa_config');
+      const { data: mfaConfigRaw, error: configError } = await supabase.rpc('get_my_mfa_config');
+      const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
       
       let method: 'totp' | 'email' | 'both' = 'email';
       if (!configError && mfaConfig?.method) {
