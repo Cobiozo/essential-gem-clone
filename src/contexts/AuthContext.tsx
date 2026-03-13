@@ -492,43 +492,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setMfaPending(false);
   }, []);
 
-  // Check MFA enforcement whenever user+role are ready (both fresh login AND session restore)
-  const mfaCheckedRef = useRef(false);
-  
-  useEffect(() => {
-    // Reset MFA check flag when user changes
-    if (!user) {
-      mfaCheckedRef.current = false;
-      return;
-    }
-    
-    if (!rolesReady || !userRole) return;
-    if (mfaCheckedRef.current) return; // Already checked for this session
-    
-    const checkMfaEnforcement = async () => {
-      try {
-        const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
-        
-        if (mfaError) {
-          console.error('[Auth] MFA config RPC error:', mfaError);
-          return;
-        }
-        
-        const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
-        
-        if (mfaConfig && mfaConfig.required) {
-          console.log('[Auth] MFA enforcement active for role:', mfaConfig.role, 'method:', mfaConfig.method);
-          setMfaPending(true);
-        }
-        
-        mfaCheckedRef.current = true;
-      } catch (err) {
-        console.error('[Auth] MFA enforcement check failed:', err);
-      }
-    };
-    
-    checkMfaEnforcement();
-  }, [user, rolesReady, userRole]);
+  // MFA check is now done inside fetchProfile() before rolesReady is set
 
   const isAdmin = userRole?.role === 'admin' || profile?.role === 'admin';
   const isPartner = userRole?.role === 'partner' || profile?.role === 'partner';
