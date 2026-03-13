@@ -24,6 +24,13 @@ import { DEFAULT_BLOCK_DATA as DEFAULTS } from '@/types/leaderLanding';
 import { HeroBlockEditor } from './block-editors/HeroBlockEditor';
 import { TextBlockEditor } from './block-editors/TextBlockEditor';
 import { QuizBlockEditor } from './block-editors/QuizBlockEditor';
+import { ImageBlockEditor } from './block-editors/ImageBlockEditor';
+import { ProductsBlockEditor } from './block-editors/ProductsBlockEditor';
+import { CtaButtonBlockEditor } from './block-editors/CtaButtonBlockEditor';
+import { TestimonialBlockEditor } from './block-editors/TestimonialBlockEditor';
+import { VideoBlockEditor } from './block-editors/VideoBlockEditor';
+import { FormBlockEditor } from './block-editors/FormBlockEditor';
+import { DividerBlockEditor } from './block-editors/DividerBlockEditor';
 import { GenericBlockEditor } from './block-editors/GenericBlockEditor';
 
 const BLOCK_TYPES: { type: LandingBlockType; label: string; icon: React.ElementType }[] = [
@@ -87,6 +94,13 @@ const BlockEditor: React.FC<{
     case 'hero': return <HeroBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
     case 'text': return <TextBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
     case 'quiz': return <QuizBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} allBlocks={allBlocks} />;
+    case 'image': return <ImageBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'products': return <ProductsBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'cta_button': return <CtaButtonBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'testimonial': return <TestimonialBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'video': return <VideoBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'form': return <FormBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
+    case 'divider': return <DividerBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} />;
     default: return <GenericBlockEditor data={block.data as any} onChange={d => onUpdate(block.id, d)} blockType={block.type} />;
   }
 };
