@@ -316,6 +316,17 @@ const AppContent = () => {
     );
   }
 
+  // MFA gate: block all app access until MFA is verified
+  if (user && mfaPending) {
+    return (
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <MFAChallenge onVerified={completeMfa} />
+      </TooltipProvider>
+    );
+  }
+
   return (
     <TooltipProvider>
       <Toaster />

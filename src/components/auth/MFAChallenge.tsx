@@ -70,6 +70,21 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     init();
   }, []);
 
+  // Direct send without toast (for auto-trigger on mount)
+  const sendEmailCodeDirect = async () => {
+    setSendingCode(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-mfa-code');
+      if (error) throw error;
+      setMaskedEmail(data?.email || '');
+      setCodeSent(true);
+    } catch {
+      // silent on auto-send
+    } finally {
+      setSendingCode(false);
+    }
+  };
+
   const sendEmailCode = async () => {
     setSendingCode(true);
     try {
