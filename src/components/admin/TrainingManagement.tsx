@@ -2377,6 +2377,17 @@ const ModuleForm = ({
         <Label htmlFor="is_active">Aktywny</Label>
       </div>
 
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="certificate_enabled"
+          checked={formData.certificate_enabled}
+          onCheckedChange={(checked) => 
+            setFormData(prev => ({ ...prev, certificate_enabled: checked as boolean }))
+          }
+        />
+        <Label htmlFor="certificate_enabled">Certyfikat po ukończeniu</Label>
+      </div>
+
       {/* Module Resources Selector */}
       <ModuleResourcesSelector
         selectedIds={formData.resource_ids}

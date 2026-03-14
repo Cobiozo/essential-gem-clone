@@ -883,7 +883,17 @@ const Training = () => {
                       </div>
 
                       {/* Certificate Section - Only show when 100% completed and no new lessons to catch up */}
-                      {progress === 100 && !module.has_new_lessons && (() => {
+                      {progress === 100 && !module.has_new_lessons && module.certificate_enabled === false && (
+                        <div className="bg-muted/50 border border-border rounded-lg p-3">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle className="h-5 w-5 text-primary flex-shrink-0" />
+                            <span className="text-sm font-medium">
+                              Gratulacje! Ukończyłeś to szkolenie. Ten moduł szkoleniowy nie kończy się wystawieniem certyfikatu.
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {progress === 100 && !module.has_new_lessons && module.certificate_enabled !== false && (() => {
                         const cert = certificates[module.id];
                         const formatDate = (d: string | null) => d ? new Date(d).toLocaleString('pl-PL', { dateStyle: 'long', timeStyle: 'short' }) : 'data nieznana';
                         
