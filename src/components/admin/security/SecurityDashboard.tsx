@@ -11,6 +11,20 @@ import { pl } from 'date-fns/locale';
 
 const CHART_COLORS = ['hsl(var(--primary))', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#64748b'];
 
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  color: 'hsl(var(--foreground))',
+  borderRadius: '8px',
+  fontSize: '12px',
+};
+
+const axisTick = { fontSize: 11, fill: 'hsl(var(--foreground))' };
+const axisTickSmall = { fontSize: 10, fill: 'hsl(var(--foreground))' };
+
+const renderPieLabel = ({ name, value, percent }: { name: string; value: number; percent: number }) =>
+  `${name} ${value} (${(percent * 100).toFixed(0)}%)`;
+
 const DEVICE_LABELS: Record<string, string> = {
   desktop: 'Komputer',
   mobile: 'Telefon',
@@ -300,9 +314,9 @@ export const SecurityDashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={stats?.hourlyTrend || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="hour" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval={2} />
-                <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                <Tooltip />
+                <XAxis dataKey="hour" tick={axisTickSmall} interval={2} />
+                <YAxis tick={axisTick} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="logowania" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -317,9 +331,9 @@ export const SecurityDashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={stats?.loginTrend || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                <Tooltip />
+                <XAxis dataKey="date" tick={axisTick} />
+                <YAxis tick={axisTick} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Area type="monotone" dataKey="logowania" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -339,12 +353,12 @@ export const SecurityDashboard: React.FC = () => {
             {stats?.deviceTypes && stats.deviceTypes.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={stats.deviceTypes} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                  <Pie data={stats.deviceTypes} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
                     {stats.deviceTypes.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
@@ -359,12 +373,12 @@ export const SecurityDashboard: React.FC = () => {
             {stats?.osDistribution && stats.osDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={stats.osDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                  <Pie data={stats.osDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
                     {stats.osDistribution.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
@@ -379,12 +393,12 @@ export const SecurityDashboard: React.FC = () => {
             {stats?.browserDistribution && stats.browserDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
-                  <Pie data={stats.browserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                  <Pie data={stats.browserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
                     {stats.browserDistribution.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={tooltipStyle} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
@@ -405,9 +419,9 @@ export const SecurityDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={stats.topCities} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="city" type="category" width={100} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <Tooltip />
+                  <XAxis type="number" tick={axisTick} />
+                  <YAxis dataKey="city" type="category" width={100} tick={axisTick} />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -426,9 +440,9 @@ export const SecurityDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={stats.topCountries} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="country" type="category" width={100} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <Tooltip />
+                  <XAxis type="number" tick={axisTick} />
+                  <YAxis dataKey="country" type="category" width={100} tick={axisTick} />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -450,9 +464,9 @@ export const SecurityDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={stats.activityTypes.map(a => ({ ...a, name: ACTION_LABELS[a.name] || a.name }))} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip />
+                  <XAxis type="number" tick={axisTick} />
+                  <YAxis dataKey="name" type="category" width={140} tick={axisTickSmall} />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
