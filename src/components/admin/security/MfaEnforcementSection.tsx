@@ -5,7 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Search, Trash2, UserPlus } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, ShieldCheck, Search, Trash2, UserPlus, Mail, Lock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EnforcedUser {
