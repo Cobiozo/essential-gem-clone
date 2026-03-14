@@ -77,8 +77,18 @@ serve(async (req) => {
       });
     }
 
-    // Use factorsData.totp (matching reset-user-mfa pattern), NOT factorsData.factors
-    const totpFactors = factorsData?.totp ?? [];
+    // Log structure for debugging
+    console.log('[self-reset-mfa] factorsData keys:', Object.keys(factorsData || {}));
+    console.log('[self-reset-mfa] factorsData.totp:', JSON.stringify(factorsData?.totp));
+    console.log('[self-reset-mfa] factorsData.factors:', JSON.stringify((factorsData as any)?.factors));
+
+    // Handle both SDK response formats: .totp[] and .factors[]
+    const totpFactors = [
+      ...(factorsData?.totp ?? []),
+      ...((factorsData as any)?.factors?.filter((f: any) => f.factor_type === 'totp') ?? []),
+    ];
+    // Deduplicate by factor id
+    const uniqueFactors = Array.from(new Map(totpFactors.map((f: any) => [f.id, f])).values());
     let deletedCount = 0;
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
