@@ -86,6 +86,14 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     init();
   }, []);
 
+  const handleFallbackToEmail = () => {
+    setActiveMethod('email');
+    setCode('');
+    setCodeSent(false);
+    setSendError(null);
+    sendEmailCodeDirect();
+  };
+
   const sendEmailCodeDirect = async () => {
     setSendingCode(true);
     setSendError(null);
@@ -289,6 +297,19 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
             <Button variant="ghost" size="sm" onClick={sendEmailCode} disabled={sendingCode} className="w-full">
               {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Wyślij kod ponownie
+            </Button>
+          )}
+
+          {/* Emergency fallback: TOTP users who lost access */}
+          {activeMethod === 'totp' && mfaMethod !== 'email' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleFallbackToEmail}
+              className="w-full text-muted-foreground"
+            >
+              <Mail className="w-4 h-4 mr-1" />
+              Nie mam dostępu do Authenticatora
             </Button>
           )}
         </CardContent>

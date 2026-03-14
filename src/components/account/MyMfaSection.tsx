@@ -128,6 +128,16 @@ export const MyMfaSection: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Warning */}
+          {hasActiveFactor && (
+            <div className="flex items-start gap-2 p-3 rounded-md bg-amber-500/10 border border-amber-200 text-amber-800 dark:text-amber-200 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>
+                <strong>Ważne:</strong> Nie usuwaj wpisu „Pure Life Center" z aplikacji Authenticator (Authy, Google Authenticator itp.) dopóki nie zmienisz go tutaj. Usunięcie w zewnętrznej aplikacji może tymczasowo utrudnić dostęp do konta.
+              </span>
+            </div>
+          )}
+
           {/* Status */}
           <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
             {hasActiveFactor ? (

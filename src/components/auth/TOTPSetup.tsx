@@ -46,12 +46,34 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
         eqId = profile?.eq_id || '';
       }
 
-      const { data, error } = await supabase.auth.mfa.enroll({
+      let data: any;
+      let enrollError: any;
+      
+      ({ data, error: enrollError } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
         friendlyName: 'Pure Life Center',
         issuer: 'Pure Life Center',
-      });
-      if (error) throw error;
+      }));
+
+      // Handle "already exists" error — cleanup unverified factors and retry
+      if (enrollError?.message?.includes('already exists')) {
+        const { data: existingFactors } = await supabase.auth.mfa.listFactors();
+        if (existingFactors?.totp) {
+          for (const factor of existingFactors.totp) {
+            if ((factor as any).status !== 'verified') {
+              await supabase.auth.mfa.unenroll({ factorId: factor.id });
+            }
+          }
+        }
+        // Retry enrollment
+        ({ data, error: enrollError } = await supabase.auth.mfa.enroll({
+          factorType: 'totp',
+          friendlyName: 'Pure Life Center',
+          issuer: 'Pure Life Center',
+        }));
+      }
+      
+      if (enrollError) throw enrollError;
 
       setSecret(data.totp.secret);
       setFactorId(data.id);
