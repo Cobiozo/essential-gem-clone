@@ -468,7 +468,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sessionStorage.removeItem('show_daily_signal');
       sessionStorage.removeItem('show_info_banners');
       Object.keys(sessionStorage).forEach(key => {
-        if (key.startsWith('info_banner_shown_')) {
+        if (key.startsWith('info_banner_shown_') || key.startsWith('mfa_verified_')) {
           sessionStorage.removeItem(key);
         }
       });

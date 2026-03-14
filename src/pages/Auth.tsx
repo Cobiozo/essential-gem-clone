@@ -871,6 +871,7 @@ const Auth = () => {
                     <Input
                       id="confirm-email"
                       type="email"
+                      autoComplete="off"
                       value={confirmEmail}
                       onChange={(e) => setConfirmEmail(e.target.value)}
                       required

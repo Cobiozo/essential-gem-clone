@@ -228,9 +228,13 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
   de: {
     formTitle: 'Zum Webinar anmelden',
     emailLabel: 'E-Mail',
+    confirmEmailLabel: 'E-Mail bestätigen',
+    emailsMismatch: 'E-Mail-Adressen stimmen nicht überein',
+    emailsMatch: 'E-Mail-Adressen stimmen überein',
     firstNameLabel: 'Vorname',
     lastNameLabel: 'Nachname',
     phoneLabel: 'Telefon',
+    phoneError: 'Telefonnummer ist erforderlich',
     submitButton: 'Zum Webinar anmelden',
     submitting: 'Wird angemeldet...',
     consent: 'Mit der Anmeldung stimmen Sie der Verarbeitung Ihrer personenbezogenen Daten zum Zweck der Organisation des Webinars zu.',
