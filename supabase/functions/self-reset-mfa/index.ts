@@ -93,7 +93,7 @@ serve(async (req) => {
 
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    for (const factor of totpFactors) {
+    for (const factor of uniqueFactors) {
       if (!factor.id || !uuidRegex.test(factor.id)) {
         console.error(`[self-reset-mfa] Skipping invalid factor id: ${factor.id}`);
         continue;
@@ -109,7 +109,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[self-reset-mfa] Deleted ${deletedCount}/${totpFactors.length} TOTP factors for user ${user.id}`);
+    console.log(`[self-reset-mfa] Deleted ${deletedCount}/${uniqueFactors.length} TOTP factors for user ${user.id}`);
 
     // Step 3: Log the action (non-blocking, use correct column names)
     await supabaseAdmin.from('user_activity_log').insert({
