@@ -184,13 +184,10 @@ serve(async (req) => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-    const { error: invalidateError } = await supabaseAdmin.from('mfa_email_codes')
-      .update({ used: true })
-      .eq('user_id', user.id).eq('used', false);
-    
-    if (invalidateError) {
-      console.error('[MFA] Failed to invalidate old codes:', invalidateError);
-    }
+    // Don't invalidate old codes — prevents race condition where a second
+    // request marks the first (already emailed) code as used before the user
+    // can enter it. All unexpired codes remain valid; verify-mfa-code will
+    // accept any matching unexpired code and then mark ALL as used.
 
     const { error: insertError } = await supabaseAdmin.from('mfa_email_codes').insert({
       user_id: user.id,

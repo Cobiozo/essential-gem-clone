@@ -269,6 +269,8 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
                 maxLength={6}
                 className="text-center text-2xl tracking-widest"
                 autoFocus
+                autoComplete="one-time-code"
+                inputMode="numeric"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleVerify(); }}
               />
               <Button
