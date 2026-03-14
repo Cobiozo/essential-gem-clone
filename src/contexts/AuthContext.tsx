@@ -184,19 +184,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // Check MFA enforcement BEFORE marking roles as ready
-      try {
-        const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
-        if (!mfaError) {
-          const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
-          if (mfaConfig && mfaConfig.required) {
-            console.log('[Auth] MFA enforcement active for role:', mfaConfig.role, 'method:', mfaConfig.method);
-            setMfaPending(true);
+      // Skip if already verified in this browser session
+      const mfaVerifiedKey = `mfa_verified_${userId}`;
+      const alreadyVerified = sessionStorage.getItem(mfaVerifiedKey);
+      if (!alreadyVerified) {
+        try {
+          const { data: mfaConfigRaw, error: mfaError } = await supabase.rpc('get_my_mfa_config');
+          if (!mfaError) {
+            const mfaConfig = mfaConfigRaw as unknown as { required: boolean; method: string; role: string } | null;
+            if (mfaConfig && mfaConfig.required) {
+              console.log('[Auth] MFA enforcement active for role:', mfaConfig.role, 'method:', mfaConfig.method);
+              setMfaPending(true);
+            }
+          } else {
+            console.error('[Auth] MFA config RPC error:', mfaError);
           }
-        } else {
-          console.error('[Auth] MFA config RPC error:', mfaError);
+        } catch (mfaErr) {
+          console.error('[Auth] MFA enforcement check failed:', mfaErr);
         }
-      } catch (mfaErr) {
-        console.error('[Auth] MFA enforcement check failed:', mfaErr);
+      } else {
+        console.log('[Auth] MFA already verified in this session, skipping');
       }
 
       // Mark roles as ready AFTER MFA check
