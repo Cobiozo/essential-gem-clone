@@ -102,6 +102,9 @@ export const SecurityLoginHistory: React.FC = () => {
                     <TableHead>IP</TableHead>
                     <TableHead>Miasto</TableHead>
                     <TableHead>Kraj</TableHead>
+                    <TableHead>Urządzenie</TableHead>
+                    <TableHead>System</TableHead>
+                    <TableHead>Przeglądarka</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
