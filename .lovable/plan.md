@@ -1,16 +1,29 @@
 
 
-# Usunięcie roli Specjalista + zmiana etykiety Opiekun
+## Analiza systemu powiadomień — wynik
 
-## Zmiany
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-### 1. `src/pages/Auth.tsx`
-- **Linia 508**: usunąć `'specjalista': 'specjalista'` z `roleMapping`
-- **Linie 968-970**: usunąć `<SelectItem value="specjalista">...</SelectItem>`
+### Zmiany:
 
-### 2. `src/components/auth/GuardianSearchInput.tsx`
-- **Linia 92**: zmienić etykietę z:
-  `Opiekun (osoba wprowadzająca Partner/Specjalista Zespołu Pure Life) *`
-  na:
-  `Opiekun (osoba wprowadzająca do Pure Life Center) *`
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
+
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```

@@ -505,7 +505,7 @@ const Auth = () => {
       const roleMapping: Record<string, string> = {
         'client': 'client',
         'partner': 'partner',
-        'specjalista': 'specjalista'  // Database uses 'specjalista' not 'specialist'
+        
       };
 
       // Proceed with signup if user doesn't exist
@@ -964,9 +964,6 @@ const Auth = () => {
                         </SelectItem>
                         <SelectItem value="partner" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
                           {t('auth.rolePartner')}
-                        </SelectItem>
-                        <SelectItem value="specjalista" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
-                          {t('auth.roleSpecialist')}
                         </SelectItem>
                       </SelectContent>
                     </Select>
