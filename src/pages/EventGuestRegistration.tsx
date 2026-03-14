@@ -561,7 +561,7 @@ const EventGuestRegistration: React.FC = () => {
                   <h3 className="text-lg font-semibold mb-4">{labels.formTitle}</h3>
                   
                   <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" autoComplete="off">
                       <FormField
                         control={form.control}
                         name="email"
@@ -569,7 +569,16 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.emailLabel} *</FormLabel>
                             <FormControl>
-                              <Input placeholder={labels.placeholderEmail} autoComplete="email" {...field} />
+                              <Input
+                                placeholder={labels.placeholderEmail}
+                                autoComplete="new-password"
+                                autoCapitalize="none"
+                                spellCheck={false}
+                                onPaste={(e) => e.preventDefault()}
+                                onDrop={(e) => e.preventDefault()}
+                                {...field}
+                                name="event_email_nofill"
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -585,9 +594,13 @@ const EventGuestRegistration: React.FC = () => {
                             <FormControl>
                               <Input
                                 placeholder={labels.placeholderEmail}
-                                autoComplete="off"
+                                autoComplete="new-password"
+                                autoCapitalize="none"
+                                spellCheck={false}
                                 onPaste={(e) => e.preventDefault()}
+                                onDrop={(e) => e.preventDefault()}
                                 {...field}
+                                name="event_confirm_email_nofill"
                               />
                             </FormControl>
                             {watchConfirmEmail && watchEmail.trim().toLowerCase() !== watchConfirmEmail.trim().toLowerCase() && (
