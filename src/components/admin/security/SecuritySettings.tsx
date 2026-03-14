@@ -292,6 +292,9 @@ export const SecuritySettings: React.FC = () => {
         </CardContent>
       </Card>
 
+      {/* MFA Enforcements */}
+      <MfaEnforcementSection />
+
       {/* MFA Exemptions */}
       <MfaExemptionSection />
 
