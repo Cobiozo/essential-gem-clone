@@ -640,7 +640,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{labels.phoneLabel}</FormLabel>
+                            <FormLabel>{labels.phoneLabel}{invitedBy ? ' *' : ''}</FormLabel>
                             <FormControl>
                               <Input placeholder={labels.placeholderPhone} {...field} />
                             </FormControl>
