@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Loader2, Mail, Smartphone, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TOTPSetup } from './TOTPSetup';
+import { MFAEmergencyScreen } from './MFAEmergencyScreen';
 
 interface MFAChallengeProps {
   onVerified: () => void;
@@ -24,6 +25,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const [initializing, setInitializing] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
   const [needsTotpSetup, setNeedsTotpSetup] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
   const sendCodeCalledRef = useRef(false);
 
   useEffect(() => {
@@ -87,11 +89,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   }, []);
 
   const handleFallbackToEmail = () => {
-    setActiveMethod('email');
-    setCode('');
-    setCodeSent(false);
-    setSendError(null);
-    sendEmailCodeDirect();
+    setShowEmergency(true);
   };
 
   const sendEmailCodeDirect = async () => {
@@ -202,6 +200,19 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
             sendEmailCodeDirect();
           }
         }}
+      />
+    );
+  }
+
+  // Show emergency screen (reset + support)
+  if (showEmergency) {
+    return (
+      <MFAEmergencyScreen
+        onResetComplete={() => {
+          setShowEmergency(false);
+          setNeedsTotpSetup(true);
+        }}
+        onBack={() => setShowEmergency(false)}
       />
     );
   }
