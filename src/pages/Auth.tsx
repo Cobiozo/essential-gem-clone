@@ -851,32 +851,41 @@ const Auth = () => {
                   {t('auth.createAccountDesc')}
                 </CardDescription>
               </CardHeader>
-              <form onSubmit={handleSignUp}>
+              <form onSubmit={handleSignUp} autoComplete="off">
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">{t('auth.email')}</Label>
+                    <Label htmlFor="signup-email">{t('auth.email')} *</Label>
                     <Input
                       id="signup-email"
                       type="email"
-                      autoComplete="email"
+                      name="signup_email_nofill"
+                      autoComplete="new-password"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onPaste={(e) => e.preventDefault()}
+                      onDrop={(e) => e.preventDefault()}
                       required
                       disabled={loading}
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-email">{tf('auth.confirmEmail', 'Potwierdź email')}</Label>
+                    <Label htmlFor="confirm-email">Potwierdź email *</Label>
                     <Input
                       id="confirm-email"
                       type="email"
-                      autoComplete="off"
+                      name="confirm_email_nofill"
+                      autoComplete="new-password"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       value={confirmEmail}
                       onChange={(e) => setConfirmEmail(e.target.value)}
                       required
                       disabled={loading}
                       onPaste={(e) => e.preventDefault()}
+                      onDrop={(e) => e.preventDefault()}
                     />
                     {confirmEmail && email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase() && (
                       <p className="text-xs text-destructive flex items-center gap-1">
