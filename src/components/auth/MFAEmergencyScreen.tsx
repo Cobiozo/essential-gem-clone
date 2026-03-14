@@ -13,9 +13,9 @@ interface MFAEmergencyScreenProps {
   initialTab?: 'choose' | 'reset' | 'support';
 }
 
-export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetComplete, onBack }) => {
+export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetComplete, onBack, initialTab = 'choose' }) => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'choose' | 'reset' | 'support'>('choose');
+  const [activeTab, setActiveTab] = useState<'choose' | 'reset' | 'support'>(initialTab);
 
   // Reset flow state
   const [resetStep, setResetStep] = useState<'send' | 'verify' | 'done'>('send');
