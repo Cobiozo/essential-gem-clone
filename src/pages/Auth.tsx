@@ -505,7 +505,7 @@ const Auth = () => {
       const roleMapping: Record<string, string> = {
         'client': 'client',
         'partner': 'partner',
-        'specjalista': 'specjalista'  // Database uses 'specjalista' not 'specialist'
+        
       };
 
       // Proceed with signup if user doesn't exist
