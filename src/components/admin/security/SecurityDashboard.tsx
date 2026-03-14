@@ -440,9 +440,9 @@ export const SecurityDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={stats.topCountries} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="country" type="category" width={100} tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <Tooltip />
+                  <XAxis type="number" tick={axisTick} />
+                  <YAxis dataKey="country" type="category" width={100} tick={axisTick} />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
