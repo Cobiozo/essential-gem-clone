@@ -89,11 +89,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   }, []);
 
   const handleFallbackToEmail = () => {
-    setActiveMethod('email');
-    setCode('');
-    setCodeSent(false);
-    setSendError(null);
-    sendEmailCodeDirect();
+    setShowEmergency(true);
   };
 
   const sendEmailCodeDirect = async () => {
