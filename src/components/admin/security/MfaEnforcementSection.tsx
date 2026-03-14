@@ -34,6 +34,7 @@ export const MfaEnforcementSection: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [reason, setReason] = useState('');
+  const [enforcedMethod, setEnforcedMethod] = useState<string>('totp');
 
   const { data: enforcedUsers, isLoading } = useQuery({
     queryKey: ['mfa-enforced-users'],
