@@ -60,7 +60,7 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
         const { data: existingFactors } = await supabase.auth.mfa.listFactors();
         if (existingFactors?.totp) {
           for (const factor of existingFactors.totp) {
-            if (factor.status === 'unverified') {
+            if ((factor as any).status !== 'verified') {
               await supabase.auth.mfa.unenroll({ factorId: factor.id });
             }
           }
