@@ -152,16 +152,53 @@ export const MfaEnforcementSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Reason */}
+        {/* Method & Reason */}
         {searchResults.length > 0 && (
-          <div className="space-y-2">
-            <Label>Powód wymuszenia (opcjonalnie)</Label>
-            <Input
-              placeholder="np. Konto wrażliwe, dostęp do danych finansowych..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
+          <>
+            <div className="space-y-3">
+              <Label className="font-medium">Metoda weryfikacji</Label>
+              <RadioGroup value={enforcedMethod} onValueChange={setEnforcedMethod} className="space-y-2">
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="email" id="enforce-email" />
+                  <Label htmlFor="enforce-email" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    <div>
+                      <div className="font-medium">Kod email</div>
+                      <div className="text-xs text-muted-foreground">6-cyfrowy kod wysyłany na email</div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="totp" id="enforce-totp" />
+                  <Label htmlFor="enforce-totp" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Lock className="w-4 h-4 text-green-500" />
+                    <div>
+                      <div className="font-medium">Aplikacja Authenticator</div>
+                      <div className="text-xs text-muted-foreground">Google Authenticator, Authy itp.</div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="both" id="enforce-both" />
+                  <Label htmlFor="enforce-both" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Shield className="w-4 h-4 text-purple-500" />
+                    <div>
+                      <div className="font-medium">Obie metody</div>
+                      <div className="text-xs text-muted-foreground">Użytkownik wybiera przy logowaniu</div>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label>Powód wymuszenia (opcjonalnie)</Label>
+              <Input
+                placeholder="np. Konto wrażliwe, dostęp do danych finansowych..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          </>
         )}
 
         {/* Search results */}
