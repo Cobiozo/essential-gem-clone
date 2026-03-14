@@ -91,9 +91,13 @@ export function getDateLocale(lang: string): Locale {
 export interface RegistrationLabels {
   formTitle: string;
   emailLabel: string;
+  confirmEmailLabel: string;
+  emailsMismatch: string;
+  emailsMatch: string;
   firstNameLabel: string;
   lastNameLabel: string;
   phoneLabel: string;
+  phoneError: string;
   submitButton: string;
   submitting: string;
   consent: string;
