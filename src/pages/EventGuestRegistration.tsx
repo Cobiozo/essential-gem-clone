@@ -569,8 +569,39 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.emailLabel} *</FormLabel>
                             <FormControl>
-                              <Input placeholder={labels.placeholderEmail} {...field} />
+                              <Input placeholder={labels.placeholderEmail} autoComplete="email" {...field} />
                             </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="confirm_email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{labels.confirmEmailLabel} *</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={labels.placeholderEmail}
+                                autoComplete="off"
+                                onPaste={(e) => e.preventDefault()}
+                                {...field}
+                              />
+                            </FormControl>
+                            {watchConfirmEmail && watchEmail.trim().toLowerCase() !== watchConfirmEmail.trim().toLowerCase() && (
+                              <p className="text-xs text-destructive flex items-center gap-1">
+                                <X className="h-3 w-3" />
+                                {labels.emailsMismatch}
+                              </p>
+                            )}
+                            {watchConfirmEmail && watchEmail.trim().toLowerCase() === watchConfirmEmail.trim().toLowerCase() && (
+                              <p className="text-xs text-green-600 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                {labels.emailsMatch}
+                              </p>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
