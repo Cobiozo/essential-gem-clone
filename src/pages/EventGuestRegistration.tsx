@@ -152,11 +152,15 @@ const EventGuestRegistration: React.FC = () => {
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       email: '',
+      confirm_email: '',
       first_name: '',
       last_name: '',
       phone: '',
     },
   });
+
+  const watchEmail = form.watch('email');
+  const watchConfirmEmail = form.watch('confirm_email');
 
   useEffect(() => {
     const fetchEvent = async () => {
