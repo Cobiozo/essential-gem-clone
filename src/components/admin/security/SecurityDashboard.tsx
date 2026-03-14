@@ -314,9 +314,9 @@ export const SecurityDashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={stats?.hourlyTrend || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="hour" tick={{ fontSize: 10 }} className="fill-muted-foreground" interval={2} />
-                <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                <Tooltip />
+                <XAxis dataKey="hour" tick={axisTickSmall} interval={2} />
+                <YAxis tick={axisTick} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Bar dataKey="logowania" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
