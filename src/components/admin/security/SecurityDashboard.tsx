@@ -331,9 +331,9 @@ export const SecurityDashboard: React.FC = () => {
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={stats?.loginTrend || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                <YAxis tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                <Tooltip />
+                <XAxis dataKey="date" tick={axisTick} />
+                <YAxis tick={axisTick} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Area type="monotone" dataKey="logowania" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} />
               </AreaChart>
             </ResponsiveContainer>
