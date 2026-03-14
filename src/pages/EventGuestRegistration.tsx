@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, AlertCircle, Video, Check, X } from 'lucide-react';
 import { getRegistrationLabels, getDateLocale } from '@/utils/invitationTemplates';
 
 interface AutoWebinarSlotConfig {
