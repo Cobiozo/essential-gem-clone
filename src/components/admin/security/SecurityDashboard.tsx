@@ -11,6 +11,20 @@ import { pl } from 'date-fns/locale';
 
 const CHART_COLORS = ['hsl(var(--primary))', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#64748b'];
 
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  color: 'hsl(var(--foreground))',
+  borderRadius: '8px',
+  fontSize: '12px',
+};
+
+const axisTick = { fontSize: 11, fill: 'hsl(var(--foreground))' };
+const axisTickSmall = { fontSize: 10, fill: 'hsl(var(--foreground))' };
+
+const renderPieLabel = ({ name, value, percent }: { name: string; value: number; percent: number }) =>
+  `${name} ${value} (${(percent * 100).toFixed(0)}%)`;
+
 const DEVICE_LABELS: Record<string, string> = {
   desktop: 'Komputer',
   mobile: 'Telefon',
