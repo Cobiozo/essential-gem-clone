@@ -1,0 +1,1 @@
+ALTER TABLE public.training_modules ADD COLUMN certificate_enabled boolean NOT NULL DEFAULT true;

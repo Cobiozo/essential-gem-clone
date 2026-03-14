@@ -7158,6 +7158,7 @@ export type Database = {
       }
       training_modules: {
         Row: {
+          certificate_enabled: boolean
           created_at: string
           description: string | null
           icon_name: string | null
@@ -7176,6 +7177,7 @@ export type Database = {
           visible_to_specjalista: boolean
         }
         Insert: {
+          certificate_enabled?: boolean
           created_at?: string
           description?: string | null
           icon_name?: string | null
@@ -7194,6 +7196,7 @@ export type Database = {
           visible_to_specjalista?: boolean
         }
         Update: {
+          certificate_enabled?: boolean
           created_at?: string
           description?: string | null
           icon_name?: string | null
