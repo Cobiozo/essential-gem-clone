@@ -464,9 +464,9 @@ export const SecurityDashboard: React.FC = () => {
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={stats.activityTypes.map(a => ({ ...a, name: ACTION_LABELS[a.name] || a.name }))} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis type="number" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
-                  <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
-                  <Tooltip />
+                  <XAxis type="number" tick={axisTick} />
+                  <YAxis dataKey="name" type="category" width={140} tick={axisTickSmall} />
+                  <Tooltip contentStyle={tooltipStyle} />
                   <Bar dataKey="value" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
