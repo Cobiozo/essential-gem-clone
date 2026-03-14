@@ -1,33 +1,29 @@
 
 
-# Zarządzanie Authenticatorem (TOTP) — reset i zmiana
+## Analiza systemu powiadomień — wynik
 
-## Stan obecny
-Brak jakiejkolwiek funkcji do resetu/zmiany/usunięcia TOTP. Użytkownik, który skonfigurował authenticator, nie może go zmienić ani usunąć. Admin również nie ma takiej możliwości.
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-## Proponowane zmiany
+### Zmiany:
 
-### 1. Panel użytkownika — sekcja "Moje MFA" (profil/ustawienia)
-- Wyświetlenie aktualnego statusu MFA (TOTP aktywny / nieaktywny)
-- Przycisk **"Zmień Authenticator"** — wymaga podania aktualnego kodu TOTP, następnie unenrolluje stary factor (`supabase.auth.mfa.unenroll()`) i rozpoczyna nowy enrollment
-- Przycisk **"Usuń Authenticator"** — tylko jeśli metoda MFA to `both` lub nie jest wymagany TOTP (aby nie zablokować dostępu)
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-### 2. Panel admina — reset MFA dla użytkownika
-- W sekcji Security lub przy liście użytkowników: przycisk **"Resetuj MFA"** przy danym użytkowniku
-- Wywołanie Edge Function `reset-user-mfa` która:
-  - Pobiera factors użytkownika przez Supabase Admin API (`auth.admin.mfa.deleteFactor()`)
-  - Usuwa wszystkie TOTP factors
-  - Loguje akcję do audit log
-- Przy następnym logowaniu użytkownik zostanie poproszony o ponowną konfigurację
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-### 3. Edge Function `reset-user-mfa`
-- Przyjmuje `target_user_id`
-- Weryfikuje że wywołujący jest adminem (sprawdzenie w `user_roles`)
-- Wywołuje `supabase.auth.admin.mfa.deleteFactor(userId, factorId)` dla każdego TOTP factora
-- Zwraca status operacji
-
-### Pliki do utworzenia/zmiany
-1. **`supabase/functions/reset-user-mfa/index.ts`** — nowa Edge Function
-2. **Nowy komponent** w profilu użytkownika — sekcja zarządzania MFA
-3. **Panel admina** — przycisk resetu MFA przy użytkowniku (w SecuritySettings lub UserManagement)
-
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```

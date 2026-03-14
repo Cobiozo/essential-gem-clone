@@ -245,3 +245,6 @@ verify_jwt = false
 
 [functions.send-security-report]
 verify_jwt = false
+
+[functions.reset-user-mfa]
+verify_jwt = false
