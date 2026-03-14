@@ -885,7 +885,7 @@ const Auth = () => {
                     {confirmEmail && email.trim().toLowerCase() === confirmEmail.trim().toLowerCase() && (
                       <p className="text-xs text-green-600 flex items-center gap-1">
                         <Check className="h-3 w-3" />
-                        {t('auth.emailsMatch')}
+                        {tf('auth.emailsMatch', 'Adresy email są zgodne')}
                       </p>
                     )}
                   </div>
