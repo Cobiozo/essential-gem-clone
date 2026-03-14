@@ -115,7 +115,7 @@ const Auth = () => {
     planned_end_time: string | null;
   } | null>(null);
   const { signIn, signUp, user, loginComplete, rolesReady } = useAuth();
-  const { t } = useLanguage();
+  const { t, tf } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   
