@@ -3,8 +3,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface TOTPSetupProps {
   onSetupComplete: () => void;
@@ -30,14 +31,36 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
     setEnrolling(true);
     setError(null);
     try {
+      // Fetch user data for TOTP label
+      const { data: userData } = await supabase.auth.getUser();
+      const userEmail = userData?.user?.email || '';
+      const userId = userData?.user?.id;
+
+      let eqId = '';
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('eq_id')
+          .eq('user_id', userId)
+          .single();
+        eqId = profile?.eq_id || '';
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'Authenticator App',
+        friendlyName: 'Pure Life Center',
+        issuer: 'Pure Life Center',
       });
       if (error) throw error;
-      setQrCode(data.totp.qr_code);
+
       setSecret(data.totp.secret);
       setFactorId(data.id);
+
+      // Build custom TOTP URI with proper label
+      const label = eqId ? `${eqId} (${userEmail})` : userEmail;
+      const customUri = `otpauth://totp/Pure%20Life%20Center:${encodeURIComponent(label)}?secret=${data.totp.secret}&issuer=Pure%20Life%20Center`;
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(customUri)}`;
+      setQrCode(qrUrl);
     } catch (err: any) {
       console.error('[TOTP] Enrollment error:', err);
       setError(err.message || 'Nie udało się zainicjować konfiguracji TOTP');
@@ -87,7 +110,7 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <Shield className="w-12 h-12 mx-auto mb-2 text-primary" />
+          <img src={pureLifeLogo} alt="Pure Life Center" className="w-16 h-16 mx-auto mb-2 object-contain" />
           <CardTitle>Konfiguracja Authenticator</CardTitle>
           <CardDescription>
             Zeskanuj kod QR w aplikacji Google Authenticator, Authy lub Microsoft Authenticator, a następnie wprowadź wygenerowany 6-cyfrowy kod.
