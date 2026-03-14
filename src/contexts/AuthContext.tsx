@@ -497,7 +497,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const completeMfa = useCallback(() => {
     setMfaPending(false);
-  }, []);
+    // Persist MFA verification in sessionStorage so page refresh doesn't re-trigger
+    if (user?.id) {
+      sessionStorage.setItem(`mfa_verified_${user.id}`, '1');
+    }
+  }, [user?.id]);
 
   // MFA check is now done inside fetchProfile() before rolesReady is set
 
