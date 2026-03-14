@@ -35,6 +35,7 @@ interface TrainingModule {
   position: number;
   language_code?: string | null;
   unlock_order?: number | null;
+  certificate_enabled?: boolean;
   lessons_count: number;
   completed_lessons: number;
   total_time_minutes: number;
