@@ -965,9 +965,6 @@ const Auth = () => {
                         <SelectItem value="partner" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
                           {t('auth.rolePartner')}
                         </SelectItem>
-                        <SelectItem value="specjalista" className="cursor-pointer hover:bg-accent hover:text-accent-foreground">
-                          {t('auth.roleSpecialist')}
-                        </SelectItem>
                       </SelectContent>
                     </Select>
                     {reflinkRole && (

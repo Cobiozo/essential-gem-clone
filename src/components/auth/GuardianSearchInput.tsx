@@ -89,7 +89,7 @@ export const GuardianSearchInput: React.FC<GuardianSearchInputProps> = ({
   return (
     <div className="space-y-2">
       <Label htmlFor="guardian-eqid" className="flex flex-col gap-1">
-        <span>Opiekun (osoba wprowadzająca Partner/Specjalista Zespołu Pure Life) *</span>
+        <span>Opiekun (osoba wprowadzająca do Pure Life Center) *</span>
         <span className="font-normal text-xs text-muted-foreground">
           {t('guardian.searchByEqid')}. Jeżeli nie znasz numeru EQID, skontaktuj się z opiekunem lub administratorem.
         </span>
