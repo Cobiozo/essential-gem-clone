@@ -183,9 +183,13 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
   en: {
     formTitle: 'Sign up for webinar',
     emailLabel: 'Email',
+    confirmEmailLabel: 'Confirm email',
+    emailsMismatch: 'Email addresses do not match',
+    emailsMatch: 'Email addresses match',
     firstNameLabel: 'First name',
     lastNameLabel: 'Last name',
     phoneLabel: 'Phone',
+    phoneError: 'Phone number is required',
     submitButton: 'Sign up for webinar',
     submitting: 'Signing up...',
     consent: 'By signing up, you consent to the processing of your personal data for the purpose of organizing the webinar.',
