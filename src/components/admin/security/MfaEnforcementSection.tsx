@@ -98,6 +98,7 @@ export const MfaEnforcementSection: React.FC = () => {
       setSearchResults([]);
       setSearchQuery('');
       setReason('');
+      setEnforcedMethod('totp');
       toast({ title: 'MFA wymuszone dla użytkownika' });
     },
     onError: (err: any) => {
