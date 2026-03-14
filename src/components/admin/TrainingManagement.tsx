@@ -116,6 +116,7 @@ interface TrainingModule {
   resource_ids?: string[];
   language_code?: string | null;
   unlock_order?: number | null;
+  certificate_enabled?: boolean;
   created_at: string;
 }
 
@@ -2253,6 +2254,7 @@ const ModuleForm = ({
     resource_ids: module?.resource_ids || [],
     language_code: module?.language_code || 'pl',
     unlock_order: module?.unlock_order ?? null as number | null,
+    certificate_enabled: module?.certificate_enabled ?? true,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2373,6 +2375,17 @@ const ModuleForm = ({
           }
         />
         <Label htmlFor="is_active">Aktywny</Label>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="certificate_enabled"
+          checked={formData.certificate_enabled}
+          onCheckedChange={(checked) => 
+            setFormData(prev => ({ ...prev, certificate_enabled: checked as boolean }))
+          }
+        />
+        <Label htmlFor="certificate_enabled">Certyfikat po ukończeniu</Label>
       </div>
 
       {/* Module Resources Selector */}

@@ -25,6 +25,7 @@ export interface TrainingModule {
   resource_ids?: string[];
   language_code?: string | null;
   unlock_order?: number | null;
+  certificate_enabled?: boolean;
   created_at: string;
 }
 

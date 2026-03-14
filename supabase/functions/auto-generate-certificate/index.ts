@@ -122,15 +122,26 @@ serve(async (req) => {
       ? `${profile.first_name} ${profile.last_name}`
       : profile?.email || 'Unknown User';
 
-    // 6. Get module title
+    // 6. Get module title and certificate_enabled flag
     const { data: moduleData, error: moduleError } = await supabaseAdmin
       .from('training_modules')
-      .select('title')
+      .select('title, certificate_enabled')
       .eq('id', moduleId)
       .single();
 
     if (moduleError) throw moduleError;
     const moduleTitle = moduleData.title;
+
+    // Check if module has certificates disabled
+    if (moduleData.certificate_enabled === false) {
+      console.log(`⚠️ Module ${moduleId} has certificates disabled`);
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Ten moduł szkoleniowy nie kończy się wystawieniem certyfikatu.'
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     console.log(`📝 Generating certificate for: ${userName} - ${moduleTitle}`);
 
