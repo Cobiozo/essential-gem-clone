@@ -239,6 +239,11 @@ export const MfaEnforcementSection: React.FC = () => {
                       {profile ? `${profile.first_name} ${profile.last_name}` : enforced.user_id}
                     </span>
                     {profile && <span className="text-muted-foreground ml-2">{profile.email}</span>}
+                    {enforced.enforced_method && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {enforced.enforced_method === 'email' ? 'Email' : enforced.enforced_method === 'totp' ? 'Authenticator' : 'Obie'}
+                      </Badge>
+                    )}
                     {enforced.reason && (
                       <span className="text-xs text-muted-foreground ml-2">— {enforced.reason}</span>
                     )}
