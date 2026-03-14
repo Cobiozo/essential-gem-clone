@@ -204,6 +204,19 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     );
   }
 
+  // Show emergency screen (reset + support)
+  if (showEmergency) {
+    return (
+      <MFAEmergencyScreen
+        onResetComplete={() => {
+          setShowEmergency(false);
+          setNeedsTotpSetup(true);
+        }}
+        onBack={() => setShowEmergency(false)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
