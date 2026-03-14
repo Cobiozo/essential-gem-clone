@@ -1,29 +1,24 @@
 
 
-## Analiza systemu powiadomień — wynik
+# Poprawka brakujących tłumaczeń w formularzu rejestracji
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+## Problem (widoczny na screenshocie)
+- Label pola potwierdzenia email wyświetla niepoprawny tekst zamiast "Potwierdź email"
+- Komunikat walidacji pokazuje surowy klucz `auth.emailsMatch` zamiast przetłumaczonego tekstu
+- Analogicznie `auth.errors.emailsMismatch` nie jest przetłumaczony
 
-### Zmiany:
+## Przyczyna
+Tłumaczenia są ładowane z bazy danych. Klucze `auth.confirmEmail`, `auth.emailsMatch`, `auth.errors.emailsMismatch` nie zostały dodane do bazy. Funkcja `t()` zwraca klucz jako fallback, natomiast `tf()` pozwala podać tekst zapasowy.
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+## Rozwiązanie
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+### `src/pages/Auth.tsx` — zmiana `t()` na `tf()` z polskimi fallbackami:
+- `t('auth.confirmEmail')` → `tf('auth.confirmEmail', 'Potwierdź email')`
+- `t('auth.errors.emailsMismatch')` → `tf('auth.errors.emailsMismatch', 'Adresy email nie są zgodne')`
+- `t('auth.emailsMatch')` → `tf('auth.emailsMatch', 'Adresy email są zgodne')`
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-```
+Dotyczy to zarówno labela, komunikatów walidacji pod polem, jak i komunikatu w `handleSignUp`.
+
+### Pliki: 1
+- `src/pages/Auth.tsx` — 4 miejsca do zmiany (3 w JSX + 1 w handleSignUp)
+
