@@ -1,32 +1,29 @@
 
 
-# Logo Pure Life Center + EQ ID + Email w konfiguracji TOTP
+## Analiza systemu powiadomień — wynik
 
-## Problem
-Po zeskanowaniu kodu QR w aplikacji Authenticator nie wyświetla się nazwa "Pure Life Center" ani dane użytkownika (EQ ID, email). Widoczna jest domyślna nazwa projektu Supabase.
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-## Rozwiązanie
+### Zmiany:
 
-### Oba komponenty (`TOTPSetup.tsx` + `MFASetup.tsx`):
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-1. **Pobranie danych użytkownika** — na mount pobrać email z `supabase.auth.getUser()` oraz eq_id z tabeli `profiles`
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-2. **Budowanie własnego TOTP URI** z prawidłowym issuer i label:
-   ```
-   otpauth://totp/Pure Life Center:{eqId} ({email})?secret=SECRET&issuer=Pure Life Center
-   ```
-   Dzięki temu w aplikacji Authenticator pojawi się:
-   - Nazwa usługi: **Pure Life Center**
-   - Konto: **EQ123 (jan@example.com)**
-
-3. **Generowanie QR z własnego URI** — oba komponenty będą używać `api.qrserver.com` z naszym zmodyfikowanym URI (zamiast Supabase-owego `qr_code`)
-
-4. **Logo Pure Life na ekranie konfiguracji** — dodać `<img src={pureLifeLogo}>` nad QR kodem na naszej stronie setupu (zamiast ikony Shield)
-
-### Ograniczenie
-Logo wewnątrz samej aplikacji Authenticator (Google Auth, Authy) **nie jest możliwe** — te aplikacje same decydują o ikonach. Możemy jedynie kontrolować tekst (issuer + label).
-
-## Pliki do zmiany
-- `src/components/auth/TOTPSetup.tsx`
-- `src/components/auth/MFASetup.tsx`
-
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```

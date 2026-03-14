@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Shield, CheckCircle, Loader2, QrCode } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface MFASetupProps {
   onComplete?: () => void;
@@ -17,7 +18,7 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onSkip, required
   const { toast } = useToast();
   const [step, setStep] = useState<'intro' | 'qr' | 'verify' | 'done'>('intro');
   const [factorId, setFactorId] = useState<string>('');
-  const [qrUri, setQrUri] = useState<string>('');
+  const [qrUrl, setQrUrl] = useState<string>('');
   const [secret, setSecret] = useState<string>('');
   const [verifyCode, setVerifyCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,16 +26,38 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onSkip, required
   const startEnrollment = async () => {
     setLoading(true);
     try {
+      // Fetch user data for TOTP label
+      const { data: userData } = await supabase.auth.getUser();
+      const userEmail = userData?.user?.email || '';
+      const userId = userData?.user?.id;
+
+      let eqId = '';
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('eq_id')
+          .eq('user_id', userId)
+          .single();
+        eqId = profile?.eq_id || '';
+      }
+
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'Authenticator App',
+        friendlyName: 'Pure Life Center',
+        issuer: 'Pure Life Center',
       });
 
       if (error) throw error;
 
       setFactorId(data.id);
-      setQrUri(data.totp.uri);
       setSecret(data.totp.secret);
+
+      // Build custom TOTP URI with proper label
+      const label = eqId ? `${eqId} (${userEmail})` : userEmail;
+      const customUri = `otpauth://totp/Pure%20Life%20Center:${encodeURIComponent(label)}?secret=${data.totp.secret}&issuer=Pure%20Life%20Center`;
+      const generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(customUri)}`;
+      setQrUrl(generatedQrUrl);
+
       setStep('qr');
     } catch (error: any) {
       toast({
@@ -107,9 +130,13 @@ export const MFASetup: React.FC<MFASetupProps> = ({ onComplete, onSkip, required
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-col items-center gap-2">
+            <img src={pureLifeLogo} alt="Pure Life Center" className="w-12 h-12 object-contain" />
+            <span className="text-sm font-medium text-muted-foreground">Pure Life Center</span>
+          </div>
           <div className="flex justify-center">
             <img
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUri)}`}
+              src={qrUrl}
               alt="QR Code for MFA"
               className="border rounded-lg"
               width={200}
