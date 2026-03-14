@@ -25,6 +25,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const [initializing, setInitializing] = useState(true);
   const [sendError, setSendError] = useState<string | null>(null);
   const [needsTotpSetup, setNeedsTotpSetup] = useState(false);
+  const [showEmergency, setShowEmergency] = useState(false);
   const sendCodeCalledRef = useRef(false);
 
   useEffect(() => {
