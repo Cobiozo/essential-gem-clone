@@ -1121,6 +1121,11 @@ const MyAccount = () => {
             <TabsContent value="security" className="mt-6">
 
 
+          {/* MFA Management */}
+          <React.Suspense fallback={<Loader2 className="w-6 h-6 animate-spin mx-auto" />}>
+            {React.createElement(React.lazy(() => import('@/components/account/MyMfaSection').then(m => ({ default: m.MyMfaSection }))))}
+          </React.Suspense>
+
           {/* Password Change */}
           <Card>
             <CardHeader>
