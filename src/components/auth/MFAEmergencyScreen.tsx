@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 interface MFAEmergencyScreenProps {
   onResetComplete: () => void;
   onBack: () => void;
+  initialTab?: 'choose' | 'reset' | 'support';
 }
 
 export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetComplete, onBack }) => {
