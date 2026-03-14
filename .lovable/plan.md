@@ -1,29 +1,25 @@
 
+# Dodanie wyboru metody MFA przy wymuszeniu dla użytkownika
 
-## Analiza systemu powiadomień — wynik
+## Problem
+Obecnie przy wymuszaniu MFA dla konkretnego użytkownika nie ma możliwości wyboru metody (email / TOTP / obie). Metoda jest brana z globalnych ustawień. Użytkownik powinien móc wybrać metodę per-osoba.
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+## Zmiany
 
-### Zmiany:
+### 1. Migracja SQL
+- Dodać kolumnę `enforced_method TEXT DEFAULT NULL` do `mfa_enforced_users` (wartości: `email`, `totp`, `both`, `NULL` = globalna)
+- Zaktualizować `get_my_mfa_config()` — gdy user jest na liście enforced, użyć `enforced_method` z tabeli zamiast globalnego `mfa_method` (fallback na globalne jeśli NULL)
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+### 2. UI w `MfaEnforcementSection.tsx`
+- Dodać state `enforcedMethod` z wartościami `email` / `totp` / `both`
+- Przy wynikach wyszukiwania dodać sekcję z radio buttons (3 opcje): "Kod email", "Aplikacja Authenticator", "Obie metody"
+- Przekazywać wybraną metodę do insertu
+- W liście wymuszonych użytkowników wyświetlać badge z aktualną metodą (np. "Email", "TOTP", "Obie")
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+### 3. Typy
+- Zaktualizować `types.ts` o nową kolumnę
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-```
+### Pliki do zmiany
+1. **Migracja SQL** — `ALTER TABLE` + update `get_my_mfa_config`
+2. **`MfaEnforcementSection.tsx`** — radio buttons + badge na liście
+3. **`types.ts`** — kolumna `enforced_method`
