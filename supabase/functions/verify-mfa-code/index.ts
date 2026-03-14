@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -41,7 +41,7 @@ serve(async (req) => {
       });
     }
 
-    // Find valid code
+    // Find any valid, unexpired code matching the input (race-condition safe)
     const { data: codeRecord, error: codeError } = await supabaseAdmin
       .from('mfa_email_codes')
       .select('*')
@@ -59,10 +59,11 @@ serve(async (req) => {
       });
     }
 
-    // Mark as used
+    // Mark as used + invalidate all other codes for this user
     await supabaseAdmin.from('mfa_email_codes')
       .update({ used: true })
-      .eq('id', codeRecord.id);
+      .eq('user_id', user.id)
+      .eq('used', false);
 
     return new Response(JSON.stringify({ valid: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

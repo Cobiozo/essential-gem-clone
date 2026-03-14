@@ -121,6 +121,8 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             maxLength={6}
             className="text-center text-2xl tracking-widest"
             autoFocus
+            autoComplete="one-time-code"
+            inputMode="numeric"
             onKeyDown={(e) => { if (e.key === 'Enter') verifyAndActivate(); }}
           />
 
