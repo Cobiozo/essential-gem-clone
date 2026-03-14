@@ -866,7 +866,7 @@ const Auth = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-email">{t('auth.confirmEmail')}</Label>
+                    <Label htmlFor="confirm-email">{tf('auth.confirmEmail', 'Potwierdź email')}</Label>
                     <Input
                       id="confirm-email"
                       type="email"
