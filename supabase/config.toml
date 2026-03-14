@@ -248,3 +248,9 @@ verify_jwt = false
 
 [functions.reset-user-mfa]
 verify_jwt = false
+
+[functions.self-reset-mfa]
+verify_jwt = false
+
+[functions.send-support-ticket]
+verify_jwt = false
