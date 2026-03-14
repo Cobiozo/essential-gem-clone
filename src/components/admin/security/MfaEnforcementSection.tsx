@@ -14,6 +14,7 @@ interface EnforcedUser {
   id: string;
   user_id: string;
   reason: string | null;
+  enforced_method: string | null;
   created_at: string;
 }
 
