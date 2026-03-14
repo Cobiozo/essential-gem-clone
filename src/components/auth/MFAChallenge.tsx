@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Loader2, Mail, Smartphone, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TOTPSetup } from './TOTPSetup';
+import { MFAEmergencyScreen } from './MFAEmergencyScreen';
 
 interface MFAChallengeProps {
   onVerified: () => void;
