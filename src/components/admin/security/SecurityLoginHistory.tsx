@@ -125,6 +125,9 @@ export const SecurityLoginHistory: React.FC = () => {
                         <TableCell className="text-sm font-mono">{log.ip_address}</TableCell>
                         <TableCell className="text-sm">{log.city || '—'}</TableCell>
                         <TableCell className="text-sm">{log.country || '—'}</TableCell>
+                        <TableCell className="text-sm capitalize">{(log as any).device_type || '—'}</TableCell>
+                        <TableCell className="text-sm">{(log as any).os_name || '—'}</TableCell>
+                        <TableCell className="text-sm">{(log as any).browser_name || '—'}</TableCell>
                         <TableCell>
                           {log.is_suspicious ? (
                             <Badge variant="destructive" className="gap-1">
