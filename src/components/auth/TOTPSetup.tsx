@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, RotateCcw, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { MFAEmergencyScreen } from './MFAEmergencyScreen';
 import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface TOTPSetupProps {
@@ -22,16 +23,14 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
   const [loading, setLoading] = useState(false);
   const [enrolling, setEnrolling] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasAlreadyExistsError, setHasAlreadyExistsError] = useState(false);
+  const [emergencyScreen, setEmergencyScreen] = useState<'reset' | 'support' | null>(null);
 
-  useEffect(() => {
-    enrollTotp();
-  }, []);
-
-  const enrollTotp = async () => {
+  const enrollTotp = useCallback(async () => {
     setEnrolling(true);
     setError(null);
+    setHasAlreadyExistsError(false);
     try {
-      // Fetch user data for TOTP label
       const { data: userData } = await supabase.auth.getUser();
       const userEmail = userData?.user?.email || '';
       const userId = userData?.user?.id;
@@ -55,7 +54,6 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
         issuer: 'Pure Life Center',
       }));
 
-      // Handle "already exists" error — cleanup unverified factors and retry
       if (enrollError?.message?.includes('already exists')) {
         const { data: existingFactors } = await supabase.auth.mfa.listFactors();
         if (existingFactors?.totp) {
@@ -65,7 +63,6 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             }
           }
         }
-        // Retry enrollment
         ({ data, error: enrollError } = await supabase.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: 'Pure Life Center',
@@ -73,12 +70,16 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
         }));
       }
       
-      if (enrollError) throw enrollError;
+      if (enrollError) {
+        if (enrollError.message?.includes('already exists')) {
+          setHasAlreadyExistsError(true);
+        }
+        throw enrollError;
+      }
 
       setSecret(data.totp.secret);
       setFactorId(data.id);
 
-      // Build custom TOTP URI with proper label
       const label = eqId ? `${eqId} (${userEmail})` : userEmail;
       const customUri = `otpauth://totp/Pure%20Life%20Center:${encodeURIComponent(label)}?secret=${data.totp.secret}&issuer=Pure%20Life%20Center`;
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(customUri)}`;
@@ -89,7 +90,11 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
     } finally {
       setEnrolling(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    enrollTotp();
+  }, [enrollTotp]);
 
   const verifyAndActivate = async () => {
     if (!factorId || code.length !== 6) return;
@@ -115,6 +120,24 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
       setLoading(false);
     }
   };
+
+  // Show emergency screen (reset or support)
+  if (emergencyScreen) {
+    return (
+      <MFAEmergencyScreen
+        initialTab={emergencyScreen}
+        onResetComplete={() => {
+          setEmergencyScreen(null);
+          setQrCode(null);
+          setSecret(null);
+          setFactorId(null);
+          setCode('');
+          enrollTotp();
+        }}
+        onBack={() => setEmergencyScreen(null)}
+      />
+    );
+  }
 
   if (enrolling) {
     return (
@@ -143,6 +166,37 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* Emergency section on already-exists error or general error */}
+          {(hasAlreadyExistsError || (error && !qrCode)) && (
+            <div className="space-y-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Opcje awaryjne</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Jeśli usunąłeś wpis w Authy/Authenticator i nie masz kodu — użyj resetu email albo zgłoś problem do support.
+              </p>
+              <Button
+                onClick={() => setEmergencyScreen('reset')}
+                variant="default"
+                size="sm"
+                className="w-full"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Resetuj Authenticator przez Email
+              </Button>
+              <Button
+                onClick={() => setEmergencyScreen('support')}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Zgłoś problem do Support
+              </Button>
             </div>
           )}
 
@@ -184,6 +238,33 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             <Button variant="ghost" size="sm" onClick={onSkipToEmail} className="w-full">
               Użyj kodu email zamiast tego
             </Button>
+          )}
+
+          {/* Always-visible emergency links at bottom */}
+          {qrCode && (
+            <div className="pt-2 border-t space-y-1">
+              <p className="text-xs text-muted-foreground text-center mb-2">Problemy z Authenticatorem?</p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setEmergencyScreen('reset')}
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 text-xs"
+                >
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  Reset przez Email
+                </Button>
+                <Button
+                  onClick={() => setEmergencyScreen('support')}
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 text-xs"
+                >
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  Support
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
