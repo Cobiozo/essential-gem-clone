@@ -1122,7 +1122,7 @@ const MyAccount = () => {
 
 
           {/* MFA Management */}
-          <React.Suspense fallback={<Loader2 className="w-6 h-6 animate-spin mx-auto" />}>
+          <React.Suspense fallback={<div className="flex justify-center py-4"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" /></div>}>
             {React.createElement(React.lazy(() => import('@/components/account/MyMfaSection').then(m => ({ default: m.MyMfaSection }))))}
           </React.Suspense>
 
