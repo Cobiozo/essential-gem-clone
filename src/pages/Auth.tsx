@@ -354,7 +354,7 @@ const Auth = () => {
 
     // Check if emails match
     if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-      const errorMsg = t('auth.errors.emailsMismatch');
+      const errorMsg = tf('auth.errors.emailsMismatch', 'Adresy email nie są zgodne');
       setError(errorMsg);
       toast({
         title: t('auth.toast.registrationError'),
