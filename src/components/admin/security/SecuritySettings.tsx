@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Save, Shield, Lock, Mail, Send, FileText } from 'lucide-react';
 import { MfaExemptionSection } from './MfaExemptionSection';
 import { MfaEnforcementSection } from './MfaEnforcementSection';
+import { AdminMfaResetSection } from './AdminMfaResetSection';
 import { useToast } from '@/hooks/use-toast';
 
 const ROLES = [
