@@ -169,36 +169,34 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             </div>
           )}
 
-          {/* Emergency section on already-exists error or general error */}
-          {(hasAlreadyExistsError || (error && !qrCode)) && (
-            <div className="space-y-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
-                <AlertTriangle className="w-4 h-4 shrink-0" />
-                <span>Opcje awaryjne</span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Jeśli usunąłeś wpis w Authy/Authenticator i nie masz kodu — użyj resetu email albo zgłoś problem do support.
-              </p>
-              <Button
-                onClick={() => setEmergencyScreen('reset')}
-                variant="default"
-                size="sm"
-                className="w-full"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Resetuj Authenticator przez Email
-              </Button>
-              <Button
-                onClick={() => setEmergencyScreen('support')}
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Zgłoś problem do Support
-              </Button>
+          {/* Always-visible emergency options */}
+          <div className="space-y-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
+            <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span>Problemy z Authenticatorem?</span>
             </div>
-          )}
+            <p className="text-xs text-muted-foreground">
+              Jeśli usunąłeś wpis w Authy/Authenticator i nie masz kodu — użyj resetu email albo zgłoś problem do support.
+            </p>
+            <Button
+              onClick={() => setEmergencyScreen('reset')}
+              variant="default"
+              size="sm"
+              className="w-full"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Resetuj Authenticator przez Email
+            </Button>
+            <Button
+              onClick={() => setEmergencyScreen('support')}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Zgłoś problem do Support
+            </Button>
+          </div>
 
           {qrCode && (
             <div className="flex justify-center">
@@ -240,32 +238,6 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             </Button>
           )}
 
-          {/* Always-visible emergency links at bottom */}
-          {qrCode && (
-            <div className="pt-2 border-t space-y-1">
-              <p className="text-xs text-muted-foreground text-center mb-2">Problemy z Authenticatorem?</p>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => setEmergencyScreen('reset')}
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-xs"
-                >
-                  <RotateCcw className="w-3 h-3 mr-1" />
-                  Reset przez Email
-                </Button>
-                <Button
-                  onClick={() => setEmergencyScreen('support')}
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-xs"
-                >
-                  <MessageSquare className="w-3 h-3 mr-1" />
-                  Support
-                </Button>
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>
