@@ -4266,6 +4266,7 @@ export type Database = {
         Row: {
           created_at: string
           enforced_by: string | null
+          enforced_method: string | null
           id: string
           reason: string | null
           user_id: string
@@ -4273,6 +4274,7 @@ export type Database = {
         Insert: {
           created_at?: string
           enforced_by?: string | null
+          enforced_method?: string | null
           id?: string
           reason?: string | null
           user_id: string
@@ -4280,6 +4282,7 @@ export type Database = {
         Update: {
           created_at?: string
           enforced_by?: string | null
+          enforced_method?: string | null
           id?: string
           reason?: string | null
           user_id?: string
