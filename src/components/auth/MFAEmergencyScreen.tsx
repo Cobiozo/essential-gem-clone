@@ -59,6 +59,11 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
         throw new Error(errorMsg);
       }
       if (!data?.success) throw new Error(data?.error || 'Reset failed');
+      if (data?.deleted_factors === 0) {
+        toast({ title: 'Uwaga', description: 'Reset przeszedł, ale nie znaleziono faktorów do usunięcia. Spróbuj ponownie lub zgłoś do Support.', variant: 'destructive' });
+        setCode('');
+        return;
+      }
       setResetStep('done');
       toast({ title: 'Authenticator zresetowany', description: 'Możesz teraz skonfigurować nowy authenticator.' });
     } catch (err: any) {
