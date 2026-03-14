@@ -299,6 +299,19 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
               Wyślij kod ponownie
             </Button>
           )}
+
+          {/* Emergency fallback: TOTP users who lost access */}
+          {activeMethod === 'totp' && mfaMethod !== 'email' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleFallbackToEmail}
+              className="w-full text-muted-foreground"
+            >
+              <Mail className="w-4 h-4 mr-1" />
+              Nie mam dostępu do Authenticatora
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>
