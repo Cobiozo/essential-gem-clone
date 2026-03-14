@@ -5,13 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Search, Trash2, UserPlus } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, ShieldCheck, Search, Trash2, UserPlus, Mail, Lock, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface EnforcedUser {
   id: string;
   user_id: string;
   reason: string | null;
+  enforced_method: string | null;
   created_at: string;
 }
 
@@ -31,6 +34,7 @@ export const MfaEnforcementSection: React.FC = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [reason, setReason] = useState('');
+  const [enforcedMethod, setEnforcedMethod] = useState<string>('totp');
 
   const { data: enforcedUsers, isLoading } = useQuery({
     queryKey: ['mfa-enforced-users'],
@@ -85,6 +89,7 @@ export const MfaEnforcementSection: React.FC = () => {
         user_id: userId,
         enforced_by: user?.id,
         reason: reason || null,
+        enforced_method: enforcedMethod,
       } as any);
       if (error) throw error;
     },
@@ -93,6 +98,7 @@ export const MfaEnforcementSection: React.FC = () => {
       setSearchResults([]);
       setSearchQuery('');
       setReason('');
+      setEnforcedMethod('totp');
       toast({ title: 'MFA wymuszone dla użytkownika' });
     },
     onError: (err: any) => {
@@ -146,16 +152,53 @@ export const MfaEnforcementSection: React.FC = () => {
           </div>
         </div>
 
-        {/* Reason */}
+        {/* Method & Reason */}
         {searchResults.length > 0 && (
-          <div className="space-y-2">
-            <Label>Powód wymuszenia (opcjonalnie)</Label>
-            <Input
-              placeholder="np. Konto wrażliwe, dostęp do danych finansowych..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
+          <>
+            <div className="space-y-3">
+              <Label className="font-medium">Metoda weryfikacji</Label>
+              <RadioGroup value={enforcedMethod} onValueChange={setEnforcedMethod} className="space-y-2">
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="email" id="enforce-email" />
+                  <Label htmlFor="enforce-email" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Mail className="w-4 h-4 text-blue-500" />
+                    <div>
+                      <div className="font-medium">Kod email</div>
+                      <div className="text-xs text-muted-foreground">6-cyfrowy kod wysyłany na email</div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="totp" id="enforce-totp" />
+                  <Label htmlFor="enforce-totp" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Lock className="w-4 h-4 text-green-500" />
+                    <div>
+                      <div className="font-medium">Aplikacja Authenticator</div>
+                      <div className="text-xs text-muted-foreground">Google Authenticator, Authy itp.</div>
+                    </div>
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                  <RadioGroupItem value="both" id="enforce-both" />
+                  <Label htmlFor="enforce-both" className="flex items-center gap-2 cursor-pointer flex-1">
+                    <Shield className="w-4 h-4 text-purple-500" />
+                    <div>
+                      <div className="font-medium">Obie metody</div>
+                      <div className="text-xs text-muted-foreground">Użytkownik wybiera przy logowaniu</div>
+                    </div>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+            <div className="space-y-2">
+              <Label>Powód wymuszenia (opcjonalnie)</Label>
+              <Input
+                placeholder="np. Konto wrażliwe, dostęp do danych finansowych..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          </>
         )}
 
         {/* Search results */}
@@ -196,6 +239,11 @@ export const MfaEnforcementSection: React.FC = () => {
                       {profile ? `${profile.first_name} ${profile.last_name}` : enforced.user_id}
                     </span>
                     {profile && <span className="text-muted-foreground ml-2">{profile.email}</span>}
+                    {enforced.enforced_method && (
+                      <Badge variant="outline" className="ml-2 text-xs">
+                        {enforced.enforced_method === 'email' ? 'Email' : enforced.enforced_method === 'totp' ? 'Authenticator' : 'Obie'}
+                      </Badge>
+                    )}
                     {enforced.reason && (
                       <span className="text-xs text-muted-foreground ml-2">— {enforced.reason}</span>
                     )}
