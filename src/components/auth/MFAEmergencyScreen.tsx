@@ -53,12 +53,16 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
       const { data, error } = await supabase.functions.invoke('self-reset-mfa', {
         body: { code },
       });
-      if (error) throw error;
+      if (error) {
+        // Try to extract server error message from FunctionsHttpError
+        const errorMsg = data?.error || error?.message || 'Reset nie powiódł się po stronie serwera.';
+        throw new Error(errorMsg);
+      }
       if (!data?.success) throw new Error(data?.error || 'Reset failed');
       setResetStep('done');
       toast({ title: 'Authenticator zresetowany', description: 'Możesz teraz skonfigurować nowy authenticator.' });
     } catch (err: any) {
-      toast({ title: 'Błąd', description: err?.message || 'Nieprawidłowy kod lub błąd resetu.', variant: 'destructive' });
+      toast({ title: 'Błąd resetu', description: err?.message || 'Nieprawidłowy kod lub błąd resetu. Spróbuj wysłać kod ponownie lub użyj formularza Support.', variant: 'destructive' });
       setCode('');
     } finally {
       setVerifying(false);

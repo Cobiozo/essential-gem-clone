@@ -77,10 +77,17 @@ serve(async (req) => {
       });
     }
 
-    const totpFactors = (factorsData?.factors || []).filter((f: any) => f.factor_type === 'totp');
+    // Use factorsData.totp (matching reset-user-mfa pattern), NOT factorsData.factors
+    const totpFactors = factorsData?.totp ?? [];
     let deletedCount = 0;
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
     for (const factor of totpFactors) {
+      if (!factor.id || !uuidRegex.test(factor.id)) {
+        console.error(`[self-reset-mfa] Skipping invalid factor id: ${factor.id}`);
+        continue;
+      }
       const { error: deleteError } = await supabaseAdmin.auth.admin.mfa.deleteFactor({
         userId: user.id,
         factorId: factor.id,
@@ -94,11 +101,11 @@ serve(async (req) => {
 
     console.log(`[self-reset-mfa] Deleted ${deletedCount}/${totpFactors.length} TOTP factors for user ${user.id}`);
 
-    // Step 3: Log the action
+    // Step 3: Log the action (non-blocking, use correct column names)
     await supabaseAdmin.from('user_activity_log').insert({
       user_id: user.id,
-      activity_type: 'mfa_self_reset',
-      description: `User self-reset TOTP via email verification. Deleted ${deletedCount} factor(s).`,
+      action_type: 'mfa_self_reset',
+      action_details: `User self-reset TOTP via email verification. Deleted ${deletedCount} factor(s).`,
       metadata: {
         deleted_factor_count: deletedCount,
         total_factors_found: totpFactors.length,
