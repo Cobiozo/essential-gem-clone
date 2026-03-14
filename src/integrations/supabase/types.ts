@@ -3816,37 +3816,46 @@ export type Database = {
       login_audit_log: {
         Row: {
           anomaly_type: string | null
+          browser_name: string | null
           city: string | null
           country: string | null
           device_hash: string | null
+          device_type: string | null
           id: string
           ip_address: string | null
           is_suspicious: boolean | null
           login_at: string | null
+          os_name: string | null
           user_agent: string | null
           user_id: string
         }
         Insert: {
           anomaly_type?: string | null
+          browser_name?: string | null
           city?: string | null
           country?: string | null
           device_hash?: string | null
+          device_type?: string | null
           id?: string
           ip_address?: string | null
           is_suspicious?: boolean | null
           login_at?: string | null
+          os_name?: string | null
           user_agent?: string | null
           user_id: string
         }
         Update: {
           anomaly_type?: string | null
+          browser_name?: string | null
           city?: string | null
           country?: string | null
           device_hash?: string | null
+          device_type?: string | null
           id?: string
           ip_address?: string | null
           is_suspicious?: boolean | null
           login_at?: string | null
+          os_name?: string | null
           user_agent?: string | null
           user_id?: string
         }
@@ -7393,6 +7402,33 @@ export type Database = {
           target_language?: string
           total_keys?: number | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_activity_log: {
+        Row: {
+          action_data: Json | null
+          action_type: string
+          created_at: string
+          id: string
+          page_path: string | null
+          user_id: string
+        }
+        Insert: {
+          action_data?: Json | null
+          action_type: string
+          created_at?: string
+          id?: string
+          page_path?: string | null
+          user_id: string
+        }
+        Update: {
+          action_data?: Json | null
+          action_type?: string
+          created_at?: string
+          id?: string
+          page_path?: string | null
+          user_id?: string
         }
         Relationships: []
       }

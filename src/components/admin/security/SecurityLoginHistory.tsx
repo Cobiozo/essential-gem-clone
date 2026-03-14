@@ -102,6 +102,9 @@ export const SecurityLoginHistory: React.FC = () => {
                     <TableHead>IP</TableHead>
                     <TableHead>Miasto</TableHead>
                     <TableHead>Kraj</TableHead>
+                    <TableHead>Urządzenie</TableHead>
+                    <TableHead>System</TableHead>
+                    <TableHead>Przeglądarka</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -122,6 +125,9 @@ export const SecurityLoginHistory: React.FC = () => {
                         <TableCell className="text-sm font-mono">{log.ip_address}</TableCell>
                         <TableCell className="text-sm">{log.city || '—'}</TableCell>
                         <TableCell className="text-sm">{log.country || '—'}</TableCell>
+                        <TableCell className="text-sm capitalize">{(log as any).device_type || '—'}</TableCell>
+                        <TableCell className="text-sm">{(log as any).os_name || '—'}</TableCell>
+                        <TableCell className="text-sm">{(log as any).browser_name || '—'}</TableCell>
                         <TableCell>
                           {log.is_suspicious ? (
                             <Badge variant="destructive" className="gap-1">
@@ -137,7 +143,7 @@ export const SecurityLoginHistory: React.FC = () => {
                   })}
                   {(!data?.logs || data.logs.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                         Brak danych logowań
                       </TableCell>
                     </TableRow>
