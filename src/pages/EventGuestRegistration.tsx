@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { Calendar, Clock, User, CheckCircle, AlertCircle, Video } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, AlertCircle, Video, Check, X } from 'lucide-react';
 import { getRegistrationLabels, getDateLocale } from '@/utils/invitationTemplates';
 
 interface AutoWebinarSlotConfig {
@@ -78,6 +78,7 @@ import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Schema is created dynamically based on lang — see inside the component
 type RegistrationFormData = {
   email: string;
+  confirm_email: string;
   first_name: string;
   last_name?: string;
   phone?: string;
@@ -127,10 +128,16 @@ const EventGuestRegistration: React.FC = () => {
 
   const registrationSchema = useMemo(() => z.object({
     email: z.string().email(labels.emailError),
+    confirm_email: z.string().email(labels.emailError),
     first_name: z.string().min(2, labels.nameError),
     last_name: z.string().optional(),
-    phone: z.string().optional(),
-  }), [labels]);
+    phone: invitedBy
+      ? z.string().min(1, labels.phoneError)
+      : z.string().optional(),
+  }).refine((data) => data.email.trim().toLowerCase() === data.confirm_email.trim().toLowerCase(), {
+    message: labels.emailsMismatch,
+    path: ['confirm_email'],
+  }), [labels, invitedBy]);
   
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,11 +152,15 @@ const EventGuestRegistration: React.FC = () => {
     resolver: zodResolver(registrationSchema),
     defaultValues: {
       email: '',
+      confirm_email: '',
       first_name: '',
       last_name: '',
       phone: '',
     },
   });
+
+  const watchEmail = form.watch('email');
+  const watchConfirmEmail = form.watch('confirm_email');
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -558,8 +569,39 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.emailLabel} *</FormLabel>
                             <FormControl>
-                              <Input placeholder={labels.placeholderEmail} {...field} />
+                              <Input placeholder={labels.placeholderEmail} autoComplete="email" {...field} />
                             </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="confirm_email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{labels.confirmEmailLabel} *</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={labels.placeholderEmail}
+                                autoComplete="off"
+                                onPaste={(e) => e.preventDefault()}
+                                {...field}
+                              />
+                            </FormControl>
+                            {watchConfirmEmail && watchEmail.trim().toLowerCase() !== watchConfirmEmail.trim().toLowerCase() && (
+                              <p className="text-xs text-destructive flex items-center gap-1">
+                                <X className="h-3 w-3" />
+                                {labels.emailsMismatch}
+                              </p>
+                            )}
+                            {watchConfirmEmail && watchEmail.trim().toLowerCase() === watchConfirmEmail.trim().toLowerCase() && (
+                              <p className="text-xs text-green-600 flex items-center gap-1">
+                                <Check className="h-3 w-3" />
+                                {labels.emailsMatch}
+                              </p>
+                            )}
                             <FormMessage />
                           </FormItem>
                         )}
@@ -598,7 +640,7 @@ const EventGuestRegistration: React.FC = () => {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{labels.phoneLabel}</FormLabel>
+                            <FormLabel>{labels.phoneLabel}{invitedBy ? ' *' : ''}</FormLabel>
                             <FormControl>
                               <Input placeholder={labels.placeholderPhone} {...field} />
                             </FormControl>

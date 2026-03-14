@@ -91,9 +91,13 @@ export function getDateLocale(lang: string): Locale {
 export interface RegistrationLabels {
   formTitle: string;
   emailLabel: string;
+  confirmEmailLabel: string;
+  emailsMismatch: string;
+  emailsMatch: string;
   firstNameLabel: string;
   lastNameLabel: string;
   phoneLabel: string;
+  phoneError: string;
   submitButton: string;
   submitting: string;
   consent: string;
@@ -134,9 +138,13 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
   pl: {
     formTitle: 'Zapisz się na webinar',
     emailLabel: 'Email',
+    confirmEmailLabel: 'Potwierdź email',
+    emailsMismatch: 'Adresy email nie są zgodne',
+    emailsMatch: 'Adresy email są zgodne',
     firstNameLabel: 'Imię',
     lastNameLabel: 'Nazwisko',
     phoneLabel: 'Telefon',
+    phoneError: 'Numer telefonu jest wymagany',
     submitButton: 'Zapisz się na webinar',
     submitting: 'Zapisywanie...',
     consent: 'Zapisując się, wyrażasz zgodę na przetwarzanie danych osobowych w celu organizacji webinaru.',
@@ -175,9 +183,13 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
   en: {
     formTitle: 'Sign up for webinar',
     emailLabel: 'Email',
+    confirmEmailLabel: 'Confirm email',
+    emailsMismatch: 'Email addresses do not match',
+    emailsMatch: 'Email addresses match',
     firstNameLabel: 'First name',
     lastNameLabel: 'Last name',
     phoneLabel: 'Phone',
+    phoneError: 'Phone number is required',
     submitButton: 'Sign up for webinar',
     submitting: 'Signing up...',
     consent: 'By signing up, you consent to the processing of your personal data for the purpose of organizing the webinar.',
@@ -216,9 +228,13 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
   de: {
     formTitle: 'Zum Webinar anmelden',
     emailLabel: 'E-Mail',
+    confirmEmailLabel: 'E-Mail bestätigen',
+    emailsMismatch: 'E-Mail-Adressen stimmen nicht überein',
+    emailsMatch: 'E-Mail-Adressen stimmen überein',
     firstNameLabel: 'Vorname',
     lastNameLabel: 'Nachname',
     phoneLabel: 'Telefon',
+    phoneError: 'Telefonnummer ist erforderlich',
     submitButton: 'Zum Webinar anmelden',
     submitting: 'Wird angemeldet...',
     consent: 'Mit der Anmeldung stimmen Sie der Verarbeitung Ihrer personenbezogenen Daten zum Zweck der Organisation des Webinars zu.',
