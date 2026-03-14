@@ -138,9 +138,13 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
   pl: {
     formTitle: 'Zapisz się na webinar',
     emailLabel: 'Email',
+    confirmEmailLabel: 'Potwierdź email',
+    emailsMismatch: 'Adresy email nie są zgodne',
+    emailsMatch: 'Adresy email są zgodne',
     firstNameLabel: 'Imię',
     lastNameLabel: 'Nazwisko',
     phoneLabel: 'Telefon',
+    phoneError: 'Numer telefonu jest wymagany',
     submitButton: 'Zapisz się na webinar',
     submitting: 'Zapisywanie...',
     consent: 'Zapisując się, wyrażasz zgodę na przetwarzanie danych osobowych w celu organizacji webinaru.',
