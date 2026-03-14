@@ -115,7 +115,7 @@ const Auth = () => {
     planned_end_time: string | null;
   } | null>(null);
   const { signIn, signUp, user, loginComplete, rolesReady } = useAuth();
-  const { t } = useLanguage();
+  const { t, tf } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -354,7 +354,7 @@ const Auth = () => {
 
     // Check if emails match
     if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-      const errorMsg = t('auth.errors.emailsMismatch');
+      const errorMsg = tf('auth.errors.emailsMismatch', 'Adresy email nie są zgodne');
       setError(errorMsg);
       toast({
         title: t('auth.toast.registrationError'),
@@ -866,7 +866,7 @@ const Auth = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-email">{t('auth.confirmEmail')}</Label>
+                    <Label htmlFor="confirm-email">{tf('auth.confirmEmail', 'Potwierdź email')}</Label>
                     <Input
                       id="confirm-email"
                       type="email"
@@ -879,13 +879,13 @@ const Auth = () => {
                     {confirmEmail && email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase() && (
                       <p className="text-xs text-destructive flex items-center gap-1">
                         <X className="h-3 w-3" />
-                        {t('auth.errors.emailsMismatch')}
+                        {tf('auth.errors.emailsMismatch', 'Adresy email nie są zgodne')}
                       </p>
                     )}
                     {confirmEmail && email.trim().toLowerCase() === confirmEmail.trim().toLowerCase() && (
                       <p className="text-xs text-green-600 flex items-center gap-1">
                         <Check className="h-3 w-3" />
-                        {t('auth.emailsMatch')}
+                        {tf('auth.emailsMatch', 'Adresy email są zgodne')}
                       </p>
                     )}
                   </div>
