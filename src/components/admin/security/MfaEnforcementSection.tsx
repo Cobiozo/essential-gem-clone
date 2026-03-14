@@ -89,6 +89,7 @@ export const MfaEnforcementSection: React.FC = () => {
         user_id: userId,
         enforced_by: user?.id,
         reason: reason || null,
+        enforced_method: enforcedMethod,
       } as any);
       if (error) throw error;
     },
