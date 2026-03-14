@@ -128,10 +128,16 @@ const EventGuestRegistration: React.FC = () => {
 
   const registrationSchema = useMemo(() => z.object({
     email: z.string().email(labels.emailError),
+    confirm_email: z.string().email(labels.emailError),
     first_name: z.string().min(2, labels.nameError),
     last_name: z.string().optional(),
-    phone: z.string().optional(),
-  }), [labels]);
+    phone: invitedBy
+      ? z.string().min(1, labels.phoneError)
+      : z.string().optional(),
+  }).refine((data) => data.email.trim().toLowerCase() === data.confirm_email.trim().toLowerCase(), {
+    message: labels.emailsMismatch,
+    path: ['confirm_email'],
+  }), [labels, invitedBy]);
   
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
