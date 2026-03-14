@@ -78,6 +78,7 @@ import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Schema is created dynamically based on lang — see inside the component
 type RegistrationFormData = {
   email: string;
+  confirm_email: string;
   first_name: string;
   last_name?: string;
   phone?: string;
