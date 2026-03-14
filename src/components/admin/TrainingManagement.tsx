@@ -2254,6 +2254,7 @@ const ModuleForm = ({
     resource_ids: module?.resource_ids || [],
     language_code: module?.language_code || 'pl',
     unlock_order: module?.unlock_order ?? null as number | null,
+    certificate_enabled: module?.certificate_enabled ?? true,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
