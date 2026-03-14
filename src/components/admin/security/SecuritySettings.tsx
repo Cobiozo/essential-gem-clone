@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, Shield, Lock, Mail, Send, FileText } from 'lucide-react';
 import { MfaExemptionSection } from './MfaExemptionSection';
+import { MfaEnforcementSection } from './MfaEnforcementSection';
 import { useToast } from '@/hooks/use-toast';
 
 const ROLES = [
@@ -290,6 +291,9 @@ export const SecuritySettings: React.FC = () => {
           </Button>
         </CardContent>
       </Card>
+
+      {/* MFA Enforcements */}
+      <MfaEnforcementSection />
 
       {/* MFA Exemptions */}
       <MfaExemptionSection />
