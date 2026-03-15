@@ -209,7 +209,7 @@ serve(async (req) => {
     });
 
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 1 * 60 * 1000).toISOString();
 
     const { error: insertError } = await supabaseAdmin.from('mfa_email_codes').insert({
       user_id: user.id,
