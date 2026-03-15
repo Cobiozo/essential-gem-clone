@@ -8,7 +8,7 @@ const corsHeaders = {
 
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_RESETS = 3;
-const MAX_ATTEMPTS_PER_CODE = 5;
+const MAX_ATTEMPTS_PER_CODE = 3;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

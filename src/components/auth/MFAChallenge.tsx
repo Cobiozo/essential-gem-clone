@@ -298,7 +298,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
           )}
 
           {/* Failed attempts warning */}
-          {failedAttempts >= 3 && !isLockedOut && (
+          {failedAttempts >= 2 && !isLockedOut && (
             <div className="flex items-center gap-2 p-3 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>Nieudane próby: {failedAttempts}/{AUTO_LOGOUT_THRESHOLD}. Po {AUTO_LOGOUT_THRESHOLD} nastąpi wylogowanie.</span>

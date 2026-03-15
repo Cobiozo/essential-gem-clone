@@ -251,7 +251,7 @@ serve(async (req) => {
           <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1a1a2e;">${code}</span>
         </div>
         <p style="color: #888; text-align: center; font-size: 13px;">
-          Kod jest ważny przez 5 minut. Nie udostępniaj go nikomu.
+          Kod jest ważny przez 1 minutę. Nie udostępniaj go nikomu.
         </p>
         <p style="color: #aaa; text-align: center; font-size: 11px; margin-top: 24px;">
           Jeśli nie próbujesz się zalogować, zignoruj tę wiadomość.
