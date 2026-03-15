@@ -1,6 +1,6 @@
 // Save CMS layout (sections and items ordering/section assignment) with admin check
 // Uses JWT to verify admin and service role to perform updates reliably
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
