@@ -12,9 +12,9 @@ interface MFAChallengeProps {
   onVerified: () => void;
 }
 
-const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_THRESHOLD = 3;
 const LOCKOUT_DURATION_SECONDS = 60;
-const AUTO_LOGOUT_THRESHOLD = 10;
+const AUTO_LOGOUT_THRESHOLD = 5;
 
 export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const { toast } = useToast();
