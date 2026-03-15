@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Loader2, Mail, Smartphone, AlertCircle } from 'lucide-react';
+import { Shield, Loader2, Mail, Smartphone, AlertCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TOTPSetup } from './TOTPSetup';
 import { MFAEmergencyScreen } from './MFAEmergencyScreen';
@@ -11,6 +11,10 @@ import { MFAEmergencyScreen } from './MFAEmergencyScreen';
 interface MFAChallengeProps {
   onVerified: () => void;
 }
+
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_DURATION_SECONDS = 60;
+const AUTO_LOGOUT_THRESHOLD = 10;
 
 export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const { toast } = useToast();
@@ -27,6 +31,57 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const [needsTotpSetup, setNeedsTotpSetup] = useState(false);
   const [showEmergency, setShowEmergency] = useState(false);
   const sendCodeCalledRef = useRef(false);
+  
+  // Lockout state
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  // Lockout countdown timer
+  useEffect(() => {
+    if (!lockoutUntil) return;
+    const interval = setInterval(() => {
+      const remaining = Math.ceil((lockoutUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        setLockoutUntil(null);
+        setLockoutSeconds(0);
+      } else {
+        setLockoutSeconds(remaining);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutUntil]);
+
+  const handleFailedAttempt = useCallback(async () => {
+    const newCount = failedAttempts + 1;
+    setFailedAttempts(newCount);
+
+    if (newCount >= AUTO_LOGOUT_THRESHOLD) {
+      toast({ 
+        title: 'Konto tymczasowo zablokowane', 
+        description: 'Zbyt wiele nieudanych prób. Zostaniesz wylogowany.',
+        variant: 'destructive' 
+      });
+      setTimeout(async () => {
+        await supabase.auth.signOut();
+        window.location.reload();
+      }, 2000);
+      return;
+    }
+
+    if (newCount >= LOCKOUT_THRESHOLD && newCount % LOCKOUT_THRESHOLD === 0) {
+      const until = Date.now() + LOCKOUT_DURATION_SECONDS * 1000;
+      setLockoutUntil(until);
+      setLockoutSeconds(LOCKOUT_DURATION_SECONDS);
+      toast({ 
+        title: 'Tymczasowa blokada', 
+        description: `Zbyt wiele nieudanych prób. Odczekaj ${LOCKOUT_DURATION_SECONDS} sekund.`,
+        variant: 'destructive' 
+      });
+    }
+  }, [failedAttempts, toast]);
+
+  const isLockedOut = lockoutUntil !== null && Date.now() < lockoutUntil;
 
   useEffect(() => {
     const init = async () => {
@@ -39,7 +94,6 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
       }
       setMfaMethod(method);
 
-      // Check for TOTP factors
       const { data, error } = await supabase.auth.mfa.listFactors();
       const hasVerifiedTotp = !error && data?.totp?.some(f => f.status === 'verified');
       
@@ -48,18 +102,14 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
         if (verified) setFactorId(verified.id);
       }
 
-      // If method requires TOTP but user hasn't enrolled yet → show setup
       if ((method === 'totp' || method === 'both') && !hasVerifiedTotp) {
         if (method === 'totp') {
-          // TOTP only — must setup
           setNeedsTotpSetup(true);
           setInitializing(false);
           return;
         }
-        // 'both' but no TOTP — default to email, allow setup later
       }
 
-      // Set default active method and auto-send email code
       if (method === 'email') {
         setActiveMethod('email');
         setInitializing(false);
@@ -98,6 +148,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     try {
       const { data, error } = await supabase.functions.invoke('send-mfa-code');
       if (error) throw error;
+      if (data?.rate_limited) throw new Error(data.error);
       if (data?.error) throw new Error(data.error);
       setMaskedEmail(data?.email || '');
       setCodeSent(true);
@@ -115,20 +166,21 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     try {
       const { data, error } = await supabase.functions.invoke('send-mfa-code');
       if (error) throw error;
+      if (data?.rate_limited) throw new Error(data.error);
       if (data?.error) throw new Error(data.error);
       setMaskedEmail(data?.email || '');
       setCodeSent(true);
       toast({ title: 'Kod wysłany', description: `Sprawdź swoją skrzynkę email (${data?.email || ''})` });
     } catch (err: any) {
       setSendError(err?.message || 'Nie udało się wysłać kodu.');
-      toast({ title: 'Błąd', description: 'Nie udało się wysłać kodu. Spróbuj ponownie.', variant: 'destructive' });
+      toast({ title: 'Błąd', description: err?.message || 'Nie udało się wysłać kodu.', variant: 'destructive' });
     } finally {
       setSendingCode(false);
     }
   };
 
   const handleVerifyTotp = async () => {
-    if (!factorId || code.length !== 6) return;
+    if (!factorId || code.length !== 6 || isLockedOut) return;
     setLoading(true);
     try {
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
@@ -144,19 +196,25 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     } catch {
       toast({ title: 'Błąd weryfikacji', description: 'Nieprawidłowy kod. Spróbuj ponownie.', variant: 'destructive' });
       setCode('');
+      handleFailedAttempt();
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyEmail = async () => {
-    if (code.length !== 6) return;
+    if (code.length !== 6 || isLockedOut) return;
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('verify-mfa-code', {
         body: { code },
       });
       if (error) throw error;
+      if (data?.rate_limited) {
+        toast({ title: 'Zbyt wiele prób', description: data.error, variant: 'destructive' });
+        setCode('');
+        return;
+      }
       if (data?.valid) {
         onVerified();
       } else {
@@ -165,6 +223,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     } catch {
       toast({ title: 'Błąd weryfikacji', description: 'Nieprawidłowy lub wygasły kod. Spróbuj ponownie.', variant: 'destructive' });
       setCode('');
+      handleFailedAttempt();
     } finally {
       setLoading(false);
     }
@@ -186,7 +245,6 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     );
   }
 
-  // Show TOTP enrollment if needed
   if (needsTotpSetup) {
     return (
       <TOTPSetup
@@ -204,7 +262,6 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     );
   }
 
-  // Show emergency screen (reset + support)
   if (showEmergency) {
     return (
       <MFAEmergencyScreen
@@ -232,6 +289,22 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Lockout warning */}
+          {isLockedOut && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
+              <Clock className="w-4 h-4 shrink-0" />
+              <span>Tymczasowa blokada. Spróbuj ponownie za {lockoutSeconds}s.</span>
+            </div>
+          )}
+
+          {/* Failed attempts warning */}
+          {failedAttempts >= 3 && !isLockedOut && (
+            <div className="flex items-center gap-2 p-3 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Nieudane próby: {failedAttempts}/{AUTO_LOGOUT_THRESHOLD}. Po {AUTO_LOGOUT_THRESHOLD} nastąpi wylogowanie.</span>
+            </div>
+          )}
+
           {/* Method selector for 'both' */}
           {mfaMethod === 'both' && (
             <div className="flex gap-2">
@@ -272,7 +345,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
 
           {/* Email: send code button */}
           {activeMethod === 'email' && (!codeSent || sendError) && (
-            <Button onClick={sendEmailCode} disabled={sendingCode} className="w-full">
+            <Button onClick={sendEmailCode} disabled={sendingCode || isLockedOut} className="w-full">
               {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Mail className="w-4 h-4 mr-2" />}
               {sendError ? 'Spróbuj ponownie' : 'Wyślij kod na email'}
             </Button>
@@ -290,11 +363,12 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
                 autoFocus
                 autoComplete="one-time-code"
                 inputMode="numeric"
+                disabled={isLockedOut}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleVerify(); }}
               />
               <Button
                 onClick={handleVerify}
-                disabled={code.length !== 6 || loading || (activeMethod === 'totp' && !factorId)}
+                disabled={code.length !== 6 || loading || (activeMethod === 'totp' && !factorId) || isLockedOut}
                 className="w-full"
               >
                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
@@ -305,13 +379,13 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
 
           {/* Resend for email */}
           {activeMethod === 'email' && codeSent && !sendError && (
-            <Button variant="ghost" size="sm" onClick={sendEmailCode} disabled={sendingCode} className="w-full">
+            <Button variant="ghost" size="sm" onClick={sendEmailCode} disabled={sendingCode || isLockedOut} className="w-full">
               {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               Wyślij kod ponownie
             </Button>
           )}
 
-          {/* Emergency fallback: TOTP users who lost access */}
+          {/* Emergency fallback */}
           {activeMethod === 'totp' && mfaMethod !== 'email' && (
             <Button
               variant="ghost"

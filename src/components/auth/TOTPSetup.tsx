@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, CheckCircle, AlertCircle, RotateCcw, MessageSquare, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { MFAEmergencyScreen } from './MFAEmergencyScreen';
+import QRCode from 'qrcode';
 import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface TOTPSetupProps {
@@ -80,10 +81,22 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
       setSecret(data.totp.secret);
       setFactorId(data.id);
 
+      // Generate QR code locally instead of sending secret to external API
       const label = eqId ? `${eqId} (${userEmail})` : userEmail;
       const customUri = `otpauth://totp/Pure%20Life%20Center:${encodeURIComponent(label)}?secret=${data.totp.secret}&issuer=Pure%20Life%20Center`;
-      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(customUri)}`;
-      setQrCode(qrUrl);
+      
+      try {
+        const qrDataUrl = await QRCode.toDataURL(customUri, {
+          width: 200,
+          margin: 2,
+          color: { dark: '#1a1a2e', light: '#ffffff' },
+        });
+        setQrCode(qrDataUrl);
+      } catch (qrErr) {
+        console.error('[TOTP] QR generation error:', qrErr);
+        // Fallback: show secret only
+        setQrCode(null);
+      }
     } catch (err: any) {
       console.error('[TOTP] Enrollment error:', err);
       setError(err.message || 'Nie udało się zainicjować konfiguracji TOTP');
@@ -121,7 +134,6 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
     }
   };
 
-  // Show emergency screen (reset or support)
   if (emergencyScreen) {
     return (
       <MFAEmergencyScreen
@@ -169,7 +181,7 @@ export const TOTPSetup: React.FC<TOTPSetupProps> = ({ onSetupComplete, onSkipToE
             </div>
           )}
 
-          {/* Always-visible emergency options */}
+          {/* Emergency options */}
           <div className="space-y-3 p-4 rounded-lg border border-amber-500/30 bg-amber-500/5">
             <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm font-medium">
               <AlertTriangle className="w-4 h-4 shrink-0" />

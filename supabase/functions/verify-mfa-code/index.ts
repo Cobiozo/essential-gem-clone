@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const MAX_ATTEMPTS_PER_CODE = 5;
+const RATE_LIMIT_WINDOW_MINUTES = 5;
+const RATE_LIMIT_MAX_VERIFICATIONS = 10;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -30,7 +34,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user
     const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -41,7 +44,33 @@ serve(async (req) => {
       });
     }
 
-    // Find any valid, unexpired code matching the input (race-condition safe)
+    // === RATE LIMITING: max 10 verification attempts per 5 min ===
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const { count: recentAttempts } = await supabaseAdmin
+      .from('mfa_rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('action_type', 'verify_code')
+      .gte('created_at', windowStart);
+
+    if ((recentAttempts ?? 0) >= RATE_LIMIT_MAX_VERIFICATIONS) {
+      console.warn(`[MFA] Verify rate limit exceeded for user ${user.id}`);
+      return new Response(JSON.stringify({ 
+        error: 'Zbyt wiele prób weryfikacji. Odczekaj 5 minut.',
+        valid: false,
+        rate_limited: true 
+      }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Record attempt
+    await supabaseAdmin.from('mfa_rate_limits').insert({
+      user_id: user.id,
+      action_type: 'verify_code',
+    });
+
+    // Find any valid, unexpired code matching the input
     const { data: codeRecord, error: codeError } = await supabaseAdmin
       .from('mfa_email_codes')
       .select('*')
@@ -49,11 +78,33 @@ serve(async (req) => {
       .eq('code', code)
       .eq('used', false)
       .gte('expires_at', new Date().toISOString())
+      .lt('attempts', MAX_ATTEMPTS_PER_CODE)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
     if (codeError || !codeRecord) {
+      // Increment attempts on all active codes for this user (wrong code = attempt on all)
+      await supabaseAdmin.rpc('increment_mfa_code_attempts', { p_user_id: user.id }).catch(() => {
+        // Fallback: increment via direct update
+        supabaseAdmin
+          .from('mfa_email_codes')
+          .select('id, attempts')
+          .eq('user_id', user.id)
+          .eq('used', false)
+          .gte('expires_at', new Date().toISOString())
+          .then(async ({ data: codes }) => {
+            if (codes) {
+              for (const c of codes) {
+                await supabaseAdmin
+                  .from('mfa_email_codes')
+                  .update({ attempts: (c.attempts || 0) + 1, used: (c.attempts || 0) + 1 >= MAX_ATTEMPTS_PER_CODE })
+                  .eq('id', c.id);
+              }
+            }
+          });
+      });
+
       return new Response(JSON.stringify({ error: 'Invalid or expired code', valid: false }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

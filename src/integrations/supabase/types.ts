@@ -4237,6 +4237,7 @@ export type Database = {
       }
       mfa_email_codes: {
         Row: {
+          attempts: number
           code: string
           created_at: string | null
           expires_at: string
@@ -4245,6 +4246,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attempts?: number
           code: string
           created_at?: string | null
           expires_at: string
@@ -4253,6 +4255,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attempts?: number
           code?: string
           created_at?: string | null
           expires_at?: string
@@ -4309,6 +4312,27 @@ export type Database = {
           exempted_by?: string | null
           id?: string
           reason?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mfa_rate_limits: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
           user_id?: string
         }
         Relationships: []

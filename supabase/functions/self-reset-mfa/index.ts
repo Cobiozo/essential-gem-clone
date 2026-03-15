@@ -6,6 +6,10 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+const RATE_LIMIT_MAX_RESETS = 3;
+const MAX_ATTEMPTS_PER_CODE = 5;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -41,7 +45,33 @@ serve(async (req) => {
       });
     }
 
-    // Step 1: Verify the email MFA code
+    // === RATE LIMITING: max 3 reset attempts per 15 min ===
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const { count: recentResets } = await supabaseAdmin
+      .from('mfa_rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('action_type', 'self_reset')
+      .gte('created_at', windowStart);
+
+    if ((recentResets ?? 0) >= RATE_LIMIT_MAX_RESETS) {
+      console.warn(`[self-reset-mfa] Rate limit exceeded for user ${user.id}`);
+      return new Response(JSON.stringify({ 
+        error: 'Zbyt wiele prób resetu. Odczekaj 15 minut.',
+        success: false,
+        rate_limited: true 
+      }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Record attempt
+    await supabaseAdmin.from('mfa_rate_limits').insert({
+      user_id: user.id,
+      action_type: 'self_reset',
+    });
+
+    // Step 1: Verify the email MFA code (with attempt tracking)
     const { data: codeRecord, error: codeError } = await supabaseAdmin
       .from('mfa_email_codes')
       .select('*')
@@ -49,11 +79,32 @@ serve(async (req) => {
       .eq('code', code)
       .eq('used', false)
       .gte('expires_at', new Date().toISOString())
+      .lt('attempts', MAX_ATTEMPTS_PER_CODE)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
     if (codeError || !codeRecord) {
+      // Increment attempts on all active codes
+      const { data: activeCodes } = await supabaseAdmin
+        .from('mfa_email_codes')
+        .select('id, attempts')
+        .eq('user_id', user.id)
+        .eq('used', false)
+        .gte('expires_at', new Date().toISOString());
+
+      if (activeCodes) {
+        for (const c of activeCodes) {
+          await supabaseAdmin
+            .from('mfa_email_codes')
+            .update({ 
+              attempts: (c.attempts || 0) + 1, 
+              used: (c.attempts || 0) + 1 >= MAX_ATTEMPTS_PER_CODE 
+            })
+            .eq('id', c.id);
+        }
+      }
+
       return new Response(JSON.stringify({ error: 'Invalid or expired code', success: false }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -87,7 +138,6 @@ serve(async (req) => {
       ...(factorsData?.totp ?? []),
       ...((factorsData as any)?.factors?.filter((f: any) => f.factor_type === 'totp') ?? []),
     ];
-    // Deduplicate by factor id
     const uniqueFactors = Array.from(new Map(totpFactors.map((f: any) => [f.id, f])).values());
     let deletedCount = 0;
 
@@ -111,7 +161,7 @@ serve(async (req) => {
 
     console.log(`[self-reset-mfa] Deleted ${deletedCount}/${uniqueFactors.length} TOTP factors for user ${user.id}`);
 
-    // Step 3: Log the action (non-blocking, use correct column names)
+    // Step 3: Log the action (non-blocking)
     await supabaseAdmin.from('user_activity_log').insert({
       user_id: user.id,
       action_type: 'mfa_self_reset',
