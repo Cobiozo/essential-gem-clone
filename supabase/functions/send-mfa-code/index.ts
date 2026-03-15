@@ -114,7 +114,6 @@ async function sendSmtpEmail(
     const dataResp = await sendCommand('DATA');
     if (!dataResp.startsWith('354')) throw new Error(`DATA command rejected: ${dataResp}`);
 
-    // Extract domain from sender email for Message-ID
     const senderDomain = settings.from_email.split('@')[1] || 'localhost';
 
     const emailContent = [
@@ -146,6 +145,9 @@ async function sendSmtpEmail(
     if (conn) { try { conn.close(); } catch {} }
   }
 }
+
+const RATE_LIMIT_WINDOW_MINUTES = 15;
+const RATE_LIMIT_MAX_SENDS = 5;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -181,13 +183,33 @@ serve(async (req) => {
       });
     }
 
+    // === RATE LIMITING: max 5 codes per 15 min ===
+    const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString();
+    const { count: recentSends } = await supabaseAdmin
+      .from('mfa_rate_limits')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('action_type', 'send_code')
+      .gte('created_at', windowStart);
+
+    if ((recentSends ?? 0) >= RATE_LIMIT_MAX_SENDS) {
+      console.warn(`[MFA] Rate limit exceeded for user ${user.id}: ${recentSends} sends in ${RATE_LIMIT_WINDOW_MINUTES}min`);
+      return new Response(JSON.stringify({ 
+        error: 'Zbyt wiele prób. Odczekaj 15 minut przed kolejną próbą.',
+        rate_limited: true 
+      }), {
+        status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Record rate limit entry
+    await supabaseAdmin.from('mfa_rate_limits').insert({
+      user_id: user.id,
+      action_type: 'send_code',
+    });
+
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-    // Don't invalidate old codes — prevents race condition where a second
-    // request marks the first (already emailed) code as used before the user
-    // can enter it. All unexpired codes remain valid; verify-mfa-code will
-    // accept any matching unexpired code and then mark ALL as used.
 
     const { error: insertError } = await supabaseAdmin.from('mfa_email_codes').insert({
       user_id: user.id,
@@ -237,7 +259,6 @@ serve(async (req) => {
       </div>
     `;
 
-    // Subject without the code for security and spam score
     const result = await sendSmtpEmail(smtpSettings, userEmail, 'Weryfikacja logowania — Pure Life', emailHtml);
 
     if (!result.success) {
