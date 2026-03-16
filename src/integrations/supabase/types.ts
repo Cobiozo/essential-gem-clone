@@ -2281,6 +2281,8 @@ export type Database = {
           registered_at: string | null
           reminder_sent: boolean | null
           status: string | null
+          thank_you_sent: boolean | null
+          thank_you_sent_at: string | null
           user_id: string
         }
         Insert: {
@@ -2291,6 +2293,8 @@ export type Database = {
           registered_at?: string | null
           reminder_sent?: boolean | null
           status?: string | null
+          thank_you_sent?: boolean | null
+          thank_you_sent_at?: string | null
           user_id: string
         }
         Update: {
@@ -2301,6 +2305,8 @@ export type Database = {
           registered_at?: string | null
           reminder_sent?: boolean | null
           status?: string | null
+          thank_you_sent?: boolean | null
+          thank_you_sent_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -2663,6 +2669,8 @@ export type Database = {
           source: string | null
           status: string | null
           team_contact_id: string | null
+          thank_you_sent: boolean | null
+          thank_you_sent_at: string | null
           updated_at: string | null
         }
         Insert: {
@@ -2693,6 +2701,8 @@ export type Database = {
           source?: string | null
           status?: string | null
           team_contact_id?: string | null
+          thank_you_sent?: boolean | null
+          thank_you_sent_at?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -2723,6 +2733,8 @@ export type Database = {
           source?: string | null
           status?: string | null
           team_contact_id?: string | null
+          thank_you_sent?: boolean | null
+          thank_you_sent_at?: string | null
           updated_at?: string | null
         }
         Relationships: [
