@@ -134,7 +134,8 @@ async function sendSmtpEmail(
     }
     
     // EHLO
-    const ehloResponse = await sendCommand(`EHLO ${smtp_host}`);
+    const senderDomain = fromEmail.split('@')[1] || 'localhost';
+    const ehloResponse = await sendCommand(`EHLO ${senderDomain}`);
     console.log(`[SMTP] EHLO response received`);
     
     if (!ehloResponse.includes('250')) {
@@ -145,10 +146,8 @@ async function sendSmtpEmail(
     if (smtp_encryption === 'starttls' && ehloResponse.includes('STARTTLS')) {
       const starttlsResponse = await sendCommand('STARTTLS');
       if (starttlsResponse.startsWith('220')) {
-        // Upgrade connection to TLS
         conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: smtp_host });
-        // Re-send EHLO after STARTTLS
-        await sendCommand(`EHLO ${smtp_host}`);
+        await sendCommand(`EHLO ${senderDomain}`);
       }
     }
     
