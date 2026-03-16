@@ -435,7 +435,7 @@ export const SecurityDashboard: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Globe className="w-4 h-4" /> Top 5 krajów (7d)
+              <Globe className="w-4 h-4" /> Top 10 krajów (7d)
             </CardTitle>
           </CardHeader>
           <CardContent>
