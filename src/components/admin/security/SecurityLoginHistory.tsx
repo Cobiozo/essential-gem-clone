@@ -140,10 +140,10 @@ export const SecurityLoginHistory: React.FC = () => {
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, email');
-      const map: Record<string, { first_name: string; last_name: string; email: string }> = {};
+        .select('user_id, first_name, last_name, email, eq_id');
+      const map: Record<string, { first_name: string; last_name: string; email: string; eq_id: string }> = {};
       (data || []).forEach(p => {
-        map[p.user_id] = { first_name: p.first_name || '', last_name: p.last_name || '', email: p.email || '' };
+        map[p.user_id] = { first_name: p.first_name || '', last_name: p.last_name || '', email: p.email || '', eq_id: p.eq_id || '' };
       });
       return map;
     },
