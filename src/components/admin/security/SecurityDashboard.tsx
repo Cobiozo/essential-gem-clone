@@ -393,14 +393,15 @@ export const SecurityDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             {stats?.browserDistribution && stats.browserDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={stats.browserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
+                  <Pie data={stats.browserDistribution} dataKey="value" nameKey="name" cx="50%" cy="40%" outerRadius={80} innerRadius={35} label={renderPieLabel} labelLine={true} fontSize={11}>
                     {stats.browserDistribution.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
