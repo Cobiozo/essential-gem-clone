@@ -18,6 +18,7 @@ import {
 import type { TeamContact, TeamContactHistory, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { InviteToEventDialog } from './InviteToEventDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TeamContactAccordionProps {
