@@ -179,6 +179,11 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
       <div className="mt-2 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">{vals.event_title}</span>
         {eventDate && <span className="ml-2">({eventDate})</span>}
+        {vals.alt_email && (
+          <div className="mt-1 text-xs">
+            <span className="font-medium">Alternatywny email:</span> {vals.alt_email}
+          </div>
+        )}
       </div>
     );
   };
