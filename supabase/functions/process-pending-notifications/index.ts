@@ -87,6 +87,7 @@ serve(async (req) => {
     webinarReminders15min: { processed: 0, success: 0, failed: 0 },
     pushReminders: { processed: 0, success: 0, failed: 0 },
     contactReminders: { processed: 0, success: 0, failed: 0 },
+    postEventThankYou: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
@@ -768,9 +769,148 @@ serve(async (req) => {
       }
     }
 
-    // 9. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success;
+    // ===== 9. POST-EVENT THANK YOU EMAILS =====
+    if (!isTimeoutApproaching()) {
+      console.log("[CRON] Step 9: Processing post-event thank you emails...");
+
+      const twoHoursAgo2 = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      const nowIso = new Date().toISOString();
+
+      // Find events that ended within last 2 hours
+      const { data: endedEvents, error: endedErr } = await supabase
+        .from("events")
+        .select("id, title, end_time, host_user_id, created_by")
+        .eq("is_active", true)
+        .gte("end_time", twoHoursAgo2)
+        .lte("end_time", nowIso);
+
+      if (endedErr) {
+        console.error("[CRON] Error fetching ended events:", endedErr);
+      } else if (endedEvents && endedEvents.length > 0) {
+        console.log(`[CRON] Found ${endedEvents.length} recently ended events`);
+
+        for (const event of endedEvents) {
+          if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+
+          // Process registered users (event_registrations)
+          const { data: regs } = await supabase
+            .from("event_registrations")
+            .select("id, user_id, thank_you_sent")
+            .eq("event_id", event.id)
+            .eq("status", "registered")
+            .or("thank_you_sent.eq.false,thank_you_sent.is.null");
+
+          if (regs && regs.length > 0) {
+            for (const reg of regs) {
+              if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+
+              // Get user profile
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("email, first_name, last_name, upline_eq_id")
+                .eq("user_id", reg.user_id)
+                .single();
+
+              if (!profile?.email) continue;
+
+              // Find inviter (upline)
+              let inviterUserId: string | null = null;
+              if (profile.upline_eq_id) {
+                const { data: inviterProfile } = await supabase
+                  .from("profiles")
+                  .select("user_id")
+                  .eq("eq_id", profile.upline_eq_id)
+                  .single();
+                inviterUserId = inviterProfile?.user_id || null;
+              }
+
+              results.postEventThankYou.processed++;
+              if (results.postEventThankYou.processed > 1) await delay(1000);
+
+              try {
+                const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
+                  body: {
+                    event_id: event.id,
+                    recipient_email: profile.email,
+                    recipient_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
+                    event_title: event.title,
+                    inviter_user_id: inviterUserId || event.host_user_id || event.created_by,
+                    source_type: 'event_registration',
+                    source_id: reg.id,
+                  },
+                });
+
+                if (sendErr) {
+                  console.error(`[CRON] Post-event thank you failed for ${profile.email}:`, sendErr);
+                  results.postEventThankYou.failed++;
+                } else {
+                  results.postEventThankYou.success++;
+                  await supabase.from("event_registrations").update({
+                    thank_you_sent: true,
+                    thank_you_sent_at: new Date().toISOString(),
+                  }).eq("id", reg.id);
+                }
+              } catch (err) {
+                console.error("[CRON] Exception post-event thank you:", err);
+                results.postEventThankYou.failed++;
+              }
+            }
+          }
+
+          // Process guest registrations
+          const { data: guestRegs } = await supabase
+            .from("guest_event_registrations")
+            .select("id, email, first_name, last_name, invited_by_user_id, thank_you_sent")
+            .eq("event_id", event.id)
+            .eq("status", "registered")
+            .or("thank_you_sent.eq.false,thank_you_sent.is.null");
+
+          if (guestRegs && guestRegs.length > 0) {
+            for (const guest of guestRegs) {
+              if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+              if (!guest.email) continue;
+
+              results.postEventThankYou.processed++;
+              if (results.postEventThankYou.processed > 1) await delay(1000);
+
+              try {
+                const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
+                  body: {
+                    event_id: event.id,
+                    recipient_email: guest.email,
+                    recipient_name: `${guest.first_name || ''} ${guest.last_name || ''}`.trim(),
+                    event_title: event.title,
+                    inviter_user_id: guest.invited_by_user_id || event.host_user_id || event.created_by,
+                    source_type: 'guest_event_registration',
+                    source_id: guest.id,
+                  },
+                });
+
+                if (sendErr) {
+                  console.error(`[CRON] Guest post-event thank you failed for ${guest.email}:`, sendErr);
+                  results.postEventThankYou.failed++;
+                } else {
+                  results.postEventThankYou.success++;
+                  await supabase.from("guest_event_registrations").update({
+                    thank_you_sent: true,
+                    thank_you_sent_at: new Date().toISOString(),
+                  }).eq("id", guest.id);
+                }
+              } catch (err) {
+                console.error("[CRON] Exception guest post-event thank you:", err);
+                results.postEventThankYou.failed++;
+              }
+            }
+          }
+        }
+      } else {
+        console.log("[CRON] No recently ended events for thank you emails");
+      }
+    }
+
+    // 10. Update job log with results
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed + results.postEventThankYou.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success + results.postEventThankYou.success;
     
     await supabase
       .from("cron_job_logs")

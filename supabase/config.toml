@@ -260,3 +260,6 @@ verify_jwt = false
 
 [functions.track-failed-login]
 verify_jwt = false
+
+[functions.send-post-event-thank-you]
+verify_jwt = false

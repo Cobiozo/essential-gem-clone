@@ -223,15 +223,16 @@ Deno.serve(async (req) => {
 <html>
 <head><meta charset="UTF-8"></head>
 <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Dziękujemy za udział!</h1>
+  <div style="background: linear-gradient(135deg, #D4A843 0%, #B8912A 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+    <img src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png" alt="Pure Life Center" style="max-width: 180px; height: auto; margin-bottom: 15px;" />
+    <h1 style="color: white; margin: 0; font-size: 24px; text-shadow: 0 1px 3px rgba(0,0,0,0.2);">Dziękujemy za udział!</h1>
   </div>
   <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
     <p>Cześć <strong>${guestToken.first_name}</strong>,</p>
     <p>Bardzo dziękujemy za uczestnictwo w spotkaniu <strong>"${eventTitle}"</strong>. Twoja obecność przez ${durationMin} minut była dla nas niezwykle cenna!</p>
     
-    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-      <h3 style="margin-top: 0; color: #667eea;">Twoja osoba kontaktowa:</h3>
+    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #D4A843;">
+      <h3 style="margin-top: 0; color: #D4A843;">Twoja osoba kontaktowa:</h3>
       <p style="margin: 5px 0;"><strong>${inviterName}</strong></p>
       ${inviterEmail ? `<p style="margin: 5px 0;">📧 <a href="mailto:${inviterEmail}">${inviterEmail}</a></p>` : ''}
       ${inviterPhone ? `<p style="margin: 5px 0;">📱 ${inviterPhone}</p>` : ''}
@@ -246,7 +247,7 @@ Deno.serve(async (req) => {
     </ul>
 
     <div style="text-align: center; margin-top: 30px;">
-      ${inviterEmail ? `<a href="mailto:${inviterEmail}?subject=Kontakt po spotkaniu: ${eventTitle}" style="background: #667eea; color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: bold;">Napisz do ${inviterName}</a>` : ''}
+      ${inviterEmail ? `<a href="mailto:${inviterEmail}?subject=Kontakt po spotkaniu: ${eventTitle}" style="background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: bold;">Napisz do ${inviterName}</a>` : ''}
     </div>
 
     <p style="margin-top: 30px; color: #666; font-size: 12px; text-align: center;">
