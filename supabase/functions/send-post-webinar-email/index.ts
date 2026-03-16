@@ -87,14 +87,15 @@ async function sendSmtpEmail(
   }
 
   try {
+    const senderDomain = settings.sender_email.split('@')[1] || 'localhost';
     await readResponse();
-    await sendCommand(`EHLO ${settings.host}`);
+    await sendCommand(`EHLO ${senderDomain}`);
 
     if (settings.encryption_type === "starttls") {
       const r = await sendCommand("STARTTLS");
       if (!r.startsWith("220")) throw new Error("STARTTLS failed");
       conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
-      await sendCommand(`EHLO ${settings.host}`);
+      await sendCommand(`EHLO ${senderDomain}`);
     }
 
     await sendCommand("AUTH LOGIN");
