@@ -117,7 +117,7 @@ function buildGuestInvitationHtml(
   meetingTime: string,
   meetingLink: string
 ): string {
-  const logoUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/training-media/1766508615455-8wv0cee7jwr.png';
+  const logoUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
     <body style="font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #ffffff;">
