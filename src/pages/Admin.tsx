@@ -4646,8 +4646,12 @@ const Admin = () => {
             <ChatPermissionsManagement />
           </TabsContent>
 
-          <TabsContent value="emails">
+           <TabsContent value="emails">
             <EmailTemplatesManagement />
+          </TabsContent>
+
+          <TabsContent value="email-delivery">
+            <EmailDeliveryDashboard />
           </TabsContent>
 
           <TabsContent value="system-health">
