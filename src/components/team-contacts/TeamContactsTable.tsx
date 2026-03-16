@@ -10,10 +10,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Edit, Trash2, History, HelpCircle } from 'lucide-react';
+import { Edit, Trash2, History, HelpCircle, Send } from 'lucide-react';
 import type { TeamContact, TeamContactHistory, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { InviteToEventDialog } from './InviteToEventDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AlertDialog,
@@ -37,6 +38,7 @@ interface TeamContactsTableProps {
   hideEventInfo?: boolean;
   readOnly?: boolean;
   eventContactDetails?: Map<string, EventRegistrationInfo[]>;
+  showInviteButton?: boolean;
 }
 
 export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
@@ -50,10 +52,12 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   hideEventInfo = false,
   readOnly = false,
   eventContactDetails,
+  showInviteButton = false,
 }) => {
   const { t } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
+  const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
   const isTeamMember = contactType === 'team_member';
   const isPrivate = contactType === 'private';
 
@@ -160,6 +164,16 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
+                    {!readOnly && showInviteButton && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setInviteContact(contact)}
+                        title="Zaproś na wydarzenie"
+                      >
+                        <Send className="w-4 h-4 text-primary" />
+                      </Button>
+                    )}
                     {!readOnly && !hideEventInfo && <ContactEventInfoButton contact={contact} />}
                     <Button
                       variant="ghost"
@@ -229,6 +243,15 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
           contact={historyContact}
           getHistory={getContactHistory}
           onClose={() => setHistoryContact(null)}
+        />
+      )}
+
+      {/* Invite to Event Dialog */}
+      {inviteContact && (
+        <InviteToEventDialog
+          contact={inviteContact}
+          open={!!inviteContact}
+          onOpenChange={(open) => !open && setInviteContact(null)}
         />
       )}
     </>

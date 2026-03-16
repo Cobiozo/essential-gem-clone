@@ -26,7 +26,7 @@ interface EventGroupedContactsProps {
   onEdit: (contact: TeamContact) => void;
   onDelete: (id: string) => void;
   getContactHistory: (contactId: string) => Promise<TeamContactHistory[]>;
-  onMoveToOwnList?: (id: string) => void;
+  onMoveToOwnList?: (id: string, force?: boolean) => Promise<boolean | 'duplicate'>;
 }
 
 export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
@@ -42,6 +42,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<string | null>(null);
 
   const toggleGroup = (eventId: string) => {
     setOpenGroups(prev => {
@@ -171,7 +172,12 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => onMoveToOwnList(contact.id)}
+                                  onClick={async () => {
+                                    const result = await onMoveToOwnList(contact.id);
+                                    if (result === 'duplicate') {
+                                      setDuplicateConfirm(contact.id);
+                                    }
+                                  }}
                                   title="Przenieś do Mojej listy"
                                 >
                                   <UserPlus className="w-4 h-4 text-primary" />
@@ -235,6 +241,31 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
               }}
             >
               Usuń
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Duplicate Confirmation Dialog */}
+      <AlertDialog open={!!duplicateConfirm} onOpenChange={() => setDuplicateConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kontakt już istnieje</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kontakt z tym samym adresem email i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (duplicateConfirm && onMoveToOwnList) {
+                  await onMoveToOwnList(duplicateConfirm, true);
+                  setDuplicateConfirm(null);
+                }
+              }}
+            >
+              Zapisz jako nowy
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

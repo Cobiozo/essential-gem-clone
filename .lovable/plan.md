@@ -1,64 +1,29 @@
 
 
-# Plan: Kontakty z zaproszeń + zapraszanie kontaktów na wydarzenia
+## Analiza systemu powiadomień — wynik
 
-## Zakres zmian
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-### 1. Zmiana logiki `moveToOwnList` — sprawdzanie duplikatów
+### Zmiany:
 
-**Plik: `src/hooks/useTeamContacts.ts`**
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-Obecna funkcja `moveToOwnList` po prostu ustawia `moved_to_own_list: true`. Trzeba dodać logikę:
-- Przed przeniesieniem: pobrać email i phone kontaktu
-- Sprawdzić czy w "Moja lista" (kontakty z `moved_to_own_list = true` lub bez `eventContactIds`) istnieje kontakt z tym samym email+phone
-- Jeśli duplikat istnieje → zwrócić informację o duplikacie, nie przenosić automatycznie
-- Jeśli brak duplikatu → przenieść normalnie
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-**Plik: `src/components/team-contacts/EventGroupedContacts.tsx`**
-
-Dodać dialog potwierdzenia przy duplikacie:
-- "Kontakt z tym samym emailem i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?"
-- Opcje: "Zapisz jako nowy" / "Anuluj"
-
-### 2. Przycisk "Zaproś na wydarzenie" przy kontaktach w "Moja lista"
-
-**Nowy komponent: `src/components/team-contacts/InviteToEventDialog.tsx`**
-
-Dialog z listą nadchodzących wydarzeń, na które admin zezwolił na zapraszanie gości (`allow_invites = true`, `is_active = true`, `start_time > now()`):
-- Pobieranie wydarzeń z Supabase: `events` WHERE `allow_invites = true` AND `is_active = true` AND `start_time > NOW()`
-- Wyświetlanie tytułu, daty, typu wydarzenia
-- Po wyborze wydarzenia → wywołanie edge function `send-webinar-confirmation` z danymi kontaktu
-- Jednocześnie rejestracja gościa przez RPC `register_event_guest`
-- Po wysłaniu: gość wchodzi w standardowy harmonogram powiadomień (24h, 12h, 2h, 1h, 15min)
-
-**Pliki do modyfikacji:**
-- `src/components/team-contacts/TeamContactAccordion.tsx` — dodać przycisk `Mail`/`Send` przy każdym kontakcie
-- `src/components/team-contacts/TeamContactsTable.tsx` — analogicznie w widoku tabelarycznym
-
-### 3. Rejestracja gościa z zaproszenia partnera
-
-Po wyborze wydarzenia w dialogu:
-1. Wywołanie `register_event_guest` RPC (jak przy normalnej rejestracji)
-2. Wywołanie `send-webinar-confirmation` z `invitedByUserId` = partner's user_id
-3. Gość dostaje email potwierdzający + kolejne przypomnienia wg harmonogramu CRON
-4. Kontakt pojawia się automatycznie w "Z zaproszeń na wydarzenia" (bo `send-webinar-confirmation` tworzy wpis w `team_contacts`)
-
-### 4. Backend — bez zmian w Edge Functions
-
-`send-webinar-confirmation` już obsługuje pełny flow: tworzenie kontaktu + email + powiadomienia. Wystarczy wywołać go z frontendu z odpowiednimi parametrami.
-
-Jedyna potencjalna zmiana: upewnić się, że `register_event_guest` RPC może być wywołane przez zalogowanego partnera (nie tylko przez anonimowego gościa).
-
----
-
-## Podsumowanie plików do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/useTeamContacts.ts` | Rozbudowa `moveToOwnList` o sprawdzanie duplikatów |
-| `src/components/team-contacts/EventGroupedContacts.tsx` | Dialog duplikatu przy przenoszeniu |
-| `src/components/team-contacts/InviteToEventDialog.tsx` | **NOWY** — dialog wyboru wydarzenia do zaproszenia |
-| `src/components/team-contacts/TeamContactAccordion.tsx` | Przycisk "Zaproś na wydarzenie" |
-| `src/components/team-contacts/TeamContactsTable.tsx` | Przycisk "Zaproś na wydarzenie" |
-| `src/components/team-contacts/TeamContactsTab.tsx` | Przekazanie nowych props |
-
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```

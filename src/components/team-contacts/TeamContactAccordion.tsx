@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Edit, Trash2, History, Phone, Mail, MapPin, Calendar, Package, Bell, User, Users, Save } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash2, History, Phone, Mail, MapPin, Calendar, Package, Bell, User, Users, Save, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
 import type { TeamContact, TeamContactHistory, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { InviteToEventDialog } from './InviteToEventDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface TeamContactAccordionProps {
@@ -32,6 +33,7 @@ interface TeamContactAccordionProps {
   hideEventInfo?: boolean;
   onUpdateNotes?: (contactId: string, notes: string) => Promise<void>;
   eventContactDetails?: Map<string, EventRegistrationInfo[]>;
+  showInviteButton?: boolean;
 }
 
 export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
@@ -46,6 +48,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   hideEventInfo = false,
   onUpdateNotes,
   eventContactDetails,
+  showInviteButton = false,
 }) => {
   const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -54,6 +57,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState<string>('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
 
   const handleSaveNotes = async (contactId: string) => {
     if (!onUpdateNotes) return;
@@ -227,6 +231,19 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                 <div className="flex items-center gap-2">
                   {!readOnly && (
                     <>
+                      {showInviteButton && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInviteContact(contact);
+                          }}
+                          title="Zaproś na wydarzenie"
+                        >
+                          <Send className="w-4 h-4 text-primary" />
+                        </Button>
+                      )}
                       {!hideEventInfo && <ContactEventInfoButton contact={contact} />}
                       <Button
                         variant="ghost"
@@ -501,6 +518,14 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
           contact={historyContact}
           getHistory={getContactHistory}
           onClose={() => setHistoryContact(null)}
+        />
+      )}
+      {/* Invite to Event Dialog */}
+      {inviteContact && (
+        <InviteToEventDialog
+          contact={inviteContact}
+          open={!!inviteContact}
+          onOpenChange={(open) => !open && setInviteContact(null)}
         />
       )}
     </>
