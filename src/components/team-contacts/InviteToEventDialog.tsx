@@ -20,6 +20,15 @@ interface UpcomingEvent {
   start_time: string;
   end_time: string;
   event_type: string;
+  host_name: string | null;
+  image_url: string | null;
+}
+
+interface InviterProfile {
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone_number: string | null;
 }
 
 interface InviteToEventDialogProps {
@@ -38,18 +47,20 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
+  const [inviterProfile, setInviterProfile] = useState<InviterProfile | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !user) return;
     fetchEvents();
-  }, [open]);
+    fetchInviterProfile();
+  }, [open, user]);
 
   const fetchEvents = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, start_time, end_time, event_type')
+        .select('id, title, start_time, end_time, event_type, host_name, image_url')
         .eq('is_active', true)
         .eq('allow_invites', true)
         .gt('start_time', new Date().toISOString())
@@ -64,8 +75,22 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     }
   };
 
+  const fetchInviterProfile = async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email, phone_number')
+        .eq('user_id', user.id)
+        .single();
+      if (data) setInviterProfile(data);
+    } catch (error) {
+      console.error('Error fetching inviter profile:', error);
+    }
+  };
+
   const handleInvite = async (event: UpcomingEvent) => {
-    if (!user || !contact.email) return;
+    if (!user || !contact.email || !inviterProfile) return;
 
     setSending(event.id);
     try {
@@ -82,7 +107,22 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
 
       if (rpcError) throw rpcError;
 
-      // 2. Send confirmation email via edge function
+      // Format date and time in Warsaw timezone
+      const startDate = new Date(event.start_time);
+      const formattedDate = startDate.toLocaleDateString('pl-PL', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Europe/Warsaw',
+      });
+      const formattedTime = startDate.toLocaleTimeString('pl-PL', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Warsaw',
+      });
+
+      // 2. Send confirmation email via edge function with full data
       const { error: fnError } = await supabase.functions.invoke('send-webinar-confirmation', {
         body: {
           email: contact.email,
@@ -90,7 +130,16 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
           lastName: contact.last_name || '',
           phoneNumber: contact.phone_number || '',
           eventId: event.id,
+          eventTitle: event.title,
+          eventDate: event.start_time,
+          eventTime: formattedTime,
+          eventHost: event.host_name || 'Zespół Pure Life',
+          imageUrl: event.image_url || '',
           invitedByUserId: user.id,
+          source: 'partner_invite',
+          inviterName: `${inviterProfile.first_name || ''} ${inviterProfile.last_name || ''}`.trim(),
+          inviterEmail: inviterProfile.email || '',
+          inviterPhone: inviterProfile.phone_number || '',
         },
       });
 
