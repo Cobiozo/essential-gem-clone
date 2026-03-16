@@ -257,3 +257,6 @@ verify_jwt = false
 
 [functions.cleanup-mfa-codes]
 verify_jwt = false
+
+[functions.track-failed-login]
+verify_jwt = false

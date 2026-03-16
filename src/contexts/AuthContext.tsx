@@ -396,6 +396,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) {
       // Jeśli błąd - usuń flagę
       sessionStorage.removeItem('fresh_login');
+      // Track failed login for security module (fire and forget)
+      supabase.functions.invoke('track-failed-login', {
+        body: { email, error_code: error.message, user_agent: navigator.userAgent }
+      }).catch(() => {});
     } else {
       // Track login for security module (fire and forget)
       try {
