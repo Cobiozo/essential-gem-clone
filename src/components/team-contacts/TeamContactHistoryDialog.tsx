@@ -116,6 +116,10 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
       case 'event_registration':
       case 'event_invite_reg':
         return <UserPlus className="w-4 h-4 text-purple-500" />;
+      case 'event_invite_alt_email':
+        return <Mail className="w-4 h-4 text-orange-500" />;
+      case 'event_invite_resend':
+        return <Send className="w-4 h-4 text-blue-500" />;
       default:
         return <History className="w-4 h-4" />;
     }
