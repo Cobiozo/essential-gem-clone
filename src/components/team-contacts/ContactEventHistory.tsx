@@ -11,6 +11,7 @@ interface EventReg {
   event_date: string;
   status: string;
   registered_at: string;
+  source: string | null;
 }
 
 interface ContactEventHistoryProps {
@@ -31,7 +32,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
       try {
         const { data, error } = await supabase
           .from('guest_event_registrations')
-          .select('event_id, status, registered_at, events(title, start_time)')
+          .select('event_id, status, registered_at, source, events(title, start_time)')
           .eq('email', email.toLowerCase().trim())
           .neq('status', 'cancelled')
           .order('registered_at', { ascending: false });
@@ -44,6 +45,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
           event_date: r.events?.start_time || '',
           status: r.status || 'registered',
           registered_at: r.registered_at || '',
+          source: r.source || null,
         }));
 
         setEvents(mapped);
@@ -71,6 +73,21 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
 
   if (events.length === 0) return null;
 
+  const getSourceBadge = (source: string | null) => {
+    if (source === 'partner_invite') {
+      return (
+        <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+          Zaproszony przez partnera
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-xs">
+        Samodzielna rejestracja
+      </Badge>
+    );
+  };
+
   return (
     <>
       <Separator className="my-2" />
@@ -90,19 +107,21 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
               : '';
 
             return (
-              <div key={`${ev.event_id}-${i}`} className="flex items-center justify-between px-3 py-2 text-sm">
+              <div key={`${ev.event_id}-${i}`} className="flex items-center justify-between px-3 py-2 text-sm gap-2">
                 <div className="flex-1 min-w-0">
                   <span className="font-medium text-foreground">{ev.event_title}</span>
                   {eventDate && (
                     <span className="ml-2 text-muted-foreground">({eventDate})</span>
                   )}
                 </div>
-                <Badge
-                  variant={ev.status === 'registered' ? 'default' : 'secondary'}
-                  className="ml-2 shrink-0"
-                >
-                  {ev.status === 'registered' ? 'Zarejestrowany' : ev.status === 'cancelled' ? 'Anulowany' : ev.status}
-                </Badge>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {getSourceBadge(ev.source)}
+                  <Badge
+                    variant={ev.status === 'registered' ? 'default' : 'secondary'}
+                  >
+                    {ev.status === 'registered' ? 'Zarejestrowany' : ev.status === 'cancelled' ? 'Anulowany' : ev.status}
+                  </Badge>
+                </div>
               </div>
             );
           })}

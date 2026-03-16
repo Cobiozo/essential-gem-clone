@@ -158,6 +158,22 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         console.warn('Confirmation email may not have been sent:', fnError);
       }
 
+      // Log to contact history
+      try {
+        await supabase.from('team_contacts_history').insert({
+          contact_id: contact.id,
+          change_type: 'event_invite',
+          new_values: {
+            event_title: event.title,
+            event_id: event.id,
+            event_date: event.start_time,
+          },
+          changed_by: user.id,
+        });
+      } catch (histErr) {
+        console.warn('Failed to log invite to contact history:', histErr);
+      }
+
       // Optimistic update — mark as invited without closing dialog
       setInvitedEventIds((prev) => new Set(prev).add(event.id));
 
