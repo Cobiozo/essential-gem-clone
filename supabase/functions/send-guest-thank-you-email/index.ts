@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
     <p>Bardzo dziękujemy za uczestnictwo w spotkaniu <strong>"${eventTitle}"</strong>. Twoja obecność przez ${durationMin} minut była dla nas niezwykle cenna!</p>
     
     <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-      <h3 style="margin-top: 0; color: #667eea;">Twoja osoba kontaktowa:</h3>
+      <h3 style="margin-top: 0; color: #D4A843;">Twoja osoba kontaktowa:</h3>
       <p style="margin: 5px 0;"><strong>${inviterName}</strong></p>
       ${inviterEmail ? `<p style="margin: 5px 0;">📧 <a href="mailto:${inviterEmail}">${inviterEmail}</a></p>` : ''}
       ${inviterPhone ? `<p style="margin: 5px 0;">📱 ${inviterPhone}</p>` : ''}
