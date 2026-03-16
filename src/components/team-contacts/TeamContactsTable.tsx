@@ -257,6 +257,3 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
     </>
   );
 };
-    </>
-  );
-};
