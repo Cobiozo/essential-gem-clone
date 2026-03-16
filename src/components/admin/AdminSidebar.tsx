@@ -191,6 +191,7 @@ const navCategories: NavCategory[] = [
       { value: 'notifications', labelKey: 'notifications', icon: Bell },
       { value: 'push-notifications', labelKey: 'pushNotifications', icon: Bell },
       { value: 'emails', labelKey: 'email', icon: Mail },
+      { value: 'email-delivery', labelKey: 'emailDelivery', icon: Mail },
       { value: 'support', labelKey: 'support', icon: HelpCircle },
       { value: 'cookies', labelKey: 'cookies', icon: Cookie },
     ],
