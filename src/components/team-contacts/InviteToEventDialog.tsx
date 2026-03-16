@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Loader2, Send } from 'lucide-react';
+import { Calendar, CheckCircle2, Loader2, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -91,6 +91,22 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     }
   };
 
+  const fetchInvitedEvents = async () => {
+    if (!contact.email) return;
+    try {
+      const { data } = await supabase
+        .from('guest_event_registrations')
+        .select('event_id')
+        .eq('email', contact.email)
+        .eq('status', 'registered');
+      if (data) {
+        setInvitedEventIds(new Set(data.map((r) => r.event_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching invited events:', error);
+    }
+  };
+
   const handleInvite = async (event: UpcomingEvent) => {
     if (!user || !contact.email || !inviterProfile) return;
 
@@ -111,13 +127,6 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
 
       // Format date and time in Warsaw timezone
       const startDate = new Date(event.start_time);
-      const formattedDate = startDate.toLocaleDateString('pl-PL', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        timeZone: 'Europe/Warsaw',
-      });
       const formattedTime = startDate.toLocaleTimeString('pl-PL', {
         hour: '2-digit',
         minute: '2-digit',
@@ -149,12 +158,13 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         console.warn('Confirmation email may not have been sent:', fnError);
       }
 
+      // Optimistic update — mark as invited without closing dialog
+      setInvitedEventIds((prev) => new Set(prev).add(event.id));
+
       toast({
         title: 'Zaproszenie wysłane',
         description: `${contact.first_name} ${contact.last_name} został zaproszony na "${event.title}"`,
       });
-
-      onOpenChange(false);
     } catch (error: any) {
       console.error('Error inviting to event:', error);
       toast({
@@ -212,6 +222,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
                 minute: '2-digit',
                 timeZone: 'Europe/Warsaw',
               });
+              const alreadyInvited = invitedEventIds.has(event.id);
 
               return (
                 <div
@@ -227,18 +238,25 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
                       📅 {formattedDate} • {formattedTime}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleInvite(event)}
-                    disabled={sending === event.id || !contact.email}
-                  >
-                    {sending === event.id ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                    <span className="ml-1">Zaproś</span>
-                  </Button>
+                  {alreadyInvited ? (
+                    <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-100 gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      Zaproszenie wysłane
+                    </Badge>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => handleInvite(event)}
+                      disabled={sending === event.id || !contact.email}
+                    >
+                      {sending === event.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      <span className="ml-1">Zaproś</span>
+                    </Button>
+                  )}
                 </div>
               );
             })}
