@@ -48,6 +48,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   hideEventInfo = false,
   onUpdateNotes,
   eventContactDetails,
+  showInviteButton = false,
 }) => {
   const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
