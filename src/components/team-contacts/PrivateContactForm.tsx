@@ -201,6 +201,18 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           />
         </div>
+        {contact?.secondary_email && (
+          <div className="space-y-2">
+            <Label htmlFor="secondary_email">Drugi email</Label>
+            <Input
+              id="secondary_email"
+              type="email"
+              value={contact.secondary_email}
+              readOnly
+              className="bg-muted cursor-not-allowed"
+            />
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">

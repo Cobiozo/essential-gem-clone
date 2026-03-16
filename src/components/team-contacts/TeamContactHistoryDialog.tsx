@@ -8,7 +8,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History, Plus, Edit, Trash2, Send, UserPlus } from 'lucide-react';
+import { History, Plus, Edit, Trash2, Send, UserPlus, Mail } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, TeamContactHistory } from './types';
@@ -116,6 +116,10 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
       case 'event_registration':
       case 'event_invite_reg':
         return <UserPlus className="w-4 h-4 text-purple-500" />;
+      case 'event_invite_alt_email':
+        return <Mail className="w-4 h-4 text-orange-500" />;
+      case 'event_invite_resend':
+        return <Send className="w-4 h-4 text-blue-500" />;
       default:
         return <History className="w-4 h-4" />;
     }
@@ -135,6 +139,10 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         return <Badge className="bg-yellow-100 text-yellow-800">Zaproszony przez partnera</Badge>;
       case 'event_registration':
         return <Badge className="bg-purple-100 text-purple-800">Samodzielna rejestracja</Badge>;
+      case 'event_invite_alt_email':
+        return <Badge className="bg-orange-100 text-orange-800">Wysłano na inny email</Badge>;
+      case 'event_invite_resend':
+        return <Badge className="bg-blue-100 text-blue-800">Ponowne wysłanie</Badge>;
       default:
         return <Badge variant="secondary">{changeType}</Badge>;
     }
@@ -171,6 +179,11 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
       <div className="mt-2 text-sm text-muted-foreground">
         <span className="font-medium text-foreground">{vals.event_title}</span>
         {eventDate && <span className="ml-2">({eventDate})</span>}
+        {vals.alt_email && (
+          <div className="mt-1 text-xs">
+            <span className="font-medium">Alternatywny email:</span> {vals.alt_email}
+          </div>
+        )}
       </div>
     );
   };
@@ -214,7 +227,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
                   </div>
                   
                   {/* Event details for event-related entries */}
-                  {['event_invite', 'event_registration', 'event_invite_reg'].includes(entry.change_type) &&
+                  {['event_invite', 'event_registration', 'event_invite_reg', 'event_invite_alt_email', 'event_invite_resend'].includes(entry.change_type) &&
                     renderEventDetails(entry)}
                   
                   {/* Field-level changes for updates */}

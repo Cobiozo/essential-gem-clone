@@ -270,10 +270,11 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
       await sendConfirmationEmail(event, altEmailValue.trim(), contact.first_name, contact.last_name || '', contact.phone_number || '');
 
       // Save as secondary_email on contact
-      await supabase
+      const { error: updateError } = await supabase
         .from('team_contacts')
         .update({ secondary_email: altEmailValue.trim() } as any)
         .eq('id', contact.id);
+      if (updateError) throw updateError;
 
       await logToHistory('event_invite_alt_email', {
         event_title: event.title,

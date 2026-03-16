@@ -1,42 +1,29 @@
 
 
-# Fix: Alternatywny email — zapis, historia, wyświetlanie
+## Analiza systemu powiadomień — wynik
 
-## Problemy
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-1. **Update `secondary_email` nie sprawdza błędu** — `await supabase.update()` nie ma `.then()` ani destructuring `{ error }`, więc błąd jest cichy
-2. **`event_invite_alt_email` nie jest obsługiwany w historii** — brak ikony, badge i renderowania alt_email w `TeamContactHistoryDialog`
-3. **`secondary_email` nie jest wyświetlany w formularzu kontaktu** — pole nie istnieje w `PrivateContactForm`
+### Zmiany:
 
-## Zmiany
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-### 1. `InviteToEventDialog.tsx` — dodać obsługę błędu update
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-Linia 273-276: destructure `{ error }` z update i rzuć wyjątek jeśli wystąpi:
-```typescript
-const { error: updateError } = await supabase
-  .from('team_contacts')
-  .update({ secondary_email: altEmailValue.trim() })
-  .eq('id', contact.id);
-if (updateError) throw updateError;
+### Flow gościa (po zmianach):
 ```
-
-### 2. `TeamContactHistoryDialog.tsx` — obsługa `event_invite_alt_email`
-
-- `getChangeIcon`: dodać case `'event_invite_alt_email'` → ikona `Mail` (pomarańczowa)
-- `getChangeBadge`: dodać case → badge "Wysłano na inny email"
-- `renderEventDetails`: dodać wyświetlanie `vals.alt_email` gdy obecne
-- Dodać `'event_invite_alt_email'` do listy event-related change types
-
-### 3. `PrivateContactForm.tsx` — pole `secondary_email`
-
-- Dodać `secondary_email` do `formData` state
-- Dodać pole readonly pod emailem: "Drugi email" z wartością z `contact.secondary_email`
-- Pole readonly (ustawiane automatycznie przez zaproszenie, nie edytowalne ręcznie) — lub edytowalne, zależy od preferencji
-
-| Plik | Zmiana |
-|------|--------|
-| `InviteToEventDialog.tsx` | Error handling na update secondary_email |
-| `TeamContactHistoryDialog.tsx` | Obsługa `event_invite_alt_email` + wyświetlanie alt_email |
-| `PrivateContactForm.tsx` | Wyświetlanie pola `secondary_email` |
-
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+```
