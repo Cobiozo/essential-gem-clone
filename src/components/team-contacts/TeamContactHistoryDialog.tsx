@@ -8,7 +8,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { History, Plus, Edit, Trash2, Send, UserPlus } from 'lucide-react';
+import { History, Plus, Edit, Trash2, Send, UserPlus, Mail } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, TeamContactHistory } from './types';
