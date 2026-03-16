@@ -52,10 +52,12 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
   hideEventInfo = false,
   readOnly = false,
   eventContactDetails,
+  showInviteButton = false,
 }) => {
   const { t } = useLanguage();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
+  const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
   const isTeamMember = contactType === 'team_member';
   const isPrivate = contactType === 'private';
 
