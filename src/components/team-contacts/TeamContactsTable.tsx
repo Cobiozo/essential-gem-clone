@@ -245,6 +245,18 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
           onClose={() => setHistoryContact(null)}
         />
       )}
+
+      {/* Invite to Event Dialog */}
+      {inviteContact && (
+        <InviteToEventDialog
+          contact={inviteContact}
+          open={!!inviteContact}
+          onOpenChange={(open) => !open && setInviteContact(null)}
+        />
+      )}
+    </>
+  );
+};
     </>
   );
 };
