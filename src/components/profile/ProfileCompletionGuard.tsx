@@ -11,20 +11,10 @@ interface ProfileCompletionGuardProps {
 }
 
 export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ children }) => {
-  const { user, profile, loading, rolesReady } = useAuth();
-  const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
   const location = useLocation();
   
-  // Track if profile was ever loaded - prevents spinner on tab switch
-  const [hadProfile, setHadProfile] = useState(false);
-  
-  useEffect(() => {
-    if (profile) {
-      setHadProfile(true);
-    }
-  }, [profile]);
-  
-  // Lista tras publicznych (dozwolone bez logowania)
+  // PUBLIC PATH CHECK FIRST — before any auth hooks to prevent race conditions
+  // This is critical for Messenger/Facebook WebView which may have stale sessions
   const PUBLIC_PATHS = [
     '/',           // Strona główna - publiczna (CMS)
     '/auth',       // Panel logowania
@@ -39,7 +29,6 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     '/auto-webinar/watch/', // Public auto-webinar watch page
   ];
   
-  // Sprawdź czy ścieżka jest publiczna
   const isPublicPath = PUBLIC_PATHS.some(path => {
     if (path === '/') {
       return location.pathname === '/';
@@ -47,7 +36,6 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
     return location.pathname === path || location.pathname.startsWith(path);
   });
 
-  // Detect partner pages: single-segment paths that are not known app routes
   const KNOWN_APP_ROUTES = [
     '/auth', '/admin', '/dashboard', '/my-account', '/training',
     '/knowledge', '/messages', '/calculator', '/paid-events',
@@ -60,10 +48,29 @@ export const ProfileCompletionGuard: React.FC<ProfileCompletionGuardProps> = ({ 
   );
   const isPartnerPage = isSingleSegmentPath && !isKnownRoute;
   
-  // Jeśli to ścieżka publiczna lub strona partnerska, przepuść bez sprawdzania
+  // Bypass ALL auth logic for public paths and partner pages
   if (isPublicPath || isPartnerPage) {
     return <>{children}</>;
   }
+
+  // Auth hooks only used for non-public paths
+  return <ProtectedRouteGuard>{children}</ProtectedRouteGuard>;
+};
+
+// Separated component so auth hooks are only called for protected routes
+const ProtectedRouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, profile, loading, rolesReady } = useAuth();
+  const { isComplete, missingFields, isSpecialist } = useProfileCompletion();
+  const location = useLocation();
+  
+  // Track if profile was ever loaded - prevents spinner on tab switch
+  const [hadProfile, setHadProfile] = useState(false);
+  
+  useEffect(() => {
+    if (profile) {
+      setHadProfile(true);
+    }
+  }, [profile]);
   
   // GUARD: Wait for roles to be ready before any navigation decisions
   // This prevents React Error #306 by ensuring auth state is complete

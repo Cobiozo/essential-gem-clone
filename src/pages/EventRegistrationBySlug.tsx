@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -8,14 +8,27 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
  * Resolves slug → event UUID and ref (eq_id) → user UUID,
  * then redirects to the existing EventGuestRegistration page.
  * For auto_webinar events, logs invitation clicks with tracking codes.
+ * 
+ * Includes special handling for Messenger/Facebook in-app WebView
+ * which can have stale sessions causing redirect race conditions.
  */
+
+const isInAppWebView = () =>
+  /FBAN|FBAV|Messenger|Instagram|LinkedInApp/i.test(navigator.userAgent);
+
 const EventRegistrationBySlug: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const resolvedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent double-execution on remount (React StrictMode / guard re-renders)
+    if (resolvedRef.current) return;
+
+    const abortController = new AbortController();
+
     const resolve = async () => {
       if (!slug) {
         setError('Brak identyfikatora wydarzenia.');
@@ -30,6 +43,8 @@ const EventRegistrationBySlug: React.FC = () => {
         .eq('is_active', true)
         .maybeSingle();
 
+      if (abortController.signal.aborted) return;
+
       if (eventError || !event) {
         setError('Nie znaleziono wydarzenia.');
         return;
@@ -41,8 +56,13 @@ const EventRegistrationBySlug: React.FC = () => {
       const lang = searchParams.get('lang');
 
       if (event.event_type === 'auto_webinar' && !ref) {
-        // Guest already registered, coming from email — go directly to watch page
-        navigate(`/auto-webinar/watch/${slug}`, { replace: true });
+        resolvedRef.current = true;
+        const target = `/auto-webinar/watch/${slug}`;
+        if (isInAppWebView()) {
+          window.location.replace(target);
+        } else {
+          navigate(target, { replace: true });
+        }
         return;
       }
 
@@ -62,6 +82,8 @@ const EventRegistrationBySlug: React.FC = () => {
             });
         }
 
+        if (abortController.signal.aborted) return;
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('user_id')
@@ -73,6 +95,8 @@ const EventRegistrationBySlug: React.FC = () => {
         }
       }
 
+      if (abortController.signal.aborted) return;
+
       if (slot) {
         redirectParams.set('slot', slot);
       }
@@ -82,11 +106,24 @@ const EventRegistrationBySlug: React.FC = () => {
       }
 
       // 3. Redirect to existing registration page
+      resolvedRef.current = true;
       const qs = redirectParams.toString();
-      navigate(`/events/register/${event.id}${qs ? `?${qs}` : ''}`, { replace: true });
+      const target = `/events/register/${event.id}${qs ? `?${qs}` : ''}`;
+
+      // Use window.location for in-app WebViews (Messenger, Instagram, etc.)
+      // to bypass React Router state issues with stale auth sessions
+      if (isInAppWebView()) {
+        window.location.replace(target);
+      } else {
+        navigate(target, { replace: true });
+      }
     };
 
     resolve();
+
+    return () => {
+      abortController.abort();
+    };
   }, [slug, searchParams, navigate]);
 
   if (error) {
