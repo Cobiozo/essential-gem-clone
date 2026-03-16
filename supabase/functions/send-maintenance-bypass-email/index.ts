@@ -112,22 +112,38 @@ async function sendSmtpEmail(
     }
 
     // MAIL FROM
-    await sendCommand(conn, `MAIL FROM:<${settings.from_email}>`);
+    const mailFromResp = await sendCommand(conn, `MAIL FROM:<${settings.from_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
 
     // RCPT TO
-    await sendCommand(conn, `RCPT TO:<${to}>`);
+    const rcptResp = await sendCommand(conn, `RCPT TO:<${to}>`);
+    if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
 
     // DATA
-    await sendCommand(conn, 'DATA');
+    const dataResp = await sendCommand(conn, 'DATA');
+    if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
 
     // Email content
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     const emailContent = [
-      `From: ${settings.from_name} <${settings.from_email}>`,
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `From: "${settings.from_name}" <${settings.from_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${settings.from_email}>`,
+      `Return-Path: <${settings.from_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(plainText),
       ``,
       `--${boundary}`,
       `Content-Type: text/html; charset=UTF-8`,

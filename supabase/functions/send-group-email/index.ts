@@ -190,19 +190,25 @@ async function sendSmtpEmail(
     
     // Build email message
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     const emailMessage = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
       `From: "${fromName}" <${fromEmail}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${fromEmail}>`,
+      `Return-Path: <${fromEmail}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      `Date: ${new Date().toUTCString()}`,
       ``,
       `--${boundary}`,
       `Content-Type: text/plain; charset=UTF-8`,
       `Content-Transfer-Encoding: base64`,
       ``,
-      base64Encode(htmlContent.replace(/<[^>]*>/g, '')),
+      base64Encode(plainText),
       ``,
       `--${boundary}`,
       `Content-Type: text/html; charset=UTF-8`,

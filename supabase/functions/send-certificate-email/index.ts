@@ -123,19 +123,25 @@ async function sendSmtpEmail(
     if (!dataResponse.startsWith('354')) throw new Error(`DATA command rejected: ${dataResponse}`);
     
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     const emailMessage = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
       `From: =?UTF-8?B?${base64EncodeUtf8(fromName)}?= <${fromEmail}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64EncodeUtf8(subject)}?=`,
+      `Reply-To: <${fromEmail}>`,
+      `Return-Path: <${fromEmail}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      `Date: ${new Date().toUTCString()}`,
       ``,
       `--${boundary}`,
       `Content-Type: text/plain; charset=UTF-8`,
       `Content-Transfer-Encoding: base64`,
       ``,
-      base64EncodeUtf8(htmlContent.replace(/<[^>]*>/g, '')),
+      base64EncodeUtf8(plainText),
       ``,
       `--${boundary}`,
       `Content-Type: text/html; charset=UTF-8`,

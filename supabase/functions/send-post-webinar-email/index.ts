@@ -105,20 +105,28 @@ async function sendSmtpEmail(
       throw new Error(`Auth failed: ${authRes}`);
     }
 
-    await sendCommand(`MAIL FROM:<${settings.sender_email}>`);
-    await sendCommand(`RCPT TO:<${to}>`);
-    await sendCommand("DATA");
+    const mailFromResp = await sendCommand(`MAIL FROM:<${settings.sender_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
+    const rcptResp = await sendCommand(`RCPT TO:<${to}>`);
+    if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
+    const dataResp = await sendCommand("DATA");
+    if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
 
     const hasAttachments = attachments && attachments.length > 0;
     const mixedBoundary = `----=_Mixed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const altBoundary = `----=_Alt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
 
     const headers = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
       `From: "${settings.sender_name}" <${settings.sender_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${settings.sender_email}>`,
+      `Return-Path: <${settings.sender_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
       `MIME-Version: 1.0`,
-      `Date: ${new Date().toUTCString()}`,
     ];
 
     const parts: string[] = [];
