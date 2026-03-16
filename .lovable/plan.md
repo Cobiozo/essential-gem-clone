@@ -1,29 +1,32 @@
 
 
-## Analiza systemu powiadomień — wynik
+# Plan: Przycisk "Zaproś" aktywny tylko dla zapisanych użytkowników
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+## Obecny stan
+- Przycisk "Zaproś" / "Zaproś Gościa" pojawia się gdy `allow_invites === true` i wydarzenie jest nadchodzące
+- Nie sprawdza czy użytkownik jest zapisany na to wydarzenie
+- W `MyMeetingsWidget` problem nie występuje — widżet wyświetla tylko wydarzenia z `is_registered === true`
 
-### Zmiany:
+## Zmiany
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+### 1. `EventCard.tsx` (linia ~425)
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+Zmienić warunek przycisku "Zaproś Gościa":
+- Jeśli `!isRegistered` → przycisk z `variant="outline"` + `opacity-50` + onClick wyświetla toast: *"Musisz być zapisany/a na to wydarzenie, aby móc zapraszać gości."*
+- Jeśli `isRegistered` → obecne zachowanie (kopiuje zaproszenie)
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-```
+### 2. `EventCardCompact.tsx` (linia ~586)
+
+Identyczna zmiana jak w EventCard — przycisk "Zaproś" nieaktywny wizualnie gdy `!isRegistered`, z komunikatem toast po kliknięciu.
+
+### 3. `MyMeetingsWidget.tsx` — bez zmian
+
+Widżet już filtruje do `is_registered`, więc przycisk zawsze dotyczy zapisanych wydarzeń.
+
+### Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/events/EventCard.tsx` | Toast zamiast kopiowania gdy niezapisany |
+| `src/components/events/EventCardCompact.tsx` | Toast zamiast kopiowania gdy niezapisany |
+
