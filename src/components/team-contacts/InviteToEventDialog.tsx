@@ -48,11 +48,13 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
   const [inviterProfile, setInviterProfile] = useState<InviterProfile | null>(null);
+  const [invitedEventIds, setInvitedEventIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!open || !user) return;
     fetchEvents();
     fetchInviterProfile();
+    fetchInvitedEvents();
   }, [open, user]);
 
   const fetchEvents = async () => {
