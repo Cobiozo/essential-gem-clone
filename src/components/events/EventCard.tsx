@@ -429,7 +429,18 @@ ${labels.signUp}: ${inviteUrl}
           <Button
             variant="outline"
             size="sm"
-            onClick={handleCopyInvitation}
+            className={!isRegistered ? 'opacity-50' : ''}
+            onClick={() => {
+              if (!isRegistered) {
+                toast({
+                  title: 'Wymagana rejestracja',
+                  description: 'Musisz być zapisany/a na to wydarzenie, aby móc zapraszać gości.',
+                  variant: 'destructive',
+                });
+                return;
+              }
+              handleCopyInvitation();
+            }}
           >
             <UserPlus className="h-4 w-4 mr-2" />
             Zaproś Gościa
