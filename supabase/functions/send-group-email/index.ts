@@ -134,7 +134,8 @@ async function sendSmtpEmail(
     }
     
     // EHLO
-    const ehloResponse = await sendCommand(`EHLO ${smtp_host}`);
+    const senderDomain = fromEmail.split('@')[1] || 'localhost';
+    const ehloResponse = await sendCommand(`EHLO ${senderDomain}`);
     console.log(`[SMTP] EHLO response received`);
     
     if (!ehloResponse.includes('250')) {
@@ -145,10 +146,8 @@ async function sendSmtpEmail(
     if (smtp_encryption === 'starttls' && ehloResponse.includes('STARTTLS')) {
       const starttlsResponse = await sendCommand('STARTTLS');
       if (starttlsResponse.startsWith('220')) {
-        // Upgrade connection to TLS
         conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: smtp_host });
-        // Re-send EHLO after STARTTLS
-        await sendCommand(`EHLO ${smtp_host}`);
+        await sendCommand(`EHLO ${senderDomain}`);
       }
     }
     
@@ -191,19 +190,25 @@ async function sendSmtpEmail(
     
     // Build email message
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
     const emailMessage = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
       `From: "${fromName}" <${fromEmail}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${fromEmail}>`,
+      `Return-Path: <${fromEmail}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
       `MIME-Version: 1.0`,
       `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      `Date: ${new Date().toUTCString()}`,
       ``,
       `--${boundary}`,
       `Content-Type: text/plain; charset=UTF-8`,
       `Content-Transfer-Encoding: base64`,
       ``,
-      base64Encode(htmlContent.replace(/<[^>]*>/g, '')),
+      base64Encode(plainText),
       ``,
       `--${boundary}`,
       `Content-Type: text/html; charset=UTF-8`,
