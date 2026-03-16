@@ -33,6 +33,7 @@ interface TeamContactAccordionProps {
   hideEventInfo?: boolean;
   onUpdateNotes?: (contactId: string, notes: string) => Promise<void>;
   eventContactDetails?: Map<string, EventRegistrationInfo[]>;
+  showInviteButton?: boolean;
 }
 
 export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
