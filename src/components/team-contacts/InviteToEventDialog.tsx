@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, CheckCircle2, Loader2, Send } from 'lucide-react';
+import { Calendar, CheckCircle2, Loader2, Mail, RefreshCw, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   Dialog,
   DialogContent,
@@ -47,14 +48,20 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
   const [inviterProfile, setInviterProfile] = useState<InviterProfile | null>(null);
   const [invitedEventIds, setInvitedEventIds] = useState<Set<string>>(new Set());
+  const [altEmailEventId, setAltEmailEventId] = useState<string | null>(null);
+  const [altEmailValue, setAltEmailValue] = useState('');
+  const [sendingAltEmail, setSendingAltEmail] = useState(false);
 
   useEffect(() => {
     if (!open || !user) return;
     fetchEvents();
     fetchInviterProfile();
     fetchInvitedEvents();
+    setAltEmailEventId(null);
+    setAltEmailValue('');
   }, [open, user]);
 
   const fetchEvents = async () => {
@@ -107,12 +114,66 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     }
   };
 
+  const formatEventDateTime = (startTime: string) => {
+    const date = new Date(startTime);
+    return {
+      formattedDate: date.toLocaleDateString('pl-PL', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+      }),
+      formattedTime: date.toLocaleTimeString('pl-PL', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'Europe/Warsaw',
+      }),
+    };
+  };
+
+  const sendConfirmationEmail = async (event: UpcomingEvent, email: string, firstName: string, lastName: string, phoneNumber: string) => {
+    if (!user || !inviterProfile) return;
+    const { formattedTime } = formatEventDateTime(event.start_time);
+
+    await supabase.functions.invoke('send-webinar-confirmation', {
+      body: {
+        email,
+        firstName,
+        lastName,
+        phoneNumber,
+        eventId: event.id,
+        eventTitle: event.title,
+        eventDate: event.start_time,
+        eventTime: formattedTime,
+        eventHost: event.host_name || 'Zespół Pure Life',
+        imageUrl: event.image_url || '',
+        invitedByUserId: user.id,
+        source: 'partner_invite',
+        inviterName: `${inviterProfile.first_name || ''} ${inviterProfile.last_name || ''}`.trim(),
+        inviterEmail: inviterProfile.email || '',
+        inviterPhone: inviterProfile.phone_number || '',
+      },
+    });
+  };
+
+  const logToHistory = async (changeType: string, newValues: Record<string, any>) => {
+    if (!user) return;
+    try {
+      await supabase.from('team_contacts_history').insert({
+        contact_id: contact.id,
+        change_type: changeType,
+        new_values: newValues,
+        changed_by: user.id,
+      });
+    } catch (err) {
+      console.warn('Failed to log to contact history:', err);
+    }
+  };
+
   const handleInvite = async (event: UpcomingEvent) => {
     if (!user || !contact.email || !inviterProfile) return;
 
     setSending(event.id);
     try {
-      // 1. Register guest via RPC
       const { error: rpcError } = await supabase.rpc('register_event_guest', {
         p_event_id: event.id,
         p_email: contact.email,
@@ -125,56 +186,14 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
 
       if (rpcError) throw rpcError;
 
-      // Format date and time in Warsaw timezone
-      const startDate = new Date(event.start_time);
-      const formattedTime = startDate.toLocaleTimeString('pl-PL', {
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Europe/Warsaw',
+      await sendConfirmationEmail(event, contact.email, contact.first_name, contact.last_name || '', contact.phone_number || '');
+
+      await logToHistory('event_invite', {
+        event_title: event.title,
+        event_id: event.id,
+        event_date: event.start_time,
       });
 
-      // 2. Send confirmation email via edge function with full data
-      const { error: fnError } = await supabase.functions.invoke('send-webinar-confirmation', {
-        body: {
-          email: contact.email,
-          firstName: contact.first_name,
-          lastName: contact.last_name || '',
-          phoneNumber: contact.phone_number || '',
-          eventId: event.id,
-          eventTitle: event.title,
-          eventDate: event.start_time,
-          eventTime: formattedTime,
-          eventHost: event.host_name || 'Zespół Pure Life',
-          imageUrl: event.image_url || '',
-          invitedByUserId: user.id,
-          source: 'partner_invite',
-          inviterName: `${inviterProfile.first_name || ''} ${inviterProfile.last_name || ''}`.trim(),
-          inviterEmail: inviterProfile.email || '',
-          inviterPhone: inviterProfile.phone_number || '',
-        },
-      });
-
-      if (fnError) {
-        console.warn('Confirmation email may not have been sent:', fnError);
-      }
-
-      // Log to contact history
-      try {
-        await supabase.from('team_contacts_history').insert({
-          contact_id: contact.id,
-          change_type: 'event_invite',
-          new_values: {
-            event_title: event.title,
-            event_id: event.id,
-            event_date: event.start_time,
-          },
-          changed_by: user.id,
-        });
-      } catch (histErr) {
-        console.warn('Failed to log invite to contact history:', histErr);
-      }
-
-      // Optimistic update — mark as invited without closing dialog
       setInvitedEventIds((prev) => new Set(prev).add(event.id));
 
       toast({
@@ -190,6 +209,95 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
       });
     } finally {
       setSending(null);
+    }
+  };
+
+  const handleResend = async (event: UpcomingEvent) => {
+    if (!user || !contact.email || !inviterProfile) return;
+
+    setResending(event.id);
+    try {
+      await sendConfirmationEmail(event, contact.email, contact.first_name, contact.last_name || '', contact.phone_number || '');
+
+      await logToHistory('event_invite_resend', {
+        event_title: event.title,
+        event_id: event.id,
+        event_date: event.start_time,
+        email: contact.email,
+      });
+
+      toast({
+        title: 'Zaproszenie wysłane ponownie',
+        description: `E-mail z zaproszeniem na "${event.title}" został wysłany ponownie`,
+      });
+    } catch (error: any) {
+      console.error('Error resending invite:', error);
+      toast({
+        title: 'Błąd',
+        description: error.message || 'Nie udało się wysłać ponownie',
+        variant: 'destructive',
+      });
+    } finally {
+      setResending(null);
+    }
+  };
+
+  const handleSendToAltEmail = async (event: UpcomingEvent) => {
+    if (!user || !inviterProfile || !altEmailValue.trim()) return;
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(altEmailValue.trim())) {
+      toast({ title: 'Błąd', description: 'Podaj prawidłowy adres email', variant: 'destructive' });
+      return;
+    }
+
+    setSendingAltEmail(true);
+    try {
+      // Register guest with alternate email
+      const { error: rpcError } = await supabase.rpc('register_event_guest', {
+        p_event_id: event.id,
+        p_email: altEmailValue.trim(),
+        p_first_name: contact.first_name,
+        p_last_name: contact.last_name || undefined,
+        p_phone: contact.phone_number || undefined,
+        p_invited_by: user.id,
+        p_source: 'partner_invite',
+      });
+
+      if (rpcError) throw rpcError;
+
+      // Send confirmation to alternate email
+      await sendConfirmationEmail(event, altEmailValue.trim(), contact.first_name, contact.last_name || '', contact.phone_number || '');
+
+      // Save as secondary_email on contact
+      await supabase
+        .from('team_contacts')
+        .update({ secondary_email: altEmailValue.trim() } as any)
+        .eq('id', contact.id);
+
+      await logToHistory('event_invite_alt_email', {
+        event_title: event.title,
+        event_id: event.id,
+        event_date: event.start_time,
+        alt_email: altEmailValue.trim(),
+      });
+
+      toast({
+        title: 'Zaproszenie wysłane na inny email',
+        description: `Zaproszenie na "${event.title}" wysłane na ${altEmailValue.trim()}. Email zapisany jako drugi adres kontaktu.`,
+      });
+
+      setAltEmailEventId(null);
+      setAltEmailValue('');
+    } catch (error: any) {
+      console.error('Error sending to alt email:', error);
+      toast({
+        title: 'Błąd',
+        description: error.message || 'Nie udało się wysłać na alternatywny email',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingAltEmail(false);
     }
   };
 
@@ -227,51 +335,100 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         ) : (
           <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {events.map((event) => {
-              const date = new Date(event.start_time);
-              const formattedDate = date.toLocaleDateString('pl-PL', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-              });
-              const formattedTime = date.toLocaleTimeString('pl-PL', {
-                hour: '2-digit',
-                minute: '2-digit',
-                timeZone: 'Europe/Warsaw',
-              });
+              const { formattedDate, formattedTime } = formatEventDateTime(event.start_time);
               const alreadyInvited = invitedEventIds.has(event.id);
 
               return (
                 <div
                   key={event.id}
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="p-3 rounded-lg border hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-foreground">{event.title}</span>
-                      {getEventTypeBadge(event.event_type)}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-foreground">{event.title}</span>
+                        {getEventTypeBadge(event.event_type)}
+                      </div>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        📅 {formattedDate} • {formattedTime}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      📅 {formattedDate} • {formattedTime}
-                    </p>
+                    {!alreadyInvited && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleInvite(event)}
+                        disabled={sending === event.id || !contact.email}
+                      >
+                        {sending === event.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Send className="w-4 h-4" />
+                        )}
+                        <span className="ml-1">Zaproś</span>
+                      </Button>
+                    )}
                   </div>
-                  {alreadyInvited ? (
-                    <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-100 gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Zaproszenie wysłane
-                    </Badge>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => handleInvite(event)}
-                      disabled={sending === event.id || !contact.email}
-                    >
-                      {sending === event.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Send className="w-4 h-4" />
+
+                  {alreadyInvited && (
+                    <div className="mt-2 space-y-2">
+                      <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-100 gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Zaproszenie wysłane
+                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleResend(event)}
+                          disabled={resending === event.id}
+                          className="text-xs h-7"
+                        >
+                          {resending === event.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                          )}
+                          Wyślij ponownie
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setAltEmailEventId(altEmailEventId === event.id ? null : event.id);
+                            setAltEmailValue('');
+                          }}
+                          className="text-xs h-7"
+                        >
+                          <Mail className="w-3 h-3 mr-1" />
+                          Wyślij na inny email
+                        </Button>
+                      </div>
+
+                      {altEmailEventId === event.id && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Input
+                            type="email"
+                            placeholder="Podaj alternatywny email"
+                            value={altEmailValue}
+                            onChange={(e) => setAltEmailValue(e.target.value)}
+                            className="h-8 text-sm"
+                          />
+                          <Button
+                            size="sm"
+                            onClick={() => handleSendToAltEmail(event)}
+                            disabled={sendingAltEmail || !altEmailValue.trim()}
+                            className="h-8 text-xs whitespace-nowrap"
+                          >
+                            {sendingAltEmail ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Send className="w-3 h-3" />
+                            )}
+                            <span className="ml-1">Wyślij</span>
+                          </Button>
+                        </div>
                       )}
-                      <span className="ml-1">Zaproś</span>
-                    </Button>
+                    </div>
                   )}
                 </div>
               );
