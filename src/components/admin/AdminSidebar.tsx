@@ -259,6 +259,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     leaderPanel: 'Panel Lidera',
     platformTeams: 'Zespoły platformy',
     security: 'Bezpieczeństwo',
+    emailDelivery: 'Dostarczalność e-mail',
   };
 
   const getLabel = (key: string): string => {
