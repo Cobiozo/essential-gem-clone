@@ -82,12 +82,6 @@ export const SecurityLoginHistory: React.FC = () => {
         query = query.eq('is_suspicious', false);
       }
 
-      if (filterStatus === 'success') {
-        query = query.eq('login_status' as any, 'success');
-      } else if (filterStatus === 'failed') {
-        query = query.eq('login_status' as any, 'failed');
-      }
-
       if (dateFrom) {
         query = query.gte('login_at', dateFrom.toISOString());
       }
@@ -99,6 +93,13 @@ export const SecurityLoginHistory: React.FC = () => {
 
       if (searchQuery) {
         query = query.ilike('ip_address', `%${searchQuery}%`);
+      }
+
+      // Use filter for non-typed columns
+      if (filterStatus === 'success') {
+        query = query.filter('login_status', 'eq', 'success');
+      } else if (filterStatus === 'failed') {
+        query = query.filter('login_status', 'eq', 'failed');
       }
 
       const { data, error, count } = await query;
