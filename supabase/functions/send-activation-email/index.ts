@@ -140,7 +140,7 @@ async function sendSmtpEmail(
 
     // Email content with proper headers (multipart/alternative for better deliverability)
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
     const plainText = htmlBody.replace(/<[^>]*>/g, '');
     
     const emailContent = [

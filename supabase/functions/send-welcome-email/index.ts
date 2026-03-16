@@ -146,7 +146,7 @@ async function sendSmtpEmail(
 
     // Build email message
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
     
     const emailContent = [
       `From: "${settings.sender_name}" <${settings.sender_email}>`,

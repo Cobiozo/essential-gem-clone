@@ -129,33 +129,44 @@ async function sendSmtpEmail(
       throw new Error(`Authentication failed: ${authResponse}`);
     }
 
-    // MAIL FROM
-    await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    const mailFromResp = await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
 
-    // RCPT TO
-    await sendCommand(`RCPT TO:<${to}>`);
+    const rcptResp = await sendCommand(`RCPT TO:<${to}>`);
+    if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
 
-    // DATA
-    await sendCommand('DATA');
+    const dataResp = await sendCommand('DATA');
+    if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
 
-    // Generate unique Message-ID to prevent spam filtering
-    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
-    // Email content with proper headers (improves deliverability)
     const emailContent = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
       `From: "${settings.from_name}" <${settings.from_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
-      `Message-ID: ${messageId}`,
-      `Date: ${new Date().toUTCString()}`,
+      `Reply-To: <${settings.from_email}>`,
       `Return-Path: <${settings.from_email}>`,
       `X-Mailer: PureLife-Platform/1.0`,
-      `Reply-To: <${settings.from_email}>`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=UTF-8',
-      'Content-Transfer-Encoding: base64',
-      '',
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(plainText),
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
       base64Encode(htmlBody),
+      ``,
+      `--${boundary}--`,
       '.',
     ].join('\r\n');
 

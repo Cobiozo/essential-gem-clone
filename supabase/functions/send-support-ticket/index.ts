@@ -81,12 +81,12 @@ async function sendSmtpEmail(
 
     await readResponse(); // greeting
 
-    await sendCommand(`EHLO ${settings.host}`);
+    await sendCommand(`EHLO ${settings.from_email.split('@')[1] || settings.host}`);
 
     if (settings.encryption === 'starttls') {
       await sendCommand('STARTTLS');
       conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
-      await sendCommand(`EHLO ${settings.host}`);
+      await sendCommand(`EHLO ${settings.from_email.split('@')[1] || settings.host}`);
     }
 
     await sendCommand('AUTH LOGIN');
@@ -94,22 +94,44 @@ async function sendSmtpEmail(
     const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
     if (!authResponse.startsWith('235')) throw new Error(`Auth failed: ${authResponse}`);
 
-    await sendCommand(`MAIL FROM:<${settings.from_email}>`);
-    await sendCommand(`RCPT TO:<${to}>`);
-    await sendCommand('DATA');
+    const mailFromResp = await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
+
+    const rcptResp = await sendCommand(`RCPT TO:<${to}>`);
+    if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
+
+    const dataResp = await sendCommand('DATA');
+    if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
 
     const senderDomain = settings.from_email.split('@')[1] || 'localhost';
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
     const emailContent = [
       `Message-ID: ${generateMessageId(senderDomain)}`,
       `Date: ${formatSmtpDate()}`,
-      `From: ${settings.from_name} <${settings.from_email}>`,
+      `From: "${settings.from_name}" <${settings.from_email}>`,
       `To: ${to}`,
       `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=UTF-8',
-      'Content-Transfer-Encoding: base64',
-      '',
+      `Reply-To: <${settings.from_email}>`,
+      `Return-Path: <${settings.from_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(plainText),
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
       base64Encode(htmlBody),
+      ``,
+      `--${boundary}--`,
       '.',
     ].join('\r\n');
 
