@@ -6,12 +6,15 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const logoUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/training-media/1766508615455-8wv0cee7jwr.png';
+
 interface WebinarConfirmationRequest {
   eventId?: string;
   email: string;
   firstName: string;
   lastName?: string;
   phone?: string;
+  phoneNumber?: string;
   invitedByUserId?: string;
   eventTitle: string;
   eventDate: string;
@@ -29,6 +32,12 @@ interface WebinarConfirmationRequest {
   videoHostName?: string;
   videoCoverImageUrl?: string;
   videoDescription?: string;
+  // Partner invite specific
+  source?: string;
+  inviterName?: string;
+  inviterEmail?: string;
+  inviterPhone?: string;
+  imageUrl?: string;
 }
 
 interface SmtpSettings {
@@ -58,6 +67,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage: string): 
       setTimeout(() => reject(new Error(errorMessage)), ms)
     ),
   ]);
+}
+
+function buildLogoHeader(): string {
+  return `<div style="text-align: center; padding: 24px 20px 16px; background: linear-gradient(135deg, #D4AF37, #F5E6A3, #D4AF37); border-radius: 8px 8px 0 0;">
+    <img src="${logoUrl}" alt="Pure Life Center" style="max-width: 180px; height: auto;" />
+  </div>`;
 }
 
 async function sendSmtpEmail(
@@ -172,6 +187,74 @@ async function sendSmtpEmail(
   }
 }
 
+function buildPartnerInviteEmail(
+  firstName: string,
+  eventTitle: string,
+  displayDate: string,
+  displayHost: string,
+  inviterName: string,
+  inviterEmail: string,
+  inviterPhone: string,
+  imageUrl: string,
+): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f9f9f9; }
+    .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .content { padding: 30px; }
+    .event-box { background: #fdf8ec; border-radius: 8px; padding: 24px; margin: 24px 0; border-left: 4px solid #D4AF37; }
+    .inviter-box { background: #f0f4ff; border-radius: 8px; padding: 20px; margin: 20px 0; border: 1px solid #d0d8f0; }
+    .footer { text-align: center; padding: 20px 30px; color: #888; font-size: 12px; border-top: 1px solid #eee; background: #fafafa; }
+    h1 { color: #333; margin: 0 0 8px; font-size: 22px; }
+    h2 { color: #D4AF37; margin: 0 0 12px; font-size: 18px; }
+    .gold { color: #D4AF37; font-weight: bold; }
+    a { color: #D4AF37; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    ${buildLogoHeader()}
+    <div class="content">
+      <h1>Zostałeś/aś zaproszony/a na wydarzenie!</h1>
+      <p>Cześć <strong>${firstName}</strong>!</p>
+      <p>Mamy przyjemność poinformować, że <strong class="gold">${inviterName}</strong> zaprosił/a Cię na nadchodzące wydarzenie organizowane przez Pure Life Center.</p>
+
+      ${imageUrl ? `<div style="text-align: center; margin: 20px 0;"><img src="${imageUrl}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px;" /></div>` : ''}
+
+      <div class="event-box">
+        <h2>📅 ${eventTitle}</h2>
+        <p style="margin: 8px 0;"><strong>Data i godzina:</strong> ${displayDate}</p>
+        <p style="margin: 8px 0;"><strong>Prowadzący:</strong> ${displayHost}</p>
+      </div>
+
+      <div class="inviter-box">
+        <p style="margin: 0 0 8px; font-weight: bold;">👤 Osoba zapraszająca:</p>
+        <p style="margin: 4px 0;"><strong>${inviterName}</strong></p>
+        ${inviterEmail ? `<p style="margin: 4px 0;">📧 <a href="mailto:${inviterEmail}">${inviterEmail}</a></p>` : ''}
+        ${inviterPhone ? `<p style="margin: 4px 0;">📞 <a href="tel:${inviterPhone}">${inviterPhone}</a></p>` : ''}
+      </div>
+
+      <p><strong>Co dalej?</strong></p>
+      <ul>
+        <li>Wyślemy Ci przypomnienia przed wydarzeniem</li>
+        <li>Link do dołączenia otrzymasz w wiadomościach przypominających</li>
+        <li>Przygotuj miejsce do spokojnego uczestnictwa</li>
+      </ul>
+
+      <p>Do zobaczenia na wydarzeniu! 🎉</p>
+    </div>
+    <div class="footer">
+      <p>Jeżeli nie chcesz otrzymywać informacji o nowych wydarzeniach, prosimy o kontakt z osobą, która Cię zaprosiła — dane kontaktowe powyżej.</p>
+      <p style="margin-top: 12px;">© ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -179,9 +262,11 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestData: WebinarConfirmationRequest = await req.json();
-    const { eventId, email, firstName, lastName, phone, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder, isAutoWebinar, nextSlotTime, nextSlotTimeFormatted, minutesToNextSlot, roomLink, videoHostName, videoCoverImageUrl, videoDescription } = requestData;
+    const { eventId, email, firstName, lastName, phone, phoneNumber, invitedByUserId, eventTitle, eventDate, eventTime, eventHost, zoomLink, hostName, isReminder, isAutoWebinar, nextSlotTime, nextSlotTimeFormatted, minutesToNextSlot, roomLink, videoHostName, videoCoverImageUrl, videoDescription, source, inviterName, inviterEmail, inviterPhone, imageUrl } = requestData;
     
-    const emailType = isReminder ? 'reminder' : 'confirmation';
+    const resolvedPhone = phone || phoneNumber || null;
+    const isPartnerInvite = source === 'partner_invite';
+    const emailType = isReminder ? 'reminder' : (isPartnerInvite ? 'partner_invite' : 'confirmation');
     console.log(`[send-webinar-confirmation] Processing ${emailType} for: ${email}, event: ${eventTitle}, isAutoWebinar: ${isAutoWebinar}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -200,7 +285,7 @@ const handler = async (req: Request): Promise<Response> => {
       
       // Check if contact with EXACT same email+phone already exists (exact match required)
       const normalizedEmail = email.toLowerCase().trim();
-      const normalizedPhone = phone?.trim() || null;
+      const normalizedPhone = resolvedPhone?.trim() || null;
       
       const { data: matchingContacts } = await supabase
         .from('team_contacts')
@@ -380,7 +465,7 @@ const handler = async (req: Request): Promise<Response> => {
     const displayDate = isAutoWebinar && nextSlotTimeFormatted
       ? nextSlotTimeFormatted
       : eventTime
-        ? `${eventDate}, godz. ${eventTime}`
+        ? `${eventDate ? new Date(eventDate).toLocaleDateString('pl-PL', { timeZone: 'Europe/Warsaw', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : eventDate}, godz. ${eventTime}`
         : (eventDate
           ? new Date(eventDate).toLocaleDateString('pl-PL', warsawDateOptions)
           : '');
@@ -398,8 +483,22 @@ const handler = async (req: Request): Promise<Response> => {
     let subject: string;
     let htmlBody: string;
 
+    // PARTNER INVITE — dedicated template
+    if (isPartnerInvite && !isReminder) {
+      subject = `Zaproszenie na wydarzenie: ${eventTitle}`;
+      htmlBody = buildPartnerInviteEmail(
+        firstName,
+        eventTitle,
+        displayDate,
+        displayHost,
+        inviterName || 'Partner Pure Life',
+        inviterEmail || '',
+        inviterPhone || '',
+        imageUrl || '',
+      );
+    }
     // PRIORITY: Auto-webinar email with join link ALWAYS takes precedence over DB template
-    if (isImmediateJoin) {
+    else if (isImmediateJoin) {
       const isStartingSoon = minutesToNextSlot !== undefined && minutesToNextSlot <= 15;
       console.log(`[send-webinar-confirmation] AUTO-WEBINAR JOIN: isStartingSoon=${isStartingSoon}, minutesToNextSlot=${minutesToNextSlot}, roomLink=${displayRoomLink}`);
       
@@ -411,23 +510,21 @@ const handler = async (req: Request): Promise<Response> => {
           <head>
             <meta charset="UTF-8">
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #ef4444; }
-              .content { padding: 30px 0; }
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f9f9f9; }
+              .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+              .content { padding: 30px; }
               .event-box { background: #fef2f2; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #ef4444; }
-              .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #eee; }
               h1 { color: #dc2626; margin: 0; }
               .join-button { display: inline-block; background: #16a34a; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; font-size: 16px; }
             </style>
           </head>
           <body>
             <div class="container">
-              <div class="header">
-                ${displayCoverImage ? `<img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;" />` : ''}
-                <h1>${isStartingSoon ? '🔴 Webinar zaczyna się za chwilę!' : '✅ Rejestracja potwierdzona!'}</h1>
-              </div>
+              ${buildLogoHeader()}
+              ${displayCoverImage ? `<div style="text-align: center; padding: 0 30px;"><img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-top: 16px;" /></div>` : ''}
               <div class="content">
+                <h1>${isStartingSoon ? '🔴 Webinar zaczyna się za chwilę!' : '✅ Rejestracja potwierdzona!'}</h1>
                 <p>Cześć <strong>${firstName}</strong>!</p>
                 <p>${isStartingSoon 
                   ? `Zarejestrowałeś/aś się na webinar, który <strong>rozpoczyna się za ${minutesToNextSlot || 'kilka'} minut</strong>!`
@@ -453,7 +550,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <p>Do zobaczenia! 🎉</p>
               </div>
               <div class="footer">
-                <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+                <p>© ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.</p>
               </div>
             </div>
           </body>
@@ -483,12 +580,11 @@ const handler = async (req: Request): Promise<Response> => {
           <head>
             <meta charset="UTF-8">
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f59e0b; }
-              .content { padding: 30px 0; }
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f9f9f9; }
+              .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+              .content { padding: 30px; }
               .event-box { background: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b; }
-              .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #eee; }
               h1 { color: #d97706; margin: 0; }
               .highlight { color: #d97706; font-weight: bold; }
               .join-button { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
@@ -496,10 +592,9 @@ const handler = async (req: Request): Promise<Response> => {
           </head>
           <body>
             <div class="container">
-              <div class="header">
-                <h1>⏰ Przypomnienie o webinarze!</h1>
-              </div>
+              ${buildLogoHeader()}
               <div class="content">
+                <h1>⏰ Przypomnienie o webinarze!</h1>
                 <p>Cześć <strong>${firstName}</strong>!</p>
                 <p>Przypominamy, że <span class="highlight">już jutro</span> odbędzie się webinar, na który się zapisałeś/aś:</p>
                 
@@ -523,7 +618,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <p>Do zobaczenia! 🎉</p>
               </div>
               <div class="footer">
-                <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+                <p>© ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.</p>
               </div>
             </div>
           </body>
@@ -540,23 +635,21 @@ const handler = async (req: Request): Promise<Response> => {
           <head>
             <meta charset="UTF-8">
             <style>
-              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-              .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #22c55e; }
-              .content { padding: 30px 0; }
+              body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background: #f9f9f9; }
+              .container { max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+              .content { padding: 30px; }
               .event-box { background: #f0fdf4; border-radius: 8px; padding: 20px; margin: 20px 0; }
-              .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+              .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; border-top: 1px solid #eee; }
               h1 { color: #16a34a; margin: 0; }
               .highlight { color: #16a34a; font-weight: bold; }
             </style>
           </head>
           <body>
             <div class="container">
-              <div class="header">
-                ${displayCoverImage ? `<img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-bottom: 16px;" />` : ''}
-                <h1>✅ Rejestracja potwierdzona!</h1>
-              </div>
+              ${buildLogoHeader()}
+              ${displayCoverImage ? `<div style="text-align: center; padding: 0 30px;"><img src="${displayCoverImage}" alt="${eventTitle}" style="max-width: 100%; border-radius: 8px; margin-top: 16px;" /></div>` : ''}
               <div class="content">
+                <h1>✅ Rejestracja potwierdzona!</h1>
                 <p>Cześć <strong>${firstName}</strong>!</p>
                 <p>Dziękujemy za zapisanie się na webinar. Poniżej znajdziesz szczegóły wydarzenia:</p>
                 
@@ -582,7 +675,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <p>Do zobaczenia na webinarze! 🎉</p>
               </div>
               <div class="footer">
-                <p>© ${new Date().getFullYear()} Pure Life. Wszelkie prawa zastrzeżone.</p>
+                <p>© ${new Date().getFullYear()} Pure Life Center. Wszelkie prawa zastrzeżone.</p>
                 <p>Ta wiadomość została wygenerowana automatycznie.</p>
               </div>
             </div>
@@ -612,16 +705,17 @@ const handler = async (req: Request): Promise<Response> => {
         template_id: template?.id || null,
         event_type_id: eventType?.id || null,
         metadata: { 
-          type: isReminder ? "webinar_reminder" : "webinar_confirmation", 
+          type: isPartnerInvite ? "partner_invite" : (isReminder ? "webinar_reminder" : "webinar_confirmation"), 
           event_id: eventId, 
-          event_title: eventTitle 
+          event_title: eventTitle,
+          inviter_name: inviterName || null,
         },
       });
 
-      console.log(`[send-webinar-confirmation] ${isReminder ? 'Reminder' : 'Confirmation'} email sent to ${email}`);
+      console.log(`[send-webinar-confirmation] ${emailType} email sent to ${email}`);
 
       // === IMMEDIATE REMINDER: If registration is < 15 min before start, send zoom link immediately ===
-      if (!isReminder && eventId && !isAutoWebinar) {
+      if (!isReminder && eventId && !isAutoWebinar && !isPartnerInvite) {
         try {
           const { data: eventData } = await supabase
             .from("events")
@@ -706,7 +800,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, message: `${isReminder ? 'Reminder' : 'Confirmation'} email sent` }),
+        JSON.stringify({ success: true, message: `${emailType} email sent` }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
 
@@ -722,7 +816,7 @@ const handler = async (req: Request): Promise<Response> => {
         template_id: template?.id || null,
         event_type_id: eventType?.id || null,
         metadata: { 
-          type: isReminder ? "webinar_reminder" : "webinar_confirmation", 
+          type: isPartnerInvite ? "partner_invite" : (isReminder ? "webinar_reminder" : "webinar_confirmation"), 
           event_id: eventId 
         },
       });
