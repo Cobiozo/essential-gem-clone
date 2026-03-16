@@ -397,6 +397,7 @@ export const TeamContactsTab: React.FC = () => {
                   isAdmin={isAdmin}
                   contactType="private"
                   hideEventInfo={true}
+                  showInviteButton={true}
                 />
               ) : (
                 <TeamContactsTable
