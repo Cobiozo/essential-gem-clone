@@ -231,6 +231,19 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                 <div className="flex items-center gap-2">
                   {!readOnly && (
                     <>
+                      {showInviteButton && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setInviteContact(contact);
+                          }}
+                          title="Zaproś na wydarzenie"
+                        >
+                          <Send className="w-4 h-4 text-primary" />
+                        </Button>
+                      )}
                       {!hideEventInfo && <ContactEventInfoButton contact={contact} />}
                       <Button
                         variant="ghost"
