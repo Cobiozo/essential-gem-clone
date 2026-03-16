@@ -22,6 +22,7 @@ export interface TeamContact {
   address: string | null;
   phone_number: string | null;
   email: string | null;
+  secondary_email: string | null;
   profession: string | null;
   
   // Contact's upline (not user's upline)

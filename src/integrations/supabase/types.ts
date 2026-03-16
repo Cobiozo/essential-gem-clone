@@ -6849,6 +6849,7 @@ export type Database = {
           reminder_sent: boolean | null
           role: string
           second_contact_date: string | null
+          secondary_email: string | null
           start_date: string | null
           updated_at: string | null
           user_id: string
@@ -6891,6 +6892,7 @@ export type Database = {
           reminder_sent?: boolean | null
           role: string
           second_contact_date?: string | null
+          secondary_email?: string | null
           start_date?: string | null
           updated_at?: string | null
           user_id: string
@@ -6933,6 +6935,7 @@ export type Database = {
           reminder_sent?: boolean | null
           role?: string
           second_contact_date?: string | null
+          secondary_email?: string | null
           start_date?: string | null
           updated_at?: string | null
           user_id?: string
