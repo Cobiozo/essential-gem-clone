@@ -246,6 +246,31 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Duplicate Confirmation Dialog */}
+      <AlertDialog open={!!duplicateConfirm} onOpenChange={() => setDuplicateConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Kontakt już istnieje</AlertDialogTitle>
+            <AlertDialogDescription>
+              Kontakt z tym samym adresem email i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (duplicateConfirm && onMoveToOwnList) {
+                  await onMoveToOwnList(duplicateConfirm, true);
+                  setDuplicateConfirm(null);
+                }
+              }}
+            >
+              Zapisz jako nowy
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* History Dialog */}
       {historyContact && (
         <TeamContactHistoryDialog
