@@ -172,7 +172,12 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={() => onMoveToOwnList(contact.id)}
+                                  onClick={async () => {
+                                    const result = await onMoveToOwnList(contact.id);
+                                    if (result === 'duplicate') {
+                                      setDuplicateConfirm(contact.id);
+                                    }
+                                  }}
                                   title="Przenieś do Mojej listy"
                                 >
                                   <UserPlus className="w-4 h-4 text-primary" />
