@@ -174,6 +174,7 @@ Deno.serve(async (req) => {
       browser_name,
       is_suspicious: isSuspicious,
       anomaly_type: anomalyType,
+      login_status: "success",
     });
 
     if (isSuspicious) {
