@@ -1,57 +1,29 @@
 
 
-# Plan: Resend invite + Send to alternate email
+## Analiza systemu powiadomień — wynik
 
-## Current state
-- `InviteToEventDialog` shows green "Zaproszenie wysłane" badge for already-invited events
-- `team_contacts` table has single `email` field, no secondary email column
-- `TeamContact` type has single `email` field
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-## Changes
+### Zmiany:
 
-### 1. Database migration — add `secondary_email` to `team_contacts`
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-```sql
-ALTER TABLE public.team_contacts ADD COLUMN secondary_email text;
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
+
+### Flow gościa (po zmianach):
 ```
-
-### 2. Update `TeamContact` type
-
-Add `secondary_email: string | null` to the interface in `types.ts`.
-
-### 3. Rewrite the "already invited" section in `InviteToEventDialog.tsx`
-
-Replace the simple green badge with a mini action group:
-
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
 ```
-┌─────────────────────────────────────────────────────────────┐
-│ Prezentacja możliwości biznesowych                          │
-│ Webinar  📅 18 marca 2026 • 19:00                          │
-│                                                             │
-│  ✅ Zaproszenie wysłane                                     │
-│  [↻ Wyślij ponownie]  [📧 Wyślij na inny email]           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-- **"Wyślij ponownie"** — re-invokes `send-webinar-confirmation` edge function with the same email (no new RPC registration, just resend the email). Logs `event_invite_resend` to `team_contacts_history`.
-
-- **"Wyślij na inny email"** — opens inline input field for alternate email. On submit:
-  1. Calls `register_event_guest` RPC with the new email
-  2. Sends confirmation email to the new email
-  3. Updates `team_contacts.secondary_email` with the new email
-  4. Logs `event_invite_alt_email` to `team_contacts_history`
-
-### 4. State additions in component
-
-- `resending: string | null` — tracks which event is being resent
-- `altEmailEventId: string | null` — which event's alt-email input is open
-- `altEmailValue: string` — the typed alternate email
-
-### Files to change
-
-| File | Change |
-|------|--------|
-| New SQL migration | Add `secondary_email` column |
-| `src/components/team-contacts/types.ts` | Add `secondary_email` field |
-| `src/components/team-contacts/InviteToEventDialog.tsx` | Resend button + alt email input + handlers |
-

@@ -1,0 +1,1 @@
+ALTER TABLE public.team_contacts ADD COLUMN secondary_email text;
