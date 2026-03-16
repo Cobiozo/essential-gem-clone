@@ -7,28 +7,39 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Search, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, XCircle, Monitor, Tablet, Smartphone, CalendarIcon } from 'lucide-react';
+import { Loader2, Search, AlertTriangle, ChevronLeft, ChevronRight, CheckCircle, XCircle, Monitor, Tablet, Smartphone, CalendarIcon, Globe } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 
-const countryToFlag = (country: string): string => {
+// Country code to flag emoji using regional indicator symbols
+const countryCodeToFlag = (code: string): string => {
+  if (!code || code.length !== 2) return '';
+  const codePoints = code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65);
+  return String.fromCodePoint(...codePoints);
+};
+
+const countryToFlag = (country: string, countryCode?: string): string => {
+  if (countryCode && countryCode.length === 2) {
+    return countryCodeToFlag(countryCode);
+  }
   if (!country || country === 'unknown' || country === '—') return '';
-  const countryMap: Record<string, string> = {
-    'Poland': '🇵🇱', 'Polska': '🇵🇱', 'Germany': '🇩🇪', 'Niemcy': '🇩🇪',
-    'United States': '🇺🇸', 'United Kingdom': '🇬🇧', 'France': '🇫🇷',
-    'Spain': '🇪🇸', 'Italy': '🇮🇹', 'Czech Republic': '🇨🇿', 'Czechia': '🇨🇿',
-    'Slovakia': '🇸🇰', 'Ukraine': '🇺🇦', 'Netherlands': '🇳🇱', 'Belgium': '🇧🇪',
-    'Austria': '🇦🇹', 'Switzerland': '🇨🇭', 'Sweden': '🇸🇪', 'Norway': '🇳🇴',
-    'Denmark': '🇩🇰', 'Finland': '🇫🇮', 'Ireland': '🇮🇪', 'Portugal': '🇵🇹',
-    'Romania': '🇷🇴', 'Hungary': '🇭🇺', 'Lithuania': '🇱🇹', 'Latvia': '🇱🇻',
-    'Estonia': '🇪🇪', 'Bulgaria': '🇧🇬', 'Croatia': '🇭🇷', 'Slovenia': '🇸🇮',
-    'Canada': '🇨🇦', 'Australia': '🇦🇺', 'Japan': '🇯🇵', 'China': '🇨🇳',
-    'India': '🇮🇳', 'Brazil': '🇧🇷', 'Russia': '🇷🇺', 'Turkey': '🇹🇷',
+  const codeMap: Record<string, string> = {
+    'Poland': 'PL', 'Polska': 'PL', 'Germany': 'DE', 'Niemcy': 'DE',
+    'United States': 'US', 'United Kingdom': 'GB', 'France': 'FR',
+    'Spain': 'ES', 'Italy': 'IT', 'Czech Republic': 'CZ', 'Czechia': 'CZ',
+    'Slovakia': 'SK', 'Ukraine': 'UA', 'Netherlands': 'NL', 'Belgium': 'BE',
+    'Austria': 'AT', 'Switzerland': 'CH', 'Sweden': 'SE', 'Norway': 'NO',
+    'Denmark': 'DK', 'Finland': 'FI', 'Ireland': 'IE', 'Portugal': 'PT',
+    'Romania': 'RO', 'Hungary': 'HU', 'Lithuania': 'LT', 'Latvia': 'LV',
+    'Estonia': 'EE', 'Bulgaria': 'BG', 'Croatia': 'HR', 'Slovenia': 'SI',
+    'Canada': 'CA', 'Australia': 'AU', 'Japan': 'JP', 'China': 'CN',
+    'India': 'IN', 'Brazil': 'BR', 'Russia': 'RU', 'Turkey': 'TR',
   };
-  return countryMap[country] || '🌍';
+  const code = codeMap[country];
+  return code ? countryCodeToFlag(code) : '🌍';
 };
 
 const failureReasonLabel = (reason: string | null): string => {
@@ -58,6 +69,62 @@ const deviceLabel = (type: string) => {
   return 'Komputer';
 };
 
+// Browser icon as inline SVG for common browsers
+const BrowserIcon: React.FC<{ name: string }> = ({ name }) => {
+  const n = (name || '').toLowerCase();
+  
+  if (n.includes('chrome') && !n.includes('edge')) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#4285F4" />
+        <circle cx="12" cy="12" r="4" fill="white" />
+        <path d="M12 8h10c-1-3.5-4-6-8-7L12 8z" fill="#EA4335" />
+        <path d="M6.5 17L2 9c-1 3.5 0 7.5 3 10l4.5-2z" fill="#34A853" />
+        <path d="M17.5 17l-5 7c4 0 7.5-2.5 9-6l-4-1z" fill="#FBBC05" />
+      </svg>
+    );
+  }
+  
+  if (n.includes('edge')) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#0078D7" />
+        <path d="M18 14c0 3-2.5 5-6 5-4 0-7-3-7-7 0-3 2-5.5 5-6.5C7 7 5 9.5 5 12.5 5 16 8 18 11 18c2.5 0 5-1 6-3l1-1z" fill="white" />
+      </svg>
+    );
+  }
+  
+  if (n.includes('firefox')) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#FF7139" />
+        <path d="M18 8c-1-2-3-3.5-6-3.5-.5 0-1 0-1.5.2C12 5 13 6 13 7.5c0 1-1 2-2 2-1.5 0-2-1-2-2 0-.5.2-1 .5-1.5C7 7.5 5.5 10 5.5 12.5 5.5 16 8.5 19 12 19s6.5-3 6.5-6.5c0-2-.5-3.5-1-4.5z" fill="white" />
+      </svg>
+    );
+  }
+  
+  if (n.includes('safari')) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#006CFF" />
+        <path d="M8 16l2-6 6-2-2 6z" fill="white" />
+        <path d="M10 10l4 4" stroke="#FF3B30" strokeWidth="0.5" />
+      </svg>
+    );
+  }
+  
+  if (n.includes('opera')) {
+    return (
+      <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0" fill="none">
+        <circle cx="12" cy="12" r="10" fill="#FF1B2D" />
+        <ellipse cx="12" cy="12" rx="4" ry="7" fill="white" />
+      </svg>
+    );
+  }
+  
+  return <Globe className="w-4 h-4 shrink-0 text-muted-foreground" />;
+};
+
 export const SecurityLoginHistory: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -66,6 +133,22 @@ export const SecurityLoginHistory: React.FC = () => {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(25);
+
+  // Fetch user profiles for mapping user_id -> name
+  const { data: profilesMap } = useQuery({
+    queryKey: ['login-history-profiles'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('user_id, first_name, last_name, email');
+      const map: Record<string, { first_name: string; last_name: string; email: string }> = {};
+      (data || []).forEach(p => {
+        map[p.user_id] = { first_name: p.first_name || '', last_name: p.last_name || '', email: p.email || '' };
+      });
+      return map;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ['security-login-history', searchQuery, filterStatus, filterSuspicious, dateFrom, dateTo, page, pageSize],
@@ -95,7 +178,6 @@ export const SecurityLoginHistory: React.FC = () => {
         query = query.ilike('ip_address', `%${searchQuery}%`);
       }
 
-      // Use filter for non-typed columns
       if (filterStatus === 'success') {
         query = query.filter('login_status', 'eq', 'success');
       } else if (filterStatus === 'failed') {
@@ -121,13 +203,20 @@ export const SecurityLoginHistory: React.FC = () => {
     setPage(0);
   };
 
+  const getUserDisplay = (userId: string | null) => {
+    if (!userId) return '—';
+    const p = profilesMap?.[userId];
+    if (!p) return userId.substring(0, 8) + '…';
+    const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
+    return name || p.email || userId.substring(0, 8) + '…';
+  };
+
   return (
     <Card className="mt-4">
       <CardHeader>
         <CardTitle className="text-lg">Historia logowań</CardTitle>
         {/* Filters row */}
         <div className="flex flex-wrap gap-2 mt-3">
-          {/* Date From */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className={cn("w-[140px] justify-start text-left font-normal text-xs", !dateFrom && "text-muted-foreground")}>
@@ -140,7 +229,6 @@ export const SecurityLoginHistory: React.FC = () => {
             </PopoverContent>
           </Popover>
 
-          {/* Date To */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm" className={cn("w-[140px] justify-start text-left font-normal text-xs", !dateTo && "text-muted-foreground")}>
@@ -153,7 +241,6 @@ export const SecurityLoginHistory: React.FC = () => {
             </PopoverContent>
           </Popover>
 
-          {/* Status filter */}
           <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(0); }}>
             <SelectTrigger className="w-[140px] h-8 text-xs">
               <SelectValue placeholder="Status" />
@@ -165,7 +252,6 @@ export const SecurityLoginHistory: React.FC = () => {
             </SelectContent>
           </Select>
 
-          {/* Score filter */}
           <Select value={filterSuspicious} onValueChange={(v) => { setFilterSuspicious(v); setPage(0); }}>
             <SelectTrigger className="w-[140px] h-8 text-xs">
               <SelectValue placeholder="Ocena" />
@@ -177,7 +263,6 @@ export const SecurityLoginHistory: React.FC = () => {
             </SelectContent>
           </Select>
 
-          {/* IP search */}
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
             <Input
@@ -207,11 +292,13 @@ export const SecurityLoginHistory: React.FC = () => {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-[50px] text-xs font-semibold">Lp.</TableHead>
+                    <TableHead className="text-xs font-semibold">Użytkownik</TableHead>
                     <TableHead className="text-xs font-semibold">Data logowania</TableHead>
                     <TableHead className="text-xs font-semibold">Status logowania</TableHead>
                     <TableHead className="text-xs font-semibold">Ocena</TableHead>
                     <TableHead className="text-xs font-semibold">Adres IP</TableHead>
                     <TableHead className="text-xs font-semibold">Kraj</TableHead>
+                    <TableHead className="text-xs font-semibold">Miasto</TableHead>
                     <TableHead className="text-xs font-semibold">Typ urządzenia</TableHead>
                     <TableHead className="text-xs font-semibold">System operacyjny</TableHead>
                     <TableHead className="text-xs font-semibold">Przeglądarka</TableHead>
@@ -222,23 +309,26 @@ export const SecurityLoginHistory: React.FC = () => {
                     const loginStatus = (log as any).login_status || 'success';
                     const failureReason = (log as any).failure_reason;
                     const isSuccess = loginStatus === 'success';
+                    const countryCode = (log as any).country_code || '';
 
                     return (
                       <TableRow key={log.id} className={cn(
                         log.is_suspicious && 'bg-destructive/5',
                         !isSuccess && !log.is_suspicious && 'bg-orange-50/50 dark:bg-orange-950/10'
                       )}>
-                        {/* Lp */}
                         <TableCell className="text-xs text-muted-foreground font-mono">
                           {page * pageSize + index + 1}
                         </TableCell>
 
-                        {/* Data */}
+                        {/* Użytkownik */}
+                        <TableCell className="text-xs max-w-[150px] truncate">
+                          {getUserDisplay(log.user_id)}
+                        </TableCell>
+
                         <TableCell className="text-xs">
                           {format(new Date(log.login_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
                         </TableCell>
 
-                        {/* Status logowania */}
                         <TableCell>
                           <div className="flex items-center gap-1.5">
                             {isSuccess ? (
@@ -259,7 +349,6 @@ export const SecurityLoginHistory: React.FC = () => {
                           </div>
                         </TableCell>
 
-                        {/* Ocena */}
                         <TableCell>
                           {log.is_suspicious ? (
                             <Badge variant="destructive" className="gap-1 text-[10px] px-1.5 py-0.5">
@@ -274,16 +363,21 @@ export const SecurityLoginHistory: React.FC = () => {
                           )}
                         </TableCell>
 
-                        {/* IP */}
                         <TableCell className="text-xs font-mono">{log.ip_address}</TableCell>
 
-                        {/* Kraj */}
+                        {/* Kraj z flagą */}
                         <TableCell className="text-xs">
-                          <span className="mr-1">{countryToFlag(log.country || '')}</span>
-                          {log.country && log.country !== 'unknown' ? log.country : '—'}
+                          <div className="flex items-center gap-1">
+                            <span className="text-base leading-none">{countryToFlag(log.country || '', countryCode)}</span>
+                            <span>{log.country && log.country !== 'unknown' ? log.country : '—'}</span>
+                          </div>
                         </TableCell>
 
-                        {/* Typ urządzenia */}
+                        {/* Miasto */}
+                        <TableCell className="text-xs">
+                          {log.city && log.city !== 'unknown' ? log.city : '—'}
+                        </TableCell>
+
                         <TableCell>
                           <div className="flex items-center gap-1.5 text-xs">
                             {deviceIcon((log as any).device_type || '')}
@@ -291,17 +385,21 @@ export const SecurityLoginHistory: React.FC = () => {
                           </div>
                         </TableCell>
 
-                        {/* System */}
                         <TableCell className="text-xs">{(log as any).os_name || '—'}</TableCell>
 
-                        {/* Przeglądarka */}
-                        <TableCell className="text-xs">{(log as any).browser_name || '—'}</TableCell>
+                        {/* Przeglądarka z ikoną */}
+                        <TableCell>
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <BrowserIcon name={(log as any).browser_name || ''} />
+                            <span>{(log as any).browser_name || '—'}</span>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
                   {(!data?.logs || data.logs.length === 0) && (
                     <TableRow>
-                      <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                         Brak danych logowań
                       </TableCell>
                     </TableRow>
