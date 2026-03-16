@@ -156,7 +156,7 @@ function buildGuestReminderHtml(
   meetingTime: string,
   meetingLink?: string
 ): string {
-  const logoUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/training-media/1766508615455-8wv0cee7jwr.png';
+  const logoUrl = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png';
 
   const header = `
     <div style="background-color: #ffc105; padding: 20px; text-align: center;">
