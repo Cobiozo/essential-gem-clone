@@ -440,7 +440,7 @@ export const SecurityDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             {stats?.topCountries && stats.topCountries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={stats.topCountries} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis type="number" tick={axisTick} />

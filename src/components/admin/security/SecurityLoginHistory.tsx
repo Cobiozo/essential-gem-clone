@@ -208,7 +208,8 @@ export const SecurityLoginHistory: React.FC = () => {
     const p = profilesMap?.[userId];
     if (!p) return userId.substring(0, 8) + '…';
     const name = [p.first_name, p.last_name].filter(Boolean).join(' ');
-    return name || p.email || userId.substring(0, 8) + '…';
+    const eqPart = p.eq_id ? ` (${p.eq_id})` : '';
+    return (name || p.email || userId.substring(0, 8) + '…') + eqPart;
   };
 
   return (
