@@ -22,8 +22,8 @@ const tooltipStyle = {
 const axisTick = { fontSize: 11, fill: 'hsl(var(--foreground))' };
 const axisTickSmall = { fontSize: 10, fill: 'hsl(var(--foreground))' };
 
-const renderPieLabel = ({ name, value, percent }: { name: string; value: number; percent: number }) =>
-  `${name} ${value} (${(percent * 100).toFixed(0)}%)`;
+const renderPieLabel = ({ value }: { name: string; value: number; percent: number }) =>
+  `${value}`;
 
 const DEVICE_LABELS: Record<string, string> = {
   desktop: 'Komputer',
@@ -154,7 +154,7 @@ export const SecurityDashboard: React.FC = () => {
       });
       const topCountries = Object.entries(countryCounts)
         .sort(([, a], [, b]) => b - a)
-        .slice(0, 5)
+        .slice(0, 10)
         .map(([country, count]) => ({ country, count }));
 
       // --- Recent alerts ---
@@ -351,14 +351,15 @@ export const SecurityDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             {stats?.deviceTypes && stats.deviceTypes.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={stats.deviceTypes} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
+                  <Pie data={stats.deviceTypes} dataKey="value" nameKey="name" cx="50%" cy="40%" outerRadius={80} innerRadius={35} label={renderPieLabel} labelLine={true} fontSize={11}>
                     {stats.deviceTypes.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
@@ -371,14 +372,15 @@ export const SecurityDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             {stats?.osDistribution && stats.osDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={stats.osDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
+                  <Pie data={stats.osDistribution} dataKey="value" nameKey="name" cx="50%" cy="40%" outerRadius={80} innerRadius={35} label={renderPieLabel} labelLine={true} fontSize={11}>
                     {stats.osDistribution.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
@@ -391,14 +393,15 @@ export const SecurityDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             {stats?.browserDistribution && stats.browserDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={200}>
+              <ResponsiveContainer width="100%" height={280}>
                 <PieChart>
-                  <Pie data={stats.browserDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={65} innerRadius={25} label={renderPieLabel} labelLine={true}>
+                  <Pie data={stats.browserDistribution} dataKey="value" nameKey="name" cx="50%" cy="40%" outerRadius={80} innerRadius={35} label={renderPieLabel} labelLine={true} fontSize={11}>
                     {stats.browserDistribution.map((_, i) => (
                       <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip contentStyle={tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: '11px' }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : <p className="text-sm text-muted-foreground text-center py-8">Brak danych</p>}
@@ -416,7 +419,7 @@ export const SecurityDashboard: React.FC = () => {
           </CardHeader>
           <CardContent>
             {stats?.topCities && stats.topCities.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={stats.topCities} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis type="number" tick={axisTick} />
@@ -432,12 +435,12 @@ export const SecurityDashboard: React.FC = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Globe className="w-4 h-4" /> Top 5 krajów (7d)
+              <Globe className="w-4 h-4" /> Top 10 krajów (7d)
             </CardTitle>
           </CardHeader>
           <CardContent>
             {stats?.topCountries && stats.topCountries.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={350}>
                 <BarChart data={stats.topCountries} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis type="number" tick={axisTick} />
