@@ -22,8 +22,8 @@ const tooltipStyle = {
 const axisTick = { fontSize: 11, fill: 'hsl(var(--foreground))' };
 const axisTickSmall = { fontSize: 10, fill: 'hsl(var(--foreground))' };
 
-const renderPieLabel = ({ name, value, percent }: { name: string; value: number; percent: number }) =>
-  `${name} ${value} (${(percent * 100).toFixed(0)}%)`;
+const renderPieLabel = ({ value }: { name: string; value: number; percent: number }) =>
+  `${value}`;
 
 const DEVICE_LABELS: Record<string, string> = {
   desktop: 'Komputer',
