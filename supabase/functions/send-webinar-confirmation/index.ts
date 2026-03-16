@@ -198,17 +198,25 @@ const handler = async (req: Request): Promise<Response> => {
       
       const contactSourceLabel = `Formularz webinar: "${eventTitle}" (${formattedDate})`;
       
-      // Check if contact already exists for this user (including inactive)
-      const { data: existingContact } = await supabase
+      // Check if contact with EXACT same email+phone already exists (exact match required)
+      const normalizedEmail = email.toLowerCase().trim();
+      const normalizedPhone = phone?.trim() || null;
+      
+      const { data: matchingContacts } = await supabase
         .from('team_contacts')
-        .select('id, is_active')
+        .select('id, is_active, email, phone_number')
         .eq('user_id', invitedByUserId)
-        .eq('email', email)
-        .eq('contact_type', 'private')
-        .maybeSingle();
+        .eq('contact_type', 'private');
+
+      // Find exact match: both email AND phone must match
+      const existingContact = matchingContacts?.find(c => {
+        const emailMatch = c.email?.toLowerCase().trim() === normalizedEmail;
+        const phoneMatch = (c.phone_number?.trim() || null) === normalizedPhone;
+        return emailMatch && phoneMatch;
+      }) || null;
 
       if (!existingContact) {
-        // Create new contact
+        // No exact match — create new contact with data exactly as entered
         const { data: newContact, error: contactError } = await supabase
           .from('team_contacts')
           .insert({
@@ -216,7 +224,7 @@ const handler = async (req: Request): Promise<Response> => {
             first_name: firstName,
             last_name: lastName || '',
             email: email,
-            phone_number: phone || null,
+            phone_number: normalizedPhone,
             contact_type: 'private',
             role: 'client',
             relationship_status: 'observation',
@@ -236,10 +244,10 @@ const handler = async (req: Request): Promise<Response> => {
             .eq('event_id', eventId)
             .eq('email', email);
           
-          console.log(`[send-webinar-confirmation] Created team contact: ${newContact.id}`);
+          console.log(`[send-webinar-confirmation] Created NEW team contact: ${newContact.id} (email+phone unique)`);
         }
       } else {
-        // Reactivate inactive contact if needed
+        // Exact match found — reactivate if inactive
         if (!existingContact.is_active) {
           await supabase
             .from('team_contacts')
@@ -247,16 +255,15 @@ const handler = async (req: Request): Promise<Response> => {
               is_active: true,
               first_name: firstName,
               last_name: lastName || '',
-              phone_number: phone || null,
               contact_source: contactSourceLabel,
               deleted_at: null,
             })
             .eq('id', existingContact.id);
           console.log(`[send-webinar-confirmation] Reactivated contact: ${existingContact.id}`);
         } else {
-          console.log(`[send-webinar-confirmation] Contact already active: ${existingContact.id}`);
+          console.log(`[send-webinar-confirmation] Exact contact already active: ${existingContact.id}`);
         }
-        // Update guest registration with existing contact ID
+        // Link existing contact to registration
         await supabase
           .from('guest_event_registrations')
           .update({ team_contact_id: existingContact.id })
