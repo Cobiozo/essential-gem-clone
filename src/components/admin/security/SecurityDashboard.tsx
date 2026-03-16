@@ -154,7 +154,7 @@ export const SecurityDashboard: React.FC = () => {
       });
       const topCountries = Object.entries(countryCounts)
         .sort(([, a], [, b]) => b - a)
-        .slice(0, 5)
+        .slice(0, 10)
         .map(([country, count]) => ({ country, count }));
 
       // --- Recent alerts ---
