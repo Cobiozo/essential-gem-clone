@@ -79,6 +79,7 @@ import DataCleanupManagement from '@/components/admin/DataCleanupManagement';
 import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement';
 import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
 import { SecurityModule } from '@/components/admin/SecurityModule';
+import { EmailDeliveryDashboard } from '@/components/admin/EmailDeliveryDashboard';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4645,8 +4646,12 @@ const Admin = () => {
             <ChatPermissionsManagement />
           </TabsContent>
 
-          <TabsContent value="emails">
+           <TabsContent value="emails">
             <EmailTemplatesManagement />
+          </TabsContent>
+
+          <TabsContent value="email-delivery">
+            <EmailDeliveryDashboard />
           </TabsContent>
 
           <TabsContent value="system-health">
