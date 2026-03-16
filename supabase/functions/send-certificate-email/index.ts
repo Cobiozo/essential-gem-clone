@@ -91,14 +91,15 @@ async function sendSmtpEmail(
     console.log(`[SMTP] Greeting: ${greeting.trim()}`);
     if (!greeting.startsWith('220')) throw new Error(`Invalid SMTP greeting: ${greeting}`);
     
-    const ehloResponse = await sendCommand(`EHLO ${smtp_host}`);
+    const senderDomain = fromEmail.split('@')[1] || 'localhost';
+    const ehloResponse = await sendCommand(`EHLO ${senderDomain}`);
     if (!ehloResponse.includes('250')) throw new Error(`EHLO failed: ${ehloResponse}`);
     
     if (smtp_encryption === 'starttls' && ehloResponse.includes('STARTTLS')) {
       const starttlsResponse = await sendCommand('STARTTLS');
       if (starttlsResponse.startsWith('220')) {
         conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: smtp_host });
-        await sendCommand(`EHLO ${smtp_host}`);
+        await sendCommand(`EHLO ${senderDomain}`);
       }
     }
     
