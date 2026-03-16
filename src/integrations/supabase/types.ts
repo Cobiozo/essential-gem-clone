@@ -3821,10 +3821,12 @@ export type Database = {
           country: string | null
           device_hash: string | null
           device_type: string | null
+          failure_reason: string | null
           id: string
           ip_address: string | null
           is_suspicious: boolean | null
           login_at: string | null
+          login_status: string
           os_name: string | null
           user_agent: string | null
           user_id: string
@@ -3836,10 +3838,12 @@ export type Database = {
           country?: string | null
           device_hash?: string | null
           device_type?: string | null
+          failure_reason?: string | null
           id?: string
           ip_address?: string | null
           is_suspicious?: boolean | null
           login_at?: string | null
+          login_status?: string
           os_name?: string | null
           user_agent?: string | null
           user_id: string
@@ -3851,10 +3855,12 @@ export type Database = {
           country?: string | null
           device_hash?: string | null
           device_type?: string | null
+          failure_reason?: string | null
           id?: string
           ip_address?: string | null
           is_suspicious?: boolean | null
           login_at?: string | null
+          login_status?: string
           os_name?: string | null
           user_agent?: string | null
           user_id?: string
