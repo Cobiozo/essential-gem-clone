@@ -106,7 +106,8 @@ async function sendSmtpEmail(
     await readResponse();
 
     // EHLO
-    await sendCommand(`EHLO ${settings.host}`);
+    const senderDomain = settings.from_email.split('@')[1] || 'localhost';
+    await sendCommand(`EHLO ${senderDomain}`);
 
     // STARTTLS if needed
     if (settings.encryption === 'starttls') {
@@ -115,7 +116,7 @@ async function sendSmtpEmail(
       conn = await Deno.startTls(conn as Deno.TcpConn, {
         hostname: settings.host,
       });
-      await sendCommand(`EHLO ${settings.host}`);
+      await sendCommand(`EHLO ${senderDomain}`);
     }
 
     // AUTH LOGIN - use ASCII encoding for credentials
