@@ -139,6 +139,10 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         return <Badge className="bg-yellow-100 text-yellow-800">Zaproszony przez partnera</Badge>;
       case 'event_registration':
         return <Badge className="bg-purple-100 text-purple-800">Samodzielna rejestracja</Badge>;
+      case 'event_invite_alt_email':
+        return <Badge className="bg-orange-100 text-orange-800">Wysłano na inny email</Badge>;
+      case 'event_invite_resend':
+        return <Badge className="bg-blue-100 text-blue-800">Ponowne wysłanie</Badge>;
       default:
         return <Badge variant="secondary">{changeType}</Badge>;
     }
