@@ -57,6 +57,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
   const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
   const [notesValue, setNotesValue] = useState<string>('');
   const [savingNotes, setSavingNotes] = useState(false);
+  const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
 
   const handleSaveNotes = async (contactId: string) => {
     if (!onUpdateNotes) return;
