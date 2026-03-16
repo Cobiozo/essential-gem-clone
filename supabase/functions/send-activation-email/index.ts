@@ -109,16 +109,14 @@ async function sendSmtpEmail(
     await readResponse();
 
     // EHLO
-    await sendCommand(`EHLO ${settings.host}`);
+    const senderDomain = settings.from_email.split('@')[1] || 'localhost';
+    await sendCommand(`EHLO ${senderDomain}`);
 
-    // STARTTLS if needed
     if (settings.encryption === 'starttls') {
       console.log('[SMTP] Initiating STARTTLS...');
       await sendCommand('STARTTLS');
-      conn = await Deno.startTls(conn as Deno.TcpConn, {
-        hostname: settings.host,
-      });
-      await sendCommand(`EHLO ${settings.host}`);
+      conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
+      await sendCommand(`EHLO ${senderDomain}`);
     }
 
     // AUTH LOGIN
@@ -142,7 +140,7 @@ async function sendSmtpEmail(
 
     // Email content with proper headers (multipart/alternative for better deliverability)
     const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${settings.host}>`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
     const plainText = htmlBody.replace(/<[^>]*>/g, '');
     
     const emailContent = [

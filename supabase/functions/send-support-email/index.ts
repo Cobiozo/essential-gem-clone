@@ -56,6 +56,7 @@ async function sendSmtpEmail(
   htmlBody: string,
   replyTo?: string
 ): Promise<{ success: boolean; error?: string }> {
+  const senderDomain = settings.from_email.split('@')[1] || 'localhost';
   console.log(`[SMTP] Attempting to send email to ${to}`);
   console.log(`[SMTP] Using server: ${settings.host}:${settings.port} (${settings.encryption})`);
 
@@ -65,25 +66,10 @@ async function sendSmtpEmail(
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    // Connect based on encryption type
     if (settings.encryption === 'ssl') {
-      console.log('[SMTP] Connecting with SSL/TLS...');
-      conn = await withTimeout(
-        Deno.connectTls({
-          hostname: settings.host,
-          port: settings.port,
-        }),
-        30000
-      );
+      conn = await withTimeout(Deno.connectTls({ hostname: settings.host, port: settings.port }), 30000);
     } else {
-      console.log('[SMTP] Connecting without encryption...');
-      conn = await withTimeout(
-        Deno.connect({
-          hostname: settings.host,
-          port: settings.port,
-        }),
-        30000
-      );
+      conn = await withTimeout(Deno.connect({ hostname: settings.host, port: settings.port }), 30000);
     }
 
     const readResponse = async (): Promise<string> => {
@@ -96,33 +82,21 @@ async function sendSmtpEmail(
     };
 
     const sendCommand = async (command: string, hideLog = false): Promise<string> => {
-      if (!hideLog) {
-        console.log('[SMTP] Sending:', command.trim());
-      } else {
-        console.log('[SMTP] Sending: [HIDDEN - credentials]');
-      }
+      if (!hideLog) console.log('[SMTP] Sending:', command.trim().substring(0, 200));
+      else console.log('[SMTP] Sending: [HIDDEN - credentials]');
       await conn!.write(encoder.encode(command + '\r\n'));
       return await readResponse();
     };
 
-    // Read initial greeting
     await readResponse();
+    await sendCommand(`EHLO ${senderDomain}`);
 
-    // EHLO
-    await sendCommand(`EHLO ${settings.host}`);
-
-    // STARTTLS if needed
     if (settings.encryption === 'starttls') {
-      console.log('[SMTP] Initiating STARTTLS...');
       await sendCommand('STARTTLS');
-      conn = await Deno.startTls(conn as Deno.TcpConn, {
-        hostname: settings.host,
-      });
-      await sendCommand(`EHLO ${settings.host}`);
+      conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
+      await sendCommand(`EHLO ${senderDomain}`);
     }
 
-    // AUTH LOGIN - use ASCII encoding for credentials
-    console.log('[SMTP] Authenticating...');
     await sendCommand('AUTH LOGIN');
     await sendCommand(base64EncodeAscii(settings.username), true);
     const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
@@ -131,44 +105,50 @@ async function sendSmtpEmail(
       throw new Error(`Authentication failed: ${authResponse}`);
     }
 
-    // MAIL FROM
-    await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    const mailFromResp = await sendCommand(`MAIL FROM:<${settings.from_email}>`);
+    if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
 
-    // RCPT TO
-    await sendCommand(`RCPT TO:<${to}>`);
+    const rcptResp = await sendCommand(`RCPT TO:<${to}>`);
+    if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
 
-    // DATA
-    await sendCommand('DATA');
+    const dataResp = await sendCommand('DATA');
+    if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
 
-    // Email content with proper headers
-    const emailHeaders = [
-      `From: ${settings.from_name} <${settings.from_email}>`,
-      `To: ${to}`,
-      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=UTF-8',
-      'Content-Transfer-Encoding: base64',
-    ];
-
-    // Add Reply-To header if provided
-    if (replyTo) {
-      emailHeaders.push(`Reply-To: ${replyTo}`);
-    }
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
     const emailContent = [
-      ...emailHeaders,
-      '',
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `From: "${settings.from_name}" <${settings.from_email}>`,
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${replyTo || settings.from_email}>`,
+      `Return-Path: <${settings.from_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(plainText),
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
       base64Encode(htmlBody),
-      '.',
+      ``,
+      `--${boundary}--`,
+      `.`,
     ].join('\r\n');
 
-    const dataResponse = await sendCommand(emailContent);
-    
-    if (!dataResponse.includes('250')) {
-      throw new Error(`Failed to send email: ${dataResponse}`);
-    }
+    const sendResp = await sendCommand(emailContent);
+    if (!sendResp.includes('250')) throw new Error(`Failed to send email: ${sendResp}`);
 
-    // QUIT
     await sendCommand('QUIT');
 
     return { success: true };
@@ -177,11 +157,7 @@ async function sendSmtpEmail(
     return { success: false, error: error.message };
   } finally {
     if (conn) {
-      try {
-        conn.close();
-      } catch (e) {
-        console.log('[SMTP] Error closing connection:', e);
-      }
+      try { conn.close(); } catch {}
     }
   }
 }

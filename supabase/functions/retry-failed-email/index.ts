@@ -50,6 +50,7 @@ async function sendSmtpEmail(
   subject: string,
   htmlBody: string
 ): Promise<void> {
+  const senderDomain = settings.sender_email.split('@')[1] || 'localhost';
   console.log(`[SMTP] Connecting to ${settings.host}:${settings.port} with encryption: ${settings.encryption_type}`);
 
   let conn: Deno.TcpConn | null = null;
@@ -71,7 +72,7 @@ async function sendSmtpEmail(
       reader: Deno.TcpConn | Deno.TlsConn,
       command: string
     ): Promise<string> {
-      const logCommand = command.startsWith("AUTH") ? "AUTH [credentials hidden]" : command.trim();
+      const logCommand = command.startsWith("AUTH") ? "AUTH [credentials hidden]" : command.trim().substring(0, 200);
       console.log(`[SMTP] > ${logCommand}`);
       await writer.write(encoder.encode(command + "\r\n"));
       const response = await readResponse(reader);
@@ -79,69 +80,82 @@ async function sendSmtpEmail(
       return response;
     }
 
+    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
+    const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
+    const emailContent = [
+      `Message-ID: ${messageId}`,
+      `Date: ${new Date().toUTCString()}`,
+      `From: "${settings.sender_name}" <${settings.sender_email}>`,
+      `To: ${to}`,
+      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+      `Reply-To: <${settings.sender_email}>`,
+      `Return-Path: <${settings.sender_email}>`,
+      `X-Mailer: PureLife-Platform/1.0`,
+      `MIME-Version: 1.0`,
+      `Content-Type: multipart/alternative; boundary="${boundary}"`,
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/plain; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(plainText),
+      ``,
+      `--${boundary}`,
+      `Content-Type: text/html; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      ``,
+      base64Encode(htmlBody),
+      ``,
+      `--${boundary}--`,
+      `.`,
+    ].join("\r\n");
+
     // SSL connection
     if (settings.encryption_type === "ssl") {
       secureConn = await withTimeout(
-        Deno.connectTls({
-          hostname: settings.host,
-          port: settings.port,
-        }),
+        Deno.connectTls({ hostname: settings.host, port: settings.port }),
         30000
       );
 
       const greeting = await readResponse(secureConn);
       console.log(`[SMTP] Greeting: ${greeting.trim()}`);
 
-      await sendCommand(secureConn, secureConn, `EHLO localhost`);
-      const authResponse = await sendCommand(
-        secureConn,
-        secureConn,
-        `AUTH LOGIN`
-      );
+      await sendCommand(secureConn, secureConn, `EHLO ${senderDomain}`);
+      const authResponse = await sendCommand(secureConn, secureConn, `AUTH LOGIN`);
 
       if (authResponse.startsWith("334")) {
         await sendCommand(secureConn, secureConn, base64EncodeAscii(settings.username));
         await sendCommand(secureConn, secureConn, base64EncodeAscii(settings.password));
       }
 
-      await sendCommand(secureConn, secureConn, `MAIL FROM:<${settings.sender_email}>`);
-      await sendCommand(secureConn, secureConn, `RCPT TO:<${to}>`);
+      const mailFromResp = await sendCommand(secureConn, secureConn, `MAIL FROM:<${settings.sender_email}>`);
+      if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
+
+      const rcptResp = await sendCommand(secureConn, secureConn, `RCPT TO:<${to}>`);
+      if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
+
       await sendCommand(secureConn, secureConn, `DATA`);
-
-      const emailContent = [
-        `From: ${settings.sender_name} <${settings.sender_email}>`,
-        `To: ${to}`,
-        `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
-        `MIME-Version: 1.0`,
-        `Content-Type: text/html; charset=UTF-8`,
-        `Content-Transfer-Encoding: base64`,
-        ``,
-        base64Encode(htmlBody),
-        `.`,
-      ].join("\r\n");
-
       await sendCommand(secureConn, secureConn, emailContent);
       await sendCommand(secureConn, secureConn, `QUIT`);
     } else {
       // STARTTLS or plain connection
       conn = await withTimeout(
-        Deno.connect({
-          hostname: settings.host,
-          port: settings.port,
-        }),
+        Deno.connect({ hostname: settings.host, port: settings.port }),
         30000
       );
 
       const greeting = await readResponse(conn);
       console.log(`[SMTP] Greeting: ${greeting.trim()}`);
 
-      await sendCommand(conn, conn, `EHLO localhost`);
+      await sendCommand(conn, conn, `EHLO ${senderDomain}`);
 
       if (settings.encryption_type === "starttls") {
         await sendCommand(conn, conn, `STARTTLS`);
         secureConn = await Deno.startTls(conn, { hostname: settings.host });
         conn = null;
-        await sendCommand(secureConn, secureConn, `EHLO localhost`);
+        await sendCommand(secureConn, secureConn, `EHLO ${senderDomain}`);
       }
 
       const activeConn = secureConn || conn;
@@ -154,29 +168,19 @@ async function sendSmtpEmail(
         await sendCommand(activeConn, activeConn, base64EncodeAscii(settings.password));
       }
 
-      await sendCommand(activeConn, activeConn, `MAIL FROM:<${settings.sender_email}>`);
-      await sendCommand(activeConn, activeConn, `RCPT TO:<${to}>`);
+      const mailFromResp = await sendCommand(activeConn, activeConn, `MAIL FROM:<${settings.sender_email}>`);
+      if (!mailFromResp.startsWith('250')) throw new Error(`MAIL FROM rejected: ${mailFromResp}`);
+
+      const rcptResp = await sendCommand(activeConn, activeConn, `RCPT TO:<${to}>`);
+      if (!rcptResp.startsWith('250')) throw new Error(`RCPT TO rejected: ${rcptResp}`);
+
       await sendCommand(activeConn, activeConn, `DATA`);
-
-      const emailContent = [
-        `From: ${settings.sender_name} <${settings.sender_email}>`,
-        `To: ${to}`,
-        `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
-        `MIME-Version: 1.0`,
-        `Content-Type: text/html; charset=UTF-8`,
-        `Content-Transfer-Encoding: base64`,
-        ``,
-        base64Encode(htmlBody),
-        `.`,
-      ].join("\r\n");
-
       await sendCommand(activeConn, activeConn, emailContent);
       await sendCommand(activeConn, activeConn, `QUIT`);
     }
 
     console.log("[SMTP] Email sent successfully");
   } finally {
-    // Always close connections
     if (secureConn) {
       try { secureConn.close(); } catch { /* ignore */ }
     }
