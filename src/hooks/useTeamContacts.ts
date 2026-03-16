@@ -520,5 +520,6 @@ export const useTeamContacts = () => {
     deletedLoading,
     restoreContact,
     moveToOwnList,
+    checkDuplicateBeforeMove,
   };
 };
