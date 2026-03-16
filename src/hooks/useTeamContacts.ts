@@ -325,8 +325,44 @@ export const useTeamContacts = () => {
     }
   };
 
-  const moveToOwnList = async (id: string) => {
+  const checkDuplicateBeforeMove = async (id: string): Promise<{ isDuplicate: boolean; existingContact?: TeamContact }> => {
+    if (!user) return { isDuplicate: false };
+    
+    const contactToMove = contacts.find(c => c.id === id);
+    if (!contactToMove) return { isDuplicate: false };
+
+    // Check if a contact with same email+phone already exists in "own list"
+    const ownListContacts = contacts.filter(c => 
+      c.contact_type === 'private' && 
+      c.id !== id &&
+      (!eventContactIds.has(c.id) || (c as any).moved_to_own_list)
+    );
+
+    const normalizedEmail = contactToMove.email?.toLowerCase().trim() || null;
+    const normalizedPhone = contactToMove.phone_number?.trim() || null;
+
+    const duplicate = ownListContacts.find(c => {
+      const cEmail = c.email?.toLowerCase().trim() || null;
+      const cPhone = c.phone_number?.trim() || null;
+      return cEmail === normalizedEmail && cPhone === normalizedPhone && normalizedEmail !== null;
+    });
+
+    if (duplicate) {
+      return { isDuplicate: true, existingContact: duplicate };
+    }
+    return { isDuplicate: false };
+  };
+
+  const moveToOwnList = async (id: string, force = false) => {
     if (!user) return false;
+
+    if (!force) {
+      const { isDuplicate } = await checkDuplicateBeforeMove(id);
+      if (isDuplicate) {
+        return 'duplicate' as const;
+      }
+    }
+
     try {
       const { error } = await supabase
         .from('team_contacts')
