@@ -87,6 +87,7 @@ serve(async (req) => {
     webinarReminders15min: { processed: 0, success: 0, failed: 0 },
     pushReminders: { processed: 0, success: 0, failed: 0 },
     contactReminders: { processed: 0, success: 0, failed: 0 },
+    postEventThankYou: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
