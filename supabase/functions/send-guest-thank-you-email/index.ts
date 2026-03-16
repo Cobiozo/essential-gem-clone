@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
     </ul>
 
     <div style="text-align: center; margin-top: 30px;">
-      ${inviterEmail ? `<a href="mailto:${inviterEmail}?subject=Kontakt po spotkaniu: ${eventTitle}" style="background: #667eea; color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: bold;">Napisz do ${inviterName}</a>` : ''}
+      ${inviterEmail ? `<a href="mailto:${inviterEmail}?subject=Kontakt po spotkaniu: ${eventTitle}" style="background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: bold;">Napisz do ${inviterName}</a>` : ''}
     </div>
 
     <p style="margin-top: 30px; color: #666; font-size: 12px; text-align: center;">
