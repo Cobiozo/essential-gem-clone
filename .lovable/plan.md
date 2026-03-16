@@ -26,4 +26,31 @@ Token wygenerowany → ✅ Email potwierdzenie z linkiem
 2h przed  → ✅ Przypomnienie + LINK
 1h przed  → ✅ Przypomnienie + LINK
 15min     → ✅ Przypomnienie + LINK
+Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
 ```
+
+---
+
+## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+
+### Nowe komponenty:
+1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
+   - Złoty nagłówek z logo Pure Life Center
+   - Sekcja z danymi osoby zapraszającej
+   - Tekst zachęcający do kontaktu z zapraszającym
+   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+
+2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
+
+3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+
+4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
+
+### Test emaili (wysłano do sebastiansnopek87@gmail.com):
+- ✅ Potwierdzenie rejestracji
+- ✅ Przypomnienie 24h
+- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
+- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
+- ✅ Przypomnienie 1h
+- ✅ Przypomnienie 15min
+- ✅ Podziękowanie po wydarzeniu (NOWY)
