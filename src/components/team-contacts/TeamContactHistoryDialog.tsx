@@ -227,7 +227,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
                   </div>
                   
                   {/* Event details for event-related entries */}
-                  {['event_invite', 'event_registration', 'event_invite_reg'].includes(entry.change_type) &&
+                  {['event_invite', 'event_registration', 'event_invite_reg', 'event_invite_alt_email', 'event_invite_resend'].includes(entry.change_type) &&
                     renderEventDetails(entry)}
                   
                   {/* Field-level changes for updates */}
