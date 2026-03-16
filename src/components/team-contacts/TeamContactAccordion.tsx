@@ -520,6 +520,14 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
           onClose={() => setHistoryContact(null)}
         />
       )}
+      {/* Invite to Event Dialog */}
+      {inviteContact && (
+        <InviteToEventDialog
+          contact={inviteContact}
+          open={!!inviteContact}
+          onOpenChange={(open) => !open && setInviteContact(null)}
+        />
+      )}
     </>
   );
 };
