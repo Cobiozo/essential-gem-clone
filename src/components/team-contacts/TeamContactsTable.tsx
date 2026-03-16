@@ -164,6 +164,16 @@ export const TeamContactsTable: React.FC<TeamContactsTableProps> = ({
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center justify-end gap-1">
+                    {!readOnly && showInviteButton && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setInviteContact(contact)}
+                        title="Zaproś na wydarzenie"
+                      >
+                        <Send className="w-4 h-4 text-primary" />
+                      </Button>
+                    )}
                     {!readOnly && !hideEventInfo && <ContactEventInfoButton contact={contact} />}
                     <Button
                       variant="ghost"
