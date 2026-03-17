@@ -159,6 +159,7 @@ const EventGuestRegistration: React.FC = () => {
       first_name: '',
       last_name: '',
       phone: '',
+      email_consent: false,
     },
   });
 
