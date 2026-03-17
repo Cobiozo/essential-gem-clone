@@ -136,6 +136,7 @@ const EventGuestRegistration: React.FC = () => {
     phone: invitedBy
       ? z.string().min(1, labels.phoneError)
       : z.string().optional(),
+    email_consent: z.literal(true, { errorMap: () => ({ message: labels.emailConsentRequired }) }),
   }).refine((data) => data.email.trim().toLowerCase() === data.confirm_email.trim().toLowerCase(), {
     message: labels.emailsMismatch,
     path: ['confirm_email'],
