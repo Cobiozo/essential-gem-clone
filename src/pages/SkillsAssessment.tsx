@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Home } from 'lucide-react';
 import { AssessmentStep } from '@/components/skills-assessment/AssessmentStep';
 import { SkillsRadarChart } from '@/components/skills-assessment/SkillsRadarChart';
 import { AssessmentSummary } from '@/components/skills-assessment/AssessmentSummary';
