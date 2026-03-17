@@ -407,7 +407,9 @@ serve(async (req) => {
               results[window.resultKey].processed += res?.total || 0;
               results[window.resultKey].success += res?.sent || 0;
               results[window.resultKey].failed += res?.failed || 0;
-              console.log(`[CRON] Bulk ${window.type} for "${webinar.title}": sent=${res?.sent}, failed=${res?.failed}`);
+              results[window.resultKey].guests += res?.guests || 0;
+              results[window.resultKey].users += res?.users || 0;
+              console.log(`[CRON] Bulk ${window.type} for "${webinar.title}": sent=${res?.sent} (G:${res?.guests || 0} U:${res?.users || 0}), failed=${res?.failed}`);
             }
           } catch (err) {
             console.error(`[CRON] Exception invoking bulk ${window.type}:`, err);

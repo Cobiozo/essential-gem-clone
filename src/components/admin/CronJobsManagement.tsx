@@ -247,11 +247,18 @@ export const CronJobsManagement: React.FC = () => {
     
     const successCount = category.success || 0;
     const failedCount = category.failed || 0;
+    const hasGuestUserSplit = (category.guests !== undefined && category.guests > 0) || (category.users !== undefined && category.users > 0);
     
     return (
       <div className="flex flex-col text-xs">
         {successCount > 0 && (
-          <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
+          <span className="text-green-600 dark:text-green-400">
+            {hasGuestUserSplit ? (
+              <>{category.guests || 0}G + {category.users || 0}U</>
+            ) : (
+              <>{successCount} ✓</>
+            )}
+          </span>
         )}
         {failedCount > 0 && (
           <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>
