@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { format, addDays } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -82,6 +83,7 @@ type RegistrationFormData = {
   first_name: string;
   last_name?: string;
   phone?: string;
+  email_consent: boolean;
 };
 
 interface EventData {
@@ -134,6 +136,7 @@ const EventGuestRegistration: React.FC = () => {
     phone: invitedBy
       ? z.string().min(1, labels.phoneError)
       : z.string().optional(),
+    email_consent: z.literal(true, { errorMap: () => ({ message: labels.emailConsentRequired }) }),
   }).refine((data) => data.email.trim().toLowerCase() === data.confirm_email.trim().toLowerCase(), {
     message: labels.emailsMismatch,
     path: ['confirm_email'],
@@ -156,6 +159,7 @@ const EventGuestRegistration: React.FC = () => {
       first_name: '',
       last_name: '',
       phone: '',
+      email_consent: false,
     },
   });
 
@@ -658,6 +662,27 @@ const EventGuestRegistration: React.FC = () => {
                               <Input placeholder={labels.placeholderPhone} {...field} />
                             </FormControl>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="email_consent"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel className="text-sm font-normal cursor-pointer">
+                                {labels.emailConsent}
+                              </FormLabel>
+                              <FormMessage />
+                            </div>
                           </FormItem>
                         )}
                       />

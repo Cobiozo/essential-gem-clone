@@ -118,6 +118,8 @@ export interface RegistrationLabels {
   notFound: string;
   registrationError: string;
   footer: string;
+  emailConsent: string;
+  emailConsentRequired: string;
   roomOpens5min: string;
   roomOpensOnTime: string;
   checkEmail: string;
@@ -179,6 +181,8 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderFirstName: 'Jan',
     placeholderLastName: 'Kowalski',
     placeholderPhone: '+48 123 456 789',
+    emailConsent: 'Wyrażam zgodę na otrzymywanie wiadomości email z informacjami dotyczącymi tego wydarzenia, w tym linku do spotkania. Dane są chronione. Zgodę można wycofać, kontaktując się pod adresem support@purelife.info.pl.',
+    emailConsentRequired: 'Musisz wyrazić zgodę, aby kontynuować rejestrację',
   },
   en: {
     formTitle: 'Sign up for webinar',
@@ -224,6 +228,8 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderFirstName: 'John',
     placeholderLastName: 'Smith',
     placeholderPhone: '+1 555 123 4567',
+    emailConsent: 'I consent to receiving email messages with information about this event, including the meeting link. Your data is protected. You can withdraw your consent by contacting support@purelife.info.pl.',
+    emailConsentRequired: 'You must give consent to continue registration',
   },
   de: {
     formTitle: 'Zum Webinar anmelden',
@@ -269,6 +275,8 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderFirstName: 'Hans',
     placeholderLastName: 'Müller',
     placeholderPhone: '+49 151 1234 5678',
+    emailConsent: 'Ich stimme dem Erhalt von E-Mail-Nachrichten mit Informationen zu dieser Veranstaltung, einschließlich des Meeting-Links, zu. Ihre Daten sind geschützt. Sie können Ihre Einwilligung widerrufen, indem Sie sich an support@purelife.info.pl wenden.',
+    emailConsentRequired: 'Sie müssen zustimmen, um die Registrierung fortzusetzen',
   },
 };
 
