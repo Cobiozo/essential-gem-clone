@@ -58,7 +58,14 @@ async function sendSmtpEmail(
   htmlBody: string
 ): Promise<{ success: boolean; error?: string }> {
   console.log(`[SMTP] Attempting to send email to ${to}`);
+  console.log(`[SMTP] HTML body size: ${htmlBody.length} chars`);
   console.log(`[SMTP] Using server: ${settings.host}:${settings.port} (${settings.encryption})`);
+
+  // Limit payload size to prevent SMTP hangs (max ~500KB of HTML)
+  if (htmlBody.length > 500000) {
+    console.error(`[SMTP] HTML body too large: ${htmlBody.length} chars`);
+    return { success: false, error: 'Email content too large. Please reduce image size.' };
+  }
 
   let conn: Deno.Conn | null = null;
   
@@ -74,7 +81,7 @@ async function sendSmtpEmail(
           hostname: settings.host,
           port: settings.port,
         }),
-        30000
+        15000
       );
     } else {
       console.log('[SMTP] Connecting without encryption...');
@@ -83,13 +90,14 @@ async function sendSmtpEmail(
           hostname: settings.host,
           port: settings.port,
         }),
-        30000
+        15000
       );
     }
 
     const readResponse = async (): Promise<string> => {
       const buffer = new Uint8Array(4096);
-      const n = await conn!.read(buffer);
+      const readPromise = conn!.read(buffer);
+      const n = await withTimeout(readPromise, 15000);
       if (n === null) return '';
       const response = decoder.decode(buffer.subarray(0, n));
       console.log('[SMTP] Response:', response.trim());
@@ -98,7 +106,7 @@ async function sendSmtpEmail(
 
     const sendCommand = async (command: string, hideLog = false): Promise<string> => {
       if (!hideLog) {
-        console.log('[SMTP] Sending:', command.trim());
+        console.log('[SMTP] Sending:', command.length > 200 ? `[${command.length} chars]` : command.trim());
       } else {
         console.log('[SMTP] Sending: [HIDDEN - credentials]');
       }
@@ -123,7 +131,7 @@ async function sendSmtpEmail(
       await sendCommand(`EHLO ${senderDomain}`);
     }
 
-    // AUTH LOGIN - use ASCII encoding for credentials
+    // AUTH LOGIN
     console.log('[SMTP] Authenticating...');
     await sendCommand('AUTH LOGIN');
     await sendCommand(base64EncodeAscii(settings.username), true);
@@ -174,15 +182,29 @@ async function sendSmtpEmail(
       '.',
     ].join('\r\n');
 
-    const dataResponse = await sendCommand(emailContent);
+    console.log(`[SMTP] Sending DATA payload: ${emailContent.length} chars`);
+    
+    // Use longer timeout for DATA since it includes the full email content
+    const sendData = async (): Promise<string> => {
+      await conn!.write(encoder.encode(emailContent + '\r\n'));
+      return await readResponse();
+    };
+    
+    const dataResponse = await withTimeout(sendData(), 30000);
     
     if (!dataResponse.startsWith('250')) {
       throw new Error(`Failed to send email: ${dataResponse}`);
     }
 
+    console.log('[SMTP] DATA accepted, sending QUIT');
+
     // QUIT
-    await sendCommand('QUIT');
-    conn.close();
+    try {
+      await conn.write(encoder.encode('QUIT\r\n'));
+    } catch { /* ignore quit errors */ }
+    
+    try { conn.close(); } catch { /* ignore */ }
+    conn = null;
 
     console.log('[SMTP] Email sent successfully');
     return { success: true };
@@ -227,7 +249,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify the user is an admin
+    // Verify the user is authenticated
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       throw new Error("No authorization header");
@@ -241,20 +263,23 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    // Check if user is admin
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("role", "admin")
-      .single();
-
-    if (!roleData) {
-      throw new Error("Only admins can force send emails");
-    }
-
     const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {} }: SendEmailRequest = await req.json();
-    console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template });
+    console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template, html_body_length: html_body?.length });
+
+    // For template-based mode, require admin role
+    // For skip_template mode (e.g. skills assessment results), allow any authenticated user
+    if (!skip_template) {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .single();
+
+      if (!roleData) {
+        throw new Error("Only admins can send template emails");
+      }
+    }
 
     // Fetch SMTP settings
     const { data: smtpData, error: smtpError } = await supabase

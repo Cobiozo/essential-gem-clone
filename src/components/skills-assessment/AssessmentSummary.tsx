@@ -16,6 +16,7 @@ interface AssessmentSummaryProps {
 
 export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, onReset }) => {
   const exportRef = useRef<HTMLDivElement>(null);
+  const chartOnlyRef = useRef<HTMLDivElement>(null);
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const { toast } = useToast();
@@ -40,6 +41,19 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
     }
   };
 
+  const generateChartOnlyImage = async (): Promise<string | null> => {
+    if (!chartOnlyRef.current) return null;
+    try {
+      const canvas = await html2canvas(chartOnlyRef.current, {
+        backgroundColor: '#1a1a2e',
+        scale: 1,
+      });
+      return canvas.toDataURL('image/jpeg', 0.7);
+    } catch {
+      return null;
+    }
+  };
+
   const handleDownload = async () => {
     const dataUrl = await generateExportImage();
     if (!dataUrl) {
@@ -57,15 +71,14 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
     if (!email) return;
     setSending(true);
     try {
-      // Generate chart image as base64
-      const chartDataUrl = await generateExportImage();
+      const chartDataUrl = await generateChartOnlyImage();
 
       const results = ASSESSMENT_STEPS.map(
         (s) => `<tr><td style="padding:4px 8px;color:#ccc;">${s.title}</td><td style="padding:4px 8px;font-weight:bold;color:${s.chartColor};">${scores[s.key]}/10</td></tr>`
       ).join('');
 
       const chartImgHtml = chartDataUrl
-        ? `<div style="text-align:center;margin-bottom:20px;"><img src="${chartDataUrl}" alt="Koło Umiejętności" style="max-width:500px;width:100%;border-radius:12px;" /></div>`
+        ? `<div style="text-align:center;margin-bottom:20px;"><img src="${chartDataUrl}" alt="Koło Umiejętności" style="max-width:400px;width:100%;border-radius:12px;" /></div>`
         : '';
 
       const htmlBody = `
@@ -90,7 +103,11 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
         </div>
       `;
 
-      const { data, error } = await supabase.functions.invoke('send-single-email', {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Upłynął limit czasu wysyłki. Spróbuj ponownie.')), 25000)
+      );
+
+      const sendPromise = supabase.functions.invoke('send-single-email', {
         body: {
           template_id: null,
           recipient_email: email,
@@ -99,6 +116,8 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
           skip_template: true,
         },
       });
+
+      const { data, error } = await Promise.race([sendPromise, timeoutPromise]);
 
       if (error) throw error;
       if (data && !data.success) throw new Error(data.error || 'Błąd wysyłki');
@@ -114,7 +133,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
 
   return (
     <div className="space-y-8">
-      {/* Hidden export container with hardcoded colors for html2canvas */}
+      {/* Hidden full export container for PNG download */}
       <div
         ref={exportRef}
         style={{
@@ -174,6 +193,24 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
         </div>
       </div>
 
+      {/* Hidden chart-only container for lightweight email image */}
+      <div
+        ref={chartOnlyRef}
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: 0,
+          width: '400px',
+          background: '#1a1a2e',
+          color: '#ffffff',
+          padding: '16px',
+          borderRadius: '12px',
+          fontFamily: 'Arial, sans-serif',
+        }}
+      >
+        <SkillsRadarChart scores={scores} exportMode />
+      </div>
+
       {/* Visible summary */}
       <div className="bg-background p-6 rounded-xl space-y-6">
         <h2 className="text-xl font-bold text-foreground text-center">
@@ -195,26 +232,26 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
           <span>Suma: {totalScore}/120</span>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-3 rounded-lg border border-green-200 bg-green-50/50">
-            <h3 className="text-sm font-semibold text-green-600 mb-2">💪 Mocne strony</h3>
+          <div className="p-3 rounded-lg border border-green-500/30 bg-green-950/40">
+            <h3 className="text-sm font-semibold text-green-400 mb-2">💪 Mocne strony</h3>
             {top3.map(([key, val]) => {
               const step = ASSESSMENT_STEPS.find(s => s.key === key);
               return (
                 <div key={key} className="flex justify-between text-sm py-0.5">
                   <span className="text-foreground mr-2">{step?.title}</span>
-                  <span className="font-bold text-green-600">{val}</span>
+                  <span className="font-bold text-green-400">{val}</span>
                 </div>
               );
             })}
           </div>
-          <div className="p-3 rounded-lg border border-red-200 bg-red-50/50">
-            <h3 className="text-sm font-semibold text-red-500 mb-2">🎯 Do rozwoju</h3>
+          <div className="p-3 rounded-lg border border-red-500/30 bg-red-950/40">
+            <h3 className="text-sm font-semibold text-red-400 mb-2">🎯 Do rozwoju</h3>
             {bottom3.map(([key, val]) => {
               const step = ASSESSMENT_STEPS.find(s => s.key === key);
               return (
                 <div key={key} className="flex justify-between text-sm py-0.5">
                   <span className="text-foreground mr-2">{step?.title}</span>
-                  <span className="font-bold text-red-500">{val}</span>
+                  <span className="font-bold text-red-400">{val}</span>
                 </div>
               );
             })}
