@@ -126,32 +126,33 @@ function buildThankYouHtml(params: {
   const { recipientName, eventTitle, inviterName, inviterEmail, inviterPhone } = params;
   const hasInviter = inviterName && inviterName !== 'Zespół Pure Life';
 
-  const inviterSection = hasInviter ? `
-    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #D4A843;">
-      <h3 style="margin-top: 0; color: #D4A843;">👤 Twoja osoba kontaktowa:</h3>
-      <p style="margin: 5px 0;"><strong>${inviterName}</strong></p>
-      ${inviterEmail ? `<p style="margin: 5px 0;">📧 <a href="mailto:${inviterEmail}" style="color: #D4A843;">${inviterEmail}</a></p>` : ''}
-      ${inviterPhone ? `<p style="margin: 5px 0;">📱 ${inviterPhone}</p>` : ''}
+  const inviterContactSection = hasInviter ? `
+    <div style="background: #FFF9ED; border: 2px solid #D4A843; border-radius: 12px; padding: 25px; margin: 25px 0;">
+      <h2 style="margin: 0 0 5px 0; color: #D4A843; font-size: 18px;">👤 Twoja osoba kontaktowa</h2>
+      <p style="margin: 0 0 15px 0; color: #8B6914; font-size: 13px;">Skontaktuj się bezpośrednio!</p>
+      
+      <p style="margin: 5px 0; font-size: 16px;"><strong>${inviterName}</strong></p>
+      ${inviterEmail ? `<p style="margin: 5px 0; font-size: 14px;">📧 <a href="mailto:${inviterEmail}" style="color: #D4A843; text-decoration: none;">${inviterEmail}</a></p>` : ''}
+      ${inviterPhone ? `<p style="margin: 5px 0; font-size: 14px;">📱 ${inviterPhone}</p>` : ''}
+      
+      <p style="font-size: 14px; line-height: 1.7; margin-top: 15px; color: #555;">
+        <strong>${inviterName}</strong> zaprosił/a Cię na to wydarzenie i jest Twoim <strong>bezpośrednim kontaktem</strong>. 
+        To właśnie ta osoba pomoże Ci dowiedzieć się więcej i wesprze Cię na każdym kroku.
+      </p>
     </div>
 
     <p style="font-size: 15px; line-height: 1.7;">
-      To nie jedyne takie spotkanie! <strong>${inviterName}</strong> regularnie organizuje i zaprasza na podobne wydarzenia. 
-      Dzięki tej osobie możesz otrzymywać informacje na temat kolejnych spotkań dotyczących zdrowia, rozwoju i stylu życia Pure Life.
-    </p>
-
-    <p style="font-size: 15px; line-height: 1.7;">
-      <strong>Warto wrócić do ${inviterName}</strong> — to Twój bezpośredni kontakt, który pomoże Ci dowiedzieć się więcej o:
+      Skontaktuj się z <strong>${inviterName}</strong>, aby dowiedzieć się więcej o:
     </p>
   ` : `
     <p style="font-size: 15px; line-height: 1.7;">
-      To nie jedyne takie spotkanie! Regularnie organizujemy podobne wydarzenia dotyczące zdrowia, rozwoju i stylu życia Pure Life.
+      Chcesz dowiedzieć się więcej? Skontaktuj się z nami:
     </p>
-    <p style="font-size: 15px; line-height: 1.7;">Chcesz dowiedzieć się więcej o:</p>
   `;
 
   const ctaButton = hasInviter && inviterEmail
-    ? `<a href="mailto:${inviterEmail}?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">Napisz do ${inviterName}</a>`
-    : `<a href="mailto:kontakt@purelife.info.pl?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 14px 35px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">Skontaktuj się z nami</a>`;
+    ? `<a href="mailto:${inviterEmail}?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do ${inviterName}</a>`
+    : `<a href="mailto:support@purelife.info.pl?subject=Kontakt po wydarzeniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do nas</a>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -168,7 +169,7 @@ function buildThankYouHtml(params: {
       Twoja obecność była dla nas niezwykle cenna i cieszymy się, że mogliśmy wspólnie spędzić ten czas!
     </p>
 
-    ${inviterSection}
+    ${inviterContactSection}
 
     <ul style="line-height: 2; font-size: 15px; padding-left: 20px;">
       <li>📚 Kolejnych szkoleniach i spotkaniach</li>
@@ -181,9 +182,9 @@ function buildThankYouHtml(params: {
       ${ctaButton}
     </div>
 
-    <div style="background: #FFF9ED; border: 1px solid #F0DCA0; border-radius: 8px; padding: 15px; margin-top: 20px;">
-      <p style="margin: 0; font-size: 14px; color: #8B6914; text-align: center;">
-        🌟 <strong>Dołącz do społeczności Pure Life</strong> — bądź na bieżąco z nadchodzącymi wydarzeniami i inspiracjami!
+    <div style="background: #f8f8f8; border-radius: 8px; padding: 15px; margin-top: 25px; text-align: center;">
+      <p style="margin: 0; font-size: 13px; color: #888;">
+        💬 Dodatkowe wsparcie: <a href="mailto:support@purelife.info.pl" style="color: #D4A843; text-decoration: none;">support@purelife.info.pl</a>
       </p>
     </div>
 
