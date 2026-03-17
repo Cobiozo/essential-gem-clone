@@ -47,6 +47,7 @@ import {
   UserRound,
   Calculator,
   Heart,
+  Sparkles,
   Ticket,
   FileText,
   Crown,
