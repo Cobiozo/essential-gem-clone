@@ -1,94 +1,52 @@
-## Analiza systemu powiadomień — wynik
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+Cel: sprawić, żeby email faktycznie pokazywał poprawny diagram oraz zawsze dodawał w załączniku plik PNG z pełnym podsumowaniem.
 
-### Zmiany:
+Co ustaliłem
+- Email jest wysyłany poprawnie po stronie SMTP — logi pokazują `Email sent successfully`.
+- Problem dotyczy renderowania treści w skrzynce: obecnie wykres jest wkładany do HTML jako `data:` URL, a wiele klientów pocztowych to ucina albo ignoruje.
+- Obecna funkcja mailowa buduje tylko `multipart/alternative`, więc nie obsługuje prawdziwych załączników PNG ani stabilnych obrazów inline przez CID.
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+Plan wdrożenia
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+1. `AssessmentSummary.tsx` — generowanie 2 obrazów
+- Zostawić obecny pełny eksport PNG z `exportRef` jako obraz z kołem + podsumowaniem.
+- Dodatkowo wygenerować lżejszy obraz samego koła z `chartOnlyRef` do osadzenia w treści emaila.
+- Przy wysyłce nie osadzać już obrazka jako `data:` URL w HTML.
+- Zamiast tego wysłać do edge function:
+  - `html_body` z miejscem na obraz inline przez `cid`
+  - załącznik PNG z pełnym podsumowaniem
+  - nazwę pliku np. `ocena-umiejetnosci-nm.png`
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
-```
+2. `send-single-email` — obsługa załączników i obrazów inline
+- Rozszerzyć payload funkcji o pola typu:
+  - `attachments[]`
+  - opcjonalnie `inline_images[]` lub załączniki z `content_id`
+- Przebudować MIME z `multipart/alternative` na strukturę, która obsłuży:
+  - wersję tekstową
+  - wersję HTML
+  - obraz inline przez `cid:...`
+  - osobny załącznik PNG
+- Dzięki temu wykres będzie widoczny w treści maila, a pełne podsumowanie trafi jako prawdziwy załącznik.
 
----
+3. Treść emaila
+- Wstawić na dole wiadomości obraz koła przez `cid`, żeby był zgodny z wynikiem i widoczny bez polegania na `data:` URL.
+- Dodać krótką informację, że pełne podsumowanie jest dołączone jako plik PNG.
+- Zachować tabelę wyników, średnią, sumę oraz sekcje „Mocne strony” i „Do rozwoju” jako HTML tekstowy.
 
-## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+4. Ograniczenie rozmiaru i stabilność
+- Załącznik: pełny PNG z podsumowaniem.
+- Inline w mailu: mniejszy PNG tylko z kołem, żeby nie przeciążać wiadomości.
+- Jeśli będzie potrzeba, dodatkowo obniżyć skalę obrazu inline, ale bez ruszania jakości załącznika.
 
-### Nowe komponenty:
-1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
-   - Złoty nagłówek z logo Pure Life Center
-   - Sekcja z danymi osoby zapraszającej
-   - Tekst zachęcający do kontaktu z zapraszającym
-   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+Pliki do zmiany
+- `src/components/skills-assessment/AssessmentSummary.tsx`
+- `supabase/functions/send-single-email/index.ts`
 
-2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
+Efekt końcowy
+- Na dole maila pojawi się poprawny diagram koła zgodny z wynikiem.
+- Email będzie zawierał załącznik PNG z pełnym podsumowaniem.
+- Rozwiązanie będzie działało stabilniej niż obecne osadzanie obrazka jako `data:` URL.
 
-3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
-
-4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
-
-### Test emaili (wysłano do sebastiansnopek87@gmail.com):
-- ✅ Potwierdzenie rejestracji
-- ✅ Przypomnienie 24h
-- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
-- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
-- ✅ Przypomnienie 1h
-- ✅ Przypomnienie 15min
-- ✅ Podziękowanie po wydarzeniu (NOWY)
-
----
-
-## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
-
-### Root cause:
-1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
-2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
-3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
-
-### Zmiany:
-
-1. **Migracja SQL** — dodano do `event_registrations`:
-   - `reminder_12h_sent`, `reminder_12h_sent_at`
-   - `reminder_2h_sent`, `reminder_2h_sent_at`
-   - `reminder_1h_sent`, `reminder_1h_sent_at`
-   - `reminder_15min_sent`, `reminder_15min_sent_at`
-
-2. **`send-bulk-webinar-reminders`** — przebudowany:
-   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
-   - Dla zalogowanych pobiera email/imię z `profiles`
-   - Ustawia flagi w odpowiedniej tabeli po sukcesie
-   - Loguje każdy send do `email_logs` z `registration_source`
-
-3. **`process-pending-notifications`** — usunięta luka:
-   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
-   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
-   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
-
-4. **`send-webinar-confirmation`** — rozszerzony fallback:
-   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
-   - Zapobiega duplikatom z CRON dla zalogowanych
-
-### Efekt:
-```
-GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
-USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
-Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
-Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
-```
+Sekcja techniczna
+- Przyczyna błędu: klient pocztowy nie renderuje wiarygodnie obrazów osadzonych jako base64 `data:` wewnątrz HTML.
+- Poprawne rozwiązanie: `CID inline image` do treści + `multipart/mixed` dla załącznika PNG.
