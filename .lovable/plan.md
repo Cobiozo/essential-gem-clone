@@ -1,94 +1,47 @@
-## Analiza systemu powiadomień — wynik
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+Cel: naprawić zawieszoną wysyłkę maila oraz poprawić kolory kart „Mocne strony” i „Do rozwoju”.
 
-### Zmiany:
+Co znalazłem
+- Frontend faktycznie ustawia `sending=false` w `finally`, więc problem nie wygląda na zwykły błąd stanu w React.
+- W logach funkcji mailowej widać, że żądanie dochodzi do SMTP i zaczyna wysyłkę, ale nie ma logu sukcesu ani błędu — funkcja kończy się dopiero przy shutdownie.
+- Najbardziej prawdopodobna przyczyna: mail jest zbyt ciężki, bo do HTML-a wkładany jest duży base64 z obrazem wygenerowanym przez `html2canvas`. To mocno zwiększa payload i może blokować/przeciągać wysyłkę.
+- Zielona i czerwona karta na ekranie mają teraz jasne style Tailwinda (`bg-green-50/50`, `bg-red-50/50`), które nie pasują do ciemnego layoutu i wyglądają inaczej niż eksport.
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+Plan wdrożenia
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+1. Usprawnić wysyłkę maila w `AssessmentSummary.tsx`
+- Rozdzielić obraz do pobrania i obraz do maila:
+  - PNG do pobrania zostaje pełne, z całym podsumowaniem.
+  - Do maila generować lżejszą grafikę tylko z kołem umiejętności, w mniejszym rozmiarze i skali.
+- Nie wysyłać do maila ciężkiego zrzutu całego podsumowania jako base64.
+- Dodać limit czasu po stronie klienta dla wywołania funkcji, żeby przy problemie loader zawsze kończył się błędem zamiast kręcić się bez końca.
+- Zachować komunikat sukcesu: wysłano wyniki na wskazany adres.
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
-```
+2. Uszczelnić backend `send-single-email`
+- Dodać jawne timeouty i bezpieczniejsze zakończenie połączenia SMTP, żeby funkcja nie wisiała przy dużych wiadomościach.
+- Doprecyzować logowanie etapów po `DATA`, żeby łatwo było odróżnić:
+  - problem z payloadem,
+  - problem z odpowiedzią SMTP,
+  - timeout funkcji.
+- Jeśli trzeba, ograniczyć maksymalny rozmiar HTML wysyłanego w trybie `skip_template`.
 
----
+3. Zachować grafikę kołową w mailu, ale w lekkiej formie
+- W treści maila osadzić samo koło umiejętności jako mniejszy obraz.
+- Tabelę wyników, średnią, sumę oraz sekcje mocnych stron i obszarów rozwoju zostawić jako normalny HTML tekstowy.
+- To spełni wymaganie „mail ma mieć grafikę kołową”, ale bez ryzyka przeciążenia wiadomości.
 
-## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+4. Poprawić kolory kart „Mocne strony” i „Do rozwoju”
+- Zmienić widoczne karty na ciemniejsze, bardziej premium kolory spójne z resztą ekranu:
+  - „Mocne strony”: ciemne zielone tło + subtelna zielona ramka + zielone liczby.
+  - „Do rozwoju”: przygaszone ciemne czerwono-różowe / bordowe tło + subtelna czerwona ramka + czerwone liczby.
+- Ujednolicić te kolory także w eksporcie PNG i treści maila, żeby wszędzie wyglądały tak samo.
 
-### Nowe komponenty:
-1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
-   - Złoty nagłówek z logo Pure Life Center
-   - Sekcja z danymi osoby zapraszającej
-   - Tekst zachęcający do kontaktu z zapraszającym
-   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+Pliki do zmiany
+- `src/components/skills-assessment/AssessmentSummary.tsx`
+- `supabase/functions/send-single-email/index.ts`
 
-2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
-
-3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
-
-4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
-
-### Test emaili (wysłano do sebastiansnopek87@gmail.com):
-- ✅ Potwierdzenie rejestracji
-- ✅ Przypomnienie 24h
-- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
-- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
-- ✅ Przypomnienie 1h
-- ✅ Przypomnienie 15min
-- ✅ Podziękowanie po wydarzeniu (NOWY)
-
----
-
-## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
-
-### Root cause:
-1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
-2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
-3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
-
-### Zmiany:
-
-1. **Migracja SQL** — dodano do `event_registrations`:
-   - `reminder_12h_sent`, `reminder_12h_sent_at`
-   - `reminder_2h_sent`, `reminder_2h_sent_at`
-   - `reminder_1h_sent`, `reminder_1h_sent_at`
-   - `reminder_15min_sent`, `reminder_15min_sent_at`
-
-2. **`send-bulk-webinar-reminders`** — przebudowany:
-   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
-   - Dla zalogowanych pobiera email/imię z `profiles`
-   - Ustawia flagi w odpowiedniej tabeli po sukcesie
-   - Loguje każdy send do `email_logs` z `registration_source`
-
-3. **`process-pending-notifications`** — usunięta luka:
-   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
-   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
-   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
-
-4. **`send-webinar-confirmation`** — rozszerzony fallback:
-   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
-   - Zapobiega duplikatom z CRON dla zalogowanych
-
-### Efekt:
-```
-GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
-USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
-Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
-Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
-```
+Efekt końcowy
+- Mail przestaje wisieć na „Wysyłanie...”.
+- Użytkownik dostaje poprawny toast sukcesu albo czytelny błąd.
+- Mail zawiera grafikę kołową, ale w lekkiej wersji.
+- Zielona i czerwona karta wyglądają poprawnie i spójnie z ciemnym designem.
