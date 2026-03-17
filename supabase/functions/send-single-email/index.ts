@@ -253,8 +253,8 @@ serve(async (req) => {
       throw new Error("Only admins can force send emails");
     }
 
-    const { template_id, recipient_user_id, custom_variables = {} }: SendEmailRequest = await req.json();
-    console.log('[send-single-email] Request data:', { template_id, recipient_user_id });
+    const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {} }: SendEmailRequest = await req.json();
+    console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template });
 
     // Fetch SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
@@ -277,7 +277,6 @@ serve(async (req) => {
       from_name: smtpData.sender_name,
     };
 
-    // Validate SMTP settings
     if (!smtpSettings.host || !smtpSettings.port || !smtpSettings.username || !smtpSettings.password) {
       throw new Error("Incomplete SMTP configuration. Please check SMTP settings.");
     }
@@ -289,62 +288,75 @@ serve(async (req) => {
       from_email: smtpSettings.from_email
     });
 
-    // Fetch email template
-    const { data: templateData, error: templateError } = await supabase
-      .from("email_templates")
-      .select("*")
-      .eq("id", template_id)
-      .single();
+    let finalEmail: string;
+    let finalSubject: string;
+    let finalHtml: string;
+    let recipientName = '';
 
-    if (templateError || !templateData) {
-      throw new Error("Email template not found");
-    }
+    if (skip_template && recipient_email && directSubject && html_body) {
+      // Direct email mode — no template lookup
+      finalEmail = recipient_email;
+      finalSubject = directSubject;
+      finalHtml = html_body;
+    } else {
+      // Template-based mode (original logic)
+      if (!template_id || !recipient_user_id) {
+        throw new Error("template_id and recipient_user_id are required for template mode");
+      }
 
-    // Fetch recipient user data
-    const { data: recipientData, error: recipientError } = await supabase
-      .from("profiles")
-      .select("user_id, email, first_name, last_name, eq_id")
-      .eq("user_id", recipient_user_id)
-      .single();
+      const { data: templateData, error: templateError } = await supabase
+        .from("email_templates")
+        .select("*")
+        .eq("id", template_id)
+        .single();
 
-    if (recipientError || !recipientData) {
-      throw new Error("Recipient user not found");
-    }
+      if (templateError || !templateData) {
+        throw new Error("Email template not found");
+      }
 
-    // Get user role
-    const { data: recipientRole } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", recipient_user_id)
-      .single();
+      const { data: recipientData, error: recipientError } = await supabase
+        .from("profiles")
+        .select("user_id, email, first_name, last_name, eq_id")
+        .eq("user_id", recipient_user_id)
+        .single();
 
-    // Build variables for replacement
-    const variables: Record<string, string> = {
-      imię: recipientData.first_name || '',
-      nazwisko: recipientData.last_name || '',
-      email: recipientData.email,
-      rola: recipientRole?.role || 'client',
-      data: new Date().toLocaleDateString('pl-PL'),
-      godzina: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
-      link_aktywacyjny: `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/`,
-      link_resetowania: `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/auth`,
-      ...custom_variables,
-    };
+      if (recipientError || !recipientData) {
+        throw new Error("Recipient user not found");
+      }
 
-    // Replace variables in template
-    const subject = replaceVariables(templateData.subject, variables);
-    let htmlBody = replaceVariables(templateData.body_html, variables);
-    
-    if (templateData.footer_html) {
-      htmlBody += replaceVariables(templateData.footer_html, variables);
+      const { data: recipientRole } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", recipient_user_id)
+        .single();
+
+      const variables: Record<string, string> = {
+        imię: recipientData.first_name || '',
+        nazwisko: recipientData.last_name || '',
+        email: recipientData.email,
+        rola: recipientRole?.role || 'client',
+        data: new Date().toLocaleDateString('pl-PL'),
+        godzina: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' }),
+        link_aktywacyjny: `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/`,
+        link_resetowania: `${supabaseUrl.replace('.supabase.co', '.lovable.app')}/auth`,
+        ...custom_variables,
+      };
+
+      finalSubject = replaceVariables(templateData.subject, variables);
+      finalHtml = replaceVariables(templateData.body_html, variables);
+      if (templateData.footer_html) {
+        finalHtml += replaceVariables(templateData.footer_html, variables);
+      }
+      finalEmail = recipientData.email;
+      recipientName = `${recipientData.first_name || ''} ${recipientData.last_name || ''}`.trim();
     }
 
     // Send email
     const result = await sendSmtpEmail(
       smtpSettings,
-      recipientData.email,
-      subject,
-      wrapWithBranding(htmlBody)
+      finalEmail,
+      finalSubject,
+      wrapWithBranding(finalHtml)
     );
 
     // Log the email
