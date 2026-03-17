@@ -280,10 +280,9 @@ serve(async (req) => {
           break;
         }
         
-        // Add 1 second delay between emails (except first one)
+        // Short delay between emails to avoid SMTP overload
         if (results.trainingNotifications.processed > 0) {
-          console.log("[CRON] Waiting 1 second before next training notification...");
-          await delay(1000);
+          await delay(200);
         }
         
         results.trainingNotifications.processed++;
