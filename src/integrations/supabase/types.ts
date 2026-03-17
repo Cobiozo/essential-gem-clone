@@ -2288,6 +2288,7 @@ export type Database = {
           reminder_2h_sent: boolean | null
           reminder_2h_sent_at: string | null
           reminder_sent: boolean | null
+          reminder_sent_at: string | null
           status: string | null
           thank_you_sent: boolean | null
           thank_you_sent_at: string | null
@@ -2308,6 +2309,7 @@ export type Database = {
           reminder_2h_sent?: boolean | null
           reminder_2h_sent_at?: string | null
           reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
           status?: string | null
           thank_you_sent?: boolean | null
           thank_you_sent_at?: string | null
@@ -2328,6 +2330,7 @@ export type Database = {
           reminder_2h_sent?: boolean | null
           reminder_2h_sent_at?: string | null
           reminder_sent?: boolean | null
+          reminder_sent_at?: string | null
           status?: string | null
           thank_you_sent?: boolean | null
           thank_you_sent_at?: string | null
