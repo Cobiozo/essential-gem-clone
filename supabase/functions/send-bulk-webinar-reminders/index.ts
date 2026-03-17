@@ -55,7 +55,7 @@ const REMINDER_CONFIG: Record<string, {
     guestFlagAtColumn: "reminder_2h_sent_at",
     userFlagColumn: "reminder_2h_sent",
     userFlagAtColumn: "reminder_2h_sent_at",
-    includeLink: false,
+    includeLink: true,
     eventTypeKey: "webinar_reminder_2h",
   },
   "1h": {
