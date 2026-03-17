@@ -7,8 +7,12 @@ const corsHeaders = {
 };
 
 interface SendEmailRequest {
-  template_id: string;
-  recipient_user_id: string;
+  template_id?: string;
+  recipient_user_id?: string;
+  recipient_email?: string;
+  subject?: string;
+  html_body?: string;
+  skip_template?: boolean;
   custom_variables?: Record<string, string>;
 }
 
