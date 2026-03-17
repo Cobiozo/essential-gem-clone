@@ -12,6 +12,16 @@ import { ASSESSMENT_STEPS } from '@/components/skills-assessment/assessmentData'
 const initialScores = (): Record<string, number> =>
   Object.fromEntries(ASSESSMENT_STEPS.map((s) => [s.key, 5]));
 
+const BackButton = () => {
+  const navigate = useNavigate();
+  return (
+    <Button variant="ghost" onClick={() => navigate('/dashboard')} className="gap-2 mb-2">
+      <Home className="h-4 w-4" />
+      Pulpit
+    </Button>
+  );
+};
+
 const SkillsAssessment: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
