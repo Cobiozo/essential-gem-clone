@@ -40,6 +40,7 @@ import {
   Info,
   Contact,
   Search,
+  Target,
   Facebook,
   ExternalLink,
   Video,
@@ -454,6 +455,8 @@ export const DashboardSidebar: React.FC = () => {
     },
     // Dynamic HTML pages from database
     ...dynamicHtmlPageItems,
+    // Skills Assessment - interactive page alongside HTML pages
+    { id: 'skills-assessment', icon: Target, labelKey: 'Ocena umiejętności', path: '/skills-assessment' },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
     // Support - after settings
     { id: 'support', icon: HelpCircle, labelKey: 'dashboard.menu.support', action: () => {
