@@ -410,6 +410,15 @@ export const DashboardSidebar: React.FC = () => {
     { id: 'healthy-knowledge', icon: Heart, labelKey: 'dashboard.menu.healthyKnowledge', path: '/zdrowa-wiedza' },
     { id: 'resources', icon: FolderOpen, labelKey: 'dashboard.menu.resources', path: '/knowledge' },
     { 
+      id: 'purebox', 
+      icon: Sparkles, 
+      labelKey: 'PureBox', 
+      hasSubmenu: true, 
+      submenuItems: [
+        { id: 'skills-assessment', labelKey: 'Ocena umiejętności', path: '/skills-assessment', icon: Target },
+      ],
+    },
+    { 
       id: 'pureContacts', 
       icon: Users, 
       labelKey: 'dashboard.menu.pureContacts',
@@ -456,16 +465,6 @@ export const DashboardSidebar: React.FC = () => {
     },
     // Dynamic HTML pages from database
     ...dynamicHtmlPageItems,
-    // Skills Assessment - interactive page alongside HTML pages
-    { 
-      id: 'purebox', 
-      icon: Sparkles, 
-      labelKey: 'PureBox', 
-      hasSubmenu: true, 
-      submenuItems: [
-        { id: 'skills-assessment', labelKey: 'Ocena umiejętności', path: '/skills-assessment', icon: Target },
-      ],
-    },
     { id: 'settings', icon: Settings, labelKey: 'dashboard.menu.settings', path: '/my-account', tab: 'profile' },
     // Support - after settings
     { id: 'support', icon: HelpCircle, labelKey: 'dashboard.menu.support', action: () => {
