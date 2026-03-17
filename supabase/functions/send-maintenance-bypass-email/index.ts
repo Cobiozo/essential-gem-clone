@@ -355,7 +355,7 @@ serve(async (req) => {
       },
       profile.email,
       "🔧 Tryb serwisowy - Twój link dostępu",
-      htmlBody
+      wrapWithBranding(htmlBody)
     );
 
     // Log the email

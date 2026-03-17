@@ -304,7 +304,7 @@ serve(async (req) => {
 
     // 6. Send email to user via SMTP
     console.log('[send-certificate-email] Sending email to user...');
-    const result = await sendSmtpEmail(smtpSettings, userEmail, emailSubject, emailBody, smtpSettings.sender_name);
+    const result = await sendSmtpEmail(smtpSettings, userEmail, emailSubject, wrapWithBranding(emailBody), smtpSettings.sender_name);
 
     if (!result.success) {
       throw new Error(`Failed to send email: ${result.error}`);

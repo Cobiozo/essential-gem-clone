@@ -280,7 +280,7 @@ serve(async (req) => {
       </div>
     `;
 
-    const result = await sendSmtpEmail(smtpSettings, userEmail, 'Weryfikacja logowania — Pure Life', emailHtml);
+    const result = await sendSmtpEmail(smtpSettings, userEmail, 'Weryfikacja logowania — Pure Life', wrapWithBranding(emailHtml));
 
     if (!result.success) {
       console.error('[MFA] Failed to send email:', result.error);

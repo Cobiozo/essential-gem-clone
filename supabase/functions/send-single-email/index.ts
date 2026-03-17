@@ -340,7 +340,7 @@ serve(async (req) => {
       smtpSettings,
       recipientData.email,
       subject,
-      htmlBody
+      wrapWithBranding(htmlBody)
     );
 
     // Log the email

@@ -454,7 +454,7 @@ serve(async (req) => {
           }
 
           // Send email
-          await sendSmtpEmail(smtpSettings, guest.email, finalSubject, finalBody);
+          await sendSmtpEmail(smtpSettings, guest.email, finalSubject, wrapWithBranding(finalBody));
 
           // Log to email_logs
           await supabase.from("email_logs").insert({

@@ -298,7 +298,7 @@ serve(async (req) => {
     }
 
     // Send email via SMTP
-    const result = await sendSmtpEmail(smtpSettings, profile.email, subject, htmlBody);
+    const result = await sendSmtpEmail(smtpSettings, profile.email, subject, wrapWithBranding(htmlBody));
 
     // Log the email
     await supabase.from("email_logs").insert({

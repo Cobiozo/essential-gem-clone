@@ -387,7 +387,7 @@ const handler = async (req: Request): Promise<Response> => {
           const finalBody = replaceTemplateVariables(template.body_html, vars);
 
           try {
-            await sendSmtpEmail(smtp, recipient.email, finalSubject, finalBody, parsedAttachments);
+            await sendSmtpEmail(smtp, recipient.email, finalSubject, wrapWithBranding(finalBody), parsedAttachments);
 
             await supabase.from("email_logs").insert({
               recipient_email: recipient.email,

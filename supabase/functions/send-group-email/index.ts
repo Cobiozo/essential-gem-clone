@@ -417,7 +417,7 @@ const handler = async (req: Request): Promise<Response> => {
         smtpSettings,
         profile.email,
         personalizedSubject,
-        htmlContent,
+        wrapWithBranding(htmlContent),
         requestData.senderName
       );
 

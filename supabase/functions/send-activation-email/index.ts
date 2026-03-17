@@ -376,7 +376,7 @@ const handler = async (req: Request): Promise<Response> => {
       smtpSettings,
       requestData.email,
       subject,
-      htmlBody
+      wrapWithBranding(htmlBody)
     );
 
     // Update log entry with result

@@ -293,7 +293,7 @@ serve(async (req) => {
       smtpSettings,
       profileData.email,
       subject,
-      htmlBody
+      wrapWithBranding(htmlBody)
     );
 
     // Log the email

@@ -319,7 +319,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email via SMTP
     try {
-      await sendSmtpEmail(smtpSettings, email, subject, htmlBody);
+      await sendSmtpEmail(smtpSettings, email, subject, wrapWithBranding(htmlBody));
 
       // Update log status
       if (logEntry) {

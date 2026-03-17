@@ -275,7 +275,7 @@ serve(async (req) => {
 
       // Send to first admin (to avoid SMTP issues with multiple recipients)
       for (const email of adminEmails) {
-        await sendSmtpEmail(smtpSettings, email, `[MFA SUPPORT] ${ticketSubject}`, htmlBody);
+        await sendSmtpEmail(smtpSettings, email, `[MFA SUPPORT] ${ticketSubject}`, wrapWithBranding(htmlBody));
       }
     }
 
