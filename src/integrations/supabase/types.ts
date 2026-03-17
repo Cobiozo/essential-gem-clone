@@ -2279,6 +2279,14 @@ export type Database = {
           id: string
           occurrence_index: number | null
           registered_at: string | null
+          reminder_12h_sent: boolean | null
+          reminder_12h_sent_at: string | null
+          reminder_15min_sent: boolean | null
+          reminder_15min_sent_at: string | null
+          reminder_1h_sent: boolean | null
+          reminder_1h_sent_at: string | null
+          reminder_2h_sent: boolean | null
+          reminder_2h_sent_at: string | null
           reminder_sent: boolean | null
           status: string | null
           thank_you_sent: boolean | null
@@ -2291,6 +2299,14 @@ export type Database = {
           id?: string
           occurrence_index?: number | null
           registered_at?: string | null
+          reminder_12h_sent?: boolean | null
+          reminder_12h_sent_at?: string | null
+          reminder_15min_sent?: boolean | null
+          reminder_15min_sent_at?: string | null
+          reminder_1h_sent?: boolean | null
+          reminder_1h_sent_at?: string | null
+          reminder_2h_sent?: boolean | null
+          reminder_2h_sent_at?: string | null
           reminder_sent?: boolean | null
           status?: string | null
           thank_you_sent?: boolean | null
@@ -2303,6 +2319,14 @@ export type Database = {
           id?: string
           occurrence_index?: number | null
           registered_at?: string | null
+          reminder_12h_sent?: boolean | null
+          reminder_12h_sent_at?: string | null
+          reminder_15min_sent?: boolean | null
+          reminder_15min_sent_at?: string | null
+          reminder_1h_sent?: boolean | null
+          reminder_1h_sent_at?: string | null
+          reminder_2h_sent?: boolean | null
+          reminder_2h_sent_at?: string | null
           reminder_sent?: boolean | null
           status?: string | null
           thank_you_sent?: boolean | null
