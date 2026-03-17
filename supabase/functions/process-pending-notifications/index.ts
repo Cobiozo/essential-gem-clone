@@ -696,7 +696,7 @@ serve(async (req) => {
           }
 
           if (results.contactReminders.processed > 0) {
-            await delay(1000);
+            await delay(200);
           }
 
           results.contactReminders.processed++;
