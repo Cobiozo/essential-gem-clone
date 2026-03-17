@@ -1,39 +1,94 @@
+## Analiza systemu powiadomień — wynik
 
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-# Plan: Czytelne podsumowanie PNG + grafika kołowa w emailu
+### Zmiany:
 
-## Problemy
-1. **PNG nieczytelny** — `truncate` ucina tekst, `hsl(var(--foreground))` w dark mode daje ciemny tekst na białym tle (`backgroundColor: '#ffffff'`), etykiety SVG też używają CSS variables niewidocznych po eksporcie
-2. **Email bez grafiki kołowej** — wysyłany jest tylko tekst HTML, brak obrazu koła
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-## Zmiany
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-### 1. `AssessmentSummary.tsx` — poprawka eksportu PNG
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
+```
 
-- Usunąć `truncate` ze span-ów w siatce wyników i sekcjach top3/bottom3 (tekst się obcina)
-- W `handleDownload` przed wywołaniem `html2canvas`: tymczasowo nadać kontenerowi explicit kolory inline (ciemne tło `#1a1a2e`, jasny tekst `#ffffff`) zamiast polegać na CSS variables, które `html2canvas` nie rozwiązuje poprawnie. Po zrobieniu screenshota — przywrócić oryginalne style.
-- Alternatywnie: stworzyć dedykowany ukryty div z hardcoded kolorami (dark background, white text) do eksportu — lepsze rozwiązanie, bo nie powoduje migania UI.
+---
 
-### 2. `SkillsRadarChart.tsx` — hardcoded kolory dla eksportu
+## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
 
-- SVG labels i grid używają `hsl(var(--foreground))` i `hsl(var(--border))` — `html2canvas` ich nie rozwiązuje.
-- Dodać prop `exportMode?: boolean` do `SkillsRadarChart`. Gdy `true`, zamienić CSS variables na hardcoded hex:
-  - `--foreground` → `#ffffff`
-  - `--border` → `#555555`
-  - `--muted-foreground` → `#999999`
-- W eksportowym kontenerze renderować `<SkillsRadarChart scores={scores} exportMode />`.
+### Nowe komponenty:
+1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
+   - Złoty nagłówek z logo Pure Life Center
+   - Sekcja z danymi osoby zapraszającej
+   - Tekst zachęcający do kontaktu z zapraszającym
+   - Obsługuje zarówno zalogowanych użytkowników jak i gości
 
-### 3. `AssessmentSummary.tsx` — grafika kołowa w emailu
+2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
 
-- W `handleSendEmail`: użyć `html2canvas` na kontenerze z wykresem (lub dedykowanym export divie) aby wygenerować PNG jako base64 data URL.
-- Osadzić obraz w emailu jako `<img src="data:image/png;base64,..." />` w treści `htmlBody` — inline base64 images działają w większości klientów email.
-- Dodać wykres przed tabelą wyników w treści emaila.
+3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
 
-### 4. Usunięcie `truncate` z tekstu
+4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
 
-W scores grid i sekcjach mocne strony / do rozwoju usunąć `truncate` class, aby pełne nazwy umiejętności były widoczne zarówno na ekranie jak i w PNG.
+### Test emaili (wysłano do sebastiansnopek87@gmail.com):
+- ✅ Potwierdzenie rejestracji
+- ✅ Przypomnienie 24h
+- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
+- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
+- ✅ Przypomnienie 1h
+- ✅ Przypomnienie 15min
+- ✅ Podziękowanie po wydarzeniu (NOWY)
 
-## Pliki do zmiany
-1. `src/components/skills-assessment/SkillsRadarChart.tsx` — prop `exportMode`
-2. `src/components/skills-assessment/AssessmentSummary.tsx` — ukryty export div z hardcoded kolorami, email z base64 obrazem, usunięcie `truncate`
+---
 
+## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
+
+### Root cause:
+1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
+2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
+3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
+
+### Zmiany:
+
+1. **Migracja SQL** — dodano do `event_registrations`:
+   - `reminder_12h_sent`, `reminder_12h_sent_at`
+   - `reminder_2h_sent`, `reminder_2h_sent_at`
+   - `reminder_1h_sent`, `reminder_1h_sent_at`
+   - `reminder_15min_sent`, `reminder_15min_sent_at`
+
+2. **`send-bulk-webinar-reminders`** — przebudowany:
+   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
+   - Dla zalogowanych pobiera email/imię z `profiles`
+   - Ustawia flagi w odpowiedniej tabeli po sukcesie
+   - Loguje każdy send do `email_logs` z `registration_source`
+
+3. **`process-pending-notifications`** — usunięta luka:
+   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
+   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
+   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
+
+4. **`send-webinar-confirmation`** — rozszerzony fallback:
+   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
+   - Zapobiega duplikatom z CRON dla zalogowanych
+
+### Efekt:
+```
+GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
+USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
+Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
+Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
+```
