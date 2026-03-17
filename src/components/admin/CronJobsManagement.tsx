@@ -38,6 +38,8 @@ interface CategoryDetails {
   processed?: number;
   success?: number;
   failed?: number;
+  guests?: number;
+  users?: number;
 }
 
 interface DetailedResults {
