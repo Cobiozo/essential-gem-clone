@@ -1,94 +1,40 @@
-## Analiza systemu powiadomień — wynik
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-### Zmiany:
+# Plan: Reset flag + zabezpieczenie funkcji bulk-reminders
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+## 1. Reset flag 17 gości którzy dostali przedwcześnie przypomnienia
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+Użyję insert tool (UPDATE) aby zresetować flagi dla gości z event_id `58aac028...` którzy mają `reminder_sent = true`. To pozwoli CRONowi wysłać im normalne przypomnienia jutro wg harmonogramu.
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
+```sql
+UPDATE guest_event_registrations
+SET reminder_sent = false, reminder_12h_sent = false, reminder_2h_sent = false,
+    reminder_1h_sent = false, reminder_15min_sent = false,
+    reminder_sent_at = null, reminder_12h_sent_at = null, reminder_2h_sent_at = null,
+    reminder_1h_sent_at = null, reminder_15min_sent_at = null
+WHERE event_id = '58aac028-c68f-45c8-9999-d34b5ebb9ced'
+AND reminder_sent = true;
 ```
 
----
+## 2. Zabezpieczenie `send-bulk-webinar-reminders`
 
-## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+Dodać parametr `test_emails?: string[]` do interfejsu `BulkReminderRequest`:
 
-### Nowe komponenty:
-1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
-   - Złoty nagłówek z logo Pure Life Center
-   - Sekcja z danymi osoby zapraszającej
-   - Tekst zachęcający do kontaktu z zapraszającym
-   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+- Jeśli `test_emails` jest podany i niepusty → filtruj gości po tych emailach, filtruj użytkowników po profilach z tymi emailami
+- Jeśli nie podany → działaj jak dotychczas (wysyłaj do wszystkich)
+- Dodaj log: `[bulk-reminders] TEST MODE: sending only to X addresses`
 
-2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
+Zmiany w pliku `supabase/functions/send-bulk-webinar-reminders/index.ts`:
 
-3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+1. Rozszerzyć `BulkReminderRequest` o `test_emails?: string[]`
+2. Po pobraniu gości (linia ~395): jeśli `test_emails`, filtruj `guests` po emailach
+3. Po pobraniu użytkowników (linia ~429): jeśli `test_emails`, filtruj `userRecipients` po emailach
+4. Dodać log informujący o trybie testowym
 
-4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
+## Pliki do zmiany
+- `supabase/functions/send-bulk-webinar-reminders/index.ts` — dodanie parametru test_emails + filtrowanie
 
-### Test emaili (wysłano do sebastiansnopek87@gmail.com):
-- ✅ Potwierdzenie rejestracji
-- ✅ Przypomnienie 24h
-- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
-- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
-- ✅ Przypomnienie 1h
-- ✅ Przypomnienie 15min
-- ✅ Podziękowanie po wydarzeniu (NOWY)
+## Efekt
+- Następnym razem gdy wywołam funkcję testowo, podam `test_emails: ["sebastiansnopek87@gmail.com"]` i tylko ten adres dostanie email
+- Normalny CRON nie podaje `test_emails`, więc działa bez zmian
 
----
-
-## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
-
-### Root cause:
-1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
-2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
-3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
-
-### Zmiany:
-
-1. **Migracja SQL** — dodano do `event_registrations`:
-   - `reminder_12h_sent`, `reminder_12h_sent_at`
-   - `reminder_2h_sent`, `reminder_2h_sent_at`
-   - `reminder_1h_sent`, `reminder_1h_sent_at`
-   - `reminder_15min_sent`, `reminder_15min_sent_at`
-
-2. **`send-bulk-webinar-reminders`** — przebudowany:
-   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
-   - Dla zalogowanych pobiera email/imię z `profiles`
-   - Ustawia flagi w odpowiedniej tabeli po sukcesie
-   - Loguje każdy send do `email_logs` z `registration_source`
-
-3. **`process-pending-notifications`** — usunięta luka:
-   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
-   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
-   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
-
-4. **`send-webinar-confirmation`** — rozszerzony fallback:
-   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
-   - Zapobiega duplikatom z CRON dla zalogowanych
-
-### Efekt:
-```
-GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
-USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
-Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
-Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
-```
