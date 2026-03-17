@@ -1,50 +1,94 @@
+## Analiza systemu powiadomień — wynik
 
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-# Plan: Naprawa formularza rejestracji na wydarzenie (email i telefon)
+### Zmiany:
 
-## Znalezione problemy
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-### 1. BUG KRYTYCZNY: Walidacja telefonu odrzuca numery z USA (i inne krótkie prefiksy)
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-Funkcja `isValidPhoneDigits` (linia 105-111) używa regex `/^\+\d{1,4}(\d+)$/` do wyodrębnienia cyfr po prefiksie. Problem: `\d{1,4}` jest **zachłanne** (greedy) — dla numeru US `+11234567890`:
-- `\d{1,4}` pochłania `1123` (4 cyfry)
-- Grupa przechwytująca dostaje tylko `4567890` = 7 cyfr
-- Walidacja wymaga ≥9 cyfr → **ODRZUCENIE prawidłowego numeru**
-
-Ten sam problem dotyczy wszystkich krajów z krótkim prefiksem (+1, +7).
-
-### 2. Ograniczona lista krajów w selektorze telefonu
-
-`PhoneInputWithPrefix` ma tylko 18 krajów (głównie Europa). Brak m.in.: Kanada, Australia, Japonia, Indie, Brazylia, Meksyk, RPA, Węgry, Chorwacja, Grecja, Portugalia, Dania, Finlandia, Irlandia i wiele innych.
-
-### 3. Niepełna lista TLD w walidacji emaila
-
-Lista `VALID_TLDS` nie zawiera niektórych popularnych domen, np.: `ru`, `ua`, `tr`, `gr`, `se`, `no`, `dk`, `fi`, `lt`, `lv`, `ee`, `hr`, `rs`, `bg`, `is`, `id`, `th`, `vn`, `sg`, `hk`, `tw`, `live`, `outlook`, `mail`, `club`, `space`, `digital`, `agency`, `marketing`.
-
-## Plan naprawy
-
-### Plik 1: `src/pages/EventGuestRegistration.tsx`
-
-**A) Naprawić `isValidPhoneDigits`** (linie 105-111) — zamiast regex, porównać z listą znanych prefiksów i wyodrębnić resztę. Alternatywnie: zmienić logikę na sprawdzanie łącznej długości numeru (prefix + digits ≥ 10 znaków) i minimalnej ilości cyfr po usunięciu prefiksu.
-
-Nowa logika:
-```typescript
-const isValidPhoneDigits = (phone: string): boolean => {
-  if (!phone || !phone.startsWith('+')) return false;
-  const digits = phone.replace(/[^\d]/g, '');
-  // Minimum 7 cyfr (np. +1 + 7 cyfr dla krótszych numerów)  
-  // Maximum 15 cyfr (standard ITU-T E.164)
-  return digits.length >= 7 && digits.length <= 15;
-};
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
 ```
 
-**B) Rozszerzyć listę `VALID_TLDS`** (linie 81-89) — dodać brakujące popularne TLD.
+---
 
-### Plik 2: `src/components/ui/phone-input-prefix.tsx`
+## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
 
-**Rozszerzyć listę krajów** — dodać minimum 20 brakujących krajów (US/CA, AU, NZ, JP, IN, BR, MX, ZA, HU, HR, GR, PT, DK, FI, IE, LT, LV, EE, TR, RU, IL i inne). Posortować alfabetycznie lub pogrupować popularne na górze.
+### Nowe komponenty:
+1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
+   - Złoty nagłówek z logo Pure Life Center
+   - Sekcja z danymi osoby zapraszającej
+   - Tekst zachęcający do kontaktu z zapraszającym
+   - Obsługuje zarówno zalogowanych użytkowników jak i gości
 
-## Pliki do zmiany
-- `src/pages/EventGuestRegistration.tsx` — naprawa walidacji telefonu + rozszerzenie TLD
-- `src/components/ui/phone-input-prefix.tsx` — rozszerzenie listy krajów
+2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
 
+3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+
+4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
+
+### Test emaili (wysłano do sebastiansnopek87@gmail.com):
+- ✅ Potwierdzenie rejestracji
+- ✅ Przypomnienie 24h
+- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
+- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
+- ✅ Przypomnienie 1h
+- ✅ Przypomnienie 15min
+- ✅ Podziękowanie po wydarzeniu (NOWY)
+
+---
+
+## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
+
+### Root cause:
+1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
+2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
+3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
+
+### Zmiany:
+
+1. **Migracja SQL** — dodano do `event_registrations`:
+   - `reminder_12h_sent`, `reminder_12h_sent_at`
+   - `reminder_2h_sent`, `reminder_2h_sent_at`
+   - `reminder_1h_sent`, `reminder_1h_sent_at`
+   - `reminder_15min_sent`, `reminder_15min_sent_at`
+
+2. **`send-bulk-webinar-reminders`** — przebudowany:
+   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
+   - Dla zalogowanych pobiera email/imię z `profiles`
+   - Ustawia flagi w odpowiedniej tabeli po sukcesie
+   - Loguje każdy send do `email_logs` z `registration_source`
+
+3. **`process-pending-notifications`** — usunięta luka:
+   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
+   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
+   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
+
+4. **`send-webinar-confirmation`** — rozszerzony fallback:
+   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
+   - Zapobiega duplikatom z CRON dla zalogowanych
+
+### Efekt:
+```
+GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
+USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
+Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
+Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
+```

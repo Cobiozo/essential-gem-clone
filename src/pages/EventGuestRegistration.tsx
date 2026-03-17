@@ -83,9 +83,11 @@ const VALID_TLDS = new Set([
   'pl', 'de', 'uk', 'fr', 'it', 'es', 'pt', 'nl', 'be', 'at', 'ch', 'se', 'no', 'dk', 'fi',
   'cz', 'sk', 'hu', 'ro', 'bg', 'hr', 'si', 'lt', 'lv', 'ee', 'ie', 'lu',
   'us', 'ca', 'au', 'nz', 'jp', 'cn', 'kr', 'in', 'br', 'mx', 'ar', 'za',
+  'ru', 'ua', 'tr', 'gr', 'is', 'id', 'th', 'vn', 'sg', 'hk', 'tw', 'il', 'ae', 'sa',
   'eu', 'info', 'biz', 'name', 'pro', 'mobi', 'io', 'co', 'me', 'tv', 'cc', 'app', 'dev',
   'online', 'store', 'shop', 'site', 'tech', 'xyz', 'cloud', 'ai',
-  'co.uk', 'co.jp', 'com.br', 'com.au', 'com.pl', 'org.pl', 'net.pl',
+  'live', 'outlook', 'mail', 'club', 'space', 'digital', 'agency', 'marketing', 'world', 'life',
+  'co.uk', 'co.jp', 'com.br', 'com.au', 'com.pl', 'org.pl', 'net.pl', 'co.in', 'co.za', 'com.mx',
 ]);
 
 const isValidEmailDomain = (email: string): boolean => {
@@ -103,11 +105,10 @@ const isValidEmailDomain = (email: string): boolean => {
 };
 
 const isValidPhoneDigits = (phone: string): boolean => {
-  // Extract digits after the prefix (+XX or +XXX or +XXXX)
-  const match = phone.match(/^\+\d{1,4}(\d+)$/);
-  if (!match) return false;
-  const digits = match[1];
-  return digits.length >= 9 && digits.length <= 15;
+  if (!phone || !phone.startsWith('+')) return false;
+  const digits = phone.replace(/[^\d]/g, '');
+  // E.164 standard: 7-15 digits total (including country code)
+  return digits.length >= 7 && digits.length <= 15;
 };
 
 // Schema is created dynamically based on lang — see inside the component
