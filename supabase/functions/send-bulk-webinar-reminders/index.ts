@@ -409,6 +409,13 @@ serve(async (req) => {
       console.error(`[bulk-reminders] Error fetching guests:`, guestsError);
     }
 
+    // Filter guests by test_emails if in test mode
+    let filteredGuests = guests || [];
+    if (isTestMode && guests) {
+      filteredGuests = guests.filter(g => test_emails!.includes(g.email));
+      console.log(`[bulk-reminders] TEST MODE: filtered guests ${guests.length} → ${filteredGuests.length}`);
+    }
+
     // ==========================================
     // 6b. Get REGISTERED USER registrations who haven't received this reminder
     // ==========================================
@@ -443,6 +450,10 @@ serve(async (req) => {
         for (const reg of userRegs) {
           const profile = profiles.find(p => p.user_id === reg.user_id);
           if (profile?.email) {
+            // In test mode, only include if email is in test_emails
+            if (isTestMode && !test_emails!.includes(profile.email)) {
+              continue;
+            }
             userRecipients.push({
               registrationId: reg.id,
               userId: reg.user_id,
@@ -454,7 +465,11 @@ serve(async (req) => {
       }
     }
 
-    const totalGuests = guests?.length || 0;
+    if (isTestMode) {
+      console.log(`[bulk-reminders] TEST MODE: ${filteredGuests.length} guests + ${userRecipients.length} users after filtering`);
+    }
+
+    const totalGuests = filteredGuests.length;
     const totalUsers = userRecipients.length;
     const totalRecipients = totalGuests + totalUsers;
 
