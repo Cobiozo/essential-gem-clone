@@ -61,7 +61,8 @@ const SkillsAssessment: React.FC = () => {
   if (completed) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+          <BackButton />
           <AssessmentSummary scores={scores} onReset={handleReset} />
         </div>
       </div>
