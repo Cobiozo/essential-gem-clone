@@ -105,11 +105,10 @@ const isValidEmailDomain = (email: string): boolean => {
 };
 
 const isValidPhoneDigits = (phone: string): boolean => {
-  // Extract digits after the prefix (+XX or +XXX or +XXXX)
-  const match = phone.match(/^\+\d{1,4}(\d+)$/);
-  if (!match) return false;
-  const digits = match[1];
-  return digits.length >= 9 && digits.length <= 15;
+  if (!phone || !phone.startsWith('+')) return false;
+  const digits = phone.replace(/[^\d]/g, '');
+  // E.164 standard: 7-15 digits total (including country code)
+  return digits.length >= 7 && digits.length <= 15;
 };
 
 // Schema is created dynamically based on lang — see inside the component
