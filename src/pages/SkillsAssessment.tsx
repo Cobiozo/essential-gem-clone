@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Home } from 'lucide-react';
 import { AssessmentStep } from '@/components/skills-assessment/AssessmentStep';
 import { SkillsRadarChart } from '@/components/skills-assessment/SkillsRadarChart';
 import { AssessmentSummary } from '@/components/skills-assessment/AssessmentSummary';
@@ -10,6 +11,16 @@ import { ASSESSMENT_STEPS } from '@/components/skills-assessment/assessmentData'
 
 const initialScores = (): Record<string, number> =>
   Object.fromEntries(ASSESSMENT_STEPS.map((s) => [s.key, 5]));
+
+const BackButton = () => {
+  const navigate = useNavigate();
+  return (
+    <Button variant="ghost" onClick={() => navigate('/dashboard')} className="gap-2 mb-2">
+      <Home className="h-4 w-4" />
+      Pulpit
+    </Button>
+  );
+};
 
 const SkillsAssessment: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -50,7 +61,8 @@ const SkillsAssessment: React.FC = () => {
   if (completed) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+          <BackButton />
           <AssessmentSummary scores={scores} onReset={handleReset} />
         </div>
       </div>
@@ -63,6 +75,7 @@ const SkillsAssessment: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
+        <BackButton />
         <div className="mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Ocena Umiejętności w Network Marketingu
