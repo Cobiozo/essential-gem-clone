@@ -9,6 +9,7 @@ const corsHeaders = {
 interface BulkReminderRequest {
   event_id: string;
   reminder_type?: "24h" | "12h" | "2h" | "1h" | "15min" | "auto";
+  test_emails?: string[];
 }
 
 interface SmtpSettings {
@@ -286,7 +287,12 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, reminder_type }: BulkReminderRequest = await req.json();
+    const { event_id, reminder_type, test_emails }: BulkReminderRequest = await req.json();
+    const isTestMode = Array.isArray(test_emails) && test_emails.length > 0;
+
+    if (isTestMode) {
+      console.log(`[bulk-reminders] ⚠️ TEST MODE: sending only to ${test_emails!.length} addresses: ${test_emails!.join(', ')}`);
+    }
 
     if (!event_id) {
       return new Response(
@@ -403,6 +409,13 @@ serve(async (req) => {
       console.error(`[bulk-reminders] Error fetching guests:`, guestsError);
     }
 
+    // Filter guests by test_emails if in test mode
+    let filteredGuests = guests || [];
+    if (isTestMode && guests) {
+      filteredGuests = guests.filter(g => test_emails!.includes(g.email));
+      console.log(`[bulk-reminders] TEST MODE: filtered guests ${guests.length} → ${filteredGuests.length}`);
+    }
+
     // ==========================================
     // 6b. Get REGISTERED USER registrations who haven't received this reminder
     // ==========================================
@@ -437,6 +450,10 @@ serve(async (req) => {
         for (const reg of userRegs) {
           const profile = profiles.find(p => p.user_id === reg.user_id);
           if (profile?.email) {
+            // In test mode, only include if email is in test_emails
+            if (isTestMode && !test_emails!.includes(profile.email)) {
+              continue;
+            }
             userRecipients.push({
               registrationId: reg.id,
               userId: reg.user_id,
@@ -448,7 +465,11 @@ serve(async (req) => {
       }
     }
 
-    const totalGuests = guests?.length || 0;
+    if (isTestMode) {
+      console.log(`[bulk-reminders] TEST MODE: ${filteredGuests.length} guests + ${userRecipients.length} users after filtering`);
+    }
+
+    const totalGuests = filteredGuests.length;
     const totalUsers = userRecipients.length;
     const totalRecipients = totalGuests + totalUsers;
 
@@ -501,8 +522,8 @@ serve(async (req) => {
     const allRecipients: Recipient[] = [];
 
     // Add guests
-    if (guests) {
-      for (const g of guests) {
+    if (filteredGuests) {
+      for (const g of filteredGuests) {
         allRecipients.push({
           email: g.email,
           firstName: g.first_name || '',
