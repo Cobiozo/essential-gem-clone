@@ -217,40 +217,66 @@ Deno.serve(async (req) => {
     const inviterPhone = inviter?.phone_number || '';
     const durationMin = Math.round((analytics.duration_seconds || 0) / 60);
 
+    const hasInviter = inviterName !== 'Zespół Pure Life';
     const subject = `Dziękujemy za udział w spotkaniu: ${eventTitle}`;
+
+    const inviterContactBlock = hasInviter ? `
+    <div style="background: #FFF9ED; border: 2px solid #D4A843; border-radius: 12px; padding: 25px; margin: 25px 0;">
+      <h2 style="margin: 0 0 5px 0; color: #D4A843; font-size: 18px;">👤 Twoja osoba kontaktowa</h2>
+      <p style="margin: 0 0 15px 0; color: #8B6914; font-size: 13px;">Skontaktuj się bezpośrednio!</p>
+      
+      <p style="margin: 5px 0; font-size: 16px;"><strong>${inviterName}</strong></p>
+      ${inviterEmail ? `<p style="margin: 5px 0; font-size: 14px;">📧 <a href="mailto:${inviterEmail}" style="color: #D4A843; text-decoration: none;">${inviterEmail}</a></p>` : ''}
+      ${inviterPhone ? `<p style="margin: 5px 0; font-size: 14px;">📱 ${inviterPhone}</p>` : ''}
+      
+      <p style="font-size: 14px; line-height: 1.7; margin-top: 15px; color: #555;">
+        <strong>${inviterName}</strong> zaprosił/a Cię na to spotkanie i jest Twoim <strong>bezpośrednim kontaktem</strong>. 
+        To właśnie ta osoba pomoże Ci dowiedzieć się więcej i wesprze Cię na każdym kroku.
+      </p>
+    </div>
+    <p style="font-size: 15px; line-height: 1.7;">Skontaktuj się z <strong>${inviterName}</strong>, aby dowiedzieć się więcej o:</p>
+    ` : `<p style="font-size: 15px; line-height: 1.7;">Chcesz dowiedzieć się więcej? Skontaktuj się z nami:</p>`;
+
+    const ctaBlock = hasInviter && inviterEmail
+      ? `<a href="mailto:${inviterEmail}?subject=Kontakt po spotkaniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do ${inviterName}</a>`
+      : `<a href="mailto:support@purelife.info.pl?subject=Kontakt po spotkaniu: ${eventTitle}" style="display: inline-block; background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 16px 40px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 16px;">✉️ Napisz do nas</a>`;
+
     const htmlBody = `
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"></head>
-<body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-  <div style="background: linear-gradient(135deg, #D4A843 0%, #B8912A 100%); padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; padding: 0; background-color: #f4f4f4;">
+  <div style="background: linear-gradient(135deg, #D4A843 0%, #B8912A 100%); padding: 30px; text-align: center;">
     <img src="https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/object/public/cms-images/logo-1772644418932.png" alt="Pure Life Center" style="max-width: 180px; height: auto; margin-bottom: 15px;" />
-    <h1 style="color: white; margin: 0; font-size: 24px; text-shadow: 0 1px 3px rgba(0,0,0,0.2);">Dziękujemy za udział!</h1>
+    <h1 style="color: white; margin: 0; font-size: 22px; text-shadow: 0 1px 3px rgba(0,0,0,0.2);">Dziękujemy za udział!</h1>
   </div>
-  <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-    <p>Cześć <strong>${guestToken.first_name}</strong>,</p>
-    <p>Bardzo dziękujemy za uczestnictwo w spotkaniu <strong>"${eventTitle}"</strong>. Twoja obecność przez ${durationMin} minut była dla nas niezwykle cenna!</p>
-    
-    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #D4A843;">
-      <h3 style="margin-top: 0; color: #D4A843;">Twoja osoba kontaktowa:</h3>
-      <p style="margin: 5px 0;"><strong>${inviterName}</strong></p>
-      ${inviterEmail ? `<p style="margin: 5px 0;">📧 <a href="mailto:${inviterEmail}">${inviterEmail}</a></p>` : ''}
-      ${inviterPhone ? `<p style="margin: 5px 0;">📱 ${inviterPhone}</p>` : ''}
-    </div>
+  <div style="background: white; padding: 30px;">
+    <p style="font-size: 16px;">Cześć <strong>${guestToken.first_name}</strong>,</p>
+    <p style="font-size: 15px; line-height: 1.7;">
+      Bardzo dziękujemy za uczestnictwo w spotkaniu <strong>"${eventTitle}"</strong>. 
+      Twoja obecność przez ${durationMin} minut była dla nas niezwykle cenna!
+    </p>
 
-    <p>Skontaktuj się z <strong>${inviterName}</strong>, aby dowiedzieć się więcej o:</p>
-    <ul style="line-height: 1.8;">
+    ${inviterContactBlock}
+
+    <ul style="line-height: 2; font-size: 15px; padding-left: 20px;">
       <li>📚 Kolejnych szkoleniach i spotkaniach</li>
       <li>🌿 Produktach Eqology i stylu życia Pure Life</li>
       <li>🤝 Możliwości dołączenia do zespołu Pure Life i Eqology</li>
       <li>💡 Tematach poruszanych na dzisiejszym spotkaniu</li>
     </ul>
 
-    <div style="text-align: center; margin-top: 30px;">
-      ${inviterEmail ? `<a href="mailto:${inviterEmail}?subject=Kontakt po spotkaniu: ${eventTitle}" style="background: linear-gradient(135deg, #D4A843, #B8912A); color: white; padding: 12px 30px; border-radius: 25px; text-decoration: none; font-weight: bold;">Napisz do ${inviterName}</a>` : ''}
+    <div style="text-align: center; margin: 30px 0;">
+      ${ctaBlock}
     </div>
 
-    <p style="margin-top: 30px; color: #666; font-size: 12px; text-align: center;">
+    <div style="background: #f8f8f8; border-radius: 8px; padding: 15px; margin-top: 25px; text-align: center;">
+      <p style="margin: 0; font-size: 13px; color: #888;">
+        💬 Dodatkowe wsparcie: <a href="mailto:support@purelife.info.pl" style="color: #D4A843; text-decoration: none;">support@purelife.info.pl</a>
+      </p>
+    </div>
+
+    <p style="margin-top: 30px; color: #999; font-size: 12px; text-align: center;">
       Ta wiadomość została wysłana automatycznie przez platformę Pure Life Center.
     </p>
   </div>
