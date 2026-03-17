@@ -163,13 +163,13 @@ const EventGuestRegistration: React.FC = () => {
   const dateLocale = useMemo(() => getDateLocale(lang), [lang]);
 
   const registrationSchema = useMemo(() => z.object({
-    email: z.string().email(labels.emailError),
+    email: z.string().email(labels.emailError).refine(isValidEmailDomain, { message: labels.emailDomainError }),
     confirm_email: z.string().email(labels.emailError),
     first_name: z.string().min(2, labels.nameError),
     last_name: z.string().optional(),
     phone: invitedBy
-      ? z.string().min(1, labels.phoneError)
-      : z.string().optional(),
+      ? z.string().min(1, labels.phoneError).refine(isValidPhoneDigits, { message: labels.phoneFormatError })
+      : z.string().optional().refine((val) => !val || isValidPhoneDigits(val), { message: labels.phoneFormatError }),
     email_consent: z.literal(true, { errorMap: () => ({ message: labels.emailConsentRequired }) }),
   }).refine((data) => data.email.trim().toLowerCase() === data.confirm_email.trim().toLowerCase(), {
     message: labels.emailsMismatch,
