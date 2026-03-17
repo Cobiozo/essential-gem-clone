@@ -114,22 +114,44 @@ serve(async (req) => {
       }
 
       // Check if interval has passed since last run (skip for force run)
+      // CRITICAL: Never skip if there are events in 1h or 15min windows — these carry join links
       if (cronSettings.last_run_at && !forceRun) {
         const lastRun = new Date(cronSettings.last_run_at).getTime();
         const intervalMs = cronSettings.interval_minutes * 60 * 1000;
         const now = Date.now();
         
         if (now - lastRun < intervalMs) {
-          const nextRunInMinutes = Math.ceil((intervalMs - (now - lastRun)) / 60000);
-          console.log(`[CRON] Interval not reached, skipping. Next run in ${nextRunInMinutes} minutes`);
-          return new Response(
-            JSON.stringify({ 
-              skipped: true, 
-              reason: "Interval not reached",
-              next_run_in_minutes: nextRunInMinutes
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          // Before skipping, check if critical reminder windows (1h, 15min) have events
+          const supabaseCheck = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
           );
+          const from15 = new Date(now + 5 * 60 * 1000).toISOString();
+          const to15 = new Date(now + 25 * 60 * 1000).toISOString();
+          const from1h = new Date(now + 45 * 60 * 1000).toISOString();
+          const to1h = new Date(now + 75 * 60 * 1000).toISOString();
+
+          const { data: criticalEvents } = await supabaseCheck
+            .from("events")
+            .select("id")
+            .eq("is_active", true)
+            .or(`and(start_time.gte.${from15},start_time.lte.${to15}),and(start_time.gte.${from1h},start_time.lte.${to1h})`)
+            .limit(1);
+
+          if (!criticalEvents || criticalEvents.length === 0) {
+            const nextRunInMinutes = Math.ceil((intervalMs - (now - lastRun)) / 60000);
+            console.log(`[CRON] Interval not reached, no critical events, skipping. Next run in ${nextRunInMinutes} minutes`);
+            return new Response(
+              JSON.stringify({ 
+                skipped: true, 
+                reason: "Interval not reached",
+                next_run_in_minutes: nextRunInMinutes
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          } else {
+            console.log(`[CRON] Interval not reached BUT critical events found in 1h/15min window — forcing run for link delivery`);
+          }
         }
       } else if (forceRun) {
         console.log("[CRON] Force run requested, skipping interval check");

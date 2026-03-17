@@ -21,46 +21,58 @@ interface SmtpSettings {
   sender_name: string;
 }
 
-// Reminder type config
+// Reminder type config — guest columns
 const REMINDER_CONFIG: Record<string, {
   templateName: string;
-  flagColumn: string;
-  flagAtColumn: string;
+  guestFlagColumn: string;
+  guestFlagAtColumn: string;
+  userFlagColumn: string;
+  userFlagAtColumn: string;
   includeLink: boolean;
   eventTypeKey: string;
 }> = {
   "24h": {
     templateName: "webinar_reminder_24h",
-    flagColumn: "reminder_sent",
-    flagAtColumn: "reminder_sent_at",
+    guestFlagColumn: "reminder_sent",
+    guestFlagAtColumn: "reminder_sent_at",
+    userFlagColumn: "reminder_sent",       // existing column
+    userFlagAtColumn: "reminder_sent_at",  // may not exist, we'll handle
     includeLink: false,
     eventTypeKey: "webinar_reminder_24h",
   },
   "12h": {
     templateName: "webinar_reminder_12h",
-    flagColumn: "reminder_12h_sent",
-    flagAtColumn: "reminder_12h_sent_at",
+    guestFlagColumn: "reminder_12h_sent",
+    guestFlagAtColumn: "reminder_12h_sent_at",
+    userFlagColumn: "reminder_12h_sent",
+    userFlagAtColumn: "reminder_12h_sent_at",
     includeLink: false,
     eventTypeKey: "webinar_reminder_12h",
   },
   "2h": {
     templateName: "webinar_reminder_2h",
-    flagColumn: "reminder_2h_sent",
-    flagAtColumn: "reminder_2h_sent_at",
+    guestFlagColumn: "reminder_2h_sent",
+    guestFlagAtColumn: "reminder_2h_sent_at",
+    userFlagColumn: "reminder_2h_sent",
+    userFlagAtColumn: "reminder_2h_sent_at",
     includeLink: false,
     eventTypeKey: "webinar_reminder_2h",
   },
   "1h": {
     templateName: "webinar_reminder_1h",
-    flagColumn: "reminder_1h_sent",
-    flagAtColumn: "reminder_1h_sent_at",
+    guestFlagColumn: "reminder_1h_sent",
+    guestFlagAtColumn: "reminder_1h_sent_at",
+    userFlagColumn: "reminder_1h_sent",
+    userFlagAtColumn: "reminder_1h_sent_at",
     includeLink: true,
     eventTypeKey: "webinar_reminder_1h",
   },
   "15min": {
     templateName: "webinar_reminder_15min",
-    flagColumn: "reminder_15min_sent",
-    flagAtColumn: "reminder_15min_sent_at",
+    guestFlagColumn: "reminder_15min_sent",
+    guestFlagAtColumn: "reminder_15min_sent_at",
+    userFlagColumn: "reminder_15min_sent",
+    userFlagAtColumn: "reminder_15min_sent_at",
     includeLink: true,
     eventTypeKey: "webinar_reminder_15min",
   },
@@ -202,7 +214,6 @@ async function sendSmtpEmail(
 }
 
 function determineReminderType(minutesUntilStart: number): string | null {
-  // Pick the most appropriate reminder window (aligned with CRON every 5 min)
   if (minutesUntilStart <= 25 && minutesUntilStart >= 5) return "15min";
   if (minutesUntilStart <= 75 && minutesUntilStart >= 45) return "1h";
   if (minutesUntilStart <= 135 && minutesUntilStart >= 105) return "2h";
@@ -215,6 +226,58 @@ const PURE_LIFE_LOGO = 'https://xzlhssqqbajqhnsmbucf.supabase.co/storage/v1/obje
 function wrapWithBranding(html: string): string {
   const c = html.replace(/<!DOCTYPE[^>]*>/gi,'').replace(/<\/?html[^>]*>/gi,'').replace(/<head[\s\S]*?<\/head>/gi,'').replace(/<\/?body[^>]*>/gi,'');
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:0 auto;background:#fff;"><div style="background:linear-gradient(135deg,#D4A843,#B8912A);padding:30px;text-align:center;"><img src="${PURE_LIFE_LOGO}" alt="Pure Life Center" style="max-width:180px;height:auto;"/></div><div style="padding:20px 30px;">${c}</div><div style="background:#f9f9f9;padding:20px;text-align:center;font-size:12px;color:#888;"><p style="margin:0;">&copy; ${new Date().getFullYear()} Pure Life Center</p></div></div></body></html>`;
+}
+
+// Build fallback email body when no template exists
+function buildFallbackBody(
+  resolvedType: string,
+  firstName: string,
+  event: any,
+  formattedDate: string,
+  formattedTime: string,
+  zoomLink: string,
+  includeLink: boolean,
+): string {
+  const typeLabels: Record<string, string> = {
+    "24h": "jutro",
+    "12h": "za 12 godzin",
+    "2h": "za 2 godziny",
+    "1h": "za godzinę",
+    "15min": "za 15 minut",
+  };
+  const timeLabel = typeLabels[resolvedType] || "wkrótce";
+  return `
+    <!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+      .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+      .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f59e0b; }
+      .content { padding: 30px 0; }
+      .event-box { background: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b; }
+      .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
+      h1 { color: #d97706; margin: 0; }
+      .join-button { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
+    </style></head>
+    <body><div class="container">
+      <div class="header"><h1>⏰ Webinar ${timeLabel}!</h1></div>
+      <div class="content">
+        <p>Cześć <strong>${firstName || ''}</strong>!</p>
+        <p>Przypominamy o webinarze, który rozpocznie się <strong>${timeLabel}</strong>:</p>
+        <div class="event-box">
+          <h2 style="margin-top:0;">📅 ${event.title}</h2>
+          <p><strong>Data:</strong> ${formattedDate}</p>
+          <p><strong>Godzina:</strong> ${formattedTime}</p>
+          <p><strong>Prowadzący:</strong> ${event.host_name || 'Zespół Pure Life'}</p>
+          ${includeLink && zoomLink ? `
+            <p style="margin-top:20px;"><strong>🔗 Link do dołączenia:</strong></p>
+            <a href="${zoomLink}" class="join-button">Dołącz do webinaru</a>
+          ` : ''}
+        </div>
+        <p>Do zobaczenia! 🎉</p>
+      </div>
+      <div class="footer"><p>© ${new Date().getFullYear()} Pure Life.</p></div>
+    </div></body></html>
+  `;
 }
 
 serve(async (req) => {
@@ -265,7 +328,7 @@ serve(async (req) => {
       }
     }
 
-    const config = REMINDER_CONFIG[resolvedType];
+    const config = REMINDER_CONFIG[resolvedType as string];
     if (!config) {
       return new Response(
         JSON.stringify({ success: false, error: `Unknown reminder_type: ${resolvedType}` }),
@@ -314,35 +377,6 @@ serve(async (req) => {
       .eq("event_key", config.eventTypeKey)
       .maybeSingle();
 
-    // 6. Get guests who haven't received this reminder yet
-    // We need to use a dynamic filter on the flag column
-    let guestsQuery = supabase
-      .from("guest_event_registrations")
-      .select("id, email, first_name, last_name")
-      .eq("event_id", event_id)
-      .eq("status", "registered")
-      .eq(config.flagColumn, false);
-
-    const { data: guests, error: guestsError } = await guestsQuery;
-
-    if (guestsError) {
-      console.error(`[bulk-reminders] Error fetching guests:`, guestsError);
-      return new Response(
-        JSON.stringify({ success: false, error: guestsError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    if (!guests || guests.length === 0) {
-      console.log(`[bulk-reminders] No guests to remind (${resolvedType}) for: ${event.title}`);
-      return new Response(
-        JSON.stringify({ success: true, sent: 0, failed: 0, skipped: 0, reminder_type: resolvedType }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    console.log(`[bulk-reminders] Found ${guests.length} guests to send ${resolvedType} reminders`);
-
     // Format event date/time
     const eventDate = new Date(event.start_time);
     const formattedDate = eventDate.toLocaleDateString('pl-PL', {
@@ -355,9 +389,82 @@ serve(async (req) => {
 
     const zoomLink = event.zoom_link || event.location || '';
 
-    // 6b. Warn admins if link is missing but this reminder type should include it
+    // ==========================================
+    // 6a. Get GUEST registrations who haven't received this reminder
+    // ==========================================
+    const { data: guests, error: guestsError } = await supabase
+      .from("guest_event_registrations")
+      .select("id, email, first_name, last_name")
+      .eq("event_id", event_id)
+      .eq("status", "registered")
+      .eq(config.guestFlagColumn, false);
+
+    if (guestsError) {
+      console.error(`[bulk-reminders] Error fetching guests:`, guestsError);
+    }
+
+    // ==========================================
+    // 6b. Get REGISTERED USER registrations who haven't received this reminder
+    // ==========================================
+    const { data: userRegs, error: userRegsError } = await supabase
+      .from("event_registrations")
+      .select("id, user_id")
+      .eq("event_id", event_id)
+      .eq("status", "registered")
+      .eq(config.userFlagColumn, false);
+
+    if (userRegsError) {
+      console.error(`[bulk-reminders] Error fetching user registrations:`, userRegsError);
+    }
+
+    // Fetch profiles for user registrations
+    interface UserRecipient {
+      registrationId: string;
+      userId: string;
+      email: string;
+      firstName: string;
+    }
+    const userRecipients: UserRecipient[] = [];
+
+    if (userRegs && userRegs.length > 0) {
+      const userIds = userRegs.map(r => r.user_id);
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("user_id, email, first_name")
+        .in("user_id", userIds);
+
+      if (profiles) {
+        for (const reg of userRegs) {
+          const profile = profiles.find(p => p.user_id === reg.user_id);
+          if (profile?.email) {
+            userRecipients.push({
+              registrationId: reg.id,
+              userId: reg.user_id,
+              email: profile.email,
+              firstName: profile.first_name || '',
+            });
+          }
+        }
+      }
+    }
+
+    const totalGuests = guests?.length || 0;
+    const totalUsers = userRecipients.length;
+    const totalRecipients = totalGuests + totalUsers;
+
+    if (totalRecipients === 0) {
+      console.log(`[bulk-reminders] No recipients to remind (${resolvedType}) for: ${event.title}`);
+      return new Response(
+        JSON.stringify({ success: true, sent: 0, failed: 0, total: 0, reminder_type: resolvedType }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`[bulk-reminders] Found ${totalGuests} guests + ${totalUsers} users = ${totalRecipients} recipients for ${resolvedType} reminders`);
+
+    // Warn admins if link is missing but this reminder type should include it
     if (!zoomLink && config.includeLink) {
-      console.warn(`[bulk-reminders] Event "${event.title}" has no zoom_link or location for ${resolvedType} reminder. Notifying admins.`);
+      console.warn(`[bulk-reminders] Event "${event.title}" has no zoom_link or location for ${resolvedType} reminder.`);
       try {
         const { data: admins } = await supabase
           .from('user_roles')
@@ -370,30 +477,62 @@ serve(async (req) => {
               notification_type: 'system',
               source_module: 'events',
               title: '⚠️ Brak linku do wydarzenia!',
-              message: `Wydarzenie "${event.title}" nie ma skonfigurowanego linku Zoom ani lokalizacji. Przypomnienie ${resolvedType} zostanie wysłane do ${guests?.length || 0} uczestników BEZ linku do dołączenia.`,
+              message: `Wydarzenie "${event.title}" nie ma skonfigurowanego linku. Przypomnienie ${resolvedType} wysyłane do ${totalRecipients} uczestników BEZ linku.`,
               link: '/admin/events',
-              metadata: { event_id: event_id, severity: 'warning', reminder_type: resolvedType, guests_count: guests?.length || 0 }
+              metadata: { event_id, severity: 'warning', reminder_type: resolvedType, recipients_count: totalRecipients }
             }))
           );
         }
       } catch (warnErr) {
-        console.error("[bulk-reminders] Failed to warn admins about missing link:", warnErr);
+        console.error("[bulk-reminders] Failed to warn admins:", warnErr);
       }
     }
 
-    // 7. Send emails in batches of 10
+    // ==========================================
+    // 7. Build unified recipient list and send
+    // ==========================================
+    interface Recipient {
+      email: string;
+      firstName: string;
+      sourceTable: 'guest' | 'user';
+      sourceId: string;
+    }
+
+    const allRecipients: Recipient[] = [];
+
+    // Add guests
+    if (guests) {
+      for (const g of guests) {
+        allRecipients.push({
+          email: g.email,
+          firstName: g.first_name || '',
+          sourceTable: 'guest',
+          sourceId: g.id,
+        });
+      }
+    }
+
+    // Add registered users
+    for (const u of userRecipients) {
+      allRecipients.push({
+        email: u.email,
+        firstName: u.firstName,
+        sourceTable: 'user',
+        sourceId: u.registrationId,
+      });
+    }
+
     const BATCH_SIZE = 10;
     let sent = 0;
     let failed = 0;
 
-    for (let i = 0; i < guests.length; i += BATCH_SIZE) {
-      const batch = guests.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < allRecipients.length; i += BATCH_SIZE) {
+      const batch = allRecipients.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
-        batch.map(async (guest) => {
-          // Prepare template variables
+        batch.map(async (recipient) => {
           const templateVariables: Record<string, string> = {
-            'imię': guest.first_name || '',
+            'imię': recipient.firstName,
             'event_title': event.title,
             'event_date': formattedDate,
             'event_time': formattedTime,
@@ -408,57 +547,24 @@ serve(async (req) => {
             finalSubject = replaceTemplateVariables(template.subject, templateVariables);
             finalBody = replaceTemplateVariables(template.body_html, templateVariables);
           } else {
-            // Fallback — generate subject/body based on type
             const typeLabels: Record<string, string> = {
-              "24h": "jutro",
-              "12h": "za 12 godzin",
-              "2h": "za 2 godziny",
-              "1h": "za godzinę",
-              "15min": "za 15 minut",
+              "24h": "jutro", "12h": "za 12 godzin", "2h": "za 2 godziny",
+              "1h": "za godzinę", "15min": "za 15 minut",
             };
             const timeLabel = typeLabels[resolvedType as string] || "wkrótce";
             finalSubject = `⏰ Przypomnienie: ${event.title} — ${timeLabel}!`;
-            finalBody = `
-              <!DOCTYPE html>
-              <html><head><meta charset="UTF-8">
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { text-align: center; padding: 20px 0; border-bottom: 2px solid #f59e0b; }
-                .content { padding: 30px 0; }
-                .event-box { background: #fffbeb; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #f59e0b; }
-                .footer { text-align: center; padding: 20px 0; color: #666; font-size: 12px; border-top: 1px solid #eee; }
-                h1 { color: #d97706; margin: 0; }
-                .join-button { display: inline-block; background: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0; font-weight: bold; }
-              </style></head>
-              <body><div class="container">
-                <div class="header"><h1>⏰ Webinar ${timeLabel}!</h1></div>
-                <div class="content">
-                  <p>Cześć <strong>${guest.first_name || ''}</strong>!</p>
-                  <p>Przypominamy o webinarze, który rozpocznie się <strong>${timeLabel}</strong>:</p>
-                  <div class="event-box">
-                    <h2 style="margin-top:0;">📅 ${event.title}</h2>
-                    <p><strong>Data:</strong> ${formattedDate}</p>
-                    <p><strong>Godzina:</strong> ${formattedTime}</p>
-                    <p><strong>Prowadzący:</strong> ${event.host_name || 'Zespół Pure Life'}</p>
-                    ${config.includeLink && zoomLink ? `
-                      <p style="margin-top:20px;"><strong>🔗 Link do dołączenia:</strong></p>
-                      <a href="${zoomLink}" class="join-button">Dołącz do webinaru</a>
-                    ` : ''}
-                  </div>
-                  <p>Do zobaczenia! 🎉</p>
-                </div>
-                <div class="footer"><p>© ${new Date().getFullYear()} Pure Life.</p></div>
-              </div></body></html>
-            `;
+            finalBody = buildFallbackBody(
+              resolvedType as string, recipient.firstName, event,
+              formattedDate, formattedTime, zoomLink, config.includeLink,
+            );
           }
 
           // Send email
-          await sendSmtpEmail(smtpSettings, guest.email, finalSubject, wrapWithBranding(finalBody));
+          await sendSmtpEmail(smtpSettings, recipient.email, finalSubject, wrapWithBranding(finalBody));
 
           // Log to email_logs
           await supabase.from("email_logs").insert({
-            recipient_email: guest.email,
+            recipient_email: recipient.email,
             subject: finalSubject,
             status: "sent",
             sent_at: new Date().toISOString(),
@@ -467,23 +573,36 @@ serve(async (req) => {
             metadata: {
               type: config.eventTypeKey,
               event_id: event_id,
-              registration_id: guest.id,
+              registration_id: recipient.sourceId,
+              registration_source: recipient.sourceTable,
               event_title: event.title,
               bulk_send: true,
             },
           });
 
-          // Update flag
-          const updateData: Record<string, any> = {
-            [config.flagColumn]: true,
-            [config.flagAtColumn]: new Date().toISOString(),
-          };
-          await supabase
-            .from("guest_event_registrations")
-            .update(updateData)
-            .eq("id", guest.id);
+          // Update flag in appropriate table
+          const now = new Date().toISOString();
+          if (recipient.sourceTable === 'guest') {
+            const updateData: Record<string, any> = {
+              [config.guestFlagColumn]: true,
+              [config.guestFlagAtColumn]: now,
+            };
+            await supabase
+              .from("guest_event_registrations")
+              .update(updateData)
+              .eq("id", recipient.sourceId);
+          } else {
+            const updateData: Record<string, any> = {
+              [config.userFlagColumn]: true,
+              [config.userFlagAtColumn]: now,
+            };
+            await supabase
+              .from("event_registrations")
+              .update(updateData)
+              .eq("id", recipient.sourceId);
+          }
 
-          return guest.email;
+          return recipient.email;
         })
       );
 
@@ -499,7 +618,7 @@ serve(async (req) => {
       console.log(`[bulk-reminders] Batch ${Math.floor(i / BATCH_SIZE) + 1}: sent ${results.filter(r => r.status === 'fulfilled').length}, failed ${results.filter(r => r.status === 'rejected').length}`);
     }
 
-    console.log(`[bulk-reminders] Completed ${resolvedType} for "${event.title}": sent=${sent}, failed=${failed}`);
+    console.log(`[bulk-reminders] Completed ${resolvedType} for "${event.title}": sent=${sent}, failed=${failed} (guests=${totalGuests}, users=${totalUsers})`);
 
     return new Response(
       JSON.stringify({
@@ -508,7 +627,9 @@ serve(async (req) => {
         event_title: event.title,
         sent,
         failed,
-        total: guests.length,
+        total: allRecipients.length,
+        guests: totalGuests,
+        users: totalUsers,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
