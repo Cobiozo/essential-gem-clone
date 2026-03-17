@@ -95,13 +95,15 @@ export const CronJobsManagement: React.FC = () => {
       if (settingsError) throw settingsError;
       setSettings(settingsData);
 
-      // Fetch recent logs
+      // Fetch logs from last 3 days
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
       const { data: logsData, error: logsError } = await supabase
         .from('cron_job_logs')
         .select('*')
         .eq('job_name', 'process-pending-notifications')
+        .gte('started_at', threeDaysAgo)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(500);
 
       if (logsError) throw logsError;
       setLogs(logsData || []);
