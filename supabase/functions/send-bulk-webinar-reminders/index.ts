@@ -522,8 +522,8 @@ serve(async (req) => {
     const allRecipients: Recipient[] = [];
 
     // Add guests
-    if (guests) {
-      for (const g of guests) {
+    if (filteredGuests) {
+      for (const g of filteredGuests) {
         allRecipients.push({
           email: g.email,
           firstName: g.first_name || '',
