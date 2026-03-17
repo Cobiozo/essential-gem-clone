@@ -9,6 +9,7 @@ const corsHeaders = {
 interface BulkReminderRequest {
   event_id: string;
   reminder_type?: "24h" | "12h" | "2h" | "1h" | "15min" | "auto";
+  test_emails?: string[];
 }
 
 interface SmtpSettings {
