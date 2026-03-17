@@ -114,7 +114,9 @@ export interface RegistrationLabels {
   webinarBadge: string;
   onlineWebinar: string;
   emailError: string;
+  emailDomainError: string;
   nameError: string;
+  phoneFormatError: string;
   notFound: string;
   registrationError: string;
   footer: string;
