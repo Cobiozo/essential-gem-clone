@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface WebinarEmailRequest {
-  type: 'confirmation' | 'reminder_24h' | 'reminder_1h' | 'reminder_15min';
+  type: 'confirmation' | 'reminder_24h' | 'reminder_12h' | 'reminder_2h' | 'reminder_1h' | 'reminder_15min';
   email: string;
   firstName: string;
   eventTitle: string;
