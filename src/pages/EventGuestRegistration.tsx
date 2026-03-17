@@ -693,7 +693,13 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.phoneLabel}{invitedBy ? ' *' : ''}</FormLabel>
                             <FormControl>
-                              <Input placeholder={labels.placeholderPhone} {...field} />
+                              <PhoneInputWithPrefix
+                                value={field.value || ''}
+                                onChange={field.onChange}
+                                defaultCountry={lang === 'de' ? 'DE' : lang === 'en' ? 'GB' : 'PL'}
+                                placeholder="123456789"
+                                disabled={submitting}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
