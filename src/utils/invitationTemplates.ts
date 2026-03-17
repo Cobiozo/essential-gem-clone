@@ -228,6 +228,8 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderFirstName: 'John',
     placeholderLastName: 'Smith',
     placeholderPhone: '+1 555 123 4567',
+    emailConsent: 'I consent to receiving email messages with information about this event, including the meeting link. Your data is protected. You can withdraw your consent by contacting support@purelife.info.pl.',
+    emailConsentRequired: 'You must give consent to continue registration',
   },
   de: {
     formTitle: 'Zum Webinar anmelden',
