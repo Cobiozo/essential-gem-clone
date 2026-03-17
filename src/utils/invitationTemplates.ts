@@ -118,6 +118,8 @@ export interface RegistrationLabels {
   notFound: string;
   registrationError: string;
   footer: string;
+  emailConsent: string;
+  emailConsentRequired: string;
   roomOpens5min: string;
   roomOpensOnTime: string;
   checkEmail: string;
