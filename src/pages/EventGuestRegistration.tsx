@@ -77,6 +77,39 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
 };
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
+// Valid TLDs for email domain validation
+const VALID_TLDS = new Set([
+  'com', 'org', 'net', 'edu', 'gov', 'mil', 'int',
+  'pl', 'de', 'uk', 'fr', 'it', 'es', 'pt', 'nl', 'be', 'at', 'ch', 'se', 'no', 'dk', 'fi',
+  'cz', 'sk', 'hu', 'ro', 'bg', 'hr', 'si', 'lt', 'lv', 'ee', 'ie', 'lu',
+  'us', 'ca', 'au', 'nz', 'jp', 'cn', 'kr', 'in', 'br', 'mx', 'ar', 'za',
+  'eu', 'info', 'biz', 'name', 'pro', 'mobi', 'io', 'co', 'me', 'tv', 'cc', 'app', 'dev',
+  'online', 'store', 'shop', 'site', 'tech', 'xyz', 'cloud', 'ai',
+  'co.uk', 'co.jp', 'com.br', 'com.au', 'com.pl', 'org.pl', 'net.pl',
+]);
+
+const isValidEmailDomain = (email: string): boolean => {
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const domain = parts[1].toLowerCase();
+  if (!domain || !domain.includes('.')) return false;
+  const domainParts = domain.split('.');
+  if (domainParts.length < 2) return false;
+  // Check last part (TLD) or last two parts (e.g. co.uk)
+  const tld = domainParts[domainParts.length - 1];
+  const tld2 = domainParts.slice(-2).join('.');
+  if (tld.length < 2) return false;
+  return VALID_TLDS.has(tld) || VALID_TLDS.has(tld2);
+};
+
+const isValidPhoneDigits = (phone: string): boolean => {
+  // Extract digits after the prefix (+XX or +XXX or +XXXX)
+  const match = phone.match(/^\+\d{1,4}(\d+)$/);
+  if (!match) return false;
+  const digits = match[1];
+  return digits.length >= 9 && digits.length <= 15;
+};
+
 // Schema is created dynamically based on lang — see inside the component
 type RegistrationFormData = {
   email: string;
