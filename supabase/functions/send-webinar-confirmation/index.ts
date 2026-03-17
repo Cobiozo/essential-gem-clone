@@ -782,7 +782,7 @@ const handler = async (req: Request): Promise<Response> => {
                   }
                 });
 
-                // Mark all reminder flags as sent to prevent CRON duplicates
+                // Mark all reminder flags as sent to prevent CRON duplicates — GUEST registrations
                 await supabase
                   .from('guest_event_registrations')
                   .update({
@@ -799,6 +799,33 @@ const handler = async (req: Request): Promise<Response> => {
                   })
                   .eq('event_id', eventId)
                   .eq('email', email);
+
+                // Mark all reminder flags as sent — REGISTERED USER registrations (if applicable)
+                // This covers logged-in users who register close to start time
+                const { data: authUser } = await supabase
+                  .from('profiles')
+                  .select('user_id')
+                  .eq('email', email)
+                  .maybeSingle();
+
+                if (authUser?.user_id) {
+                  await supabase
+                    .from('event_registrations')
+                    .update({
+                      reminder_sent: true,
+                      reminder_12h_sent: true,
+                      reminder_12h_sent_at: new Date().toISOString(),
+                      reminder_2h_sent: true,
+                      reminder_2h_sent_at: new Date().toISOString(),
+                      reminder_1h_sent: true,
+                      reminder_1h_sent_at: new Date().toISOString(),
+                      reminder_15min_sent: true,
+                      reminder_15min_sent_at: new Date().toISOString(),
+                    })
+                    .eq('event_id', eventId)
+                    .eq('user_id', authUser.user_id);
+                  console.log(`[send-webinar-confirmation] Also marked event_registrations flags for user ${authUser.user_id}`);
+                }
 
                 console.log(`[send-webinar-confirmation] Immediate reminder with link sent to ${email}`);
               }
