@@ -48,10 +48,16 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
         backgroundColor: '#1a1a2e',
         scale: 1,
       });
-      return canvas.toDataURL('image/jpeg', 0.7);
+      return canvas.toDataURL('image/png');
     } catch {
       return null;
     }
+  };
+
+  // Strip the data:...;base64, prefix to get raw base64
+  const stripDataUrl = (dataUrl: string): string => {
+    const idx = dataUrl.indexOf(',');
+    return idx >= 0 ? dataUrl.substring(idx + 1) : dataUrl;
   };
 
   const handleDownload = async () => {
@@ -71,20 +77,24 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
     if (!email) return;
     setSending(true);
     try {
-      const chartDataUrl = await generateChartOnlyImage();
+      // Generate both images
+      const [chartDataUrl, fullExportDataUrl] = await Promise.all([
+        generateChartOnlyImage(),
+        generateExportImage(),
+      ]);
 
       const results = ASSESSMENT_STEPS.map(
         (s) => `<tr><td style="padding:4px 8px;color:#ccc;">${s.title}</td><td style="padding:4px 8px;font-weight:bold;color:${s.chartColor};">${scores[s.key]}/10</td></tr>`
       ).join('');
 
+      // Reference chart via CID instead of data: URL
       const chartImgHtml = chartDataUrl
-        ? `<div style="text-align:center;margin-bottom:20px;"><img src="${chartDataUrl}" alt="Koło Umiejętności" style="max-width:400px;width:100%;border-radius:12px;" /></div>`
+        ? `<div style="text-align:center;margin:20px 0;"><img src="cid:skills-chart" alt="Koło Umiejętności" style="max-width:400px;width:100%;border-radius:12px;" /></div>`
         : '';
 
       const htmlBody = `
         <div style="background:#1a1a2e;color:#ffffff;padding:24px;border-radius:12px;font-family:Arial,sans-serif;">
           <h2 style="text-align:center;color:#ffffff;margin-bottom:20px;">Ocena Umiejętności w Network Marketingu</h2>
-          ${chartImgHtml}
           <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
             ${results}
           </table>
@@ -100,11 +110,40 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
               ${bottom3.map(([key, val]) => `<p style="color:#ccc;margin:2px 0;">${ASSESSMENT_STEPS.find(s => s.key === key)?.title}: <strong style="color:#ef4444;">${val}/10</strong></p>`).join('')}
             </div>
           </div>
+          ${chartImgHtml}
+          <p style="text-align:center;font-size:12px;color:#888;margin-top:12px;">📎 Pełne podsumowanie z diagramem w załączniku (PNG)</p>
         </div>
       `;
 
+      // Build attachments array
+      const attachments: Array<{
+        filename: string;
+        content_base64: string;
+        content_type: string;
+        content_id?: string;
+      }> = [];
+
+      // Inline chart image (CID)
+      if (chartDataUrl) {
+        attachments.push({
+          filename: 'skills-chart.png',
+          content_base64: stripDataUrl(chartDataUrl),
+          content_type: 'image/png',
+          content_id: 'skills-chart',
+        });
+      }
+
+      // Full summary as file attachment
+      if (fullExportDataUrl) {
+        attachments.push({
+          filename: 'ocena-umiejetnosci-nm.png',
+          content_base64: stripDataUrl(fullExportDataUrl),
+          content_type: 'image/png',
+        });
+      }
+
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Upłynął limit czasu wysyłki. Spróbuj ponownie.')), 25000)
+        setTimeout(() => reject(new Error('Upłynął limit czasu wysyłki. Spróbuj ponownie.')), 30000)
       );
 
       const sendPromise = supabase.functions.invoke('send-single-email', {
@@ -114,6 +153,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
           subject: 'Moje wyniki - Ocena Umiejętności NM',
           html_body: htmlBody,
           skip_template: true,
+          attachments,
         },
       });
 
@@ -193,7 +233,7 @@ export const AssessmentSummary: React.FC<AssessmentSummaryProps> = ({ scores, on
         </div>
       </div>
 
-      {/* Hidden chart-only container for lightweight email image */}
+      {/* Hidden chart-only container for CID inline email image */}
       <div
         ref={chartOnlyRef}
         style={{
