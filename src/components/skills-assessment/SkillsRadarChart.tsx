@@ -4,6 +4,7 @@ import { ASSESSMENT_STEPS } from './assessmentData';
 interface SkillsRadarChartProps {
   scores: Record<string, number>;
   size?: number;
+  exportMode?: boolean;
 }
 
 const CX = 250;
@@ -43,12 +44,18 @@ function wrapText(text: string, maxChars: number): string[] {
   return lines.slice(0, 3);
 }
 
-export const SkillsRadarChart: React.FC<SkillsRadarChartProps> = ({ scores }) => {
+export const SkillsRadarChart: React.FC<SkillsRadarChartProps> = ({ scores, exportMode = false }) => {
   const startOffset = -Math.PI / 2;
+
+  const borderColor = exportMode ? '#555555' : 'hsl(var(--border))';
+  const foregroundColor = exportMode ? '#ffffff' : 'hsl(var(--foreground))';
+  const mutedColor = exportMode ? '#999999' : 'hsl(var(--muted-foreground))';
 
   return (
     <div className="w-full flex flex-col items-center">
-      <h3 className="text-sm font-bold text-foreground mb-2">Twoje Koło Umiejętności</h3>
+      <h3 style={exportMode ? { color: '#ffffff', fontSize: '14px', fontWeight: 700, marginBottom: '8px', textAlign: 'center' } : undefined} className={exportMode ? '' : 'text-sm font-bold text-foreground mb-2'}>
+        Twoje Koło Umiejętności
+      </h3>
       <svg viewBox="0 0 500 500" className="w-full max-w-[500px]">
         {/* Grid circles */}
         {GRID_STEPS.map((step) => {
@@ -60,7 +67,7 @@ export const SkillsRadarChart: React.FC<SkillsRadarChartProps> = ({ scores }) =>
               cy={CY}
               r={r}
               fill="none"
-              stroke="hsl(var(--border))"
+              stroke={borderColor}
               strokeWidth={0.5}
               opacity={0.5}
             />
@@ -78,7 +85,7 @@ export const SkillsRadarChart: React.FC<SkillsRadarChartProps> = ({ scores }) =>
               y1={CY}
               x2={end.x}
               y2={end.y}
-              stroke="hsl(var(--border))"
+              stroke={borderColor}
               strokeWidth={0.5}
               opacity={0.5}
             />
@@ -94,7 +101,7 @@ export const SkillsRadarChart: React.FC<SkillsRadarChartProps> = ({ scores }) =>
               x={CX + 4}
               y={CY - r + 3}
               fontSize={8}
-              fill="hsl(var(--muted-foreground))"
+              fill={mutedColor}
               opacity={0.7}
             >
               {step}
@@ -143,7 +150,7 @@ export const SkillsRadarChart: React.FC<SkillsRadarChartProps> = ({ scores }) =>
               textAnchor={anchor}
               fontSize={7}
               fontWeight={600}
-              fill="hsl(var(--foreground))"
+              fill={foregroundColor}
             >
               {lines.map((line, li) => (
                 <tspan key={li} x={pos.x} dy={li === 0 ? 0 : 10}>
