@@ -1,56 +1,74 @@
 
 
-## Analiza systemu powiadomień — wynik
+# Plan: Dodanie logo Pure Life Center do wszystkich emaili
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
+## Problem
+Tylko 6 z ~20 funkcji wysyłających emaile ma złoty nagłówek z logo Pure Life Center. Pozostałe albo mają inline HTML bez logo, albo używają szablonów z bazy danych (`email_templates`) które nie mają logo w nagłówku.
 
-### Zmiany:
+## Podejście
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+Dwa typy funkcji wymagają zmian:
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+### Typ 1: Funkcje z inline HTML (brak logo w kodzie)
+Dodanie złotego nagłówka z logo bezpośrednio w kodzie HTML:
 
-### Flow gościa (po zmianach):
+| Funkcja | Typ emaila | Odbiorca |
+|---------|-----------|----------|
+| `send-mfa-code` | Kod MFA | Użytkownicy |
+| `send-certificate-email` | Certyfikat szkolenia | Użytkownicy |
+| `send-maintenance-bypass-email` | Link serwisowy | Admini |
+| `send-support-ticket` | Zgłoszenie MFA | Admini |
+
+### Typ 2: Funkcje używające szablonów z bazy (`email_templates`)
+Te funkcje pobierają `body_html` z tabeli `email_templates`. Logo trzeba dodać jako wrapper wokół treści szablonu w kodzie funkcji (nie w samych szablonach, bo ich jest dużo i zmiana w bazie byłaby niestabilna):
+
+| Funkcja | Obsługuje szablony |
+|---------|-------------------|
+| `send-webinar-email` | Przypomnienia webinarowe |
+| `send-bulk-webinar-reminders` | Bulk przypomnienia 12h/2h |
+| `send-post-webinar-email` | Follow-up po webinarze |
+| `send-approval-email` | Zatwierdzenie konta |
+| `send-password-reset` | Reset hasła |
+| `send-notification-email` | Powiadomienia systemowe |
+| `send-activation-email` | Aktywacja emaila |
+| `send-welcome-email` | Email powitalny |
+| `send-training-notification` | Powiadomienie o szkoleniu |
+| `send-training-reminder` | Przypomnienie o szkoleniu |
+| `send-group-email` | Emaile grupowe |
+| `send-single-email` | Pojedynczy email (lider) |
+
+### Wzorzec nagłówka (identyczny jak w send-post-event-thank-you)
+```html
+<div style="background: linear-gradient(135deg, #D4A843 0%, #B8912A 100%); padding: 30px; text-align: center;">
+  <img src="{LOGO_URL}" alt="Pure Life Center" style="max-width: 180px; height: auto;" />
+</div>
 ```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
-```
 
----
+## Implementacja
 
-## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+1. **Funkcje inline HTML (4 pliki)** — dodanie złotego nagłówka z logo przed istniejącą treścią HTML
+2. **Funkcje szablonowe (12 plików)** — owinięcie `body_html` z szablonu w wrapper z logo nagłówkiem i stopką "Zespół Pure Life"
+3. **Deploy** wszystkich zmienionych Edge Functions
 
-### Nowe komponenty:
-1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
-   - Złoty nagłówek z logo Pure Life Center
-   - Sekcja z danymi osoby zapraszającej
-   - Tekst zachęcający do kontaktu z zapraszającym
-   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+## Pliki do zmiany (~16 plików)
 
-2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
+Wszystkie w `supabase/functions/`:
+- `send-mfa-code/index.ts`
+- `send-certificate-email/index.ts`
+- `send-maintenance-bypass-email/index.ts`
+- `send-support-ticket/index.ts`
+- `send-webinar-email/index.ts`
+- `send-bulk-webinar-reminders/index.ts`
+- `send-post-webinar-email/index.ts`
+- `send-approval-email/index.ts`
+- `send-password-reset/index.ts`
+- `send-notification-email/index.ts`
+- `send-activation-email/index.ts`
+- `send-welcome-email/index.ts`
+- `send-training-notification/index.ts`
+- `send-training-reminder/index.ts`
+- `send-group-email/index.ts`
+- `send-single-email/index.ts`
 
-3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+Po zmianach — wysłanie testowych emaili do `sebastiansnopek87@gmail.com` w celu weryfikacji.
 
-4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
-
-### Test emaili (wysłano do sebastiansnopek87@gmail.com):
-- ✅ Potwierdzenie rejestracji
-- ✅ Przypomnienie 24h
-- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
-- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
-- ✅ Przypomnienie 1h
-- ✅ Przypomnienie 15min
-- ✅ Podziękowanie po wydarzeniu (NOWY)
