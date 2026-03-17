@@ -102,7 +102,6 @@ export const AssessmentStep: React.FC<AssessmentStepProps> = ({
                   isActive
                     ? {
                         borderColor: range.color,
-                        ringColor: range.color,
                         boxShadow: `0 0 0 2px ${range.color}30`,
                       }
                     : undefined
