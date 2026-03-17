@@ -891,7 +891,7 @@ serve(async (req) => {
               if (!guest.email) continue;
 
               results.postEventThankYou.processed++;
-              if (results.postEventThankYou.processed > 1) await delay(1000);
+              if (results.postEventThankYou.processed > 1) await delay(200);
 
               try {
                 const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
