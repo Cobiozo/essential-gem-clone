@@ -6,6 +6,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface Attachment {
+  filename: string;
+  content_base64: string; // raw base64 (no data: prefix)
+  content_type: string;
+  content_id?: string; // for inline CID references
+}
+
 interface SendEmailRequest {
   template_id?: string;
   recipient_user_id?: string;
@@ -14,6 +21,7 @@ interface SendEmailRequest {
   html_body?: string;
   skip_template?: boolean;
   custom_variables?: Record<string, string>;
+  attachments?: Attachment[];
 }
 
 interface SmtpSettings {
@@ -26,7 +34,6 @@ interface SmtpSettings {
   from_name: string;
 }
 
-// Base64 encode for SMTP AUTH (handles UTF-8 characters)
 function base64Encode(str: string): string {
   const encoder = new TextEncoder();
   const bytes = encoder.encode(str);
@@ -37,12 +44,10 @@ function base64Encode(str: string): string {
   return btoa(binary);
 }
 
-// Base64 encode for simple ASCII strings (like credentials)
 function base64EncodeAscii(str: string): string {
   return btoa(str);
 }
 
-// Helper function to add timeout to promises
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   const timeout = new Promise<never>((_, reject) => {
     setTimeout(() => reject(new Error(`Operation timed out after ${ms}ms`)), ms);
@@ -50,54 +55,46 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return Promise.race([promise, timeout]);
 }
 
-// Send email via raw SMTP connection
+// Fold long base64 lines to 76 chars per RFC 2045
+function foldBase64(b64: string): string {
+  const lines: string[] = [];
+  for (let i = 0; i < b64.length; i += 76) {
+    lines.push(b64.substring(i, i + 76));
+  }
+  return lines.join('\r\n');
+}
+
 async function sendSmtpEmail(
   settings: SmtpSettings,
   to: string,
   subject: string,
-  htmlBody: string
+  htmlBody: string,
+  attachments: Attachment[] = []
 ): Promise<{ success: boolean; error?: string }> {
   console.log(`[SMTP] Attempting to send email to ${to}`);
-  console.log(`[SMTP] HTML body size: ${htmlBody.length} chars`);
-  console.log(`[SMTP] Using server: ${settings.host}:${settings.port} (${settings.encryption})`);
-
-  // Limit payload size to prevent SMTP hangs (max ~500KB of HTML)
-  if (htmlBody.length > 500000) {
-    console.error(`[SMTP] HTML body too large: ${htmlBody.length} chars`);
-    return { success: false, error: 'Email content too large. Please reduce image size.' };
-  }
+  console.log(`[SMTP] HTML body size: ${htmlBody.length} chars, attachments: ${attachments.length}`);
 
   let conn: Deno.Conn | null = null;
-  
+
   try {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
-    // Connect based on encryption type
     if (settings.encryption === 'ssl') {
-      console.log('[SMTP] Connecting with SSL/TLS...');
       conn = await withTimeout(
-        Deno.connectTls({
-          hostname: settings.host,
-          port: settings.port,
-        }),
+        Deno.connectTls({ hostname: settings.host, port: settings.port }),
         15000
       );
     } else {
-      console.log('[SMTP] Connecting without encryption...');
       conn = await withTimeout(
-        Deno.connect({
-          hostname: settings.host,
-          port: settings.port,
-        }),
+        Deno.connect({ hostname: settings.host, port: settings.port }),
         15000
       );
     }
 
     const readResponse = async (): Promise<string> => {
       const buffer = new Uint8Array(4096);
-      const readPromise = conn!.read(buffer);
-      const n = await withTimeout(readPromise, 15000);
+      const n = await withTimeout(conn!.read(buffer), 15000);
       if (n === null) return '';
       const response = decoder.decode(buffer.subarray(0, n));
       console.log('[SMTP] Response:', response.trim());
@@ -114,29 +111,21 @@ async function sendSmtpEmail(
       return await readResponse();
     };
 
-    // Read initial greeting
     await readResponse();
 
-    // EHLO
     const senderDomain = settings.from_email.split('@')[1] || 'localhost';
     await sendCommand(`EHLO ${senderDomain}`);
 
-    // STARTTLS if needed
     if (settings.encryption === 'starttls') {
-      console.log('[SMTP] Initiating STARTTLS...');
       await sendCommand('STARTTLS');
-      conn = await Deno.startTls(conn as Deno.TcpConn, {
-        hostname: settings.host,
-      });
+      conn = await Deno.startTls(conn as Deno.TcpConn, { hostname: settings.host });
       await sendCommand(`EHLO ${senderDomain}`);
     }
 
-    // AUTH LOGIN
-    console.log('[SMTP] Authenticating...');
     await sendCommand('AUTH LOGIN');
     await sendCommand(base64EncodeAscii(settings.username), true);
     const authResponse = await sendCommand(base64EncodeAscii(settings.password), true);
-    
+
     if (!authResponse.startsWith('235')) {
       throw new Error(`Authentication failed: ${authResponse}`);
     }
@@ -151,77 +140,154 @@ async function sendSmtpEmail(
     if (!dataResp.startsWith('354')) throw new Error(`DATA rejected: ${dataResp}`);
 
     const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${senderDomain}>`;
-    const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const plainText = htmlBody.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
-    const emailContent = [
-      `Message-ID: ${messageId}`,
-      `Date: ${new Date().toUTCString()}`,
-      `From: "${settings.from_name}" <${settings.from_email}>`,
-      `To: ${to}`,
-      `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
-      `Reply-To: <${settings.from_email}>`,
-      `Return-Path: <${settings.from_email}>`,
-      `X-Mailer: PureLife-Platform/1.0`,
-      `MIME-Version: 1.0`,
-      `Content-Type: multipart/alternative; boundary="${boundary}"`,
-      ``,
-      `--${boundary}`,
-      `Content-Type: text/plain; charset=UTF-8`,
-      `Content-Transfer-Encoding: base64`,
-      ``,
-      base64Encode(plainText),
-      ``,
-      `--${boundary}`,
-      `Content-Type: text/html; charset=UTF-8`,
-      `Content-Transfer-Encoding: base64`,
-      ``,
-      base64Encode(htmlBody),
-      ``,
-      `--${boundary}--`,
-      '.',
-    ].join('\r\n');
+    // Separate inline (CID) attachments from file attachments
+    const inlineAttachments = attachments.filter(a => a.content_id);
+    const fileAttachments = attachments.filter(a => !a.content_id);
+    const hasAttachments = attachments.length > 0;
+
+    let emailContent: string;
+
+    if (hasAttachments) {
+      // Build multipart/mixed with multipart/related for inline images
+      const mixedBoundary = `----=_Mixed_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const relatedBoundary = `----=_Related_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const altBoundary = `----=_Alt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+      const parts: string[] = [
+        `Message-ID: ${messageId}`,
+        `Date: ${new Date().toUTCString()}`,
+        `From: "${settings.from_name}" <${settings.from_email}>`,
+        `To: ${to}`,
+        `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+        `Reply-To: <${settings.from_email}>`,
+        `Return-Path: <${settings.from_email}>`,
+        `X-Mailer: PureLife-Platform/1.0`,
+        `MIME-Version: 1.0`,
+        `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+        ``,
+        `--${mixedBoundary}`,
+        `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
+        ``,
+        `--${relatedBoundary}`,
+        `Content-Type: multipart/alternative; boundary="${altBoundary}"`,
+        ``,
+        `--${altBoundary}`,
+        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        foldBase64(base64Encode(plainText)),
+        ``,
+        `--${altBoundary}`,
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        foldBase64(base64Encode(htmlBody)),
+        ``,
+        `--${altBoundary}--`,
+      ];
+
+      // Add inline images (CID)
+      for (const att of inlineAttachments) {
+        parts.push(
+          ``,
+          `--${relatedBoundary}`,
+          `Content-Type: ${att.content_type}; name="${att.filename}"`,
+          `Content-Transfer-Encoding: base64`,
+          `Content-ID: <${att.content_id}>`,
+          `Content-Disposition: inline; filename="${att.filename}"`,
+          ``,
+          foldBase64(att.content_base64),
+        );
+      }
+
+      parts.push(``, `--${relatedBoundary}--`);
+
+      // Add file attachments
+      for (const att of fileAttachments) {
+        parts.push(
+          ``,
+          `--${mixedBoundary}`,
+          `Content-Type: ${att.content_type}; name="${att.filename}"`,
+          `Content-Transfer-Encoding: base64`,
+          `Content-Disposition: attachment; filename="${att.filename}"`,
+          ``,
+          foldBase64(att.content_base64),
+        );
+      }
+
+      parts.push(``, `--${mixedBoundary}--`, '.');
+      emailContent = parts.join('\r\n');
+    } else {
+      // Simple multipart/alternative (no attachments)
+      const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      emailContent = [
+        `Message-ID: ${messageId}`,
+        `Date: ${new Date().toUTCString()}`,
+        `From: "${settings.from_name}" <${settings.from_email}>`,
+        `To: ${to}`,
+        `Subject: =?UTF-8?B?${base64Encode(subject)}?=`,
+        `Reply-To: <${settings.from_email}>`,
+        `Return-Path: <${settings.from_email}>`,
+        `X-Mailer: PureLife-Platform/1.0`,
+        `MIME-Version: 1.0`,
+        `Content-Type: multipart/alternative; boundary="${boundary}"`,
+        ``,
+        `--${boundary}`,
+        `Content-Type: text/plain; charset=UTF-8`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        foldBase64(base64Encode(plainText)),
+        ``,
+        `--${boundary}`,
+        `Content-Type: text/html; charset=UTF-8`,
+        `Content-Transfer-Encoding: base64`,
+        ``,
+        foldBase64(base64Encode(htmlBody)),
+        ``,
+        `--${boundary}--`,
+        '.',
+      ].join('\r\n');
+    }
 
     console.log(`[SMTP] Sending DATA payload: ${emailContent.length} chars`);
-    
-    // Use longer timeout for DATA since it includes the full email content
+
     const sendData = async (): Promise<string> => {
-      await conn!.write(encoder.encode(emailContent + '\r\n'));
+      // Send in chunks to avoid overwhelming the connection
+      const encoded = encoder.encode(emailContent + '\r\n');
+      const chunkSize = 65536;
+      for (let i = 0; i < encoded.length; i += chunkSize) {
+        const chunk = encoded.subarray(i, Math.min(i + chunkSize, encoded.length));
+        await conn!.write(chunk);
+      }
       return await readResponse();
     };
-    
-    const dataResponse = await withTimeout(sendData(), 30000);
-    
+
+    const dataResponse = await withTimeout(sendData(), 60000);
+
     if (!dataResponse.startsWith('250')) {
       throw new Error(`Failed to send email: ${dataResponse}`);
     }
 
     console.log('[SMTP] DATA accepted, sending QUIT');
-
-    // QUIT
-    try {
-      await conn.write(encoder.encode('QUIT\r\n'));
-    } catch { /* ignore quit errors */ }
-    
+    try { await conn.write(encoder.encode('QUIT\r\n')); } catch { /* ignore */ }
     try { conn.close(); } catch { /* ignore */ }
     conn = null;
 
     console.log('[SMTP] Email sent successfully');
     return { success: true };
-    
+
   } catch (error) {
     console.error('[SMTP] Error:', error);
     return { success: false, error: error.message };
   } finally {
     if (conn) {
-      try { conn.close(); } catch (closeError) {
-        console.warn('[SMTP] Error closing connection:', closeError);
-      }
+      try { conn.close(); } catch { /* ignore */ }
     }
   }
 }
 
-// Replace template variables
 function replaceVariables(text: string, variables: Record<string, string>): string {
   let result = text;
   for (const [key, value] of Object.entries(variables)) {
@@ -239,7 +305,7 @@ function wrapWithBranding(html: string): string {
 
 serve(async (req) => {
   console.log('[send-single-email] Request received:', req.method);
-  
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -249,25 +315,17 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify the user is authenticated
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("No authorization header");
-    }
+    if (!authHeader) throw new Error("No authorization header");
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(
       authHeader.replace("Bearer ", "")
     );
+    if (authError || !user) throw new Error("Unauthorized");
 
-    if (authError || !user) {
-      throw new Error("Unauthorized");
-    }
+    const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {}, attachments = [] }: SendEmailRequest = await req.json();
+    console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template, html_body_length: html_body?.length, attachments_count: attachments.length });
 
-    const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {} }: SendEmailRequest = await req.json();
-    console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template, html_body_length: html_body?.length });
-
-    // For template-based mode, require admin role
-    // For skip_template mode (e.g. skills assessment results), allow any authenticated user
     if (!skip_template) {
       const { data: roleData } = await supabase
         .from("user_roles")
@@ -275,22 +333,15 @@ serve(async (req) => {
         .eq("user_id", user.id)
         .eq("role", "admin")
         .single();
-
-      if (!roleData) {
-        throw new Error("Only admins can send template emails");
-      }
+      if (!roleData) throw new Error("Only admins can send template emails");
     }
 
-    // Fetch SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
       .from("smtp_settings")
       .select("*")
       .eq("is_active", true)
       .single();
-
-    if (smtpError || !smtpData) {
-      throw new Error("No active SMTP configuration found. Please configure SMTP settings first.");
-    }
+    if (smtpError || !smtpData) throw new Error("No active SMTP configuration found.");
 
     const smtpSettings: SmtpSettings = {
       host: smtpData.smtp_host,
@@ -303,15 +354,8 @@ serve(async (req) => {
     };
 
     if (!smtpSettings.host || !smtpSettings.port || !smtpSettings.username || !smtpSettings.password) {
-      throw new Error("Incomplete SMTP configuration. Please check SMTP settings.");
+      throw new Error("Incomplete SMTP configuration.");
     }
-
-    console.log('[send-single-email] SMTP config loaded:', {
-      host: smtpSettings.host,
-      port: smtpSettings.port,
-      encryption: smtpSettings.encryption,
-      from_email: smtpSettings.from_email
-    });
 
     let finalEmail: string;
     let finalSubject: string;
@@ -319,41 +363,22 @@ serve(async (req) => {
     let recipientName = '';
 
     if (skip_template && recipient_email && directSubject && html_body) {
-      // Direct email mode — no template lookup
       finalEmail = recipient_email;
       finalSubject = directSubject;
       finalHtml = html_body;
     } else {
-      // Template-based mode (original logic)
-      if (!template_id || !recipient_user_id) {
-        throw new Error("template_id and recipient_user_id are required for template mode");
-      }
+      if (!template_id || !recipient_user_id) throw new Error("template_id and recipient_user_id are required for template mode");
 
       const { data: templateData, error: templateError } = await supabase
-        .from("email_templates")
-        .select("*")
-        .eq("id", template_id)
-        .single();
-
-      if (templateError || !templateData) {
-        throw new Error("Email template not found");
-      }
+        .from("email_templates").select("*").eq("id", template_id).single();
+      if (templateError || !templateData) throw new Error("Email template not found");
 
       const { data: recipientData, error: recipientError } = await supabase
-        .from("profiles")
-        .select("user_id, email, first_name, last_name, eq_id")
-        .eq("user_id", recipient_user_id)
-        .single();
-
-      if (recipientError || !recipientData) {
-        throw new Error("Recipient user not found");
-      }
+        .from("profiles").select("user_id, email, first_name, last_name, eq_id").eq("user_id", recipient_user_id).single();
+      if (recipientError || !recipientData) throw new Error("Recipient user not found");
 
       const { data: recipientRole } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", recipient_user_id)
-        .single();
+        .from("user_roles").select("role").eq("user_id", recipient_user_id).single();
 
       const variables: Record<string, string> = {
         imię: recipientData.first_name || '',
@@ -376,15 +401,14 @@ serve(async (req) => {
       recipientName = `${recipientData.first_name || ''} ${recipientData.last_name || ''}`.trim();
     }
 
-    // Send email
     const result = await sendSmtpEmail(
       smtpSettings,
       finalEmail,
       finalSubject,
-      wrapWithBranding(finalHtml)
+      wrapWithBranding(finalHtml),
+      attachments
     );
 
-    // Log the email
     await supabase.from("email_logs").insert({
       template_id: template_id || null,
       recipient_email: finalEmail,
@@ -393,41 +417,27 @@ serve(async (req) => {
       status: result.success ? "sent" : "error",
       error_message: result.error || null,
       sent_at: result.success ? new Date().toISOString() : null,
-      metadata: { 
+      metadata: {
         forced_by_admin: user.id,
         skip_template: skip_template || false,
-        custom_variables 
+        custom_variables,
+        attachments_count: attachments.length,
       },
     });
 
-    if (!result.success) {
-      throw new Error(result.error || "Failed to send email");
-    }
+    if (!result.success) throw new Error(result.error || "Failed to send email");
 
     console.log('[send-single-email] Email sent successfully to:', finalEmail);
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Email wysłany do ${finalEmail}`,
-        recipient: {
-          email: finalEmail,
-          name: recipientName,
-        },
-      }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      JSON.stringify({ success: true, message: `Email wysłany do ${finalEmail}`, recipient: { email: finalEmail, name: recipientName } }),
+      { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   } catch (error: any) {
     console.error("[send-single-email] Error:", error);
     return new Response(
       JSON.stringify({ success: false, error: error.message }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      }
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
 });
