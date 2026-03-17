@@ -181,6 +181,8 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderFirstName: 'Jan',
     placeholderLastName: 'Kowalski',
     placeholderPhone: '+48 123 456 789',
+    emailConsent: 'Wyrażam zgodę na otrzymywanie wiadomości email z informacjami dotyczącymi tego wydarzenia, w tym linku do spotkania. Dane są chronione. Zgodę można wycofać, kontaktując się pod adresem support@purelife.info.pl.',
+    emailConsentRequired: 'Musisz wyrazić zgodę, aby kontynuować rejestrację',
   },
   en: {
     formTitle: 'Sign up for webinar',
