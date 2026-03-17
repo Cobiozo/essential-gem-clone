@@ -1,94 +1,56 @@
-## Analiza systemu powiadomień — wynik
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-### Zmiany:
+# Plan: Test emaili z podziękowaniem + analiza skrócenia linku zaproszeniowego
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+## Część 1: Wysłanie testowych emaili z podziękowaniem
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+Wywołam `send-post-event-thank-you` z danymi testowymi do obu adresów, symulując osobę zapraszającą (z danymi kontaktowymi).
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
-```
+**Parametry:**
+- `recipient_email`: `sebastiansnopek87@gmail.com` i `byk1023@wp.pl`
+- `recipient_name`: "Sebastian" / "Gość"
+- `event_title`: "TEST"
+- `inviter_user_id`: ID zalogowanego użytkownika (aby pobrać dane zapraszającego z profilu)
 
----
+## Część 2: Weryfikacja automatycznego wysyłania po webinarze
 
-## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+System **już działa poprawnie**. Oto jak to działa:
 
-### Nowe komponenty:
-1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
-   - Złoty nagłówek z logo Pure Life Center
-   - Sekcja z danymi osoby zapraszającej
-   - Tekst zachęcający do kontaktu z zapraszającym
-   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+- `process-pending-notifications` (krok 9, linia 796) uruchamia się via CRON co kilka minut
+- Wyszukuje wydarzenia, które **zakończyły się w ciągu ostatnich 2 godzin** (`end_time` między 2h temu a teraz)
+- Dla każdej rejestracji (użytkownik + gość) bez `thank_you_sent = true`:
+  - Wywołuje `send-post-event-thank-you` z danymi zapraszającego
+  - Po wysłaniu ustawia `thank_you_sent = true` w rejestracji
+- **Goście**: pobiera `invited_by_user_id` z `guest_event_registrations`
+- **Użytkownicy**: szuka zapraszającego przez `upline_eq_id` → `profiles`, fallback na `host_user_id`
 
-2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
+**Wniosek**: Automatyka jest poprawna. Każdy webinar po zakończeniu wyśle podziękowania w ciągu 2h.
 
-3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+## Część 3: Skrócenie linku zaproszeniowego
 
-4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
+### Obecny stan
+System **już obsługuje krótkie linki** przez pole `slug` w tabeli `events`:
 
-### Test emaili (wysłano do sebastiansnopek87@gmail.com):
-- ✅ Potwierdzenie rejestracji
-- ✅ Przypomnienie 24h
-- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
-- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
-- ✅ Przypomnienie 1h
-- ✅ Przypomnienie 15min
-- ✅ Podziękowanie po wydarzeniu (NOWY)
+- **Z slugiem**: `https://purelife.info.pl/e/{slug}?ref={eq_id}` — np. `purelife.info.pl/e/test-webinar?ref=EQ123`
+- **Bez sluga (fallback)**: `https://purelife.info.pl/events/register/{UUID}?invited_by={UUID}` — bardzo długi
 
----
+### Jak to działa
+- `/e/:slug` → `EventRegistrationBySlug` → rozwiązuje slug na event ID i `ref` (eq_id) na user UUID → przekierowuje do `/events/register/:eventId`
+- Slug jest już zaimplementowany w 5 komponentach: `EventCard`, `EventCardCompact`, `MyMeetingsWidget`, `CalendarWidget`, `AutoWebinarEventView`
 
-## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
+### Co można poprawić
 
-### Root cause:
-1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
-2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
-3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
+**Opcja A — Zapewnić, że każde wydarzenie ma slug (automatycznie)**
+- Dodać trigger bazodanowy: przy INSERT do `events`, jeśli `slug` jest NULL, auto-generować z `title` (np. "Webinar TEST" → `webinar-test`)
+- Efekt: żaden link nigdy nie będzie w formacie UUID, zawsze krótki `/e/slug`
 
-### Zmiany:
+**Opcja B — Jeszcze krótszy format z kodem numerycznym**
+- Zamiast sluga z tytułu, generować 5-6 znakowy kod (np. `purelife.info.pl/e/a3x9k`)
+- Krótsze, ale mniej czytelne
 
-1. **Migracja SQL** — dodano do `event_registrations`:
-   - `reminder_12h_sent`, `reminder_12h_sent_at`
-   - `reminder_2h_sent`, `reminder_2h_sent_at`
-   - `reminder_1h_sent`, `reminder_1h_sent_at`
-   - `reminder_15min_sent`, `reminder_15min_sent_at`
+**Rekomendacja**: Opcja A — auto-generowanie sluga z tytułu. Nie narusza istniejącej funkcjonalności, bo slug jest już w pełni obsługiwany. Jedynie gwarantuje, że każde wydarzenie go ma.
 
-2. **`send-bulk-webinar-reminders`** — przebudowany:
-   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
-   - Dla zalogowanych pobiera email/imię z `profiles`
-   - Ustawia flagi w odpowiedniej tabeli po sukcesie
-   - Loguje każdy send do `email_logs` z `registration_source`
+## Pliki do zmiany
+1. **Bez zmian w kodzie** — wysłanie testów via curl
+2. Opcjonalnie: migracja SQL z triggerem auto-generowania sluga
 
-3. **`process-pending-notifications`** — usunięta luka:
-   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
-   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
-   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
-
-4. **`send-webinar-confirmation`** — rozszerzony fallback:
-   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
-   - Zapobiega duplikatom z CRON dla zalogowanych
-
-### Efekt:
-```
-GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
-USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
-Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
-Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
-```
