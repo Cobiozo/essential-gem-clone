@@ -202,6 +202,10 @@ function getTemplateInternalName(type: WebinarEmailRequest['type']): string {
       return 'webinar_confirmation';
     case 'reminder_24h':
       return 'webinar_reminder_24h';
+    case 'reminder_12h':
+      return 'webinar_reminder_12h';
+    case 'reminder_2h':
+      return 'webinar_reminder_2h';
     case 'reminder_1h':
       return 'webinar_reminder_1h';
     case 'reminder_15min':
