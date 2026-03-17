@@ -33,7 +33,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   eventsLoading = false,
 }) => {
   const { t, tf, language } = useLanguage();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -155,11 +155,13 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
     
-    const baseUrl = window.location.origin;
+    const baseUrl = 'https://purelife.info.pl';
     const eventSlug = (event as any).slug;
+    const eqId = profile?.eq_id;
     let inviteUrl: string;
     if (eventSlug) {
       const params = new URLSearchParams();
+      if (eqId) params.set('ref', eqId);
       if (inviteLang !== 'pl') params.set('lang', inviteLang);
       const qs = params.toString();
       inviteUrl = `${baseUrl}/e/${eventSlug}${qs ? `?${qs}` : ''}`;
