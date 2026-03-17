@@ -361,15 +361,16 @@ serve(async (req) => {
 
     // Log the email
     await supabase.from("email_logs").insert({
-      template_id: template_id,
-      recipient_email: recipientData.email,
-      recipient_user_id: recipient_user_id,
-      subject: subject,
+      template_id: template_id || null,
+      recipient_email: finalEmail,
+      recipient_user_id: recipient_user_id || null,
+      subject: finalSubject,
       status: result.success ? "sent" : "error",
       error_message: result.error || null,
       sent_at: result.success ? new Date().toISOString() : null,
       metadata: { 
         forced_by_admin: user.id,
+        skip_template: skip_template || false,
         custom_variables 
       },
     });
@@ -378,15 +379,15 @@ serve(async (req) => {
       throw new Error(result.error || "Failed to send email");
     }
 
-    console.log('[send-single-email] Email sent successfully to:', recipientData.email);
+    console.log('[send-single-email] Email sent successfully to:', finalEmail);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Email wysłany do ${recipientData.email}`,
+        message: `Email wysłany do ${finalEmail}`,
         recipient: {
-          email: recipientData.email,
-          name: `${recipientData.first_name || ''} ${recipientData.last_name || ''}`.trim(),
+          email: finalEmail,
+          name: recipientName,
         },
       }),
       {
