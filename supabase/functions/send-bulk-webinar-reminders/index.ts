@@ -287,7 +287,12 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, reminder_type }: BulkReminderRequest = await req.json();
+    const { event_id, reminder_type, test_emails }: BulkReminderRequest = await req.json();
+    const isTestMode = Array.isArray(test_emails) && test_emails.length > 0;
+
+    if (isTestMode) {
+      console.log(`[bulk-reminders] ⚠️ TEST MODE: sending only to ${test_emails!.length} addresses: ${test_emails!.join(', ')}`);
+    }
 
     if (!event_id) {
       return new Response(
