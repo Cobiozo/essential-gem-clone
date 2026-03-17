@@ -75,6 +75,7 @@ const SkillsAssessment: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-4 py-6 sm:py-8">
         {/* Header */}
+        <BackButton />
         <div className="mb-6">
           <h1 className="text-xl sm:text-2xl font-bold text-foreground">
             Ocena Umiejętności w Network Marketingu
