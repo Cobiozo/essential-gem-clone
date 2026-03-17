@@ -40,6 +40,7 @@ import {
   Info,
   Contact,
   Search,
+  Target,
   Facebook,
   ExternalLink,
   Video,
