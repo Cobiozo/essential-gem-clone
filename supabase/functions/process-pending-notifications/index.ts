@@ -228,10 +228,9 @@ serve(async (req) => {
           break;
         }
         
-        // Add 1 second delay between emails (except first one)
+        // Short delay between emails to avoid SMTP overload
         if (results.welcomeEmails.processed > 0) {
-          console.log("[CRON] Waiting 1 second before next welcome email...");
-          await delay(1000);
+          await delay(200);
         }
         
         results.welcomeEmails.processed++;
@@ -281,10 +280,9 @@ serve(async (req) => {
           break;
         }
         
-        // Add 1 second delay between emails (except first one)
+        // Short delay between emails to avoid SMTP overload
         if (results.trainingNotifications.processed > 0) {
-          console.log("[CRON] Waiting 1 second before next training notification...");
-          await delay(1000);
+          await delay(200);
         }
         
         results.trainingNotifications.processed++;
@@ -438,10 +436,9 @@ serve(async (req) => {
             break;
           }
           
-          // Add 1 second delay between emails (except first one)
+          // Short delay between emails to avoid SMTP overload
           if (results.retries.processed > 0) {
-            console.log("[CRON] Waiting 1 second before next retry...");
-            await delay(1000);
+            await delay(200);
           }
           
           results.retries.processed++;
@@ -504,10 +501,9 @@ serve(async (req) => {
             break;
           }
           
-          // Add 1 second delay between emails (except first one)
+          // Short delay between emails to avoid SMTP overload
           if (results.trainingReminders.processed > 0) {
-            console.log("[CRON] Waiting 1 second before next training reminder...");
-            await delay(1000);
+            await delay(200);
           }
           
           results.trainingReminders.processed++;
@@ -700,7 +696,7 @@ serve(async (req) => {
           }
 
           if (results.contactReminders.processed > 0) {
-            await delay(1000);
+            await delay(200);
           }
 
           results.contactReminders.processed++;
@@ -849,7 +845,7 @@ serve(async (req) => {
               }
 
               results.postEventThankYou.processed++;
-              if (results.postEventThankYou.processed > 1) await delay(1000);
+              if (results.postEventThankYou.processed > 1) await delay(200);
 
               try {
                 const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
@@ -895,7 +891,7 @@ serve(async (req) => {
               if (!guest.email) continue;
 
               results.postEventThankYou.processed++;
-              if (results.postEventThankYou.processed > 1) await delay(1000);
+              if (results.postEventThankYou.processed > 1) await delay(200);
 
               try {
                 const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
