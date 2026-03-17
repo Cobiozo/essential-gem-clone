@@ -11,7 +11,7 @@ const CY = 250;
 const MAX_R = 180;
 const SEGMENTS = ASSESSMENT_STEPS.length;
 const ANGLE_STEP = (2 * Math.PI) / SEGMENTS;
-const GRID_STEPS = [2, 4, 6, 8, 10];
+const GRID_STEPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 function polarToCartesian(cx: number, cy: number, r: number, angle: number) {
   return {
