@@ -275,6 +275,8 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderFirstName: 'Hans',
     placeholderLastName: 'Müller',
     placeholderPhone: '+49 151 1234 5678',
+    emailConsent: 'Ich stimme dem Erhalt von E-Mail-Nachrichten mit Informationen zu dieser Veranstaltung, einschließlich des Meeting-Links, zu. Ihre Daten sind geschützt. Sie können Ihre Einwilligung widerrufen, indem Sie sich an support@purelife.info.pl wenden.',
+    emailConsentRequired: 'Sie müssen zustimmen, um die Registrierung fortzusetzen',
   },
 };
 
