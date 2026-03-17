@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInputWithPrefix } from '@/components/ui/phone-input-prefix';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -76,6 +77,39 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
 };
 import pureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
+// Valid TLDs for email domain validation
+const VALID_TLDS = new Set([
+  'com', 'org', 'net', 'edu', 'gov', 'mil', 'int',
+  'pl', 'de', 'uk', 'fr', 'it', 'es', 'pt', 'nl', 'be', 'at', 'ch', 'se', 'no', 'dk', 'fi',
+  'cz', 'sk', 'hu', 'ro', 'bg', 'hr', 'si', 'lt', 'lv', 'ee', 'ie', 'lu',
+  'us', 'ca', 'au', 'nz', 'jp', 'cn', 'kr', 'in', 'br', 'mx', 'ar', 'za',
+  'eu', 'info', 'biz', 'name', 'pro', 'mobi', 'io', 'co', 'me', 'tv', 'cc', 'app', 'dev',
+  'online', 'store', 'shop', 'site', 'tech', 'xyz', 'cloud', 'ai',
+  'co.uk', 'co.jp', 'com.br', 'com.au', 'com.pl', 'org.pl', 'net.pl',
+]);
+
+const isValidEmailDomain = (email: string): boolean => {
+  const parts = email.split('@');
+  if (parts.length !== 2) return false;
+  const domain = parts[1].toLowerCase();
+  if (!domain || !domain.includes('.')) return false;
+  const domainParts = domain.split('.');
+  if (domainParts.length < 2) return false;
+  // Check last part (TLD) or last two parts (e.g. co.uk)
+  const tld = domainParts[domainParts.length - 1];
+  const tld2 = domainParts.slice(-2).join('.');
+  if (tld.length < 2) return false;
+  return VALID_TLDS.has(tld) || VALID_TLDS.has(tld2);
+};
+
+const isValidPhoneDigits = (phone: string): boolean => {
+  // Extract digits after the prefix (+XX or +XXX or +XXXX)
+  const match = phone.match(/^\+\d{1,4}(\d+)$/);
+  if (!match) return false;
+  const digits = match[1];
+  return digits.length >= 9 && digits.length <= 15;
+};
+
 // Schema is created dynamically based on lang — see inside the component
 type RegistrationFormData = {
   email: string;
@@ -129,13 +163,13 @@ const EventGuestRegistration: React.FC = () => {
   const dateLocale = useMemo(() => getDateLocale(lang), [lang]);
 
   const registrationSchema = useMemo(() => z.object({
-    email: z.string().email(labels.emailError),
+    email: z.string().email(labels.emailError).refine(isValidEmailDomain, { message: labels.emailDomainError }),
     confirm_email: z.string().email(labels.emailError),
     first_name: z.string().min(2, labels.nameError),
     last_name: z.string().optional(),
     phone: invitedBy
-      ? z.string().min(1, labels.phoneError)
-      : z.string().optional(),
+      ? z.string().min(1, labels.phoneError).refine(isValidPhoneDigits, { message: labels.phoneFormatError })
+      : z.string().optional().refine((val) => !val || isValidPhoneDigits(val), { message: labels.phoneFormatError }),
     email_consent: z.literal(true, { errorMap: () => ({ message: labels.emailConsentRequired }) }),
   }).refine((data) => data.email.trim().toLowerCase() === data.confirm_email.trim().toLowerCase(), {
     message: labels.emailsMismatch,
@@ -659,7 +693,13 @@ const EventGuestRegistration: React.FC = () => {
                           <FormItem>
                             <FormLabel>{labels.phoneLabel}{invitedBy ? ' *' : ''}</FormLabel>
                             <FormControl>
-                              <Input placeholder={labels.placeholderPhone} {...field} />
+                              <PhoneInputWithPrefix
+                                value={field.value || ''}
+                                onChange={field.onChange}
+                                defaultCountry={lang === 'de' ? 'DE' : lang === 'en' ? 'GB' : 'PL'}
+                                placeholder="123456789"
+                                disabled={submitting}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

@@ -114,7 +114,9 @@ export interface RegistrationLabels {
   webinarBadge: string;
   onlineWebinar: string;
   emailError: string;
+  emailDomainError: string;
   nameError: string;
+  phoneFormatError: string;
   notFound: string;
   registrationError: string;
   footer: string;
@@ -163,7 +165,9 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     webinarBadge: 'Webinar',
     onlineWebinar: 'Webinar online',
     emailError: 'Podaj prawidłowy adres email',
+    emailDomainError: 'Podaj email z istniejącą domeną (np. gmail.com, wp.pl)',
     nameError: 'Imię musi mieć minimum 2 znaki',
+    phoneFormatError: 'Podaj prawidłowy numer telefonu (minimum 9 cyfr)',
     notFound: 'Nie znaleziono wydarzenia lub jest nieaktywne.',
     registrationError: 'Wystąpił błąd podczas rejestracji',
     footer: '© {year} Pure Life. Wszelkie prawa zastrzeżone.',
@@ -210,7 +214,9 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     webinarBadge: 'Webinar',
     onlineWebinar: 'Online webinar',
     emailError: 'Please enter a valid email address',
+    emailDomainError: 'Please enter an email with a valid domain (e.g. gmail.com)',
     nameError: 'First name must be at least 2 characters',
+    phoneFormatError: 'Please enter a valid phone number (at least 9 digits)',
     notFound: 'Event not found or inactive.',
     registrationError: 'An error occurred during registration',
     footer: '© {year} Pure Life. All rights reserved.',
@@ -257,7 +263,9 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     webinarBadge: 'Webinar',
     onlineWebinar: 'Online-Webinar',
     emailError: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
+    emailDomainError: 'Bitte geben Sie eine E-Mail mit einer gültigen Domain ein (z.B. gmail.com)',
     nameError: 'Der Vorname muss mindestens 2 Zeichen lang sein',
+    phoneFormatError: 'Bitte geben Sie eine gültige Telefonnummer ein (mindestens 9 Ziffern)',
     notFound: 'Veranstaltung nicht gefunden oder inaktiv.',
     registrationError: 'Bei der Registrierung ist ein Fehler aufgetreten',
     footer: '© {year} Pure Life. Alle Rechte vorbehalten.',
