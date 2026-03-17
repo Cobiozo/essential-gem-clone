@@ -38,6 +38,8 @@ interface CategoryDetails {
   processed?: number;
   success?: number;
   failed?: number;
+  guests?: number;
+  users?: number;
 }
 
 interface DetailedResults {
@@ -93,13 +95,15 @@ export const CronJobsManagement: React.FC = () => {
       if (settingsError) throw settingsError;
       setSettings(settingsData);
 
-      // Fetch recent logs
+      // Fetch logs from last 3 days
+      const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
       const { data: logsData, error: logsError } = await supabase
         .from('cron_job_logs')
         .select('*')
         .eq('job_name', 'process-pending-notifications')
+        .gte('started_at', threeDaysAgo)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(500);
 
       if (logsError) throw logsError;
       setLogs(logsData || []);
@@ -243,11 +247,18 @@ export const CronJobsManagement: React.FC = () => {
     
     const successCount = category.success || 0;
     const failedCount = category.failed || 0;
+    const hasGuestUserSplit = (category.guests !== undefined && category.guests > 0) || (category.users !== undefined && category.users > 0);
     
     return (
       <div className="flex flex-col text-xs">
         {successCount > 0 && (
-          <span className="text-green-600 dark:text-green-400">{successCount} ✓</span>
+          <span className="text-green-600 dark:text-green-400">
+            {hasGuestUserSplit ? (
+              <>{category.guests || 0}G + {category.users || 0}U</>
+            ) : (
+              <>{successCount} ✓</>
+            )}
+          </span>
         )}
         {failedCount > 0 && (
           <span className="text-red-600 dark:text-red-400">{failedCount} ✗</span>

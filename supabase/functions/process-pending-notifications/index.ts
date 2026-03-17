@@ -80,11 +80,11 @@ serve(async (req) => {
     trainingNotifications: { processed: 0, success: 0, failed: 0 },
     trainingReminders: { processed: 0, success: 0, failed: 0 },
     retries: { processed: 0, success: 0, failed: 0 },
-    webinarReminders24h: { processed: 0, success: 0, failed: 0 },
-    webinarReminders12h: { processed: 0, success: 0, failed: 0 },
-    webinarReminders2h: { processed: 0, success: 0, failed: 0 },
-    webinarReminders1h: { processed: 0, success: 0, failed: 0 },
-    webinarReminders15min: { processed: 0, success: 0, failed: 0 },
+    webinarReminders24h: { processed: 0, success: 0, failed: 0, guests: 0, users: 0 },
+    webinarReminders12h: { processed: 0, success: 0, failed: 0, guests: 0, users: 0 },
+    webinarReminders2h: { processed: 0, success: 0, failed: 0, guests: 0, users: 0 },
+    webinarReminders1h: { processed: 0, success: 0, failed: 0, guests: 0, users: 0 },
+    webinarReminders15min: { processed: 0, success: 0, failed: 0, guests: 0, users: 0 },
     pushReminders: { processed: 0, success: 0, failed: 0 },
     contactReminders: { processed: 0, success: 0, failed: 0 },
     postEventThankYou: { processed: 0, success: 0, failed: 0 },
@@ -407,7 +407,9 @@ serve(async (req) => {
               results[window.resultKey].processed += res?.total || 0;
               results[window.resultKey].success += res?.sent || 0;
               results[window.resultKey].failed += res?.failed || 0;
-              console.log(`[CRON] Bulk ${window.type} for "${webinar.title}": sent=${res?.sent}, failed=${res?.failed}`);
+              results[window.resultKey].guests += res?.guests || 0;
+              results[window.resultKey].users += res?.users || 0;
+              console.log(`[CRON] Bulk ${window.type} for "${webinar.title}": sent=${res?.sent} (G:${res?.guests || 0} U:${res?.users || 0}), failed=${res?.failed}`);
             }
           } catch (err) {
             console.error(`[CRON] Exception invoking bulk ${window.type}:`, err);
