@@ -1153,6 +1153,32 @@ export const EventRegistrationsManagement: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Search & filter bar */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative flex-1 min-w-[220px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj po imieniu, email, telefonie, partnerze..."
+                      value={guestSearchQuery}
+                      onChange={e => setGuestSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button
+                    variant={showUnassignedOnly ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowUnassignedOnly(prev => !prev)}
+                  >
+                    Bez partnera
+                    {unassignedGuestCount > 0 && (
+                      <Badge variant="secondary" className="ml-1.5 text-xs">{unassignedGuestCount}</Badge>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Wyświetlono {filteredGuestRegistrations.length} z {guestRegistrations.length}
+                  </span>
+                </div>
+
                 {/* Guests table */}
                 {isLoadingGuests ? (
                   <div className="flex justify-center py-8">
