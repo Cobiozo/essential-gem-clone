@@ -147,7 +147,9 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [followUpRecipientGroup, setFollowUpRecipientGroup] = useState<'all' | 'users' | 'guests' | 'selected'>('all');
   const [followUpSelectedRecipients, setFollowUpSelectedRecipients] = useState<string[]>([]);
   const [followUpSearchQuery, setFollowUpSearchQuery] = useState('');
-  const selectedEvent = useMemo(() => 
+  const [guestSearchQuery, setGuestSearchQuery] = useState('');
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const selectedEvent = useMemo(() =>
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
   );
@@ -360,10 +362,28 @@ export const EventRegistrationsManagement: React.FC = () => {
     });
   }, [filteredRegistrations]);
 
+  const unassignedGuestCount = useMemo(() => 
+    guestRegistrations.filter(r => !r.invited_by_user_id).length,
+    [guestRegistrations]
+  );
+
   const filteredGuestRegistrations = useMemo(() => {
-    if (statusFilter === 'all') return guestRegistrations;
-    return guestRegistrations.filter(r => r.status === statusFilter);
-  }, [guestRegistrations, statusFilter]);
+    let result = guestRegistrations;
+    if (statusFilter !== 'all') result = result.filter(r => r.status === statusFilter);
+    if (showUnassignedOnly) result = result.filter(r => !r.invited_by_user_id);
+    if (guestSearchQuery.trim()) {
+      const q = guestSearchQuery.toLowerCase();
+      result = result.filter(r =>
+        r.first_name?.toLowerCase().includes(q) ||
+        r.last_name?.toLowerCase().includes(q) ||
+        r.email?.toLowerCase().includes(q) ||
+        r.phone?.includes(q) ||
+        r.inviter_profile?.first_name?.toLowerCase().includes(q) ||
+        r.inviter_profile?.last_name?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [guestRegistrations, statusFilter, showUnassignedOnly, guestSearchQuery]);
 
   // Export users to CSV
   const handleExportUsersCSV = () => {
@@ -1131,6 +1151,32 @@ export const EventRegistrationsManagement: React.FC = () => {
                     <Mail className="h-4 w-4 text-blue-500" />
                     <span className="text-sm">Potwierdzono email: <strong>{guestStats.confirmed}</strong></span>
                   </div>
+                </div>
+
+                {/* Search & filter bar */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="relative flex-1 min-w-[220px]">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Szukaj po imieniu, email, telefonie, partnerze..."
+                      value={guestSearchQuery}
+                      onChange={e => setGuestSearchQuery(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <Button
+                    variant={showUnassignedOnly ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowUnassignedOnly(prev => !prev)}
+                  >
+                    Bez partnera
+                    {unassignedGuestCount > 0 && (
+                      <Badge variant="secondary" className="ml-1.5 text-xs">{unassignedGuestCount}</Badge>
+                    )}
+                  </Button>
+                  <span className="text-xs text-muted-foreground">
+                    Wyświetlono {filteredGuestRegistrations.length} z {guestRegistrations.length}
+                  </span>
                 </div>
 
                 {/* Guests table */}
