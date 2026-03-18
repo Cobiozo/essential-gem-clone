@@ -362,10 +362,28 @@ export const EventRegistrationsManagement: React.FC = () => {
     });
   }, [filteredRegistrations]);
 
+  const unassignedGuestCount = useMemo(() => 
+    guestRegistrations.filter(r => !r.invited_by_user_id).length,
+    [guestRegistrations]
+  );
+
   const filteredGuestRegistrations = useMemo(() => {
-    if (statusFilter === 'all') return guestRegistrations;
-    return guestRegistrations.filter(r => r.status === statusFilter);
-  }, [guestRegistrations, statusFilter]);
+    let result = guestRegistrations;
+    if (statusFilter !== 'all') result = result.filter(r => r.status === statusFilter);
+    if (showUnassignedOnly) result = result.filter(r => !r.invited_by_user_id);
+    if (guestSearchQuery.trim()) {
+      const q = guestSearchQuery.toLowerCase();
+      result = result.filter(r =>
+        r.first_name?.toLowerCase().includes(q) ||
+        r.last_name?.toLowerCase().includes(q) ||
+        r.email?.toLowerCase().includes(q) ||
+        r.phone?.includes(q) ||
+        r.inviter_profile?.first_name?.toLowerCase().includes(q) ||
+        r.inviter_profile?.last_name?.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [guestRegistrations, statusFilter, showUnassignedOnly, guestSearchQuery]);
 
   // Export users to CSV
   const handleExportUsersCSV = () => {
