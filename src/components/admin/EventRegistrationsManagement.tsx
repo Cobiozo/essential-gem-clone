@@ -147,7 +147,9 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [followUpRecipientGroup, setFollowUpRecipientGroup] = useState<'all' | 'users' | 'guests' | 'selected'>('all');
   const [followUpSelectedRecipients, setFollowUpSelectedRecipients] = useState<string[]>([]);
   const [followUpSearchQuery, setFollowUpSearchQuery] = useState('');
-  const selectedEvent = useMemo(() => 
+  const [guestSearchQuery, setGuestSearchQuery] = useState('');
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const selectedEvent = useMemo(() =>
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
   );
