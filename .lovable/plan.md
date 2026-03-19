@@ -1,44 +1,35 @@
 
 
-# Plan: Produkty z katalogu zamiast hardkodowanych w szablonie
+# Plan: Aktualizacja sekcji Hero w szablonie PureLifeCenter2026
 
-## Problem
-Sekcja `products_with_form` w szablonie "PureLifeCenter2026" ma hardkodowane kolumny produktów w JSON-ie. Powinny one pochodzić z katalogu produktów admina (`product_catalog`).
+## Cel
+Zmienić konfigurację bloku hero w szablonie "PureLifeCenter2026" tak, aby wyglądał identycznie jak na screenshocie — ciemne oliwkowe tło, tekst "TESTUJ, NIE ZGADUJ", dwa przyciski CTA, obraz produktu po prawej.
 
-## Rozwiązanie
+## Zmiany w konfiguracji hero (w bazie danych)
 
-### 1. `ProductsWithFormSection.tsx` — zmiana logiki wyboru produktów
-Odwrócić priorytet: **zawsze** używać produktów z katalogu (`products` prop), a `columns` z config traktować jako fallback tylko gdy brak produktów w katalogu.
+Nowa konfiguracja bloku `plc2026-hero`:
 
-Obecna logika (linia 19):
-```ts
-const items = columns?.length > 0 ? columns : productLinks.map(...)
-```
+| Pole | Nowa wartość |
+|------|-------------|
+| `bg_color` | `#3d4a2c` (ciemny oliwkowy z screena) |
+| `bg_image_url` | usunięte (brak zdjęcia tła — jednolity kolor) |
+| `overlay_opacity` | `0` |
+| `headline` | `TESTUJ, NIE ZGADUJ. Twoje zdrowie zasługuje na twarde dane.` |
+| `description` | `Suplementacja Omega-3 oparta na teście z laboratorium. Prosty 6-miesięczny proces dla Ciebie i rodziny.` |
+| `subheadline` | `9/10 osób ma niedobór omega-3 na bazie setek tysięcy testów.` |
+| `cta_primary` | `{ text: "KUP TERAZ | DOŁĄCZ DO NAS", url: "#products" }` |
+| `cta_secondary` | `{ text: "Wypełnij ankietę | dobierz opcję", url: "#contact" }` |
+| `cta_bg_color` | `#2d6a4f` |
+| `hero_image_url` | placeholder obrazu produktu (butelka z olejem + rodzina) |
+| `stats` | usunięte (brak paska statystyk na screenie) |
 
-Nowa logika:
-```ts
-// Użyj produktów z katalogu (przekazanych jako prop), mapując je z danymi
-const catalogItems = products.map(p => ({
-  name: p.name,
-  description: p.description || '',
-  image_url: p.image_url || '',
-  cta_text: config.default_cta_text || 'Zobacz szczegóły',
-  purchase_url: productLinks.find(lp => lp.product_id === p.id)?.purchase_url || '#',
-}));
+## Implementacja
 
-const items = catalogItems.length > 0 ? catalogItems : (columns || []);
-```
+Jedna migracja SQL z `UPDATE` na rekord `partner_page_template` o nazwie `PureLifeCenter2026` — podmiana konfiguracji bloku hero w `template_data` za pomocą `jsonb_set`.
 
-### 2. `ProductsWithFormEditor.tsx` — usunąć ręczne kolumny produktów
-Usunąć fieldset "Produkty" z edytora (bo produkty zarządzane są w katalogu). Zostawić tylko heading, CTA color i formularz.
+## Plik do zmiany
 
-### 3. Template seed — wyczyścić `columns`
-Zaktualizować migrację/szablon żeby `columns` było pustą tablicą `[]`, bo produkty będą ładowane z katalogu.
-
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/partner-page/sections/ProductsWithFormSection.tsx` | Priorytet: catalog products > columns |
-| `src/components/admin/template-sections/ProductsWithFormEditor.tsx` | Usunąć ręczne zarządzanie kolumnami produktów |
+| Plik | Opis |
+|------|------|
+| Nowa migracja SQL | UPDATE template_data — podmiana config bloku hero |
 
