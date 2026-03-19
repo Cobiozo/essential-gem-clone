@@ -4,7 +4,7 @@ import { Globe, Layout, Package, Palette } from 'lucide-react';
 import { PartnerPageAccessManager } from './PartnerPageAccessManager';
 import { PartnerTemplateEditor } from './PartnerTemplateEditor';
 import { ProductCatalogManager } from './ProductCatalogManager';
-import { EqologyTemplateManager } from './EqologyTemplateManager';
+import { TemplatesGalleryManager } from './TemplatesGalleryManager';
 
 export const PartnerPagesManagement: React.FC = () => {
   const [subTab, setSubTab] = useState('access');
@@ -44,7 +44,7 @@ export const PartnerPagesManagement: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="eqology">
-          <EqologyTemplateManager />
+          <TemplatesGalleryManager />
         </TabsContent>
       </Tabs>
     </div>
