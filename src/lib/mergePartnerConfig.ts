@@ -59,6 +59,16 @@ export const getFieldLabel = (fieldName: string): string => {
     phone: 'Telefon',
     email: 'Email',
     logo_text: 'Tekst logo',
+    image_url: 'Obrazek',
+    hero_image_url: 'Obraz Hero',
+    logo_url: 'Logo',
+    'social.facebook': 'Facebook URL',
+    'social.instagram': 'Instagram URL',
+    'social.linkedin': 'LinkedIn URL',
+    'social.youtube': 'YouTube URL',
+    'social.messenger': 'Messenger URL',
+    'social.whatsapp': 'WhatsApp URL',
+    'social.telegram': 'Telegram URL',
   };
   return labels[fieldName] || fieldName;
 };
