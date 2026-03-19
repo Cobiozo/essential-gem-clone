@@ -17,10 +17,11 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
   const isRight = image_side === 'right';
   const iconColor = item_icon_color || '#2d6a4f';
   const ctaBg = cta_bg_color || '#2d6a4f';
+  const tc = text_color || undefined;
+  const ts = tc ? { color: tc } : undefined;
 
   return (
     <section className="relative py-16 sm:py-20 overflow-hidden" style={{ backgroundColor: bg_color || undefined }}>
-      {/* Background image */}
       {bg_image_url && (
         <>
           <div
@@ -33,27 +34,26 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-center ${isRight ? '' : 'md:[direction:rtl]'}`}>
-          {/* Text side */}
-          <div className={isRight ? '' : 'md:[direction:ltr]'} style={text_color ? { color: text_color } : undefined}>
+          <div className={isRight ? '' : 'md:[direction:ltr]'}>
             {(partner_name || partner_subtitle) && (
               <div className="mb-4">
                 {partner_subtitle && (
-                  <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-1">{partner_subtitle}</p>
+                  <p className="text-sm font-medium uppercase tracking-wider mb-1" style={ts ? { color: tc, opacity: 0.7 } : undefined}>{partner_subtitle}</p>
                 )}
                 {partner_name && (
-                  <p className="text-xl font-bold text-foreground">{partner_name}</p>
+                  <p className="text-xl font-bold" style={ts}>{partner_name}</p>
                 )}
               </div>
             )}
             {heading && (
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 leading-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 leading-tight" style={ts}>
                 {heading}
               </h2>
             )}
             {items?.length > 0 && (
               <ul className="space-y-3 mb-8">
                 {items.map((item: any, i: number) => (
-                  <li key={i} className="flex items-start gap-3 text-muted-foreground">
+                  <li key={i} className="flex items-start gap-3" style={ts ? { color: tc, opacity: 0.8 } : undefined}>
                     {item.icon === '✔️' || item.icon === '✓' || item.icon === 'check' ? (
                       <span
                         className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center mt-0.5"
@@ -72,10 +72,10 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
             {(highlight_text || highlight_description) && (
               <div className="bg-muted rounded-xl p-6 mb-6">
                 {highlight_text && (
-                  <p className="text-3xl font-black text-foreground mb-1">{highlight_text}</p>
+                  <p className="text-3xl font-black mb-1" style={ts}>{highlight_text}</p>
                 )}
                 {highlight_description && (
-                  <p className="text-sm text-muted-foreground">{highlight_description}</p>
+                  <p className="text-sm" style={ts ? { color: tc, opacity: 0.7 } : undefined}>{highlight_description}</p>
                 )}
               </div>
             )}
@@ -90,7 +90,6 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
             )}
           </div>
 
-          {/* Image/video side */}
           <div className={isRight ? '' : 'md:[direction:ltr]'}>
             {video_url ? (
               <div className="rounded-2xl overflow-hidden shadow-xl">

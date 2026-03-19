@@ -5,13 +5,15 @@ interface Props {
 }
 
 export const CtaBannerSection: React.FC<Props> = ({ config }) => {
-  const { heading, description, cta_text, cta_url, bg_color } = config;
+  const { heading, description, cta_text, cta_url, bg_color, text_color } = config;
+  const tc = text_color || undefined;
+  const ts = tc ? { color: tc } : { color: 'white' };
 
   return (
-    <section className="py-16 sm:py-20 text-white" style={{ backgroundColor: bg_color || '#0f172a' }}>
+    <section className="py-16 sm:py-20" style={{ backgroundColor: bg_color || '#0f172a' }}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-        {heading && <h2 className="text-2xl sm:text-3xl font-bold mb-4">{heading}</h2>}
-        {description && <p className="opacity-80 mb-8">{description}</p>}
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold mb-4" style={ts}>{heading}</h2>}
+        {description && <p className="mb-8" style={{ ...ts, opacity: 0.8 }}>{description}</p>}
         {cta_text && (
           <a
             href={cta_url || '#'}
