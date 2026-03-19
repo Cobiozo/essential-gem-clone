@@ -1,63 +1,46 @@
 
 
-# Plan: Naprawa cropu + wybór kształtu przycinania
+# Plan: Wyświetlanie obrazu w wybranym kształcie
 
-## Dwa problemy do rozwiązania
+## Problem
+Po przycięciu zdjęcia w kształcie owalu, obraz jest uploadowany jako PNG z przezroczystością, ale na stronie wyświetla się w prostokątnym kontenerze. Przezroczystość PNG teoretycznie powinna zachować kształt, ale `drop-shadow-2xl` i brak jawnego tła mogą powodować wizualne problemy. Dodatkowo — jeśli tło sekcji nie jest jednolite, przezroczystość PNG nie wystarczy — potrzebny jest CSS clip.
 
-### A. Bug: obraz nie jest uploadowany
-`createImage()` w `cropImage.ts` ustawia `crossOrigin = 'anonymous'` na blob URL — przeglądarka blokuje canvas. Naprawa: ustawiać `crossOrigin` tylko dla zdalnych URL.
-
-### B. Nowa funkcja: wybór kształtu przycinania
-Dodać selektor kształtu w dialogu cropu. Użytkownik wybiera kształt przed zatwierdzeniem.
-
-## Dostępne kształty
-
-| Kształt | `aspect` | `cropShape` | Opis |
-|---------|----------|-------------|------|
-| Poziomy 16:9 | `16/9` | `rect` | Domyślny, baner |
-| Poziomy 4:3 | `4/3` | `rect` | Klasyczny poziomy |
-| Pionowy 9:16 | `9/16` | `rect` | Stories, portret |
-| Pionowy 3:4 | `3/4` | `rect` | Portret klasyczny |
-| Kwadrat | `1` | `rect` | Instagram, avatar |
-| Koło | `1` | `round` | Avatar okrągły |
-| Owal poziomy | `16/9` | `round` | Elipsa pozioma |
-| Owal pionowy | `9/16` | `round` | Elipsa pionowa |
-| Dowolny | `undefined` | `rect` | Swobodne proporcje |
-
-`react-easy-crop` natywnie obsługuje `cropShape: 'rect' | 'round'` — koło i owal uzyskujemy przez `round` + odpowiedni `aspect`.
+## Rozwiązanie
+Zapisywać informację o wybranym kształcie obok URL obrazu i stosować odpowiedni CSS `clip-path` / `border-radius` przy wyświetlaniu.
 
 ## Zmiany
 
-### 1. `src/lib/cropImage.ts`
-- Naprawić `crossOrigin` — warunkowe ustawienie tylko dla http/https URL
-- Dodać parametr `shape: 'rect' | 'round'` do `getCroppedImg`
-- Dla `round` — po narysowaniu prostokątnego cropu zastosować eliptyczny clip path na canvas (przezroczyste tło, output PNG)
+### 1. `ImageUploadInput.tsx` — zwracać kształt razem z URL
+Zmienić `onChange` callback, aby oprócz URL przekazywał informację o kształcie. Dwie opcje:
+- **Prosta**: dołączyć kształt jako hash do URL, np. `url#shape=oval_h`
+- **Lepsza**: zmienić interfejs `onChange` na `(url: string, shape?: string)`
 
-### 2. `src/components/partner-page/ImageUploadInput.tsx`
-- Dodać stan `cropShape` i `aspect` z predefiniowanymi kształtami
-- Wyświetlić rząd przycisków/chipów z ikonami kształtów nad cropperem
-- Przekazać `cropShape` do `<Cropper>` i do `getCroppedImg`
-- Dla kształtów round — upload jako `image/png` (przezroczystość)
+Wybór: opcja z rozszerzonym `onChange(url, shape)` — czystsza.
 
-## UI w dialogu
+### 2. Edytor (`PartnerPageEditor.tsx` / `EditableWrapper.tsx`)
+Zapisywać `hero_image_shape` w konfiguracji bloku obok `hero_image_url`.
 
-```text
-┌─────────────────────────────────┐
-│  Pozycjonowanie zdjęcia         │
-│                                 │
-│  [▬] [▮] [□] [○] [⬭] [⬯] [↔]  │  ← przyciski kształtów
-│  ┌───────────────────────────┐  │
-│  │      Cropper              │  │
-│  └───────────────────────────┘  │
-│  Zoom [────────●──────]         │
-│           [Anuluj] [Zatwierdź]  │
-└─────────────────────────────────┘
-```
+### 3. `HeroSection.tsx` — wyświetlanie z kształtem
+Odczytać `hero_image_shape` z config i zastosować odpowiedni CSS:
 
-## Pliki
+| Kształt | CSS na `<img>` |
+|---------|---------------|
+| `circle` | `border-radius: 50%` + `object-cover` + `aspect-square` |
+| `oval_h` | `border-radius: 50%` + `object-cover` + `aspect-video` |
+| `oval_v` | `border-radius: 50%` + `object-cover` + `aspect-[9/16]` |
+| `square` | `aspect-square` + `object-cover` |
+| domyślny | bez zmian (`object-contain`) |
+
+### 4. `TextImageSection.tsx` — analogicznie
+Jeśli ten komponent też korzysta z `ImageUploadInput`, dodać tę samą logikę kształtu.
+
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/lib/cropImage.ts` | Fix crossOrigin + elliptical clip dla round shapes |
-| `src/components/partner-page/ImageUploadInput.tsx` | Selektor kształtu + przekazanie do croppera i getCroppedImg |
+| `src/components/partner-page/ImageUploadInput.tsx` | Rozszerzyć `onChange` o parametr `shape` |
+| `src/components/partner-page/PartnerPageEditor.tsx` | Zapisywać `hero_image_shape` w config bloku |
+| `src/components/partner-page/EditableWrapper.tsx` | Przekazywać `shape` z `ImageUploadInput` do konfiguracji |
+| `src/components/partner-page/sections/HeroSection.tsx` | Stosować CSS kształtu na hero image |
+| `src/components/partner-page/sections/TextImageSection.tsx` | Stosować CSS kształtu na image (jeśli dotyczy) |
 
