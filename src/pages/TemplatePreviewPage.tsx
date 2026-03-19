@@ -115,6 +115,28 @@ const TemplatePreviewPage: React.FC = () => {
     setEditingIndex(insertAt);
   }, []);
 
+  const handleCopySection = useCallback((index: number) => {
+    const el = template[index];
+    localStorage.setItem('copied_section', JSON.stringify(el));
+    toast({ title: 'Sekcja skopiowana do schowka' });
+  }, [template, toast]);
+
+  const handlePasteSection = useCallback((insertAt: number) => {
+    const raw = localStorage.getItem('copied_section');
+    if (!raw) return;
+    try {
+      const el = JSON.parse(raw) as TemplateElement;
+      el.id = crypto.randomUUID();
+      el.position = insertAt;
+      setTemplate(prev => {
+        const next = [...prev];
+        next.splice(insertAt, 0, el);
+        return next.map((e, i) => ({ ...e, position: i }));
+      });
+      toast({ title: 'Sekcja wklejona' });
+    } catch { /* ignore */ }
+  }, [toast]);
+
   const handleDuplicate = useCallback((index: number) => {
     setTemplate(prev => {
       const el = prev[index];
@@ -192,7 +214,7 @@ const TemplatePreviewPage: React.FC = () => {
 
       {/* Content */}
       <div className="pt-12">
-        <AddSectionMenu onAdd={(type) => handleAddSection(type, 0)} />
+        <AddSectionMenu onAdd={(type) => handleAddSection(type, 0)} onPaste={() => handlePasteSection(0)} />
 
         {template.length === 0 ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -214,10 +236,11 @@ const TemplatePreviewPage: React.FC = () => {
                     onEdit={() => setEditingIndex(index)}
                     onDuplicate={() => handleDuplicate(index)}
                     onDelete={() => handleDelete(index)}
+                    onCopyToClipboard={() => handleCopySection(index)}
                   >
                     {renderSection(element)}
                   </SortableSectionWrapper>
-                  <AddSectionMenu onAdd={(type) => handleAddSection(type, index + 1)} />
+                  <AddSectionMenu onAdd={(type) => handleAddSection(type, index + 1)} onPaste={() => handlePasteSection(index + 1)} />
                 </React.Fragment>
               ))}
             </SortableContext>

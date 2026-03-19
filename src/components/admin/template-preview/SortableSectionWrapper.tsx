@@ -1,7 +1,7 @@
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Pencil, Copy, Trash2 } from 'lucide-react';
+import { GripVertical, Pencil, Copy, Trash2, ClipboardCopy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Props {
@@ -12,10 +12,11 @@ interface Props {
   onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onCopyToClipboard?: () => void;
 }
 
 export const SortableSectionWrapper: React.FC<Props> = ({
-  id, label, isEditing, children, onEdit, onDuplicate, onDelete,
+  id, label, isEditing, children, onEdit, onDuplicate, onDelete, onCopyToClipboard,
 }) => {
   const {
     attributes,
@@ -50,13 +51,18 @@ export const SortableSectionWrapper: React.FC<Props> = ({
           </span>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="secondary" size="icon" className="h-7 w-7 shadow" onClick={onEdit}>
+          <Button variant="secondary" size="icon" className="h-7 w-7 shadow" onClick={onEdit} title="Edytuj">
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="secondary" size="icon" className="h-7 w-7 shadow" onClick={onDuplicate}>
+          {onCopyToClipboard && (
+            <Button variant="secondary" size="icon" className="h-7 w-7 shadow" onClick={onCopyToClipboard} title="Kopiuj do schowka">
+              <ClipboardCopy className="w-3.5 h-3.5" />
+            </Button>
+          )}
+          <Button variant="secondary" size="icon" className="h-7 w-7 shadow" onClick={onDuplicate} title="Duplikuj">
             <Copy className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="destructive" size="icon" className="h-7 w-7 shadow" onClick={onDelete}>
+          <Button variant="destructive" size="icon" className="h-7 w-7 shadow" onClick={onDelete} title="Usuń">
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>
