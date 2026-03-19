@@ -227,7 +227,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Track which categories are open
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
 
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
