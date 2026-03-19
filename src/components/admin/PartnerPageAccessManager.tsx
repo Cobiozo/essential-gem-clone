@@ -107,6 +107,11 @@ export const PartnerPageAccessManager: React.FC = () => {
     fetchData();
   };
 
+  const toggleBypassCooldown = async (accessId: string, bypass: boolean) => {
+    await supabase.from('partner_page_user_access').update({ bypass_template_cooldown: bypass } as any).eq('id', accessId);
+    fetchData();
+  };
+
   if (loading) {
     return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
