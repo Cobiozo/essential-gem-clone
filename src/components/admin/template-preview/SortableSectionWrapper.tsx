@@ -36,7 +36,7 @@ export const SortableSectionWrapper: React.FC<Props> = ({
   return (
     <div ref={setNodeRef} style={style} className={`group ${isEditing ? 'ring-2 ring-primary ring-inset' : ''}`}>
       {/* Toolbar – visible on hover */}
-      <div className="absolute top-2 left-2 right-2 z-20 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+      <div className="absolute top-2 left-2 right-2 z-[60] flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
         <div className="flex items-center gap-1">
           <button
             className="bg-card border border-border rounded p-1.5 shadow cursor-grab active:cursor-grabbing"
