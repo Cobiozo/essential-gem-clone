@@ -10,13 +10,33 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Save, GripVertical, ChevronUp, ChevronDown, Layout, Eye, ArrowLeft, Edit, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import type { TemplateElement, PartnerPageTemplate } from '@/types/partnerPage';
+import type { TemplateElement, TemplateElementType, PartnerPageTemplate } from '@/types/partnerPage';
+import {
+  HeroSectionEditor,
+  StepsSectionEditor,
+  TimelineSectionEditor,
+  TestimonialsSectionEditor,
+  FaqSectionEditor,
+  CtaBannerEditor,
+  TextImageSectionEditor,
+  ProductsGridEditor,
+  HeaderSectionEditor,
+} from './template-sections';
 
 const TYPE_LABELS: Record<string, string> = {
   static: 'Statyczny (HTML)',
   editable_text: 'Tekst (edytowalny)',
   editable_image: 'Obrazek (edytowalny)',
   product_slot: 'Produkty (slot)',
+  hero: 'Hero (banner)',
+  text_image: 'Tekst + Obraz',
+  steps: 'Kroki (steps)',
+  timeline: 'Oś czasu',
+  testimonials: 'Opinie / Social proof',
+  products_grid: 'Siatka produktów',
+  faq: 'FAQ (akordeon)',
+  cta_banner: 'Baner CTA',
+  header: 'Nagłówek strony',
 };
 
 const defaultElement = (position: number): TemplateElement => ({
@@ -28,7 +48,29 @@ const defaultElement = (position: number): TemplateElement => ({
   max_length: 500,
   position,
   style: {},
+  config: {},
 });
+
+const SectionConfigEditor: React.FC<{
+  element: TemplateElement;
+  onConfigChange: (config: Record<string, any>) => void;
+}> = ({ element, onConfigChange }) => {
+  const cfg = element.config || {};
+  switch (element.type) {
+    case 'hero': return <HeroSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'text_image': return <TextImageSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'steps': return <StepsSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'timeline': return <TimelineSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'testimonials': return <TestimonialsSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'products_grid': return <ProductsGridEditor config={cfg} onChange={onConfigChange} />;
+    case 'faq': return <FaqSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'cta_banner': return <CtaBannerEditor config={cfg} onChange={onConfigChange} />;
+    case 'header': return <HeaderSectionEditor config={cfg} onChange={onConfigChange} />;
+    default: return null;
+  }
+};
+
+const RICH_TYPES: TemplateElementType[] = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header'];
 
 // ─── Template List View ───
 const TemplateListView: React.FC<{
@@ -79,26 +121,18 @@ const TemplateListView: React.FC<{
                     {t.is_active ? 'Aktywny' : 'Nieaktywny'}
                   </Badge>
                 </div>
-                {t.description && (
-                  <CardDescription>{t.description}</CardDescription>
-                )}
+                {t.description && <CardDescription>{t.description}</CardDescription>}
               </CardHeader>
               <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  {elementCount} {elementCount === 1 ? 'element' : 'elementów'}
-                </p>
+                <p className="text-sm text-muted-foreground">{elementCount} elementów</p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Label className="text-xs">Aktywny</Label>
-                    <Switch
-                      checked={t.is_active}
-                      onCheckedChange={(v) => onToggleActive(t.id, v)}
-                    />
+                    <Switch checked={t.is_active} onCheckedChange={(v) => onToggleActive(t.id, v)} />
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={() => onEdit(t.id)}>
-                      <Edit className="w-4 h-4 mr-1" />
-                      Edytuj
+                      <Edit className="w-4 h-4 mr-1" /> Edytuj
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => onDelete(t.id)}>
                       <Trash2 className="w-4 h-4 text-destructive" />
@@ -164,19 +198,16 @@ const TemplateDetailEditor: React.FC<{
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Button variant="ghost" size="sm" onClick={onBack}>
-                <ArrowLeft className="w-4 h-4 mr-1" />
-                Wróć do listy
+                <ArrowLeft className="w-4 h-4 mr-1" /> Wróć do listy
               </Button>
               <CardTitle className="text-lg">Edycja: {name}</CardTitle>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
-                <Eye className="w-4 h-4 mr-1" />
-                {previewMode ? 'Edycja' : 'Podgląd'}
+                <Eye className="w-4 h-4 mr-1" /> {previewMode ? 'Edycja' : 'Podgląd'}
               </Button>
               <Button onClick={handleSave} disabled={saving}>
-                <Save className="w-4 h-4 mr-1" />
-                {saving ? 'Zapisywanie...' : 'Zapisz'}
+                <Save className="w-4 h-4 mr-1" /> {saving ? 'Zapisywanie...' : 'Zapisz'}
               </Button>
             </div>
           </div>
@@ -203,25 +234,15 @@ const TemplateDetailEditor: React.FC<{
               {elements.map((el) => (
                 <div key={el.id} className="border rounded p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline">{TYPE_LABELS[el.type]}</Badge>
+                    <Badge variant="outline">{TYPE_LABELS[el.type] || el.type}</Badge>
                     {el.label && <span className="text-sm font-medium">{el.label}</span>}
                   </div>
                   {el.type === 'static' && (
                     <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: el.content || '<em>Brak treści</em>' }} />
                   )}
-                  {el.type === 'editable_text' && (
+                  {RICH_TYPES.includes(el.type) && (
                     <div className="bg-primary/5 border-dashed border-2 border-primary/30 rounded p-3 text-sm text-muted-foreground">
-                      📝 Pole tekstowe partnera: {el.placeholder || 'brak podpowiedzi'}
-                    </div>
-                  )}
-                  {el.type === 'editable_image' && (
-                    <div className="bg-primary/5 border-dashed border-2 border-primary/30 rounded p-3 text-sm text-muted-foreground">
-                      🖼️ Miejsce na obrazek partnera
-                    </div>
-                  )}
-                  {el.type === 'product_slot' && (
-                    <div className="bg-primary/5 border-dashed border-2 border-primary/30 rounded p-3 text-sm text-muted-foreground">
-                      📦 Siatka produktów z linkami zakupowymi partnera
+                      🧩 Sekcja: {TYPE_LABELS[el.type]}
                     </div>
                   )}
                 </div>
@@ -251,7 +272,7 @@ const TemplateDetailEditor: React.FC<{
                     <div className="flex items-center gap-4">
                       <Badge>{index + 1}</Badge>
                       <div className="flex-1">
-                        <Select value={element.type} onValueChange={(v) => updateElement(index, { type: v as TemplateElement['type'] })}>
+                        <Select value={element.type} onValueChange={(v) => updateElement(index, { type: v as TemplateElementType, config: {} })}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {Object.entries(TYPE_LABELS).map(([value, label]) => (
@@ -264,18 +285,24 @@ const TemplateDetailEditor: React.FC<{
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
-                    {element.type !== 'static' && (
+
+                    {/* Label for legacy types */}
+                    {!RICH_TYPES.includes(element.type) && element.type !== 'static' && (
                       <div>
                         <Label>Etykieta (widoczna dla partnera)</Label>
-                        <Input value={element.label || ''} onChange={(e) => updateElement(index, { label: e.target.value })} placeholder="np. Twoje bio, O mnie..." />
+                        <Input value={element.label || ''} onChange={(e) => updateElement(index, { label: e.target.value })} />
                       </div>
                     )}
+
+                    {/* Static HTML */}
                     {element.type === 'static' && (
                       <div>
                         <Label>Treść HTML</Label>
                         <Textarea value={element.content || ''} onChange={(e) => updateElement(index, { content: e.target.value })} placeholder="<h2>Nagłówek</h2>" rows={4} />
                       </div>
                     )}
+
+                    {/* Legacy editable_text */}
                     {element.type === 'editable_text' && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -288,6 +315,17 @@ const TemplateDetailEditor: React.FC<{
                         </div>
                       </div>
                     )}
+
+                    {/* Rich section config editors */}
+                    {RICH_TYPES.includes(element.type) && (
+                      <div className="border-t pt-4">
+                        <SectionConfigEditor
+                          element={element}
+                          onConfigChange={(config) => updateElement(index, { config })}
+                        />
+                      </div>
+                    )}
+
                     <div>
                       <Label className="text-xs text-muted-foreground">ID elementu</Label>
                       <Input value={element.id} onChange={(e) => updateElement(index, { id: e.target.value.replace(/[^a-z0-9_]/g, '') })} className="text-xs font-mono" />
@@ -298,8 +336,7 @@ const TemplateDetailEditor: React.FC<{
             </Card>
           ))}
           <Button onClick={addElement} variant="outline" className="w-full">
-            <Plus className="w-4 h-4 mr-2" />
-            Dodaj element
+            <Plus className="w-4 h-4 mr-2" /> Dodaj element
           </Button>
         </>
       )}
@@ -315,10 +352,7 @@ export const PartnerTemplateEditor: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const fetchTemplates = async () => {
-    const { data } = await supabase
-      .from('partner_page_template')
-      .select('*')
-      .order('position');
+    const { data } = await supabase.from('partner_page_template').select('*').order('position');
     setTemplates((data as any) || []);
     setLoading(false);
   };
