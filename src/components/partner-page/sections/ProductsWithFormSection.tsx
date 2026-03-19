@@ -16,13 +16,15 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
 
   const ctaBg = cta_bg_color || '#2d6a4f';
 
-  const items = columns?.length > 0 ? columns : productLinks.map(lp => ({
-    name: lp.product?.name || '',
-    description: lp.product?.description || '',
-    image_url: lp.product?.image_url || '',
-    cta_text: 'Zobacz szczegóły',
-    purchase_url: lp.purchase_url,
+  const catalogItems = products.map(p => ({
+    name: p.name,
+    description: p.description || '',
+    image_url: p.image_url || '',
+    cta_text: config.default_cta_text || 'Zobacz szczegóły',
+    purchase_url: productLinks.find(lp => lp.product_id === p.id)?.purchase_url || '#',
   }));
+
+  const items = catalogItems.length > 0 ? catalogItems : (columns || []);
 
   const formCfg = {
     ...(form_config || {}),

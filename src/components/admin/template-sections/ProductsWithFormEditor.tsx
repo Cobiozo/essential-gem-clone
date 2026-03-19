@@ -40,26 +40,11 @@ export const ProductsWithFormEditor: React.FC<Props> = ({ config, onChange }) =>
         <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
       </div>
 
-      <fieldset className="border rounded-lg p-4 space-y-3">
-        <legend className="text-sm font-semibold px-2">Produkty</legend>
-        {columns.map((col, i) => (
-          <div key={i} className="border rounded-lg p-3 space-y-2">
-            <div className="flex justify-between">
-              <span className="text-sm font-medium">Produkt {i + 1}</span>
-              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => update('columns', columns.filter((_, j) => j !== i))}>
-                <Trash2 className="w-4 h-4 text-destructive" />
-              </Button>
-            </div>
-            <Input value={col.name || ''} onChange={e => updateCol(i, 'name', e.target.value)} placeholder="Nazwa" />
-            <Input value={col.description || ''} onChange={e => updateCol(i, 'description', e.target.value)} placeholder="Opis" />
-            <Input value={col.image_url || ''} onChange={e => updateCol(i, 'image_url', e.target.value)} placeholder="URL obrazu" />
-            <Input value={col.cta_text || ''} onChange={e => updateCol(i, 'cta_text', e.target.value)} placeholder="Tekst CTA" />
-          </div>
-        ))}
-        <Button variant="outline" size="sm" onClick={() => update('columns', [...columns, { name: '', description: '', image_url: '', cta_text: 'Zobacz szczegóły' }])}>
-          <Plus className="w-4 h-4 mr-1" /> Dodaj produkt
-        </Button>
-      </fieldset>
+      <div>
+        <Label>Domyślny tekst CTA</Label>
+        <Input value={config.default_cta_text || 'Zobacz szczegóły'} onChange={e => update('default_cta_text', e.target.value)} />
+      </div>
+      <p className="text-xs text-muted-foreground">Produkty są pobierane automatycznie z katalogu produktów (CMS → Katalog produktów).</p>
 
       <fieldset className="border rounded-lg p-4 space-y-3">
         <legend className="text-sm font-semibold px-2">Formularz kontaktowy (floating)</legend>
