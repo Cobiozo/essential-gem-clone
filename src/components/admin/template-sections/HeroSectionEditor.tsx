@@ -87,7 +87,12 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           </div>
           <div>
             <Label>URL wideo hero MP4 (prawa strona)</Label>
-            <Input value={config.hero_video_url || ''} onChange={e => update('hero_video_url', e.target.value)} placeholder="https://...video.mp4" />
+            <MediaUpload
+              onMediaUploaded={(url) => update('hero_video_url', url)}
+              currentMediaUrl={config.hero_video_url || ''}
+              currentMediaType="video"
+              allowedTypes={['video']}
+            />
             <p className="text-xs text-muted-foreground mt-1">Wideo ma priorytet nad obrazem</p>
           </div>
         </div>
