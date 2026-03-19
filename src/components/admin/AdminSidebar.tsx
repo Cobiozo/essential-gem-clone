@@ -129,7 +129,6 @@ const navCategories: NavCategory[] = [
     id: 'site',
     labelKey: 'siteAndAppearance',
     icon: LayoutDashboard,
-    defaultOpen: true,
     items: [
       { value: 'content', labelKey: 'main', icon: Settings2 },
       { value: 'layout', labelKey: 'layout', icon: Type },
@@ -228,14 +227,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Track which categories are open
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
-    const initial: Record<string, boolean> = {};
-    navCategories.forEach((cat) => {
-      const containsActive = cat.items.some((item) => item.value === activeTab);
-      initial[cat.id] = containsActive || cat.defaultOpen || false;
-    });
-    return initial;
-  });
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
 
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
@@ -289,10 +281,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const isSearching = searchQuery.trim().length > 0;
 
   const toggleCategory = (categoryId: string) => {
-    setOpenCategories((prev) => ({
-      ...prev,
-      [categoryId]: !prev[categoryId],
-    }));
+    setOpenCategories((prev) => {
+      const isCurrentlyOpen = prev[categoryId];
+      return isCurrentlyOpen ? {} : { [categoryId]: true };
+    });
   };
 
   // Handle tab change - close sidebar on mobile
