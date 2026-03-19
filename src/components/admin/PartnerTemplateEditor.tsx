@@ -170,7 +170,7 @@ const TemplateDetailEditor: React.FC<{
     (template.template_data || []).sort((a, b) => a.position - b.position)
   );
   const [saving, setSaving] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
+  
 
   const handleSave = async () => {
     setSaving(true);
