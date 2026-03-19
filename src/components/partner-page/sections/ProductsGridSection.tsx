@@ -1,16 +1,23 @@
 import React, { useState } from 'react';
-import { ChevronDown, ArrowRight } from 'lucide-react';
+import { ChevronDown, ArrowRight, Pencil } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import type { PartnerProductLink, ProductCatalogItem } from '@/types/partnerPage';
 
 interface Props {
   config: Record<string, any>;
   products: ProductCatalogItem[];
   productLinks: (PartnerProductLink & { product?: ProductCatalogItem })[];
+  isEditing?: boolean;
+  onProductLinkSave?: (productId: string, purchaseUrl: string) => void;
 }
 
-export const ProductsGridSection: React.FC<Props> = ({ config, products, productLinks }) => {
-  const { heading, columns, cta_bg_color, card_style } = config;
+export const ProductsGridSection: React.FC<Props> = ({ config, products, productLinks, isEditing, onProductLinkSave }) => {
+  const { heading, columns, cta_bg_color } = config;
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editUrl, setEditUrl] = useState('');
 
   const items = columns?.length > 0 ? columns : productLinks.map(lp => ({
     name: lp.product?.name || '',
@@ -20,9 +27,23 @@ export const ProductsGridSection: React.FC<Props> = ({ config, products, product
     image_url: lp.product?.image_url || '',
     cta_text: 'Zobacz szczegóły',
     purchase_url: lp.purchase_url,
+    _product_id: lp.product_id,
   }));
 
   const ctaBg = cta_bg_color || '#2d6a4f';
+
+  const handleEditClick = (productId: string, currentUrl: string) => {
+    setEditingProductId(productId);
+    setEditUrl(currentUrl || '');
+  };
+
+  const handleSaveLink = () => {
+    if (editingProductId && onProductLinkSave) {
+      onProductLinkSave(editingProductId, editUrl);
+    }
+    setEditingProductId(null);
+    setEditUrl('');
+  };
 
   return (
     <section className="py-16 sm:py-20 bg-background">
@@ -33,6 +54,7 @@ export const ProductsGridSection: React.FC<Props> = ({ config, products, product
           {(items || []).map((col: any, i: number) => {
             const link = productLinks.find(lp => lp.product?.name === col.name);
             const url = col.purchase_url || link?.purchase_url || '#';
+            const productId = col._product_id || link?.product_id || products.find(p => p.name === col.name)?.id;
 
             return (
               <div key={i} className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-lg transition-shadow flex flex-col">
@@ -55,15 +77,40 @@ export const ProductsGridSection: React.FC<Props> = ({ config, products, product
                       </CollapsibleContent>
                     </Collapsible>
                   )}
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-auto inline-flex items-center justify-center gap-2 text-white px-6 py-3 rounded-full font-semibold text-sm transition-all hover:shadow-lg hover:scale-105"
-                    style={{ backgroundColor: ctaBg }}
-                  >
-                    {col.cta_text || 'Zobacz szczegóły'} <ArrowRight className="w-4 h-4" />
-                  </a>
+
+                  {isEditing && productId ? (
+                    <Popover open={editingProductId === productId} onOpenChange={(open) => { if (!open) setEditingProductId(null); }}>
+                      <PopoverTrigger asChild>
+                        <button
+                          onClick={() => handleEditClick(productId, url !== '#' ? url : '')}
+                          className="mt-auto inline-flex items-center justify-center gap-2 text-white px-6 py-3 rounded-full font-semibold text-sm transition-all hover:shadow-lg hover:scale-105"
+                          style={{ backgroundColor: ctaBg }}
+                        >
+                          <Pencil className="w-4 h-4" /> Edytuj link
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80">
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium">Link zakupowy</p>
+                          <Input value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
+                          <div className="flex gap-2 justify-end">
+                            <Button variant="ghost" size="sm" onClick={() => setEditingProductId(null)}>Anuluj</Button>
+                            <Button size="sm" onClick={handleSaveLink}>Zapisz</Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-auto inline-flex items-center justify-center gap-2 text-white px-6 py-3 rounded-full font-semibold text-sm transition-all hover:shadow-lg hover:scale-105"
+                      style={{ backgroundColor: ctaBg }}
+                    >
+                      {col.cta_text || 'Zobacz szczegóły'} <ArrowRight className="w-4 h-4" />
+                    </a>
+                  )}
                 </div>
               </div>
             );

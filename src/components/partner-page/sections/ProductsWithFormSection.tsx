@@ -1,5 +1,8 @@
-import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowRight, Pencil } from 'lucide-react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { ContactFormSection } from './ContactFormSection';
 import type { PartnerProductLink, ProductCatalogItem } from '@/types/partnerPage';
 
@@ -8,14 +11,15 @@ interface Props {
   products: ProductCatalogItem[];
   productLinks: (PartnerProductLink & { product?: ProductCatalogItem })[];
   partnerEmail?: string;
+  isEditing?: boolean;
+  onProductLinkSave?: (productId: string, purchaseUrl: string) => void;
 }
 
-export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks, partnerEmail }) => {
-  const {
-    heading, columns, form_config, cta_bg_color,
-  } = config;
-
+export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks, partnerEmail, isEditing, onProductLinkSave }) => {
+  const { heading, columns, form_config, cta_bg_color } = config;
   const ctaBg = cta_bg_color || '#2d6a4f';
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editUrl, setEditUrl] = useState('');
 
   const catalogItems = products.map(p => ({
     name: p.name,
@@ -23,6 +27,7 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
     image_url: p.image_url || '',
     cta_text: config.default_cta_text || 'Zobacz szczegóły',
     purchase_url: productLinks.find(lp => lp.product_id === p.id)?.purchase_url || '#',
+    _product_id: p.id,
   }));
 
   const items = catalogItems.length > 0 ? catalogItems : (columns || []);
@@ -31,6 +36,19 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
     ...(form_config || {}),
     layout: 'floating',
     cta_bg_color: ctaBg,
+  };
+
+  const handleEditClick = (productId: string, currentUrl: string) => {
+    setEditingProductId(productId);
+    setEditUrl(currentUrl || '');
+  };
+
+  const handleSaveLink = () => {
+    if (editingProductId && onProductLinkSave) {
+      onProductLinkSave(editingProductId, editUrl);
+    }
+    setEditingProductId(null);
+    setEditUrl('');
   };
 
   return (
@@ -44,6 +62,7 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
             {(items || []).map((col: any, i: number) => {
               const link = productLinks.find(lp => lp.product?.name === col.name);
               const url = col.purchase_url || link?.purchase_url || '#';
+              const productId = col._product_id || link?.product_id || products.find(p => p.name === col.name)?.id;
 
               return (
                 <div key={i} className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm hover:shadow-lg transition-shadow flex flex-col">
@@ -55,15 +74,40 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
                   <div className="p-4 flex-1 flex flex-col">
                     <h3 className="font-bold text-foreground text-base mb-1">{col.name}</h3>
                     {col.description && <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{col.description}</p>}
-                    <a
-                      href={url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-auto inline-flex items-center justify-center gap-2 text-white px-4 py-2.5 rounded-full font-semibold text-xs transition-all hover:shadow-lg hover:scale-105"
-                      style={{ backgroundColor: ctaBg }}
-                    >
-                      {col.cta_text || 'Zobacz szczegóły'} <ArrowRight className="w-3.5 h-3.5" />
-                    </a>
+
+                    {isEditing && productId ? (
+                      <Popover open={editingProductId === productId} onOpenChange={(open) => { if (!open) setEditingProductId(null); }}>
+                        <PopoverTrigger asChild>
+                          <button
+                            onClick={() => handleEditClick(productId, url !== '#' ? url : '')}
+                            className="mt-auto inline-flex items-center justify-center gap-2 text-white px-4 py-2.5 rounded-full font-semibold text-xs transition-all hover:shadow-lg hover:scale-105"
+                            style={{ backgroundColor: ctaBg }}
+                          >
+                            <Pencil className="w-3.5 h-3.5" /> Edytuj link
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80">
+                          <div className="space-y-3">
+                            <p className="text-sm font-medium">Link zakupowy</p>
+                            <Input value={editUrl} onChange={e => setEditUrl(e.target.value)} placeholder="https://..." />
+                            <div className="flex gap-2 justify-end">
+                              <Button variant="ghost" size="sm" onClick={() => setEditingProductId(null)}>Anuluj</Button>
+                              <Button size="sm" onClick={handleSaveLink}>Zapisz</Button>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-auto inline-flex items-center justify-center gap-2 text-white px-4 py-2.5 rounded-full font-semibold text-xs transition-all hover:shadow-lg hover:scale-105"
+                        style={{ backgroundColor: ctaBg }}
+                      >
+                        {col.cta_text || 'Zobacz szczegóły'} <ArrowRight className="w-3.5 h-3.5" />
+                      </a>
+                    )}
                   </div>
                 </div>
               );
