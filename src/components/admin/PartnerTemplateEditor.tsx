@@ -39,6 +39,8 @@ const TYPE_LABELS: Record<string, string> = {
   faq: 'FAQ (akordeon)',
   cta_banner: 'Baner CTA',
   header: 'Nagłówek strony',
+  contact_form: 'Formularz kontaktowy',
+  footer: 'Stopka',
 };
 
 const defaultElement = (position: number): TemplateElement => ({
