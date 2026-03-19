@@ -79,9 +79,16 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
       </div>
       {(config.layout === 'split') && (
-        <div>
-          <Label>URL obrazu hero (prawa strona)</Label>
-          <ImageUploadInput value={config.hero_image_url || ''} onChange={v => update('hero_image_url', v)} />
+        <div className="space-y-3">
+          <div>
+            <Label>URL obrazu hero (prawa strona)</Label>
+            <ImageUploadInput value={config.hero_image_url || ''} onChange={v => update('hero_image_url', v)} />
+          </div>
+          <div>
+            <Label>URL wideo hero MP4 (prawa strona)</Label>
+            <Input value={config.hero_video_url || ''} onChange={e => update('hero_video_url', e.target.value)} placeholder="https://...video.mp4" />
+            <p className="text-xs text-muted-foreground mt-1">Wideo ma priorytet nad obrazem</p>
+          </div>
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">
