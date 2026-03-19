@@ -235,7 +235,7 @@ const TemplateDetailEditor: React.FC<{
         </CardContent>
       </Card>
 
-      {(
+      {
         <>
           {elements.map((element, index) => (
             <Card key={element.id}>
