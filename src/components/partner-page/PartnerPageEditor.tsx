@@ -61,13 +61,25 @@ export const PartnerPageEditor: React.FC = () => {
     if (partnerPage) {
       setIsActive(partnerPage.is_active);
       setCustomData(partnerPage.custom_data || {});
-      // Use existing alias or fall back to eqId
       setAlias(partnerPage.alias || eqId || '');
+      setSelectedTemplateId((partnerPage as any).selected_template_id || null);
     } else if (eqId && !loading) {
-      // No partner page yet - pre-fill alias with eqId
       setAlias(eqId);
     }
   }, [partnerPage, eqId, loading]);
+
+  // Fetch gallery templates
+  useEffect(() => {
+    const fetchGallery = async () => {
+      const { data } = await supabase
+        .from('partner_page_templates_gallery' as any)
+        .select('id, name')
+        .eq('is_active', true)
+        .order('position');
+      if (data) setGalleryTemplates(data as any);
+    };
+    fetchGallery();
+  }, []);
 
   // Auto-save alias = eqId if partnerPage exists but has no alias
   useEffect(() => {
