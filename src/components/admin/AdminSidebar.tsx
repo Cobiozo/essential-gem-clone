@@ -355,7 +355,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {filteredCategories.map((category) => (
           <Collapsible
             key={category.id}
-            open={isSearching ? true : openCategories[category.id]}
+            open={isSearching ? true : openCategoryId === category.id}
             onOpenChange={() => toggleCategory(category.id)}
           >
             <SidebarGroup>
