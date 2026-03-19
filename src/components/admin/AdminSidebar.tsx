@@ -225,6 +225,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Track which categories are open
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
