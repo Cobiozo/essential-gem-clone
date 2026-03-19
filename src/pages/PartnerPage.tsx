@@ -91,7 +91,7 @@ const PartnerPageView: React.FC = () => {
     .filter(lp => lp.product && lp.purchase_url);
 
   // Check if any element uses the new rich types
-  const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header'];
+  const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer'];
   const hasRichSections = template.some(el => RICH_TYPES.includes(el.type));
 
   // If template uses new rich section types, render dynamically
