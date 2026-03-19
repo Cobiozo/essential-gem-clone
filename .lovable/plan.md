@@ -1,46 +1,38 @@
 
 
-# Plan: Edycja linków produktów w trybie podglądu + paleta kolorów zamiast hex
+# Plan: Podgląd szablonu jako rzeczywista strona
 
-## Dwa zadania
+## Problem
+Przycisk "Podgląd" w edytorze szablonów CMS pokazuje uproszczony widok bloków (Badge + placeholder), zamiast renderować prawdziwą stronę partnera z użyciem sekcji (HeroSection, ProductsGridSection itd.).
 
-### A. Klikanie w produkt w trybie edycji → dodanie linku partnerskiego
+## Rozwiązanie
+Utworzyć nową stronę `/admin/template-preview/:templateId`, która renderuje szablon identycznie jak `PartnerPage.tsx`, ale zasilana bezpośrednio danymi szablonu (bez potrzeby aliasu partnera). Przycisk "Podgląd" otworzy tę stronę w nowej karcie.
 
-W trybie edycji (`isOwner`) na stronie partnera (`PartnerPage.tsx`), kliknięcie na kartę produktu (w `ProductsGridSection` i `ProductsWithFormSection`) otwiera mały dialog/popover z polem na wpisanie linku zakupowego. Po zapisaniu — link jest utrwalany w `partner_product_links` via Supabase.
+## Zmiany
 
-**Zmiany:**
+### 1. Nowa strona `src/pages/TemplatePreviewPage.tsx`
+- Pobiera szablon z `partner_page_template` po `templateId` z URL
+- Pobiera produkty z `product_catalog`
+- Renderuje te same sekcje co `PartnerPage.tsx` (HeroSection, HeaderSection, itd.) używając `config` z szablonu jako danych
+- Bez trybu edycji — czysto wizualny podgląd
+- Nagłówek z przyciskiem "Powrót do edytora"
 
-| Plik | Zmiana |
-|------|--------|
-| `ProductsGridSection.tsx` | Dodać prop `isEditing` + `onProductLinkSave`. W trybie edycji: kliknięcie karty otwiera Popover z Input na URL + przycisk Zapisz (zamiast otwierania linku). |
-| `ProductsWithFormSection.tsx` | Analogicznie — ten sam mechanizm. |
-| `PartnerPage.tsx` | Przekazać `isEditing={isOwner}` i callback `onProductLinkSave` do sekcji produktowych. Callback zapisuje link do `partner_product_links` via Supabase. |
+### 2. Rejestracja trasy w `App.tsx`
+- Dodać chronioną trasę `/admin/template-preview/:templateId`
 
-**UX:**
-```text
-[Karta produktu] → klik w trybie edycji →
-  ┌──────────────────────────┐
-  │ Link zakupowy:           │
-  │ [https://...           ] │
-  │        [Anuluj] [Zapisz] │
-  └──────────────────────────┘
-```
+### 3. Zmiana w `PartnerTemplateEditor.tsx`
+- Przycisk "Podgląd" zamiast przełączać `previewMode` — otwiera `/admin/template-preview/{templateId}` w nowej karcie (`window.open`)
+- Usunąć stary uproszczony podgląd (blok `previewMode ? ...`)
 
-### B. Paleta kolorów zamiast wpisywania hex w edytorach CMS
+### 4. Dodanie trasy do `KNOWN_APP_ROUTES` w `ProfileCompletionGuard.tsx`
+- Aby ścieżka nie była przechwycona przez catch-all aliasu partnera
 
-Zamienić wszystkie pola `<Input>` z "Kolor (hex)" na natywny HTML `<input type="color">` z wizualnym podglądem. Prosty, natywny color picker — użytkownik klika w kolorowy kwadrat, otwiera się systemowa paleta kolorów.
-
-**Zmiany:**
+## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/ui/color-input.tsx` | Nowy komponent: połączenie `<input type="color">` z podglądem koloru i opcjonalnym polem tekstowym hex. |
-| `HeroSectionEditor.tsx` | Zamienić Input na ColorInput dla `bg_color`, `text_color`, `cta_bg_color` |
-| `TextImageSectionEditor.tsx` | Zamienić dla `item_icon_color`, `cta_bg_color` |
-| `ProductsGridEditor.tsx` | Zamienić dla `cta_bg_color` |
-| `ProductsWithFormEditor.tsx` | Zamienić dla `cta_bg_color` |
-| `ContactFormEditor.tsx` | Zamienić dla `cta_bg_color` |
-| `CtaBannerEditor.tsx` | Zamienić dla `bg_color` |
-
-Komponent `ColorInput` — klikasz w kolorowy kwadracik → otwiera się natywna paleta systemowa. Obok widoczny hex jako tekst (edytowalny dla zaawansowanych).
+| `src/pages/TemplatePreviewPage.tsx` | Nowa strona — renderuje szablon jak prawdziwa strona partnera |
+| `src/App.tsx` | Dodać trasę `/admin/template-preview/:templateId` |
+| `src/components/admin/PartnerTemplateEditor.tsx` | Zmienić "Podgląd" na `window.open` do nowej trasy |
+| `src/components/ProfileCompletionGuard.tsx` | Dodać trasę do `KNOWN_APP_ROUTES` |
 
