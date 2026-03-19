@@ -107,7 +107,8 @@ export const PartnerPageEditor: React.FC = () => {
       alias: currentAlias || undefined,
       is_active: isActive,
       custom_data: customData,
-    });
+      selected_template_id: selectedTemplateId,
+    } as any);
     if (success) {
       for (const [productId, url] of Object.entries(selectedProducts)) {
         if (url) await saveProductLink(productId, url);
