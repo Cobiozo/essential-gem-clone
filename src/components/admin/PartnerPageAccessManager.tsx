@@ -220,6 +220,13 @@ export const PartnerPageAccessManager: React.FC = () => {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 mr-2">
+                      <Switch
+                        checked={access.bypass_template_cooldown || false}
+                        onCheckedChange={(v) => toggleBypassCooldown(access.id, v)}
+                      />
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Bez limitu</Label>
+                    </div>
                     <Switch
                       checked={access.is_enabled}
                       onCheckedChange={(v) => toggleAccess(access.id, v)}

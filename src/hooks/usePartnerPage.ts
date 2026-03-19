@@ -69,6 +69,10 @@ export const usePartnerPage = () => {
 
   // Cooldown computed values
   const { canChangeTemplate, daysUntilChange } = useMemo(() => {
+    // Admins and users with bypass flag skip cooldown
+    if (isAdmin || bypassCooldown) {
+      return { canChangeTemplate: true, daysUntilChange: 0 };
+    }
     if (!partnerPage?.template_changed_at) {
       return { canChangeTemplate: true, daysUntilChange: 0 };
     }
@@ -83,7 +87,7 @@ export const usePartnerPage = () => {
       canChangeTemplate: false,
       daysUntilChange: Math.ceil(TEMPLATE_COOLDOWN_DAYS - diffDays),
     };
-  }, [partnerPage?.template_changed_at]);
+  }, [partnerPage?.template_changed_at, isAdmin, bypassCooldown]);
 
   // Check if a template was previously used (has history data)
   const isTemplateRestored = useCallback((templateId: string) => {
