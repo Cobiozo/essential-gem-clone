@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Globe, Layout, Package, Palette } from 'lucide-react';
+import { Globe, Layout, Package } from 'lucide-react';
 import { PartnerPageAccessManager } from './PartnerPageAccessManager';
 import { PartnerTemplateEditor } from './PartnerTemplateEditor';
 import { ProductCatalogManager } from './ProductCatalogManager';
-import { TemplatesGalleryManager } from './TemplatesGalleryManager';
 
 export const PartnerPagesManagement: React.FC = () => {
   const [subTab, setSubTab] = useState('access');
@@ -12,7 +11,7 @@ export const PartnerPagesManagement: React.FC = () => {
   return (
     <div className="space-y-6">
       <Tabs value={subTab} onValueChange={setSubTab}>
-        <TabsList className="flex-wrap h-auto">
+        <TabsList>
           <TabsTrigger value="access">
             <Globe className="w-4 h-4 mr-2" />
             Kontrola dostępu
@@ -24,10 +23,6 @@ export const PartnerPagesManagement: React.FC = () => {
           <TabsTrigger value="products">
             <Package className="w-4 h-4 mr-2" />
             Katalog produktów
-          </TabsTrigger>
-          <TabsTrigger value="eqology">
-            <Palette className="w-4 h-4 mr-2" />
-            Szablony
           </TabsTrigger>
         </TabsList>
 
@@ -41,10 +36,6 @@ export const PartnerPagesManagement: React.FC = () => {
 
         <TabsContent value="products">
           <ProductCatalogManager />
-        </TabsContent>
-
-        <TabsContent value="eqology">
-          <TemplatesGalleryManager />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,1 +1,0 @@
-UPDATE public.partner_page_template SET template_data = '[]'::jsonb;

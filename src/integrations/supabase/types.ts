@@ -5442,45 +5442,6 @@ export type Database = {
         }
         Relationships: []
       }
-      partner_page_templates_gallery: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          position: number | null
-          preview_image_url: string | null
-          template_data: Json
-          template_type: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          position?: number | null
-          preview_image_url?: string | null
-          template_data?: Json
-          template_type: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          position?: number | null
-          preview_image_url?: string | null
-          template_data?: Json
-          template_type?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       partner_page_user_access: {
         Row: {
           created_at: string
@@ -5512,7 +5473,6 @@ export type Database = {
           custom_data: Json
           id: string
           is_active: boolean
-          selected_template_id: string | null
           updated_at: string
           user_id: string
         }
@@ -5522,7 +5482,6 @@ export type Database = {
           custom_data?: Json
           id?: string
           is_active?: boolean
-          selected_template_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -5532,19 +5491,10 @@ export type Database = {
           custom_data?: Json
           id?: string
           is_active?: boolean
-          selected_template_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "partner_pages_selected_template_id_fkey"
-            columns: ["selected_template_id"]
-            isOneToOne: false
-            referencedRelation: "partner_page_templates_gallery"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       partner_product_links: {
         Row: {

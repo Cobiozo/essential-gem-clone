@@ -6,8 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2, Palette } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2 } from 'lucide-react';
 import { usePartnerPage } from '@/hooks/usePartnerPage';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -37,8 +36,6 @@ export const PartnerPageEditor: React.FC = () => {
   const [eqId, setEqId] = useState<string | null>(null);
   const [alias, setAlias] = useState<string>('');
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const [galleryTemplates, setGalleryTemplates] = useState<{ id: string; name: string }[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   // Fetch eq_id from profile
   useEffect(() => {
@@ -61,25 +58,13 @@ export const PartnerPageEditor: React.FC = () => {
     if (partnerPage) {
       setIsActive(partnerPage.is_active);
       setCustomData(partnerPage.custom_data || {});
+      // Use existing alias or fall back to eqId
       setAlias(partnerPage.alias || eqId || '');
-      setSelectedTemplateId((partnerPage as any).selected_template_id || null);
     } else if (eqId && !loading) {
+      // No partner page yet - pre-fill alias with eqId
       setAlias(eqId);
     }
   }, [partnerPage, eqId, loading]);
-
-  // Fetch gallery templates
-  useEffect(() => {
-    const fetchGallery = async () => {
-      const { data } = await supabase
-        .from('partner_page_templates_gallery' as any)
-        .select('id, name')
-        .eq('is_active', true)
-        .order('position');
-      if (data) setGalleryTemplates(data as any);
-    };
-    fetchGallery();
-  }, []);
 
   // Auto-save alias = eqId if partnerPage exists but has no alias
   useEffect(() => {
@@ -107,8 +92,7 @@ export const PartnerPageEditor: React.FC = () => {
       alias: currentAlias || undefined,
       is_active: isActive,
       custom_data: customData,
-      selected_template_id: selectedTemplateId,
-    } as any);
+    });
     if (success) {
       for (const [productId, url] of Object.entries(selectedProducts)) {
         if (url) await saveProductLink(productId, url);
@@ -227,33 +211,6 @@ export const PartnerPageEditor: React.FC = () => {
             </div>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
-
-          {/* Template selection */}
-          {galleryTemplates.length > 0 && (
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Palette className="w-4 h-4" />
-                Szablon strony
-              </Label>
-              <Select
-                value={selectedTemplateId || 'default'}
-                onValueChange={(v) => setSelectedTemplateId(v === 'default' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Wybierz szablon" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Domyślny szablon</SelectItem>
-                  {galleryTemplates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Wybierz szablon wizualny dla Twojej strony partnerskiej
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
