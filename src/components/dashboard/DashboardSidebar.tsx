@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -42,6 +42,7 @@ import {
   Search,
   Target,
   Facebook,
+  Globe,
   ExternalLink,
   Video,
   UserRound,
@@ -62,6 +63,7 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
+import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { Badge } from '@/components/ui/badge';
@@ -186,6 +188,7 @@ export const DashboardSidebar: React.FC = () => {
 
   // Calculator access (kept for admin calc block below)
   const { data: calculatorAccess } = useCalculatorAccess();
+  const { hasAccess: hasPartnerPageAccess } = usePartnerPageAccess();
 
   // Leader permissions (replaces old showLeaderPanel logic)
   const { isAnyLeaderFeatureEnabled } = useLeaderPermissions();
@@ -456,6 +459,12 @@ export const DashboardSidebar: React.FC = () => {
       path: '/my-account', 
       tab: 'reflinks',
     },
+    ...(hasPartnerPageAccess ? [{
+      id: 'moja-strona',
+      icon: Globe,
+      labelKey: 'Moja Strona-Biznes Partner',
+      path: '/moja-strona',
+    }] : []) as MenuItem[],
     { 
       id: 'infolinks', 
       icon: Info, 

@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, Globe, ExternalLink, FileText } from 'lucide-react';
+import { LogOut, Home, Key, User, CheckCircle, AlertCircle, BookOpen, Compass, MapPin, Save, Sparkles, Users, Bell, Briefcase, Mail, MessageSquare, Link2, CalendarDays, Heart, ExternalLink, FileText } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -30,7 +30,7 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
-import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
+
 import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
@@ -106,7 +106,7 @@ const MyAccount = () => {
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { isModern } = useDashboardPreference();
   const { isLeader, leaderPermission, loading: leaderLoading } = useLeaderAvailability();
-  const { hasAccess: hasPartnerPageAccess, loading: partnerPageLoading } = usePartnerPageAccess();
+  
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -144,7 +144,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'communication', 'partner-page'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'communication'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
@@ -242,9 +242,8 @@ const MyAccount = () => {
     aiCompass: aiCompassVisible,
     hkCodes: isPartner || isUserAdmin, // NEW: Healthy Knowledge codes history
     reflinks: canGenerateReflinks,
-    partnerPage: hasPartnerPageAccess,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin, hasPartnerPageAccess]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
@@ -611,12 +610,6 @@ const MyAccount = () => {
                 <TabsTrigger value="reflinks" disabled={mustCompleteProfile}>
                   <Link2 className="w-4 h-4 mr-2" />
                   PureLinki
-                </TabsTrigger>
-              )}
-              {visibleTabs.partnerPage && (
-                <TabsTrigger value="partner-page" disabled={mustCompleteProfile}>
-                  <Globe className="w-4 h-4 mr-2" />
-                  Moja strona
                 </TabsTrigger>
               )}
             </TabsList>
@@ -1221,13 +1214,7 @@ const MyAccount = () => {
               </TabsContent>
             )}
 
-            {visibleTabs.partnerPage && (
-              <TabsContent value="partner-page" className="mt-6">
-                <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
-                  {React.createElement(React.lazy(() => import('@/components/partner-page/PartnerPageEditor')))}
-                </React.Suspense>
-              </TabsContent>
-            )}
+
           </Tabs>
         </div>
       </div>
