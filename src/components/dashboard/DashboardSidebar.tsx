@@ -459,6 +459,12 @@ export const DashboardSidebar: React.FC = () => {
       path: '/my-account', 
       tab: 'reflinks',
     },
+    ...(hasPartnerPageAccess ? [{
+      id: 'moja-strona',
+      icon: Globe,
+      labelKey: 'Moja Strona-Biznes Partner',
+      path: '/moja-strona',
+    }] : []) as MenuItem[],
     { 
       id: 'infolinks', 
       icon: Info, 
