@@ -242,9 +242,8 @@ const MyAccount = () => {
     aiCompass: aiCompassVisible,
     hkCodes: isPartner || isUserAdmin, // NEW: Healthy Knowledge codes history
     reflinks: canGenerateReflinks,
-    partnerPage: hasPartnerPageAccess,
     security: true,
-  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin, hasPartnerPageAccess]);
+  }), [isPartner, isSpecjalista, isClient, canSearchSpecialists, dailySignalVisible, aiCompassVisible, canGenerateReflinks, isUserAdmin]);
   
   // Count visible tabs for grid columns
   const visibleTabCount = Object.values(visibleTabs).filter(Boolean).length;
