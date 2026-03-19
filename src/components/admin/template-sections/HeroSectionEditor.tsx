@@ -84,20 +84,11 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor tła (hex)</Label>
-          <Input value={config.bg_color || '#0a1628'} onChange={e => update('bg_color', e.target.value)} />
-        </div>
-        <div>
-          <Label>Kolor tekstu (hex, opcja)</Label>
-          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} placeholder="np. #ffffff" />
-        </div>
+        <ColorInput label="Kolor tła" value={config.bg_color || '#0a1628'} onChange={v => update('bg_color', v)} />
+        <ColorInput label="Kolor tekstu (opcja)" value={config.text_color || ''} onChange={v => update('text_color', v)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor CTA (hex)</Label>
-          <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
-        </div>
+        <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
         <div>
           <Label>Ikona CTA</Label>
           <Select value={config.cta_icon || 'arrow'} onValueChange={v => update('cta_icon', v)}>

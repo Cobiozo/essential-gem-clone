@@ -47,10 +47,7 @@ export const CtaBannerEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={config.cta_url || ''} onChange={e => update('cta_url', e.target.value)} />
         </div>
       </div>
-      <div>
-        <Label>Kolor tła</Label>
-        <Input value={config.bg_color || '#0f172a'} onChange={e => update('bg_color', e.target.value)} />
-      </div>
+      <ColorInput label="Kolor tła" value={config.bg_color || '#0f172a'} onChange={v => update('bg_color', v)} />
     </div>
   );
 };

@@ -97,14 +97,8 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
       </div>
       <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor tła</Label>
-          <Input value={config.bg_color || '#f8fafc'} onChange={e => update('bg_color', e.target.value)} />
-        </div>
-        <div>
-          <Label>Kolor tekstu</Label>
-          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} />
-        </div>
+        <ColorInput label="Kolor tła" value={config.bg_color || '#f8fafc'} onChange={v => update('bg_color', v)} />
+        <ColorInput label="Kolor tekstu" value={config.text_color || ''} onChange={v => update('text_color', v)} />
       </div>
     </div>
   );

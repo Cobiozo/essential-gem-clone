@@ -121,14 +121,8 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor tła</Label>
-          <Input value={config.bg_color || ''} onChange={e => update('bg_color', e.target.value)} />
-        </div>
-        <div>
-          <Label>Kolor tekstu (opcja)</Label>
-          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} />
-        </div>
+        <ColorInput label="Kolor tła" value={config.bg_color || ''} onChange={v => update('bg_color', v)} />
+        <ColorInput label="Kolor tekstu (opcja)" value={config.text_color || ''} onChange={v => update('text_color', v)} />
       </div>
       <div>
         <Label>Przezroczystość tła (0-1)</Label>

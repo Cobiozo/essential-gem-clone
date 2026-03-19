@@ -36,10 +36,7 @@ export const ProductsWithFormEditor: React.FC<Props> = ({ config, onChange }) =>
         </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
       </div>
-      <div>
-        <Label>Kolor CTA (hex)</Label>
-        <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
-      </div>
+      <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
 
       <div>
         <Label>Domyślny tekst CTA</Label>
