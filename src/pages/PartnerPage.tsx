@@ -179,7 +179,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <FooterSection config={cfg} />;
         break;
       case 'products_with_form':
-        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} />;
+        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} />;
         break;
       case 'static':
         sectionNode = element.content ? (
