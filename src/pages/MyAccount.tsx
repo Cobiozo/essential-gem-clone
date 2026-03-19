@@ -30,7 +30,7 @@ import { useProfileCompletion } from '@/hooks/useProfileCompletion';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { UserReflinksPanel } from '@/components/user-reflinks';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
-import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
+
 import { useLeaderAvailability } from '@/hooks/useLeaderAvailability';
 import { LeaderAvailabilityManager } from '@/components/events';
 import { UnifiedMeetingSettingsForm } from '@/components/events/UnifiedMeetingSettingsForm';
