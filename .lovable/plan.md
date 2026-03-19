@@ -1,24 +1,40 @@
 
 
-# Plan: Powiększenie podglądu obrazu w edytorze
+# Plan: Ikona Play zamiast autoodtwarzania wideo w Hero
 
 ## Problem
-Podgląd obrazu w `ImageUploadInput` ma sztywną klasę `h-24` (96px), co przycina zdjęcie — widać tylko wąski pasek zamiast pełnego obrazu.
+Wideo w sekcji Hero odtwarza się automatycznie. Użytkownik chce widzieć miniaturkę z ikoną Play, a dopiero kliknięcie uruchamia odtwarzanie.
 
 ## Rozwiązanie
-Zmienić klasę podglądu z `h-24 object-cover` na `max-h-64 object-contain`, dzięki czemu obraz będzie widoczny w całości (do maks. 256px wysokości), bez przycinania.
 
-### Zmiana w `src/components/partner-page/ImageUploadInput.tsx` (linia 119):
-```
-// Przed:
-<img src={value} alt="Podgląd" className="w-full h-24 object-cover rounded-md border" />
+### Zmiana w `HeroSection.tsx` (linie 79-94, sekcja split layout):
 
-// Po:
-<img src={value} alt="Podgląd" className="w-full max-h-64 object-contain rounded-md border bg-muted" />
+1. Dodać stan `const [videoPlaying, setVideoPlaying] = useState(false)` i `useRef` dla elementu `<video>`.
+2. Gdy `hero_video_url` jest ustawione i `videoPlaying === false`:
+   - Renderować `<video>` z atrybutem `poster` (lub bez), bez `autoPlay`, z nałożoną ikoną Play (przycisk z ikoną `Play` z lucide-react).
+   - Kliknięcie ikony Play → `setVideoPlaying(true)`, `videoRef.current.play()`.
+3. Gdy `videoPlaying === true`:
+   - Wideo odtwarza się normalnie (z `controls`), bez nakładki Play.
+
+```tsx
+// Struktura:
+<div className="relative">
+  <video ref={videoRef} src={hero_video_url} playsInline
+    className="max-h-[500px] rounded-2xl drop-shadow-2xl object-cover" />
+  {!videoPlaying && (
+    <button onClick={handlePlay} className="absolute inset-0 flex items-center justify-center">
+      <div className="bg-black/50 rounded-full p-4">
+        <Play className="w-12 h-12 text-white fill-white" />
+      </div>
+    </button>
+  )}
+</div>
 ```
+
+4. Dodać import `useState, useRef` z React oraz `Play` z lucide-react.
 
 ### Pliki do zmian:
 | Plik | Zmiana |
 |------|--------|
-| `ImageUploadInput.tsx` | `h-24 object-cover` → `max-h-64 object-contain bg-muted` |
+| `HeroSection.tsx` | Zamiana autoPlay na click-to-play z ikoną Play |
 
