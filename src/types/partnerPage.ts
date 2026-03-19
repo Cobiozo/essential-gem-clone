@@ -11,7 +11,9 @@ export type TemplateElementType =
   | 'products_grid'
   | 'faq'
   | 'cta_banner'
-  | 'header';
+  | 'header'
+  | 'contact_form'
+  | 'footer';
 
 export interface TemplateElement {
   id: string;

@@ -7,3 +7,5 @@ export { CtaBannerEditor } from './CtaBannerEditor';
 export { TextImageSectionEditor } from './TextImageSectionEditor';
 export { ProductsGridEditor } from './ProductsGridEditor';
 export { HeaderSectionEditor } from './HeaderSectionEditor';
+export { ContactFormEditor } from './ContactFormEditor';
+export { FooterSectionEditor } from './FooterSectionEditor';
