@@ -45,7 +45,7 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
                 </div>
               )}
               {headline && (
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-white" style={textColorStyle}>
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight text-white whitespace-pre-line" style={textColorStyle}>
                   {headline}
                 </h1>
               )}
@@ -53,7 +53,7 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
                 <p className="text-lg sm:text-xl font-medium text-white/90" style={textColorStyle}>{subheadline}</p>
               )}
               {description && (
-                <p className="text-sm sm:text-base text-white/80 leading-relaxed max-w-lg" style={textColorStyle}>{description}</p>
+                <p className="text-sm sm:text-base text-white/80 leading-relaxed max-w-lg whitespace-pre-line" style={textColorStyle}>{description}</p>
               )}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 {cta_primary?.text && (
