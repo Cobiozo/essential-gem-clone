@@ -72,7 +72,7 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
 
           {/* Contact form (floating style) */}
           <div className="lg:sticky lg:top-24">
-            <ContactFormSection config={formCfg} />
+            <ContactFormSection config={formCfg} partnerEmail={partnerEmail} />
           </div>
         </div>
       </div>
