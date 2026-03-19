@@ -42,6 +42,7 @@ const TYPE_LABELS: Record<string, string> = {
   header: 'Nagłówek strony',
   contact_form: 'Formularz kontaktowy',
   footer: 'Stopka',
+  products_with_form: 'Produkty + Formularz',
 };
 
 const defaultElement = (position: number): TemplateElement => ({
