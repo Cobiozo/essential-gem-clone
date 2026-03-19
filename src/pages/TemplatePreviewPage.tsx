@@ -204,11 +204,21 @@ const TemplatePreviewPage: React.FC = () => {
       {/* Top bar */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border px-4 py-2 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin?tab=partner-pages')}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Wróć do edytora
           </Button>
-          <span className="text-sm font-medium text-muted-foreground">
-            Podgląd szablonu: <span className="text-foreground">{templateName}</span>
+          <span className="text-sm text-muted-foreground flex items-center gap-2">
+            Podgląd szablonu:
+            <Select value={templateId} onValueChange={(id) => navigate(`/admin/template-preview/${id}`)}>
+              <SelectTrigger className="h-8 w-[200px] text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allTemplates.map(t => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </span>
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving}>
