@@ -42,6 +42,7 @@ export interface PartnerPage {
   alias: string | null;
   is_active: boolean;
   custom_data: Record<string, any>;
+  selected_template_id: string | null;
   created_at: string;
   updated_at: string;
 }

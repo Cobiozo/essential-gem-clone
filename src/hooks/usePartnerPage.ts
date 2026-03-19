@@ -19,16 +19,14 @@ export const usePartnerPage = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [pageRes, templateRes, productsRes] = await Promise.all([
+      const [pageRes, productsRes, allTemplatesRes] = await Promise.all([
         supabase.from('partner_pages').select('*').eq('user_id', user.id).maybeSingle(),
-        supabase.from('partner_page_template').select('*').limit(1).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
+        supabase.from('partner_page_template').select('*').eq('is_active', true).order('position'),
       ]);
 
-      if (templateRes.data) {
-        setTemplate((templateRes.data.template_data as any) || []);
-      }
       setProducts(productsRes.data || []);
+      setAvailableTemplates((allTemplatesRes.data as any) || []);
 
       if (pageRes.data) {
         setPartnerPage(pageRes.data as any);
