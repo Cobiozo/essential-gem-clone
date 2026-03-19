@@ -47,7 +47,9 @@ export const PartnerTemplateEditor: React.FC = () => {
         .maybeSingle();
       if (data) {
         setTemplateId(data.id);
-        setElements(((data.template_data as any) || []).sort((a: TemplateElement, b: TemplateElement) => a.position - b.position));
+        const rawData = data.template_data as any;
+        const parsed = Array.isArray(rawData) ? rawData : [];
+        setElements(parsed.sort((a: TemplateElement, b: TemplateElement) => a.position - b.position));
       }
       setLoading(false);
     };
