@@ -13,9 +13,16 @@ export const getMergedConfig = (
   const merged = { ...templateConfig };
   const editableFields: string[] = templateConfig.editable_fields || [];
 
+  // Collect social overrides separately
+  const socialOverrides: Record<string, string> = {};
+
   for (const field of editableFields) {
-    // Support dot notation e.g. "cta_primary.url"
-    if (field.includes('.')) {
+    if (field.startsWith('social.')) {
+      const platform = field.replace('social.', '');
+      if (partnerOverrides[field] !== undefined) {
+        socialOverrides[platform] = partnerOverrides[field];
+      }
+    } else if (field.includes('.')) {
       const [parent, child] = field.split('.');
       if (partnerOverrides[field] !== undefined) {
         merged[parent] = { ...(merged[parent] || {}), [child]: partnerOverrides[field] };
@@ -25,6 +32,22 @@ export const getMergedConfig = (
         merged[field] = partnerOverrides[field];
       }
     }
+  }
+
+  // Merge social overrides into social array
+  if (Object.keys(socialOverrides).length > 0) {
+    const baseSocial: Array<{ platform: string; url: string }> = merged.social || [];
+    const mergedSocial = baseSocial.map(s => ({
+      ...s,
+      url: socialOverrides[s.platform] !== undefined ? socialOverrides[s.platform] : s.url,
+    }));
+    // Add new platforms not in template
+    for (const [platform, url] of Object.entries(socialOverrides)) {
+      if (!mergedSocial.find(s => s.platform === platform) && url) {
+        mergedSocial.push({ platform, url });
+      }
+    }
+    merged.social = mergedSocial;
   }
 
   return merged;
@@ -59,6 +82,16 @@ export const getFieldLabel = (fieldName: string): string => {
     phone: 'Telefon',
     email: 'Email',
     logo_text: 'Tekst logo',
+    image_url: 'Obrazek',
+    hero_image_url: 'Obraz Hero',
+    logo_url: 'Logo',
+    'social.facebook': 'Facebook URL',
+    'social.instagram': 'Instagram URL',
+    'social.linkedin': 'LinkedIn URL',
+    'social.youtube': 'YouTube URL',
+    'social.messenger': 'Messenger URL',
+    'social.whatsapp': 'WhatsApp URL',
+    'social.telegram': 'Telegram URL',
   };
   return labels[fieldName] || fieldName;
 };

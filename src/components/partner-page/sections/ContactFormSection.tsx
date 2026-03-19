@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FormField {
   label: string;
@@ -11,13 +12,14 @@ interface FormField {
 
 interface Props {
   config: Record<string, any>;
+  partnerEmail?: string;
 }
 
-export const ContactFormSection: React.FC<Props> = ({ config }) => {
+export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) => {
   const { toast } = useToast();
   const {
     heading, subheading, fields, submit_text, privacy_text,
-    bg_color, text_color, layout, cta_bg_color,
+    bg_color, text_color, layout, cta_bg_color, success_message,
   } = config;
 
   const formFields: FormField[] = fields || [
@@ -33,10 +35,39 @@ export const ContactFormSection: React.FC<Props> = ({ config }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
-    await new Promise(r => setTimeout(r, 800));
-    toast({ title: 'Wysłano!', description: 'Dziękujemy za wiadomość. Odezwiemy się wkrótce.' });
-    setFormData({});
-    setSending(false);
+
+    try {
+      if (partnerEmail) {
+        const fieldsSummary = Object.entries(formData)
+          .map(([key, val]) => `<strong>${key}:</strong> ${val}`)
+          .join('<br/>');
+
+        await supabase.functions.invoke('send-single-email', {
+          body: {
+            template_id: null,
+            skip_template: true,
+            recipientEmail: partnerEmail,
+            subject: `Nowa wiadomość ze strony partnerskiej`,
+            htmlContent: `
+              <h2>Nowa wiadomość z formularza kontaktowego</h2>
+              <p>${fieldsSummary}</p>
+              <hr/>
+              <p style="font-size:12px;color:#888;">Wiadomość wysłana automatycznie ze strony partnerskiej.</p>
+            `,
+          },
+        });
+      }
+
+      toast({
+        title: 'Wysłano!',
+        description: success_message || 'Dziękujemy za wiadomość. Odezwiemy się wkrótce.',
+      });
+      setFormData({});
+    } catch {
+      toast({ title: 'Błąd', description: 'Nie udało się wysłać wiadomości.', variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
   };
 
   const isFloating = layout === 'floating';
@@ -44,12 +75,8 @@ export const ContactFormSection: React.FC<Props> = ({ config }) => {
   if (isFloating) {
     return (
       <div className="bg-[#1a2332] rounded-2xl p-6 sm:p-8 text-white shadow-xl">
-        {heading && (
-          <h3 className="text-xl font-bold mb-1">{heading}</h3>
-        )}
-        {subheading && (
-          <p className="text-sm text-white/70 mb-6">{subheading}</p>
-        )}
+        {heading && <h3 className="text-xl font-bold mb-1">{heading}</h3>}
+        {subheading && <p className="text-sm text-white/70 mb-6">{subheading}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
           {formFields.map((field, i) => (
             <div key={i}>
@@ -75,9 +102,7 @@ export const ContactFormSection: React.FC<Props> = ({ config }) => {
               )}
             </div>
           ))}
-          {privacy_text && (
-            <p className="text-xs text-white/50">{privacy_text}</p>
-          )}
+          {privacy_text && <p className="text-xs text-white/50">{privacy_text}</p>}
           <button
             type="submit"
             disabled={sending}
@@ -91,19 +116,14 @@ export const ContactFormSection: React.FC<Props> = ({ config }) => {
     );
   }
 
-  // Standalone (full-width) layout
   return (
     <section
       className="py-16 md:py-24"
       style={{ backgroundColor: bg_color || '#f8fafc', color: text_color || undefined }}
     >
       <div className="max-w-2xl mx-auto px-4 sm:px-6">
-        {heading && (
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2">{heading}</h2>
-        )}
-        {subheading && (
-          <p className="text-center text-muted-foreground mb-8">{subheading}</p>
-        )}
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2">{heading}</h2>}
+        {subheading && <p className="text-center text-muted-foreground mb-8">{subheading}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           {formFields.map((field, i) => (
             <div key={i}>
@@ -129,9 +149,7 @@ export const ContactFormSection: React.FC<Props> = ({ config }) => {
               )}
             </div>
           ))}
-          {privacy_text && (
-            <p className="text-xs text-muted-foreground">{privacy_text}</p>
-          )}
+          {privacy_text && <p className="text-xs text-muted-foreground">{privacy_text}</p>}
           <button
             type="submit"
             disabled={sending}

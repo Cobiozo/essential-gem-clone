@@ -28,6 +28,7 @@ interface PartnerProfile {
   first_name: string | null;
   last_name: string | null;
   avatar_url?: string | null;
+  email?: string | null;
 }
 
 const PartnerPageView: React.FC = () => {
@@ -77,7 +78,7 @@ const PartnerPageView: React.FC = () => {
 
       const [templateRes, profileRes, productsRes, linksRes] = await Promise.all([
         templateQuery,
-        supabase.from('profiles').select('first_name, last_name, avatar_url').eq('user_id', pageData.user_id).maybeSingle(),
+        supabase.from('profiles').select('first_name, last_name, avatar_url, email').eq('user_id', pageData.user_id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
       ]);
@@ -172,13 +173,13 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <CtaBannerSection config={cfg} />;
         break;
       case 'contact_form':
-        sectionNode = <ContactFormSection config={cfg} />;
+        sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} />;
         break;
       case 'footer':
         sectionNode = <FooterSection config={cfg} />;
         break;
       case 'products_with_form':
-        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} />;
+        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} />;
         break;
       case 'static':
         sectionNode = element.content ? (

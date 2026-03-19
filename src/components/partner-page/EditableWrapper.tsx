@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { ImageUploadInput } from './ImageUploadInput';
 
 interface EditableWrapperProps {
   elementId: string;
@@ -27,8 +28,9 @@ const FIELD_LABELS: Record<string, string> = {
   'cta_secondary.url': 'Link przycisku dodatkowego',
   title: 'Tytuł',
   text: 'Tekst',
-  image_url: 'URL obrazka',
-  logo_url: 'Logo URL',
+  image_url: 'Obrazek',
+  hero_image_url: 'Obraz Hero',
+  logo_url: 'Logo',
   brand_name: 'Nazwa marki',
   email: 'Email',
   phone: 'Telefon',
@@ -36,7 +38,17 @@ const FIELD_LABELS: Record<string, string> = {
   copyright_text: 'Tekst praw autorskich',
   heading: 'Nagłówek',
   success_message: 'Komunikat sukcesu',
+  'social.facebook': 'Facebook URL',
+  'social.instagram': 'Instagram URL',
+  'social.linkedin': 'LinkedIn URL',
+  'social.youtube': 'YouTube URL',
+  'social.messenger': 'Messenger URL',
+  'social.whatsapp': 'WhatsApp URL',
+  'social.telegram': 'Telegram URL',
 };
+
+const isImageField = (field: string) =>
+  field.includes('image') || field.includes('logo');
 
 const isLongField = (field: string) =>
   ['description', 'text', 'subtitle', 'copyright_text', 'success_message'].includes(field);
@@ -93,7 +105,6 @@ const EditOverlay: React.FC<EditOverlayProps> = ({
   const [editValue, setEditValue] = useState('');
 
   const handleOpen = (field: string) => {
-    // Current value: override first, then template default
     const currentVal = overrides?.[field] !== undefined
       ? overrides[field]
       : getNestedValue(config, field);
@@ -134,7 +145,15 @@ const EditOverlay: React.FC<EditOverlayProps> = ({
                 <Label className="text-sm font-medium">
                   {FIELD_LABELS[field] || field}
                 </Label>
-                {isLongField(field) ? (
+                {isImageField(field) ? (
+                  <ImageUploadInput
+                    value={editValue}
+                    onChange={(url) => {
+                      setEditValue(url);
+                    }}
+                    compact
+                  />
+                ) : isLongField(field) ? (
                   <Textarea
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}

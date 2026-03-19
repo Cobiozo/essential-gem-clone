@@ -7,9 +7,10 @@ interface Props {
   config: Record<string, any>;
   products: ProductCatalogItem[];
   productLinks: (PartnerProductLink & { product?: ProductCatalogItem })[];
+  partnerEmail?: string;
 }
 
-export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks }) => {
+export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks, partnerEmail }) => {
   const {
     heading, columns, form_config, cta_bg_color,
   } = config;
@@ -71,7 +72,7 @@ export const ProductsWithFormSection: React.FC<Props> = ({ config, products, pro
 
           {/* Contact form (floating style) */}
           <div className="lg:sticky lg:top-24">
-            <ContactFormSection config={formCfg} />
+            <ContactFormSection config={formCfg} partnerEmail={partnerEmail} />
           </div>
         </div>
       </div>
