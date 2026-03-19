@@ -173,7 +173,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <CtaBannerSection config={cfg} />;
         break;
       case 'contact_form':
-        sectionNode = <ContactFormSection config={cfg} />;
+        sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} />;
         break;
       case 'footer':
         sectionNode = <FooterSection config={cfg} />;
