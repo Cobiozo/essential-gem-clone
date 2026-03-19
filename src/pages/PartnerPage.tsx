@@ -21,6 +21,7 @@ import {
   HeaderSection,
   ContactFormSection,
   FooterSection,
+  ProductsWithFormSection,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
