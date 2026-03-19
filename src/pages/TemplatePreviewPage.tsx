@@ -214,7 +214,7 @@ const TemplatePreviewPage: React.FC = () => {
 
       {/* Content */}
       <div className="pt-12">
-        <AddSectionMenu onAdd={(type) => handleAddSection(type, 0)} />
+        <AddSectionMenu onAdd={(type) => handleAddSection(type, 0)} onPaste={() => handlePasteSection(0)} />
 
         {template.length === 0 ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
@@ -236,10 +236,11 @@ const TemplatePreviewPage: React.FC = () => {
                     onEdit={() => setEditingIndex(index)}
                     onDuplicate={() => handleDuplicate(index)}
                     onDelete={() => handleDelete(index)}
+                    onCopyToClipboard={() => handleCopySection(index)}
                   >
                     {renderSection(element)}
                   </SortableSectionWrapper>
-                  <AddSectionMenu onAdd={(type) => handleAddSection(type, index + 1)} />
+                  <AddSectionMenu onAdd={(type) => handleAddSection(type, index + 1)} onPaste={() => handlePasteSection(index + 1)} />
                 </React.Fragment>
               ))}
             </SortableContext>
