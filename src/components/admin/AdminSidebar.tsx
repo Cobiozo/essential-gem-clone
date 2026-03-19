@@ -401,7 +401,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t">
+      <SidebarFooter className="border-t border-sidebar-border">
         <div className={cn(
           "flex items-center gap-2 p-2",
           isCollapsed ? "flex-col" : "flex-row justify-between"
