@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
+import type { EqologyTemplateData } from '@/types/eqologyTemplate';
 import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+
+const EqologyTemplate = lazy(() => import('@/components/partner-page/templates/EqologyTemplate'));
 
 interface PartnerProfile {
   first_name: string | null;
@@ -18,6 +21,8 @@ const PartnerPageView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [template, setTemplate] = useState<TemplateElement[]>([]);
+  const [templateType, setTemplateType] = useState<string | null>(null);
+  const [eqologyData, setEqologyData] = useState<EqologyTemplateData | null>(null);
   const [page, setPage] = useState<PartnerPageType | null>(null);
   const [profile, setProfile] = useState<PartnerProfile | null>(null);
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
@@ -49,7 +54,14 @@ const PartnerPageView: React.FC = () => {
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
       ]);
 
-      setTemplate(((templateRes.data?.template_data as any) || []).sort((a: TemplateElement, b: TemplateElement) => a.position - b.position));
+      const rawTemplate = templateRes.data?.template_data as any;
+      if (rawTemplate?.template_type === 'eqology_omega3') {
+        setTemplateType('eqology_omega3');
+        setEqologyData(rawTemplate as EqologyTemplateData);
+      } else {
+        setTemplate(((rawTemplate as any) || []).sort((a: TemplateElement, b: TemplateElement) => a.position - b.position));
+      }
+
       setProfile(profileRes.data as any);
       setProducts(productsRes.data as any || []);
       setProductLinks((linksRes.data as any) || []);
@@ -61,6 +73,21 @@ const PartnerPageView: React.FC = () => {
 
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
+
+  // Eqology template rendering
+  if (templateType === 'eqology_omega3' && eqologyData) {
+    const partnerName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <EqologyTemplate
+          templateData={eqologyData}
+          catalogProducts={products}
+          partnerLinks={productLinks}
+          partnerName={partnerName}
+        />
+      </Suspense>
+    );
+  }
 
   const customData = page.custom_data || {};
 
