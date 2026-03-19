@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
 
 interface StatItem {
   icon?: string;
