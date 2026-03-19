@@ -118,7 +118,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
             </div>
             <div>
               <Label className="text-xs">URL ikony</Label>
-              <Input value={stat.icon_url || ''} onChange={e => updateStat(i, 'icon_url', e.target.value)} placeholder="https://..." />
+              <ImageUploadInput value={stat.icon_url || ''} onChange={v => updateStat(i, 'icon_url', v)} compact />
             </div>
             <div>
               <Label className="text-xs">Wartość</Label>

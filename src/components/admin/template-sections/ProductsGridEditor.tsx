@@ -47,7 +47,7 @@ export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={col.name || ''} onChange={e => updateCol(i, 'name', e.target.value)} placeholder="Nazwa" />
           <Input value={col.subtitle || ''} onChange={e => updateCol(i, 'subtitle', e.target.value)} placeholder="Podtytuł" />
           <Input value={col.description || ''} onChange={e => updateCol(i, 'description', e.target.value)} placeholder="Opis" />
-          <Input value={col.image_url || ''} onChange={e => updateCol(i, 'image_url', e.target.value)} placeholder="URL obrazu" />
+          <ImageUploadInput value={col.image_url || ''} onChange={v => updateCol(i, 'image_url', v)} compact />
           <Textarea value={col.specs || ''} onChange={e => updateCol(i, 'specs', e.target.value)} placeholder="Specyfikacja / skład" rows={2} />
           <Input value={col.cta_text || ''} onChange={e => updateCol(i, 'cta_text', e.target.value)} placeholder="Tekst CTA (np. Zobacz szczegóły)" />
         </div>

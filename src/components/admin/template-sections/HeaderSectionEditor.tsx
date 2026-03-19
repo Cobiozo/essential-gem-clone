@@ -36,7 +36,7 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
         <div>
           <Label>URL logo (obraz)</Label>
-          <Input value={config.logo_image_url || ''} onChange={e => update('logo_image_url', e.target.value)} />
+          <ImageUploadInput value={config.logo_image_url || ''} onChange={v => update('logo_image_url', v)} compact />
         </div>
       </div>
       <div>
