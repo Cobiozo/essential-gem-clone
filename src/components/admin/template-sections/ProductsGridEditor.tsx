@@ -12,7 +12,7 @@ interface Props {
 
 export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
-  const columns: any[] = config.columns || [];
+  const columns: any[] = Array.isArray(config.columns) ? config.columns : [];
 
   const updateCol = (i: number, field: string, value: string) => {
     const n = [...columns];
