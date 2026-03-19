@@ -1,31 +1,40 @@
 
 
-# Plan: Naprawienie edytowalności nagłówka (HeaderSection) w podglądzie
+# Plan: Obsługa wideo MP4 w miejscu obrazu hero (split layout)
 
 ## Problem
-`HeaderSection` ma klasę `sticky top-0 z-50` — to powoduje, że:
-1. Sekcja przyklejona do góry strony przesuwa się ponad toolbar edycyjny wrappera (`z-20`)
-2. Hover toolbar jest niewidoczny / nieklikalny bo jest przykryty przez sticky header
-3. Kliknięcie na header nie otwiera panelu edycji
+Pole `hero_image_url` w layoucie "split" renderuje tylko `<img>`. Nie ma możliwości wstawienia wideo MP4 zamiast obrazka po prawej stronie.
 
 ## Rozwiązanie
-W `TemplatePreviewPage.tsx` przekazywać do `HeaderSection` dodatkowy prop (np. `disableSticky`) lub owijać renderowanie headera tak, aby w trybie podglądu admin usunąć `sticky top-0 z-50`. Ponadto podnieść `z-index` toolbara w `SortableSectionWrapper` powyżej z-50.
 
-### Zmiany:
+### 1. Nowe pole `hero_video_url` w konfiguracji
+Dodać w edytorze osobne pole na wideo hero (obok istniejącego pola obrazu hero). Gdy `hero_video_url` jest ustawione — renderować `<video>` zamiast `<img>`.
 
-**1. `HeaderSection.tsx`** — dodać prop `className` / `disableSticky` by warunkowo wyłączyć sticky:
+### 2. `HeroSectionEditor.tsx` — dodać pole uploadu wideo
+Pod polem "URL obrazu hero" dodać pole `hero_video_url` z komponentem `MediaUpload` (obsługuje wideo) lub zwykłym `Input` z labelem "URL wideo hero (prawa strona)". Dodać informację, że wideo ma priorytet nad obrazem.
+
+### 3. `HeroSection.tsx` — renderować `<video>` gdy `hero_video_url` jest ustawione
+W sekcji split layout (linie 79-87), zamienić logikę:
+
 ```tsx
-// Dodać prop disableSticky?: boolean
-// Gdy true: usunąć sticky top-0 z-50 → position: relative
+{(hero_video_url || hero_image_url) && (
+  <div className="flex justify-center">
+    {hero_video_url ? (
+      <video
+        src={hero_video_url}
+        autoPlay muted loop playsInline
+        className="max-h-[500px] rounded-2xl drop-shadow-2xl object-cover"
+      />
+    ) : (
+      <img src={stripShapeHash(hero_image_url)} ... />
+    )}
+  </div>
+)}
 ```
 
-**2. `TemplatePreviewPage.tsx`** — przekazać `disableSticky` w renderSection:
-```tsx
-case 'header': return <HeaderSection config={cfg} partnerName="..." disableSticky />;
-```
-
-**3. `SortableSectionWrapper.tsx`** — podnieść z-index toolbara z `z-20` na `z-[60]` aby zawsze był nad sekcjami:
-```tsx
-// z-20 → z-[60]
-```
+### Pliki do zmian:
+| Plik | Zmiana |
+|------|--------|
+| `HeroSection.tsx` | Dodać destructuring `hero_video_url`, renderować `<video>` gdy ustawione |
+| `HeroSectionEditor.tsx` | Dodać pole `hero_video_url` (Input z labelem "URL wideo hero") pod polem obrazu hero |
 
