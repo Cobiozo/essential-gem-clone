@@ -177,6 +177,9 @@ const PartnerPageView: React.FC = () => {
       case 'footer':
         sectionNode = <FooterSection config={cfg} />;
         break;
+      case 'products_with_form':
+        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} />;
+        break;
       case 'static':
         sectionNode = element.content ? (
           <section className="bg-background">
