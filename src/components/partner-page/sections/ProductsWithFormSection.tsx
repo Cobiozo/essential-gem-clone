@@ -7,6 +7,7 @@ interface Props {
   config: Record<string, any>;
   products: ProductCatalogItem[];
   productLinks: (PartnerProductLink & { product?: ProductCatalogItem })[];
+  partnerEmail?: string;
 }
 
 export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks }) => {
