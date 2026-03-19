@@ -227,6 +227,33 @@ export const PartnerPageEditor: React.FC = () => {
             </div>
             <Switch checked={isActive} onCheckedChange={setIsActive} />
           </div>
+
+          {/* Template selection */}
+          {galleryTemplates.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Palette className="w-4 h-4" />
+                Szablon strony
+              </Label>
+              <Select
+                value={selectedTemplateId || 'default'}
+                onValueChange={(v) => setSelectedTemplateId(v === 'default' ? null : v)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Wybierz szablon" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Domyślny szablon</SelectItem>
+                  {galleryTemplates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Wybierz szablon wizualny dla Twojej strony partnerskiej
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
