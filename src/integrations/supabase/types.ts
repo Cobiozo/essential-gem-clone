@@ -5553,7 +5553,7 @@ export type Database = {
             foreignKeyName: "partner_pages_selected_template_id_fkey"
             columns: ["selected_template_id"]
             isOneToOne: false
-            referencedRelation: "partner_page_templates_gallery"
+            referencedRelation: "partner_page_template"
             referencedColumns: ["id"]
           },
         ]
