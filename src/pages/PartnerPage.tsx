@@ -119,6 +119,10 @@ const PartnerPageView: React.FC = () => {
               return <FaqSection key={element.id} config={cfg} />;
             case 'cta_banner':
               return <CtaBannerSection key={element.id} config={cfg} />;
+            case 'contact_form':
+              return <ContactFormSection key={element.id} config={cfg} />;
+            case 'footer':
+              return <FooterSection key={element.id} config={cfg} />;
             case 'static':
               return element.content ? (
                 <section key={element.id} className="bg-background">
