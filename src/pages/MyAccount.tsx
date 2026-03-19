@@ -1215,7 +1215,7 @@ const MyAccount = () => {
               </TabsContent>
             )}
 
-            )}
+
           </Tabs>
         </div>
       </div>
