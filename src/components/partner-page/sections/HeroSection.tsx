@@ -15,7 +15,7 @@ interface Props {
 
 export const HeroSection: React.FC<Props> = ({ config }) => {
   const {
-    layout, video_url, bg_image_url, hero_image_url, headline, subheadline,
+    layout, video_url, bg_image_url, hero_image_url, hero_video_url, headline, subheadline,
     description, badge_text, cta_primary, cta_secondary, bg_color, stats,
     text_color, cta_bg_color, cta_icon, overlay_opacity,
   } = config;
