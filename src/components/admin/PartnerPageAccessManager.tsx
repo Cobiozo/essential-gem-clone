@@ -107,6 +107,11 @@ export const PartnerPageAccessManager: React.FC = () => {
     fetchData();
   };
 
+  const toggleBypassCooldown = async (accessId: string, bypass: boolean) => {
+    await supabase.from('partner_page_user_access').update({ bypass_template_cooldown: bypass } as any).eq('id', accessId);
+    fetchData();
+  };
+
   if (loading) {
     return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
@@ -215,6 +220,13 @@ export const PartnerPageAccessManager: React.FC = () => {
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 mr-2">
+                      <Switch
+                        checked={access.bypass_template_cooldown || false}
+                        onCheckedChange={(v) => toggleBypassCooldown(access.id, v)}
+                      />
+                      <Label className="text-xs text-muted-foreground whitespace-nowrap">Bez limitu</Label>
+                    </div>
                     <Switch
                       checked={access.is_enabled}
                       onCheckedChange={(v) => toggleAccess(access.id, v)}

@@ -8,7 +8,7 @@ import type { PartnerPage, PartnerPageTemplate, PartnerProductLink, ProductCatal
 const TEMPLATE_COOLDOWN_DAYS = 14;
 
 export const usePartnerPage = () => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [partnerPage, setPartnerPage] = useState<PartnerPage | null>(null);
   const [template, setTemplate] = useState<TemplateElement[]>([]);
@@ -17,17 +17,22 @@ export const usePartnerPage = () => {
   const [productLinks, setProductLinks] = useState<PartnerProductLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bypassCooldown, setBypassCooldown] = useState(false);
+
+  const isAdmin = userRole?.role === 'admin';
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [pageRes, productsRes, allTemplatesRes] = await Promise.all([
+      const [pageRes, productsRes, allTemplatesRes, bypassRes] = await Promise.all([
         supabase.from('partner_pages').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_page_template').select('*').eq('is_active', true).order('position'),
+        supabase.from('partner_page_user_access').select('bypass_template_cooldown').eq('user_id', user.id).maybeSingle(),
       ]);
 
+      setBypassCooldown(!!(bypassRes.data as any)?.bypass_template_cooldown);
       setProducts(productsRes.data || []);
       const allTemplates = (allTemplatesRes.data as any) || [];
       setAvailableTemplates(allTemplates);
@@ -64,6 +69,10 @@ export const usePartnerPage = () => {
 
   // Cooldown computed values
   const { canChangeTemplate, daysUntilChange } = useMemo(() => {
+    // Admins and users with bypass flag skip cooldown
+    if (isAdmin || bypassCooldown) {
+      return { canChangeTemplate: true, daysUntilChange: 0 };
+    }
     if (!partnerPage?.template_changed_at) {
       return { canChangeTemplate: true, daysUntilChange: 0 };
     }
@@ -78,7 +87,7 @@ export const usePartnerPage = () => {
       canChangeTemplate: false,
       daysUntilChange: Math.ceil(TEMPLATE_COOLDOWN_DAYS - diffDays),
     };
-  }, [partnerPage?.template_changed_at]);
+  }, [partnerPage?.template_changed_at, isAdmin, bypassCooldown]);
 
   // Check if a template was previously used (has history data)
   const isTemplateRestored = useCallback((templateId: string) => {

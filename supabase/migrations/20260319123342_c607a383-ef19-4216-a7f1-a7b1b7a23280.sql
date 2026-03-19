@@ -1,0 +1,1 @@
+ALTER TABLE public.partner_page_user_access ADD COLUMN bypass_template_cooldown BOOLEAN DEFAULT false;
