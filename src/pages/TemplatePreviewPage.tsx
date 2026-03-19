@@ -115,6 +115,28 @@ const TemplatePreviewPage: React.FC = () => {
     setEditingIndex(insertAt);
   }, []);
 
+  const handleCopySection = useCallback((index: number) => {
+    const el = template[index];
+    localStorage.setItem('copied_section', JSON.stringify(el));
+    toast({ title: 'Sekcja skopiowana do schowka' });
+  }, [template, toast]);
+
+  const handlePasteSection = useCallback((insertAt: number) => {
+    const raw = localStorage.getItem('copied_section');
+    if (!raw) return;
+    try {
+      const el = JSON.parse(raw) as TemplateElement;
+      el.id = crypto.randomUUID();
+      el.position = insertAt;
+      setTemplate(prev => {
+        const next = [...prev];
+        next.splice(insertAt, 0, el);
+        return next.map((e, i) => ({ ...e, position: i }));
+      });
+      toast({ title: 'Sekcja wklejona' });
+    } catch { /* ignore */ }
+  }, [toast]);
+
   const handleDuplicate = useCallback((index: number) => {
     setTemplate(prev => {
       const el = prev[index];
