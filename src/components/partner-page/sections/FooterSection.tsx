@@ -1,5 +1,5 @@
 import React from 'react';
-import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin, MessageCircle, Send } from 'lucide-react';
 
 interface Props {
   config: Record<string, any>;
@@ -11,6 +11,8 @@ const SOCIAL_ICONS: Record<string, React.FC<{ className?: string }>> = {
   youtube: Youtube,
   linkedin: Linkedin,
   messenger: MessageCircle,
+  whatsapp: Phone,
+  telegram: Send,
 };
 
 const SOCIAL_COLORS: Record<string, string> = {
@@ -20,6 +22,8 @@ const SOCIAL_COLORS: Record<string, string> = {
   linkedin: '#0A66C2',
   twitter: '#1DA1F2',
   messenger: '#A259FF',
+  whatsapp: '#25D366',
+  telegram: '#0088cc',
 };
 
 export const FooterSection: React.FC<Props> = ({ config }) => {
@@ -81,8 +85,8 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
           {socialLinks.length > 0 && (
             <div className="space-y-3">
               <h4 className="text-sm font-semibold uppercase tracking-wider opacity-60">Social Media</h4>
-              <div className="flex gap-3">
-                {socialLinks.map((s, i) => {
+              <div className="flex gap-3 flex-wrap">
+                {socialLinks.filter(s => s.url).map((s, i) => {
                   const Icon = SOCIAL_ICONS[s.platform];
                   const color = SOCIAL_COLORS[s.platform] || '#ffffff';
                   return (

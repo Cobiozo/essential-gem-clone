@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Pencil, Check, X } from 'lucide-react';
 import { getFieldLabel } from '@/lib/mergePartnerConfig';
+import { ImageUploadInput } from './ImageUploadInput';
 import type { TemplateElement } from '@/types/partnerPage';
 
 interface PartnerPageInlineEditorProps {
@@ -13,6 +14,9 @@ interface PartnerPageInlineEditorProps {
   customData: Record<string, any>;
   onCustomDataChange: (data: Record<string, any>) => void;
 }
+
+const isImageField = (field: string) =>
+  field.includes('image') || field.includes('logo');
 
 interface EditableFieldProps {
   elementId: string;
@@ -46,29 +50,19 @@ const EditableField: React.FC<EditableFieldProps> = ({
     setEditing(false);
   };
 
-  const cancelEdit = () => {
-    setEditing(false);
-  };
+  const cancelEdit = () => setEditing(false);
 
   if (editing) {
     const isLongText = currentValue.length > 60 || fieldName === 'description';
     return (
       <div className="space-y-1.5 p-3 border border-primary/30 rounded-lg bg-primary/5">
         <Label className="text-xs font-medium text-primary">{label}</Label>
-        {isLongText ? (
-          <Textarea
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            rows={3}
-            autoFocus
-          />
+        {isImageField(fieldName) ? (
+          <ImageUploadInput value={draft} onChange={setDraft} />
+        ) : isLongText ? (
+          <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={3} autoFocus />
         ) : (
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoFocus
-            onKeyDown={(e) => e.key === 'Enter' && confirmEdit()}
-          />
+          <Input value={draft} onChange={(e) => setDraft(e.target.value)} autoFocus onKeyDown={(e) => e.key === 'Enter' && confirmEdit()} />
         )}
         <div className="flex gap-2">
           <Button size="sm" onClick={confirmEdit}>
@@ -91,9 +85,13 @@ const EditableField: React.FC<EditableFieldProps> = ({
     >
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
-        <p className="text-sm text-foreground truncate">
-          {currentValue || <span className="text-muted-foreground italic">Kliknij, aby edytować...</span>}
-        </p>
+        {isImageField(fieldName) && currentValue ? (
+          <img src={currentValue} alt={label} className="w-full h-20 object-cover rounded border" />
+        ) : (
+          <p className="text-sm text-foreground truncate">
+            {currentValue || <span className="text-muted-foreground italic">Kliknij, aby edytować...</span>}
+          </p>
+        )}
         {isOverridden && (
           <p className="text-xs text-muted-foreground mt-0.5">
             Domyślnie: <span className="italic">{templateValue}</span>
@@ -119,7 +117,6 @@ export const PartnerPageInlineEditor: React.FC<PartnerPageInlineEditorProps> = (
     onCustomDataChange(updated);
   };
 
-  // Group editable fields by template element
   const editableGroups = template
     .filter((el) => {
       const cfg = el.config || {};
@@ -177,7 +174,6 @@ export const PartnerPageInlineEditor: React.FC<PartnerPageInlineEditorProps> = (
               </h3>
               <div className="space-y-2">
                 {fields.map((fieldName) => {
-                  // Get template value (handle dot notation)
                   let templateValue: any;
                   if (fieldName.includes('.')) {
                     const [parent, child] = fieldName.split('.');
