@@ -188,6 +188,7 @@ export const DashboardSidebar: React.FC = () => {
 
   // Calculator access (kept for admin calc block below)
   const { data: calculatorAccess } = useCalculatorAccess();
+  const { hasAccess: hasPartnerPageAccess } = usePartnerPageAccess();
 
   // Leader permissions (replaces old showLeaderPanel logic)
   const { isAnyLeaderFeatureEnabled } = useLeaderPermissions();
