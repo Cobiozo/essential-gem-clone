@@ -301,30 +301,30 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
-      <SidebarHeader className="border-b">
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2">
           <img 
             src={siteLogo || newPureLifeLogo} 
             alt="Pure Life Center" 
-            className="h-8 flex-shrink-0 object-contain" 
+            className="h-10 flex-shrink-0 object-contain" 
           />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-sm truncate">{getLabel('adminPanel')}</span>
-              <span className="text-xs text-muted-foreground">{getLabel('administrator')}</span>
+              <span className="font-semibold text-sm truncate text-sidebar-foreground">{getLabel('adminPanel')}</span>
+              <span className="text-xs text-sidebar-foreground/60">{getLabel('administrator')}</span>
             </div>
           )}
         </div>
         {!isCollapsed && (
           <div className="px-2 pb-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-sidebar-foreground/50" />
               <Input
                 placeholder="Szukaj..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 h-8 text-sm"
+                className="pl-8 h-8 text-sm bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40"
               />
             </div>
           </div>
@@ -360,7 +360,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           >
             <SidebarGroup>
               <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded-md px-2 py-1.5 w-full justify-between">
+                <SidebarGroupLabel className="flex items-center gap-2 cursor-pointer hover:bg-primary/10 rounded-md px-2 py-1.5 w-full justify-between text-sidebar-foreground/70">
                   <div className="flex items-center gap-2">
                     <category.icon className="w-4 h-4" />
                     {!isCollapsed && <span>{getLabel(category.labelKey)}</span>}
@@ -385,7 +385,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                           isActive={activeTab === item.value}
                           tooltip={getLabel(item.labelKey)}
                           className={cn(
-                            activeTab === item.value && 'bg-primary/10 text-primary font-medium'
+                            activeTab === item.value && 'bg-primary/15 text-primary font-medium'
                           )}
                         >
                           <item.icon className="w-4 h-4" />
@@ -401,7 +401,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t">
+      <SidebarFooter className="border-t border-sidebar-border">
         <div className={cn(
           "flex items-center gap-2 p-2",
           isCollapsed ? "flex-col" : "flex-row justify-between"
@@ -417,7 +417,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             size="sm"
             onClick={onSignOut}
             className={cn(
-              "text-muted-foreground hover:text-foreground",
+              "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
               isCollapsed && "w-full justify-center"
             )}
           >

@@ -3018,7 +3018,7 @@ const Admin = () => {
       {/* Main Admin Panel */}
       {!editingPageInLayoutEditor && (
     <SidebarProvider defaultOpen={true}>
-      <div className="min-h-screen flex w-full bg-background">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-[hsl(225,50%,6%)] via-[hsl(225,40%,8%)] to-[hsl(230,35%,5%)]">
         <AdminSidebar
           activeTab={activeTab}
           onTabChange={setActiveTab}
