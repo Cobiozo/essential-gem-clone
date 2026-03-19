@@ -86,7 +86,7 @@ const EditableField: React.FC<EditableFieldProps> = ({
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium text-muted-foreground mb-0.5">{label}</p>
         {isImageField(fieldName) && currentValue ? (
-          <img src={currentValue} alt={label} className="w-full h-20 object-cover rounded border" />
+          <img src={currentValue} alt={label} className="w-full max-h-64 object-contain rounded border bg-muted" />
         ) : (
           <p className="text-sm text-foreground truncate">
             {currentValue || <span className="text-muted-foreground italic">Kliknij, aby edytować...</span>}
