@@ -1,12 +1,29 @@
+export type TemplateElementType =
+  | 'static'
+  | 'editable_text'
+  | 'editable_image'
+  | 'product_slot'
+  | 'hero'
+  | 'text_image'
+  | 'steps'
+  | 'timeline'
+  | 'testimonials'
+  | 'products_grid'
+  | 'faq'
+  | 'cta_banner'
+  | 'header';
+
 export interface TemplateElement {
   id: string;
-  type: 'static' | 'editable_text' | 'editable_image' | 'product_slot';
+  type: TemplateElementType;
   label?: string;
-  content?: string; // HTML content for static elements
+  title?: string;
+  content?: string;
   placeholder?: string;
   max_length?: number;
   position: number;
   style?: Record<string, any>;
+  config?: Record<string, any>;
 }
 
 export interface PartnerPageSettings {

@@ -1,79 +1,94 @@
+## Analiza systemu powiadomień — wynik
 
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-# Plan: Szablon "Eqology" — rozbudowany system sekcji landing page
+### Zmiany:
 
-## Obecny problem
-Aktualny system ma tylko 4 typy elementów (`static`, `editable_text`, `editable_image`, `product_slot`). To za mało, żeby odwzorować bogaty landing page z screena (hero z wideo, kroki, timeline, social proof, FAQ, produkty, CTA).
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-## Rozwiązanie — nowe typy sekcji z ustrukturyzowanymi danymi
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-### Rozszerzenie `TemplateElement`
-Dodanie pola `config: Record<string, any>` do `TemplateElement` oraz nowych typów:
-
-| Typ | Opis | Pola config |
-|-----|-------|-------------|
-| `hero` | Hero z tłem wideo/obraz, nagłówki, CTA | `video_url`, `bg_image_url`, `headline`, `subheadline`, `description`, `badge_text`, `cta_primary` (text+url), `cta_secondary` (text+url), `bg_color` |
-| `text_image` | Sekcja tekst + obraz/wideo obok siebie | `heading`, `items[]` (text + icon), `image_url`, `image_side`, `highlight_text`, `highlight_description`, `cta_text`, `cta_url` |
-| `steps` | 3 kroki z ikonami | `heading`, `description`, `steps[]` (icon, title, description) |
-| `timeline` | Oś czasu procesu | `heading`, `milestones[]` (month, title, icon, highlight) |
-| `testimonials` | Karuzela opinii/social proof | `heading`, `cards[]` (name, image, before, after, label, description) |
-| `products_grid` | Siatka produktów z CTA | `heading`, `columns[]` (name, subtitle, specs, image_url, cta_text) — linki zakupowe z partnera |
-| `faq` | Akordeon pytań | `heading`, `items[]` (question, answer) |
-| `cta_banner` | Baner CTA z ciemnym tłem | `heading`, `description`, `cta_text`, `cta_url`, `bg_color` |
-| `header` | Pasek górny z logo i przyciskami | `logo_text`, `buttons[]` (text, url, variant) |
-
-### Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/types/partnerPage.ts` | Dodanie `config` do `TemplateElement`, rozszerzenie union typów |
-| `src/components/admin/PartnerTemplateEditor.tsx` | Nowe edytory per typ sekcji (formularze z polami config) |
-| `src/components/admin/template-sections/` | **Nowy folder** — edytory: `HeroSectionEditor`, `StepsSectionEditor`, `TimelineSectionEditor`, `TestimonialsSectionEditor`, `FaqSectionEditor`, `CtaBannerEditor`, `TextImageSectionEditor`, `ProductsGridEditor`, `HeaderSectionEditor` |
-| `src/pages/PartnerPage.tsx` | Nowe renderery per typ sekcji — zamiast hardkodowanych sekcji, dynamiczne renderowanie `template.map()` |
-| `src/components/partner-page/sections/` | **Nowy folder** — renderery publiczne: `HeroSection`, `StepsSection`, `TimelineSection`, `TestimonialsSection`, `FaqSection`, `CtaBannerSection`, `TextImageSection`, `ProductsGridSection`, `HeaderSection` |
-| Migracja SQL | INSERT szablonu "Eqology" z wypełnionym `template_data` JSON (12 sekcji) |
-
-### Przykładowy szablon "Eqology" — 10 sekcji
-
-1. **header** — Logo EQOLOGY + przyciski "Wypełnij ankietę", "KUP TERAZ"
-2. **hero** — Wideo tło, "TESTUJ, NIE ZGADUJ.", opis, 2x CTA
-3. **text_image** — Problem rynku (lista ❌) + statystyka "9/10 osób"
-4. **steps** — "Jak działa test" — 3 kroki (Zamawiasz → Pobierasz → Wysyłasz)
-5. **timeline** — Proces 6 miesięcy (4 punkty na osi)
-6. **testimonials** — Social proof z kartami PRZED/PO
-7. **products_grid** — 3 kolumny produktów (Srebrna, Złota, Zielona)
-8. **faq** — 3 pytania z akordeonem
-9. **cta_banner** — "Nie wiesz od czego zacząć?" + CTA ankieta
-10. **static** — Stopka
-
-### Logika renderowania publicznego
-
-```text
-PartnerPage.tsx
-  └─ template.map(element => {
-       switch(element.type) {
-         case 'hero': return <HeroSection config={element.config} />
-         case 'steps': return <StepsSection config={element.config} />
-         case 'products_grid': return <ProductsGridSection config={...} productLinks={...} />
-         ...
-       }
-     })
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
 ```
 
-Dla `products_grid` — obrazki i nazwy z config szablonu (admin), linki zakupowe z `partner_product_links` (partner).
+---
 
-### Logika edytora admina
+## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
 
-Każdy typ ma dedykowany formularz w `PartnerTemplateEditor`. Zamiast jednego `Textarea` na HTML, admin widzi strukturalne pola:
-- Hero: pola na headline, subheadline, URL wideo, tekst CTA, kolor tła
-- Steps: dynamiczna lista kroków (dodaj/usuń krok)
-- FAQ: dynamiczna lista pytań (dodaj/usuń pytanie)
-- Testimonials: dynamiczna lista kart opinii
-- itd.
+### Nowe komponenty:
+1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
+   - Złoty nagłówek z logo Pure Life Center
+   - Sekcja z danymi osoby zapraszającej
+   - Tekst zachęcający do kontaktu z zapraszającym
+   - Obsługuje zarówno zalogowanych użytkowników jak i gości
 
-### Co się NIE zmienia
-- Logika partnera (wybór szablonu, wpisywanie linków zakupowych) — bez zmian
-- Zarządzanie dostępem w CMS — bez zmian
-- Katalog produktów — bez zmian
-- Hook `usePartnerPage` — minimalne zmiany (config w typie)
+2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
 
+3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+
+4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
+
+### Test emaili (wysłano do sebastiansnopek87@gmail.com):
+- ✅ Potwierdzenie rejestracji
+- ✅ Przypomnienie 24h
+- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
+- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
+- ✅ Przypomnienie 1h
+- ✅ Przypomnienie 15min
+- ✅ Podziękowanie po wydarzeniu (NOWY)
+
+---
+
+## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
+
+### Root cause:
+1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
+2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
+3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
+
+### Zmiany:
+
+1. **Migracja SQL** — dodano do `event_registrations`:
+   - `reminder_12h_sent`, `reminder_12h_sent_at`
+   - `reminder_2h_sent`, `reminder_2h_sent_at`
+   - `reminder_1h_sent`, `reminder_1h_sent_at`
+   - `reminder_15min_sent`, `reminder_15min_sent_at`
+
+2. **`send-bulk-webinar-reminders`** — przebudowany:
+   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
+   - Dla zalogowanych pobiera email/imię z `profiles`
+   - Ustawia flagi w odpowiedniej tabeli po sukcesie
+   - Loguje każdy send do `email_logs` z `registration_source`
+
+3. **`process-pending-notifications`** — usunięta luka:
+   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
+   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
+   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
+
+4. **`send-webinar-confirmation`** — rozszerzony fallback:
+   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
+   - Zapobiega duplikatom z CRON dla zalogowanych
+
+### Efekt:
+```
+GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
+USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
+Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
+Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
+```
