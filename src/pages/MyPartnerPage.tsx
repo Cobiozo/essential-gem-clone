@@ -1,7 +1,7 @@
 import React, { Suspense } from 'react';
 import { Navigate } from 'react-router-dom';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
-import DashboardLayout from '@/components/dashboard/DashboardLayout';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 
 const PartnerPageEditor = React.lazy(() => import('@/components/partner-page/PartnerPageEditor'));
 
