@@ -67,7 +67,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>URL obrazu</Label>
-          <Input value={config.image_url || ''} onChange={e => update('image_url', e.target.value)} />
+          <ImageUploadInput value={config.image_url || ''} onChange={v => update('image_url', v)} />
         </div>
         <div>
           <Label>URL wideo</Label>
