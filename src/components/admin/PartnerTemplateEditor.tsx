@@ -70,6 +70,8 @@ const SectionConfigEditor: React.FC<{
     case 'faq': return <FaqSectionEditor config={cfg} onChange={onConfigChange} />;
     case 'cta_banner': return <CtaBannerEditor config={cfg} onChange={onConfigChange} />;
     case 'header': return <HeaderSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'contact_form': return <ContactFormEditor config={cfg} onChange={onConfigChange} />;
+    case 'footer': return <FooterSectionEditor config={cfg} onChange={onConfigChange} />;
     default: return null;
   }
 };
