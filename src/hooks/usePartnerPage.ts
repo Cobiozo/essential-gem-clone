@@ -8,7 +8,7 @@ import type { PartnerPage, PartnerPageTemplate, PartnerProductLink, ProductCatal
 const TEMPLATE_COOLDOWN_DAYS = 14;
 
 export const usePartnerPage = () => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [partnerPage, setPartnerPage] = useState<PartnerPage | null>(null);
   const [template, setTemplate] = useState<TemplateElement[]>([]);
@@ -17,6 +17,9 @@ export const usePartnerPage = () => {
   const [productLinks, setProductLinks] = useState<PartnerProductLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [bypassCooldown, setBypassCooldown] = useState(false);
+
+  const isAdmin = userRole?.role === 'admin';
 
   const fetchData = useCallback(async () => {
     if (!user) return;
