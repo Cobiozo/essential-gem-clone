@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface Props {
   config: Record<string, any>;
@@ -66,7 +67,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label>URL obrazu</Label>
-          <Input value={config.image_url || ''} onChange={e => update('image_url', e.target.value)} />
+          <ImageUploadInput value={config.image_url || ''} onChange={v => update('image_url', v)} />
         </div>
         <div>
           <Label>URL wideo</Label>
@@ -75,7 +76,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
       </div>
       <div>
         <Label>URL obrazu tła sekcji</Label>
-        <Input value={config.bg_image_url || ''} onChange={e => update('bg_image_url', e.target.value)} placeholder="https://..." />
+        <ImageUploadInput value={config.bg_image_url || ''} onChange={v => update('bg_image_url', v)} compact />
       </div>
       <div>
         <Label>Strona obrazu</Label>

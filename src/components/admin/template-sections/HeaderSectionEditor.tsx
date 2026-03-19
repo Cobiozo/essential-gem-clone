@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface Props {
   config: Record<string, any>;
@@ -35,7 +36,7 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
         <div>
           <Label>URL logo (obraz)</Label>
-          <Input value={config.logo_image_url || ''} onChange={e => update('logo_image_url', e.target.value)} />
+          <ImageUploadInput value={config.logo_image_url || ''} onChange={v => update('logo_image_url', v)} compact />
         </div>
       </div>
       <div>

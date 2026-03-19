@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface Props {
   config: Record<string, any>;
@@ -74,13 +75,13 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
         <div>
           <Label>URL obrazu tła</Label>
-          <Input value={config.bg_image_url || ''} onChange={e => update('bg_image_url', e.target.value)} />
+          <ImageUploadInput value={config.bg_image_url || ''} onChange={v => update('bg_image_url', v)} compact />
         </div>
       </div>
       {(config.layout === 'split') && (
         <div>
           <Label>URL obrazu hero (prawa strona)</Label>
-          <Input value={config.hero_image_url || ''} onChange={e => update('hero_image_url', e.target.value)} placeholder="https://..." />
+          <ImageUploadInput value={config.hero_image_url || ''} onChange={v => update('hero_image_url', v)} />
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">
@@ -117,7 +118,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
             </div>
             <div>
               <Label className="text-xs">URL ikony</Label>
-              <Input value={stat.icon_url || ''} onChange={e => updateStat(i, 'icon_url', e.target.value)} placeholder="https://..." />
+              <ImageUploadInput value={stat.icon_url || ''} onChange={v => updateStat(i, 'icon_url', v)} compact />
             </div>
             <div>
               <Label className="text-xs">Wartość</Label>

@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface Props {
   config: Record<string, any>;
@@ -47,7 +48,7 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
             <Input value={card.after || ''} onChange={e => updateCard(i, 'after', e.target.value)} placeholder="PO (np. 3:1)" />
           </div>
           <Input value={card.description || ''} onChange={e => updateCard(i, 'description', e.target.value)} placeholder="Opis" />
-          <Input value={card.image || ''} onChange={e => updateCard(i, 'image', e.target.value)} placeholder="URL zdjęcia" />
+          <ImageUploadInput value={card.image || ''} onChange={v => updateCard(i, 'image', v)} compact />
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={() => update('cards', [...cards, { label: '', before: '', after: '', description: '' }])}>
