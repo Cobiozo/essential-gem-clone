@@ -25,12 +25,14 @@ export const usePartnerPage = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [pageRes, productsRes, allTemplatesRes] = await Promise.all([
+      const [pageRes, productsRes, allTemplatesRes, bypassRes] = await Promise.all([
         supabase.from('partner_pages').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_page_template').select('*').eq('is_active', true).order('position'),
+        supabase.from('partner_page_user_access').select('bypass_template_cooldown').eq('user_id', user.id).maybeSingle(),
       ]);
 
+      setBypassCooldown(!!(bypassRes.data as any)?.bypass_template_cooldown);
       setProducts(productsRes.data || []);
       const allTemplates = (allTemplatesRes.data as any) || [];
       setAvailableTemplates(allTemplates);
