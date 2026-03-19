@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface Props {
   config: Record<string, any>;
