@@ -1,40 +1,24 @@
 
 
-# Plan: Ikona Play zamiast autoodtwarzania wideo w Hero
+# Plan: Pełne obrazy w edytorze partnera
 
 ## Problem
-Wideo w sekcji Hero odtwarza się automatycznie. Użytkownik chce widzieć miniaturkę z ikoną Play, a dopiero kliknięcie uruchamia odtwarzanie.
+W `PartnerPageInlineEditor.tsx` podgląd obrazów ma `h-20 object-cover`, co przycina zdjęcia — partner nie widzi całego obrazu.
 
 ## Rozwiązanie
+Zmienić klasę na `max-h-64 object-contain bg-muted` (identycznie jak poprawka w `ImageUploadInput`).
 
-### Zmiana w `HeroSection.tsx` (linie 79-94, sekcja split layout):
-
-1. Dodać stan `const [videoPlaying, setVideoPlaying] = useState(false)` i `useRef` dla elementu `<video>`.
-2. Gdy `hero_video_url` jest ustawione i `videoPlaying === false`:
-   - Renderować `<video>` z atrybutem `poster` (lub bez), bez `autoPlay`, z nałożoną ikoną Play (przycisk z ikoną `Play` z lucide-react).
-   - Kliknięcie ikony Play → `setVideoPlaying(true)`, `videoRef.current.play()`.
-3. Gdy `videoPlaying === true`:
-   - Wideo odtwarza się normalnie (z `controls`), bez nakładki Play.
-
-```tsx
-// Struktura:
-<div className="relative">
-  <video ref={videoRef} src={hero_video_url} playsInline
-    className="max-h-[500px] rounded-2xl drop-shadow-2xl object-cover" />
-  {!videoPlaying && (
-    <button onClick={handlePlay} className="absolute inset-0 flex items-center justify-center">
-      <div className="bg-black/50 rounded-full p-4">
-        <Play className="w-12 h-12 text-white fill-white" />
-      </div>
-    </button>
-  )}
-</div>
+### Zmiana w `src/components/partner-page/PartnerPageInlineEditor.tsx`:
 ```
+// Przed:
+<img src={currentValue} alt={label} className="w-full h-20 object-cover rounded border" />
 
-4. Dodać import `useState, useRef` z React oraz `Play` z lucide-react.
+// Po:
+<img src={currentValue} alt={label} className="w-full max-h-64 object-contain rounded border bg-muted" />
+```
 
 ### Pliki do zmian:
 | Plik | Zmiana |
 |------|--------|
-| `HeroSection.tsx` | Zamiana autoPlay na click-to-play z ikoną Play |
+| `PartnerPageInlineEditor.tsx` | `h-20 object-cover` → `max-h-64 object-contain bg-muted` |
 
