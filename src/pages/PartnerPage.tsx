@@ -1,12 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
-import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown } from 'lucide-react';
+import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown, Save, Pencil } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { getMergedConfig } from '@/lib/mergePartnerConfig';
+import { toast } from 'sonner';
+import EditableWrapper from '@/components/partner-page/EditableWrapper';
 import {
   HeroSection,
   TextImageSection,
@@ -37,6 +39,12 @@ const PartnerPageView: React.FC = () => {
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
   const [productLinks, setProductLinks] = useState<PartnerProductLink[]>([]);
 
+  // Edit mode state
+  const [isOwner, setIsOwner] = useState(false);
+  const [editableCustomData, setEditableCustomData] = useState<Record<string, any>>({});
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+
   useEffect(() => {
     const fetchPage = async () => {
       if (!alias) { setNotFound(true); setLoading(false); return; }
@@ -56,7 +64,12 @@ const PartnerPageView: React.FC = () => {
 
       setPage(pageData as any);
 
-      // Build template query — if selected_template_id exists, fetch that template
+      // Check if current user is the owner
+      const { data: { user } } = await supabase.auth.getUser();
+      const ownerCheck = !!user && user.id === pageData.user_id;
+      setIsOwner(ownerCheck);
+      setEditableCustomData((pageData as any).custom_data || {});
+
       const templateQuery = (pageData as any).selected_template_id
         ? supabase.from('partner_page_template').select('template_data').eq('id', (pageData as any).selected_template_id).maybeSingle()
         : supabase.from('partner_page_template').select('template_data').limit(1).maybeSingle();
@@ -78,10 +91,37 @@ const PartnerPageView: React.FC = () => {
     fetchPage();
   }, [alias]);
 
+  const updateField = useCallback((elementId: string, fieldName: string, value: string) => {
+    setEditableCustomData(prev => ({
+      ...prev,
+      [elementId]: {
+        ...(prev[elementId] || {}),
+        [fieldName]: value,
+      },
+    }));
+    setHasChanges(true);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!page) return;
+    setSaving(true);
+    const { error } = await supabase
+      .from('partner_pages')
+      .update({ custom_data: editableCustomData } as any)
+      .eq('id', page.id);
+    setSaving(false);
+    if (error) {
+      toast.error('Błąd zapisu: ' + error.message);
+    } else {
+      toast.success('Zmiany zapisane!');
+      setHasChanges(false);
+    }
+  }, [page, editableCustomData]);
+
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
 
-  const customData = page.custom_data || {};
+  const customData = isOwner ? editableCustomData : (page.custom_data || {});
   const partnerName = profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '';
 
   const linkedProducts = productLinks
@@ -95,50 +135,101 @@ const PartnerPageView: React.FC = () => {
   const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer'];
   const hasRichSections = template.some(el => RICH_TYPES.includes(el.type));
 
-  // If template uses new rich section types, render dynamically
+  const renderSection = (element: TemplateElement) => {
+    const baseCfg = element.config || {};
+    const partnerOverrides = customData[element.id] || {};
+    const cfg = getMergedConfig(baseCfg, partnerOverrides);
+
+    let sectionNode: React.ReactNode = null;
+
+    switch (element.type) {
+      case 'header':
+        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} />;
+        break;
+      case 'hero':
+        sectionNode = <HeroSection config={cfg} />;
+        break;
+      case 'text_image':
+        sectionNode = <TextImageSection config={cfg} />;
+        break;
+      case 'steps':
+        sectionNode = <StepsSection config={cfg} />;
+        break;
+      case 'timeline':
+        sectionNode = <TimelineSection config={cfg} />;
+        break;
+      case 'testimonials':
+        sectionNode = <TestimonialsSection config={cfg} />;
+        break;
+      case 'products_grid':
+        sectionNode = <ProductsGridSection config={cfg} products={products} productLinks={linkedProducts} />;
+        break;
+      case 'faq':
+        sectionNode = <FaqSection config={cfg} />;
+        break;
+      case 'cta_banner':
+        sectionNode = <CtaBannerSection config={cfg} />;
+        break;
+      case 'contact_form':
+        sectionNode = <ContactFormSection config={cfg} />;
+        break;
+      case 'footer':
+        sectionNode = <FooterSection config={cfg} />;
+        break;
+      case 'static':
+        sectionNode = element.content ? (
+          <section className="bg-background">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
+              <div className="prose prose-sm max-w-none dark:prose-invert text-foreground"
+                dangerouslySetInnerHTML={{ __html: element.content }} />
+            </div>
+          </section>
+        ) : null;
+        break;
+      default:
+        return null;
+    }
+
+    if (!sectionNode) return null;
+
+    return (
+      <EditableWrapper
+        key={element.id}
+        elementId={element.id}
+        config={baseCfg}
+        overrides={customData[element.id] || {}}
+        onSave={(fieldName, value) => updateField(element.id, fieldName, value)}
+        isEditing={isOwner}
+      >
+        {sectionNode}
+      </EditableWrapper>
+    );
+  };
+
   if (hasRichSections) {
     return (
       <div className="min-h-screen bg-background">
-        {template.map((element) => {
-          const baseCfg = element.config || {};
-          const partnerOverrides = customData[element.id] || {};
-          const cfg = getMergedConfig(baseCfg, partnerOverrides);
-          switch (element.type) {
-            case 'header':
-              return <HeaderSection key={element.id} config={cfg} partnerName={partnerName} />;
-            case 'hero':
-              return <HeroSection key={element.id} config={cfg} />;
-            case 'text_image':
-              return <TextImageSection key={element.id} config={cfg} />;
-            case 'steps':
-              return <StepsSection key={element.id} config={cfg} />;
-            case 'timeline':
-              return <TimelineSection key={element.id} config={cfg} />;
-            case 'testimonials':
-              return <TestimonialsSection key={element.id} config={cfg} />;
-            case 'products_grid':
-              return <ProductsGridSection key={element.id} config={cfg} products={products} productLinks={linkedProducts} />;
-            case 'faq':
-              return <FaqSection key={element.id} config={cfg} />;
-            case 'cta_banner':
-              return <CtaBannerSection key={element.id} config={cfg} />;
-            case 'contact_form':
-              return <ContactFormSection key={element.id} config={cfg} />;
-            case 'footer':
-              return <FooterSection key={element.id} config={cfg} />;
-            case 'static':
-              return element.content ? (
-                <section key={element.id} className="bg-background">
-                  <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-                    <div className="prose prose-sm max-w-none dark:prose-invert text-foreground"
-                      dangerouslySetInnerHTML={{ __html: element.content }} />
-                  </div>
-                </section>
-              ) : null;
-            default:
-              return null;
-          }
-        })}
+        {/* Floating edit toolbar for owner */}
+        {isOwner && (
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-2.5 shadow-lg">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Pencil className="w-4 h-4 text-primary" />
+              <span>Tryb edycji</span>
+            </div>
+            {hasChanges && (
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-1.5 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {saving ? 'Zapisywanie...' : 'Zapisz zmiany'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {template.map(renderSection)}
       </div>
     );
   }
