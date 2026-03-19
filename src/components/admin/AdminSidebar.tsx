@@ -417,7 +417,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             size="sm"
             onClick={onSignOut}
             className={cn(
-              "text-muted-foreground hover:text-foreground",
+              "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent",
               isCollapsed && "w-full justify-center"
             )}
           >
