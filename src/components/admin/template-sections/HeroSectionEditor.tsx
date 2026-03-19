@@ -75,7 +75,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
         <div>
           <Label>URL obrazu tła</Label>
-          <Input value={config.bg_image_url || ''} onChange={e => update('bg_image_url', e.target.value)} />
+          <ImageUploadInput value={config.bg_image_url || ''} onChange={v => update('bg_image_url', v)} compact />
         </div>
       </div>
       {(config.layout === 'split') && (
