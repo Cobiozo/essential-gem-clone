@@ -26,7 +26,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${bg_image_url})`, opacity: overlay_opacity ?? 0.15 }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white/80 to-white/40" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/90 to-white/60" />
         </>
       )}
 
