@@ -1,25 +1,28 @@
 
 
-# Fix: `columns.map is not a function` in ProductsGridEditor
+# Plan: Sidebar zwinięty domyślnie + wyszukiwarka elementów w panelu admina
 
-## Root Cause
+## Zmiany
 
-In `ProductsGridEditor.tsx` line 15, the fallback `config.columns || []` doesn't handle the case where `config.columns` exists but is not an array (e.g., it's an object or string from the database). This crashes the `.map()` call on line 30.
+### 1. `src/pages/Admin.tsx` — sidebar zwinięty domyślnie
 
-## Fix
+Zmiana `defaultOpen={true}` na `defaultOpen={false}` w `SidebarProvider` (linia 3020).
 
-**File: `src/components/admin/template-sections/ProductsGridEditor.tsx`**
+### 2. `src/components/admin/AdminSidebar.tsx` — wyszukiwarka w sidebarze
 
-Change line 15 from:
-```typescript
-const columns: any[] = config.columns || [];
-```
-to:
-```typescript
-const columns: any[] = Array.isArray(config.columns) ? config.columns : [];
-```
+Dodanie pola wyszukiwania (`Input` z ikoną `Search`) w `SidebarHeader`, pod logo. Filtrowanie `navCategories` — gdy wpisany tekst, wyświetlane są tylko pasujące elementy (po labelu), a ich kategorie są automatycznie rozwinięte. Przy pustym polu — standardowy widok.
 
-This ensures `columns` is always a valid array regardless of what the database returns.
+Logika:
+- Stan `searchQuery` w komponencie
+- `filteredCategories` = mapowanie `navCategories` z przefiltrowanymi `items` (porównanie `getLabel(item.labelKey).toLowerCase()` z query)
+- Kategorie z 0 wynikami są ukrywane
+- Gdy query aktywne, wszystkie kategorie z wynikami są otwarte (override `openCategories`)
+- Pole wyszukiwania widoczne tylko gdy sidebar rozwinięty
 
-Single-line fix, one file.
+### Pliki do zmiany
+
+| Plik | Zmiana |
+|------|------|
+| `src/pages/Admin.tsx` | `defaultOpen={false}` |
+| `src/components/admin/AdminSidebar.tsx` | Dodanie `searchQuery`, filtrowania, komponentu `Input` z `Search` icon |
 
