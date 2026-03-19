@@ -37,6 +37,8 @@ export const PartnerPageEditor: React.FC = () => {
   const [eqId, setEqId] = useState<string | null>(null);
   const [alias, setAlias] = useState<string>('');
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [galleryTemplates, setGalleryTemplates] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   // Fetch eq_id from profile
   useEffect(() => {
