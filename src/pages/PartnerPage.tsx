@@ -186,7 +186,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <TestimonialsSection config={cfg} />;
         break;
       case 'products_grid':
-        sectionNode = <ProductsGridSection config={cfg} products={products} productLinks={linkedProducts} />;
+        sectionNode = <ProductsGridSection config={cfg} products={products} productLinks={linkedProducts} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
         break;
       case 'faq':
         sectionNode = <FaqSection config={cfg} />;
