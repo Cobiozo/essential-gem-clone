@@ -32,6 +32,10 @@ export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
       </div>
+      <div>
+        <Label>Kolor CTA (hex)</Label>
+        <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
+      </div>
       <Label>Produkty</Label>
       {columns.map((col, i) => (
         <div key={i} className="border rounded-lg p-3 space-y-2">
@@ -43,12 +47,13 @@ export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
           </div>
           <Input value={col.name || ''} onChange={e => updateCol(i, 'name', e.target.value)} placeholder="Nazwa" />
           <Input value={col.subtitle || ''} onChange={e => updateCol(i, 'subtitle', e.target.value)} placeholder="Podtytuł" />
+          <Input value={col.description || ''} onChange={e => updateCol(i, 'description', e.target.value)} placeholder="Opis" />
           <Input value={col.image_url || ''} onChange={e => updateCol(i, 'image_url', e.target.value)} placeholder="URL obrazu" />
           <Textarea value={col.specs || ''} onChange={e => updateCol(i, 'specs', e.target.value)} placeholder="Specyfikacja / skład" rows={2} />
-          <Input value={col.cta_text || ''} onChange={e => updateCol(i, 'cta_text', e.target.value)} placeholder="Tekst CTA (np. KUP TERAZ)" />
+          <Input value={col.cta_text || ''} onChange={e => updateCol(i, 'cta_text', e.target.value)} placeholder="Tekst CTA (np. Zobacz szczegóły)" />
         </div>
       ))}
-      <Button variant="outline" size="sm" onClick={() => update('columns', [...columns, { name: '', subtitle: '', image_url: '', specs: '', cta_text: 'KUP TERAZ' }])}>
+      <Button variant="outline" size="sm" onClick={() => update('columns', [...columns, { name: '', subtitle: '', description: '', image_url: '', specs: '', cta_text: 'Zobacz szczegóły' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj produkt
       </Button>
     </div>

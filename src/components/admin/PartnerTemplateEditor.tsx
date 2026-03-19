@@ -23,6 +23,7 @@ import {
   HeaderSectionEditor,
   ContactFormEditor,
   FooterSectionEditor,
+  ProductsWithFormEditor,
 } from './template-sections';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -41,6 +42,7 @@ const TYPE_LABELS: Record<string, string> = {
   header: 'Nagłówek strony',
   contact_form: 'Formularz kontaktowy',
   footer: 'Stopka',
+  products_with_form: 'Produkty + Formularz',
 };
 
 const defaultElement = (position: number): TemplateElement => ({
@@ -72,11 +74,12 @@ const SectionConfigEditor: React.FC<{
     case 'header': return <HeaderSectionEditor config={cfg} onChange={onConfigChange} />;
     case 'contact_form': return <ContactFormEditor config={cfg} onChange={onConfigChange} />;
     case 'footer': return <FooterSectionEditor config={cfg} onChange={onConfigChange} />;
+    case 'products_with_form': return <ProductsWithFormEditor config={cfg} onChange={onConfigChange} />;
     default: return null;
   }
 };
 
-const RICH_TYPES: TemplateElementType[] = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer'];
+const RICH_TYPES: TemplateElementType[] = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer', 'products_with_form'];
 
 // ─── Template List View ───
 const TemplateListView: React.FC<{

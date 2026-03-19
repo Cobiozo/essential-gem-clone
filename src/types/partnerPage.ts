@@ -13,7 +13,8 @@ export type TemplateElementType =
   | 'cta_banner'
   | 'header'
   | 'contact_form'
-  | 'footer';
+  | 'footer'
+  | 'products_with_form';
 
 export interface TemplateElement {
   id: string;
