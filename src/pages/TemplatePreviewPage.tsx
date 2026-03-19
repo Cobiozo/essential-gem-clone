@@ -1,14 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Pencil, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import type { TemplateElement, ProductCatalogItem } from '@/types/partnerPage';
 import { SectionConfigEditor } from '@/components/admin/template-sections/SectionConfigEditor';
+import { DragDropProvider } from '@/components/dnd/DragDropProvider';
+import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { DragOverlay } from '@dnd-kit/core';
+import { SortableSectionWrapper } from '@/components/admin/template-preview/SortableSectionWrapper';
+import { AddSectionMenu } from '@/components/admin/template-preview/AddSectionMenu';
+import { DEFAULT_SECTION_CONFIGS } from '@/components/admin/template-preview/defaultSectionConfigs';
 import {
   HeroSection,
   TextImageSection,
@@ -25,18 +31,10 @@ import {
 } from '@/components/partner-page/sections';
 
 const TYPE_LABELS: Record<string, string> = {
-  static: 'Statyczny (HTML)',
-  hero: 'Hero (banner)',
-  text_image: 'Tekst + Obraz',
-  steps: 'Kroki',
-  timeline: 'Oś czasu',
-  testimonials: 'Opinie',
-  products_grid: 'Siatka produktów',
-  faq: 'FAQ',
-  cta_banner: 'Baner CTA',
-  header: 'Nagłówek',
-  contact_form: 'Formularz kontaktowy',
-  footer: 'Stopka',
+  static: 'Statyczny (HTML)', hero: 'Hero (banner)', text_image: 'Tekst + Obraz',
+  steps: 'Kroki', timeline: 'Oś czasu', testimonials: 'Opinie',
+  products_grid: 'Siatka produktów', faq: 'FAQ', cta_banner: 'Baner CTA',
+  header: 'Nagłówek', contact_form: 'Formularz kontaktowy', footer: 'Stopka',
   products_with_form: 'Produkty + Formularz',
 };
 
@@ -50,7 +48,7 @@ const TemplatePreviewPage: React.FC = () => {
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,17 +89,57 @@ const TemplatePreviewPage: React.FC = () => {
     setSaving(false);
   };
 
+  const handleDragEnd = useCallback((event: any) => {
+    setActiveId(null);
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setTemplate(prev => {
+      const oldIndex = prev.findIndex(el => el.id === active.id);
+      const newIndex = prev.findIndex(el => el.id === over.id);
+      return arrayMove(prev, oldIndex, newIndex);
+    });
+  }, []);
+
+  const handleAddSection = useCallback((type: string, insertAt: number) => {
+    const newEl: TemplateElement = {
+      id: crypto.randomUUID(),
+      type: type as TemplateElement['type'],
+      position: insertAt,
+      config: { ...(DEFAULT_SECTION_CONFIGS[type] || {}) },
+    };
+    setTemplate(prev => {
+      const next = [...prev];
+      next.splice(insertAt, 0, newEl);
+      return next.map((el, i) => ({ ...el, position: i }));
+    });
+    setEditingIndex(insertAt);
+  }, []);
+
+  const handleDuplicate = useCallback((index: number) => {
+    setTemplate(prev => {
+      const el = prev[index];
+      const clone: TemplateElement = {
+        ...el,
+        id: crypto.randomUUID(),
+        config: { ...el.config },
+        position: index + 1,
+      };
+      const next = [...prev];
+      next.splice(index + 1, 0, clone);
+      return next.map((el, i) => ({ ...el, position: i }));
+    });
+  }, []);
+
+  const handleDelete = useCallback((index: number) => {
+    setTemplate(prev => prev.filter((_, i) => i !== index).map((el, i) => ({ ...el, position: i })));
+    if (editingIndex === index) setEditingIndex(null);
+  }, [editingIndex]);
+
   if (loading) return <LoadingSpinner />;
 
   const dummyLinks = products.map((p, i) => ({
-    id: `preview-${p.id}`,
-    partner_page_id: 'preview',
-    product_id: p.id,
-    purchase_url: '#',
-    position: i,
-    is_active: true,
-    created_at: '',
-    product: p,
+    id: `preview-${p.id}`, partner_page_id: 'preview', product_id: p.id,
+    purchase_url: '#', position: i, is_active: true, created_at: '', product: p,
   }));
 
   const renderSection = (element: TemplateElement) => {
@@ -133,6 +171,7 @@ const TemplatePreviewPage: React.FC = () => {
   };
 
   const editingElement = editingIndex !== null ? template[editingIndex] : null;
+  const itemIds = template.map(el => el.id);
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,35 +192,36 @@ const TemplatePreviewPage: React.FC = () => {
 
       {/* Content */}
       <div className="pt-12">
+        <AddSectionMenu onAdd={(type) => handleAddSection(type, 0)} />
+
         {template.length === 0 ? (
           <div className="flex items-center justify-center py-20 text-muted-foreground">
-            Szablon jest pusty — dodaj elementy w edytorze.
+            Szablon jest pusty — dodaj sekcję powyżej.
           </div>
         ) : (
-          template.map((element, index) => (
-            <div
-              key={element.id}
-              className={`relative cursor-pointer transition-all duration-150 ${
-                hoveredIndex === index ? 'ring-2 ring-primary ring-inset' : ''
-              } ${editingIndex === index ? 'ring-2 ring-primary ring-inset bg-primary/5' : ''}`}
-              onClick={() => setEditingIndex(index)}
-              onMouseEnter={() => setHoveredIndex(index)}
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              {renderSection(element)}
-              {/* Hover overlay with edit icon */}
-              {(hoveredIndex === index || editingIndex === index) && (
-                <div className="absolute top-2 right-2 z-10 flex items-center gap-1.5">
-                  <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded shadow font-medium">
-                    {TYPE_LABELS[element.type] || element.type}
-                  </span>
-                  <div className="bg-primary text-primary-foreground rounded p-1.5 shadow">
-                    <Pencil className="w-3.5 h-3.5" />
-                  </div>
-                </div>
-              )}
-            </div>
-          ))
+          <DragDropProvider
+            items={itemIds}
+            onDragStart={(e) => setActiveId(String(e.active.id))}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+              {template.map((element, index) => (
+                <React.Fragment key={element.id}>
+                  <SortableSectionWrapper
+                    id={element.id}
+                    label={TYPE_LABELS[element.type] || element.type}
+                    isEditing={editingIndex === index}
+                    onEdit={() => setEditingIndex(index)}
+                    onDuplicate={() => handleDuplicate(index)}
+                    onDelete={() => handleDelete(index)}
+                  >
+                    {renderSection(element)}
+                  </SortableSectionWrapper>
+                  <AddSectionMenu onAdd={(type) => handleAddSection(type, index + 1)} />
+                </React.Fragment>
+              ))}
+            </SortableContext>
+          </DragDropProvider>
         )}
       </div>
 
