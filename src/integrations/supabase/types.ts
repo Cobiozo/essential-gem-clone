@@ -5525,6 +5525,8 @@ export type Database = {
           id: string
           is_active: boolean
           selected_template_id: string | null
+          template_changed_at: string | null
+          template_history: Json | null
           updated_at: string
           user_id: string
         }
@@ -5535,6 +5537,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           selected_template_id?: string | null
+          template_changed_at?: string | null
+          template_history?: Json | null
           updated_at?: string
           user_id: string
         }
@@ -5545,6 +5549,8 @@ export type Database = {
           id?: string
           is_active?: boolean
           selected_template_id?: string | null
+          template_changed_at?: string | null
+          template_history?: Json | null
           updated_at?: string
           user_id?: string
         }

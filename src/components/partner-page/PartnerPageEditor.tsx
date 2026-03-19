@@ -6,28 +6,53 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2, Layout } from 'lucide-react';
+import { AlertElement } from '@/components/elements/AlertElement';
+import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2, Layout, ArrowLeft, Eye, Lock } from 'lucide-react';
 import { usePartnerPage } from '@/hooks/usePartnerPage';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { TemplateElement, PartnerPageTemplate } from '@/types/partnerPage';
 
-// ─── Template Selection Gallery ───
-const TemplateSelectionGallery: React.FC<{
+// ─── Template Gallery (with active indicator & cooldown) ───
+const TemplateGallery: React.FC<{
   templates: PartnerPageTemplate[];
+  activeTemplateId: string | null;
+  canChange: boolean;
+  daysUntilChange: number;
+  isRestored: (id: string) => boolean;
   onSelect: (id: string) => void;
+  onBack: (() => void) | null;
   selecting: boolean;
-}> = ({ templates, onSelect, selecting }) => (
+}> = ({ templates, activeTemplateId, canChange, daysUntilChange, isRestored, onSelect, onBack, selecting }) => (
   <Card>
     <CardHeader>
-      <CardTitle className="flex items-center gap-2">
-        <Layout className="w-5 h-5" />
-        Wybierz szablon strony
-      </CardTitle>
+      <div className="flex items-center justify-between">
+        <CardTitle className="flex items-center gap-2">
+          <Layout className="w-5 h-5" />
+          {activeTemplateId ? 'Zmień szablon strony' : 'Wybierz szablon strony'}
+        </CardTitle>
+        {onBack && (
+          <Button variant="outline" size="sm" onClick={onBack}>
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Wróć do edycji
+          </Button>
+        )}
+      </div>
       <CardDescription>
-        Wybierz jeden z dostępnych szablonów, aby rozpocząć tworzenie swojej strony.
+        {activeTemplateId
+          ? 'Podejrzyj dostępne szablony lub zmień aktualny. Zmiana szablonu jest możliwa raz na 14 dni.'
+          : 'Wybierz jeden z dostępnych szablonów, aby rozpocząć tworzenie swojej strony.'}
       </CardDescription>
+      {!canChange && activeTemplateId && (
+        <div className="mt-2">
+          <AlertElement
+            variant="warning"
+            title="Zmiana zablokowana"
+            content={`Następna zmiana szablonu będzie możliwa za ${daysUntilChange} dni.`}
+          />
+        </div>
+      )}
     </CardHeader>
     <CardContent>
       {templates.length === 0 ? (
@@ -36,26 +61,58 @@ const TemplateSelectionGallery: React.FC<{
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {templates.map((t) => (
-            <div key={t.id} className="border rounded-xl p-5 space-y-3 hover:border-primary/50 transition-colors">
-              <div>
-                <h3 className="font-semibold text-lg">{t.name}</h3>
-                {t.description && (
-                  <p className="text-sm text-muted-foreground mt-1">{t.description}</p>
+          {templates.map((t) => {
+            const isActive = t.id === activeTemplateId;
+            const wasUsed = isRestored(t.id);
+            return (
+              <div
+                key={t.id}
+                className={`border rounded-xl p-5 space-y-3 transition-colors ${
+                  isActive
+                    ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                    : 'hover:border-primary/50'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-semibold text-lg">{t.name}</h3>
+                    {t.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{t.description}</p>
+                    )}
+                  </div>
+                  {isActive && <Badge className="shrink-0">Aktywny</Badge>}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {(t.template_data || []).length} elementów
+                </p>
+                {wasUsed && !isActive && (
+                  <AlertElement
+                    variant="info"
+                    content="Ten szablon był już używany. Po wybraniu sprawdź czy linki i treści są aktualne."
+                  />
+                )}
+                {isActive ? (
+                  <Button variant="outline" className="w-full" disabled>
+                    <Check className="w-4 h-4 mr-1" />
+                    Aktualnie wybrany
+                  </Button>
+                ) : canChange ? (
+                  <Button
+                    onClick={() => onSelect(t.id)}
+                    disabled={selecting}
+                    className="w-full"
+                  >
+                    Wybierz ten szablon
+                  </Button>
+                ) : (
+                  <Button variant="outline" className="w-full" disabled>
+                    <Lock className="w-4 h-4 mr-1" />
+                    Zmiana za {daysUntilChange} dni
+                  </Button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {(t.template_data || []).length} elementów
-              </p>
-              <Button
-                onClick={() => onSelect(t.id)}
-                disabled={selecting}
-                className="w-full"
-              >
-                Wybierz ten szablon
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </CardContent>
@@ -76,6 +133,9 @@ export const PartnerPageEditor: React.FC = () => {
     selectTemplate,
     saveProductLink,
     removeProductLink,
+    canChangeTemplate,
+    daysUntilChange,
+    isTemplateRestored,
   } = usePartnerPage();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -88,6 +148,7 @@ export const PartnerPageEditor: React.FC = () => {
   const [eqId, setEqId] = useState<string | null>(null);
   const [alias, setAlias] = useState<string>('');
   const [selectingTemplate, setSelectingTemplate] = useState(false);
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   useEffect(() => {
@@ -123,8 +184,9 @@ export const PartnerPageEditor: React.FC = () => {
 
   const handleSelectTemplate = async (templateId: string) => {
     setSelectingTemplate(true);
-    await selectTemplate(templateId);
+    const success = await selectTemplate(templateId);
     setSelectingTemplate(false);
+    if (success) setShowTemplateGallery(false);
   };
 
   const editableElements = template.filter(
@@ -204,19 +266,27 @@ export const PartnerPageEditor: React.FC = () => {
     );
   }
 
-  // Show template selection if no template chosen yet
-  const needsTemplateSelection = !partnerPage?.selected_template_id && availableTemplates.length > 0;
-  if (needsTemplateSelection) {
+  // Show template gallery if no template chosen yet OR user toggled gallery
+  const needsFirstSelection = !partnerPage?.selected_template_id && availableTemplates.length > 0;
+  if (needsFirstSelection || showTemplateGallery) {
     return (
       <div className="space-y-6">
-        <TemplateSelectionGallery
+        <TemplateGallery
           templates={availableTemplates}
+          activeTemplateId={partnerPage?.selected_template_id || null}
+          canChange={canChangeTemplate}
+          daysUntilChange={daysUntilChange}
+          isRestored={isTemplateRestored}
           onSelect={handleSelectTemplate}
+          onBack={needsFirstSelection ? null : () => setShowTemplateGallery(false)}
           selecting={selectingTemplate}
         />
       </div>
     );
   }
+
+  // Find active template name
+  const activeTemplateName = availableTemplates.find(t => t.id === partnerPage?.selected_template_id)?.name;
 
   return (
     <div className="space-y-6">
@@ -259,6 +329,24 @@ export const PartnerPageEditor: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Template info & change button */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <div>
+              <Label>Szablon</Label>
+              <p className="text-sm text-muted-foreground">
+                {activeTemplateName || 'Brak szablonu'}
+                {!canChangeTemplate && (
+                  <span className="text-xs ml-2">(zmiana za {daysUntilChange} dni)</span>
+                )}
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowTemplateGallery(true)}>
+              <Layout className="w-4 h-4 mr-1" />
+              Zmień szablon
+            </Button>
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <Label>Strona aktywna</Label>
@@ -268,6 +356,15 @@ export const PartnerPageEditor: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Restored template warning */}
+      {partnerPage?.selected_template_id && isTemplateRestored(partnerPage.selected_template_id) && (
+        <AlertElement
+          variant="warning"
+          title="Przywrócony szablon"
+          content="Ten szablon był już wcześniej używany. Sprawdź czy wszystkie linki i treści są prawidłowe i aktualne."
+        />
+      )}
 
       {/* Editable fields from template */}
       {editableElements.length > 0 && (

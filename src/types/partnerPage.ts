@@ -62,6 +62,8 @@ export interface PartnerPage {
   is_active: boolean;
   custom_data: Record<string, any>;
   selected_template_id: string | null;
+  template_changed_at: string | null;
+  template_history: Record<string, any>;
   created_at: string;
   updated_at: string;
 }
