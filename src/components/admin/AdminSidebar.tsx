@@ -129,7 +129,6 @@ const navCategories: NavCategory[] = [
     id: 'site',
     labelKey: 'siteAndAppearance',
     icon: LayoutDashboard,
-    defaultOpen: true,
     items: [
       { value: 'content', labelKey: 'main', icon: Settings2 },
       { value: 'layout', labelKey: 'layout', icon: Type },
