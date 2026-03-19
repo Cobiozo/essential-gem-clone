@@ -1,38 +1,53 @@
 
 
-# Plan: Podgląd szablonu jako rzeczywista strona
+# Plan: Edycja sekcji szablonu na stronie podglądu (admin)
 
-## Problem
-Przycisk "Podgląd" w edytorze szablonów CMS pokazuje uproszczony widok bloków (Badge + placeholder), zamiast renderować prawdziwą stronę partnera z użyciem sekcji (HeroSection, ProductsGridSection itd.).
-
-## Rozwiązanie
-Utworzyć nową stronę `/admin/template-preview/:templateId`, która renderuje szablon identycznie jak `PartnerPage.tsx`, ale zasilana bezpośrednio danymi szablonu (bez potrzeby aliasu partnera). Przycisk "Podgląd" otworzy tę stronę w nowej karcie.
+## Cel
+Na stronie `/admin/template-preview/:templateId` admin może najechać na dowolną sekcję (hover → outline/podświetlenie), kliknąć ją i otworzyć boczny panel z edytorem konfiguracji tej sekcji. Po zapisaniu zmiany są natychmiast widoczne w podglądzie i utrwalane w bazie.
 
 ## Zmiany
 
-### 1. Nowa strona `src/pages/TemplatePreviewPage.tsx`
-- Pobiera szablon z `partner_page_template` po `templateId` z URL
-- Pobiera produkty z `product_catalog`
-- Renderuje te same sekcje co `PartnerPage.tsx` (HeroSection, HeaderSection, itd.) używając `config` z szablonu jako danych
-- Bez trybu edycji — czysto wizualny podgląd
-- Nagłówek z przyciskiem "Powrót do edytora"
+### 1. `TemplatePreviewPage.tsx` — dodanie trybu edycji
 
-### 2. Rejestracja trasy w `App.tsx`
-- Dodać chronioną trasę `/admin/template-preview/:templateId`
+- Dodać stan `editingIndex: number | null` (indeks aktualnie edytowanej sekcji)
+- Owinąć każdą renderowaną sekcję w klikalny wrapper `<div>` z:
+  - `onClick` → ustawia `editingIndex`
+  - `onMouseEnter/Leave` → hover outline (ring-2, ring-primary, cursor-pointer)
+  - Mała ikonka Edit w rogu przy hover
+- Gdy `editingIndex !== null` — wyświetlić boczny panel (Sheet/Drawer z prawej strony) z `SectionConfigEditor` z `PartnerTemplateEditor.tsx`
 
-### 3. Zmiana w `PartnerTemplateEditor.tsx`
-- Przycisk "Podgląd" zamiast przełączać `previewMode` — otwiera `/admin/template-preview/{templateId}` w nowej karcie (`window.open`)
-- Usunąć stary uproszczony podgląd (blok `previewMode ? ...`)
+### 2. Wyodrębnienie `SectionConfigEditor` do osobnego pliku
 
-### 4. Dodanie trasy do `KNOWN_APP_ROUTES` w `ProfileCompletionGuard.tsx`
-- Aby ścieżka nie była przechwycona przez catch-all aliasu partnera
+Przenieść komponent `SectionConfigEditor` z `PartnerTemplateEditor.tsx` do `src/components/admin/template-sections/SectionConfigEditor.tsx`, aby mógł być reużywany zarówno w edytorze listy jak i w podglądzie.
+
+### 3. Logika zapisu w `TemplatePreviewPage.tsx`
+
+- Przy zmianie configu sekcji — aktualizować lokalny stan `template[]` (natychmiastowy podgląd)
+- Przycisk "Zapisz" w panelu bocznym — zapisuje cały `template_data` do `partner_page_template` via Supabase
+- Po zapisie — toast potwierdzający
+
+### 4. UX na podglądzie
+
+```text
+┌─────────────────────────────────────────────────────┐
+│ ← Wróć do edytora   Podgląd: PureLifeCenter2026    │
+├─────────────────────────────────┬───────────────────┤
+│                                 │ Edycja: Hero      │
+│   [Sekcja Hero]  ← hover ring  │ ───────────────── │
+│                                 │ Nagłówek: [____]  │
+│   [Sekcja Steps]               │ Opis: [________]  │
+│                                 │ Kolor tła: [■]    │
+│   [Sekcja FAQ]                 │                    │
+│                                 │ [Zapisz] [Zamknij]│
+└─────────────────────────────────┴───────────────────┘
+```
 
 ## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `src/pages/TemplatePreviewPage.tsx` | Nowa strona — renderuje szablon jak prawdziwa strona partnera |
-| `src/App.tsx` | Dodać trasę `/admin/template-preview/:templateId` |
-| `src/components/admin/PartnerTemplateEditor.tsx` | Zmienić "Podgląd" na `window.open` do nowej trasy |
-| `src/components/ProfileCompletionGuard.tsx` | Dodać trasę do `KNOWN_APP_ROUTES` |
+| `src/components/admin/template-sections/SectionConfigEditor.tsx` | Nowy — wyodrębniony z PartnerTemplateEditor |
+| `src/components/admin/template-sections/index.ts` | Eksport SectionConfigEditor |
+| `src/components/admin/PartnerTemplateEditor.tsx` | Import SectionConfigEditor z nowego pliku |
+| `src/pages/TemplatePreviewPage.tsx` | Dodać hover wrapper, Sheet z edytorem, logikę zapisu |
 
