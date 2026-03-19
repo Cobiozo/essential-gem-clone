@@ -321,7 +321,7 @@ const TemplateDetailEditor: React.FC<{
             <Plus className="w-4 h-4 mr-2" /> Dodaj element
           </Button>
         </>
-      )}
+      }
     </div>
   );
 };

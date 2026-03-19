@@ -383,6 +383,7 @@ const AppContent = () => {
               <Route path="/auto-webinar/watch/:slug" element={<AutoWebinarPublicPage />} />
               <Route path="/skills-assessment" element={<SkillsAssessment />} />
               <Route path="/moja-strona" element={<MyPartnerPage />} />
+              <Route path="/admin/template-preview/:templateId" element={<TemplatePreviewPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
