@@ -1215,12 +1215,6 @@ const MyAccount = () => {
               </TabsContent>
             )}
 
-            {visibleTabs.partnerPage && (
-              <TabsContent value="partner-page" className="mt-6">
-                <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
-                  {React.createElement(React.lazy(() => import('@/components/partner-page/PartnerPageEditor')))}
-                </React.Suspense>
-              </TabsContent>
             )}
           </Tabs>
         </div>
