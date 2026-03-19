@@ -5424,19 +5424,31 @@ export type Database = {
       partner_page_template: {
         Row: {
           created_at: string
+          description: string | null
           id: string
+          is_active: boolean | null
+          name: string
+          position: number | null
           template_data: Json
           updated_at: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
           id?: string
+          is_active?: boolean | null
+          name?: string
+          position?: number | null
           template_data?: Json
           updated_at?: string
         }
         Update: {
           created_at?: string
+          description?: string | null
           id?: string
+          is_active?: boolean | null
+          name?: string
+          position?: number | null
           template_data?: Json
           updated_at?: string
         }
