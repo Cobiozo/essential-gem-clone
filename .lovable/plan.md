@@ -1,31 +1,24 @@
 
 
-# Plan: Dodanie uploadu wideo w edytorze Hero
+# Plan: Powiększenie podglądu obrazu w edytorze
 
 ## Problem
-Pole "URL wideo hero MP4" to zwykły `<Input>` tekstowy — użytkownik może tylko wkleić URL, nie ma przycisku uploadu.
+Podgląd obrazu w `ImageUploadInput` ma sztywną klasę `h-24` (96px), co przycina zdjęcie — widać tylko wąski pasek zamiast pełnego obrazu.
 
 ## Rozwiązanie
-Zamienić `<Input>` na komponent `MediaUpload` (już istnieje w projekcie, obsługuje wideo) z `allowedTypes={['video']}`.
+Zmienić klasę podglądu z `h-24 object-cover` na `max-h-64 object-contain`, dzięki czemu obraz będzie widoczny w całości (do maks. 256px wysokości), bez przycinania.
 
-### Zmiana w `HeroSectionEditor.tsx` (linie 87-91):
-```tsx
+### Zmiana w `src/components/partner-page/ImageUploadInput.tsx` (linia 119):
+```
 // Przed:
-<Input value={config.hero_video_url || ''} onChange={e => update('hero_video_url', e.target.value)} placeholder="https://...video.mp4" />
+<img src={value} alt="Podgląd" className="w-full h-24 object-cover rounded-md border" />
 
 // Po:
-<MediaUpload
-  onMediaUploaded={(url) => update('hero_video_url', url)}
-  currentMediaUrl={config.hero_video_url || ''}
-  currentMediaType="video"
-  allowedTypes={['video']}
-/>
+<img src={value} alt="Podgląd" className="w-full max-h-64 object-contain rounded-md border bg-muted" />
 ```
-
-Dodać import `MediaUpload` na górze pliku.
 
 ### Pliki do zmian:
 | Plik | Zmiana |
 |------|--------|
-| `HeroSectionEditor.tsx` | Zamiana Input na MediaUpload dla pola hero_video_url |
+| `ImageUploadInput.tsx` | `h-24 object-cover` → `max-h-64 object-contain bg-muted` |
 
