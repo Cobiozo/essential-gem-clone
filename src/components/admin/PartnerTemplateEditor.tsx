@@ -27,6 +27,37 @@ import {
   SectionConfigEditor,
 } from './template-sections';
 
+const TYPE_LABELS: Record<string, string> = {
+  static: 'Statyczny (HTML)',
+  editable_text: 'Tekst (edytowalny)',
+  editable_image: 'Obrazek (edytowalny)',
+  product_slot: 'Produkty (slot)',
+  hero: 'Hero (banner)',
+  text_image: 'Tekst + Obraz',
+  steps: 'Kroki (steps)',
+  timeline: 'Oś czasu',
+  testimonials: 'Opinie / Social proof',
+  products_grid: 'Siatka produktów',
+  faq: 'FAQ (akordeon)',
+  cta_banner: 'Baner CTA',
+  header: 'Nagłówek strony',
+  contact_form: 'Formularz kontaktowy',
+  footer: 'Stopka',
+  products_with_form: 'Produkty + Formularz',
+};
+
+const defaultElement = (position: number): TemplateElement => ({
+  id: `element_${Date.now()}`,
+  type: 'static',
+  label: '',
+  content: '',
+  placeholder: '',
+  max_length: 500,
+  position,
+  style: {},
+  config: {},
+});
+
 const RICH_TYPES: TemplateElementType[] = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer', 'products_with_form'];
 
 // ─── Template List View ───
