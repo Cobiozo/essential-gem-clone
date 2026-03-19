@@ -1,5 +1,5 @@
 import React from 'react';
-import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin } from 'lucide-react';
+import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin, MessageCircle } from 'lucide-react';
 
 interface Props {
   config: Record<string, any>;
@@ -10,6 +10,16 @@ const SOCIAL_ICONS: Record<string, React.FC<{ className?: string }>> = {
   instagram: Instagram,
   youtube: Youtube,
   linkedin: Linkedin,
+  messenger: MessageCircle,
+};
+
+const SOCIAL_COLORS: Record<string, string> = {
+  facebook: '#1877F2',
+  instagram: '#E4405F',
+  youtube: '#FF0000',
+  linkedin: '#0A66C2',
+  twitter: '#1DA1F2',
+  messenger: '#A259FF',
 };
 
 export const FooterSection: React.FC<Props> = ({ config }) => {
@@ -74,15 +84,17 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
               <div className="flex gap-3">
                 {socialLinks.map((s, i) => {
                   const Icon = SOCIAL_ICONS[s.platform];
+                  const color = SOCIAL_COLORS[s.platform] || '#ffffff';
                   return (
                     <a
                       key={i}
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                      className="w-10 h-10 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                      style={{ backgroundColor: color }}
                     >
-                      {Icon ? <Icon className="w-5 h-5" /> : <span className="text-xs">{s.platform}</span>}
+                      {Icon ? <Icon className="w-5 h-5 text-white" /> : <span className="text-xs text-white font-bold">{s.platform.charAt(0).toUpperCase()}</span>}
                     </a>
                   );
                 })}
