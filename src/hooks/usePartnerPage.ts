@@ -3,13 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { RESERVED_ALIASES } from '@/types/partnerPage';
-import type { PartnerPage, PartnerProductLink, ProductCatalogItem, TemplateElement } from '@/types/partnerPage';
+import type { PartnerPage, PartnerPageTemplate, PartnerProductLink, ProductCatalogItem, TemplateElement } from '@/types/partnerPage';
 
 export const usePartnerPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [partnerPage, setPartnerPage] = useState<PartnerPage | null>(null);
   const [template, setTemplate] = useState<TemplateElement[]>([]);
+  const [availableTemplates, setAvailableTemplates] = useState<PartnerPageTemplate[]>([]);
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
   const [productLinks, setProductLinks] = useState<PartnerProductLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,17 +27,29 @@ export const usePartnerPage = () => {
       ]);
 
       setProducts(productsRes.data || []);
-      setAvailableTemplates((allTemplatesRes.data as any) || []);
+      const allTemplates = (allTemplatesRes.data as any) || [];
+      setAvailableTemplates(allTemplates);
 
       if (pageRes.data) {
-        setPartnerPage(pageRes.data as any);
+        const page = pageRes.data as any;
+        setPartnerPage(page);
+
+        // Load selected template or first available
+        const selectedId = page.selected_template_id;
+        const selectedTemplate = selectedId
+          ? allTemplates.find((t: PartnerPageTemplate) => t.id === selectedId)
+          : null;
+        setTemplate(selectedTemplate?.template_data || []);
+
         // Fetch product links
         const { data: links } = await supabase
           .from('partner_product_links')
           .select('*')
-          .eq('partner_page_id', pageRes.data.id)
+          .eq('partner_page_id', page.id)
           .order('position');
         setProductLinks((links as any) || []);
+      } else {
+        setTemplate([]);
       }
     } catch (error) {
       console.error('Error fetching partner page data:', error);
@@ -58,7 +71,7 @@ export const usePartnerPage = () => {
     return null;
   };
 
-  const savePartnerPage = async (data: { alias?: string; is_active?: boolean; custom_data?: Record<string, any> }) => {
+  const savePartnerPage = async (data: { alias?: string; is_active?: boolean; custom_data?: Record<string, any>; selected_template_id?: string }) => {
     if (!user) return false;
     setSaving(true);
     try {
@@ -69,7 +82,6 @@ export const usePartnerPage = () => {
           setSaving(false);
           return false;
         }
-        // Check uniqueness
         const { data: existing } = await supabase
           .from('partner_pages')
           .select('id')
@@ -106,6 +118,10 @@ export const usePartnerPage = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const selectTemplate = async (templateId: string) => {
+    return savePartnerPage({ selected_template_id: templateId });
   };
 
   const saveProductLink = async (productId: string, purchaseUrl: string) => {
@@ -147,11 +163,13 @@ export const usePartnerPage = () => {
   return {
     partnerPage,
     template,
+    availableTemplates,
     products,
     productLinks,
     loading,
     saving,
     savePartnerPage,
+    selectTemplate,
     saveProductLink,
     removeProductLink,
     validateAlias,

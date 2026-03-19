@@ -6,22 +6,74 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2 } from 'lucide-react';
+import { Globe, Save, Copy, ExternalLink, Check, Package, Upload, Loader2, Layout } from 'lucide-react';
 import { usePartnerPage } from '@/hooks/usePartnerPage';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import type { TemplateElement } from '@/types/partnerPage';
+import type { TemplateElement, PartnerPageTemplate } from '@/types/partnerPage';
 
+// ─── Template Selection Gallery ───
+const TemplateSelectionGallery: React.FC<{
+  templates: PartnerPageTemplate[];
+  onSelect: (id: string) => void;
+  selecting: boolean;
+}> = ({ templates, onSelect, selecting }) => (
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <Layout className="w-5 h-5" />
+        Wybierz szablon strony
+      </CardTitle>
+      <CardDescription>
+        Wybierz jeden z dostępnych szablonów, aby rozpocząć tworzenie swojej strony.
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      {templates.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">
+          Brak dostępnych szablonów. Skontaktuj się z administratorem.
+        </p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {templates.map((t) => (
+            <div key={t.id} className="border rounded-xl p-5 space-y-3 hover:border-primary/50 transition-colors">
+              <div>
+                <h3 className="font-semibold text-lg">{t.name}</h3>
+                {t.description && (
+                  <p className="text-sm text-muted-foreground mt-1">{t.description}</p>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {(t.template_data || []).length} elementów
+              </p>
+              <Button
+                onClick={() => onSelect(t.id)}
+                disabled={selecting}
+                className="w-full"
+              >
+                Wybierz ten szablon
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </CardContent>
+  </Card>
+);
+
+// ─── Main Editor ───
 export const PartnerPageEditor: React.FC = () => {
   const {
     partnerPage,
     template,
+    availableTemplates,
     products,
     productLinks,
     loading,
     saving,
     savePartnerPage,
+    selectTemplate,
     saveProductLink,
     removeProductLink,
   } = usePartnerPage();
@@ -35,38 +87,28 @@ export const PartnerPageEditor: React.FC = () => {
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [eqId, setEqId] = useState<string | null>(null);
   const [alias, setAlias] = useState<string>('');
+  const [selectingTemplate, setSelectingTemplate] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Fetch eq_id from profile
   useEffect(() => {
     const fetchEqId = async () => {
       if (!user) return;
-      const { data } = await supabase
-        .from('profiles')
-        .select('eq_id')
-        .eq('user_id', user.id)
-        .single();
-      if (data?.eq_id) {
-        setEqId(data.eq_id);
-      }
+      const { data } = await supabase.from('profiles').select('eq_id').eq('user_id', user.id).single();
+      if (data?.eq_id) setEqId(data.eq_id);
     };
     fetchEqId();
   }, [user]);
 
-  // Initialize state from fetched data
   useEffect(() => {
     if (partnerPage) {
       setIsActive(partnerPage.is_active);
       setCustomData(partnerPage.custom_data || {});
-      // Use existing alias or fall back to eqId
       setAlias(partnerPage.alias || eqId || '');
     } else if (eqId && !loading) {
-      // No partner page yet - pre-fill alias with eqId
       setAlias(eqId);
     }
   }, [partnerPage, eqId, loading]);
 
-  // Auto-save alias = eqId if partnerPage exists but has no alias
   useEffect(() => {
     if (partnerPage && !partnerPage.alias && eqId) {
       savePartnerPage({ alias: eqId, is_active: partnerPage.is_active, custom_data: partnerPage.custom_data || {} });
@@ -75,11 +117,15 @@ export const PartnerPageEditor: React.FC = () => {
 
   useEffect(() => {
     const links: Record<string, string> = {};
-    productLinks.forEach(l => {
-      if (l.is_active) links[l.product_id] = l.purchase_url;
-    });
+    productLinks.forEach(l => { if (l.is_active) links[l.product_id] = l.purchase_url; });
     setSelectedProducts(links);
   }, [productLinks]);
+
+  const handleSelectTemplate = async (templateId: string) => {
+    setSelectingTemplate(true);
+    await selectTemplate(templateId);
+    setSelectingTemplate(false);
+  };
 
   const editableElements = template.filter(
     (el: TemplateElement) => el.type !== 'static' && el.type !== 'product_slot'
@@ -158,6 +204,20 @@ export const PartnerPageEditor: React.FC = () => {
     );
   }
 
+  // Show template selection if no template chosen yet
+  const needsTemplateSelection = !partnerPage?.selected_template_id && availableTemplates.length > 0;
+  if (needsTemplateSelection) {
+    return (
+      <div className="space-y-6">
+        <TemplateSelectionGallery
+          templates={availableTemplates}
+          onSelect={handleSelectTemplate}
+          selecting={selectingTemplate}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -172,15 +232,12 @@ export const PartnerPageEditor: React.FC = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Alias - read only, derived from EQ ID */}
           <div className="space-y-2">
             <Label>Adres strony</Label>
             <div className="flex items-center gap-2 p-3 bg-muted rounded-md border">
               <span className="text-sm text-muted-foreground">{window.location.origin}/</span>
               <span className="text-sm font-medium">{currentAlias || '—'}</span>
-              {currentAlias && (
-                <Badge variant="secondary" className="ml-auto text-xs">EQ ID</Badge>
-              )}
+              {currentAlias && <Badge variant="secondary" className="ml-auto text-xs">EQ ID</Badge>}
             </div>
             <p className="text-xs text-muted-foreground">
               Adres Twojej strony jest automatycznie ustawiony na podstawie Twojego numeru EQ ID i nie może być zmieniony.
@@ -202,8 +259,6 @@ export const PartnerPageEditor: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Active toggle */}
           <div className="flex items-center justify-between">
             <div>
               <Label>Strona aktywna</Label>
@@ -307,35 +362,23 @@ export const PartnerPageEditor: React.FC = () => {
                 <div key={product.id} className="border rounded-lg p-4 space-y-3">
                   <div className="flex items-start gap-4">
                     {product.image_url && (
-                      <img
-                        src={product.image_url}
-                        alt={product.name}
-                        className="w-16 h-16 rounded-md object-cover flex-shrink-0"
-                      />
+                      <img src={product.image_url} alt={product.name} className="w-16 h-16 rounded-md object-cover flex-shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <h4 className="font-medium">{product.name}</h4>
                         {isSelected && <Badge variant="secondary">Wybrany</Badge>}
                       </div>
-                      {product.description && (
-                        <p className="text-sm text-muted-foreground mt-1">{product.description}</p>
-                      )}
+                      {product.description && <p className="text-sm text-muted-foreground mt-1">{product.description}</p>}
                     </div>
-                    <Switch
-                      checked={isSelected}
-                      onCheckedChange={() => toggleProduct(product.id)}
-                    />
+                    <Switch checked={isSelected} onCheckedChange={() => toggleProduct(product.id)} />
                   </div>
                   {isSelected && (
                     <div className="space-y-1">
                       <Label className="text-sm">Twój link zakupowy</Label>
                       <Input
                         value={selectedProducts[product.id] || ''}
-                        onChange={(e) => setSelectedProducts(prev => ({
-                          ...prev,
-                          [product.id]: e.target.value,
-                        }))}
+                        onChange={(e) => setSelectedProducts(prev => ({ ...prev, [product.id]: e.target.value }))}
                         placeholder="https://twoj-sklep.pl/produkt..."
                         type="url"
                       />
