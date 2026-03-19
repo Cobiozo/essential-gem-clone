@@ -42,6 +42,7 @@ import {
   Search,
   Target,
   Facebook,
+  Globe,
   ExternalLink,
   Video,
   UserRound,
