@@ -366,80 +366,13 @@ export const PartnerPageEditor: React.FC = () => {
         />
       )}
 
-      {/* Editable fields from template */}
-      {editableElements.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Treść strony</CardTitle>
-            <CardDescription>Wypełnij pola wyznaczone przez administratora</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {editableElements.map((element: TemplateElement) => (
-              <div key={element.id} className="space-y-2">
-                <Label>{element.label || element.id}</Label>
-                {element.type === 'editable_text' && (
-                  <Textarea
-                    value={customData[element.id] || ''}
-                    onChange={(e) => setCustomData(prev => ({ ...prev, [element.id]: e.target.value }))}
-                    placeholder={element.placeholder || 'Wpisz tekst...'}
-                    maxLength={element.max_length}
-                    rows={3}
-                  />
-                )}
-                {element.type === 'editable_image' && (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={customData[element.id] || ''}
-                        onChange={(e) => setCustomData(prev => ({ ...prev, [element.id]: e.target.value }))}
-                        placeholder="Wklej URL obrazka..."
-                        type="url"
-                        className="flex-1"
-                      />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        ref={(el) => { fileInputRefs.current[element.id] = el; }}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleImageUpload(element.id, file);
-                          e.target.value = '';
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="default"
-                        disabled={uploadingField === element.id}
-                        onClick={() => fileInputRefs.current[element.id]?.click()}
-                      >
-                        {uploadingField === element.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                        ) : (
-                          <Upload className="w-4 h-4 mr-1" />
-                        )}
-                        Prześlij
-                      </Button>
-                    </div>
-                    {customData[element.id] && (
-                      <img
-                        src={customData[element.id]}
-                        alt={element.label || ''}
-                        className="max-w-[200px] max-h-[150px] rounded-md border object-cover"
-                      />
-                    )}
-                  </div>
-                )}
-                {element.max_length && element.type === 'editable_text' && (
-                  <p className="text-xs text-muted-foreground text-right">
-                    {(customData[element.id] || '').length}/{element.max_length}
-                  </p>
-                )}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+      {/* Inline editor for editable fields */}
+      {template.length > 0 && (
+        <PartnerPageInlineEditor
+          template={template}
+          customData={customData}
+          onCustomDataChange={setCustomData}
+        />
       )}
 
       {/* Products */}
