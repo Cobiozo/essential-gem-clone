@@ -613,12 +613,6 @@ const MyAccount = () => {
                   PureLinki
                 </TabsTrigger>
               )}
-              {visibleTabs.partnerPage && (
-                <TabsTrigger value="partner-page" disabled={mustCompleteProfile}>
-                  <Globe className="w-4 h-4 mr-2" />
-                  Moja strona
-                </TabsTrigger>
-              )}
             </TabsList>
 
             <TabsContent value="profile" className="mt-6">
