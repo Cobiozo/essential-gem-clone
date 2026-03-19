@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ColorInput } from '@/components/ui/color-input';
 import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
@@ -46,10 +47,7 @@ export const CtaBannerEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={config.cta_url || ''} onChange={e => update('cta_url', e.target.value)} />
         </div>
       </div>
-      <div>
-        <Label>Kolor tła</Label>
-        <Input value={config.bg_color || '#0f172a'} onChange={e => update('bg_color', e.target.value)} />
-      </div>
+      <ColorInput label="Kolor tła" value={config.bg_color || '#0f172a'} onChange={v => update('bg_color', v)} />
     </div>
   );
 };

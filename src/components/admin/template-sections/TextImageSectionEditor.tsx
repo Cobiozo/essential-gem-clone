@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ColorInput } from '@/components/ui/color-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
@@ -84,14 +85,8 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
         </select>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor ikon checkmark (hex)</Label>
-          <Input value={config.item_icon_color || '#2d6a4f'} onChange={e => update('item_icon_color', e.target.value)} />
-        </div>
-        <div>
-          <Label>Kolor CTA (hex)</Label>
-          <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
-        </div>
+        <ColorInput label="Kolor ikon checkmark" value={config.item_icon_color || '#2d6a4f'} onChange={v => update('item_icon_color', v)} />
+        <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -126,14 +121,8 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor tła</Label>
-          <Input value={config.bg_color || ''} onChange={e => update('bg_color', e.target.value)} />
-        </div>
-        <div>
-          <Label>Kolor tekstu (opcja)</Label>
-          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} />
-        </div>
+        <ColorInput label="Kolor tła" value={config.bg_color || ''} onChange={v => update('bg_color', v)} />
+        <ColorInput label="Kolor tekstu (opcja)" value={config.text_color || ''} onChange={v => update('text_color', v)} />
       </div>
       <div>
         <Label>Przezroczystość tła (0-1)</Label>

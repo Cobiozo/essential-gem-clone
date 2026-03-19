@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { ColorInput } from '@/components/ui/color-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
@@ -94,19 +95,10 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
         <Label>Tekst prywatności (opcja)</Label>
         <Input value={config.privacy_text || ''} onChange={e => update('privacy_text', e.target.value)} />
       </div>
-      <div>
-        <Label>Kolor CTA (hex)</Label>
-        <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
-      </div>
+      <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Kolor tła</Label>
-          <Input value={config.bg_color || '#f8fafc'} onChange={e => update('bg_color', e.target.value)} />
-        </div>
-        <div>
-          <Label>Kolor tekstu</Label>
-          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} />
-        </div>
+        <ColorInput label="Kolor tła" value={config.bg_color || '#f8fafc'} onChange={v => update('bg_color', v)} />
+        <ColorInput label="Kolor tekstu" value={config.text_color || ''} onChange={v => update('text_color', v)} />
       </div>
     </div>
   );

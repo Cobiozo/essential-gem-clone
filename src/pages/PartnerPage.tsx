@@ -120,6 +120,28 @@ const PartnerPageView: React.FC = () => {
     }
   }, [page, editableCustomData]);
 
+  const handleProductLinkSave = useCallback(async (productId: string, purchaseUrl: string) => {
+    if (!page) return;
+    const existing = productLinks.find(l => l.product_id === productId);
+    if (existing) {
+      const { error } = await supabase
+        .from('partner_product_links')
+        .update({ purchase_url: purchaseUrl } as any)
+        .eq('id', existing.id);
+      if (error) { toast.error('Błąd zapisu linku'); return; }
+      setProductLinks(prev => prev.map(l => l.id === existing.id ? { ...l, purchase_url: purchaseUrl } : l));
+    } else {
+      const { data, error } = await supabase
+        .from('partner_product_links')
+        .insert({ partner_page_id: page.id, product_id: productId, purchase_url: purchaseUrl, position: productLinks.length } as any)
+        .select()
+        .single();
+      if (error) { toast.error('Błąd zapisu linku'); return; }
+      setProductLinks(prev => [...prev, data as any]);
+    }
+    toast.success('Link zapisany!');
+  }, [page, productLinks]);
+
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
 
@@ -164,7 +186,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <TestimonialsSection config={cfg} />;
         break;
       case 'products_grid':
-        sectionNode = <ProductsGridSection config={cfg} products={products} productLinks={linkedProducts} />;
+        sectionNode = <ProductsGridSection config={cfg} products={products} productLinks={linkedProducts} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
         break;
       case 'faq':
         sectionNode = <FaqSection config={cfg} />;
@@ -179,7 +201,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <FooterSection config={cfg} />;
         break;
       case 'products_with_form':
-        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} />;
+        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
         break;
       case 'static':
         sectionNode = element.content ? (
