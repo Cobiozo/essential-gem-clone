@@ -170,7 +170,7 @@ const TemplateDetailEditor: React.FC<{
     (template.template_data || []).sort((a, b) => a.position - b.position)
   );
   const [saving, setSaving] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
+  
 
   const handleSave = async () => {
     setSaving(true);
@@ -212,8 +212,8 @@ const TemplateDetailEditor: React.FC<{
               <CardTitle className="text-lg">Edycja: {name}</CardTitle>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
-                <Eye className="w-4 h-4 mr-1" /> {previewMode ? 'Edycja' : 'Podgląd'}
+              <Button variant="outline" onClick={() => window.open(`/admin/template-preview/${template.id}`, '_blank')}>
+                <Eye className="w-4 h-4 mr-1" /> Podgląd
               </Button>
               <Button onClick={handleSave} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> {saving ? 'Zapisywanie...' : 'Zapisz'}
@@ -235,34 +235,7 @@ const TemplateDetailEditor: React.FC<{
         </CardContent>
       </Card>
 
-      {previewMode ? (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Podgląd szablonu</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-4 border rounded-lg p-6 bg-muted/30">
-              {elements.map((el) => (
-                <div key={el.id} className="border rounded p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline">{TYPE_LABELS[el.type] || el.type}</Badge>
-                    {el.label && <span className="text-sm font-medium">{el.label}</span>}
-                  </div>
-                  {el.type === 'static' && (
-                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: el.content || '<em>Brak treści</em>' }} />
-                  )}
-                  {RICH_TYPES.includes(el.type) && (
-                    <div className="bg-primary/5 border-dashed border-2 border-primary/30 rounded p-3 text-sm text-muted-foreground">
-                      🧩 Sekcja: {TYPE_LABELS[el.type]}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {elements.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">Szablon jest pusty.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
+      {
         <>
           {elements.map((element, index) => (
             <Card key={element.id}>
@@ -348,7 +321,7 @@ const TemplateDetailEditor: React.FC<{
             <Plus className="w-4 h-4 mr-2" /> Dodaj element
           </Button>
         </>
-      )}
+      }
     </div>
   );
 };

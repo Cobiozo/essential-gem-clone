@@ -136,6 +136,7 @@ const AutoWebinarPage = lazyWithRetry(() => import("./pages/AutoWebinarPage"));
 const AutoWebinarPublicPage = lazyWithRetry(() => import("./pages/AutoWebinarPublicPage"));
 const SkillsAssessment = lazyWithRetry(() => import("./pages/SkillsAssessment"));
 const MyPartnerPage = lazyWithRetry(() => import("./pages/MyPartnerPage"));
+const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -382,6 +383,7 @@ const AppContent = () => {
               <Route path="/auto-webinar/watch/:slug" element={<AutoWebinarPublicPage />} />
               <Route path="/skills-assessment" element={<SkillsAssessment />} />
               <Route path="/moja-strona" element={<MyPartnerPage />} />
+              <Route path="/admin/template-preview/:templateId" element={<TemplatePreviewPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               <Route path="/:alias" element={<PartnerPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
