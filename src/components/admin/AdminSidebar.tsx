@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Sidebar,
@@ -60,7 +60,9 @@ import {
   Crown,
   UsersRound,
   Shield,
+  Search,
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 
 // Translation keys for sidebar navigation
@@ -223,6 +225,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const { state, setOpenMobile, isMobile } = useSidebar();
   const isCollapsed = state === 'collapsed';
 
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Track which categories are open
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -268,6 +272,22 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     return translationKey ? t(translationKey) : key;
   };
 
+  // Filtered categories based on search
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return navCategories;
+    const q = searchQuery.toLowerCase();
+    return navCategories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) =>
+          getLabel(item.labelKey).toLowerCase().includes(q)
+        ),
+      }))
+      .filter((cat) => cat.items.length > 0);
+  }, [searchQuery, t]);
+
+  const isSearching = searchQuery.trim().length > 0;
+
   const toggleCategory = (categoryId: string) => {
     setOpenCategories((prev) => ({
       ...prev,
@@ -307,6 +327,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </div>
           )}
         </div>
+        {!isCollapsed && (
+          <div className="px-2 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
@@ -330,10 +363,10 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         <Separator />
 
         {/* Navigation categories */}
-        {navCategories.map((category) => (
+        {filteredCategories.map((category) => (
           <Collapsible
             key={category.id}
-            open={openCategories[category.id]}
+            open={isSearching ? true : openCategories[category.id]}
             onOpenChange={() => toggleCategory(category.id)}
           >
             <SidebarGroup>

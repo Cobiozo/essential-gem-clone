@@ -3017,7 +3017,7 @@ const Admin = () => {
       
       {/* Main Admin Panel */}
       {!editingPageInLayoutEditor && (
-    <SidebarProvider defaultOpen={true}>
+    <SidebarProvider defaultOpen={false}>
       <div className="min-h-screen flex w-full bg-background">
         <AdminSidebar
           activeTab={activeTab}
