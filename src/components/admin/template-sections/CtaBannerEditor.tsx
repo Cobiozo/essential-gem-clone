@@ -2,6 +2,7 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ColorInput } from '@/components/ui/color-input';
 import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
