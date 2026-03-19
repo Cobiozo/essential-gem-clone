@@ -116,7 +116,7 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
     <div className="space-y-2">
       {value && !compact && (
         <div className="relative w-full">
-          <img src={value} alt="Podgląd" className="w-full h-24 object-cover rounded-md border" />
+          <img src={value} alt="Podgląd" className="w-full max-h-64 object-contain rounded-md border bg-muted" />
           <button onClick={() => onChange('')} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1">
             <X className="h-3 w-3" />
           </button>
