@@ -11,3 +11,4 @@ export { ContactFormEditor } from './ContactFormEditor';
 export { FooterSectionEditor } from './FooterSectionEditor';
 export { ProductsWithFormEditor } from './ProductsWithFormEditor';
 export { EditableFieldToggle } from './EditableFieldToggle';
+export { SectionConfigEditor } from './SectionConfigEditor';
