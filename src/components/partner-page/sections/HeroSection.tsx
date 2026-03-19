@@ -14,6 +14,9 @@ interface Props {
 }
 
 export const HeroSection: React.FC<Props> = ({ config }) => {
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const {
     layout, video_url, bg_image_url, hero_image_url, hero_video_url, headline, subheadline,
     description, badge_text, cta_primary, cta_secondary, bg_color, stats,
@@ -24,6 +27,11 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
   const ctaIconEl = cta_icon === 'arrow' ? <ArrowRight className="w-5 h-5" /> : cta_icon ? <span>{cta_icon}</span> : <ArrowRight className="w-5 h-5" />;
   const tc = text_color || undefined;
   const ts = tc ? { color: tc } : undefined;
+
+  const handlePlay = () => {
+    videoRef.current?.play();
+    setVideoPlaying(true);
+  };
 
   if (layout === 'split') {
     return (
