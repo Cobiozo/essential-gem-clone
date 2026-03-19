@@ -6,6 +6,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
 import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { getMergedConfig } from '@/lib/mergePartnerConfig';
 import {
   HeroSection,
   TextImageSection,
@@ -99,7 +100,9 @@ const PartnerPageView: React.FC = () => {
     return (
       <div className="min-h-screen bg-background">
         {template.map((element) => {
-          const cfg = element.config || {};
+          const baseCfg = element.config || {};
+          const partnerOverrides = customData[element.id] || {};
+          const cfg = getMergedConfig(baseCfg, partnerOverrides);
           switch (element.type) {
             case 'header':
               return <HeaderSection key={element.id} config={cfg} partnerName={partnerName} />;

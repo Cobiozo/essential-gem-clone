@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -13,6 +14,8 @@ interface Props {
 export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
   const items: any[] = config.items || [];
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
 
   const updateItem = (i: number, field: string, value: string) => {
     const n = [...items];
@@ -23,7 +26,10 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nagłówek</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nagłówek</Label>
+          <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
       </div>
       <Label>Elementy listy</Label>
@@ -59,21 +65,33 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Tekst wyróżnienia</Label>
+          <div className="flex items-center justify-between">
+            <Label>Tekst wyróżnienia</Label>
+            <EditableFieldToggle fieldName="highlight_text" editableFields={editableFields} onToggle={setEditable} />
+          </div>
           <Input value={config.highlight_text || ''} onChange={e => update('highlight_text', e.target.value)} placeholder="np. 9 na 10 osób" />
         </div>
         <div>
-          <Label>Opis wyróżnienia</Label>
+          <div className="flex items-center justify-between">
+            <Label>Opis wyróżnienia</Label>
+            <EditableFieldToggle fieldName="highlight_description" editableFields={editableFields} onToggle={setEditable} />
+          </div>
           <Input value={config.highlight_description || ''} onChange={e => update('highlight_description', e.target.value)} />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Tekst CTA</Label>
+          <div className="flex items-center justify-between">
+            <Label>Tekst CTA</Label>
+            <EditableFieldToggle fieldName="cta_text" editableFields={editableFields} onToggle={setEditable} />
+          </div>
           <Input value={config.cta_text || ''} onChange={e => update('cta_text', e.target.value)} />
         </div>
         <div>
-          <Label>URL CTA</Label>
+          <div className="flex items-center justify-between">
+            <Label>URL CTA</Label>
+            <EditableFieldToggle fieldName="cta_url" editableFields={editableFields} onToggle={setEditable} />
+          </div>
           <Input value={config.cta_url || ''} onChange={e => update('cta_url', e.target.value)} />
         </div>
       </div>

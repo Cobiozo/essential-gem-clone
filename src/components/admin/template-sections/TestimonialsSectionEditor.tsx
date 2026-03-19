@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -13,6 +14,8 @@ interface Props {
 export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
   const cards: any[] = config.cards || [];
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
 
   const updateCard = (i: number, field: string, value: string) => {
     const n = [...cards];
@@ -23,7 +26,10 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nagłówek</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nagłówek</Label>
+          <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
       </div>
       <Label>Karty opinii</Label>
