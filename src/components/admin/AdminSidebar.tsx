@@ -281,10 +281,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const isSearching = searchQuery.trim().length > 0;
 
   const toggleCategory = (categoryId: string) => {
-    setOpenCategories((prev) => {
-      const isCurrentlyOpen = prev[categoryId];
-      return isCurrentlyOpen ? {} : { [categoryId]: true };
-    });
+    setOpenCategoryId((prev) => prev === categoryId ? null : categoryId);
   };
 
   // Handle tab change - close sidebar on mobile
