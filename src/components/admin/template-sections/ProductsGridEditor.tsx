@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ColorInput } from '@/components/ui/color-input';
+import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 
 interface Props {
   config: Record<string, any>;
