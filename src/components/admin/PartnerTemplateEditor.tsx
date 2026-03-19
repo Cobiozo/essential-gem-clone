@@ -23,6 +23,7 @@ import {
   HeaderSectionEditor,
   ContactFormEditor,
   FooterSectionEditor,
+  ProductsWithFormEditor,
 } from './template-sections';
 
 const TYPE_LABELS: Record<string, string> = {
