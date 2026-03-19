@@ -311,7 +311,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           />
           {!isCollapsed && (
             <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-sm truncate">{getLabel('adminPanel')}</span>
+              <span className="font-semibold text-sm truncate text-sidebar-foreground">{getLabel('adminPanel')}</span>
               <span className="text-xs text-muted-foreground">{getLabel('administrator')}</span>
             </div>
           )}
