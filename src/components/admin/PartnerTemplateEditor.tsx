@@ -21,6 +21,8 @@ import {
   TextImageSectionEditor,
   ProductsGridEditor,
   HeaderSectionEditor,
+  ContactFormEditor,
+  FooterSectionEditor,
 } from './template-sections';
 
 const TYPE_LABELS: Record<string, string> = {
