@@ -135,6 +135,7 @@ const LeaderLandingPage = lazyWithRetry(() => import("./pages/LeaderLandingPage"
 const AutoWebinarPage = lazyWithRetry(() => import("./pages/AutoWebinarPage"));
 const AutoWebinarPublicPage = lazyWithRetry(() => import("./pages/AutoWebinarPublicPage"));
 const SkillsAssessment = lazyWithRetry(() => import("./pages/SkillsAssessment"));
+const MyPartnerPage = lazyWithRetry(() => import("./pages/MyPartnerPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
