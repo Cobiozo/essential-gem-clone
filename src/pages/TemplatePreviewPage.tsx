@@ -47,6 +47,7 @@ const TemplatePreviewPage: React.FC = () => {
   const [template, setTemplate] = useState<TemplateElement[]>([]);
   const [templateName, setTemplateName] = useState('');
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
+  const [allTemplates, setAllTemplates] = useState<{ id: string; name: string }[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
