@@ -94,7 +94,8 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
       });
       if (error) throw error;
       const { data: urlData } = supabase.storage.from('landing-images').getPublicUrl(path);
-      onChange(urlData.publicUrl);
+      const shapeTag = activePreset.id !== 'h16_9' ? `#shape=${activePreset.id}` : '';
+      onChange(urlData.publicUrl + shapeTag);
       toast({ title: 'Przesłano!' });
       closeCropDialog();
     } catch (err: any) {

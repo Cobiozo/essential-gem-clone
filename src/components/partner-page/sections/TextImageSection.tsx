@@ -97,7 +97,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
                 <video controls className="w-full" src={video_url} />
               </div>
             ) : image_url ? (
-              <img src={image_url} alt="" className="w-full h-full object-cover shadow-xl max-h-[500px]" />
+              <img src={stripShapeHash(image_url)} alt="" className={`w-full shadow-xl max-h-[500px] ${getImageShapeClasses(image_url)}`} />
             ) : null}
           </div>
         </div>
