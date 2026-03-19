@@ -103,7 +103,7 @@ const TemplatePreviewPage: React.FC = () => {
   const handleAddSection = useCallback((type: string, insertAt: number) => {
     const newEl: TemplateElement = {
       id: crypto.randomUUID(),
-      type,
+      type: type as TemplateElement['type'],
       position: insertAt,
       config: { ...(DEFAULT_SECTION_CONFIGS[type] || {}) },
     };
