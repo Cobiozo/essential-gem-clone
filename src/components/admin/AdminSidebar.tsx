@@ -302,7 +302,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <SidebarHeader className="border-b">
+      <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-2 py-2">
           <img 
             src={siteLogo || newPureLifeLogo} 
