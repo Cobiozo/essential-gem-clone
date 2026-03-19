@@ -1,46 +1,46 @@
 
 
-# Plan: Wyświetlanie obrazu w wybranym kształcie
+# Plan: Edycja linków produktów w trybie podglądu + paleta kolorów zamiast hex
 
-## Problem
-Po przycięciu zdjęcia w kształcie owalu, obraz jest uploadowany jako PNG z przezroczystością, ale na stronie wyświetla się w prostokątnym kontenerze. Przezroczystość PNG teoretycznie powinna zachować kształt, ale `drop-shadow-2xl` i brak jawnego tła mogą powodować wizualne problemy. Dodatkowo — jeśli tło sekcji nie jest jednolite, przezroczystość PNG nie wystarczy — potrzebny jest CSS clip.
+## Dwa zadania
 
-## Rozwiązanie
-Zapisywać informację o wybranym kształcie obok URL obrazu i stosować odpowiedni CSS `clip-path` / `border-radius` przy wyświetlaniu.
+### A. Klikanie w produkt w trybie edycji → dodanie linku partnerskiego
 
-## Zmiany
+W trybie edycji (`isOwner`) na stronie partnera (`PartnerPage.tsx`), kliknięcie na kartę produktu (w `ProductsGridSection` i `ProductsWithFormSection`) otwiera mały dialog/popover z polem na wpisanie linku zakupowego. Po zapisaniu — link jest utrwalany w `partner_product_links` via Supabase.
 
-### 1. `ImageUploadInput.tsx` — zwracać kształt razem z URL
-Zmienić `onChange` callback, aby oprócz URL przekazywał informację o kształcie. Dwie opcje:
-- **Prosta**: dołączyć kształt jako hash do URL, np. `url#shape=oval_h`
-- **Lepsza**: zmienić interfejs `onChange` na `(url: string, shape?: string)`
-
-Wybór: opcja z rozszerzonym `onChange(url, shape)` — czystsza.
-
-### 2. Edytor (`PartnerPageEditor.tsx` / `EditableWrapper.tsx`)
-Zapisywać `hero_image_shape` w konfiguracji bloku obok `hero_image_url`.
-
-### 3. `HeroSection.tsx` — wyświetlanie z kształtem
-Odczytać `hero_image_shape` z config i zastosować odpowiedni CSS:
-
-| Kształt | CSS na `<img>` |
-|---------|---------------|
-| `circle` | `border-radius: 50%` + `object-cover` + `aspect-square` |
-| `oval_h` | `border-radius: 50%` + `object-cover` + `aspect-video` |
-| `oval_v` | `border-radius: 50%` + `object-cover` + `aspect-[9/16]` |
-| `square` | `aspect-square` + `object-cover` |
-| domyślny | bez zmian (`object-contain`) |
-
-### 4. `TextImageSection.tsx` — analogicznie
-Jeśli ten komponent też korzysta z `ImageUploadInput`, dodać tę samą logikę kształtu.
-
-## Pliki do zmiany
+**Zmiany:**
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/partner-page/ImageUploadInput.tsx` | Rozszerzyć `onChange` o parametr `shape` |
-| `src/components/partner-page/PartnerPageEditor.tsx` | Zapisywać `hero_image_shape` w config bloku |
-| `src/components/partner-page/EditableWrapper.tsx` | Przekazywać `shape` z `ImageUploadInput` do konfiguracji |
-| `src/components/partner-page/sections/HeroSection.tsx` | Stosować CSS kształtu na hero image |
-| `src/components/partner-page/sections/TextImageSection.tsx` | Stosować CSS kształtu na image (jeśli dotyczy) |
+| `ProductsGridSection.tsx` | Dodać prop `isEditing` + `onProductLinkSave`. W trybie edycji: kliknięcie karty otwiera Popover z Input na URL + przycisk Zapisz (zamiast otwierania linku). |
+| `ProductsWithFormSection.tsx` | Analogicznie — ten sam mechanizm. |
+| `PartnerPage.tsx` | Przekazać `isEditing={isOwner}` i callback `onProductLinkSave` do sekcji produktowych. Callback zapisuje link do `partner_product_links` via Supabase. |
+
+**UX:**
+```text
+[Karta produktu] → klik w trybie edycji →
+  ┌──────────────────────────┐
+  │ Link zakupowy:           │
+  │ [https://...           ] │
+  │        [Anuluj] [Zapisz] │
+  └──────────────────────────┘
+```
+
+### B. Paleta kolorów zamiast wpisywania hex w edytorach CMS
+
+Zamienić wszystkie pola `<Input>` z "Kolor (hex)" na natywny HTML `<input type="color">` z wizualnym podglądem. Prosty, natywny color picker — użytkownik klika w kolorowy kwadrat, otwiera się systemowa paleta kolorów.
+
+**Zmiany:**
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/ui/color-input.tsx` | Nowy komponent: połączenie `<input type="color">` z podglądem koloru i opcjonalnym polem tekstowym hex. |
+| `HeroSectionEditor.tsx` | Zamienić Input na ColorInput dla `bg_color`, `text_color`, `cta_bg_color` |
+| `TextImageSectionEditor.tsx` | Zamienić dla `item_icon_color`, `cta_bg_color` |
+| `ProductsGridEditor.tsx` | Zamienić dla `cta_bg_color` |
+| `ProductsWithFormEditor.tsx` | Zamienić dla `cta_bg_color` |
+| `ContactFormEditor.tsx` | Zamienić dla `cta_bg_color` |
+| `CtaBannerEditor.tsx` | Zamienić dla `bg_color` |
+
+Komponent `ColorInput` — klikasz w kolorowy kwadracik → otwiera się natywna paleta systemowa. Obok widoczny hex jako tekst (edytowalny dla zaawansowanych).
 
