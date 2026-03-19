@@ -16,6 +16,8 @@ import {
   FaqSection,
   CtaBannerSection,
   HeaderSection,
+  ContactFormSection,
+  FooterSection,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
@@ -89,7 +91,7 @@ const PartnerPageView: React.FC = () => {
     .filter(lp => lp.product && lp.purchase_url);
 
   // Check if any element uses the new rich types
-  const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header'];
+  const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer'];
   const hasRichSections = template.some(el => RICH_TYPES.includes(el.type));
 
   // If template uses new rich section types, render dynamically
@@ -117,6 +119,10 @@ const PartnerPageView: React.FC = () => {
               return <FaqSection key={element.id} config={cfg} />;
             case 'cta_banner':
               return <CtaBannerSection key={element.id} config={cfg} />;
+            case 'contact_form':
+              return <ContactFormSection key={element.id} config={cfg} />;
+            case 'footer':
+              return <FooterSection key={element.id} config={cfg} />;
             case 'static':
               return element.content ? (
                 <section key={element.id} className="bg-background">

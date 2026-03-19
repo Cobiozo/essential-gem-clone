@@ -1,5 +1,10 @@
 import React from 'react';
-import { ExternalLink, FileText } from 'lucide-react';
+
+interface StatItem {
+  icon?: string;
+  value: string;
+  label: string;
+}
 
 interface Props {
   config: Record<string, any>;
@@ -7,10 +12,82 @@ interface Props {
 
 export const HeroSection: React.FC<Props> = ({ config }) => {
   const {
-    video_url, bg_image_url, headline, subheadline, description,
-    badge_text, cta_primary, cta_secondary, bg_color
+    layout, video_url, bg_image_url, hero_image_url, headline, subheadline,
+    description, badge_text, cta_primary, cta_secondary, bg_color, stats,
   } = config;
 
+  if (layout === 'split') {
+    return (
+      <section className="relative overflow-hidden bg-[#0a1628]" style={{ backgroundColor: bg_color || '#0a1628' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
+            {/* Left — text */}
+            <div className="text-white space-y-6">
+              {badge_text && (
+                <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-sm">
+                  🛡️ {badge_text}
+                </div>
+              )}
+              {headline && (
+                <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight leading-tight">
+                  {headline}
+                </h1>
+              )}
+              {subheadline && (
+                <p className="text-lg sm:text-xl font-medium opacity-90">{subheadline}</p>
+              )}
+              {description && (
+                <p className="text-sm sm:text-base opacity-80 leading-relaxed max-w-lg">{description}</p>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                {cta_primary?.text && (
+                  <a
+                    href={cta_primary.url || '#'}
+                    className="inline-flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-7 py-3.5 rounded-xl font-bold text-base transition-colors shadow-lg shadow-orange-500/30"
+                  >
+                    🛒 {cta_primary.text}
+                  </a>
+                )}
+                {cta_secondary?.text && (
+                  <a
+                    href={cta_secondary.url || '#'}
+                    className="inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:border-white/70 text-white px-7 py-3.5 rounded-xl font-semibold text-base transition-colors"
+                  >
+                    📝 {cta_secondary.text}
+                  </a>
+                )}
+              </div>
+            </div>
+            {/* Right — image */}
+            {hero_image_url && (
+              <div className="flex justify-center">
+                <img
+                  src={hero_image_url}
+                  alt={headline || 'Hero'}
+                  className="max-h-[500px] object-contain drop-shadow-2xl"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Stats bar */}
+          {stats && stats.length > 0 && (
+            <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/10 pt-8">
+              {stats.map((stat: StatItem, i: number) => (
+                <div key={i} className="text-center text-white">
+                  {stat.icon && <div className="text-2xl mb-1">{stat.icon}</div>}
+                  <div className="text-2xl sm:text-3xl font-black">{stat.value}</div>
+                  <div className="text-xs sm:text-sm opacity-70 mt-1">{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    );
+  }
+
+  // ─── Centered layout (original) ───
   return (
     <section
       className="relative overflow-hidden min-h-[70vh] flex items-center justify-center"
@@ -38,14 +115,10 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
           </h1>
         )}
         {subheadline && (
-          <p className="text-lg sm:text-xl md:text-2xl font-medium opacity-90 mb-4">
-            {subheadline}
-          </p>
+          <p className="text-lg sm:text-xl md:text-2xl font-medium opacity-90 mb-4">{subheadline}</p>
         )}
         {description && (
-          <p className="text-sm sm:text-base opacity-80 max-w-2xl mx-auto mb-6 leading-relaxed">
-            {description}
-          </p>
+          <p className="text-sm sm:text-base opacity-80 max-w-2xl mx-auto mb-6 leading-relaxed">{description}</p>
         )}
         {badge_text && (
           <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-5 py-2 text-sm mb-8">
@@ -70,6 +143,19 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
             </a>
           )}
         </div>
+
+        {/* Stats bar for centered layout */}
+        {stats && stats.length > 0 && (
+          <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 border-t border-white/10 pt-8">
+            {stats.map((stat: StatItem, i: number) => (
+              <div key={i} className="text-center text-white">
+                {stat.icon && <div className="text-2xl mb-1">{stat.icon}</div>}
+                <div className="text-2xl sm:text-3xl font-black">{stat.value}</div>
+                <div className="text-xs sm:text-sm opacity-70 mt-1">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
