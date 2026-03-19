@@ -227,7 +227,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Track which categories are open
-  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+  const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
 
   // Get translated label using t() function
   // Hardcoded labels for features without i18n translations
@@ -281,10 +281,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   const isSearching = searchQuery.trim().length > 0;
 
   const toggleCategory = (categoryId: string) => {
-    setOpenCategories((prev) => {
-      const isCurrentlyOpen = prev[categoryId];
-      return isCurrentlyOpen ? {} : { [categoryId]: true };
-    });
+    setOpenCategoryId((prev) => prev === categoryId ? null : categoryId);
   };
 
   // Handle tab change - close sidebar on mobile
@@ -358,7 +355,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
         {filteredCategories.map((category) => (
           <Collapsible
             key={category.id}
-            open={isSearching ? true : openCategories[category.id]}
+            open={isSearching ? true : openCategoryId === category.id}
             onOpenChange={() => toggleCategory(category.id)}
           >
             <SidebarGroup>
@@ -372,7 +369,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     <ChevronDown
                       className={cn(
                         "w-4 h-4 transition-transform",
-                        openCategories[category.id] && "rotate-180"
+                        openCategoryId === category.id && "rotate-180"
                       )}
                     />
                   )}
