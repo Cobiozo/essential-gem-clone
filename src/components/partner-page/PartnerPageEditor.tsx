@@ -190,9 +190,6 @@ export const PartnerPageEditor: React.FC = () => {
     if (success) setShowTemplateGallery(false);
   };
 
-  const editableElements = template.filter(
-    (el: TemplateElement) => el.type !== 'static' && el.type !== 'product_slot'
-  );
 
   const currentAlias = alias || eqId || '';
 
