@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import type { TemplateElement, PartnerPageTemplate } from '@/types/partnerPage';
+import { PartnerPageInlineEditor } from '@/components/partner-page/PartnerPageInlineEditor';
 
 // ─── Template Gallery (with active indicator & cooldown) ───
 const TemplateGallery: React.FC<{

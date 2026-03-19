@@ -100,7 +100,9 @@ const PartnerPageView: React.FC = () => {
     return (
       <div className="min-h-screen bg-background">
         {template.map((element) => {
-          const cfg = element.config || {};
+          const baseCfg = element.config || {};
+          const partnerOverrides = customData[element.id] || {};
+          const cfg = getMergedConfig(baseCfg, partnerOverrides);
           switch (element.type) {
             case 'header':
               return <HeaderSection key={element.id} config={cfg} partnerName={partnerName} />;
