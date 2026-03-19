@@ -385,7 +385,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                           isActive={activeTab === item.value}
                           tooltip={getLabel(item.labelKey)}
                           className={cn(
-                            activeTab === item.value && 'bg-primary/10 text-primary font-medium'
+                            activeTab === item.value && 'bg-primary/15 text-primary font-medium'
                           )}
                         >
                           <item.icon className="w-4 h-4" />
