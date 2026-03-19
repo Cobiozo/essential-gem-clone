@@ -369,7 +369,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     <ChevronDown
                       className={cn(
                         "w-4 h-4 transition-transform",
-                        openCategories[category.id] && "rotate-180"
+                        openCategoryId === category.id && "rotate-180"
                       )}
                     />
                   )}
