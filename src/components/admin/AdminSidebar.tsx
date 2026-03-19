@@ -327,6 +327,19 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
             </div>
           )}
         </div>
+        {!isCollapsed && (
+          <div className="px-2 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Szukaj..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-sm"
+              />
+            </div>
+          </div>
+        )}
       </SidebarHeader>
 
       <SidebarContent>
