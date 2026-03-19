@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Save, X } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import type { TemplateElement, ProductCatalogItem } from '@/types/partnerPage';
 import { SectionConfigEditor } from '@/components/admin/template-sections/SectionConfigEditor';
@@ -46,6 +47,7 @@ const TemplatePreviewPage: React.FC = () => {
   const [template, setTemplate] = useState<TemplateElement[]>([]);
   const [templateName, setTemplateName] = useState('');
   const [products, setProducts] = useState<ProductCatalogItem[]>([]);
+  const [allTemplates, setAllTemplates] = useState<{ id: string; name: string }[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -53,9 +55,10 @@ const TemplatePreviewPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!templateId) { setLoading(false); return; }
-      const [templateRes, productsRes] = await Promise.all([
+      const [templateRes, productsRes, allTemplatesRes] = await Promise.all([
         supabase.from('partner_page_template').select('name, template_data').eq('id', templateId).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
+        supabase.from('partner_page_template').select('id, name').order('name'),
       ]);
       if (templateRes.data) {
         setTemplateName(templateRes.data.name);
@@ -64,6 +67,7 @@ const TemplatePreviewPage: React.FC = () => {
         );
       }
       setProducts((productsRes.data as any) || []);
+      setAllTemplates((allTemplatesRes.data as any) || []);
       setLoading(false);
     };
     fetchData();
@@ -200,11 +204,21 @@ const TemplatePreviewPage: React.FC = () => {
       {/* Top bar */}
       <div className="fixed top-0 left-0 right-0 z-50 bg-card border-b border-border px-4 py-2 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/admin?tab=partner-pages')}>
             <ArrowLeft className="w-4 h-4 mr-1" /> Wróć do edytora
           </Button>
-          <span className="text-sm font-medium text-muted-foreground">
-            Podgląd szablonu: <span className="text-foreground">{templateName}</span>
+          <span className="text-sm text-muted-foreground flex items-center gap-2">
+            Podgląd szablonu:
+            <Select value={templateId} onValueChange={(id) => navigate(`/admin/template-preview/${id}`)}>
+              <SelectTrigger className="h-8 w-[200px] text-foreground">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {allTemplates.map(t => (
+                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </span>
         </div>
         <Button size="sm" onClick={handleSave} disabled={saving}>
