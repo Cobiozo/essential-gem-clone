@@ -144,7 +144,7 @@ const MyAccount = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'communication', 'partner-page'].includes(tabParam)) {
+    if (tabParam && ['profile', 'team-contacts', 'notifications', 'preferences', 'ai-compass', 'security', 'private-chats', 'reflinks', 'leader', 'communication'].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search]);
