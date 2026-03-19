@@ -1,69 +1,94 @@
+## Analiza systemu powiadomień — wynik
 
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-# Plan: Lista niezależnych szablonów w zakładce "Szablony"
+### Zmiany:
 
-## Problem
-Aktualnie `EqologyTemplateManager` nadpisuje jedyny wiersz w `partner_page_template`, niszcząc stary szablon. Potrzebna jest osobna tabela na niezależne szablony.
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-## Rozwiązanie
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-### 1. Nowa tabela `partner_page_templates_gallery`
-
-```sql
-CREATE TABLE public.partner_page_templates_gallery (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  template_type TEXT NOT NULL, -- 'eqology_omega3', future types
-  template_data JSONB NOT NULL DEFAULT '{}'::jsonb,
-  preview_image_url TEXT,
-  is_active BOOLEAN DEFAULT true,
-  position INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
 ```
 
-RLS: public read, admin-only write. Trigger na `updated_at`. Insert domyślnego szablonu Eqology.
+---
 
-### 2. Nowy komponent `TemplatesGalleryManager` (zastępuje `EqologyTemplateManager` w zakładce "Szablony")
+## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
 
-Widok listy:
-- Karty szablonów (nazwa, opis, typ, aktywny/nieaktywny, podgląd)
-- Przycisk "Dodaj szablon" (na razie tylko typ Eqology)
-- Kliknięcie na kartę otwiera edytor danego szablonu
+### Nowe komponenty:
+1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
+   - Złoty nagłówek z logo Pure Life Center
+   - Sekcja z danymi osoby zapraszającej
+   - Tekst zachęcający do kontaktu z zapraszającym
+   - Obsługuje zarówno zalogowanych użytkowników jak i gości
 
-Widok edycji:
-- Pola: nazwa, opis, aktywność
-- Istniejący `EqologyTemplateManager` jako formularz edycji treści (zrefaktorowany na props `data`/`onChange` zamiast własnego fetch/save)
-- Przycisk "Zapisz" i "Wróć do listy"
+2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
 
-### 3. Refaktor `EqologyTemplateManager`
+3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
 
-Zmiana z samodzielnego komponentu (własny fetch/save) na **kontrolowany** komponent:
-- Props: `data: EqologyTemplateData`, `onChange: (data) => void`
-- Bez własnego `useEffect`/`save` — rodzic zarządza stanem i zapisem
+4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
 
-### 4. Powiązanie z partnerem
+### Test emaili (wysłano do sebastiansnopek87@gmail.com):
+- ✅ Potwierdzenie rejestracji
+- ✅ Przypomnienie 24h
+- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
+- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
+- ✅ Przypomnienie 1h
+- ✅ Przypomnienie 15min
+- ✅ Podziękowanie po wydarzeniu (NOWY)
 
-Dodanie kolumny `selected_template_id UUID` do `partner_pages` (FK do `partner_page_templates_gallery`). Partner wybiera szablon z galerii, a publiczny renderer używa danych z wybranego szablonu.
+---
 
-Migracja: `ALTER TABLE partner_pages ADD COLUMN selected_template_id UUID REFERENCES partner_page_templates_gallery(id);`
+## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
 
-### 5. Aktualizacja renderera `PartnerPage.tsx`
+### Root cause:
+1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
+2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
+3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
 
-Zamiast czytać szablon z `partner_page_template`, sprawdza `selected_template_id` partnera → pobiera dane z `partner_page_templates_gallery` → renderuje odpowiedni komponent (Eqology lub fallback na stary system).
+### Zmiany:
 
-### Pliki
+1. **Migracja SQL** — dodano do `event_registrations`:
+   - `reminder_12h_sent`, `reminder_12h_sent_at`
+   - `reminder_2h_sent`, `reminder_2h_sent_at`
+   - `reminder_1h_sent`, `reminder_1h_sent_at`
+   - `reminder_15min_sent`, `reminder_15min_sent_at`
 
-| Plik | Zmiana |
-|------|--------|
-| Migracja SQL | Nowa tabela + kolumna `selected_template_id` |
-| `src/components/admin/TemplatesGalleryManager.tsx` | **Nowy** — lista + edycja szablonów |
-| `src/components/admin/EqologyTemplateManager.tsx` | Refaktor na kontrolowany komponent (props) |
-| `src/components/admin/PartnerPagesManagement.tsx` | Zamiana `EqologyTemplateManager` na `TemplatesGalleryManager` w zakładce "Szablony" |
-| `src/pages/PartnerPage.tsx` | Odczyt szablonu z `partner_page_templates_gallery` |
-| `src/components/partner-page/PartnerPageEditor.tsx` | Dropdown wyboru szablonu dla partnera |
+2. **`send-bulk-webinar-reminders`** — przebudowany:
+   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
+   - Dla zalogowanych pobiera email/imię z `profiles`
+   - Ustawia flagi w odpowiedniej tabeli po sukcesie
+   - Loguje każdy send do `email_logs` z `registration_source`
 
-Zakładka "Szablon strony" (stary `PartnerTemplateEditor`) pozostaje **bez zmian**.
+3. **`process-pending-notifications`** — usunięta luka:
+   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
+   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
+   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
 
+4. **`send-webinar-confirmation`** — rozszerzony fallback:
+   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
+   - Zapobiega duplikatom z CRON dla zalogowanych
+
+### Efekt:
+```
+GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
+USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
+Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
+Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
+```
