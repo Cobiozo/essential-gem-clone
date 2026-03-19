@@ -272,6 +272,22 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     return translationKey ? t(translationKey) : key;
   };
 
+  // Filtered categories based on search
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return navCategories;
+    const q = searchQuery.toLowerCase();
+    return navCategories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter((item) =>
+          getLabel(item.labelKey).toLowerCase().includes(q)
+        ),
+      }))
+      .filter((cat) => cat.items.length > 0);
+  }, [searchQuery, t]);
+
+  const isSearching = searchQuery.trim().length > 0;
+
   const toggleCategory = (categoryId: string) => {
     setOpenCategories((prev) => ({
       ...prev,
