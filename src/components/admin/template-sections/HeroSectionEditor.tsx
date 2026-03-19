@@ -81,7 +81,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
       {(config.layout === 'split') && (
         <div>
           <Label>URL obrazu hero (prawa strona)</Label>
-          <Input value={config.hero_image_url || ''} onChange={e => update('hero_image_url', e.target.value)} placeholder="https://..." />
+          <ImageUploadInput value={config.hero_image_url || ''} onChange={v => update('hero_image_url', v)} />
         </div>
       )}
       <div className="grid grid-cols-2 gap-4">
