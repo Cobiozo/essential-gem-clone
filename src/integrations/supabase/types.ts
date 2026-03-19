@@ -5495,6 +5495,7 @@ export type Database = {
       }
       partner_page_user_access: {
         Row: {
+          bypass_template_cooldown: boolean | null
           created_at: string
           granted_by: string | null
           id: string
@@ -5502,6 +5503,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bypass_template_cooldown?: boolean | null
           created_at?: string
           granted_by?: string | null
           id?: string
@@ -5509,6 +5511,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bypass_template_cooldown?: boolean | null
           created_at?: string
           granted_by?: string | null
           id?: string
