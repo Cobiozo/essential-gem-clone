@@ -20,8 +20,8 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const editableFields: string[] = config.editable_fields || [];
   const setEditable = (fields: string[]) => update('editable_fields', fields);
 
-  const stats: Array<{ icon: string; value: string; label: string }> = config.stats || [];
-  const addStat = () => update('stats', [...stats, { icon: '📊', value: '', label: '' }]);
+  const stats: Array<{ icon: string; icon_url: string; value: string; label: string }> = config.stats || [];
+  const addStat = () => update('stats', [...stats, { icon: '📊', icon_url: '', value: '', label: '' }]);
   const removeStat = (i: number) => update('stats', stats.filter((_, idx) => idx !== i));
   const updateStat = (i: number, field: string, value: string) =>
     update('stats', stats.map((s, idx) => (idx === i ? { ...s, [field]: value } : s)));
@@ -29,9 +29,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
       <div>
-        <div className="flex items-center justify-between">
-          <Label>Layout</Label>
-        </div>
+        <Label>Layout</Label>
         <Select value={config.layout || 'centered'} onValueChange={(v) => update('layout', v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -74,7 +72,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={config.video_url || ''} onChange={e => update('video_url', e.target.value)} />
         </div>
         <div>
-          <Label>URL obrazu (tło fallback)</Label>
+          <Label>URL obrazu tła</Label>
           <Input value={config.bg_image_url || ''} onChange={e => update('bg_image_url', e.target.value)} />
         </div>
       </div>
@@ -84,19 +82,50 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={config.hero_image_url || ''} onChange={e => update('hero_image_url', e.target.value)} placeholder="https://..." />
         </div>
       )}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Kolor tła (hex)</Label>
+          <Input value={config.bg_color || '#0a1628'} onChange={e => update('bg_color', e.target.value)} />
+        </div>
+        <div>
+          <Label>Kolor tekstu (hex, opcja)</Label>
+          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} placeholder="np. #ffffff" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Kolor CTA (hex)</Label>
+          <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
+        </div>
+        <div>
+          <Label>Ikona CTA</Label>
+          <Select value={config.cta_icon || 'arrow'} onValueChange={v => update('cta_icon', v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="arrow">Strzałka →</SelectItem>
+              <SelectItem value="🛒">Koszyk 🛒</SelectItem>
+              <SelectItem value="none">Brak</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       <div>
-        <Label>Kolor tła (hex)</Label>
-        <Input value={config.bg_color || '#0a1628'} onChange={e => update('bg_color', e.target.value)} />
+        <Label>Przezroczystość tła (0-1)</Label>
+        <Input type="number" step="0.1" min="0" max="1" value={config.overlay_opacity ?? 0.3} onChange={e => update('overlay_opacity', parseFloat(e.target.value))} />
       </div>
 
       {/* Stats */}
       <fieldset className="border rounded-lg p-4 space-y-3">
         <legend className="text-sm font-semibold px-2">Statystyki (pasek)</legend>
         {stats.map((stat, i) => (
-          <div key={i} className="grid grid-cols-[60px_1fr_1fr_auto] gap-2 items-end">
+          <div key={i} className="grid grid-cols-[60px_1fr_1fr_1fr_auto] gap-2 items-end">
             <div>
               <Label className="text-xs">Ikona</Label>
               <Input value={stat.icon} onChange={e => updateStat(i, 'icon', e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">URL ikony</Label>
+              <Input value={stat.icon_url || ''} onChange={e => updateStat(i, 'icon_url', e.target.value)} placeholder="https://..." />
             </div>
             <div>
               <Label className="text-xs">Wartość</Label>

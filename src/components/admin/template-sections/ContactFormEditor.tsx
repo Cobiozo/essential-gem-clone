@@ -28,6 +28,16 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
       <div>
+        <Label>Layout</Label>
+        <Select value={config.layout || 'standalone'} onValueChange={v => update('layout', v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="standalone">Pełna szerokość</SelectItem>
+            <SelectItem value="floating">Floating (ciemna karta)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
         <div className="flex items-center justify-between">
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
@@ -83,6 +93,10 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
       <div>
         <Label>Tekst prywatności (opcja)</Label>
         <Input value={config.privacy_text || ''} onChange={e => update('privacy_text', e.target.value)} />
+      </div>
+      <div>
+        <Label>Kolor CTA (hex)</Label>
+        <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

@@ -9,4 +9,5 @@ export { ProductsGridEditor } from './ProductsGridEditor';
 export { HeaderSectionEditor } from './HeaderSectionEditor';
 export { ContactFormEditor } from './ContactFormEditor';
 export { FooterSectionEditor } from './FooterSectionEditor';
+export { ProductsWithFormEditor } from './ProductsWithFormEditor';
 export { EditableFieldToggle } from './EditableFieldToggle';

@@ -38,25 +38,37 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={config.logo_image_url || ''} onChange={e => update('logo_image_url', e.target.value)} />
         </div>
       </div>
-      <Label>Przyciski nawigacji</Label>
+      <div>
+        <Label>Styl nawigacji</Label>
+        <Select value={config.nav_style || 'buttons'} onValueChange={v => update('nav_style', v)}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="buttons">Przyciski</SelectItem>
+            <SelectItem value="links">Linki tekstowe</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <Label>Elementy nawigacji</Label>
       {buttons.map((btn, i) => (
         <div key={i} className="flex gap-2 items-center border rounded-lg p-3">
           <Input value={btn.text || ''} onChange={e => updateBtn(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1" />
           <Input value={btn.url || ''} onChange={e => updateBtn(i, 'url', e.target.value)} placeholder="URL" className="flex-1" />
-          <Select value={btn.variant || 'outline'} onValueChange={v => updateBtn(i, 'variant', v)}>
-            <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="outline">Outline</SelectItem>
-              <SelectItem value="primary">Primary</SelectItem>
-            </SelectContent>
-          </Select>
+          {config.nav_style !== 'links' && (
+            <Select value={btn.variant || 'outline'} onValueChange={v => updateBtn(i, 'variant', v)}>
+              <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="outline">Outline</SelectItem>
+                <SelectItem value="primary">Primary</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Button variant="ghost" size="icon" onClick={() => update('buttons', buttons.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={() => update('buttons', [...buttons, { text: '', url: '', variant: 'outline' }])}>
-        <Plus className="w-4 h-4 mr-1" /> Dodaj przycisk
+        <Plus className="w-4 h-4 mr-1" /> Dodaj element
       </Button>
     </div>
   );

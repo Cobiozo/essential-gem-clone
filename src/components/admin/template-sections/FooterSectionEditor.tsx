@@ -97,6 +97,8 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
                   <SelectItem value="instagram">Instagram</SelectItem>
                   <SelectItem value="youtube">YouTube</SelectItem>
                   <SelectItem value="linkedin">LinkedIn</SelectItem>
+                  <SelectItem value="twitter">Twitter/X</SelectItem>
+                  <SelectItem value="messenger">Messenger</SelectItem>
                 </SelectContent>
               </Select>
             </div>

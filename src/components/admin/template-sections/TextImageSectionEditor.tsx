@@ -25,6 +25,22 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="flex items-center justify-between">
+            <Label>Nazwa partnera</Label>
+            <EditableFieldToggle fieldName="partner_name" editableFields={editableFields} onToggle={setEditable} />
+          </div>
+          <Input value={config.partner_name || ''} onChange={e => update('partner_name', e.target.value)} placeholder="Imię i nazwisko" />
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
+            <Label>Podtytuł partnera</Label>
+            <EditableFieldToggle fieldName="partner_subtitle" editableFields={editableFields} onToggle={setEditable} />
+          </div>
+          <Input value={config.partner_subtitle || ''} onChange={e => update('partner_subtitle', e.target.value)} placeholder="Twój partner w Pure Life" />
+        </div>
+      </div>
       <div>
         <div className="flex items-center justify-between">
           <Label>Nagłówek</Label>
@@ -35,14 +51,14 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
       <Label>Elementy listy</Label>
       {items.map((item, i) => (
         <div key={i} className="flex gap-2 items-center border rounded-lg p-2">
-          <Input value={item.icon || ''} onChange={e => updateItem(i, 'icon', e.target.value)} placeholder="Ikona" className="w-16" />
+          <Input value={item.icon || ''} onChange={e => updateItem(i, 'icon', e.target.value)} placeholder="Ikona (✔️)" className="w-16" />
           <Input value={item.text || ''} onChange={e => updateItem(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1" />
           <Button variant="ghost" size="icon" onClick={() => update('items', items.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
         </div>
       ))}
-      <Button variant="outline" size="sm" onClick={() => update('items', [...items, { icon: '❌', text: '' }])}>
+      <Button variant="outline" size="sm" onClick={() => update('items', [...items, { icon: '✔️', text: '' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj element
       </Button>
 
@@ -57,11 +73,25 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
         </div>
       </div>
       <div>
+        <Label>URL obrazu tła sekcji</Label>
+        <Input value={config.bg_image_url || ''} onChange={e => update('bg_image_url', e.target.value)} placeholder="https://..." />
+      </div>
+      <div>
         <Label>Strona obrazu</Label>
         <select className="w-full border rounded-md px-3 py-2 text-sm" value={config.image_side || 'right'} onChange={e => update('image_side', e.target.value)}>
           <option value="right">Prawa</option>
           <option value="left">Lewa</option>
         </select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Kolor ikon checkmark (hex)</Label>
+          <Input value={config.item_icon_color || '#2d6a4f'} onChange={e => update('item_icon_color', e.target.value)} />
+        </div>
+        <div>
+          <Label>Kolor CTA (hex)</Label>
+          <Input value={config.cta_bg_color || '#2d6a4f'} onChange={e => update('cta_bg_color', e.target.value)} />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -95,9 +125,19 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
           <Input value={config.cta_url || ''} onChange={e => update('cta_url', e.target.value)} />
         </div>
       </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Kolor tła</Label>
+          <Input value={config.bg_color || ''} onChange={e => update('bg_color', e.target.value)} />
+        </div>
+        <div>
+          <Label>Kolor tekstu (opcja)</Label>
+          <Input value={config.text_color || ''} onChange={e => update('text_color', e.target.value)} />
+        </div>
+      </div>
       <div>
-        <Label>Kolor tła</Label>
-        <Input value={config.bg_color || ''} onChange={e => update('bg_color', e.target.value)} />
+        <Label>Przezroczystość tła (0-1)</Label>
+        <Input type="number" step="0.1" min="0" max="1" value={config.overlay_opacity ?? 0.15} onChange={e => update('overlay_opacity', parseFloat(e.target.value))} />
       </div>
     </div>
   );
