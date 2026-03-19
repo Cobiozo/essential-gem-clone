@@ -1,84 +1,65 @@
 
 
-# Plan: Redesign sekcji partnerskich na wzór screenshota
+# Plan: Utworzenie szablonu "PureLifeCenter2026"
 
-## Analiza screenshota — 6 sekcji
+## Cel
+Wstawić do bazy gotowy szablon z 5 sekcjami skonfigurowanymi identycznie jak na screenshocie. Szablon będzie natychmiast widoczny w panelu admina do edycji i przypisania partnerom.
 
-1. **Header** — logo Pure Life (obraz) + linki nav jako tekst (nie przyciski), białe tło
-2. **Hero (split + bg_image)** — pełne tło (góry/jezioro), tekst lewy, produkty prawy, ciemnozielony CTA, statystyki z ikonami poniżej
-3. **Partner intro (text_image)** — pełne tło zdjęcie, imię partnera + "Twój partner w Pure Life", nagłówek bold, bullet points z ✔️, zielony CTA, zdjęcie partnera po prawej
-4. **Produkty + Formularz kontaktowy** — 3 karty produktów + formularz kontaktowy floating po prawej stronie (jeden zintegrowany widok)
-5. **Footer** — ciemne tło, dane firmy, linki, social media ikony (kolorowe kółka)
+## Szablon — 5 sekcji (template_data)
 
-## Zmiany w komponentach sekcji
+### 1. Header (`header`)
+- Logo: tekst "Pure Life" + `logo_image_url` (placeholder)
+- `nav_style: 'links'`
+- 4 linki: Produkty, Biznes, O nas, Kontakt
+- Edytowalne przez partnera: `logo_text`
 
-### 1. `HeroSection.tsx` — wsparcie bg_image w layoucie split
-- Dodać `bg_image_url` jako tło całej sekcji split (nie tylko centered)
-- Tekst ma być ciemny (`text-foreground`) na jasnym tle LUB biały na ciemnym — sterowane kolorem `text_color`
-- CTA: zaokrąglony, ciemnozielony, z ikoną (konfigurowalny `cta_icon`, `cta_bg_color`)
-- Stats: ikony jako obrazki/emoji, białe tło karty, ciemny tekst
+### 2. Hero (`hero`, layout: `split`)
+- `bg_image_url`: placeholder góry/jezioro
+- `headline`: "Zadbaj o zdrowie i zbuduj dochód pomagając innym."
+- `description`: "Zdrowie, energia, codzienna równowaga – z produktami, którym ludzie ufają"
+- `cta_primary`: { text: "🌿 Chcę zobaczyć ofertę", url: "#products" }
+- `cta_bg_color`: "#2d6a4f"
+- `hero_image_url`: placeholder produkty
+- 3 stats: +2000 klientów, +30 krajów, 25 000 pobranych materiałów
+- Edytowalne: `cta_primary.url`
 
-### 2. `HeaderSection.tsx` — linki nav jako tekst
-- Dodać wariant `nav_style: 'links' | 'buttons'`
-- Dla `links`: renderować `<nav>` z tekstowymi linkami `text-foreground hover:text-primary`
-- Logo: większe, z obsługą obrazu
+### 3. Partner intro (`text_image`)
+- `bg_image_url`: placeholder tło
+- `partner_name`: "Sebastian"
+- `partner_subtitle`: "Twój partner w Pure Life"
+- `heading`: "Zmieniamy zdrowie i życie ludzi na lepsze."
+- 3 checkmark items z tekstami ze screenshota
+- `cta_text`: "🌿 Chcę dołączyć!"
+- `image_url`: placeholder zdjęcie partnera
+- `image_side`: "right"
+- Edytowalne: `partner_name`, `heading`, `image_url`, `cta_url`
 
-### 3. `TextImageSection.tsx` — sekcja partnera
-- Dodać `bg_image_url` jako tło sekcji
-- Dodać `partner_name`, `partner_subtitle` nad heading
-- Zmienić ikonę itemów z emoji na ✔️ zieloną (konfigurowalny `item_icon_color`)
-- CTA: zaokrąglony zielony przycisk z ikoną (jak w hero)
-- Obraz po prawej: `object-cover` pełna wysokość, bez border-radius
+### 4. Produkty + Formularz (`products_with_form`)
+- `heading`: "Produkty, które ludzie kochają (i które działają)"
+- 3 kolumny: Pure Arctic Oil Gold, Pure Arctic Oil Heart & Energy, Collagen Booster
+- `form_config`: heading "Daj mi znać jeśli chcesz wiedzieć więcej", 3 pola (Imię, Email, Telefon), submit "Wyślij formularz", privacy text
+- Edytowalne: `heading`
 
-### 4. `ProductsGridSection.tsx` — produkty z opisem
-- Dodać `description` pod nazwą produktu
-- CTA zmienić z "KUP TERAZ" na "Zobacz szczegóły" z ikoną `>`
-- Karty: biały bg, subtelny cień, zaokrąglone
+### 5. Footer (`footer`)
+- `company_name`: "Pure Life Polska Sp. z o.o."
+- `address`, `phone`, `email`
+- Links: Warunki współpracy, Polityka prywatności
+- Social: facebook, instagram, twitter, messenger
+- `bg_color`: "#0a1628"
 
-### 5. `ContactFormSection.tsx` — wariant floating/overlay
-- Dodać `layout: 'standalone' | 'floating'`
-- Floating: renderowana jako karta z ciemnym tłem, białym tekstem, nakładana na sekcję produktów
-- Przycisk submit: ciemnozielony z ikoną `>`
+## Implementacja
 
-### 6. Nowy typ sekcji `products_with_form`
-- Zamiast osobnych sekcji produkty + formularz, dodać nowy typ który renderuje oba obok siebie (3 produkty lewo, formularz prawo)
-- Konfiguracja w edytorze: nagłówek produktów, kolumny produktów, + formularz kontaktowy embedded
+Migracja SQL (`supabase/migrations/`) wstawia rekord do `partner_page_template` z:
+- `name`: "PureLifeCenter2026"
+- `description`: "Szablon Premium — Pure Life Center 2026"
+- `is_active`: true
+- `template_data`: pełny JSON z 5 elementami
 
-### 7. `FooterSection.tsx` — social media jako kolorowe kółka
-- Dodać obsługę `twitter` / `messenger` do ikon
-- Social: kolorowe kółka (fb niebieski, ig gradient, twitter niebieski, messenger fioletowy)
-- Layout: 3 kolumny — dane firmy | linki | social
+Jeden plik migracji, zero zmian w kodzie React.
 
-### 8. Edytory admin — nowe pola
-- `HeroSectionEditor`: pole `text_color`, `cta_bg_color`, `cta_icon`
-- `HeaderSectionEditor`: select `nav_style`
-- `TextImageSectionEditor`: pola `bg_image_url`, `partner_name`, `partner_subtitle`
-- `ProductsGridEditor`: pole `description` w kolumnach
-- `ContactFormEditor`: select `layout`
-- Nowy `ProductsWithFormEditor` dla połączonej sekcji
+## Plik do utworzenia
 
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/partner-page/sections/HeroSection.tsx` | bg_image w split, text_color, zielony CTA, stats redesign |
-| `src/components/partner-page/sections/HeaderSection.tsx` | nav_style links, większe logo |
-| `src/components/partner-page/sections/TextImageSection.tsx` | bg_image_url, partner_name/subtitle, zielone checkmarki, CTA styl |
-| `src/components/partner-page/sections/ProductsGridSection.tsx` | description, nowy styl kart, "Zobacz szczegóły" |
-| `src/components/partner-page/sections/ContactFormSection.tsx` | layout floating, ciemne tło, styl |
-| `src/components/partner-page/sections/FooterSection.tsx` | kolorowe social, messenger/twitter |
-| **Nowy** `src/components/partner-page/sections/ProductsWithFormSection.tsx` | Produkty + formularz side-by-side |
-| `src/components/partner-page/sections/index.ts` | Export nowej sekcji |
-| `src/types/partnerPage.ts` | Dodać `products_with_form` do `TemplateElementType` |
-| `src/pages/PartnerPage.tsx` | Obsługa nowego typu sekcji |
-| `src/components/admin/template-sections/HeroSectionEditor.tsx` | Nowe pola config |
-| `src/components/admin/template-sections/HeaderSectionEditor.tsx` | nav_style select |
-| `src/components/admin/template-sections/TextImageSectionEditor.tsx` | bg_image_url, partner fields |
-| `src/components/admin/template-sections/ProductsGridEditor.tsx` | description pole |
-| `src/components/admin/template-sections/ContactFormEditor.tsx` | layout select |
-| **Nowy** `src/components/admin/template-sections/ProductsWithFormEditor.tsx` | Edytor połączonej sekcji |
-| `src/components/admin/template-sections/index.ts` | Export nowego edytora |
-
-## Efekt
-Admin tworzy szablon z sekcjami skonfigurowanymi identycznie jak na screenshocie. Każdy element (tło, tekst, CTA, zdjęcia produktów, formularz) jest edytowalny z poziomu admina. Partner personalizuje oznaczone pola (imię, zdjęcie, linki CTA).
+| Plik | Opis |
+|------|------|
+| `supabase/migrations/20260319_seed_purelifecenter2026_template.sql` | INSERT szablonu z pełnym template_data |
 
