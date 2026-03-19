@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { ArrowRight, Play } from 'lucide-react';
 import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
 
 interface StatItem {
@@ -14,6 +14,9 @@ interface Props {
 }
 
 export const HeroSection: React.FC<Props> = ({ config }) => {
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
   const {
     layout, video_url, bg_image_url, hero_image_url, hero_video_url, headline, subheadline,
     description, badge_text, cta_primary, cta_secondary, bg_color, stats,
@@ -24,6 +27,11 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
   const ctaIconEl = cta_icon === 'arrow' ? <ArrowRight className="w-5 h-5" /> : cta_icon ? <span>{cta_icon}</span> : <ArrowRight className="w-5 h-5" />;
   const tc = text_color || undefined;
   const ts = tc ? { color: tc } : undefined;
+
+  const handlePlay = () => {
+    videoRef.current?.play();
+    setVideoPlaying(true);
+  };
 
   if (layout === 'split') {
     return (
@@ -79,11 +87,22 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
             {(hero_video_url || hero_image_url) && (
               <div className="flex justify-center">
                 {hero_video_url ? (
-                  <video
-                    src={hero_video_url}
-                    autoPlay muted loop playsInline
-                    className="max-h-[500px] rounded-2xl drop-shadow-2xl object-cover"
-                  />
+                  <div className="relative cursor-pointer" onClick={!videoPlaying ? handlePlay : undefined}>
+                    <video
+                      ref={videoRef}
+                      src={hero_video_url}
+                      playsInline
+                      controls={videoPlaying}
+                      className="max-h-[500px] rounded-2xl drop-shadow-2xl object-cover"
+                    />
+                    {!videoPlaying && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/20">
+                        <div className="bg-black/50 backdrop-blur-sm rounded-full p-5 transition-transform hover:scale-110">
+                          <Play className="w-12 h-12 text-white fill-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <img
                     src={stripShapeHash(hero_image_url)}
