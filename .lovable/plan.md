@@ -1,37 +1,49 @@
 
 
-# Plan: Bypass cooldownu 14 dni dla adminów i wybranych użytkowników
+# Fix: Zwijanie elementów wewnątrz paska bocznego admina
 
-## Zakres
-
-Admini mogą zmieniać szablony bez ograniczenia 14-dniowego. Dodatkowo, admin może nadać tę możliwość indywidualnym użytkownikom przez panel zarządzania dostępem.
+## Problem
+1. Pierwsza kategoria ("Strona i wygląd") ma `defaultOpen: true` — rozwija się automatycznie przy wejściu
+2. `toggleCategory` pozwala na otwarcie wielu kategorii jednocześnie
+3. Sidebar sam (`SidebarProvider`) powinien być **rozwinięty** (`defaultOpen={true}`), bo chodzi o zwijanie kategorii wewnątrz, nie całego paska
 
 ## Zmiany
 
-### 1. Migracja SQL
+### 1. `src/components/admin/AdminSidebar.tsx`
 
-Dodanie kolumny `bypass_template_cooldown BOOLEAN DEFAULT false` do tabeli `partner_page_user_access`.
+**a)** Usunąć `defaultOpen: true` z pierwszej kategorii nawigacyjnej (linia ~113):
+```typescript
+// Było:
+defaultOpen: true,
+// Usunąć tę linię
+```
 
-### 2. `src/hooks/usePartnerPage.ts`
+**b)** Zmienić inicjalizację `openCategories` — wszystkie zamknięte na start (linia 231-238):
+```typescript
+const [openCategories, setOpenCategories] = useState<Record<string, boolean>>({});
+```
 
-- Pobrać rolę użytkownika z `useAuth()` (sprawdzenie czy admin)
-- Pobrać flagę `bypass_template_cooldown` z `partner_page_user_access` dla bieżącego użytkownika
-- W logice `canChangeTemplate`: jeśli rola = admin LUB bypass = true → zawsze `canChangeTemplate = true`
-- W `selectTemplate`: analogicznie pominąć sprawdzenie cooldownu
+**c)** Zmienić `toggleCategory` na zachowanie accordion (tylko jedna otwarta naraz) (linia obecna):
+```typescript
+const toggleCategory = (categoryId: string) => {
+  setOpenCategories((prev) => {
+    const isCurrentlyOpen = prev[categoryId];
+    // Zamknij wszystkie, otwórz tylko klikniętą (jeśli była zamknięta)
+    const next: Record<string, boolean> = {};
+    if (!isCurrentlyOpen) {
+      next[categoryId] = true;
+    }
+    return next;
+  });
+};
+```
 
-### 3. `src/components/admin/PartnerPageAccessManager.tsx`
+### 2. `src/pages/Admin.tsx`
 
-Dodać switch "Bez limitu zmiany szablonu" przy każdym użytkowniku na liście dostępu indywidualnego, zapisujący pole `bypass_template_cooldown`.
+Przywrócić `defaultOpen={true}` w `SidebarProvider` — pasek boczny ma być widoczny, tylko kategorie wewnątrz zwinięte.
 
-### 4. UI edytora (`PartnerPageEditor.tsx`)
-
-Bez zmian — logika już oparta na `canChangeTemplate`, więc bypass zadziała automatycznie.
-
-### Pliki do zmiany
-
-| Plik | Zmiana |
-|------|------|
-| Nowa migracja SQL | `ALTER TABLE partner_page_user_access ADD COLUMN bypass_template_cooldown` |
-| `src/hooks/usePartnerPage.ts` | Pobranie roli + flagi bypass, override cooldownu |
-| `src/components/admin/PartnerPageAccessManager.tsx` | Switch bypass per user |
+### Podsumowanie
+- Przy wejściu: sidebar rozwinięty, ale **żadna** kategoria nie jest otwarta
+- Kliknięcie kategorii otwiera ją i **zamyka** wszystkie inne (accordion)
+- Wyszukiwarka nadal rozwija pasujące kategorie automatycznie
 
