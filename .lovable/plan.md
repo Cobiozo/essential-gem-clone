@@ -1,28 +1,37 @@
 
 
-# Plan: Sidebar zwinięty domyślnie + wyszukiwarka elementów w panelu admina
+# Plan: Bypass cooldownu 14 dni dla adminów i wybranych użytkowników
+
+## Zakres
+
+Admini mogą zmieniać szablony bez ograniczenia 14-dniowego. Dodatkowo, admin może nadać tę możliwość indywidualnym użytkownikom przez panel zarządzania dostępem.
 
 ## Zmiany
 
-### 1. `src/pages/Admin.tsx` — sidebar zwinięty domyślnie
+### 1. Migracja SQL
 
-Zmiana `defaultOpen={true}` na `defaultOpen={false}` w `SidebarProvider` (linia 3020).
+Dodanie kolumny `bypass_template_cooldown BOOLEAN DEFAULT false` do tabeli `partner_page_user_access`.
 
-### 2. `src/components/admin/AdminSidebar.tsx` — wyszukiwarka w sidebarze
+### 2. `src/hooks/usePartnerPage.ts`
 
-Dodanie pola wyszukiwania (`Input` z ikoną `Search`) w `SidebarHeader`, pod logo. Filtrowanie `navCategories` — gdy wpisany tekst, wyświetlane są tylko pasujące elementy (po labelu), a ich kategorie są automatycznie rozwinięte. Przy pustym polu — standardowy widok.
+- Pobrać rolę użytkownika z `useAuth()` (sprawdzenie czy admin)
+- Pobrać flagę `bypass_template_cooldown` z `partner_page_user_access` dla bieżącego użytkownika
+- W logice `canChangeTemplate`: jeśli rola = admin LUB bypass = true → zawsze `canChangeTemplate = true`
+- W `selectTemplate`: analogicznie pominąć sprawdzenie cooldownu
 
-Logika:
-- Stan `searchQuery` w komponencie
-- `filteredCategories` = mapowanie `navCategories` z przefiltrowanymi `items` (porównanie `getLabel(item.labelKey).toLowerCase()` z query)
-- Kategorie z 0 wynikami są ukrywane
-- Gdy query aktywne, wszystkie kategorie z wynikami są otwarte (override `openCategories`)
-- Pole wyszukiwania widoczne tylko gdy sidebar rozwinięty
+### 3. `src/components/admin/PartnerPageAccessManager.tsx`
+
+Dodać switch "Bez limitu zmiany szablonu" przy każdym użytkowniku na liście dostępu indywidualnego, zapisujący pole `bypass_template_cooldown`.
+
+### 4. UI edytora (`PartnerPageEditor.tsx`)
+
+Bez zmian — logika już oparta na `canChangeTemplate`, więc bypass zadziała automatycznie.
 
 ### Pliki do zmiany
 
 | Plik | Zmiana |
 |------|------|
-| `src/pages/Admin.tsx` | `defaultOpen={false}` |
-| `src/components/admin/AdminSidebar.tsx` | Dodanie `searchQuery`, filtrowania, komponentu `Input` z `Search` icon |
+| Nowa migracja SQL | `ALTER TABLE partner_page_user_access ADD COLUMN bypass_template_cooldown` |
+| `src/hooks/usePartnerPage.ts` | Pobranie roli + flagi bypass, override cooldownu |
+| `src/components/admin/PartnerPageAccessManager.tsx` | Switch bypass per user |
 
