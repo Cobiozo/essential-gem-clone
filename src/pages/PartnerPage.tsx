@@ -16,6 +16,8 @@ import {
   FaqSection,
   CtaBannerSection,
   HeaderSection,
+  ContactFormSection,
+  FooterSection,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
