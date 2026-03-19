@@ -145,7 +145,7 @@ const TemplatePreviewPage: React.FC = () => {
   const renderSection = (element: TemplateElement) => {
     const cfg = element.config || {};
     switch (element.type) {
-      case 'header': return <HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" />;
+      case 'header': return <HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky />;
       case 'hero': return <HeroSection config={cfg} />;
       case 'text_image': return <TextImageSection config={cfg} />;
       case 'steps': return <StepsSection config={cfg} />;
