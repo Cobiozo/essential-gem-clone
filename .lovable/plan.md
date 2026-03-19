@@ -1,94 +1,80 @@
-## Analiza systemu powiadomień — wynik
 
-### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-### Zmiany:
+# Plan: Rozbudowa systemu sekcji do odwzorowania screena Pure Life
 
-1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
-   - Datą, godziną, tematem spotkania
-   - Linkiem do pokoju (`/meeting/{room_id}`)
-   - Informacją kto zaprasza
-   - Logowaniem do `email_logs`
+## Co brakuje vs screenshot
 
-2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
-   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
-   - Link do pokoju dołączany od 2h przed spotkaniem
-   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
-   - Logowanie do `email_logs`
+Porównując screenshot z obecnymi sekcjami:
 
-### Flow gościa (po zmianach):
-```
-Token wygenerowany → ✅ Email potwierdzenie z linkiem
-24h przed → ✅ Przypomnienie (bez linka)
-12h przed → ✅ Przypomnienie (bez linka)
-2h przed  → ✅ Przypomnienie + LINK
-1h przed  → ✅ Przypomnienie + LINK
-15min     → ✅ Przypomnienie + LINK
-Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
-```
+| Element ze screena | Obecny stan | Co trzeba |
+|---|---|---|
+| Hero z produktami po prawej + pasek statystyk | Hero tylko centered z video bg | Dodać layout `split` (tekst+obraz obok) + `stats[]` |
+| Sekcja partnera (imię, bio, zdjęcie, CTA) | `text_image` istnieje | Wystarczy użyć `text_image` — OK |
+| Formularz kontaktowy | Brak | Nowy typ `contact_form` |
+| Stopka z danymi firmy + social media | Brak (tylko static HTML) | Nowy typ `footer` |
 
----
+## Zmiany
 
-## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
+### 1. Rozszerzenie Hero — layout split + stats bar
 
-### Nowe komponenty:
-1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
-   - Złoty nagłówek z logo Pure Life Center
-   - Sekcja z danymi osoby zapraszającej
-   - Tekst zachęcający do kontaktu z zapraszającym
-   - Obsługuje zarówno zalogowanych użytkowników jak i gości
+**HeroSection.tsx** — dodanie wariantu `layout: 'split'`:
+- `split`: tekst po lewej, obraz (`hero_image_url`) po prawej, pod spodem pasek statystyk
+- `centered`: obecne zachowanie (video bg, tekst na środku)
 
-2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
+Nowe pola config: `layout`, `hero_image_url`, `stats[]` (każdy: `icon`, `value`, `label`)
 
-3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
+**HeroSectionEditor.tsx** — dodanie pól: select layout, URL obrazu hero, dynamiczna lista statystyk
 
-4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
+### 2. Nowy typ: `contact_form`
 
-### Test emaili (wysłano do sebastiansnopek87@gmail.com):
-- ✅ Potwierdzenie rejestracji
-- ✅ Przypomnienie 24h
-- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
-- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
-- ✅ Przypomnienie 1h
-- ✅ Przypomnienie 15min
-- ✅ Podziękowanie po wydarzeniu (NOWY)
+Sekcja z formularzem kontaktowym (imię, email, telefon, przycisk wyślij). Dane config:
+- `heading`, `fields[]` (label, placeholder, type), `submit_text`, `privacy_text`
+- Formularz wysyła dane do edge function lub wyświetla toast (MVP)
 
----
+Pliki:
+- `src/components/partner-page/sections/ContactFormSection.tsx` — renderer
+- `src/components/admin/template-sections/ContactFormEditor.tsx` — edytor admina
 
-## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
+### 3. Nowy typ: `footer`
 
-### Root cause:
-1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
-2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
-3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
+Stopka z danymi firmy, linkami, ikonami social media. Config:
+- `company_name`, `address`, `phone`, `email`, `links[]` (text, url), `social[]` (platform, url)
 
-### Zmiany:
+Pliki:
+- `src/components/partner-page/sections/FooterSection.tsx` — renderer
+- `src/components/admin/template-sections/FooterSectionEditor.tsx` — edytor admina
 
-1. **Migracja SQL** — dodano do `event_registrations`:
-   - `reminder_12h_sent`, `reminder_12h_sent_at`
-   - `reminder_2h_sent`, `reminder_2h_sent_at`
-   - `reminder_1h_sent`, `reminder_1h_sent_at`
-   - `reminder_15min_sent`, `reminder_15min_sent_at`
+### 4. Aktualizacja typów i rejestracji
 
-2. **`send-bulk-webinar-reminders`** — przebudowany:
-   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
-   - Dla zalogowanych pobiera email/imię z `profiles`
-   - Ustawia flagi w odpowiedniej tabeli po sukcesie
-   - Loguje każdy send do `email_logs` z `registration_source`
+- `partnerPage.ts` — dodać `contact_form` i `footer` do `TemplateElementType`
+- `PartnerTemplateEditor.tsx` — dodać do `TYPE_LABELS`, `RICH_TYPES`, `SectionConfigEditor`
+- `PartnerPage.tsx` — dodać case do switch renderera
+- Oba pliki `index.ts` (sections + template-sections) — eksport nowych komponentów
 
-3. **`process-pending-notifications`** — usunięta luka:
-   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
-   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
-   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
+### 5. Migracja SQL — szablon "Pure Life Classic"
 
-4. **`send-webinar-confirmation`** — rozszerzony fallback:
-   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
-   - Zapobiega duplikatom z CRON dla zalogowanych
+INSERT nowego szablonu z sekcjami odwzorowującymi screenshot:
+1. `header` — logo Pure Life + nav (Produkty, Biznes, O nas, Kontakt)
+2. `hero` layout=split — "Zadbaj o zdrowie..." + obraz produktów + stats bar (+2000 klientów, +30 krajów, 25000 pobrań)
+3. `text_image` — sekcja partnera (imię, bio, zdjęcie, CTA "Chcę dołączyć!")
+4. `products_grid` — 3 produkty (Gold, Heart&Energy, Collagen) + formularz kontaktowy obok
+5. `contact_form` — "Daj mi znać jeśli chcesz wiedzieć więcej"
+6. `footer` — Pure Life Polska Sp. z o.o., dane kontaktowe, social media
 
-### Efekt:
-```
-GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
-USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
-Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
-Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
-```
+### Pliki do zmiany/utworzenia
+
+| Plik | Zmiana |
+|---|---|
+| `src/types/partnerPage.ts` | +2 typy w union |
+| `src/components/partner-page/sections/HeroSection.tsx` | Layout split + stats |
+| `src/components/partner-page/sections/ContactFormSection.tsx` | Nowy |
+| `src/components/partner-page/sections/FooterSection.tsx` | Nowy |
+| `src/components/partner-page/sections/index.ts` | +2 eksporty |
+| `src/components/admin/template-sections/HeroSectionEditor.tsx` | +layout, hero_image_url, stats |
+| `src/components/admin/template-sections/ContactFormEditor.tsx` | Nowy |
+| `src/components/admin/template-sections/FooterSectionEditor.tsx` | Nowy |
+| `src/components/admin/template-sections/index.ts` | +2 eksporty |
+| `src/components/admin/PartnerTemplateEditor.tsx` | +2 typy w labels/switch |
+| `src/pages/PartnerPage.tsx` | +2 case w switch |
+| Migracja SQL | INSERT szablon "Pure Life Classic" |
+
