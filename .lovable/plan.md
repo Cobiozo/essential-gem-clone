@@ -1,40 +1,31 @@
 
 
-# Plan: Obsługa wideo MP4 w miejscu obrazu hero (split layout)
+# Plan: Dodanie uploadu wideo w edytorze Hero
 
 ## Problem
-Pole `hero_image_url` w layoucie "split" renderuje tylko `<img>`. Nie ma możliwości wstawienia wideo MP4 zamiast obrazka po prawej stronie.
+Pole "URL wideo hero MP4" to zwykły `<Input>` tekstowy — użytkownik może tylko wkleić URL, nie ma przycisku uploadu.
 
 ## Rozwiązanie
+Zamienić `<Input>` na komponent `MediaUpload` (już istnieje w projekcie, obsługuje wideo) z `allowedTypes={['video']}`.
 
-### 1. Nowe pole `hero_video_url` w konfiguracji
-Dodać w edytorze osobne pole na wideo hero (obok istniejącego pola obrazu hero). Gdy `hero_video_url` jest ustawione — renderować `<video>` zamiast `<img>`.
-
-### 2. `HeroSectionEditor.tsx` — dodać pole uploadu wideo
-Pod polem "URL obrazu hero" dodać pole `hero_video_url` z komponentem `MediaUpload` (obsługuje wideo) lub zwykłym `Input` z labelem "URL wideo hero (prawa strona)". Dodać informację, że wideo ma priorytet nad obrazem.
-
-### 3. `HeroSection.tsx` — renderować `<video>` gdy `hero_video_url` jest ustawione
-W sekcji split layout (linie 79-87), zamienić logikę:
-
+### Zmiana w `HeroSectionEditor.tsx` (linie 87-91):
 ```tsx
-{(hero_video_url || hero_image_url) && (
-  <div className="flex justify-center">
-    {hero_video_url ? (
-      <video
-        src={hero_video_url}
-        autoPlay muted loop playsInline
-        className="max-h-[500px] rounded-2xl drop-shadow-2xl object-cover"
-      />
-    ) : (
-      <img src={stripShapeHash(hero_image_url)} ... />
-    )}
-  </div>
-)}
+// Przed:
+<Input value={config.hero_video_url || ''} onChange={e => update('hero_video_url', e.target.value)} placeholder="https://...video.mp4" />
+
+// Po:
+<MediaUpload
+  onMediaUploaded={(url) => update('hero_video_url', url)}
+  currentMediaUrl={config.hero_video_url || ''}
+  currentMediaType="video"
+  allowedTypes={['video']}
+/>
 ```
+
+Dodać import `MediaUpload` na górze pliku.
 
 ### Pliki do zmian:
 | Plik | Zmiana |
 |------|--------|
-| `HeroSection.tsx` | Dodać destructuring `hero_video_url`, renderować `<video>` gdy ustawione |
-| `HeroSectionEditor.tsx` | Dodać pole `hero_video_url` (Input z labelem "URL wideo hero") pod polem obrazu hero |
+| `HeroSectionEditor.tsx` | Zamiana Input na MediaUpload dla pola hero_video_url |
 
