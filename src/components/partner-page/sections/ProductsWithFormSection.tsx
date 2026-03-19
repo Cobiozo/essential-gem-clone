@@ -10,7 +10,7 @@ interface Props {
   partnerEmail?: string;
 }
 
-export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks }) => {
+export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks, partnerEmail }) => {
   const {
     heading, columns, form_config, cta_bg_color,
   } = config;
