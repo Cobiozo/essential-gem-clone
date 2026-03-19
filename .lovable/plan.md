@@ -1,48 +1,63 @@
 
 
-# Plan: Pozycjonowanie zdjęcia przed zatwierdzeniem
+# Plan: Naprawa cropu + wybór kształtu przycinania
 
-## Cel
-Po wybraniu pliku z urządzenia partner widzi podgląd z możliwością przesunięcia i przybliżenia zdjęcia (crop/position). Dopiero po kliknięciu "Zatwierdź" obraz jest przycinany i uploadowany do Supabase.
+## Dwa problemy do rozwiązania
 
-## Podejście
-Użyć biblioteki `react-easy-crop` — lekka, mobilna, obsługuje pinch-to-zoom. Po crop generujemy Canvas z przyciętym fragmentem i uploadujemy wynikowy plik.
+### A. Bug: obraz nie jest uploadowany
+`createImage()` w `cropImage.ts` ustawia `crossOrigin = 'anonymous'` na blob URL — przeglądarka blokuje canvas. Naprawa: ustawiać `crossOrigin` tylko dla zdalnych URL.
+
+### B. Nowa funkcja: wybór kształtu przycinania
+Dodać selektor kształtu w dialogu cropu. Użytkownik wybiera kształt przed zatwierdzeniem.
+
+## Dostępne kształty
+
+| Kształt | `aspect` | `cropShape` | Opis |
+|---------|----------|-------------|------|
+| Poziomy 16:9 | `16/9` | `rect` | Domyślny, baner |
+| Poziomy 4:3 | `4/3` | `rect` | Klasyczny poziomy |
+| Pionowy 9:16 | `9/16` | `rect` | Stories, portret |
+| Pionowy 3:4 | `3/4` | `rect` | Portret klasyczny |
+| Kwadrat | `1` | `rect` | Instagram, avatar |
+| Koło | `1` | `round` | Avatar okrągły |
+| Owal poziomy | `16/9` | `round` | Elipsa pozioma |
+| Owal pionowy | `9/16` | `round` | Elipsa pionowa |
+| Dowolny | `undefined` | `rect` | Swobodne proporcje |
+
+`react-easy-crop` natywnie obsługuje `cropShape: 'rect' | 'round'` — koło i owal uzyskujemy przez `round` + odpowiedni `aspect`.
 
 ## Zmiany
 
-### 1. Instalacja zależności
-- `react-easy-crop` — komponent crop z drag & zoom
+### 1. `src/lib/cropImage.ts`
+- Naprawić `crossOrigin` — warunkowe ustawienie tylko dla http/https URL
+- Dodać parametr `shape: 'rect' | 'round'` do `getCroppedImg`
+- Dla `round` — po narysowaniu prostokątnego cropu zastosować eliptyczny clip path na canvas (przezroczyste tło, output PNG)
 
 ### 2. `src/components/partner-page/ImageUploadInput.tsx`
-- Po wybraniu pliku zamiast natychmiastowego uploadu — zapisać plik do stanu jako `objectURL` i otworzyć modal/dialog cropu
-- Wyświetlić `<Cropper>` z react-easy-crop (drag + zoom slider)
-- Przycisk "Zatwierdź" → wygenerować przycięty obraz na Canvas → upload do Supabase
-- Przycisk "Anuluj" → zamknąć dialog, nie uploadować
+- Dodać stan `cropShape` i `aspect` z predefiniowanymi kształtami
+- Wyświetlić rząd przycisków/chipów z ikonami kształtów nad cropperem
+- Przekazać `cropShape` do `<Cropper>` i do `getCroppedImg`
+- Dla kształtów round — upload jako `image/png` (przezroczystość)
 
-### 3. `src/lib/cropImage.ts` (nowy plik)
-- Helper function: przyjmuje `imageSrc` + `croppedAreaPixels` → zwraca `Blob` przyciętego obrazu za pomocą Canvas API
-
-## Przepływ UX
+## UI w dialogu
 
 ```text
-[Wybierz plik] → [Dialog z podglądem]
-                  ┌─────────────────────┐
-                  │  Przeciągnij/zoom    │
-                  │  ┌───────────────┐  │
-                  │  │   obraz       │  │
-                  │  └───────────────┘  │
-                  │  [Zoom ────●────]   │
-                  │  [Anuluj] [Zatwierdź]│
-                  └─────────────────────┘
-                         ↓ Zatwierdź
-                  [Upload do Supabase]
+┌─────────────────────────────────┐
+│  Pozycjonowanie zdjęcia         │
+│                                 │
+│  [▬] [▮] [□] [○] [⬭] [⬯] [↔]  │  ← przyciski kształtów
+│  ┌───────────────────────────┐  │
+│  │      Cropper              │  │
+│  └───────────────────────────┘  │
+│  Zoom [────────●──────]         │
+│           [Anuluj] [Zatwierdź]  │
+└─────────────────────────────────┘
 ```
 
 ## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `package.json` | + `react-easy-crop` |
-| `src/lib/cropImage.ts` | Nowy — Canvas crop helper |
-| `src/components/partner-page/ImageUploadInput.tsx` | Dodać crop dialog przed uploadem |
+| `src/lib/cropImage.ts` | Fix crossOrigin + elliptical clip dla round shapes |
+| `src/components/partner-page/ImageUploadInput.tsx` | Selektor kształtu + przekazanie do croppera i getCroppedImg |
 
