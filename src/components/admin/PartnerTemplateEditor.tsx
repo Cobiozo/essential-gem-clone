@@ -212,8 +212,8 @@ const TemplateDetailEditor: React.FC<{
               <CardTitle className="text-lg">Edycja: {name}</CardTitle>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setPreviewMode(!previewMode)}>
-                <Eye className="w-4 h-4 mr-1" /> {previewMode ? 'Edycja' : 'Podgląd'}
+              <Button variant="outline" onClick={() => window.open(`/admin/template-preview/${template.id}`, '_blank')}>
+                <Eye className="w-4 h-4 mr-1" /> Podgląd
               </Button>
               <Button onClick={handleSave} disabled={saving}>
                 <Save className="w-4 h-4 mr-1" /> {saving ? 'Zapisywanie...' : 'Zapisz'}
