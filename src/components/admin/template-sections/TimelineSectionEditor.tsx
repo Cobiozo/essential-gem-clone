@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -13,6 +14,8 @@ interface Props {
 export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
   const milestones: any[] = config.milestones || [];
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
 
   const updateMilestone = (i: number, field: string, value: any) => {
     const n = [...milestones];
@@ -23,7 +26,10 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nagłówek</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nagłówek</Label>
+          <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
       </div>
       <Label>Punkty na osi czasu</Label>

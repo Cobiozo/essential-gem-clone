@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -12,6 +13,8 @@ interface Props {
 
 export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
 
   const links: Array<{ text: string; url: string }> = config.links || [];
   const social: Array<{ platform: string; url: string }> = config.social || [];
@@ -29,20 +32,32 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nazwa firmy</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nazwa firmy</Label>
+          <EditableFieldToggle fieldName="company_name" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.company_name || ''} onChange={e => update('company_name', e.target.value)} />
       </div>
       <div>
-        <Label>Adres</Label>
+        <div className="flex items-center justify-between">
+          <Label>Adres</Label>
+          <EditableFieldToggle fieldName="address" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.address || ''} onChange={e => update('address', e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label>Telefon</Label>
+          <div className="flex items-center justify-between">
+            <Label>Telefon</Label>
+            <EditableFieldToggle fieldName="phone" editableFields={editableFields} onToggle={setEditable} />
+          </div>
           <Input value={config.phone || ''} onChange={e => update('phone', e.target.value)} />
         </div>
         <div>
-          <Label>Email</Label>
+          <div className="flex items-center justify-between">
+            <Label>Email</Label>
+            <EditableFieldToggle fieldName="email" editableFields={editableFields} onToggle={setEditable} />
+          </div>
           <Input value={config.email || ''} onChange={e => update('email', e.target.value)} />
         </div>
       </div>

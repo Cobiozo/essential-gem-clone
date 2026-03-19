@@ -3,6 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -12,6 +13,8 @@ interface Props {
 export const StepsSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
   const steps: any[] = config.steps || [];
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
 
   const updateStep = (i: number, field: string, value: string) => {
     const newSteps = [...steps];
@@ -22,11 +25,17 @@ export const StepsSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nagłówek</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nagłówek</Label>
+          <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
       </div>
       <div>
-        <Label>Opis</Label>
+        <div className="flex items-center justify-between">
+          <Label>Opis</Label>
+          <EditableFieldToggle fieldName="description" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.description || ''} onChange={e => update('description', e.target.value)} />
       </div>
       <div>

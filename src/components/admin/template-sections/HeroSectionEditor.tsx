@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -16,6 +17,9 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const updateCta = (which: 'cta_primary' | 'cta_secondary', field: string, value: string) =>
     onChange({ ...config, [which]: { ...(config[which] || {}), [field]: value } });
 
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
+
   const stats: Array<{ icon: string; value: string; label: string }> = config.stats || [];
   const addStat = () => update('stats', [...stats, { icon: '📊', value: '', label: '' }]);
   const removeStat = (i: number) => update('stats', stats.filter((_, idx) => idx !== i));
@@ -25,7 +29,9 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
       <div>
-        <Label>Layout</Label>
+        <div className="flex items-center justify-between">
+          <Label>Layout</Label>
+        </div>
         <Select value={config.layout || 'centered'} onValueChange={(v) => update('layout', v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -35,19 +41,31 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </Select>
       </div>
       <div>
-        <Label>Nagłówek główny</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nagłówek główny</Label>
+          <EditableFieldToggle fieldName="headline" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.headline || ''} onChange={e => update('headline', e.target.value)} placeholder="TESTUJ, NIE ZGADUJ." />
       </div>
       <div>
-        <Label>Podtytuł</Label>
+        <div className="flex items-center justify-between">
+          <Label>Podtytuł</Label>
+          <EditableFieldToggle fieldName="subheadline" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.subheadline || ''} onChange={e => update('subheadline', e.target.value)} />
       </div>
       <div>
-        <Label>Opis</Label>
+        <div className="flex items-center justify-between">
+          <Label>Opis</Label>
+          <EditableFieldToggle fieldName="description" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Textarea value={config.description || ''} onChange={e => update('description', e.target.value)} rows={3} />
       </div>
       <div>
-        <Label>Tekst badge</Label>
+        <div className="flex items-center justify-between">
+          <Label>Tekst badge</Label>
+          <EditableFieldToggle fieldName="badge_text" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.badge_text || ''} onChange={e => update('badge_text', e.target.value)} />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -99,12 +117,22 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
       </fieldset>
 
       <fieldset className="border rounded-lg p-4 space-y-2">
-        <legend className="text-sm font-semibold px-2">CTA Główne</legend>
+        <legend className="text-sm font-semibold px-2">
+          <div className="flex items-center gap-3">
+            CTA Główne
+            <EditableFieldToggle fieldName="cta_primary.url" editableFields={editableFields} onToggle={setEditable} label="URL edytowalny" />
+          </div>
+        </legend>
         <Input value={config.cta_primary?.text || ''} onChange={e => updateCta('cta_primary', 'text', e.target.value)} placeholder="Tekst przycisku" />
         <Input value={config.cta_primary?.url || ''} onChange={e => updateCta('cta_primary', 'url', e.target.value)} placeholder="URL" />
       </fieldset>
       <fieldset className="border rounded-lg p-4 space-y-2">
-        <legend className="text-sm font-semibold px-2">CTA Drugie (ghost)</legend>
+        <legend className="text-sm font-semibold px-2">
+          <div className="flex items-center gap-3">
+            CTA Drugie (ghost)
+            <EditableFieldToggle fieldName="cta_secondary.url" editableFields={editableFields} onToggle={setEditable} label="URL edytowalny" />
+          </div>
+        </legend>
         <Input value={config.cta_secondary?.text || ''} onChange={e => updateCta('cta_secondary', 'text', e.target.value)} placeholder="Tekst przycisku" />
         <Input value={config.cta_secondary?.url || ''} onChange={e => updateCta('cta_secondary', 'url', e.target.value)} placeholder="URL" />
       </fieldset>

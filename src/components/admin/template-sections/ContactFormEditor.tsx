@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
+import { EditableFieldToggle } from './EditableFieldToggle';
 
 interface Props {
   config: Record<string, any>;
@@ -12,6 +13,8 @@ interface Props {
 
 export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
+  const editableFields: string[] = config.editable_fields || [];
+  const setEditable = (fields: string[]) => update('editable_fields', fields);
 
   const fields: Array<{ label: string; placeholder: string; type: string; required: boolean }> =
     config.fields || [];
@@ -25,11 +28,17 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nagłówek</Label>
+        <div className="flex items-center justify-between">
+          <Label>Nagłówek</Label>
+          <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} placeholder="Daj mi znać..." />
       </div>
       <div>
-        <Label>Podtytuł</Label>
+        <div className="flex items-center justify-between">
+          <Label>Podtytuł</Label>
+          <EditableFieldToggle fieldName="subheading" editableFields={editableFields} onToggle={setEditable} />
+        </div>
         <Input value={config.subheading || ''} onChange={e => update('subheading', e.target.value)} />
       </div>
 
