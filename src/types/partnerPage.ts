@@ -28,6 +28,10 @@ export interface PartnerPageUserAccess {
 
 export interface PartnerPageTemplate {
   id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  position: number;
   template_data: TemplateElement[];
   updated_at: string;
 }
