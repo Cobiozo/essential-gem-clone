@@ -5,13 +5,33 @@ export interface Area {
   height: number;
 }
 
-export async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
+export async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: Area,
+  shape: 'rect' | 'round' = 'rect'
+): Promise<Blob> {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d')!;
 
   canvas.width = pixelCrop.width;
   canvas.height = pixelCrop.height;
+
+  if (shape === 'round') {
+    // Draw elliptical clip for round/oval shapes
+    ctx.beginPath();
+    ctx.ellipse(
+      pixelCrop.width / 2,
+      pixelCrop.height / 2,
+      pixelCrop.width / 2,
+      pixelCrop.height / 2,
+      0,
+      0,
+      2 * Math.PI
+    );
+    ctx.closePath();
+    ctx.clip();
+  }
 
   ctx.drawImage(
     image,
@@ -25,11 +45,14 @@ export async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<
     pixelCrop.height,
   );
 
+  const format = shape === 'round' ? 'image/png' : 'image/jpeg';
+  const quality = shape === 'round' ? undefined : 0.92;
+
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
       else reject(new Error('Canvas toBlob failed'));
-    }, 'image/jpeg', 0.92);
+    }, format, quality);
   });
 }
 
@@ -38,7 +61,10 @@ function createImage(url: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.addEventListener('load', () => resolve(img));
     img.addEventListener('error', (e) => reject(e));
-    img.crossOrigin = 'anonymous';
+    // Only set crossOrigin for remote URLs, not blob: or data:
+    if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.src = url;
   });
 }
