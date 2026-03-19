@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowRight } from 'lucide-react';
+import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
 
 interface StatItem {
   icon?: string;
@@ -79,9 +80,9 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
             {hero_image_url && (
               <div className="flex justify-center">
                 <img
-                  src={hero_image_url}
+                  src={stripShapeHash(hero_image_url)}
                   alt={headline || 'Hero'}
-                  className="max-h-[500px] object-contain drop-shadow-2xl"
+                  className={`max-h-[500px] drop-shadow-2xl ${getImageShapeClasses(hero_image_url)}`}
                 />
               </div>
             )}
