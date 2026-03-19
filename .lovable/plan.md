@@ -1,139 +1,94 @@
+## Analiza systemu powiadomień — wynik
 
+### Status: ✅ Naprawiono brakujące powiadomienia dla gości
 
-# Plan: Szablon Eqology Omega-3 Landing Page
+### Zmiany:
 
-## Podsumowanie
+1. **`generate-meeting-guest-token`** — dodano automatyczny email potwierdzający z:
+   - Datą, godziną, tematem spotkania
+   - Linkiem do pokoju (`/meeting/{room_id}`)
+   - Informacją kto zaprasza
+   - Logowaniem do `email_logs`
 
-Stworzenie premium szablonu landing page "Eqology Omega-3" w systemie stron partnerskich. Szablon będzie dostępny w panelu admina w zakładce "Szablony" w sekcji "Strony partnerskie". Zawiera 10 sekcji (Hero, Problem, Skala, Jak to działa, Proces 6-miesięczny, Gwarancja, Social Proof, Produkty, FAQ, Footer). Partner widzi gotową stronę i wpisuje tylko swoje linki afiliacyjne pod produkty.
+2. **`send-meeting-reminders`** — dodano sekcję obsługi gości z `meeting_guest_tokens`:
+   - 5 przypomnień: 24h, 12h, 2h, 1h, 15min
+   - Link do pokoju dołączany od 2h przed spotkaniem
+   - Deduplikacja via `meeting_reminders_sent` (`prospect_email` + `guest_{type}`)
+   - Logowanie do `email_logs`
 
-## Architektura
-
-Zamiast tworzyć osobny system bazy danych, rozszerzamy istniejący `partner_page_template` o nowy format szablonu:
-
-```text
-partner_page_template.template_data (JSONB)
-├── template_type: "eqology_omega3"  ← nowe pole identyfikujące szablon
-├── sections[] ← tablica sekcji z treścią (edytowalną przez admina)
-└── theme: { colors, fonts }
+### Flow gościa (po zmianach):
+```
+Token wygenerowany → ✅ Email potwierdzenie z linkiem
+24h przed → ✅ Przypomnienie (bez linka)
+12h przed → ✅ Przypomnienie (bez linka)
+2h przed  → ✅ Przypomnienie + LINK
+1h przed  → ✅ Przypomnienie + LINK
+15min     → ✅ Przypomnienie + LINK
+Po wydarzeniu → ✅ Email z podziękowaniem + kontakt zapraszającego
 ```
 
-Publiczny renderer (`PartnerPage.tsx`) rozpoznaje `template_type` i renderuje odpowiedni komponent.
+---
 
-## Zakres zmian
+## Email z podziękowaniem po wydarzeniu — ZREALIZOWANE ✅
 
-### 1. Nowe pliki
+### Nowe komponenty:
+1. **`send-post-event-thank-you`** — nowa Edge Function wysyłająca automatyczny email z podziękowaniem
+   - Złoty nagłówek z logo Pure Life Center
+   - Sekcja z danymi osoby zapraszającej
+   - Tekst zachęcający do kontaktu z zapraszającym
+   - Obsługuje zarówno zalogowanych użytkowników jak i gości
 
-| Plik | Opis |
-|------|------|
-| `src/components/partner-page/templates/EqologyTemplate.tsx` | Renderer publicznej strony — 10 sekcji ze stylami Scandinavian (Deep Sea Blue #1A365D, Gold #D4AF37, białe tła) |
-| `src/components/admin/EqologyTemplateManager.tsx` | Panel admina — edycja treści sekcji szablonu (WYSIWYG teksty, URLe obrazków, wideo, FAQ items) |
-| `src/components/partner-page/templates/eqology-sections/` | Komponenty sekcji: `HeroSection`, `ProblemSection`, `ScaleSection`, `HowItWorksSection`, `TimelineSection`, `GuaranteeSection`, `SocialProofSection`, `ProductCardsSection`, `FaqSection`, `FooterSurveySection` |
+2. **`process-pending-notifications`** — dodano krok 9: automatyczne wysyłanie podziękowań po zakończonych wydarzeniach (w ciągu 2h od zakończenia)
 
-### 2. Modyfikowane pliki
+3. **Migracja SQL** — kolumny `thank_you_sent` / `thank_you_sent_at` w `event_registrations` i `guest_event_registrations`
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/PartnerPagesManagement.tsx` | Dodanie 4. zakładki "Szablony" z komponentem `EqologyTemplateManager` |
-| `src/pages/PartnerPage.tsx` | Rozpoznawanie `template_type` → delegowanie do `EqologyTemplate` zamiast obecnego renderera |
-| `src/types/partnerPage.ts` | Nowe typy: `EqologyTemplateData`, `EqologySection`, `FaqItem`, `SocialProofItem`, `ProductCard` |
+4. **`send-guest-thank-you-email`** — zaktualizowany branding na złoty nagłówek z logo
 
-### 3. Brak zmian w bazie danych
+### Test emaili (wysłano do sebastiansnopek87@gmail.com):
+- ✅ Potwierdzenie rejestracji
+- ✅ Przypomnienie 24h
+- ✅ Przypomnienie 12h (bulk — 18 wysłanych)
+- ✅ Przypomnienie 2h (bulk — 11 wysłanych)
+- ✅ Przypomnienie 1h
+- ✅ Przypomnienie 15min
+- ✅ Podziękowanie po wydarzeniu (NOWY)
 
-Wykorzystujemy istniejącą tabelę `partner_page_template` (pole `template_data` JSONB). Nowy szablon to po prostu inny format JSON w tym samym polu. Produkty dalej korzystają z `product_catalog` + `partner_product_links`.
+---
 
-## Struktura szablonu Eqology (template_data JSONB)
+## Naprawa krytycznych przypomnień 1h/15min z linkiem — ZREALIZOWANE ✅
 
-```typescript
-{
-  template_type: "eqology_omega3",
-  theme: {
-    primaryColor: "#1A365D",    // Deep Sea Blue
-    accentColor: "#D4AF37",     // Luminous Gold
-    bgColor: "#FFFFFF",
-    bgAlt: "#F8F9FA",
-    fontFamily: "Inter"
-  },
-  sections: {
-    hero: {
-      title: "TESTUJ, NIE ZGADUJ.",
-      subtitle: "Twoje zdrowie zasługuje na twarde dane.",
-      description: "6-miesięczny proces...",
-      bgImageUrl: "",
-      ctaPrimaryText: "KUP TERAZ",
-      ctaSecondaryText: "Wypełnij ankietę",
-      ctaSecondaryUrl: "#survey"
-    },
-    problem: {
-      title: "Większość ludzi suplementuje na ślepo.",
-      items: ["Reklamy...", "Rekomendacje...", "Brak dowodów..."]
-    },
-    scale: {
-      title: "9 na 10 osób ma niedobór Omega-3.",
-      description: "..."
-    },
-    howItWorks: {
-      title: "Jak to działa?",
-      steps: [{ icon, title, description }],
-      videoUrl: ""
-    },
-    timeline: {
-      title: "Proces 6-miesięczny",
-      milestones: [{ month, title, description }]
-    },
-    guarantee: {
-      title: "0 ryzyka. Gwarancja satysfakcji.",
-      description: "..."
-    },
-    socialProof: {
-      title: "Wyniki mówią same za siebie",
-      items: [{ name, beforeRatio, afterRatio }]
-    },
-    faq: {
-      title: "Najczęściej zadawane pytania",
-      items: [{ question, answer }]
-    },
-    footerSurvey: {
-      title: "Nie wiesz od czego zacząć?",
-      ctaText: "Wypełnij ankietę",
-      ctaUrl: ""
-    }
-  }
-}
+### Root cause:
+1. `send-bulk-webinar-reminders` obsługiwał **tylko** `guest_event_registrations` — zalogowani użytkownicy nie dostawali 1h/15min
+2. `event_registrations` nie miał kolumn śledzenia `reminder_1h_sent`, `reminder_15min_sent` (ani 12h/2h)
+3. Guard `last_run_at` w `process-pending-notifications` mógł pominąć krytyczne okna po ręcznym uruchomieniu
+
+### Zmiany:
+
+1. **Migracja SQL** — dodano do `event_registrations`:
+   - `reminder_12h_sent`, `reminder_12h_sent_at`
+   - `reminder_2h_sent`, `reminder_2h_sent_at`
+   - `reminder_1h_sent`, `reminder_1h_sent_at`
+   - `reminder_15min_sent`, `reminder_15min_sent_at`
+
+2. **`send-bulk-webinar-reminders`** — przebudowany:
+   - Obsługuje OBIE tabele: `guest_event_registrations` + `event_registrations`
+   - Dla zalogowanych pobiera email/imię z `profiles`
+   - Ustawia flagi w odpowiedniej tabeli po sukcesie
+   - Loguje każdy send do `email_logs` z `registration_source`
+
+3. **`process-pending-notifications`** — usunięta luka:
+   - Interval guard NIE blokuje już gdy są eventy w oknach 1h/15min
+   - Sprawdza bazę przed skipowaniem — jeśli istnieją krytyczne eventy, wymusza run
+   - Gwarantuje dostarczenie linków niezależnie od ręcznych triggerów
+
+4. **`send-webinar-confirmation`** — rozszerzony fallback:
+   - Przy rejestracji < 60min przed startem ustawia flagi TAKŻE w `event_registrations`
+   - Zapobiega duplikatom z CRON dla zalogowanych
+
+### Efekt:
 ```
-
-## Sekcje szablonu — szczegóły renderowania
-
-1. **Hero** — pełnoekranowy gradient Deep Sea Blue → biały, duży H1 (Inter Bold), 2 przyciski CTA (Gold filled + Ghost outline)
-2. **Problem** — lista z czerwonymi ikonami ✕, białe tło
-3. **Scale** — ciemna sekcja (#1A365D), biały tekst, duża statystyka "9/10"
-4. **How it Works** — 3 kroki z ikonami w okręgach, wideo player
-5. **Timeline** — pozioma oś czasu z 4 kamieniami milowymi (animacja przy scroll)
-6. **Guarantee** — zielona ikona tarczy, jasne tło
-7. **Social Proof** — karty Before/After z kolorowymi wskaźnikami (czerwony → zielony)
-8. **Products** — karty 3 produktów (Silver, Gold, Green) z hover shadow, przycisk "KUP TERAZ" (Gold), akordeon składników; **linki dynamiczne** — jeśli partner ma `partner_product_links`, użyj ich, jeśli nie — domyślny link z `product_catalog`
-9. **FAQ** — akordeon z pytaniami/odpowiedziami
-10. **Footer/Survey** — ciemne tło #1A365D, biały tekst, CTA ankieta
-
-## Co widzi partner w edytorze
-
-Partner NIE edytuje treści ani designu. W swoim panelu "Moja Strona-Biznes Partner" widzi:
-- Podgląd strony (link)
-- Toggle aktywacji
-- Lista produktów z katalogu → wkleja swoje linki afiliacyjne (istniejąca logika `PartnerPageEditor`)
-
-## Co widzi admin w zakładce "Szablony"
-
-- Formularz edycji treści każdej sekcji (tytuły, opisy, FAQ, social proof items)
-- Upload obrazków/wideo
-- Podgląd na żywo
-- Przycisk "Zapisz szablon"
-
-## Kolejność implementacji
-
-1. Typy TypeScript (`EqologyTemplateData`)
-2. Domyślne dane szablonu (JSON z polskimi tekstami Eqology)
-3. 10 komponentów sekcji (renderery)
-4. `EqologyTemplate.tsx` (główny renderer)
-5. `EqologyTemplateManager.tsx` (edytor admina)
-6. Integracja: zakładka w `PartnerPagesManagement`, routing w `PartnerPage.tsx`
-
+GUEST (guest_event_registrations):  ✅ Pełna ścieżka 24h→12h→2h→1h→15min
+USER  (event_registrations):        ✅ Pełna ścieżka 24h→12h→2h→1h→15min (NOWE)
+Rejestracja <60min przed startem:   ✅ Natychmiastowy link + flagi w obu tabelach
+Interval guard:                     ✅ Nie blokuje krytycznych okien 1h/15min
+```
