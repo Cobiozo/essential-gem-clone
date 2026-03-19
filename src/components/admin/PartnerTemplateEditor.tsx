@@ -235,34 +235,7 @@ const TemplateDetailEditor: React.FC<{
         </CardContent>
       </Card>
 
-      {previewMode ? (
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Podgląd szablonu</CardTitle></CardHeader>
-          <CardContent>
-            <div className="space-y-4 border rounded-lg p-6 bg-muted/30">
-              {elements.map((el) => (
-                <div key={el.id} className="border rounded p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Badge variant="outline">{TYPE_LABELS[el.type] || el.type}</Badge>
-                    {el.label && <span className="text-sm font-medium">{el.label}</span>}
-                  </div>
-                  {el.type === 'static' && (
-                    <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: el.content || '<em>Brak treści</em>' }} />
-                  )}
-                  {RICH_TYPES.includes(el.type) && (
-                    <div className="bg-primary/5 border-dashed border-2 border-primary/30 rounded p-3 text-sm text-muted-foreground">
-                      🧩 Sekcja: {TYPE_LABELS[el.type]}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {elements.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">Szablon jest pusty.</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
+      {(
         <>
           {elements.map((element, index) => (
             <Card key={element.id}>
