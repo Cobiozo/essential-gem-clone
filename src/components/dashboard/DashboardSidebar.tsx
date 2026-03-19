@@ -63,6 +63,7 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 import { useToast } from '@/hooks/use-toast';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
+import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { Badge } from '@/components/ui/badge';
