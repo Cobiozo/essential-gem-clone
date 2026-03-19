@@ -1,42 +1,28 @@
 
 
-# Plan: Kopiowanie sekcji między szablonami
+# Plan: Dodanie przełącznika szablonów w podglądzie
 
-## Opis
-Dodanie możliwości skopiowania sekcji z jednego szablonu i wklejenia jej do innego. Dwa podejścia do wyboru:
+## Problem
+Po skopiowaniu sekcji w podglądzie szablonu nie ma sposobu, żeby przejść do innego szablonu — podgląd otwiera się w nowej karcie i przycisk „Wróć" robi `navigate(-1)`, co nie prowadzi do listy szablonów.
 
-### Podejście A — Schowek sekcji (clipboard)
-- W pasku narzędzi każdej sekcji (obok „duplikuj" i „usuń") dodać przycisk **„Kopiuj do schowka"** (ikona `ClipboardCopy`).
-- Kliknięcie zapisuje JSON sekcji do `localStorage` (klucz np. `copied_section`).
-- W `AddSectionMenu` (menu dodawania sekcji) dodać opcję **„Wklej skopiowaną sekcję"** — widoczną tylko gdy w localStorage jest zapisana sekcja.
-- Wklejenie tworzy nową sekcję z nowym `id` (UUID) i wstawia ją w wybranym miejscu.
-- Działa między szablonami, bo admin może otworzyć jeden szablon, skopiować sekcję, wrócić, otworzyć drugi szablon i wkleić.
+## Rozwiązanie
+Dodać dropdown w top barze podglądu, który pozwala szybko przełączyć się na inny szablon (bez opuszczania widoku podglądu).
 
-### Pliki do zmian
+## Zmiany w `src/pages/TemplatePreviewPage.tsx`
 
-| Plik | Zmiana |
-|------|--------|
-| `SortableSectionWrapper.tsx` | Dodać przycisk „Kopiuj" obok duplikuj/usuń |
-| `AddSectionMenu.tsx` | Dodać opcję „Wklej skopiowaną sekcję" gdy jest coś w schowku |
-| `TemplatePreviewPage.tsx` | Handler `handleCopySection` (zapis do localStorage) i `handlePasteSection` (odczyt + wstawienie) |
+1. **Pobranie listy szablonów** — dodać zapytanie do `partner_page_template` po `id, name` w `useEffect` (obok istniejącego fetcha).
 
-### Logika
+2. **Dropdown w top barze** — obok nazwy aktualnego szablonu dodać `Select` z listą wszystkich szablonów. Wybranie innego szablonu nawiguje do `/admin/template-preview/:id`.
 
+3. **Poprawka przycisku „Wróć"** — zmienić `navigate(-1)` na `navigate('/admin?tab=partner-pages')`, żeby zawsze wracał do listy szablonów.
+
+### Schemat UI top bara:
 ```text
-Kopiowanie:
-  localStorage.setItem('copied_section', JSON.stringify(section))
-  toast("Sekcja skopiowana")
-
-Wklejanie:
-  const raw = localStorage.getItem('copied_section')
-  if (!raw) return
-  const section = JSON.parse(raw)
-  section.id = crypto.randomUUID()  // nowe ID
-  wstaw w wybranej pozycji
+[← Wróć do edytora]  Podgląd szablonu: [▼ Select: nazwa szablonu]     [Zapisz zmiany]
 ```
 
-### UX
-- Przycisk „Kopiuj" z tooltipem w toolbar sekcji
-- W menu dodawania sekcji: dodatkowa pozycja „Wklej skopiowaną sekcję" (z ikoną `ClipboardPaste`), wyszarzona gdy schowek pusty
-- Toast po skopiowaniu i po wklejeniu
+### Zakres zmian
+| Plik | Zmiana |
+|------|--------|
+| `TemplatePreviewPage.tsx` | Fetch listy szablonów, dropdown w top barze, poprawka nawigacji „Wróć" |
 
