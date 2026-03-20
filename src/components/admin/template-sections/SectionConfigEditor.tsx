@@ -39,6 +39,7 @@ export const SectionConfigEditor: React.FC<{
       case 'contact_form': return <ContactFormEditor config={cfg} onChange={onConfigChange} />;
       case 'footer': return <FooterSectionEditor config={cfg} onChange={onConfigChange} />;
       case 'products_with_form': return <ProductsWithFormEditor config={cfg} onChange={onConfigChange} />;
+      case 'survey': return <SurveySectionEditor config={cfg} onChange={onConfigChange} />;
       default: return null;
     }
   };

@@ -10,5 +10,6 @@ export { HeaderSectionEditor } from './HeaderSectionEditor';
 export { ContactFormEditor } from './ContactFormEditor';
 export { FooterSectionEditor } from './FooterSectionEditor';
 export { ProductsWithFormEditor } from './ProductsWithFormEditor';
+export { SurveySectionEditor } from './SurveySectionEditor';
 export { EditableFieldToggle } from './EditableFieldToggle';
 export { SectionConfigEditor } from './SectionConfigEditor';

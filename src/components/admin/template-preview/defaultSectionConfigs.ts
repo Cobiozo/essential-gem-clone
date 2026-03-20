@@ -160,4 +160,5 @@ export const SECTION_TYPE_OPTIONS: { type: string; label: string; icon: string }
   { type: 'contact_form', label: 'Formularz kontaktowy', icon: '✉️' },
   { type: 'footer', label: 'Stopka', icon: '🔚' },
   { type: 'products_with_form', label: 'Produkty + Formularz', icon: '🛍️' },
+  { type: 'survey', label: 'Ankieta zdrowotna', icon: '📋' },
 ];
