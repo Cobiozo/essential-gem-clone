@@ -55,6 +55,11 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
       <Button variant="outline" size="sm" onClick={() => update('cards', [...cards, { label: '', before: '', after: '', description: '' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj kartę
       </Button>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };

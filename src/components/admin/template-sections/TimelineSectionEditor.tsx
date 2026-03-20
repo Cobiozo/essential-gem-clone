@@ -55,6 +55,11 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
       <Button variant="outline" size="sm" onClick={() => update('milestones', [...milestones, { icon: '📌', month: '', title: '', highlight: false }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj punkt
       </Button>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };

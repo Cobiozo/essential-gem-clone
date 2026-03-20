@@ -101,6 +101,11 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
         <ColorInput label="Kolor tła" value={config.bg_color || '#f8fafc'} onChange={v => update('bg_color', v)} />
         <ColorInput label="Kolor tekstu" value={config.text_color || ''} onChange={v => update('text_color', v)} />
       </div>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };

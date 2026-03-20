@@ -131,6 +131,11 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Input value={config.text_color || '#ffffff'} onChange={e => update('text_color', e.target.value)} />
         </div>
       </div>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };
