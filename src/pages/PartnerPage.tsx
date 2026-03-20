@@ -55,6 +55,7 @@ const PartnerPageView: React.FC = () => {
   const [editableCustomData, setEditableCustomData] = useState<Record<string, any>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
 
   useEffect(() => {
     const fetchPage = async () => {
