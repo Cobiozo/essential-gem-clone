@@ -40,7 +40,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
             {(partner_name || partner_subtitle) && (
               <div className="mb-4">
                 {partner_subtitle && (
-                  <p className="text-sm font-medium uppercase tracking-wider mb-1" style={ts ? { color: tc, opacity: 0.7 } : undefined}>{partner_subtitle}</p>
+                  <p className="text-sm font-medium uppercase tracking-wider mb-1" style={ts ? { color: tc, opacity: 0.7, whiteSpace: 'pre-line' } : { whiteSpace: 'pre-line' }}>{partner_subtitle}</p>
                 )}
                 {partner_name && (
                   <p className="text-xl font-bold" style={ts}>{partner_name}</p>
