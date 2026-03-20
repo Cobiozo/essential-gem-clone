@@ -151,7 +151,7 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
               )}
             </div>
           ))}
-          {privacy_text && <p className="text-xs text-muted-foreground">{privacy_text}</p>}
+          {privacy_text && <p className="text-xs text-muted-foreground" style={{ whiteSpace: 'pre-line' }}>{privacy_text}</p>}
           <button
             type="submit"
             disabled={sending}

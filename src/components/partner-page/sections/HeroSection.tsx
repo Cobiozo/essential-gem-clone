@@ -239,7 +239,7 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
           </h1>
         )}
         {subheadline && (
-          <p className="text-lg sm:text-xl md:text-2xl font-medium mb-4" style={ts ? { color: tc, opacity: 0.9 } : { color: 'rgba(255,255,255,0.9)' }}>{subheadline}</p>
+          <p className="text-lg sm:text-xl md:text-2xl font-medium mb-4" style={{ ...(ts ? { color: tc, opacity: 0.9 } : { color: 'rgba(255,255,255,0.9)' }), whiteSpace: 'pre-line' }}>{subheadline}</p>
         )}
         {description && (
           <p className="text-sm sm:text-base max-w-2xl mx-auto mb-6 leading-relaxed" style={ts ? { color: tc, opacity: 0.8 } : { color: 'rgba(255,255,255,0.8)' }}>{description}</p>

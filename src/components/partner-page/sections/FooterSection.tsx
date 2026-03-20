@@ -114,7 +114,7 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
           </div>
         )}
 
-        <div className="mt-8 pt-6 border-t border-white/10 text-center text-xs opacity-50">
+        <div className="mt-8 pt-6 border-t border-white/10 text-center text-xs opacity-50" style={{ whiteSpace: 'pre-line' }}>
           {copyright_text || `© ${new Date().getFullYear()} ${company_name || 'Firma'}. Wszelkie prawa zastrzeżone.`}
         </div>
       </div>

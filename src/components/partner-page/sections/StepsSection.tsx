@@ -21,8 +21,8 @@ export const StepsSection: React.FC<Props> = ({ config }) => {
           {(steps || []).map((step: any, i: number) => (
             <div key={i} className="text-center">
               <div className="text-4xl mb-4">{step.icon || '📦'}</div>
-              <h3 className="text-lg font-bold mb-2" style={ts}>{step.title}</h3>
-              <p className="text-sm" style={{ ...ts, opacity: 0.8 }}>{step.description}</p>
+              <h3 className="text-lg font-bold mb-2" style={{ ...ts, whiteSpace: 'pre-line' }}>{step.title}</h3>
+              <p className="text-sm" style={{ ...ts, opacity: 0.8, whiteSpace: 'pre-line' }}>{step.description}</p>
             </div>
           ))}
         </div>

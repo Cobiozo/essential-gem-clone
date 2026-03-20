@@ -35,7 +35,7 @@ export const TestimonialsSection: React.FC<Props> = ({ config }) => {
                 )}
               </div>
               {card.description && (
-                <p className="text-xs text-muted-foreground">{card.description}</p>
+                <p className="text-xs text-muted-foreground" style={{ whiteSpace: 'pre-line' }}>{card.description}</p>
               )}
               {card.image && (
                 <img src={card.image} alt="" className="mt-4 rounded-lg w-full object-cover max-h-40" />

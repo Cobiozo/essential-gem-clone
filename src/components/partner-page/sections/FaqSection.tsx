@@ -22,10 +22,10 @@ export const FaqSection: React.FC<Props> = ({ config }) => {
           {(items || []).map((item: any, i: number) => (
             <Collapsible key={i}>
               <CollapsibleTrigger className="flex items-center justify-between w-full bg-card border border-border rounded-xl px-5 py-4 text-left hover:bg-muted/50 transition-colors group">
-                <span className="font-medium" style={ts}>{item.question}</span>
+                <span className="font-medium" style={{ ...ts, whiteSpace: 'pre-line' }}>{item.question}</span>
                 <Plus className="w-5 h-5 text-muted-foreground transition-transform group-data-[state=open]:rotate-45" />
               </CollapsibleTrigger>
-              <CollapsibleContent className="px-5 py-4 text-sm" style={ts ? { color: tc, opacity: 0.8 } : undefined}>
+              <CollapsibleContent className="px-5 py-4 text-sm" style={ts ? { color: tc, opacity: 0.8, whiteSpace: 'pre-line' } : { whiteSpace: 'pre-line' }}>
                 {item.answer}
               </CollapsibleContent>
             </Collapsible>
