@@ -1,5 +1,4 @@
 import React from 'react';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -34,6 +33,14 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
         </div>
         <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
+      <div>
+        <div className="flex items-center justify-between">
+          <Label>Podtytuł</Label>
+          <EditableFieldToggle fieldName="subtitle" editableFields={editableFields} onToggle={setEditable} />
+        </div>
+        <Textarea value={config.subtitle || ''} onChange={e => update('subtitle', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
+      </div>
+
       <Label>Karty opinii</Label>
       {cards.map((card, i) => (
         <div key={i} className="border rounded-lg p-3 space-y-2">
@@ -43,16 +50,21 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
           </div>
-          <Textarea value={card.label || ''} onChange={e => updateCard(i, 'label', e.target.value)} placeholder="Etykieta (np. Wsparcie serca)" rows={1} className="min-h-[36px] resize-y" />
-          <div className="grid grid-cols-2 gap-2">
-            <Textarea value={card.before || ''} onChange={e => updateCard(i, 'before', e.target.value)} placeholder="PRZED (np. 15:1)" rows={1} className="min-h-[36px] resize-y" />
-            <Textarea value={card.after || ''} onChange={e => updateCard(i, 'after', e.target.value)} placeholder="PO (np. 3:1)" rows={1} className="min-h-[36px] resize-y" />
-          </div>
-          <Textarea value={card.description || ''} onChange={e => updateCard(i, 'description', e.target.value)} placeholder="Opis" rows={2} className="min-h-[36px] resize-y" />
           <ImageUploadInput value={card.image || ''} onChange={v => updateCard(i, 'image', v)} compact />
+          <Textarea value={card.name || ''} onChange={e => updateCard(i, 'name', e.target.value)} placeholder="Imię osoby" rows={1} className="min-h-[36px] resize-y" />
+          <Textarea value={card.label || ''} onChange={e => updateCard(i, 'label', e.target.value)} placeholder="Opis (np. Suplementacja wspierająca...)" rows={2} className="min-h-[36px] resize-y" />
+          <div className="grid grid-cols-2 gap-2">
+            <Textarea value={card.before_label || ''} onChange={e => updateCard(i, 'before_label', e.target.value)} placeholder="Etykieta PRZED (np. PRZED:)" rows={1} className="min-h-[36px] resize-y" />
+            <Textarea value={card.before || ''} onChange={e => updateCard(i, 'before', e.target.value)} placeholder="Wartość PRZED (np. 15:1)" rows={1} className="min-h-[36px] resize-y" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Textarea value={card.after_label || ''} onChange={e => updateCard(i, 'after_label', e.target.value)} placeholder="Etykieta PO (np. PO:)" rows={1} className="min-h-[36px] resize-y" />
+            <Textarea value={card.after || ''} onChange={e => updateCard(i, 'after', e.target.value)} placeholder="Wartość PO (np. 3:1)" rows={1} className="min-h-[36px] resize-y" />
+          </div>
+          <Textarea value={card.description || ''} onChange={e => updateCard(i, 'description', e.target.value)} placeholder="Dodatkowy opis" rows={2} className="min-h-[36px] resize-y" />
         </div>
       ))}
-      <Button variant="outline" size="sm" onClick={() => update('cards', [...cards, { label: '', before: '', after: '', description: '' }])}>
+      <Button variant="outline" size="sm" onClick={() => update('cards', [...cards, { name: '', label: '', before_label: 'PRZED:', before: '', after_label: 'PO:', after: '', description: '', image: '' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj kartę
       </Button>
 
