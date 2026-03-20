@@ -267,15 +267,7 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
               {cta_primary.text} {ctaIconEl}
             </a>
           )}
-          {cta_secondary?.text && (
-            <a
-              href={cta_secondary.url || '#'}
-              className="inline-flex items-center gap-2 border-2 border-white/40 hover:border-white/70 px-8 py-4 rounded-full font-semibold text-base transition-colors"
-              style={ts || { color: 'white' }}
-            >
-              {cta_secondary.text}
-            </a>
-          )}
+          {renderSecondaryBtn()}
         </div>
 
         {stats && stats.length > 0 && (

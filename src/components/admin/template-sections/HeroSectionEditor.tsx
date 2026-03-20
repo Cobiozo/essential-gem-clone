@@ -203,6 +203,11 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </legend>
         <Input value={config.cta_secondary?.text || ''} onChange={e => updateCta('cta_secondary', 'text', e.target.value)} placeholder="Tekst przycisku" />
         <Input value={config.cta_secondary?.url || ''} onChange={e => updateCta('cta_secondary', 'url', e.target.value)} placeholder="URL" />
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <ColorInput label="Kolor tła CTA 2 (opcja)" value={config.cta_secondary_bg_color || ''} onChange={v => update('cta_secondary_bg_color', v)} />
+          <ColorInput label="Kolor tekstu CTA 2" value={config.cta_secondary_text_color || ''} onChange={v => update('cta_secondary_text_color', v)} />
+        </div>
+        <p className="text-xs text-muted-foreground">Gdy kolor tła jest ustawiony, przycisk będzie wypełniony zamiast ghost.</p>
       </fieldset>
     </div>
   );
