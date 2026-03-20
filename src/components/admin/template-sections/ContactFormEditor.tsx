@@ -52,7 +52,7 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Podtytuł</Label>
           <EditableFieldToggle fieldName="subheading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.subheading || ''} onChange={e => update('subheading', e.target.value)} />
+        <Textarea value={config.subheading || ''} onChange={e => update('subheading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
 
       <fieldset className="border rounded-lg p-4 space-y-3">
