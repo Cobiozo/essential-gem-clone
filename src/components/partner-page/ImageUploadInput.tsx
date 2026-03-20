@@ -178,7 +178,7 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
             <span className="text-xs text-muted-foreground shrink-0">Zoom</span>
             <Slider
               value={[zoom]}
-              min={1}
+              min={0.3}
               max={3}
               step={0.05}
               onValueChange={([v]) => setZoom(v)}
