@@ -79,17 +79,20 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
             </span>
           )}
 
-          {/* Partner badge */}
-          {partnerName && show_partner_badge ? (
-            <div
-              className={`flex items-center gap-2 ${isCard ? 'px-3 py-1.5 rounded-lg' : ''}`}
-              style={{
-                backgroundColor: isCard ? (partner_badge_bg_color || 'rgba(0,0,0,0.05)') : undefined,
-                color: partner_badge_text_color || text_color || undefined,
-              }}
-            >
-              <span style={{ opacity: 0.5 }}>|</span>
-              <span className="text-sm font-medium">{partnerName}</span>
+          {/* Partner badge - same style as hero section */}
+          {show_partner_badge && config.partner_badge && (config.partner_badge.text || config.partner_badge.subtitle) ? (
+            <div className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-2xl max-w-fit shadow-sm">
+              {config.partner_badge.avatar_url && (
+                <img src={config.partner_badge.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0" />
+              )}
+              <div>
+                {config.partner_badge.text && (
+                  <p className="text-[10px] text-gray-500 font-medium leading-tight">{config.partner_badge.text}</p>
+                )}
+                {config.partner_badge.subtitle && (
+                  <p className="text-xs font-semibold text-gray-900 leading-tight">{config.partner_badge.subtitle}</p>
+                )}
+              </div>
             </div>
           ) : partnerName ? (
             <span className="text-sm hidden sm:inline" style={{ opacity: 0.6 }}>

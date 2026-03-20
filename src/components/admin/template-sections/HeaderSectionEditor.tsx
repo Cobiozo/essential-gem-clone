@@ -240,18 +240,16 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         {config.show_partner_badge && (
           <div className="space-y-3">
             <div>
-              <Label>Styl kafelka</Label>
-              <Select value={config.partner_badge_style || 'compact'} onValueChange={v => update('partner_badge_style', v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="compact">Kompaktowy (jedna linia)</SelectItem>
-                  <SelectItem value="card">Karta (z tłem)</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs">Tekst (np. „Twój Przewodnik Zdrowia:")</Label>
+              <Input value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <ColorInput value={config.partner_badge_bg_color || ''} onChange={v => update('partner_badge_bg_color', v)} label="Kolor tła kafelka" />
-              <ColorInput value={config.partner_badge_text_color || ''} onChange={v => update('partner_badge_text_color', v)} label="Kolor tekstu kafelka" />
+            <div>
+              <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
+              <Input value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." />
+            </div>
+            <div>
+              <Label className="text-xs">Avatar partnera</Label>
+              <ImageUploadInput value={config.partner_badge?.avatar_url || ''} onChange={v => updatePartnerBadge('avatar_url', v)} compact />
             </div>
           </div>
         )}
