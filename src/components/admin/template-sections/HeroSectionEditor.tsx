@@ -1,6 +1,7 @@
 import React from 'react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Input } from '@/components/ui/input';
+import { InnerElementsList } from './InnerElementsList';
 import { Label } from '@/components/ui/label';
 import { ColorInput } from '@/components/ui/color-input';
 import { Textarea } from '@/components/ui/textarea';
