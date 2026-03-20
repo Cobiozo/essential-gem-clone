@@ -51,7 +51,7 @@ export const SectionConfigEditor: React.FC<{
         <Label className="text-xs text-muted-foreground">Kotwica sekcji (anchor ID)</Label>
         <Input
           value={cfg.anchor_id || ''}
-          onChange={e => onConfigChange({ ...cfg, anchor_id: e.target.value })}
+          onChange={e => onConfigChange({ ...cfg, anchor_id: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
           placeholder="np. kontakt, produkty, o-mnie"
           className="h-8 text-xs"
         />
