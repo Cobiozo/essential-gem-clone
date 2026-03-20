@@ -41,6 +41,7 @@ export const SurveyManager: React.FC = () => {
 
     const surveyElement = elements.find((el: any) => el.type === 'survey');
     setSurveyConfig(surveyElement?.config || DEFAULT_SECTION_CONFIGS.survey);
+    setSurveyExists(!!surveyElement);
     setLoading(false);
   };
 
