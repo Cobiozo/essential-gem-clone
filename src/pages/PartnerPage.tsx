@@ -30,6 +30,12 @@ interface PartnerProfile {
   last_name: string | null;
   avatar_url?: string | null;
   email?: string | null;
+  phone_number?: string | null;
+  city?: string | null;
+  country?: string | null;
+  specialization?: string | null;
+  profile_description?: string | null;
+  eq_id?: string | null;
 }
 
 const PartnerPageView: React.FC = () => {
