@@ -98,7 +98,7 @@ export const SurveyManager: React.FC = () => {
           <AlertElement
             variant="info"
             title="Ankieta nie jest jeszcze aktywna"
-            content="Kliknij „Zapisz", aby dodać ankietę do szablonu stron partnerów. Dopiero po zapisie sekcja będzie widoczna i dostępna pod kotwicą #ankieta."
+            content={'Kliknij „Zapisz", aby dodać ankietę do szablonu stron partnerów. Dopiero po zapisie sekcja będzie widoczna i dostępna pod kotwicą #ankieta.'}
           />
         )}
         <SurveySectionEditor config={surveyConfig} onChange={setSurveyConfig} />
