@@ -75,6 +75,7 @@ export const SurveyManager: React.FC = () => {
       toast.error('Błąd zapisu ankiety');
     } else {
       setTemplateData(updatedData);
+      setSurveyExists(true);
       toast.success('Ankieta zapisana');
     }
   };
