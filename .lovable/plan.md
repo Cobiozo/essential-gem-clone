@@ -1,40 +1,43 @@
 
 
-# Fix: Ankieta nie działa po kliknięciu CTA
+# Podgląd ankiety w panelu admina
 
-## Diagnoza
-
-Dwa problemy:
-
-1. **Ankieta prawdopodobnie nie została zapisana do szablonu** — dopóki nie klikniesz "Zapisz" w zakładce Ankieta, sekcja nie istnieje w `template_data`, więc na stronie partnera nie ma elementu z `id="Ankieta"` i przycisk CTA nie ma do czego przewinąć.
-
-2. **Case-sensitivity** — `getElementById` rozróżnia wielkość liter. Jeśli anchor to `Ankieta` (wielka A), CTA musi mieć dokładnie `#Ankieta`. Podpowiedź w edytorze mówi `#ankieta` (małe), co jest mylące.
+## Cel
+Dodać przycisk "Podgląd" w `SurveyManager`, który przełącza widok między edytorem a interaktywnym podglądem ankiety (`SurveySection`). Admin będzie mógł przetestować działanie ankiety (klikanie odpowiedzi, nawigacja, wyniki) bez opuszczania panelu.
 
 ## Zmiany
 
-### 1. Auto-lowercase anchor_id (`SurveySectionEditor.tsx`)
-Wymusić małe litery w polu Anchor ID, aby uniknąć problemów z wielkością liter. Zmienić `onChange` na `e.target.value.toLowerCase()`.
+### Plik: `src/components/admin/SurveyManager.tsx`
+- Dodać state `showPreview` (boolean, domyślnie `false`)
+- Dodać przycisk **"Podgląd"** (ikona `Eye`/`EyeOff`) obok przycisku "Zapisz" w headerze karty
+- Gdy `showPreview === true`: renderować `SurveySection` z aktualnym `surveyConfig` zamiast `SurveySectionEditor`
+- Podgląd owinąć w kontener z zaokrąglonymi rogami i ciemnym tłem, żeby wyglądał realistycznie
+- Przycisk przełącza etykietę: "Podgląd" ↔ "Edytor"
 
-### 2. Case-insensitive scroll w CTA (`CtaBannerSection.tsx`)
-Dodać fallback: jeśli `getElementById` nie znajdzie elementu, szukać case-insensitive za pomocą `querySelector('[id]')` z porównaniem.
+### Wizualny układ
 
-### 3. Auto-lowercase anchor_id w `SectionConfigEditor.tsx`
-Analogicznie jak w survey — inne sekcje też mają pole anchor_id. Wymusić małe litery.
+```text
+┌─ Ankieta zdrowotna ──────────────────────────┐
+│ [Zarządzaj pytaniami...]     [👁 Podgląd] [💾] │
+│                                                │
+│  ┌─ Podgląd ankiety (ciemne tło) ───────────┐ │
+│  │  Ankieta zdrowotna                        │ │
+│  │  ████████░░░░░░░░  (progress bar)         │ │
+│  │  Pytanie 1 z 10                           │ │
+│  │  Jaka jest Twoja płeć?                    │ │
+│  │  ○ Kobieta                                │ │
+│  │  ○ Mężczyzna                              │ │
+│  │  [Wstecz]              [Dalej →]          │ │
+│  └───────────────────────────────────────────┘ │
+└────────────────────────────────────────────────┘
+```
 
-### 4. Case-insensitive scroll w `HeaderSection.tsx`
-Ten sam fallback co w CTA — nagłówek też ma linki nawigacyjne z hash.
+### Import
+- Zaimportować `SurveySection` z `@/components/partner-page/sections`
+- Dodać ikonę `Eye` / `EyeOff` z lucide-react
 
-## Szczegóły techniczne
-
-| Plik | Zmiana |
-|------|--------|
-| `SurveySectionEditor.tsx` | `onChange` → `e.target.value.toLowerCase().replace(/\s+/g, '-')` |
-| `SectionConfigEditor.tsx` | Analogicznie — lowercase anchor_id |
-| `CtaBannerSection.tsx` | Fallback: `document.querySelector(\`[id="${anchor}" i]\`)` nie działa, więc: `Array.from(document.querySelectorAll('[id]')).find(el => el.id.toLowerCase() === anchor.toLowerCase())` |
-| `HeaderSection.tsx` | Ten sam case-insensitive fallback |
-
-## Efekt
-- Anchor ID zawsze lowercase — brak pomyłek z wielkością liter
-- Nawet jeśli ktoś ręcznie wpisze duże litery, scroll i tak zadziała
-- Użytkownik musi kliknąć "Zapisz" w zakładce Ankieta — komunikat o tym już istnieje
+### Szczegóły
+- Podgląd używa bieżącego `surveyConfig` (nie zapisanego) — admin widzi zmiany w czasie rzeczywistym
+- Kontener podglądu: `rounded-xl overflow-hidden` aby wyglądał jak embed
+- Żadnych zmian w `SurveySection.tsx` — komponent już działa samodzielnie
 
