@@ -290,6 +290,7 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
           {cta_primary?.text && (
             <a
               href={cta_primary.url || '#'}
+              onClick={(e) => handleCtaClick(e, cta_primary.url || '#')}
               className="inline-flex items-center gap-2 text-white px-8 py-4 rounded-full font-bold text-base transition-all shadow-lg hover:shadow-xl hover:scale-105"
               style={{ backgroundColor: ctaBgColor }}
             >
