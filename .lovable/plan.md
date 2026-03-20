@@ -1,53 +1,63 @@
 
 
-# Plan: Wieloliniowe pola tekstowe + wyrównanie tekstu we wszystkich edytorach sekcji
+# Plan: Sekcja Social Proof z horyzontalnym karuzelą kafelek
 
 ## Cel
-1. Zamienić wszystkie pola `Input` z treścią tekstową na `Textarea` (wieloliniowe, obsługa Enter)
-2. Dodać opcję wyrównania tekstu (lewo/środek/prawo) jako globalną opcję w `SectionConfigEditor`
-3. Zastosować `whiteSpace: pre-line` + `textAlign` w rendererach sekcji
+Przebudować renderer `TestimonialsSection` tak, aby karty wyświetlały się jako **horyzontalnie przewijany karuzela** z kafelkami w stylu ze screena: zdjęcie osoby (okrągłe), imię, opis, dane PRZED/PO z kolorowymi wskaźnikami. Dodać nagłówek i podtytuł nad karuzelą.
 
-## Zmiany w edytorach — Input → Textarea
+## Design (na podstawie screena)
 
-Pola do zamiany (tylko pola z treścią tekstową, NIE pola URL, kolory, ikony, numeryczne):
+```text
+┌──────────────────────────────────────────────────┐
+│  7) Social Proof: Dowody Przed i Po              │
+│  0 Ryzyka. 100% Gwarancji Zadowolenia.           │
+│                                                    │
+│  ◄ [ Card1 ] [ Card2 ] [ Card3 ] [ Card4 ] ... ► │
+│                                                    │
+│  Każda karta:                                      │
+│  ┌─────────────┐                                   │
+│  │  (○ avatar)  │                                  │
+│  │   Imię       │                                  │
+│  │  opis...     │                                  │
+│  │ PRZED: 15:1 🔴  PO: 2:1 🟢                    │
+│  └─────────────┘                                   │
+└──────────────────────────────────────────────────┘
+```
 
-| Edytor | Pola do zamiany na Textarea |
-|--------|---------------------------|
-| **HeroSectionEditor** | `headline`, `subheadline`, `badge_text`, `cta_primary.text`, `cta_secondary.text`, `partner_badge.text`, `partner_badge.subtitle` |
-| **CtaBannerEditor** | `heading`, `cta_text` |
-| **TextImageSectionEditor** | `partner_name`, `partner_subtitle`, `heading`, `highlight_text`, `highlight_description`, `cta_text`, item `text` |
-| **StepsSectionEditor** | `heading`, `description`, step `title`, step `description` |
-| **TimelineSectionEditor** | `heading`, milestone `title`, milestone `month` |
-| **TestimonialsSectionEditor** | card `label`, card `description`, card `before`, card `after` |
-| **FaqSectionEditor** | `heading` (answer już jest Textarea) |
-| **ContactFormEditor** | `heading`, `subheading`, `submit_text`, `privacy_text` |
-| **FooterSectionEditor** | `company_name`, `address`, `copyright_text` |
-| **ProductsGridEditor** | `heading`, col `name`, col `subtitle`, col `description`, col `cta_text` |
-| **ProductsWithFormEditor** | `heading`, `default_cta_text` |
-| **HeaderSectionEditor** | nav button `text` |
+Karty mają zaokrąglone rogi, delikatny gradient tła (pastelowy), okrągłe zdjęcie osoby na górze karty.
 
-Każdy Textarea: `rows={1}` dla krótkich pól, `rows={2}` dla opisów, `className="min-h-[36px] resize-y"`.
+## Zmiany
 
-## Wyrównanie tekstu — globalna opcja
+### 1. `TestimonialsSection.tsx` — nowy layout karuzelowy
+- Zmienić grid na `flex overflow-x-auto` z `snap-x snap-mandatory`
+- Każda karta: `min-w-[220px] snap-center`, okrągły avatar na górze, imię, opis, dane PRZED/PO
+- Karty z pastelowym gradientem tła (różowy/zielony/niebieski — cyklicznie per karta)
+- Dodać pole `subtitle` pod heading
+- Ukryć scrollbar (`scrollbar-hide`)
+- Duże okrągłe zdjęcia w tle za kartami (blurred/faded) — pominąć, zbyt skomplikowane; skupić się na kartach
 
-W **`SectionConfigEditor.tsx`** dodać Select z opcjami wyrównania tekstu:
-- `left` — Do lewej
-- `center` — Środek  
-- `right` — Do prawej
+### 2. `TestimonialsSectionEditor.tsx` — dodać pole `subtitle` + pole `name` na karcie
+- Dodać pole `subtitle` (podtytuł sekcji)
+- Na karcie dodać osobne pole `name` (imię osoby) obok istniejącego `label` (opis)
+- Pole `before_label` i `after_label` (np. "PRZED:", "PO:" — konfigurowalne)
 
-Zapisywane jako `config.text_align`.
-
-## Rendering — zastosowanie w sekcjach
-
-W rendererach sekcji (`HeroSection`, `CtaBannerSection`, `TextImageSection`, `StepsSection`, `ContactFormSection`, `FooterSection`) dodać:
-- `whiteSpace: 'pre-line'` na wszystkich elementach tekstowych
-- `textAlign: config.text_align` z configa sekcji
+### 3. Dane karty (rozszerzony model)
+```
+{
+  name: "Anna",
+  image: "url",
+  label: "Suplementacja wspierająca...",  // opis
+  before_label: "PRZED:",
+  before: "15:1",
+  after_label: "PO:",
+  after: "2:1",
+}
+```
 
 ## Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| 10 edytorów sekcji | Input → Textarea dla pól tekstowych |
-| `SectionConfigEditor.tsx` | Dodać Select wyrównania tekstu |
-| 6+ rendererów sekcji | Dodać `whiteSpace: pre-line` + `textAlign` |
+| `TestimonialsSection.tsx` | Nowy layout: horyzontalny carousel z kartami ze zdjęciami |
+| `TestimonialsSectionEditor.tsx` | Dodać pola `subtitle`, `name` na karcie, `before_label`/`after_label` |
 
