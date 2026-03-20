@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
@@ -37,14 +38,14 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nazwa firmy</Label>
           <EditableFieldToggle fieldName="company_name" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.company_name || ''} onChange={e => update('company_name', e.target.value)} />
+        <Textarea value={config.company_name || ''} onChange={e => update('company_name', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <Label>Adres</Label>
           <EditableFieldToggle fieldName="address" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.address || ''} onChange={e => update('address', e.target.value)} />
+        <Textarea value={config.address || ''} onChange={e => update('address', e.target.value)} rows={2} className="min-h-[36px] resize-y" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -119,7 +120,7 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
 
       <div>
         <Label>Tekst copyright (opcja)</Label>
-        <Input value={config.copyright_text || ''} onChange={e => update('copyright_text', e.target.value)} />
+        <Textarea value={config.copyright_text || ''} onChange={e => update('copyright_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

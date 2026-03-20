@@ -12,7 +12,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
     heading, items, image_url, video_url, image_side,
     highlight_text, highlight_description, cta_text, cta_url, bg_color,
     bg_image_url, partner_name, partner_subtitle,
-    item_icon_color, cta_bg_color, text_color, overlay_opacity,
+    item_icon_color, cta_bg_color, text_color, overlay_opacity, text_align,
   } = config;
 
   const isRight = image_side === 'right';
@@ -20,6 +20,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
   const ctaBg = cta_bg_color || '#2d6a4f';
   const tc = text_color || undefined;
   const ts = tc ? { color: tc } : undefined;
+  const ta = text_align as React.CSSProperties['textAlign'] || undefined;
 
   return (
     <section className="relative py-16 sm:py-20 overflow-hidden" style={{ backgroundColor: bg_color || undefined }}>
@@ -35,19 +36,19 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-center ${isRight ? '' : 'md:[direction:rtl]'}`}>
-          <div className={isRight ? '' : 'md:[direction:ltr]'}>
+          <div className={isRight ? '' : 'md:[direction:ltr]'} style={{ textAlign: ta }}>
             {(partner_name || partner_subtitle) && (
               <div className="mb-4">
                 {partner_subtitle && (
-                  <p className="text-sm font-medium uppercase tracking-wider mb-1" style={ts ? { color: tc, opacity: 0.7 } : undefined}>{partner_subtitle}</p>
+                  <p className="text-sm font-medium uppercase tracking-wider mb-1" style={ts ? { color: tc, opacity: 0.7, whiteSpace: 'pre-line' } : { whiteSpace: 'pre-line' }}>{partner_subtitle}</p>
                 )}
                 {partner_name && (
-                  <p className="text-xl font-bold" style={ts}>{partner_name}</p>
+                  <p className="text-xl font-bold" style={{ ...ts, whiteSpace: 'pre-line' }}>{partner_name}</p>
                 )}
               </div>
             )}
             {heading && (
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6 leading-tight" style={ts}>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 leading-tight" style={{ ...ts, whiteSpace: 'pre-line' }}>
                 {heading}
               </h2>
             )}
@@ -65,7 +66,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
                     ) : (
                       <span className="text-lg flex-shrink-0">{item.icon || '✔️'}</span>
                     )}
-                    <span>{item.text}</span>
+                    <span style={{ whiteSpace: 'pre-line' }}>{item.text}</span>
                   </li>
                 ))}
               </ul>
@@ -73,10 +74,10 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
             {(highlight_text || highlight_description) && (
               <div className="bg-muted rounded-xl p-6 mb-6">
                 {highlight_text && (
-                  <p className="text-3xl font-black mb-1" style={ts}>{highlight_text}</p>
+                  <p className="text-3xl font-black mb-1" style={{ ...ts, whiteSpace: 'pre-line' }}>{highlight_text}</p>
                 )}
                 {highlight_description && (
-                  <p className="text-sm" style={ts ? { color: tc, opacity: 0.7 } : undefined}>{highlight_description}</p>
+                  <p className="text-sm" style={ts ? { color: tc, opacity: 0.7, whiteSpace: 'pre-line' } : { whiteSpace: 'pre-line' }}>{highlight_description}</p>
                 )}
               </div>
             )}

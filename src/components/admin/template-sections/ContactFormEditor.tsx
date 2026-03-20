@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { ColorInput } from '@/components/ui/color-input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,14 +45,14 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} placeholder="Daj mi znać..." />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} placeholder="Daj mi znać..." rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <Label>Podtytuł</Label>
           <EditableFieldToggle fieldName="subheading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.subheading || ''} onChange={e => update('subheading', e.target.value)} />
+        <Textarea value={config.subheading || ''} onChange={e => update('subheading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
 
       <fieldset className="border rounded-lg p-4 space-y-3">
@@ -90,11 +91,11 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
 
       <div>
         <Label>Tekst przycisku</Label>
-        <Input value={config.submit_text || ''} onChange={e => update('submit_text', e.target.value)} placeholder="Wyślij" />
+        <Textarea value={config.submit_text || ''} onChange={e => update('submit_text', e.target.value)} placeholder="Wyślij" rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <Label>Tekst prywatności (opcja)</Label>
-        <Input value={config.privacy_text || ''} onChange={e => update('privacy_text', e.target.value)} />
+        <Textarea value={config.privacy_text || ''} onChange={e => update('privacy_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       <div className="grid grid-cols-2 gap-4">

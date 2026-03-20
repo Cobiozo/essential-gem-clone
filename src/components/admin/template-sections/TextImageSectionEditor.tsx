@@ -34,14 +34,14 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Nazwa partnera</Label>
             <EditableFieldToggle fieldName="partner_name" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.partner_name || ''} onChange={e => update('partner_name', e.target.value)} placeholder="Imię i nazwisko" />
+          <Textarea value={config.partner_name || ''} onChange={e => update('partner_name', e.target.value)} placeholder="Imię i nazwisko" rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <div className="flex items-center justify-between">
             <Label>Podtytuł partnera</Label>
             <EditableFieldToggle fieldName="partner_subtitle" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.partner_subtitle || ''} onChange={e => update('partner_subtitle', e.target.value)} placeholder="Twój partner w Pure Life" />
+          <Textarea value={config.partner_subtitle || ''} onChange={e => update('partner_subtitle', e.target.value)} placeholder="Twój partner w Pure Life" rows={1} className="min-h-[36px] resize-y" />
         </div>
       </div>
       <div>
@@ -49,13 +49,13 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <Label>Elementy listy</Label>
       {items.map((item, i) => (
         <div key={i} className="flex gap-2 items-center border rounded-lg p-2">
           <Input value={item.icon || ''} onChange={e => updateItem(i, 'icon', e.target.value)} placeholder="Ikona (✔️)" className="w-16" />
-          <Input value={item.text || ''} onChange={e => updateItem(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1" />
+          <Textarea value={item.text || ''} onChange={e => updateItem(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1 min-h-[36px] resize-y" rows={1} />
           <Button variant="ghost" size="icon" onClick={() => update('items', items.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
@@ -96,14 +96,14 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Tekst wyróżnienia</Label>
             <EditableFieldToggle fieldName="highlight_text" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.highlight_text || ''} onChange={e => update('highlight_text', e.target.value)} placeholder="np. 9 na 10 osób" />
+          <Textarea value={config.highlight_text || ''} onChange={e => update('highlight_text', e.target.value)} placeholder="np. 9 na 10 osób" rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <div className="flex items-center justify-between">
             <Label>Opis wyróżnienia</Label>
             <EditableFieldToggle fieldName="highlight_description" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.highlight_description || ''} onChange={e => update('highlight_description', e.target.value)} />
+          <Textarea value={config.highlight_description || ''} onChange={e => update('highlight_description', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -112,7 +112,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Tekst CTA</Label>
             <EditableFieldToggle fieldName="cta_text" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.cta_text || ''} onChange={e => update('cta_text', e.target.value)} />
+          <Textarea value={config.cta_text || ''} onChange={e => update('cta_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <div className="flex items-center justify-between">

@@ -6,17 +6,18 @@ interface Props {
 }
 
 export const TestimonialsSection: React.FC<Props> = ({ config }) => {
-  const { heading, cards } = config;
+  const { heading, cards, text_align } = config;
+  const ta = text_align as React.CSSProperties['textAlign'] || undefined;
 
   return (
     <section className="py-16 sm:py-20 bg-muted/30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-10">{heading}</h2>}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-10" style={{ whiteSpace: 'pre-line' }}>{heading}</h2>}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(cards || []).map((card: any, i: number) => (
             <div key={i} className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-              <p className="font-semibold text-foreground mb-3">{card.label}</p>
+              <p className="font-semibold text-foreground mb-3" style={{ whiteSpace: 'pre-line' }}>{card.label}</p>
               <div className="space-y-2 mb-4">
                 {card.before && (
                   <div className="flex items-center gap-2 text-sm">
@@ -34,7 +35,7 @@ export const TestimonialsSection: React.FC<Props> = ({ config }) => {
                 )}
               </div>
               {card.description && (
-                <p className="text-xs text-muted-foreground">{card.description}</p>
+                <p className="text-xs text-muted-foreground" style={{ whiteSpace: 'pre-line' }}>{card.description}</p>
               )}
               {card.image && (
                 <img src={card.image} alt="" className="mt-4 rounded-lg w-full object-cover max-h-40" />

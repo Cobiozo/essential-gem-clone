@@ -203,7 +203,7 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         {buttons.map((btn, i) => (
           <div key={i} className="border rounded-lg p-3 space-y-2">
             <div className="flex gap-2 items-center">
-              <Input value={btn.text || ''} onChange={e => updateBtn(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1" />
+              <Textarea value={btn.text || ''} onChange={e => updateBtn(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1 min-h-[36px] resize-y" rows={1} />
               <Input value={btn.url || ''} onChange={e => updateBtn(i, 'url', e.target.value)} placeholder="URL" className="flex-1" />
               {config.nav_style !== 'links' && (
                 <Select value={btn.variant || 'outline'} onValueChange={v => updateBtn(i, 'variant', v)}>

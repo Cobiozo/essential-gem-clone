@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
@@ -31,7 +32,7 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <Label>Punkty na osi czasu</Label>
       {milestones.map((m, i) => (
@@ -45,7 +46,7 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
                 <Switch checked={!!m.highlight} onCheckedChange={v => updateMilestone(i, 'highlight', v)} />
               </div>
             </div>
-            <Input value={m.title || ''} onChange={e => updateMilestone(i, 'title', e.target.value)} placeholder="Tytuł" />
+            <Textarea value={m.title || ''} onChange={e => updateMilestone(i, 'title', e.target.value)} placeholder="Tytuł" rows={1} className="min-h-[36px] resize-y" />
           </div>
           <Button variant="ghost" size="icon" onClick={() => update('milestones', milestones.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />

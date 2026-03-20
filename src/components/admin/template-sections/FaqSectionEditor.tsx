@@ -31,7 +31,7 @@ export const FaqSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <Label>Pytania</Label>
       {items.map((item, i) => (
@@ -42,7 +42,7 @@ export const FaqSectionEditor: React.FC<Props> = ({ config, onChange }) => {
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
           </div>
-          <Input value={item.question || ''} onChange={e => updateItem(i, 'question', e.target.value)} placeholder="Pytanie" />
+          <Textarea value={item.question || ''} onChange={e => updateItem(i, 'question', e.target.value)} placeholder="Pytanie" rows={1} className="min-h-[36px] resize-y" />
           <Textarea value={item.answer || ''} onChange={e => updateItem(i, 'answer', e.target.value)} placeholder="Odpowiedź" rows={2} />
         </div>
       ))}

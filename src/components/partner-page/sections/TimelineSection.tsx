@@ -6,12 +6,13 @@ interface Props {
 }
 
 export const TimelineSection: React.FC<Props> = ({ config }) => {
-  const { heading, milestones } = config;
+  const { heading, milestones, text_align } = config;
+  const ta = text_align as React.CSSProperties['textAlign'] || undefined;
 
   return (
     <section className="py-16 sm:py-20 bg-background">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-12">{heading}</h2>}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-12" style={{ whiteSpace: 'pre-line' }}>{heading}</h2>}
 
         <div className="relative">
           {/* Line */}
@@ -23,8 +24,8 @@ export const TimelineSection: React.FC<Props> = ({ config }) => {
                 <div className={`w-14 h-14 rounded-full mx-auto flex items-center justify-center text-2xl mb-3 border-4 ${m.highlight ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-foreground'}`}>
                   {m.icon || '📌'}
                 </div>
-                <p className="text-sm font-bold text-foreground">{m.month}</p>
-                <p className="text-xs text-muted-foreground mt-1">{m.title}</p>
+                <p className="text-sm font-bold text-foreground" style={{ whiteSpace: 'pre-line' }}>{m.month}</p>
+                <p className="text-xs text-muted-foreground mt-1" style={{ whiteSpace: 'pre-line' }}>{m.title}</p>
               </div>
             ))}
           </div>

@@ -32,7 +32,7 @@ export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       <Label>Produkty</Label>
@@ -44,12 +44,12 @@ export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
           </div>
-          <Input value={col.name || ''} onChange={e => updateCol(i, 'name', e.target.value)} placeholder="Nazwa" />
-          <Input value={col.subtitle || ''} onChange={e => updateCol(i, 'subtitle', e.target.value)} placeholder="Podtytuł" />
-          <Input value={col.description || ''} onChange={e => updateCol(i, 'description', e.target.value)} placeholder="Opis" />
+          <Textarea value={col.name || ''} onChange={e => updateCol(i, 'name', e.target.value)} placeholder="Nazwa" rows={1} className="min-h-[36px] resize-y" />
+          <Textarea value={col.subtitle || ''} onChange={e => updateCol(i, 'subtitle', e.target.value)} placeholder="Podtytuł" rows={1} className="min-h-[36px] resize-y" />
+          <Textarea value={col.description || ''} onChange={e => updateCol(i, 'description', e.target.value)} placeholder="Opis" rows={2} className="min-h-[36px] resize-y" />
           <ImageUploadInput value={col.image_url || ''} onChange={v => updateCol(i, 'image_url', v)} compact />
           <Textarea value={col.specs || ''} onChange={e => updateCol(i, 'specs', e.target.value)} placeholder="Specyfikacja / skład" rows={2} />
-          <Input value={col.cta_text || ''} onChange={e => updateCol(i, 'cta_text', e.target.value)} placeholder="Tekst CTA (np. Zobacz szczegóły)" />
+          <Textarea value={col.cta_text || ''} onChange={e => updateCol(i, 'cta_text', e.target.value)} placeholder="Tekst CTA (np. Zobacz szczegóły)" rows={1} className="min-h-[36px] resize-y" />
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={() => update('columns', [...columns, { name: '', subtitle: '', description: '', image_url: '', specs: '', cta_text: 'Zobacz szczegóły' }])}>

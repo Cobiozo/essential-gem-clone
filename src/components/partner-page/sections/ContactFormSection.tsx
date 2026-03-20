@@ -76,8 +76,8 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
   if (isFloating) {
     return (
       <div className="bg-[#1a2332] rounded-2xl p-6 sm:p-8 text-white shadow-xl">
-        {heading && <h3 className="text-xl font-bold mb-1">{heading}</h3>}
-        {subheading && <p className="text-sm text-white/70 mb-6">{subheading}</p>}
+        {heading && <h3 className="text-xl font-bold mb-1" style={{ whiteSpace: 'pre-line' }}>{heading}</h3>}
+        {subheading && <p className="text-sm text-white/70 mb-6" style={{ whiteSpace: 'pre-line' }}>{subheading}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
           {formFields.map((field, i) => (
             <div key={i}>
@@ -103,7 +103,7 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
               )}
             </div>
           ))}
-          {privacy_text && <p className="text-xs text-white/50">{privacy_text}</p>}
+          {privacy_text && <p className="text-xs text-white/50" style={{ whiteSpace: 'pre-line' }}>{privacy_text}</p>}
           <button
             type="submit"
             disabled={sending}
@@ -117,14 +117,16 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
     );
   }
 
+  const ta = config.text_align as React.CSSProperties['textAlign'] || undefined;
+
   return (
     <section
       className="py-16 md:py-24"
       style={{ backgroundColor: bg_color || '#f8fafc', color: text_color || undefined }}
     >
-      <div className="max-w-2xl mx-auto px-4 sm:px-6">
-        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2">{heading}</h2>}
-        {subheading && <p className="text-center text-muted-foreground mb-8">{subheading}</p>}
+      <div className="max-w-2xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2" style={{ whiteSpace: 'pre-line' }}>{heading}</h2>}
+        {subheading && <p className="text-center text-muted-foreground mb-8" style={{ whiteSpace: 'pre-line' }}>{subheading}</p>}
         <form onSubmit={handleSubmit} className="space-y-4">
           {formFields.map((field, i) => (
             <div key={i}>
@@ -150,7 +152,7 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
               )}
             </div>
           ))}
-          {privacy_text && <p className="text-xs text-muted-foreground">{privacy_text}</p>}
+          {privacy_text && <p className="text-xs text-muted-foreground" style={{ whiteSpace: 'pre-line' }}>{privacy_text}</p>}
           <button
             type="submit"
             disabled={sending}

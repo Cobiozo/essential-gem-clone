@@ -49,14 +49,14 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek główny</Label>
           <EditableFieldToggle fieldName="headline" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.headline || ''} onChange={e => update('headline', e.target.value)} placeholder="TESTUJ, NIE ZGADUJ." />
+        <Textarea value={config.headline || ''} onChange={e => update('headline', e.target.value)} placeholder="TESTUJ, NIE ZGADUJ." rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <Label>Podtytuł</Label>
           <EditableFieldToggle fieldName="subheadline" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.subheadline || ''} onChange={e => update('subheadline', e.target.value)} />
+        <Textarea value={config.subheadline || ''} onChange={e => update('subheadline', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
@@ -70,7 +70,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Tekst badge</Label>
           <EditableFieldToggle fieldName="badge_text" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.badge_text || ''} onChange={e => update('badge_text', e.target.value)} />
+        <Textarea value={config.badge_text || ''} onChange={e => update('badge_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -173,11 +173,11 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </legend>
         <div>
           <Label className="text-xs">Tekst (np. „Twój Przewodnik Zdrowia:")</Label>
-          <Input value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" />
+          <Textarea value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
-          <Input value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." />
+          <Textarea value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <Label className="text-xs">Avatar partnera</Label>
@@ -192,7 +192,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
             <EditableFieldToggle fieldName="cta_primary.url" editableFields={editableFields} onToggle={setEditable} label="URL edytowalny" />
           </div>
         </legend>
-        <Input value={config.cta_primary?.text || ''} onChange={e => updateCta('cta_primary', 'text', e.target.value)} placeholder="Tekst przycisku" />
+        <Textarea value={config.cta_primary?.text || ''} onChange={e => updateCta('cta_primary', 'text', e.target.value)} placeholder="Tekst przycisku" rows={1} className="min-h-[36px] resize-y" />
         <Input value={config.cta_primary?.url || ''} onChange={e => updateCta('cta_primary', 'url', e.target.value)} placeholder="URL" />
       </fieldset>
       <fieldset className="border rounded-lg p-4 space-y-2">
@@ -202,7 +202,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
             <EditableFieldToggle fieldName="cta_secondary.url" editableFields={editableFields} onToggle={setEditable} label="URL edytowalny" />
           </div>
         </legend>
-        <Input value={config.cta_secondary?.text || ''} onChange={e => updateCta('cta_secondary', 'text', e.target.value)} placeholder="Tekst przycisku" />
+        <Textarea value={config.cta_secondary?.text || ''} onChange={e => updateCta('cta_secondary', 'text', e.target.value)} placeholder="Tekst przycisku" rows={1} className="min-h-[36px] resize-y" />
         <Input value={config.cta_secondary?.url || ''} onChange={e => updateCta('cta_secondary', 'url', e.target.value)} placeholder="URL" />
         <div className="grid grid-cols-2 gap-4 pt-2">
           <ColorInput label="Kolor tła CTA 2 (opcja)" value={config.cta_secondary_bg_color || ''} onChange={v => update('cta_secondary_bg_color', v)} />

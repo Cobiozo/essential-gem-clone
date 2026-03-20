@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
@@ -30,14 +31,14 @@ export const StepsSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
           <Label>Opis</Label>
           <EditableFieldToggle fieldName="description" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.description || ''} onChange={e => update('description', e.target.value)} />
+        <Textarea value={config.description || ''} onChange={e => update('description', e.target.value)} rows={2} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <Label>Kolor tła</Label>
@@ -48,8 +49,8 @@ export const StepsSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         <div key={i} className="flex gap-2 items-start border rounded-lg p-3">
           <div className="flex-1 space-y-2">
             <Input value={step.icon || ''} onChange={e => updateStep(i, 'icon', e.target.value)} placeholder="Ikona (emoji)" className="w-20" />
-            <Input value={step.title || ''} onChange={e => updateStep(i, 'title', e.target.value)} placeholder="Tytuł" />
-            <Input value={step.description || ''} onChange={e => updateStep(i, 'description', e.target.value)} placeholder="Opis" />
+            <Textarea value={step.title || ''} onChange={e => updateStep(i, 'title', e.target.value)} placeholder="Tytuł" rows={1} className="min-h-[36px] resize-y" />
+            <Textarea value={step.description || ''} onChange={e => updateStep(i, 'description', e.target.value)} placeholder="Opis" rows={2} className="min-h-[36px] resize-y" />
           </div>
           <Button variant="ghost" size="icon" onClick={() => update('steps', steps.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />
