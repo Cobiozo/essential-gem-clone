@@ -152,6 +152,8 @@ const PartnerPageView: React.FC = () => {
     toast.success('Link zapisany!');
   }, [page, productLinks]);
 
+  const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
 
