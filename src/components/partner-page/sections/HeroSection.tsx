@@ -199,6 +199,12 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
               ))}
             </div>
           )}
+
+          {config.inner_elements?.length > 0 && (
+            <div className="mt-8">
+              {config.inner_elements.map((el: any) => <InnerElementRenderer key={el.id} element={el} />)}
+            </div>
+          )}
         </div>
       </section>
     );
