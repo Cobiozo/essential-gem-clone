@@ -1,30 +1,40 @@
 
 
-# Fix: Ankieta — brak kotwicy w edytorze + wolne ładowanie szablonu
+# Fix: Ankieta nie działa po kliknięciu CTA
 
-## Zidentyfikowane problemy
+## Diagnoza
 
-### 1. Brak pola "Anchor ID" w edytorze ankiety
-`SurveySectionEditor.tsx` nie ma pola do ustawienia `anchor_id`. Domyślna konfiguracja zawiera `anchor_id: 'ankieta'` (linia 145 w `defaultSectionConfigs.ts`), ale admin nie ma jak tego zobaczyć ani edytować.
+Dwa problemy:
 
-### 2. `survey` brakuje w tablicy `RICH_TYPES`
-W `PartnerPage.tsx` linia 167 — tablica `RICH_TYPES` nie zawiera `'survey'`. To powoduje, że system nie rozpoznaje szablonu zawierającego ankietę jako "rich" i może przełączać się na legacy rendering.
+1. **Ankieta prawdopodobnie nie została zapisana do szablonu** — dopóki nie klikniesz "Zapisz" w zakładce Ankieta, sekcja nie istnieje w `template_data`, więc na stronie partnera nie ma elementu z `id="Ankieta"` i przycisk CTA nie ma do czego przewinąć.
 
-### 3. Wolne ładowanie szablonu
-Strona `TemplatePreviewPage.tsx` importuje wszystkie sekcje synchronicznie. Ewentualnie problem z wieloma renderami — do dalszej analizy, ale dodanie `survey` do `RICH_TYPES` może rozwiązać część problemu z renderowaniem.
+2. **Case-sensitivity** — `getElementById` rozróżnia wielkość liter. Jeśli anchor to `Ankieta` (wielka A), CTA musi mieć dokładnie `#Ankieta`. Podpowiedź w edytorze mówi `#ankieta` (małe), co jest mylące.
 
 ## Zmiany
 
-### Plik 1: `src/components/admin/template-sections/SurveySectionEditor.tsx`
-- Dodać pole **"Anchor ID (kotwica)"** w sekcji ustawień globalnych, np. po podtytule
-- Input z placeholderem `ankieta` i podpowiedzią: "Wpisz ID, np. 'ankieta' — użyj w CTA jako #ankieta"
-- Wartość: `config.anchor_id`
+### 1. Auto-lowercase anchor_id (`SurveySectionEditor.tsx`)
+Wymusić małe litery w polu Anchor ID, aby uniknąć problemów z wielkością liter. Zmienić `onChange` na `e.target.value.toLowerCase()`.
 
-### Plik 2: `src/pages/PartnerPage.tsx`
-- Linia 167: dodać `'survey'` do tablicy `RICH_TYPES`
+### 2. Case-insensitive scroll w CTA (`CtaBannerSection.tsx`)
+Dodać fallback: jeśli `getElementById` nie znajdzie elementu, szukać case-insensitive za pomocą `querySelector('[id]')` z porównaniem.
+
+### 3. Auto-lowercase anchor_id w `SectionConfigEditor.tsx`
+Analogicznie jak w survey — inne sekcje też mają pole anchor_id. Wymusić małe litery.
+
+### 4. Case-insensitive scroll w `HeaderSection.tsx`
+Ten sam fallback co w CTA — nagłówek też ma linki nawigacyjne z hash.
+
+## Szczegóły techniczne
+
+| Plik | Zmiana |
+|------|--------|
+| `SurveySectionEditor.tsx` | `onChange` → `e.target.value.toLowerCase().replace(/\s+/g, '-')` |
+| `SectionConfigEditor.tsx` | Analogicznie — lowercase anchor_id |
+| `CtaBannerSection.tsx` | Fallback: `document.querySelector(\`[id="${anchor}" i]\`)` nie działa, więc: `Array.from(document.querySelectorAll('[id]')).find(el => el.id.toLowerCase() === anchor.toLowerCase())` |
+| `HeaderSection.tsx` | Ten sam case-insensitive fallback |
 
 ## Efekt
-- Admin może ustawić/zobaczyć anchor ID ankiety (domyślnie `ankieta`)
-- Przycisk CTA z `#ankieta` będzie płynnie przewijał do sekcji survey
-- Szablon z ankietą będzie poprawnie renderowany w trybie "rich"
+- Anchor ID zawsze lowercase — brak pomyłek z wielkością liter
+- Nawet jeśli ktoś ręcznie wpisze duże litery, scroll i tak zadziała
+- Użytkownik musi kliknąć "Zapisz" w zakładce Ankieta — komunikat o tym już istnieje
 
