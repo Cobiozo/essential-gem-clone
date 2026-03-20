@@ -30,6 +30,7 @@ import {
   ContactFormSection,
   FooterSection,
   ProductsWithFormSection,
+  SurveySection,
 } from '@/components/partner-page/sections';
 
 const TYPE_LABELS: Record<string, string> = {
