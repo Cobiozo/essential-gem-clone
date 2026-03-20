@@ -1,6 +1,7 @@
 import React from 'react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Plus } from 'lucide-react';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface Props {
   config: Record<string, any>;
