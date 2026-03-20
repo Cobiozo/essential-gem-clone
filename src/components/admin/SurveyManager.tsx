@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { DEFAULT_SECTION_CONFIGS } from './template-preview/defaultSectionConfigs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -38,7 +39,7 @@ export const SurveyManager: React.FC = () => {
     setTemplateData(elements);
 
     const surveyElement = elements.find((el: any) => el.type === 'survey');
-    setSurveyConfig(surveyElement?.config || {});
+    setSurveyConfig(surveyElement?.config || DEFAULT_SECTION_CONFIGS.survey);
     setLoading(false);
   };
 
