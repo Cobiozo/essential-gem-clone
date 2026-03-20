@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight } from 'lucide-react';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 import { supabase } from '@/integrations/supabase/client';
 
 interface FormField {
