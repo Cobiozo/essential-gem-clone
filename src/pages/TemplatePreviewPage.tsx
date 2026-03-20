@@ -54,6 +54,7 @@ const TemplatePreviewPage: React.FC = () => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [surveyOpen, setSurveyOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
