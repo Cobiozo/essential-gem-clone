@@ -19,6 +19,8 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
   const updateCta = (which: 'cta_primary' | 'cta_secondary', field: string, value: string) =>
     onChange({ ...config, [which]: { ...(config[which] || {}), [field]: value } });
+  const updatePartnerBadge = (field: string, value: string) =>
+    onChange({ ...config, partner_badge: { ...(config.partner_badge || {}), [field]: value } });
 
   const editableFields: string[] = config.editable_fields || [];
   const setEditable = (fields: string[]) => update('editable_fields', fields);
