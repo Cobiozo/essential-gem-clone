@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { InnerElementsList } from './InnerElementsList';
 
 interface Props {
   config: Record<string, any>;
