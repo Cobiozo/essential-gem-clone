@@ -6,12 +6,13 @@ interface Props {
 }
 
 export const TimelineSection: React.FC<Props> = ({ config }) => {
-  const { heading, milestones } = config;
+  const { heading, milestones, text_align } = config;
+  const ta = text_align as React.CSSProperties['textAlign'] || undefined;
 
   return (
     <section className="py-16 sm:py-20 bg-background">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-12">{heading}</h2>}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-12" style={{ whiteSpace: 'pre-line' }}>{heading}</h2>}
 
         <div className="relative">
           {/* Line */}
