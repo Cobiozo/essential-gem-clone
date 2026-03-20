@@ -1,32 +1,30 @@
 
 
-# Fix: Przycisk CTA nie otwiera ankiety
+# Fix: Ankieta — brak kotwicy w edytorze + wolne ładowanie szablonu
 
-## Problem
-Przycisk "PRZEJDŹ DO ANKIETY" w sekcji CTA nie przewija do ankiety, ponieważ:
-1. Sekcja `survey` prawdopodobnie nie istnieje jeszcze w `template_data` szablonu (została dodana tylko w SurveyManager jako fallback, ale nie została zapisana)
-2. Nawet jeśli `cta_url` wskazuje na `#ankieta`, element z `id="ankieta"` nie jest renderowany
+## Zidentyfikowane problemy
 
-## Rozwiązanie
+### 1. Brak pola "Anchor ID" w edytorze ankiety
+`SurveySectionEditor.tsx` nie ma pola do ustawienia `anchor_id`. Domyślna konfiguracja zawiera `anchor_id: 'ankieta'` (linia 145 w `defaultSectionConfigs.ts`), ale admin nie ma jak tego zobaczyć ani edytować.
 
-### 1. Dodać smooth scroll do linków z hash w CtaBannerSection
-Zamiast domyślnego zachowania `<a href="#ankieta">` (które powoduje "jump" lub nie działa w SPA), dodać obsługę smooth scroll z offsetem dla sticky headera.
+### 2. `survey` brakuje w tablicy `RICH_TYPES`
+W `PartnerPage.tsx` linia 167 — tablica `RICH_TYPES` nie zawiera `'survey'`. To powoduje, że system nie rozpoznaje szablonu zawierającego ankietę jako "rich" i może przełączać się na legacy rendering.
 
-**Plik**: `src/components/partner-page/sections/CtaBannerSection.tsx`
-- Dodać `onClick` handler na linku CTA
-- Jeśli `cta_url` zaczyna się od `#`, wywołać `document.getElementById()` + `scrollIntoView({ behavior: 'smooth' })`
-- Zapobiec domyślnemu zachowaniu linku (`e.preventDefault()`)
+### 3. Wolne ładowanie szablonu
+Strona `TemplatePreviewPage.tsx` importuje wszystkie sekcje synchronicznie. Ewentualnie problem z wieloma renderami — do dalszej analizy, ale dodanie `survey` do `RICH_TYPES` może rozwiązać część problemu z renderowaniem.
 
-### 2. Automatycznie dodać sekcję survey do szablonu przy pierwszym zapisie
-Upewnić się, że `SurveyManager.handleSave()` poprawnie dodaje sekcję `survey` do `template_data` (ten kod już istnieje — linia 55-63). Użytkownik musi kliknąć "Zapisz" w zakładce Ankieta.
+## Zmiany
 
-### 3. Dodać informację gdy sekcja survey nie istnieje w szablonie
-W `SurveyManager` dodać komunikat informujący, że po zapisaniu ankieta zostanie dodana do szablonu i będzie widoczna na stronach partnerów.
+### Plik 1: `src/components/admin/template-sections/SurveySectionEditor.tsx`
+- Dodać pole **"Anchor ID (kotwica)"** w sekcji ustawień globalnych, np. po podtytule
+- Input z placeholderem `ankieta` i podpowiedzią: "Wpisz ID, np. 'ankieta' — użyj w CTA jako #ankieta"
+- Wartość: `config.anchor_id`
 
-## Pliki do zmiany
+### Plik 2: `src/pages/PartnerPage.tsx`
+- Linia 167: dodać `'survey'` do tablicy `RICH_TYPES`
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/partner-page/sections/CtaBannerSection.tsx` | Smooth scroll dla hash linków |
-| `src/components/admin/SurveyManager.tsx` | Info o konieczności zapisu + lepszy UX |
+## Efekt
+- Admin może ustawić/zobaczyć anchor ID ankiety (domyślnie `ankieta`)
+- Przycisk CTA z `#ankieta` będzie płynnie przewijał do sekcji survey
+- Szablon z ankietą będzie poprawnie renderowany w trybie "rich"
 
