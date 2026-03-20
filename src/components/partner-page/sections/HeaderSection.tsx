@@ -111,13 +111,24 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
               fontWeight: nav_font_weight || '500',
             };
 
+            const url = btn.url || '#';
+            const external = isExternalUrl(url);
+            const isAnchor = url.startsWith('#') && url.length > 1;
+
             const handleClick = (e: React.MouseEvent) => {
-              const url = btn.url || '#';
-              if (url.startsWith('#') && url.length > 1) {
+              if (isAnchor) {
                 e.preventDefault();
                 const anchor = url.substring(1);
-                const el = document.getElementById(anchor);
-                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                const el = document.getElementById(anchor)
+                  || document.querySelector(`[id*="${anchor}"]`);
+                if (el) {
+                  const headerOffset = 80;
+                  const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;
+                  window.scrollTo({ top, behavior: 'smooth' });
+                }
+              } else if (external) {
+                e.preventDefault();
+                window.open(url, '_blank', 'noopener,noreferrer');
               }
             };
 
