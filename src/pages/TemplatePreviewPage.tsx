@@ -187,6 +187,7 @@ const TemplatePreviewPage: React.FC = () => {
       case 'contact_form': return wrapWithAnchor(<ContactFormSection config={cfg} partnerEmail="preview@example.com" />);
       case 'footer': return wrapWithAnchor(<FooterSection config={cfg} />);
       case 'products_with_form': return wrapWithAnchor(<ProductsWithFormSection config={cfg} products={products} productLinks={dummyLinks} partnerEmail="preview@example.com" />);
+      case 'survey': return wrapWithAnchor(<SurveySection config={cfg} />);
       case 'static':
         return element.content ? wrapWithAnchor(
           <section className="bg-background">
