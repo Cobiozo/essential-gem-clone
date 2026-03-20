@@ -1,5 +1,6 @@
 import React from 'react';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { icons } from 'lucide-react';
 
 interface Props {
   config: Record<string, any>;
@@ -18,13 +19,18 @@ export const StepsSection: React.FC<Props> = ({ config }) => {
         {description && <p className="text-center mb-12 max-w-2xl mx-auto" style={{ ...ts, opacity: 0.8, whiteSpace: 'pre-line' }}>{description}</p>}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {(steps || []).map((step: any, i: number) => (
-            <div key={i} className="text-center">
-              <div className="text-4xl mb-4">{step.icon || '📦'}</div>
-              <h3 className="text-lg font-bold mb-2" style={{ ...ts, whiteSpace: 'pre-line' }}>{step.title}</h3>
-              <p className="text-sm" style={{ ...ts, opacity: 0.8, whiteSpace: 'pre-line' }}>{step.description}</p>
-            </div>
-          ))}
+          {(steps || []).map((step: any, i: number) => {
+            const IconComp = step.icon ? (icons as any)[step.icon] : null;
+            return (
+              <div key={i} className="text-center">
+                <div className="text-4xl mb-4 flex justify-center">
+                  {IconComp ? <IconComp className="w-10 h-10" style={ts} /> : <span>{step.icon || '📦'}</span>}
+                </div>
+                <h3 className="text-lg font-bold mb-2" style={{ ...ts, whiteSpace: 'pre-line' }}>{step.title}</h3>
+                <p className="text-sm" style={{ ...ts, opacity: 0.8, whiteSpace: 'pre-line' }}>{step.description}</p>
+              </div>
+            );
+          })}
         </div>
 
         {config.inner_elements?.length > 0 && (

@@ -6,6 +6,10 @@ import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 import { InnerElementsList } from './InnerElementsList';
+import { ColorInput } from '@/components/ui/color-input';
+import { Slider } from '@/components/ui/slider';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface Props {
   config: Record<string, any>;
@@ -40,6 +44,59 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
         </div>
         <Textarea value={config.subtitle || ''} onChange={e => update('subtitle', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
+
+      {/* Card style controls */}
+      <fieldset className="border rounded-lg p-4 space-y-4">
+        <legend className="text-sm font-semibold px-2">Styl kart</legend>
+        
+        <div>
+          <Label className="text-xs">Szerokość karty: {config.card_width || 220}px</Label>
+          <Slider value={[config.card_width || 220]} onValueChange={([v]) => update('card_width', v)} min={180} max={400} step={10} />
+        </div>
+
+        <div>
+          <Label className="text-xs">Rozmiar avatara: {config.avatar_size || 80}px</Label>
+          <Slider value={[config.avatar_size || 80]} onValueChange={([v]) => update('avatar_size', v)} min={40} max={120} step={4} />
+        </div>
+
+        <div>
+          <Label className="text-xs">Zaokrąglenie rogów: {config.card_border_radius || 16}px</Label>
+          <Slider value={[config.card_border_radius || 16]} onValueChange={([v]) => update('card_border_radius', v)} min={0} max={32} step={2} />
+        </div>
+
+        <div>
+          <Label className="text-xs">Rozmiar czcionki</Label>
+          <Select value={config.card_font_size || 'base'} onValueChange={v => update('card_font_size', v)}>
+            <SelectTrigger className="h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="sm">Mały</SelectItem>
+              <SelectItem value="base">Średni</SelectItem>
+              <SelectItem value="lg">Duży</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <ColorInput value={config.card_bg_color || ''} onChange={v => update('card_bg_color', v)} label="Kolor tła kart (puste = gradient)" />
+        <ColorInput value={config.card_text_color || ''} onChange={v => update('card_text_color', v)} label="Kolor tekstu kart" />
+
+        <div className="flex items-center gap-2">
+          <Checkbox
+            checked={config.auto_scroll || false}
+            onCheckedChange={v => update('auto_scroll', v)}
+            id="auto_scroll"
+          />
+          <Label htmlFor="auto_scroll" className="text-xs cursor-pointer">Automatyczne przesuwanie</Label>
+        </div>
+
+        {config.auto_scroll && (
+          <div>
+            <Label className="text-xs">Interwał: {config.auto_scroll_interval || 5}s</Label>
+            <Slider value={[config.auto_scroll_interval || 5]} onValueChange={([v]) => update('auto_scroll_interval', v)} min={2} max={10} step={1} />
+          </div>
+        )}
+      </fieldset>
 
       <Label>Karty opinii</Label>
       {cards.map((card, i) => (
