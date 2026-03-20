@@ -103,7 +103,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Opis wyróżnienia</Label>
             <EditableFieldToggle fieldName="highlight_description" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.highlight_description || ''} onChange={e => update('highlight_description', e.target.value)} />
+          <Textarea value={config.highlight_description || ''} onChange={e => update('highlight_description', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">
