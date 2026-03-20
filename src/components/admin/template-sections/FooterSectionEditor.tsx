@@ -45,7 +45,7 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Adres</Label>
           <EditableFieldToggle fieldName="address" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.address || ''} onChange={e => update('address', e.target.value)} />
+        <Textarea value={config.address || ''} onChange={e => update('address', e.target.value)} rows={2} className="min-h-[36px] resize-y" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
