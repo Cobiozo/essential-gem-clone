@@ -1,27 +1,30 @@
 
 
-# Plan: Przenieść ankietę jako osobny tab obok Katalogu produktów
+# Fix: Initialize Survey with Default Config
 
-## Zmiana
+## Problem
+`SurveyManager.tsx` line 41: `setSurveyConfig(surveyElement?.config || {})` — when no survey element exists in the template data, it falls back to an empty object `{}`. The editor and renderer both work correctly, but they have no data to show.
 
-Dodać nową zakładkę **"Ankieta"** w `PartnerPagesManagement.tsx` obok istniejących tabów (Kontrola dostępu, Szablon strony, Katalog produktów). Zakładka będzie zawierać standalone wrapper wokół istniejącego `SurveySectionEditor` — z możliwością zapisu konfiguracji ankiety globalnie (niezależnie od szablonu).
+## Solution
+One-line fix: import `DEFAULT_SECTION_CONFIGS` and use `DEFAULT_SECTION_CONFIGS.survey` as the fallback instead of `{}`.
 
-## Co zrobić
+## File Change
 
-### 1. Nowy komponent: `SurveyManager.tsx`
-Standalone manager ankiety w `src/components/admin/SurveyManager.tsx`:
-- Ładuje konfigurację ankiety z szablonu "Eqology" (lub dedykowanego wiersza w bazie)
-- Opakowuje istniejący `SurveySectionEditor` w `Card` z nagłówkiem i przyciskiem "Zapisz"
-- Po zapisie aktualizuje sekcję `survey` w `template_data` wybranego szablonu
+**`src/components/admin/SurveyManager.tsx`**
+- Import `DEFAULT_SECTION_CONFIGS` from `./template-preview/defaultSectionConfigs`
+- Change line 41 from:
+  ```ts
+  setSurveyConfig(surveyElement?.config || {});
+  ```
+  to:
+  ```ts
+  setSurveyConfig(surveyElement?.config || DEFAULT_SECTION_CONFIGS.survey);
+  ```
 
-### 2. Modyfikacja: `PartnerPagesManagement.tsx`
-- Dodać nowy tab `"survey"` z ikoną `ClipboardList`
-- Renderować `SurveyManager` w `TabsContent value="survey"`
+This immediately populates the survey with the 10 pre-built health questions (gender, age, height, weight, activity, ailments, supplements, diet, stress, health goals) and 4 product recommendations — all fully editable. The anchor `#ankieta` is included in the default config.
 
-## Pliki
-
-| Plik | Zmiana |
+## Files
+| File | Change |
 |------|--------|
-| `src/components/admin/SurveyManager.tsx` | Nowy — wrapper z ładowaniem/zapisem |
-| `src/components/admin/PartnerPagesManagement.tsx` | Dodać zakładkę "Ankieta" |
+| `src/components/admin/SurveyManager.tsx` | Import default config, use as fallback |
 
