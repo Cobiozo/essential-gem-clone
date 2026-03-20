@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
+import { InnerElementsList } from './InnerElementsList';
 
 interface Props {
   config: Record<string, any>;
@@ -129,6 +130,14 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
         <Label>Przezroczystość tła (0-1)</Label>
         <Input type="number" step="0.1" min="0" max="1" value={config.overlay_opacity ?? 0.15} onChange={e => update('overlay_opacity', parseFloat(e.target.value))} />
       </div>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList
+          elements={config.inner_elements || []}
+          onChange={(els) => update('inner_elements', els)}
+        />
+      </fieldset>
     </div>
   );
 };

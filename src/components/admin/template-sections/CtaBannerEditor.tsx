@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ColorInput } from '@/components/ui/color-input';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { InnerElementsList } from './InnerElementsList';
 
 interface Props {
   config: Record<string, any>;
@@ -48,6 +49,11 @@ export const CtaBannerEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
       </div>
       <ColorInput label="Kolor tła" value={config.bg_color || '#0f172a'} onChange={v => update('bg_color', v)} />
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };

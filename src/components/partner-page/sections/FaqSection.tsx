@@ -1,6 +1,7 @@
 import React from 'react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Plus } from 'lucide-react';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface Props {
   config: Record<string, any>;
@@ -29,6 +30,12 @@ export const FaqSection: React.FC<Props> = ({ config }) => {
             </Collapsible>
           ))}
         </div>
+
+        {config.inner_elements?.length > 0 && (
+          <div className="mt-8">
+            {config.inner_elements.map((el: any) => <InnerElementRenderer key={el.id} element={el} />)}
+          </div>
+        )}
       </div>
     </section>
   );

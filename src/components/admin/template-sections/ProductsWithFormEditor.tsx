@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ContactFormEditor } from './ContactFormEditor';
+import { InnerElementsList } from './InnerElementsList';
 import { ColorInput } from '@/components/ui/color-input';
 
 interface Props {
@@ -50,6 +51,11 @@ export const ProductsWithFormEditor: React.FC<Props> = ({ config, onChange }) =>
           config={{ ...formConfig, layout: 'floating' }}
           onChange={(newFormConfig) => update('form_config', newFormConfig)}
         />
+      </fieldset>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
       </fieldset>
     </div>
   );

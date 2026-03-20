@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { InnerElementsList } from './InnerElementsList';
 
 interface Props {
   config: Record<string, any>;
@@ -48,6 +49,11 @@ export const FaqSectionEditor: React.FC<Props> = ({ config, onChange }) => {
       <Button variant="outline" size="sm" onClick={() => update('items', [...items, { question: '', answer: '' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj pytanie
       </Button>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };

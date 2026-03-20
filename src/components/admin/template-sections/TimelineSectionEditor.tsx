@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
+import { InnerElementsList } from './InnerElementsList';
 
 interface Props {
   config: Record<string, any>;
@@ -54,6 +55,11 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
       <Button variant="outline" size="sm" onClick={() => update('milestones', [...milestones, { icon: '📌', month: '', title: '', highlight: false }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj punkt
       </Button>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList elements={config.inner_elements || []} onChange={(els) => update('inner_elements', els)} />
+      </fieldset>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Input } from '@/components/ui/input';
+import { InnerElementsList } from './InnerElementsList';
 import { Label } from '@/components/ui/label';
 import { ColorInput } from '@/components/ui/color-input';
 import { Textarea } from '@/components/ui/textarea';
@@ -208,6 +209,14 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <ColorInput label="Kolor tekstu CTA 2" value={config.cta_secondary_text_color || ''} onChange={v => update('cta_secondary_text_color', v)} />
         </div>
         <p className="text-xs text-muted-foreground">Gdy kolor tła jest ustawiony, przycisk będzie wypełniony zamiast ghost.</p>
+      </fieldset>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList
+          elements={config.inner_elements || []}
+          onChange={(els) => update('inner_elements', els)}
+        />
       </fieldset>
     </div>
   );

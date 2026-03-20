@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ArrowRight, Play } from 'lucide-react';
 import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface StatItem {
   icon?: string;
@@ -198,6 +199,12 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
               ))}
             </div>
           )}
+
+          {config.inner_elements?.length > 0 && (
+            <div className="mt-8">
+              {config.inner_elements.map((el: any) => <InnerElementRenderer key={el.id} element={el} />)}
+            </div>
+          )}
         </div>
       </section>
     );
@@ -283,6 +290,12 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
                 <div className="text-xs sm:text-sm mt-1" style={ts ? { color: tc, opacity: 0.7 } : { color: 'rgba(255,255,255,0.7)' }}>{stat.label}</div>
               </div>
             ))}
+          </div>
+        )}
+
+        {config.inner_elements?.length > 0 && (
+          <div className="mt-8">
+            {config.inner_elements.map((el: any) => <InnerElementRenderer key={el.id} element={el} />)}
           </div>
         )}
       </div>
