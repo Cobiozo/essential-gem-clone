@@ -196,6 +196,9 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
 
       {/* === ELEMENTY NAWIGACJI === */}
       <fieldset className="border rounded-lg p-4 space-y-3">
+        <p className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+          💡 Aby link prowadził do sekcji na stronie, wpisz <code className="font-mono bg-muted px-1 rounded">#anchor_id</code> (np. <code className="font-mono bg-muted px-1 rounded">#kontakt</code>). Anchor ID ustawiasz w edytorze każdej sekcji. Linki zewnętrzne (http/https) otworzą się w nowej karcie.
+        </p>
         <legend className="text-sm font-semibold px-2">Elementy nawigacji</legend>
         {buttons.map((btn, i) => (
           <div key={i} className="border rounded-lg p-3 space-y-2">
