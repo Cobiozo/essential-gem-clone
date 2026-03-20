@@ -12,7 +12,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
     heading, items, image_url, video_url, image_side,
     highlight_text, highlight_description, cta_text, cta_url, bg_color,
     bg_image_url, partner_name, partner_subtitle,
-    item_icon_color, cta_bg_color, text_color, overlay_opacity,
+    item_icon_color, cta_bg_color, text_color, overlay_opacity, text_align,
   } = config;
 
   const isRight = image_side === 'right';
