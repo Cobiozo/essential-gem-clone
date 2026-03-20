@@ -76,8 +76,8 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
   if (isFloating) {
     return (
       <div className="bg-[#1a2332] rounded-2xl p-6 sm:p-8 text-white shadow-xl">
-        {heading && <h3 className="text-xl font-bold mb-1">{heading}</h3>}
-        {subheading && <p className="text-sm text-white/70 mb-6">{subheading}</p>}
+        {heading && <h3 className="text-xl font-bold mb-1" style={{ whiteSpace: 'pre-line' }}>{heading}</h3>}
+        {subheading && <p className="text-sm text-white/70 mb-6" style={{ whiteSpace: 'pre-line' }}>{subheading}</p>}
         <form onSubmit={handleSubmit} className="space-y-3">
           {formFields.map((field, i) => (
             <div key={i}>
