@@ -1,43 +1,42 @@
 
+Cel: ustaliłem, że problem nie leży już w samym scrollu CTA, tylko w tym, że na stronie partnera najpewniej w ogóle nie ma sekcji ankiety.
 
-# Podgląd ankiety w panelu admina
+Co znalazłem
+- Publiczna strona partnera ładuje szablon z `partner_pages.selected_template_id`.
+- Dla ostatnio zaktualizowanej strony partnera aktywny szablon to `Eqology` (`892223f1-cccf-4922-bab3-5781f7629a8a`).
+- Ten szablon ma 11 elementów i nie zawiera żadnego elementu typu `survey`.
+- CTA ma `cta_url: #ankieta`, więc przewijanie nie ma do czego skoczyć.
+- Dodatkowo `SurveyManager.tsx` zapisuje ankietę nie do wybranego szablonu partnera, tylko zawsze do pierwszego rekordu z `partner_page_template` (`limit(1)`), więc ankieta mogła być zapisywana do innego szablonu niż ten używany na stronie.
+- Jest też niespójność w edytorze szablonów: `PartnerTemplateEditor.tsx` nadal nie traktuje `survey` jako rich section, więc zarządzanie ankietą jest rozdzielone i łatwo o zapis “nie tam gdzie trzeba”.
 
-## Cel
-Dodać przycisk "Podgląd" w `SurveyManager`, który przełącza widok między edytorem a interaktywnym podglądem ankiety (`SurveySection`). Admin będzie mógł przetestować działanie ankiety (klikanie odpowiedzi, nawigacja, wyniki) bez opuszczania panelu.
+Plan naprawy
+1. Naprawić źródło zapisu ankiety
+- Przerobić `SurveyManager.tsx`, żeby pracował na konkretnym szablonie, a nie na `limit(1)`.
+- Najlepiej powiązać go z aktualnie edytowanym / wybranym szablonem partnera.
 
-## Zmiany
+2. Ujednolicić edycję ankiety z edycją szablonu
+- Dodać `survey` do `RICH_TYPES` i `TYPE_LABELS` w `PartnerTemplateEditor.tsx`.
+- Dzięki temu ankieta będzie normalną sekcją szablonu, tak jak hero/faq/cta, zamiast osobnego bytu obok szablonu.
 
-### Plik: `src/components/admin/SurveyManager.tsx`
-- Dodać state `showPreview` (boolean, domyślnie `false`)
-- Dodać przycisk **"Podgląd"** (ikona `Eye`/`EyeOff`) obok przycisku "Zapisz" w headerze karty
-- Gdy `showPreview === true`: renderować `SurveySection` z aktualnym `surveyConfig` zamiast `SurveySectionEditor`
-- Podgląd owinąć w kontener z zaokrąglonymi rogami i ciemnym tłem, żeby wyglądał realistycznie
-- Przycisk przełącza etykietę: "Podgląd" ↔ "Edytor"
+3. Pokazać w adminie, do którego szablonu trafia ankieta
+- Dodać czytelną informację typu: „Edytujesz ankietę dla szablonu: Eqology”.
+- Jeśli aktywny szablon nie zawiera ankiety, pokazać komunikat i przycisk dodania sekcji do tego konkretnego szablonu.
 
-### Wizualny układ
+4. Zachować działanie CTA po stronie renderingu
+- Obecna logika anchorów wygląda poprawnie, więc po dodaniu realnej sekcji `survey` z `anchor_id: ankieta` CTA `#ankieta` powinno zacząć działać bez dalszych zmian.
 
-```text
-┌─ Ankieta zdrowotna ──────────────────────────┐
-│ [Zarządzaj pytaniami...]     [👁 Podgląd] [💾] │
-│                                                │
-│  ┌─ Podgląd ankiety (ciemne tło) ───────────┐ │
-│  │  Ankieta zdrowotna                        │ │
-│  │  ████████░░░░░░░░  (progress bar)         │ │
-│  │  Pytanie 1 z 10                           │ │
-│  │  Jaka jest Twoja płeć?                    │ │
-│  │  ○ Kobieta                                │ │
-│  │  ○ Mężczyzna                              │ │
-│  │  [Wstecz]              [Dalej →]          │ │
-│  └───────────────────────────────────────────┘ │
-└────────────────────────────────────────────────┘
-```
+5. Sprawdzić dodatkową niespójność konfiguracji
+- W danych nagłówka widzę `anchor_id: #eqology` z hashem zapisanym w samym ID. To nie blokuje ankiety, ale warto znormalizować istniejące dane, bo `anchor_id` powinno być bez `#`.
 
-### Import
-- Zaimportować `SurveySection` z `@/components/partner-page/sections`
-- Dodać ikonę `Eye` / `EyeOff` z lucide-react
+Pliki do zmiany
+- `src/components/admin/SurveyManager.tsx`
+- `src/components/admin/PartnerTemplateEditor.tsx`
+- ewentualnie miejsce, z którego wybierany jest aktualny szablon do edycji ankiety
 
-### Szczegóły
-- Podgląd używa bieżącego `surveyConfig` (nie zapisanego) — admin widzi zmiany w czasie rzeczywistym
-- Kontener podglądu: `rounded-xl overflow-hidden` aby wyglądał jak embed
-- Żadnych zmian w `SurveySection.tsx` — komponent już działa samodzielnie
+Efekt po wdrożeniu
+- Ankieta będzie zapisywana do właściwego szablonu partnera.
+- CTA `#ankieta` zacznie działać, bo na stronie faktycznie pojawi się element z tym ID.
+- Admin przestanie trafiać w pułapkę „ankieta zapisana, ale nie w tym szablonie”.
 
+Najważniejsza przyczyna
+- Ankieta nie działa nie dlatego, że przycisk CTA jest błędny, tylko dlatego, że aktywny szablon strony partnera obecnie nie zawiera sekcji `survey`, a osobny manager ankiety zapisuje ją do innego / pierwszego szablonu w bazie.
