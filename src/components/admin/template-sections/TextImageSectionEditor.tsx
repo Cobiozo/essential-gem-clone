@@ -96,7 +96,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Tekst wyróżnienia</Label>
             <EditableFieldToggle fieldName="highlight_text" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.highlight_text || ''} onChange={e => update('highlight_text', e.target.value)} placeholder="np. 9 na 10 osób" />
+          <Textarea value={config.highlight_text || ''} onChange={e => update('highlight_text', e.target.value)} placeholder="np. 9 na 10 osób" rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <div className="flex items-center justify-between">
