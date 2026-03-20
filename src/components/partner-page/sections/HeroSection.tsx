@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ArrowRight, Play } from 'lucide-react';
 import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface StatItem {
   icon?: string;
