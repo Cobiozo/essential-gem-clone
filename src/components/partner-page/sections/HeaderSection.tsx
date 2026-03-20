@@ -168,6 +168,8 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
                 key={i}
                 href={btn.url || '#'}
                 onClick={handleClick}
+                target={external ? '_blank' : undefined}
+                rel={external ? 'noopener noreferrer' : undefined}
                 className={
                   isPrimary && !btn.bg_color
                     ? 'bg-primary text-primary-foreground px-4 py-2 text-sm hover:opacity-90 transition-opacity cursor-pointer'
