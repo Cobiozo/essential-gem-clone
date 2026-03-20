@@ -242,7 +242,7 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Tekst (np. „Twój Przewodnik Zdrowia:")</Label>
-              <Input value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" />
+              <Textarea value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" className="min-h-[60px]" />
             </div>
             <div>
               <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
