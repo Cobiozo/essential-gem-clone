@@ -117,15 +117,16 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
     );
   }
 
+  const ta = config.text_align as React.CSSProperties['textAlign'] || undefined;
+
   return (
     <section
       className="py-16 md:py-24"
       style={{ backgroundColor: bg_color || '#f8fafc', color: text_color || undefined }}
     >
-      <div className="max-w-2xl mx-auto px-4 sm:px-6">
-        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2">{heading}</h2>}
-        {subheading && <p className="text-center text-muted-foreground mb-8">{subheading}</p>}
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+        {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2" style={{ whiteSpace: 'pre-line' }}>{heading}</h2>}
+        {subheading && <p className="text-center text-muted-foreground mb-8" style={{ whiteSpace: 'pre-line' }}>{subheading}</p>}
           {formFields.map((field, i) => (
             <div key={i}>
               <label className="block text-sm font-medium mb-1">{field.label}</label>
