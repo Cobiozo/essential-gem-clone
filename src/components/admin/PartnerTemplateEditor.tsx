@@ -59,7 +59,7 @@ const defaultElement = (position: number): TemplateElement => ({
   config: {},
 });
 
-const RICH_TYPES: TemplateElementType[] = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer', 'products_with_form'];
+const RICH_TYPES: TemplateElementType[] = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer', 'products_with_form', 'survey'];
 
 // ─── Template List View ───
 const TemplateListView: React.FC<{
