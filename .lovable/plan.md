@@ -1,28 +1,41 @@
 
 
-# Plan: Dodanie przełącznika szablonów w podglądzie
+# Plan: Hero sekcji „Pure Life Classic" — identyczny z obrazem
 
-## Problem
-Po skopiowaniu sekcji w podglądzie szablonu nie ma sposobu, żeby przejść do innego szablonu — podgląd otwiera się w nowej karcie i przycisk „Wróć" robi `navigate(-1)`, co nie prowadzi do listy szablonów.
+## Analiza obrazu
+Zrzut ekranu pokazuje hero typu split z:
+- Ciemne tło (#0a1628) z gradientem
+- Nagłówek: „TESTUJ, NIE ZGADUJ.\nTwoje zdrowie zasługuje\nna twarde dane."
+- Opis o Omega-3
+- **Kafelek partnera** z avatarem i tekstem: „Twój Przewodnik Zdrowia: [Partner] - Jesteśmy tu dla Ciebie." — tego elementu brakuje w obecnym komponencie
+- Dwa CTA: zielony „KUP TERAZ I DOŁĄCZ DO NAS" + jasny „Wypełnij ankietę i dobierz opcję" (z ikoną ✔️)
+- Prawa strona: zdjęcie rodziny z efektem złotego płynu
 
-## Rozwiązanie
-Dodać dropdown w top barze podglądu, który pozwala szybko przełączyć się na inny szablon (bez opuszczania widoku podglądu).
+## Zmiany
 
-## Zmiany w `src/pages/TemplatePreviewPage.tsx`
+### 1. Dodanie elementu „partner badge" do `HeroSection.tsx`
+Nowy blok renderowany między opisem a przyciskami CTA (w layout split). Konfiguracja:
+- `partner_badge.text` — tekst (np. „Twój Przewodnik Zdrowia:")
+- `partner_badge.subtitle` — np. „[Partner] - Jesteśmy tu dla Ciebie."
+- `partner_badge.avatar_url` — avatar (opcjonalny)
 
-1. **Pobranie listy szablonów** — dodać zapytanie do `partner_page_template` po `id, name` w `useEffect` (obok istniejącego fetcha).
+Rendering: zaokrąglona karta z awatarem po lewej i tekstem, styl jak na zrzucie (bg-white/90, shadow, rounded-full avatar).
 
-2. **Dropdown w top barze** — obok nazwy aktualnego szablonu dodać `Select` z listą wszystkich szablonów. Wybranie innego szablonu nawiguje do `/admin/template-preview/:id`.
+### 2. Dodanie pól edycji w `HeroSectionEditor.tsx`
+Nowa sekcja „Kafelek partnera" z polami: text, subtitle, avatar_url (ImageUploadInput). Pola oznaczone jako edytowalne, żeby partner mógł wstawić swoje imię i zdjęcie.
 
-3. **Poprawka przycisku „Wróć"** — zmienić `navigate(-1)` na `navigate('/admin?tab=partner-pages')`, żeby zawsze wracał do listy szablonów.
+### 3. Aktualizacja danych szablonu „Pure Life Classic" w bazie
+Zmiana konfiguracji hero (id `9abb203f-...`) na:
+- `layout: 'split'`, `bg_color: '#0a1628'`, `text_color: biały`
+- Nowy headline, description, CTA texts zgodne z obrazem
+- `partner_badge` z domyślnymi placeholderami
+- Zachowanie hero_image_url (admin wgra zdjęcie rodziny)
 
-### Schemat UI top bara:
-```text
-[← Wróć do edytora]  Podgląd szablonu: [▼ Select: nazwa szablonu]     [Zapisz zmiany]
-```
+### Pliki do zmian
 
-### Zakres zmian
 | Plik | Zmiana |
 |------|--------|
-| `TemplatePreviewPage.tsx` | Fetch listy szablonów, dropdown w top barze, poprawka nawigacji „Wróć" |
+| `HeroSection.tsx` | Dodać rendering `partner_badge` w layout split (i centered) |
+| `HeroSectionEditor.tsx` | Dodać fieldset „Kafelek partnera" z 3 polami |
+| Migracja SQL | UPDATE template_data szablonu Pure Life Classic |
 
