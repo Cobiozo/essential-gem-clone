@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { isExternalUrl } from '@/lib/urlUtils';
 
 interface Props {
   config: Record<string, any>;
