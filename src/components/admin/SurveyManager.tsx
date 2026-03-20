@@ -93,7 +93,14 @@ export const SurveyManager: React.FC = () => {
           {saving ? 'Zapisywanie...' : 'Zapisz'}
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {!surveyExists && (
+          <AlertElement
+            variant="info"
+            title="Ankieta nie jest jeszcze aktywna"
+            content="Kliknij „Zapisz", aby dodać ankietę do szablonu stron partnerów. Dopiero po zapisie sekcja będzie widoczna i dostępna pod kotwicą #ankieta."
+          />
+        )}
         <SurveySectionEditor config={surveyConfig} onChange={setSurveyConfig} />
       </CardContent>
     </Card>
