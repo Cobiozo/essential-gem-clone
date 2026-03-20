@@ -44,6 +44,7 @@ const TYPE_LABELS: Record<string, string> = {
   contact_form: 'Formularz kontaktowy',
   footer: 'Stopka',
   products_with_form: 'Produkty + Formularz',
+  survey: 'Ankieta zdrowotna',
 };
 
 const defaultElement = (position: number): TemplateElement => ({
