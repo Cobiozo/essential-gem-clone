@@ -95,7 +95,7 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
       </div>
       <div>
         <Label>Tekst prywatności (opcja)</Label>
-        <Input value={config.privacy_text || ''} onChange={e => update('privacy_text', e.target.value)} />
+        <Textarea value={config.privacy_text || ''} onChange={e => update('privacy_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       <div className="grid grid-cols-2 gap-4">

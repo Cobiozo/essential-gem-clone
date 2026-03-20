@@ -46,7 +46,7 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
                 <Switch checked={!!m.highlight} onCheckedChange={v => updateMilestone(i, 'highlight', v)} />
               </div>
             </div>
-            <Input value={m.title || ''} onChange={e => updateMilestone(i, 'title', e.target.value)} placeholder="Tytuł" />
+            <Textarea value={m.title || ''} onChange={e => updateMilestone(i, 'title', e.target.value)} placeholder="Tytuł" rows={1} className="min-h-[36px] resize-y" />
           </div>
           <Button variant="ghost" size="icon" onClick={() => update('milestones', milestones.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />

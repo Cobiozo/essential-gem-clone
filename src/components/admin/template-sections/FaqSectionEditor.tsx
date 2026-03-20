@@ -42,7 +42,7 @@ export const FaqSectionEditor: React.FC<Props> = ({ config, onChange }) => {
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
           </div>
-          <Input value={item.question || ''} onChange={e => updateItem(i, 'question', e.target.value)} placeholder="Pytanie" />
+          <Textarea value={item.question || ''} onChange={e => updateItem(i, 'question', e.target.value)} placeholder="Pytanie" rows={1} className="min-h-[36px] resize-y" />
           <Textarea value={item.answer || ''} onChange={e => updateItem(i, 'answer', e.target.value)} placeholder="Odpowiedź" rows={2} />
         </div>
       ))}

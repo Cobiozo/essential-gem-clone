@@ -57,6 +57,19 @@ export const SectionConfigEditor: React.FC<{
           Użyj w linkach nagłówka: <code className="bg-muted px-1 rounded">#kontakt</code>
         </p>
       </div>
+      <div>
+        <Label className="text-xs text-muted-foreground">Wyrównanie tekstu</Label>
+        <Select value={cfg.text_align || 'left'} onValueChange={v => onConfigChange({ ...cfg, text_align: v })}>
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="left">Do lewej</SelectItem>
+            <SelectItem value="center">Środek</SelectItem>
+            <SelectItem value="right">Do prawej</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       {renderTypeEditor()}
     </div>
   );

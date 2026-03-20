@@ -120,7 +120,7 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
 
       <div>
         <Label>Tekst copyright (opcja)</Label>
-        <Input value={config.copyright_text || ''} onChange={e => update('copyright_text', e.target.value)} />
+        <Textarea value={config.copyright_text || ''} onChange={e => update('copyright_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>

@@ -43,12 +43,12 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
               <Trash2 className="w-4 h-4 text-destructive" />
             </Button>
           </div>
-          <Input value={card.label || ''} onChange={e => updateCard(i, 'label', e.target.value)} placeholder="Etykieta (np. Wsparcie serca)" />
+          <Textarea value={card.label || ''} onChange={e => updateCard(i, 'label', e.target.value)} placeholder="Etykieta (np. Wsparcie serca)" rows={1} className="min-h-[36px] resize-y" />
           <div className="grid grid-cols-2 gap-2">
-            <Input value={card.before || ''} onChange={e => updateCard(i, 'before', e.target.value)} placeholder="PRZED (np. 15:1)" />
-            <Input value={card.after || ''} onChange={e => updateCard(i, 'after', e.target.value)} placeholder="PO (np. 3:1)" />
+            <Textarea value={card.before || ''} onChange={e => updateCard(i, 'before', e.target.value)} placeholder="PRZED (np. 15:1)" rows={1} className="min-h-[36px] resize-y" />
+            <Textarea value={card.after || ''} onChange={e => updateCard(i, 'after', e.target.value)} placeholder="PO (np. 3:1)" rows={1} className="min-h-[36px] resize-y" />
           </div>
-          <Input value={card.description || ''} onChange={e => updateCard(i, 'description', e.target.value)} placeholder="Opis" />
+          <Textarea value={card.description || ''} onChange={e => updateCard(i, 'description', e.target.value)} placeholder="Opis" rows={2} className="min-h-[36px] resize-y" />
           <ImageUploadInput value={card.image || ''} onChange={v => updateCard(i, 'image', v)} compact />
         </div>
       ))}

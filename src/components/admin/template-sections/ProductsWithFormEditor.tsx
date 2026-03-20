@@ -41,7 +41,7 @@ export const ProductsWithFormEditor: React.FC<Props> = ({ config, onChange }) =>
 
       <div>
         <Label>Domyślny tekst CTA</Label>
-        <Input value={config.default_cta_text || 'Zobacz szczegóły'} onChange={e => update('default_cta_text', e.target.value)} />
+        <Textarea value={config.default_cta_text || 'Zobacz szczegóły'} onChange={e => update('default_cta_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <p className="text-xs text-muted-foreground">Produkty są pobierane automatycznie z katalogu produktów (CMS → Katalog produktów).</p>
 
