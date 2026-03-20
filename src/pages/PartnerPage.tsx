@@ -193,7 +193,6 @@ const PartnerPageView: React.FC = () => {
       )
     : null;
 
-  const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
 
   const renderSection = (element: TemplateElement) => {
     if (element.type === 'survey') return null; // rendered as modal instead
