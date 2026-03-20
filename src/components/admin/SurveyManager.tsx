@@ -15,6 +15,7 @@ export const SurveyManager: React.FC = () => {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [surveyConfig, setSurveyConfig] = useState<Record<string, any>>({});
   const [templateData, setTemplateData] = useState<any[]>([]);
+  const [surveyExists, setSurveyExists] = useState(true);
 
   useEffect(() => {
     loadSurvey();
