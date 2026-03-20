@@ -23,6 +23,7 @@ import {
   ContactFormSection,
   FooterSection,
   ProductsWithFormSection,
+  SurveySection,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
