@@ -16,6 +16,7 @@ import { DragOverlay } from '@dnd-kit/core';
 import { SortableSectionWrapper } from '@/components/admin/template-preview/SortableSectionWrapper';
 import { AddSectionMenu } from '@/components/admin/template-preview/AddSectionMenu';
 import { DEFAULT_SECTION_CONFIGS } from '@/components/admin/template-preview/defaultSectionConfigs';
+import { resolveVariablesInConfig, PREVIEW_PROFILE } from '@/lib/partnerVariables';
 import {
   HeroSection,
   TextImageSection,
