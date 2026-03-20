@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
+import { resolveVariablesInConfig, type PartnerProfileData } from '@/lib/partnerVariables';
 import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown, Save, Pencil } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { getMergedConfig } from '@/lib/mergePartnerConfig';
