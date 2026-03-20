@@ -246,7 +246,7 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
             </div>
             <div>
               <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
-              <Input value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." />
+              <Textarea value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." className="min-h-[60px]" />
             </div>
             <div>
               <Label className="text-xs">Avatar partnera</Label>

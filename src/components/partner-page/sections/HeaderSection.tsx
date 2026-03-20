@@ -87,10 +87,10 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
               )}
               <div>
                 {config.partner_badge.text && (
-                  <p className="text-[10px] text-gray-500 font-medium leading-tight">{config.partner_badge.text}</p>
+                  <p className="text-[10px] text-gray-500 font-medium leading-tight" style={{ whiteSpace: 'pre-line' }}>{config.partner_badge.text}</p>
                 )}
                 {config.partner_badge.subtitle && (
-                  <p className="text-xs font-semibold text-gray-900 leading-tight">{config.partner_badge.subtitle}</p>
+                  <p className="text-xs font-semibold text-gray-900 leading-tight" style={{ whiteSpace: 'pre-line' }}>{config.partner_badge.subtitle}</p>
                 )}
               </div>
             </div>
