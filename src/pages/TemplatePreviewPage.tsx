@@ -188,7 +188,7 @@ const TemplatePreviewPage: React.FC = () => {
     const wrapWithAnchor = (node: React.ReactNode) => <div id={anchorId}>{node}</div>;
     switch (element.type) {
       case 'header': return wrapWithAnchor(<HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
-      case 'hero': return wrapWithAnchor(<HeroSection config={cfg} />);
+      case 'hero': return wrapWithAnchor(<HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
       case 'text_image': return wrapWithAnchor(<TextImageSection config={cfg} />);
       case 'steps': return wrapWithAnchor(<StepsSection config={cfg} />);
       case 'timeline': return wrapWithAnchor(<TimelineSection config={cfg} />);

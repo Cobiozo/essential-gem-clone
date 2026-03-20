@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { SurveySection } from './SurveySection';
+import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface Props {
   config: Record<string, any>;
@@ -29,13 +30,16 @@ export const SurveyModal: React.FC<Props> = ({ config, open, onClose }) => {
       />
       {/* Content */}
       <div className="relative w-full max-w-3xl mx-4 my-8 max-h-[calc(100vh-4rem)] overflow-y-auto rounded-2xl bg-background shadow-2xl">
-        <button
-          onClick={onClose}
-          className="sticky top-3 float-right mr-3 z-10 flex items-center justify-center w-9 h-9 rounded-full bg-muted/80 hover:bg-muted text-foreground transition-colors"
-          aria-label="Zamknij"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 bg-background/95 backdrop-blur-sm rounded-t-2xl">
+          <img src={pureLifeLogo} alt="Pure Life Center" className="h-8 w-auto object-contain" />
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-muted/80 hover:bg-muted text-foreground transition-colors"
+            aria-label="Zamknij"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
         <SurveySection config={config} />
       </div>
     </div>

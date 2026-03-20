@@ -210,7 +210,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <HeaderSection config={cfg} partnerName={partnerName} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
         break;
       case 'hero':
-        sectionNode = <HeroSection config={cfg} />;
+        sectionNode = <HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
         break;
       case 'text_image':
         sectionNode = <TextImageSection config={cfg} />;
