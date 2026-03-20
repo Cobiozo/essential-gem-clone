@@ -84,6 +84,16 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
       {(config.layout === 'split') && (
         <div className="space-y-3">
           <div>
+            <Label>Tryb obrazu hero</Label>
+            <Select value={config.hero_image_mode || 'contained'} onValueChange={(v) => update('hero_image_mode', v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="contained">Zawężony (w gridzie)</SelectItem>
+                <SelectItem value="full-bleed">Full-bleed (cała prawa połowa)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
             <Label>URL obrazu hero (prawa strona)</Label>
             <ImageUploadInput value={config.hero_image_url || ''} onChange={v => update('hero_image_url', v)} />
           </div>
