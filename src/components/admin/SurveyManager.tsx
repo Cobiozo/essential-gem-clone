@@ -91,20 +91,30 @@ export const SurveyManager: React.FC = () => {
           <CardTitle className="text-lg">Ankieta zdrowotna</CardTitle>
           <CardDescription>Zarządzaj pytaniami, opcjami i rekomendacjami produktów</CardDescription>
         </div>
+        <Button onClick={() => setShowPreview(!showPreview)} variant="outline" size="sm">
+          {showPreview ? <EyeOff className="w-4 h-4 mr-1" /> : <Eye className="w-4 h-4 mr-1" />}
+          {showPreview ? 'Edytor' : 'Podgląd'}
+        </Button>
         <Button onClick={handleSave} disabled={saving} size="sm">
           <Save className="w-4 h-4 mr-1" />
           {saving ? 'Zapisywanie...' : 'Zapisz'}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!surveyExists && (
+        {!surveyExists && !showPreview && (
           <AlertElement
             variant="info"
             title="Ankieta nie jest jeszcze aktywna"
             content={'Kliknij „Zapisz", aby dodać ankietę do szablonu stron partnerów. Dopiero po zapisie sekcja będzie widoczna i dostępna pod kotwicą #ankieta.'}
           />
         )}
-        <SurveySectionEditor config={surveyConfig} onChange={setSurveyConfig} />
+        {showPreview ? (
+          <div className="rounded-xl overflow-hidden border border-border">
+            <SurveySection config={surveyConfig} />
+          </div>
+        ) : (
+          <SurveySectionEditor config={surveyConfig} onChange={setSurveyConfig} />
+        )}
       </CardContent>
     </Card>
   );
