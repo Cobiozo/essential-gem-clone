@@ -6,48 +6,143 @@ interface Props {
   disableSticky?: boolean;
 }
 
+const FONT_SIZE_MAP: Record<string, string> = {
+  xs: '12px',
+  sm: '14px',
+  base: '16px',
+  lg: '18px',
+};
+
 export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky }) => {
-  const { logo_text, logo_image_url, buttons, nav_style } = config;
+  const {
+    logo_text, logo_image_url, buttons, nav_style,
+    bg_color, text_color, border_color, hide_border,
+    bg_opacity, padding_y,
+    logo_font, logo_font_size, logo_font_weight, logo_height,
+    nav_align, nav_text_color, nav_hover_color,
+    nav_font, nav_font_size, nav_font_weight,
+  } = config;
 
   const isLinks = nav_style === 'links';
+  const opacity = bg_opacity ?? 1;
+
+  // Convert hex to rgba for opacity support
+  const bgWithOpacity = bg_color
+    ? (() => {
+        const hex = bg_color.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        return `rgba(${r},${g},${b},${opacity})`;
+      })()
+    : undefined;
+
+  const navJustify = nav_align === 'left' ? 'flex-start' : nav_align === 'center' ? 'center' : 'flex-end';
+  const navFontSizePx = FONT_SIZE_MAP[nav_font_size || 'sm'] || '14px';
 
   return (
-    <header className={`bg-white border-b border-gray-100 ${disableSticky ? 'relative' : 'sticky top-0 z-50'}`}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+    <header
+      className={`${disableSticky ? 'relative' : 'sticky top-0 z-50'} transition-all`}
+      style={{
+        backgroundColor: bgWithOpacity || '#ffffff',
+        color: text_color || undefined,
+        borderBottom: hide_border ? 'none' : `1px solid ${border_color || '#f3f4f6'}`,
+        paddingBlock: `${padding_y ?? 12}px`,
+      }}
+    >
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
+        {/* Logo */}
         <div className="flex items-center gap-3">
           {logo_image_url ? (
-            <img src={logo_image_url} alt={logo_text || ''} className="h-10 object-contain" />
+            <img
+              src={logo_image_url}
+              alt={logo_text || ''}
+              className="object-contain"
+              style={{ height: `${logo_height || 40}px` }}
+            />
           ) : (
-            <span className="text-xl font-bold text-foreground tracking-tight">{logo_text || 'Logo'}</span>
+            <span
+              className="tracking-tight"
+              style={{
+                fontSize: `${logo_font_size || 20}px`,
+                fontWeight: logo_font_weight || '700',
+                fontFamily: logo_font || undefined,
+                color: text_color || undefined,
+              }}
+            >
+              {logo_text || 'Logo'}
+            </span>
           )}
           {partnerName && (
-            <span className="text-sm text-muted-foreground hidden sm:inline">| {partnerName}</span>
+            <span className="text-sm hidden sm:inline" style={{ opacity: 0.6 }}>
+              | {partnerName}
+            </span>
           )}
         </div>
-        <nav className="flex items-center gap-1">
-          {(buttons || []).map((btn: any, i: number) =>
-            isLinks ? (
-              <a
-                key={i}
-                href={btn.url || '#'}
-                className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
-              >
-                {btn.text}
-              </a>
-            ) : (
+
+        {/* Navigation */}
+        <nav className="flex items-center gap-1" style={{ justifyContent: navJustify }}>
+          {(buttons || []).map((btn: any, i: number) => {
+            const btnStyle: React.CSSProperties = {
+              fontFamily: nav_font || undefined,
+              fontSize: navFontSizePx,
+              fontWeight: nav_font_weight || '500',
+            };
+
+            if (isLinks) {
+              return (
+                <a
+                  key={i}
+                  href={btn.url || '#'}
+                  className="px-3 py-2 transition-colors"
+                  style={{
+                    ...btnStyle,
+                    color: nav_text_color || text_color || undefined,
+                  }}
+                  onMouseEnter={e => {
+                    if (nav_hover_color) (e.currentTarget as HTMLElement).style.color = nav_hover_color;
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.color = nav_text_color || text_color || '';
+                  }}
+                >
+                  {btn.text}
+                </a>
+              );
+            }
+
+            // Button mode — per-button overrides
+            const isPrimary = btn.variant === 'primary';
+            const btnBg = btn.bg_color || (isPrimary ? undefined : 'transparent');
+            const btnText = btn.text_color || (isPrimary ? undefined : undefined);
+            const btnBorder = btn.border_color || (isPrimary ? 'transparent' : undefined);
+            const btnRadius = btn.border_radius != null ? `${btn.border_radius}px` : '8px';
+
+            return (
               <a
                 key={i}
                 href={btn.url || '#'}
                 className={
-                  btn.variant === 'primary'
-                    ? 'bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity'
-                    : 'border border-border text-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-muted transition-colors'
+                  isPrimary && !btn.bg_color
+                    ? 'bg-primary text-primary-foreground px-4 py-2 text-sm hover:opacity-90 transition-opacity'
+                    : !isPrimary && !btn.bg_color
+                    ? 'border border-border text-foreground px-4 py-2 text-sm hover:bg-muted transition-colors'
+                    : 'px-4 py-2 text-sm transition-all hover:opacity-90'
                 }
+                style={{
+                  ...btnStyle,
+                  backgroundColor: btnBg || undefined,
+                  color: btnText || undefined,
+                  borderColor: btnBorder || undefined,
+                  borderWidth: !isPrimary || btn.border_color ? '1px' : undefined,
+                  borderStyle: !isPrimary || btn.border_color ? 'solid' : undefined,
+                  borderRadius: btnRadius,
+                }}
               >
                 {btn.text}
               </a>
-            )
-          )}
+            );
+          })}
         </nav>
       </div>
     </header>
