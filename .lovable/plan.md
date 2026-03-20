@@ -1,41 +1,47 @@
 
 
-# Plan: Hero sekcji „Pure Life Classic" — identyczny z obrazem
+# Plan: Modernizacja Hero Split — identyczne odwzorowanie screena
 
-## Analiza obrazu
-Zrzut ekranu pokazuje hero typu split z:
-- Ciemne tło (#0a1628) z gradientem
-- Nagłówek: „TESTUJ, NIE ZGADUJ.\nTwoje zdrowie zasługuje\nna twarde dane."
-- Opis o Omega-3
-- **Kafelek partnera** z avatarem i tekstem: „Twój Przewodnik Zdrowia: [Partner] - Jesteśmy tu dla Ciebie." — tego elementu brakuje w obecnym komponencie
-- Dwa CTA: zielony „KUP TERAZ I DOŁĄCZ DO NAS" + jasny „Wypełnij ankietę i dobierz opcję" (z ikoną ✔️)
-- Prawa strona: zdjęcie rodziny z efektem złotego płynu
+## Analiza różnic (obecny kod vs screenshot)
+
+| Element | Obecny stan | Screenshot |
+|---------|------------|------------|
+| Obraz hero (prawa strona) | W gridzie, z rounded corners, max-height, padding | Full-bleed — wypełnia całą prawą połowę, bez zaokrągleń, przylega do krawędzi |
+| Gradient | Osobny overlay na bg_image | Gradient z lewej (solid navy) przechodzi w przezroczystość nad obrazem hero |
+| CTA secondary | Ghost button (border, przezroczysty) | Wypełniony przycisk w kolorze beżowym/kremowym z ikoną ✔️ |
+| Układ | Grid 50/50 z gap i padding | Lewa strona z tekstem ma padding, prawa strona to pełnoekranowy obraz |
 
 ## Zmiany
 
-### 1. Dodanie elementu „partner badge" do `HeroSection.tsx`
-Nowy blok renderowany między opisem a przyciskami CTA (w layout split). Konfiguracja:
-- `partner_badge.text` — tekst (np. „Twój Przewodnik Zdrowia:")
-- `partner_badge.subtitle` — np. „[Partner] - Jesteśmy tu dla Ciebie."
-- `partner_badge.avatar_url` — avatar (opcjonalny)
+### 1. `HeroSection.tsx` — split layout rewrite
 
-Rendering: zaokrąglona karta z awatarem po lewej i tekstem, styl jak na zrzucie (bg-white/90, shadow, rounded-full avatar).
+- **Obraz hero full-bleed**: Zamiast w gridzie, obraz będzie `absolute` pozycjonowany, wypełniający prawą połowę sekcji (`right-0, top-0, bottom-0, w-1/2`), `object-cover`, bez rounded corners.
+- **Gradient overlay**: Gradient `bg-gradient-to-r` z `bg_color` (solid) po lewej do `transparent` po prawej — nakładany na obraz, zapewnia czytelność tekstu.
+- **Lewa kolumna**: Tekst w `relative z-10`, zajmuje ~50% szerokości z paddingiem, bez grid — po prostu `max-w-[50%]`.
+- **CTA secondary**: Obsługa nowych config properties:
+  - `cta_secondary_bg_color` — kolor tła (np. `#f5e6c8` beż)
+  - `cta_secondary_text_color` — kolor tekstu
+  - Gdy `cta_secondary_bg_color` jest ustawiony, renderuje wypełniony przycisk zamiast ghost.
 
-### 2. Dodanie pól edycji w `HeroSectionEditor.tsx`
-Nowa sekcja „Kafelek partnera" z polami: text, subtitle, avatar_url (ImageUploadInput). Pola oznaczone jako edytowalne, żeby partner mógł wstawić swoje imię i zdjęcie.
+### 2. `HeroSectionEditor.tsx` — nowe pola
 
-### 3. Aktualizacja danych szablonu „Pure Life Classic" w bazie
-Zmiana konfiguracji hero (id `9abb203f-...`) na:
-- `layout: 'split'`, `bg_color: '#0a1628'`, `text_color: biały`
-- Nowy headline, description, CTA texts zgodne z obrazem
-- `partner_badge` z domyślnymi placeholderami
-- Zachowanie hero_image_url (admin wgra zdjęcie rodziny)
+- Dodać w fieldset „CTA Drugie":
+  - `ColorInput` dla `cta_secondary_bg_color` (kolor tła drugiego CTA)
+  - `ColorInput` dla `cta_secondary_text_color` (kolor tekstu)
+- Dodać opcję `hero_image_mode`: `contained` (obecny) vs `full-bleed` (nowy) — Select dropdown w sekcji obrazu hero.
+
+### 3. Migracja SQL — update Pure Life Classic
+
+Update config hero sekcji z:
+- `hero_image_mode: "full-bleed"`
+- `cta_secondary_bg_color: "#f0e4c9"` (beż ze screena)
+- `cta_secondary_text_color: "#333333"`
 
 ### Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `HeroSection.tsx` | Dodać rendering `partner_badge` w layout split (i centered) |
-| `HeroSectionEditor.tsx` | Dodać fieldset „Kafelek partnera" z 3 polami |
-| Migracja SQL | UPDATE template_data szablonu Pure Life Classic |
+| `HeroSection.tsx` | Przebudowa split layout: full-bleed image, gradient, nowy styl CTA secondary |
+| `HeroSectionEditor.tsx` | Pola: hero_image_mode, cta_secondary_bg_color, cta_secondary_text_color |
+| Migracja SQL | Update Pure Life Classic config |
 
