@@ -59,6 +59,7 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
 
   return (
     <div className="space-y-6">
+      <VariablesLegend />
       {/* === LOGO === */}
       <fieldset className="border rounded-lg p-4 space-y-3">
         <legend className="text-sm font-semibold px-2">Logo</legend>
