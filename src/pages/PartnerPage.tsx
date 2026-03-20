@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import NotFound from './NotFound';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import type { TemplateElement, PartnerPage as PartnerPageType, ProductCatalogItem, PartnerProductLink } from '@/types/partnerPage';
+import { resolveVariablesInConfig, type PartnerProfileData } from '@/lib/partnerVariables';
 import { ExternalLink, Mail, Phone, Facebook, User, ChevronDown, Save, Pencil } from 'lucide-react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { getMergedConfig } from '@/lib/mergePartnerConfig';
@@ -29,6 +30,12 @@ interface PartnerProfile {
   last_name: string | null;
   avatar_url?: string | null;
   email?: string | null;
+  phone_number?: string | null;
+  city?: string | null;
+  country?: string | null;
+  specialization?: string | null;
+  profile_description?: string | null;
+  eq_id?: string | null;
 }
 
 const PartnerPageView: React.FC = () => {
@@ -78,7 +85,7 @@ const PartnerPageView: React.FC = () => {
 
       const [templateRes, profileRes, productsRes, linksRes] = await Promise.all([
         templateQuery,
-        supabase.from('profiles').select('first_name, last_name, avatar_url, email').eq('user_id', pageData.user_id).maybeSingle(),
+        supabase.from('profiles').select('first_name, last_name, avatar_url, email, phone_number, city, country, specialization, profile_description, eq_id').eq('user_id', pageData.user_id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
       ]);
@@ -159,10 +166,25 @@ const PartnerPageView: React.FC = () => {
   const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer', 'products_with_form'];
   const hasRichSections = template.some(el => RICH_TYPES.includes(el.type));
 
+  const profileData: PartnerProfileData = {
+    first_name: profile?.first_name,
+    last_name: profile?.last_name,
+    email: profile?.email,
+    phone_number: profile?.phone_number,
+    city: profile?.city,
+    country: profile?.country,
+    specialization: profile?.specialization,
+    profile_description: profile?.profile_description,
+    eq_id: profile?.eq_id,
+    avatar_url: profile?.avatar_url,
+  };
+
   const renderSection = (element: TemplateElement) => {
     const baseCfg = element.config || {};
     const partnerOverrides = customData[element.id] || {};
-    const cfg = getMergedConfig(baseCfg, partnerOverrides);
+    const mergedCfg = getMergedConfig(baseCfg, partnerOverrides);
+    const cfg = resolveVariablesInConfig(mergedCfg, profileData);
+    const anchorId = baseCfg.anchor_id || element.id;
 
     let sectionNode: React.ReactNode = null;
 
@@ -220,16 +242,17 @@ const PartnerPageView: React.FC = () => {
     if (!sectionNode) return null;
 
     return (
-      <EditableWrapper
-        key={element.id}
-        elementId={element.id}
-        config={baseCfg}
-        overrides={customData[element.id] || {}}
-        onSave={(fieldName, value) => updateField(element.id, fieldName, value)}
-        isEditing={isOwner}
-      >
-        {sectionNode}
-      </EditableWrapper>
+      <div key={element.id} id={anchorId}>
+        <EditableWrapper
+          elementId={element.id}
+          config={baseCfg}
+          overrides={customData[element.id] || {}}
+          onSave={(fieldName, value) => updateField(element.id, fieldName, value)}
+          isEditing={isOwner}
+        >
+          {sectionNode}
+        </EditableWrapper>
+      </div>
     );
   };
 

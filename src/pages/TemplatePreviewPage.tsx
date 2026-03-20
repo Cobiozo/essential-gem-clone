@@ -16,6 +16,7 @@ import { DragOverlay } from '@dnd-kit/core';
 import { SortableSectionWrapper } from '@/components/admin/template-preview/SortableSectionWrapper';
 import { AddSectionMenu } from '@/components/admin/template-preview/AddSectionMenu';
 import { DEFAULT_SECTION_CONFIGS } from '@/components/admin/template-preview/defaultSectionConfigs';
+import { resolveVariablesInConfig, PREVIEW_PROFILE } from '@/lib/partnerVariables';
 import {
   HeroSection,
   TextImageSection,
@@ -169,22 +170,24 @@ const TemplatePreviewPage: React.FC = () => {
   }));
 
   const renderSection = (element: TemplateElement) => {
-    const cfg = element.config || {};
+    const cfg = resolveVariablesInConfig(element.config || {}, PREVIEW_PROFILE);
+    const anchorId = cfg.anchor_id || element.id;
+    const wrapWithAnchor = (node: React.ReactNode) => <div id={anchorId}>{node}</div>;
     switch (element.type) {
-      case 'header': return <HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky />;
-      case 'hero': return <HeroSection config={cfg} />;
-      case 'text_image': return <TextImageSection config={cfg} />;
-      case 'steps': return <StepsSection config={cfg} />;
-      case 'timeline': return <TimelineSection config={cfg} />;
-      case 'testimonials': return <TestimonialsSection config={cfg} />;
-      case 'products_grid': return <ProductsGridSection config={cfg} products={products} productLinks={dummyLinks} />;
-      case 'faq': return <FaqSection config={cfg} />;
-      case 'cta_banner': return <CtaBannerSection config={cfg} />;
-      case 'contact_form': return <ContactFormSection config={cfg} partnerEmail="preview@example.com" />;
-      case 'footer': return <FooterSection config={cfg} />;
-      case 'products_with_form': return <ProductsWithFormSection config={cfg} products={products} productLinks={dummyLinks} partnerEmail="preview@example.com" />;
+      case 'header': return wrapWithAnchor(<HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky />);
+      case 'hero': return wrapWithAnchor(<HeroSection config={cfg} />);
+      case 'text_image': return wrapWithAnchor(<TextImageSection config={cfg} />);
+      case 'steps': return wrapWithAnchor(<StepsSection config={cfg} />);
+      case 'timeline': return wrapWithAnchor(<TimelineSection config={cfg} />);
+      case 'testimonials': return wrapWithAnchor(<TestimonialsSection config={cfg} />);
+      case 'products_grid': return wrapWithAnchor(<ProductsGridSection config={cfg} products={products} productLinks={dummyLinks} />);
+      case 'faq': return wrapWithAnchor(<FaqSection config={cfg} />);
+      case 'cta_banner': return wrapWithAnchor(<CtaBannerSection config={cfg} />);
+      case 'contact_form': return wrapWithAnchor(<ContactFormSection config={cfg} partnerEmail="preview@example.com" />);
+      case 'footer': return wrapWithAnchor(<FooterSection config={cfg} />);
+      case 'products_with_form': return wrapWithAnchor(<ProductsWithFormSection config={cfg} products={products} productLinks={dummyLinks} partnerEmail="preview@example.com" />);
       case 'static':
-        return element.content ? (
+        return element.content ? wrapWithAnchor(
           <section className="bg-background">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
               <div className="prose prose-sm max-w-none dark:prose-invert text-foreground"
