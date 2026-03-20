@@ -45,7 +45,7 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Company info */}
           <div className="space-y-3">
-            {company_name && <h3 className="text-lg font-bold">{company_name}</h3>}
+            {company_name && <h3 className="text-lg font-bold" style={{ whiteSpace: 'pre-line' }}>{company_name}</h3>}
             {address && (
               <div className="flex items-start gap-2 text-sm opacity-80">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
