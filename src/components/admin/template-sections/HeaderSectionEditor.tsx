@@ -228,6 +228,42 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Plus className="w-4 h-4 mr-1" /> Dodaj element
         </Button>
       </fieldset>
+
+      {/* === KAFELEK PARTNERA === */}
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Kafelek partnera w nagłówku</legend>
+        <div className="flex items-center justify-between">
+          <Label>Pokaż kafelek partnera obok logo</Label>
+          <Switch checked={!!config.show_partner_badge} onCheckedChange={v => update('show_partner_badge', v)} />
+        </div>
+        {config.show_partner_badge && (
+          <div className="space-y-3">
+            <div>
+              <Label>Styl kafelka</Label>
+              <Select value={config.partner_badge_style || 'compact'} onValueChange={v => update('partner_badge_style', v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="compact">Kompaktowy (jedna linia)</SelectItem>
+                  <SelectItem value="card">Karta (z tłem)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <ColorInput value={config.partner_badge_bg_color || ''} onChange={v => update('partner_badge_bg_color', v)} label="Kolor tła kafelka" />
+              <ColorInput value={config.partner_badge_text_color || ''} onChange={v => update('partner_badge_text_color', v)} label="Kolor tekstu kafelka" />
+            </div>
+          </div>
+        )}
+      </fieldset>
+
+      {/* === DODATKOWE ELEMENTY === */}
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
+        <InnerElementsList
+          elements={config.inner_elements || []}
+          onChange={(els) => update('inner_elements', els)}
+        />
+      </fieldset>
     </div>
   );
 };
