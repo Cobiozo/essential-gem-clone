@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { SurveySection } from './SurveySection';
+import pureLifeLogo from '@/assets/pure-life-logo-new.png';
 
 interface Props {
   config: Record<string, any>;
