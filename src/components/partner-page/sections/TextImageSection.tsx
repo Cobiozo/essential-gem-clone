@@ -48,7 +48,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
               </div>
             )}
             {heading && (
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6 leading-tight" style={ts}>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 leading-tight" style={{ ...ts, whiteSpace: 'pre-line' }}>
                 {heading}
               </h2>
             )}
