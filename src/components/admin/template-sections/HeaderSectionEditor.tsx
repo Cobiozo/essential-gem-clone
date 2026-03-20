@@ -9,6 +9,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 import { ColorInput } from '@/components/ui/color-input';
+import { InnerElementsList } from './InnerElementsList';
 
 interface Props {
   config: Record<string, any>;
