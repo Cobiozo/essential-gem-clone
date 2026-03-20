@@ -1,58 +1,40 @@
 
 
-# Ankieta jako modal (popup) zamiast sekcji na stronie
+# Naprawa ankiety — 3 problemy
 
-## Zmiana koncepcji
-Ankieta nie będzie widoczną sekcją na landing page partnera. Zamiast tego otworzy się jako pełnoekranowy modal po kliknięciu przycisku CTA.
+## Znalezione przyczyny
+
+1. **Logo w modalu ankiety** — `SurveyModal.tsx` nie zawiera żadnego logo. Trzeba dodać logo Pure Life Center (`src/assets/pure-life-logo-new.png`) w lewym górnym rogu modala.
+
+2. **"PLC OMEGA BASE" na landing page** — `MedicalChatWidget` renderuje się na stronach partnerów, bo `ChatWidgetsWrapper` w `App.tsx` ukrywa widget tylko na `/infolink/` i `/meeting-room/`, ale nie na stronach partnerów (`/:alias`). Trzeba dodać wykluczenie dla stron partnerskich.
+
+3. **Drugi przycisk CTA z `#ankieta` nie otwiera ankiety** — `HeroSection.tsx` ma `cta_secondary` renderowany jako zwykły `<a>` bez logiki przechwytywania `#ankieta`. Trzeba dodać `onSurveyOpen` prop do `HeroSection` i obsłużyć kliknięcie secondary CTA tak samo jak w `CtaBannerSection` i `HeaderSection`.
 
 ## Zmiany
 
-### 1. Nowy komponent `SurveyModal.tsx`
-Utworzyć `src/components/partner-page/sections/SurveyModal.tsx`:
-- Pełnoekranowy overlay (fixed, z-50, ciemne tło z blur)
-- Wewnątrz renderuje istniejący `SurveySection` z przekazanym `config`
-- Przycisk zamknięcia (X) w prawym górnym rogu
-- Props: `config`, `open`, `onClose`
+### 1. `src/components/partner-page/sections/SurveyModal.tsx`
+- Zaimportować logo: `import logo from '@/assets/pure-life-logo-new.png'`
+- Dodać `<img>` z logo w lewym górnym rogu modala (sticky, obok przycisku X)
 
-### 2. Zmiana renderowania w `PartnerPage.tsx`
-- Sekcja `survey` **nie będzie** renderowana inline na stronie
-- Zamiast tego: dodać state `surveyOpen` + zapisać `surveyConfig` z elementu typu `survey`
-- Renderować `<SurveyModal>` na końcu strony (poza mapą sekcji)
-- W `case 'survey':` → `sectionNode = null` (nie renderować inline), ale zachować config
+### 2. `src/App.tsx` — `ChatWidgetsWrapper`
+- Wykryć czy ścieżka to strona partnera (top-level `/:alias` — nie zaczyna się od `/admin`, `/dashboard`, `/login` itp.)
+- Najprostsze podejście: sprawdzić czy pathname odpowiada wzorcowi strony partnera lub dodać listę znanych prefixów i ukrywać widget gdy żaden nie pasuje
+- Bezpieczniejsze: dodać explicit check na znane ścieżki aplikacji i jeśli pathname nie pasuje do żadnej → uznać za stronę partnera i ukryć widget
 
-### 3. Zmiana CTA w `CtaBannerSection.tsx`
-- Dodać opcjonalny callback `onSurveyOpen?: () => void`
-- Gdy `cta_url === '#ankieta'` (lub ogólnie wskazuje na survey), zamiast scrollować → wywołać `onSurveyOpen()`
-- Przekazać callback z `PartnerPage.tsx`
+### 3. `src/components/partner-page/sections/HeroSection.tsx`
+- Dodać `onSurveyOpen?: () => void` do props
+- W `renderSecondaryBtn`: jeśli `cta_secondary.url === '#ankieta'` i `onSurveyOpen` jest dostępne → `onClick` wywołuje `onSurveyOpen()` zamiast nawigacji
+- Analogicznie dla primary CTA (`cta_primary`)
 
-### 4. Analogiczna zmiana w `TemplatePreviewPage.tsx`
-- Ta sama logika: survey jako modal, nie inline sekcja
+### 4. `src/pages/PartnerPage.tsx` i `src/pages/TemplatePreviewPage.tsx`
+- Przekazać `onSurveyOpen` do `HeroSection` (tak jak już przekazywane do `HeaderSection` i `CtaBannerSection`)
 
-### 5. `HeaderSection.tsx`
-- Jeśli nawigacja zawiera link `#ankieta`, też powinna otwierać modal zamiast scrollować
-
-## Schemat przepływu
-
-```text
-[CTA "Wypełnij ankietę"] → onClick → setSurveyOpen(true)
-                                          ↓
-                              ┌─────────────────────────┐
-                              │   SurveyModal (overlay)  │
-                              │  ┌───────────────────┐  │
-                              │  │   SurveySection    │  │
-                              │  │  (pytania, wyniki) │  │
-                              │  └───────────────────┘  │
-                              │          [X zamknij]     │
-                              └─────────────────────────┘
-```
-
-## Pliki do zmiany/utworzenia
-| Plik | Akcja |
-|------|-------|
-| `src/components/partner-page/sections/SurveyModal.tsx` | Nowy — modal wrapper |
-| `src/pages/PartnerPage.tsx` | Zmiana — survey jako modal, nie sekcja |
-| `src/components/partner-page/sections/CtaBannerSection.tsx` | Zmiana — callback zamiast scroll |
-| `src/pages/TemplatePreviewPage.tsx` | Zmiana — analogicznie |
-| `src/components/partner-page/sections/HeaderSection.tsx` | Zmiana — link #ankieta otwiera modal |
-| `src/components/partner-page/sections/index.ts` | Export SurveyModal |
+## Pliki do zmiany
+| Plik | Zmiana |
+|------|--------|
+| `SurveyModal.tsx` | Logo w lewym górnym rogu |
+| `App.tsx` | Ukrycie MedicalChatWidget na stronach partnerów |
+| `HeroSection.tsx` | Obsługa `#ankieta` w obu przyciskach CTA |
+| `PartnerPage.tsx` | Przekazanie `onSurveyOpen` do HeroSection |
+| `TemplatePreviewPage.tsx` | Przekazanie `onSurveyOpen` do HeroSection |
 
