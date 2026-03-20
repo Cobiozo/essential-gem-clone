@@ -164,6 +164,7 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
                 image={cropSrc}
                 crop={crop}
                 zoom={zoom}
+                minZoom={0.3}
                 aspect={activePreset.aspect}
                 cropShape={activePreset.cropShape}
                 onCropChange={setCrop}
@@ -177,7 +178,7 @@ export const ImageUploadInput: React.FC<Props> = ({ value, onChange, compact }) 
             <span className="text-xs text-muted-foreground shrink-0">Zoom</span>
             <Slider
               value={[zoom]}
-              min={1}
+              min={0.3}
               max={3}
               step={0.05}
               onValueChange={([v]) => setZoom(v)}
