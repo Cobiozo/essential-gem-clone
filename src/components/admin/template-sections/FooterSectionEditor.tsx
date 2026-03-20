@@ -38,7 +38,7 @@ export const FooterSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nazwa firmy</Label>
           <EditableFieldToggle fieldName="company_name" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.company_name || ''} onChange={e => update('company_name', e.target.value)} />
+        <Textarea value={config.company_name || ''} onChange={e => update('company_name', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
