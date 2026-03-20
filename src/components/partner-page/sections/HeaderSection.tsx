@@ -120,7 +120,7 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
                 e.preventDefault();
                 const anchor = url.substring(1);
                 const el = document.getElementById(anchor)
-                  || document.querySelector(`[id*="${anchor}"]`);
+                  || Array.from(document.querySelectorAll('[id]')).find(n => n.id.toLowerCase() === anchor.toLowerCase());
                 if (el) {
                   const headerOffset = 80;
                   const top = el.getBoundingClientRect().top + window.pageYOffset - headerOffset;

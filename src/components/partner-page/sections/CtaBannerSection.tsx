@@ -23,7 +23,9 @@ export const CtaBannerSection: React.FC<Props> = ({ config }) => {
               const url = cta_url || '#';
               if (url.startsWith('#')) {
                 e.preventDefault();
-                const el = document.getElementById(url.substring(1));
+                const anchor = url.substring(1);
+                const el = document.getElementById(anchor)
+                  || Array.from(document.querySelectorAll('[id]')).find(n => n.id.toLowerCase() === anchor.toLowerCase());
                 if (el) {
                   const top = el.getBoundingClientRect().top + window.pageYOffset - 80;
                   window.scrollTo({ top, behavior: 'smooth' });
