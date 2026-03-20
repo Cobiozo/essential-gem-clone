@@ -1,63 +1,47 @@
 
 
-# Plan: Sekcja Social Proof z horyzontalnym karuzelą kafelek
+# Plan: Rozbudowa ikon (IconPicker) + pełna kontrola kart w sekcji Testimonials
 
-## Cel
-Przebudować renderer `TestimonialsSection` tak, aby karty wyświetlały się jako **horyzontalnie przewijany karuzela** z kafelkami w stylu ze screena: zdjęcie osoby (okrągłe), imię, opis, dane PRZED/PO z kolorowymi wskaźnikami. Dodać nagłówek i podtytuł nad karuzelą.
+## 1. Ikony — zamienić emoji na IconPicker w StepsSectionEditor
 
-## Design (na podstawie screena)
+Aktualnie kroki w `StepsSectionEditor` mają pole emoji (`Input placeholder="Ikona (emoji)"`). Zamienić na komponent `IconPicker` z `@/components/cms/IconPicker` — ten sam, który jest już używany w wielu miejscach projektu. Daje dostęp do setek ikon Lucide z wyszukiwarką i kategoriami.
 
-```text
-┌──────────────────────────────────────────────────┐
-│  7) Social Proof: Dowody Przed i Po              │
-│  0 Ryzyka. 100% Gwarancji Zadowolenia.           │
-│                                                    │
-│  ◄ [ Card1 ] [ Card2 ] [ Card3 ] [ Card4 ] ... ► │
-│                                                    │
-│  Każda karta:                                      │
-│  ┌─────────────┐                                   │
-│  │  (○ avatar)  │                                  │
-│  │   Imię       │                                  │
-│  │  opis...     │                                  │
-│  │ PRZED: 15:1 🔴  PO: 2:1 🟢                    │
-│  └─────────────┘                                   │
-└──────────────────────────────────────────────────┘
-```
+W rendererze `StepsSection` — renderować wybraną ikonę Lucide dynamicznie zamiast emoji.
 
-Karty mają zaokrąglone rogi, delikatny gradient tła (pastelowy), okrągłe zdjęcie osoby na górze karty.
+**Pliki**: `StepsSectionEditor.tsx`, `StepsSection.tsx`
 
-## Zmiany
+## 2. Karty Testimonials — opcje stylowania w edytorze
 
-### 1. `TestimonialsSection.tsx` — nowy layout karuzelowy
-- Zmienić grid na `flex overflow-x-auto` z `snap-x snap-mandatory`
-- Każda karta: `min-w-[220px] snap-center`, okrągły avatar na górze, imię, opis, dane PRZED/PO
-- Karty z pastelowym gradientem tła (różowy/zielony/niebieski — cyklicznie per karta)
-- Dodać pole `subtitle` pod heading
-- Ukryć scrollbar (`scrollbar-hide`)
-- Duże okrągłe zdjęcia w tle za kartami (blurred/faded) — pominąć, zbyt skomplikowane; skupić się na kartach
+Dodać w `TestimonialsSectionEditor` sekcję "Styl kart" z kontrolkami:
 
-### 2. `TestimonialsSectionEditor.tsx` — dodać pole `subtitle` + pole `name` na karcie
-- Dodać pole `subtitle` (podtytuł sekcji)
-- Na karcie dodać osobne pole `name` (imię osoby) obok istniejącego `label` (opis)
-- Pole `before_label` i `after_label` (np. "PRZED:", "PO:" — konfigurowalne)
+| Opcja | Typ | Opis |
+|-------|-----|------|
+| `card_width` | Slider (180–400px) | Szerokość karty |
+| `card_bg_color` | ColorInput | Kolor tła kart (nadpisuje gradient) |
+| `card_text_color` | ColorInput | Kolor tekstu |
+| `card_border_radius` | Slider (0–32px) | Zaokrąglenie rogów |
+| `card_font_size` | Select (sm/base/lg) | Rozmiar czcionki |
+| `avatar_size` | Slider (40–120px) | Rozmiar avatara |
+| `auto_scroll` | Checkbox | Automatyczne przesuwanie |
+| `auto_scroll_interval` | Slider (2–10s) | Interwał przesuwania |
 
-### 3. Dane karty (rozszerzony model)
-```
-{
-  name: "Anna",
-  image: "url",
-  label: "Suplementacja wspierająca...",  // opis
-  before_label: "PRZED:",
-  before: "15:1",
-  after_label: "PO:",
-  after: "2:1",
-}
-```
+**Plik**: `TestimonialsSectionEditor.tsx`
+
+## 3. Renderer Testimonials — zastosować nowe opcje
+
+W `TestimonialsSection.tsx`:
+- Użyć `card_width`, `card_bg_color`, `card_text_color`, `card_border_radius`, `card_font_size`, `avatar_size` z configu
+- Dodać `useEffect` z `setInterval` dla auto-scroll (jeśli `auto_scroll === true`) — scrolluje w prawo co X sekund, resetuje do początku po dotarciu do końca
+- Jeśli `card_bg_color` jest ustawiony, nie stosować gradientu
+
+**Plik**: `TestimonialsSection.tsx`
 
 ## Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `TestimonialsSection.tsx` | Nowy layout: horyzontalny carousel z kartami ze zdjęciami |
-| `TestimonialsSectionEditor.tsx` | Dodać pola `subtitle`, `name` na karcie, `before_label`/`after_label` |
+| `StepsSectionEditor.tsx` | Emoji input → IconPicker |
+| `StepsSection.tsx` | Renderowanie ikony Lucide dynamicznie |
+| `TestimonialsSectionEditor.tsx` | Dodać sekcję "Styl kart" z kontrolkami |
+| `TestimonialsSection.tsx` | Zastosować styl z configu + auto-scroll |
 
