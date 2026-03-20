@@ -39,12 +39,31 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
   const ctaSecBg = config.cta_secondary_bg_color;
   const ctaSecText = config.cta_secondary_text_color || '#333333';
 
+  const handleCtaClick = (e: React.MouseEvent, url: string) => {
+    if (url === '#ankieta' && onSurveyOpen) {
+      e.preventDefault();
+      onSurveyOpen();
+      return;
+    }
+    if (url.startsWith('#')) {
+      e.preventDefault();
+      const anchor = url.substring(1);
+      const el = document.getElementById(anchor)
+        || Array.from(document.querySelectorAll('[id]')).find(n => n.id.toLowerCase() === anchor.toLowerCase());
+      if (el) {
+        const top = el.getBoundingClientRect().top + window.pageYOffset - 80;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    }
+  };
+
   const renderSecondaryBtn = (extraClass = '') => {
     if (!cta_secondary?.text) return null;
     if (ctaSecBg) {
       return (
         <a
           href={cta_secondary.url || '#'}
+          onClick={(e) => handleCtaClick(e, cta_secondary.url || '#')}
           className={`inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full font-semibold text-base transition-all hover:opacity-90 shadow-md ${extraClass}`}
           style={{ backgroundColor: ctaSecBg, color: ctaSecText }}
         >
@@ -55,6 +74,7 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
     return (
       <a
         href={cta_secondary.url || '#'}
+        onClick={(e) => handleCtaClick(e, cta_secondary.url || '#')}
         className={`inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:border-white/70 px-7 py-3.5 rounded-full font-semibold text-base transition-colors ${extraClass}`}
         style={ts || { color: 'white' }}
       >
