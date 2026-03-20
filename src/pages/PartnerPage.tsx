@@ -166,10 +166,25 @@ const PartnerPageView: React.FC = () => {
   const RICH_TYPES = ['hero', 'text_image', 'steps', 'timeline', 'testimonials', 'products_grid', 'faq', 'cta_banner', 'header', 'contact_form', 'footer', 'products_with_form'];
   const hasRichSections = template.some(el => RICH_TYPES.includes(el.type));
 
+  const profileData: PartnerProfileData = {
+    first_name: profile?.first_name,
+    last_name: profile?.last_name,
+    email: profile?.email,
+    phone_number: profile?.phone_number,
+    city: profile?.city,
+    country: profile?.country,
+    specialization: profile?.specialization,
+    profile_description: profile?.profile_description,
+    eq_id: profile?.eq_id,
+    avatar_url: profile?.avatar_url,
+  };
+
   const renderSection = (element: TemplateElement) => {
     const baseCfg = element.config || {};
     const partnerOverrides = customData[element.id] || {};
-    const cfg = getMergedConfig(baseCfg, partnerOverrides);
+    const mergedCfg = getMergedConfig(baseCfg, partnerOverrides);
+    const cfg = resolveVariablesInConfig(mergedCfg, profileData);
+    const anchorId = baseCfg.anchor_id || element.id;
 
     let sectionNode: React.ReactNode = null;
 
