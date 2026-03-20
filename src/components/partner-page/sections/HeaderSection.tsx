@@ -117,6 +117,11 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
             const isAnchor = url.startsWith('#') && url.length > 1;
 
             const handleClick = (e: React.MouseEvent) => {
+              if (isAnchor && url === '#ankieta' && onSurveyOpen) {
+                e.preventDefault();
+                onSurveyOpen();
+                return;
+              }
               if (isAnchor) {
                 e.preventDefault();
                 const anchor = url.substring(1);

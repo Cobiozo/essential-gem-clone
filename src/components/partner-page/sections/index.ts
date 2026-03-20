@@ -11,3 +11,4 @@ export { ContactFormSection } from './ContactFormSection';
 export { FooterSection } from './FooterSection';
 export { ProductsWithFormSection } from './ProductsWithFormSection';
 export { SurveySection } from './SurveySection';
+export { SurveyModal } from './SurveyModal';
