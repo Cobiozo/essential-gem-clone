@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ContactFormEditor } from './ContactFormEditor';
+import { InnerElementsList } from './InnerElementsList';
 import { ColorInput } from '@/components/ui/color-input';
 
 interface Props {
