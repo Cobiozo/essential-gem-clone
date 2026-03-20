@@ -34,7 +34,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Nazwa partnera</Label>
             <EditableFieldToggle fieldName="partner_name" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.partner_name || ''} onChange={e => update('partner_name', e.target.value)} placeholder="Imię i nazwisko" />
+          <Textarea value={config.partner_name || ''} onChange={e => update('partner_name', e.target.value)} placeholder="Imię i nazwisko" rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <div className="flex items-center justify-between">
