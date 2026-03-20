@@ -24,6 +24,7 @@ import {
   FooterSection,
   ProductsWithFormSection,
   SurveySection,
+  SurveyModal,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
