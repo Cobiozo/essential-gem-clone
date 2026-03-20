@@ -3,6 +3,7 @@ import { InnerElementRenderer } from '@/components/admin/template-sections/Inner
 
 interface Props {
   config: Record<string, any>;
+  onSurveyOpen?: () => void;
 }
 
 export const CtaBannerSection: React.FC<Props> = ({ config }) => {
