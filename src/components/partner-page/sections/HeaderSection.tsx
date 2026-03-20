@@ -6,6 +6,7 @@ interface Props {
   config: Record<string, any>;
   partnerName?: string;
   disableSticky?: boolean;
+  onSurveyOpen?: () => void;
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
@@ -15,7 +16,7 @@ const FONT_SIZE_MAP: Record<string, string> = {
   lg: '18px',
 };
 
-export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky }) => {
+export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky, onSurveyOpen }) => {
   const {
     logo_text, logo_image_url, buttons, nav_style,
     bg_color, text_color, border_color, hide_border,
@@ -116,6 +117,11 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
             const isAnchor = url.startsWith('#') && url.length > 1;
 
             const handleClick = (e: React.MouseEvent) => {
+              if (isAnchor && url === '#ankieta' && onSurveyOpen) {
+                e.preventDefault();
+                onSurveyOpen();
+                return;
+              }
               if (isAnchor) {
                 e.preventDefault();
                 const anchor = url.substring(1);

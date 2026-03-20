@@ -31,6 +31,7 @@ import {
   FooterSection,
   ProductsWithFormSection,
   SurveySection,
+  SurveyModal,
 } from '@/components/partner-page/sections';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -53,6 +54,7 @@ const TemplatePreviewPage: React.FC = () => {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [surveyOpen, setSurveyOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -163,6 +165,8 @@ const TemplatePreviewPage: React.FC = () => {
     if (editingIndex === index) setEditingIndex(null);
   }, [editingIndex]);
 
+  const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+
   if (loading) return <LoadingSpinner />;
 
   const dummyLinks = products.map((p, i) => ({
@@ -170,12 +174,20 @@ const TemplatePreviewPage: React.FC = () => {
     purchase_url: '#', position: i, is_active: true, created_at: '', product: p,
   }));
 
+  // Extract survey config for modal
+  const surveyElement = template.find(el => el.type === 'survey');
+  const surveyConfig = surveyElement
+    ? resolveVariablesInConfig(surveyElement.config || {}, PREVIEW_PROFILE)
+    : null;
+
   const renderSection = (element: TemplateElement) => {
+    if (element.type === 'survey') return null; // rendered as modal
+
     const cfg = resolveVariablesInConfig(element.config || {}, PREVIEW_PROFILE);
     const anchorId = cfg.anchor_id || element.id;
     const wrapWithAnchor = (node: React.ReactNode) => <div id={anchorId}>{node}</div>;
     switch (element.type) {
-      case 'header': return wrapWithAnchor(<HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky />);
+      case 'header': return wrapWithAnchor(<HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
       case 'hero': return wrapWithAnchor(<HeroSection config={cfg} />);
       case 'text_image': return wrapWithAnchor(<TextImageSection config={cfg} />);
       case 'steps': return wrapWithAnchor(<StepsSection config={cfg} />);
@@ -183,11 +195,10 @@ const TemplatePreviewPage: React.FC = () => {
       case 'testimonials': return wrapWithAnchor(<TestimonialsSection config={cfg} />);
       case 'products_grid': return wrapWithAnchor(<ProductsGridSection config={cfg} products={products} productLinks={dummyLinks} />);
       case 'faq': return wrapWithAnchor(<FaqSection config={cfg} />);
-      case 'cta_banner': return wrapWithAnchor(<CtaBannerSection config={cfg} />);
+      case 'cta_banner': return wrapWithAnchor(<CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
       case 'contact_form': return wrapWithAnchor(<ContactFormSection config={cfg} partnerEmail="preview@example.com" />);
       case 'footer': return wrapWithAnchor(<FooterSection config={cfg} />);
       case 'products_with_form': return wrapWithAnchor(<ProductsWithFormSection config={cfg} products={products} productLinks={dummyLinks} partnerEmail="preview@example.com" />);
-      case 'survey': return wrapWithAnchor(<SurveySection config={cfg} />);
       case 'static':
         return element.content ? wrapWithAnchor(
           <section className="bg-background">
@@ -295,6 +306,11 @@ const TemplatePreviewPage: React.FC = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Survey modal */}
+      {surveyConfig && (
+        <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
+      )}
     </div>
   );
 };

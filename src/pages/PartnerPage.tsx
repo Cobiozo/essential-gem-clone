@@ -24,6 +24,7 @@ import {
   FooterSection,
   ProductsWithFormSection,
   SurveySection,
+  SurveyModal,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
@@ -54,6 +55,7 @@ const PartnerPageView: React.FC = () => {
   const [editableCustomData, setEditableCustomData] = useState<Record<string, any>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
 
   useEffect(() => {
     const fetchPage = async () => {
@@ -150,6 +152,8 @@ const PartnerPageView: React.FC = () => {
     toast.success('Link zapisany!');
   }, [page, productLinks]);
 
+  const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
 
@@ -180,7 +184,19 @@ const PartnerPageView: React.FC = () => {
     avatar_url: profile?.avatar_url,
   };
 
+  // Extract survey config (not rendered inline)
+  const surveyElement = template.find(el => el.type === 'survey');
+  const surveyConfig = surveyElement
+    ? resolveVariablesInConfig(
+        getMergedConfig(surveyElement.config || {}, customData[surveyElement.id] || {}),
+        profileData,
+      )
+    : null;
+
+
   const renderSection = (element: TemplateElement) => {
+    if (element.type === 'survey') return null; // rendered as modal instead
+
     const baseCfg = element.config || {};
     const partnerOverrides = customData[element.id] || {};
     const mergedCfg = getMergedConfig(baseCfg, partnerOverrides);
@@ -191,7 +207,7 @@ const PartnerPageView: React.FC = () => {
 
     switch (element.type) {
       case 'header':
-        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} />;
+        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
         break;
       case 'hero':
         sectionNode = <HeroSection config={cfg} />;
@@ -215,7 +231,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <FaqSection config={cfg} />;
         break;
       case 'cta_banner':
-        sectionNode = <CtaBannerSection config={cfg} />;
+        sectionNode = <CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
         break;
       case 'contact_form':
         sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} />;
@@ -225,9 +241,6 @@ const PartnerPageView: React.FC = () => {
         break;
       case 'products_with_form':
         sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
-        break;
-      case 'survey':
-        sectionNode = <SurveySection config={cfg} />;
         break;
       case 'static':
         sectionNode = element.content ? (
@@ -284,6 +297,11 @@ const PartnerPageView: React.FC = () => {
         )}
 
         {template.map(renderSection)}
+
+        {/* Survey modal */}
+        {surveyConfig && (
+          <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
+        )}
       </div>
     );
   }
