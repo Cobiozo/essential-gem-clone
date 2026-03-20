@@ -163,8 +163,13 @@ const ChatWidgetsWrapper = () => {
   const isInfoLinkPage = location.pathname.startsWith('/infolink/');
   const isMeetingPage = location.pathname.startsWith('/meeting-room/');
 
-  // Hide chat widgets on InfoLink and Meeting pages
-  if (!user || isInfoLinkPage || isMeetingPage) return null;
+  // Known app route prefixes — anything else at top level is a partner page
+  const knownPrefixes = ['/admin', '/dashboard', '/login', '/register', '/reset', '/messages', '/calendar', '/training', '/settings', '/my-account', '/events', '/tools', '/compass', '/clients', '/team', '/knowledge', '/meeting-room', '/infolink', '/auto-webinar', '/certificates', '/leaderboard', '/auth'];
+  const path = location.pathname;
+  const isPartnerPage = path !== '/' && !knownPrefixes.some(p => path.startsWith(p));
+
+  // Hide chat widgets on InfoLink, Meeting, and partner pages
+  if (!user || isInfoLinkPage || isMeetingPage || isPartnerPage) return null;
 
   return (
     <Suspense fallback={null}>

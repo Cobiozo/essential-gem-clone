@@ -15,7 +15,7 @@ interface Props {
   onSurveyOpen?: () => void;
 }
 
-export const HeroSection: React.FC<Props> = ({ config }) => {
+export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
