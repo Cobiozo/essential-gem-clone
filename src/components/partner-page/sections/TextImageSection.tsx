@@ -66,7 +66,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
                     ) : (
                       <span className="text-lg flex-shrink-0">{item.icon || '✔️'}</span>
                     )}
-                    <span>{item.text}</span>
+                    <span style={{ whiteSpace: 'pre-line' }}>{item.text}</span>
                   </li>
                 ))}
               </ul>
