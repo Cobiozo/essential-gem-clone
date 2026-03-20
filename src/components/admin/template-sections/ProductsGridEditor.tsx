@@ -32,7 +32,7 @@ export const ProductsGridEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <ColorInput label="Kolor CTA" value={config.cta_bg_color || '#2d6a4f'} onChange={v => update('cta_bg_color', v)} />
       <Label>Produkty</Label>
