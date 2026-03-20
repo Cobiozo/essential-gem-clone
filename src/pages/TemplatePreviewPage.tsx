@@ -306,6 +306,11 @@ const TemplatePreviewPage: React.FC = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Survey modal */}
+      {surveyConfig && (
+        <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
+      )}
     </div>
   );
 };
