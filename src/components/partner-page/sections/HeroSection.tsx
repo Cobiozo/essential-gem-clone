@@ -108,7 +108,7 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
                 </h1>
               )}
               {subheadline && (
-                <p className="text-lg sm:text-xl font-medium" style={ts ? { color: tc, opacity: 0.9 } : { color: 'rgba(255,255,255,0.9)' }}>{subheadline}</p>
+                <p className="text-lg sm:text-xl font-medium" style={{ ...(ts ? { color: tc, opacity: 0.9 } : { color: 'rgba(255,255,255,0.9)' }), whiteSpace: 'pre-line' }}>{subheadline}</p>
               )}
               {description && (
                 <p className="text-sm sm:text-base leading-relaxed max-w-lg whitespace-pre-line" style={ts ? { color: tc, opacity: 0.8 } : { color: 'rgba(255,255,255,0.8)' }}>{description}</p>
