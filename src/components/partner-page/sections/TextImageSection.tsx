@@ -36,7 +36,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-10 items-center ${isRight ? '' : 'md:[direction:rtl]'}`}>
-          <div className={isRight ? '' : 'md:[direction:ltr]'}>
+          <div className={isRight ? '' : 'md:[direction:ltr]'} style={{ textAlign: ta }}>
             {(partner_name || partner_subtitle) && (
               <div className="mb-4">
                 {partner_subtitle && (
