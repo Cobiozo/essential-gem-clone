@@ -1,82 +1,35 @@
 
 
-# Plan: Nawigacja do sekcji w nagłówku + zmienne dynamiczne profilu partnera
+# Plan: Naprawa nawigacji w nagłówku — scroll do sekcji + obsługa linków
 
-## Problem 1: Przyciski w nagłówku nie scrollują do sekcji
-Przyciski używają `<a href>`, ale sekcje na stronie partnera nie mają atrybutów `id` w HTML, więc linki kotwicowe (`#kontakt`, `#produkty`) nie działają. Ponadto brakuje smooth scroll.
+## Problem
 
-## Problem 2: Brak systemu zmiennych dynamicznych
-Tekst `{Imię}{Nazwisko}` jest zapisywany dosłownie — nie istnieje mechanizm zastępowania placeholderów danymi z profilu partnera.
-
----
+1. **Scroll do sekcji nie działa** — przyciski z URL `#eqology`, `#contact` itp. wywołują `document.getElementById()`, ale element nie jest znajdowany, bo sekcje mogą nie mieć ustawionych pasujących `anchor_id`. Handler milcząco zawodzi (nic się nie dzieje).
+2. **Linki zewnętrzne/wewnętrzne** — brak obsługi `target="_blank"` dla linków zewnętrznych; zwykłe `<a href>` w kontekście SPA może nie działać prawidłowo.
 
 ## Rozwiązanie
 
-### 1. Sekcje z atrybutami `id` + smooth scroll
+### 1. `HeaderSection.tsx` — ulepszyć `handleClick`
 
-**PartnerPage.tsx** — w `renderSection()` owinąć każdą sekcję w `<div id={element.id}>`, dzięki czemu linki `#uuid-sekcji` będą działać. Dodać też obsługę czytelnych anchor nazw — w konfiguracji sekcji pole `anchor_id` (np. `kontakt`, `produkty`, `o-mnie`).
+Obecny handler sprawdza tylko `document.getElementById(anchor)`. Trzeba go rozbudować:
 
-**HeaderSection.tsx** — zamienić `<a href>` na handler onClick:
-- Jeśli URL zaczyna się od `#` → `document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth' })`
-- Jeśli URL jest zewnętrzny → `window.open(url, '_blank')`
-- W innym wypadku → `window.location.href = url`
+- Jeśli URL zaczyna się od `#` → szukaj elementu po ID. Jeśli nie znaleziono, spróbuj `querySelector([id*="anchor"])` jako fallback. Dodać mały offset dla sticky headera (`scrollTo` z kalkulacją pozycji minus wysokość headera).
+- Jeśli URL jest zewnętrzny (http/https na inną domenę) → `window.open(url, '_blank')` + `e.preventDefault()`
+- Jeśli URL jest ścieżką wewnętrzną (np. `/dashboard`) → `window.location.href = url`
+- Importować `isExternalUrl` z `@/lib/urlUtils`
 
-**Edytory sekcji** — dodać opcjonalne pole `anchor_id` (tekst, np. "kontakt") w każdym edytorze sekcji, żeby admin mógł nadać czytelną kotwicę.
+### 2. `HeaderSection.tsx` — dodać `target="_blank"` dla linków zewnętrznych
 
-### 2. System zmiennych dynamicznych
+Dla `<a>` tagów renderowanych w nawigacji, ustawić `target="_blank"` i `rel="noopener noreferrer"` gdy URL jest zewnętrzny.
 
-Utworzyć **`src/lib/partnerVariables.ts`** z:
+### 3. `HeaderSectionEditor.tsx` — dodać podpowiedź o kotwicach
 
-```text
-Dostępne zmienne:
-  {{imie}}              → profile.first_name
-  {{nazwisko}}          → profile.last_name
-  {{imie_nazwisko}}     → first_name + last_name
-  {{email}}             → profile.email
-  {{telefon}}           → profile.phone_number
-  {{miasto}}            → profile.city
-  {{kraj}}              → profile.country
-  {{specjalizacja}}     → profile.specialization
-  {{opis}}              → profile.profile_description
-  {{eq_id}}             → profile.eq_id
-  {{avatar_url}}        → profile.avatar_url
-```
-
-Funkcja `resolveVariables(text: string, profile: PartnerProfile): string` — zamienia `{{klucz}}` na odpowiednie dane z profilu.
-
-**PartnerPage.tsx** — rozszerzyć `PartnerProfile` o dodatkowe pola (phone_number, city, country, specialization, profile_description, eq_id) i pobrać je w zapytaniu do `profiles`. Przed renderowaniem sekcji przepuścić cały config przez `resolveVariables`.
-
-**TemplatePreviewPage.tsx** — w podglądzie szablonu wyświetlać przykładowe dane (np. `{{imie}}` → "Jan").
-
-**HeaderSectionEditor.tsx** — dodać sekcję informacyjną (legendę) z listą dostępnych zmiennych, żeby admin wiedział jakie skróty wpisać.
-
-### 3. Legenda zmiennych w edytorze
-
-W edytorach (Header, Hero, TextImage, CtaBanner itd.) dodać mały komponent `VariablesLegend` wyświetlający tabelkę:
-
-| Zmienna | Dane |
-|---------|------|
-| `{{imie}}` | Imię partnera |
-| `{{nazwisko}}` | Nazwisko partnera |
-| `{{imie_nazwisko}}` | Imię i nazwisko |
-| `{{email}}` | Email partnera |
-| `{{telefon}}` | Numer telefonu |
-| `{{miasto}}` | Miasto |
-| `{{kraj}}` | Kraj |
-| `{{specjalizacja}}` | Specjalizacja |
-| `{{opis}}` | Opis profilu |
-| `{{eq_id}}` | ID partnera (EQ) |
-
----
+W sekcji „Elementy nawigacji" dodać małą informację: „Aby link prowadził do sekcji na stronie, wpisz `#` + anchor ID sekcji (np. `#kontakt`). Anchor ID ustawiasz w edytorze każdej sekcji."
 
 ## Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/lib/partnerVariables.ts` | NOWY — resolveVariables + VARIABLES_LEGEND |
-| `src/components/admin/template-sections/VariablesLegend.tsx` | NOWY — komponent legendy zmiennych |
-| `src/pages/PartnerPage.tsx` | Rozszerzyć PartnerProfile, dodać id/anchor do sekcji, przepuścić config przez resolveVariables |
-| `src/pages/TemplatePreviewPage.tsx` | Dodać dummy profile i resolveVariables w podglądzie |
-| `src/components/partner-page/sections/HeaderSection.tsx` | onClick handler z smooth scroll dla kotwic |
-| Edytory sekcji (Header, Hero, TextImage, CtaBanner, itd.) | Dodać pole `anchor_id` + komponent VariablesLegend |
+| `HeaderSection.tsx` | Rozbudować handleClick: fallback scroll, obsługa zewnętrznych linków, offset dla sticky headera |
+| `HeaderSectionEditor.tsx` | Dodać tekst pomocniczy w sekcji nawigacji |
 
