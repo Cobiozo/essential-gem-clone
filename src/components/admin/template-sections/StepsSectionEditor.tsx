@@ -38,7 +38,7 @@ export const StepsSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Opis</Label>
           <EditableFieldToggle fieldName="description" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.description || ''} onChange={e => update('description', e.target.value)} />
+        <Textarea value={config.description || ''} onChange={e => update('description', e.target.value)} rows={2} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <Label>Kolor tła</Label>
