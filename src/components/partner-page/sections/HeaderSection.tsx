@@ -110,12 +110,23 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
               fontWeight: nav_font_weight || '500',
             };
 
+            const handleClick = (e: React.MouseEvent) => {
+              const url = btn.url || '#';
+              if (url.startsWith('#') && url.length > 1) {
+                e.preventDefault();
+                const anchor = url.substring(1);
+                const el = document.getElementById(anchor);
+                el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            };
+
             if (isLinks) {
               return (
                 <a
                   key={i}
                   href={btn.url || '#'}
-                  className="px-3 py-2 transition-colors"
+                  onClick={handleClick}
+                  className="px-3 py-2 transition-colors cursor-pointer"
                   style={{
                     ...btnStyle,
                     color: nav_text_color || text_color || undefined,
@@ -142,12 +153,13 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
               <a
                 key={i}
                 href={btn.url || '#'}
+                onClick={handleClick}
                 className={
                   isPrimary && !btn.bg_color
-                    ? 'bg-primary text-primary-foreground px-4 py-2 text-sm hover:opacity-90 transition-opacity'
+                    ? 'bg-primary text-primary-foreground px-4 py-2 text-sm hover:opacity-90 transition-opacity cursor-pointer'
                     : !isPrimary && !btn.bg_color
-                    ? 'border border-border text-foreground px-4 py-2 text-sm hover:bg-muted transition-colors'
-                    : 'px-4 py-2 text-sm transition-all hover:opacity-90'
+                    ? 'border border-border text-foreground px-4 py-2 text-sm hover:bg-muted transition-colors cursor-pointer'
+                    : 'px-4 py-2 text-sm transition-all hover:opacity-90 cursor-pointer'
                 }
                 style={{
                   ...btnStyle,
