@@ -1,5 +1,6 @@
 import React from 'react';
 import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin, MessageCircle, Send } from 'lucide-react';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface Props {
   config: Record<string, any>;
