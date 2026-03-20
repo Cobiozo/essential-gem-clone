@@ -226,6 +226,9 @@ const PartnerPageView: React.FC = () => {
       case 'products_with_form':
         sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
         break;
+      case 'survey':
+        sectionNode = <SurveySection config={cfg} />;
+        break;
       case 'static':
         sectionNode = element.content ? (
           <section className="bg-background">
