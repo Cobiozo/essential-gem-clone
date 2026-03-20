@@ -6,6 +6,7 @@ interface Props {
   config: Record<string, any>;
   partnerName?: string;
   disableSticky?: boolean;
+  onSurveyOpen?: () => void;
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
