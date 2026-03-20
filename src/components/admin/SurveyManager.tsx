@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { SurveySectionEditor } from './template-sections/SurveySectionEditor';
+import { AlertElement } from '@/components/elements/AlertElement';
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
 
@@ -14,6 +15,7 @@ export const SurveyManager: React.FC = () => {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [surveyConfig, setSurveyConfig] = useState<Record<string, any>>({});
   const [templateData, setTemplateData] = useState<any[]>([]);
+  const [surveyExists, setSurveyExists] = useState(true);
 
   useEffect(() => {
     loadSurvey();
@@ -40,6 +42,7 @@ export const SurveyManager: React.FC = () => {
 
     const surveyElement = elements.find((el: any) => el.type === 'survey');
     setSurveyConfig(surveyElement?.config || DEFAULT_SECTION_CONFIGS.survey);
+    setSurveyExists(!!surveyElement);
     setLoading(false);
   };
 
@@ -72,6 +75,7 @@ export const SurveyManager: React.FC = () => {
       toast.error('Błąd zapisu ankiety');
     } else {
       setTemplateData(updatedData);
+      setSurveyExists(true);
       toast.success('Ankieta zapisana');
     }
   };
@@ -90,7 +94,14 @@ export const SurveyManager: React.FC = () => {
           {saving ? 'Zapisywanie...' : 'Zapisz'}
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {!surveyExists && (
+          <AlertElement
+            variant="info"
+            title="Ankieta nie jest jeszcze aktywna"
+            content={'Kliknij „Zapisz", aby dodać ankietę do szablonu stron partnerów. Dopiero po zapisie sekcja będzie widoczna i dostępna pod kotwicą #ankieta.'}
+          />
+        )}
         <SurveySectionEditor config={surveyConfig} onChange={setSurveyConfig} />
       </CardContent>
     </Card>
