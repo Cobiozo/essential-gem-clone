@@ -19,6 +19,8 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
   const updateCta = (which: 'cta_primary' | 'cta_secondary', field: string, value: string) =>
     onChange({ ...config, [which]: { ...(config[which] || {}), [field]: value } });
+  const updatePartnerBadge = (field: string, value: string) =>
+    onChange({ ...config, partner_badge: { ...(config.partner_badge || {}), [field]: value } });
 
   const editableFields: string[] = config.editable_fields || [];
   const setEditable = (fields: string[]) => update('editable_fields', fields);
@@ -149,6 +151,27 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         <Button variant="outline" size="sm" onClick={addStat}>
           <Plus className="w-4 h-4 mr-1" /> Dodaj statystykę
         </Button>
+      </fieldset>
+
+      <fieldset className="border rounded-lg p-4 space-y-3">
+        <legend className="text-sm font-semibold px-2">
+          <div className="flex items-center gap-3">
+            Kafelek partnera
+            <EditableFieldToggle fieldName="partner_badge.subtitle" editableFields={editableFields} onToggle={setEditable} label="Edytowalny" />
+          </div>
+        </legend>
+        <div>
+          <Label className="text-xs">Tekst (np. „Twój Przewodnik Zdrowia:")</Label>
+          <Input value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" />
+        </div>
+        <div>
+          <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
+          <Input value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." />
+        </div>
+        <div>
+          <Label className="text-xs">Avatar partnera</Label>
+          <ImageUploadInput value={config.partner_badge?.avatar_url || ''} onChange={v => updatePartnerBadge('avatar_url', v)} compact />
+        </div>
       </fieldset>
 
       <fieldset className="border rounded-lg p-4 space-y-2">
