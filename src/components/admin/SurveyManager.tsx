@@ -39,7 +39,7 @@ export const SurveyManager: React.FC = () => {
     setTemplateData(elements);
 
     const surveyElement = elements.find((el: any) => el.type === 'survey');
-    setSurveyConfig(surveyElement?.config || {});
+    setSurveyConfig(surveyElement?.config || DEFAULT_SECTION_CONFIGS.survey);
     setLoading(false);
   };
 
