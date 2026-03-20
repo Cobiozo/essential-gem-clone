@@ -38,7 +38,7 @@ const TYPE_LABELS: Record<string, string> = {
   steps: 'Kroki', timeline: 'Oś czasu', testimonials: 'Opinie',
   products_grid: 'Siatka produktów', faq: 'FAQ', cta_banner: 'Baner CTA',
   header: 'Nagłówek', contact_form: 'Formularz kontaktowy', footer: 'Stopka',
-  products_with_form: 'Produkty + Formularz',
+  products_with_form: 'Produkty + Formularz', survey: 'Ankieta zdrowotna',
 };
 
 const TemplatePreviewPage: React.FC = () => {
