@@ -45,10 +45,11 @@ const FONT_SIZE_OPTIONS = [
 
 export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
   const update = (key: string, value: any) => onChange({ ...config, [key]: value });
+  const updatePartnerBadge = (field: string, value: string) =>
+    onChange({ ...config, partner_badge: { ...(config.partner_badge || {}), [field]: value } });
   const buttons: any[] = config.buttons || [];
   const editableFields: string[] = config.editable_fields || [];
   const setEditable = (fields: string[]) => update('editable_fields', fields);
-
   const updateBtn = (i: number, field: string, value: string) => {
     const n = [...buttons];
     n[i] = { ...n[i], [field]: value };
