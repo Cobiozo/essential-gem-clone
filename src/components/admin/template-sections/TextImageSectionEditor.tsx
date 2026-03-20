@@ -55,7 +55,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
       {items.map((item, i) => (
         <div key={i} className="flex gap-2 items-center border rounded-lg p-2">
           <Input value={item.icon || ''} onChange={e => updateItem(i, 'icon', e.target.value)} placeholder="Ikona (✔️)" className="w-16" />
-          <Input value={item.text || ''} onChange={e => updateItem(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1" />
+          <Textarea value={item.text || ''} onChange={e => updateItem(i, 'text', e.target.value)} placeholder="Tekst" className="flex-1 min-h-[36px] resize-y" rows={1} />
           <Button variant="ghost" size="icon" onClick={() => update('items', items.filter((_, j) => j !== i))}>
             <Trash2 className="w-4 h-4 text-destructive" />
           </Button>
