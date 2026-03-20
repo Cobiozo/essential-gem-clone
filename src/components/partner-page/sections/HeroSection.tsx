@@ -12,6 +12,7 @@ interface StatItem {
 
 interface Props {
   config: Record<string, any>;
+  onSurveyOpen?: () => void;
 }
 
 export const HeroSection: React.FC<Props> = ({ config }) => {
