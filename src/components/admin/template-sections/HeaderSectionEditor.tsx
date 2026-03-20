@@ -1,5 +1,6 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -241,11 +242,11 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <div className="space-y-3">
             <div>
               <Label className="text-xs">Tekst (np. „Twój Przewodnik Zdrowia:")</Label>
-              <Input value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" />
+              <Textarea value={config.partner_badge?.text || ''} onChange={e => updatePartnerBadge('text', e.target.value)} placeholder="Twój Przewodnik Zdrowia:" className="min-h-[60px]" />
             </div>
             <div>
               <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
-              <Input value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." />
+              <Textarea value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." className="min-h-[60px]" />
             </div>
             <div>
               <Label className="text-xs">Avatar partnera</Label>
