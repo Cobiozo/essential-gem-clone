@@ -49,7 +49,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <Label>Elementy listy</Label>
       {items.map((item, i) => (
