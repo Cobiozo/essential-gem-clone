@@ -16,6 +16,7 @@ import {
   ContactFormEditor,
   FooterSectionEditor,
   ProductsWithFormEditor,
+  SurveySectionEditor,
 } from './index';
 
 export const SectionConfigEditor: React.FC<{
