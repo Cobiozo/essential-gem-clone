@@ -56,7 +56,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Podtytuł</Label>
           <EditableFieldToggle fieldName="subheadline" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.subheadline || ''} onChange={e => update('subheadline', e.target.value)} />
+        <Textarea value={config.subheadline || ''} onChange={e => update('subheadline', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
