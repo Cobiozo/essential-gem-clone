@@ -85,7 +85,7 @@ const PartnerPageView: React.FC = () => {
 
       const [templateRes, profileRes, productsRes, linksRes] = await Promise.all([
         templateQuery,
-        supabase.from('profiles').select('first_name, last_name, avatar_url, email').eq('user_id', pageData.user_id).maybeSingle(),
+        supabase.from('profiles').select('first_name, last_name, avatar_url, email, phone_number, city, country, specialization, profile_description, eq_id').eq('user_id', pageData.user_id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
       ]);
