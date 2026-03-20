@@ -49,7 +49,7 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
             {address && (
               <div className="flex items-start gap-2 text-sm opacity-80">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>{address}</span>
+                <span style={{ whiteSpace: 'pre-line' }}>{address}</span>
               </div>
             )}
             {phone && (
