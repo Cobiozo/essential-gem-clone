@@ -20,6 +20,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
   const ctaBg = cta_bg_color || '#2d6a4f';
   const tc = text_color || undefined;
   const ts = tc ? { color: tc } : undefined;
+  const ta = text_align as React.CSSProperties['textAlign'] || undefined;
 
   return (
     <section className="relative py-16 sm:py-20 overflow-hidden" style={{ backgroundColor: bg_color || undefined }}>
