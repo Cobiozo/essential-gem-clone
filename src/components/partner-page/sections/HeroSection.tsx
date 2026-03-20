@@ -33,19 +33,68 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
     setVideoPlaying(true);
   };
 
+  const isFullBleed = config.hero_image_mode === 'full-bleed';
+  const ctaSecBg = config.cta_secondary_bg_color;
+  const ctaSecText = config.cta_secondary_text_color || '#333333';
+
+  const renderSecondaryBtn = (extraClass = '') => {
+    if (!cta_secondary?.text) return null;
+    if (ctaSecBg) {
+      return (
+        <a
+          href={cta_secondary.url || '#'}
+          className={`inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full font-semibold text-base transition-all hover:opacity-90 shadow-md ${extraClass}`}
+          style={{ backgroundColor: ctaSecBg, color: ctaSecText }}
+        >
+          {cta_secondary.text}
+        </a>
+      );
+    }
+    return (
+      <a
+        href={cta_secondary.url || '#'}
+        className={`inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:border-white/70 px-7 py-3.5 rounded-full font-semibold text-base transition-colors ${extraClass}`}
+        style={ts || { color: 'white' }}
+      >
+        {cta_secondary.text}
+      </a>
+    );
+  };
+
   if (layout === 'split') {
     return (
-      <section className="relative overflow-hidden" style={{ backgroundColor: bg_color || '#0a1628' }}>
+      <section className="relative overflow-hidden min-h-[600px]" style={{ backgroundColor: bg_color || '#0a1628' }}>
+        {/* Background image (low opacity, behind everything) */}
         {bg_image_url && (
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${bg_image_url})`, opacity: overlay_opacity ?? 0.3 }}
           />
         )}
-        {bg_image_url && <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent" />}
 
+        {/* Full-bleed hero image — right half */}
+        {isFullBleed && hero_image_url && !hero_video_url && (
+          <>
+            <div className="absolute right-0 top-0 bottom-0 w-1/2 hidden lg:block">
+              <img
+                src={stripShapeHash(hero_image_url)}
+                alt={headline || 'Hero'}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            {/* Gradient fade from bg_color over image */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-1/2 hidden lg:block"
+              style={{
+                background: `linear-gradient(to right, ${bg_color || '#0a1628'} 0%, ${bg_color || '#0a1628'}80 25%, transparent 60%)`,
+              }}
+            />
+          </>
+        )}
+
+        {/* Content */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24">
-          <div className="grid md:grid-cols-2 gap-8 items-center">
+          <div className={isFullBleed ? 'lg:max-w-[50%]' : 'grid md:grid-cols-2 gap-8 items-center'}>
             <div className="space-y-6">
               {badge_text && (
                 <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 text-sm" style={ts || { color: 'white' }}>
@@ -88,18 +137,12 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
                     {cta_primary.text} {ctaIconEl}
                   </a>
                 )}
-                {cta_secondary?.text && (
-                  <a
-                    href={cta_secondary.url || '#'}
-                    className="inline-flex items-center justify-center gap-2 border-2 border-white/40 hover:border-white/70 px-7 py-3.5 rounded-full font-semibold text-base transition-colors"
-                    style={ts || { color: 'white' }}
-                  >
-                    {cta_secondary.text}
-                  </a>
-                )}
+                {renderSecondaryBtn()}
               </div>
             </div>
-            {(hero_video_url || hero_image_url) && (
+
+            {/* Contained image (non-full-bleed) — in grid */}
+            {!isFullBleed && (hero_video_url || hero_image_url) && (
               <div className="flex justify-center">
                 {hero_video_url ? (
                   <div className="relative cursor-pointer" onClick={!videoPlaying ? handlePlay : undefined}>
@@ -128,6 +171,17 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
               </div>
             )}
           </div>
+
+          {/* Mobile: show full-bleed image below text */}
+          {isFullBleed && hero_image_url && !hero_video_url && (
+            <div className="mt-8 lg:hidden">
+              <img
+                src={stripShapeHash(hero_image_url)}
+                alt={headline || 'Hero'}
+                className="w-full h-64 object-cover rounded-2xl"
+              />
+            </div>
+          )}
 
           {stats && stats.length > 0 && (
             <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6">
