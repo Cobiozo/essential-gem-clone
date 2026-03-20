@@ -30,6 +30,7 @@ import {
   ContactFormSection,
   FooterSection,
   ProductsWithFormSection,
+  SurveySection,
 } from '@/components/partner-page/sections';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -37,7 +38,7 @@ const TYPE_LABELS: Record<string, string> = {
   steps: 'Kroki', timeline: 'Oś czasu', testimonials: 'Opinie',
   products_grid: 'Siatka produktów', faq: 'FAQ', cta_banner: 'Baner CTA',
   header: 'Nagłówek', contact_form: 'Formularz kontaktowy', footer: 'Stopka',
-  products_with_form: 'Produkty + Formularz',
+  products_with_form: 'Produkty + Formularz', survey: 'Ankieta zdrowotna',
 };
 
 const TemplatePreviewPage: React.FC = () => {
@@ -186,6 +187,7 @@ const TemplatePreviewPage: React.FC = () => {
       case 'contact_form': return wrapWithAnchor(<ContactFormSection config={cfg} partnerEmail="preview@example.com" />);
       case 'footer': return wrapWithAnchor(<FooterSection config={cfg} />);
       case 'products_with_form': return wrapWithAnchor(<ProductsWithFormSection config={cfg} products={products} productLinks={dummyLinks} partnerEmail="preview@example.com" />);
+      case 'survey': return wrapWithAnchor(<SurveySection config={cfg} />);
       case 'static':
         return element.content ? wrapWithAnchor(
           <section className="bg-background">

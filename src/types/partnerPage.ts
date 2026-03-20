@@ -14,7 +14,8 @@ export type TemplateElementType =
   | 'header'
   | 'contact_form'
   | 'footer'
-  | 'products_with_form';
+  | 'products_with_form'
+  | 'survey';
 
 export interface TemplateElement {
   id: string;

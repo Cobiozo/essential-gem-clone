@@ -23,6 +23,7 @@ import {
   ContactFormSection,
   FooterSection,
   ProductsWithFormSection,
+  SurveySection,
 } from '@/components/partner-page/sections';
 
 interface PartnerProfile {
@@ -224,6 +225,9 @@ const PartnerPageView: React.FC = () => {
         break;
       case 'products_with_form':
         sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
+        break;
+      case 'survey':
+        sectionNode = <SurveySection config={cfg} />;
         break;
       case 'static':
         sectionNode = element.content ? (

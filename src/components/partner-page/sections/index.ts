@@ -10,3 +10,4 @@ export { HeaderSection } from './HeaderSection';
 export { ContactFormSection } from './ContactFormSection';
 export { FooterSection } from './FooterSection';
 export { ProductsWithFormSection } from './ProductsWithFormSection';
+export { SurveySection } from './SurveySection';
