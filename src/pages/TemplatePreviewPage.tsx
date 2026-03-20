@@ -165,6 +165,8 @@ const TemplatePreviewPage: React.FC = () => {
     if (editingIndex === index) setEditingIndex(null);
   }, [editingIndex]);
 
+  const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+
   if (loading) return <LoadingSpinner />;
 
   const dummyLinks = products.map((p, i) => ({
@@ -177,7 +179,6 @@ const TemplatePreviewPage: React.FC = () => {
   const surveyConfig = surveyElement
     ? resolveVariablesInConfig(surveyElement.config || {}, PREVIEW_PROFILE)
     : null;
-  const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
 
   const renderSection = (element: TemplateElement) => {
     if (element.type === 'survey') return null; // rendered as modal
