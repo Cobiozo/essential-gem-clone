@@ -70,7 +70,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Tekst badge</Label>
           <EditableFieldToggle fieldName="badge_text" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.badge_text || ''} onChange={e => update('badge_text', e.target.value)} />
+        <Textarea value={config.badge_text || ''} onChange={e => update('badge_text', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
