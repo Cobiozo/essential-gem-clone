@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Globe, Layout, Package } from 'lucide-react';
+import { Globe, Layout, Package, ClipboardList } from 'lucide-react';
 import { PartnerPageAccessManager } from './PartnerPageAccessManager';
 import { PartnerTemplateEditor } from './PartnerTemplateEditor';
 import { ProductCatalogManager } from './ProductCatalogManager';
+import { SurveyManager } from './SurveyManager';
 
 export const PartnerPagesManagement: React.FC = () => {
   const [subTab, setSubTab] = useState('access');
@@ -24,6 +25,10 @@ export const PartnerPagesManagement: React.FC = () => {
             <Package className="w-4 h-4 mr-2" />
             Katalog produktów
           </TabsTrigger>
+          <TabsTrigger value="survey">
+            <ClipboardList className="w-4 h-4 mr-2" />
+            Ankieta
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="access">
@@ -36,6 +41,10 @@ export const PartnerPagesManagement: React.FC = () => {
 
         <TabsContent value="products">
           <ProductCatalogManager />
+        </TabsContent>
+
+        <TabsContent value="survey">
+          <SurveyManager />
         </TabsContent>
       </Tabs>
     </div>
