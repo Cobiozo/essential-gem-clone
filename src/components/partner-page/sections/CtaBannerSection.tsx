@@ -19,6 +19,17 @@ export const CtaBannerSection: React.FC<Props> = ({ config }) => {
         {cta_text && (
           <a
             href={cta_url || '#'}
+            onClick={(e) => {
+              const url = cta_url || '#';
+              if (url.startsWith('#')) {
+                e.preventDefault();
+                const el = document.getElementById(url.substring(1));
+                if (el) {
+                  const top = el.getBoundingClientRect().top + window.pageYOffset - 80;
+                  window.scrollTo({ top, behavior: 'smooth' });
+                }
+              }
+            }}
             className="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-xl font-bold text-base transition-colors shadow-lg"
           >
             📝 {cta_text}
