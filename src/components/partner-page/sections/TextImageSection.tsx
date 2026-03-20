@@ -74,7 +74,7 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
             {(highlight_text || highlight_description) && (
               <div className="bg-muted rounded-xl p-6 mb-6">
                 {highlight_text && (
-                  <p className="text-3xl font-black mb-1" style={ts}>{highlight_text}</p>
+                  <p className="text-3xl font-black mb-1" style={{ ...ts, whiteSpace: 'pre-line' }}>{highlight_text}</p>
                 )}
                 {highlight_description && (
                   <p className="text-sm" style={ts ? { color: tc, opacity: 0.7 } : undefined}>{highlight_description}</p>
