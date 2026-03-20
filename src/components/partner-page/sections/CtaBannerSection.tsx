@@ -6,7 +6,7 @@ interface Props {
   onSurveyOpen?: () => void;
 }
 
-export const CtaBannerSection: React.FC<Props> = ({ config }) => {
+export const CtaBannerSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
   const { heading, description, cta_text, cta_url, bg_color, text_color, text_align } = config;
   const tc = text_color || undefined;
   const ts = tc ? { color: tc } : { color: 'white' };
