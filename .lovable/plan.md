@@ -1,47 +1,104 @@
 
 
-# Plan: Rozbudowa ikon (IconPicker) + pełna kontrola kart w sekcji Testimonials
+# Plan: Interaktywna Ankieta Zdrowotna — nowy typ sekcji `survey`
 
-## 1. Ikony — zamienić emoji na IconPicker w StepsSectionEditor
+## Cel
+Stworzyć nowy typ sekcji `survey` w systemie szablonów stron partnerskich. Sekcja renderuje interaktywny kwestionariusz krok-po-kroku (pytanie → odpowiedź → dalej → następne pytanie). Na końcu wyświetla rekomendację produktów. Przycisk CTA w `cta_banner` może linkować do ankiety przez anchor `#ankieta`.
 
-Aktualnie kroki w `StepsSectionEditor` mają pole emoji (`Input placeholder="Ikona (emoji)"`). Zamienić na komponent `IconPicker` z `@/components/cms/IconPicker` — ten sam, który jest już używany w wielu miejscach projektu. Daje dostęp do setek ikon Lucide z wyszukiwarką i kategoriami.
+## Przepływ ankiety (UX)
 
-W rendererze `StepsSection` — renderować wybraną ikonę Lucide dynamicznie zamiast emoji.
+```text
+[Pytanie 1: Płeć]  →  [Pytanie 2: Wiek]  →  [Pytanie 3: Wzrost]
+→  [Pytanie 4: Waga]  →  [Pytanie 5: Aktywność fizyczna]
+→  [Pytanie 6: Główne dolegliwości]  →  [Pytanie 7: Stosowane suplementy]
+→  [Pytanie 8-12: dodatkowe pytania zdrowotne]
+→  [Podsumowanie + Rekomendacja produktów]
+```
 
-**Pliki**: `StepsSectionEditor.tsx`, `StepsSection.tsx`
+Każdy krok: tytuł pytania, opcje do zaznaczenia (radio lub multi-select), przycisk "Dalej" / "Wstecz". Pasek postępu na górze. Na końcu — wynik z dopasowanymi produktami.
 
-## 2. Karty Testimonials — opcje stylowania w edytorze
+## Struktura danych (config sekcji)
 
-Dodać w `TestimonialsSectionEditor` sekcję "Styl kart" z kontrolkami:
+```typescript
+{
+  heading: "Ankieta zdrowotna",
+  subtitle: "Dopasuj suplementy do swoich potrzeb",
+  bg_color: "#0a1628",
+  text_color: "#ffffff",
+  questions: [
+    {
+      id: "gender",
+      question: "Jaka jest Twoja płeć?",
+      type: "single",  // "single" | "multiple"
+      options: [
+        { label: "Kobieta", value: "female", tags: [] },
+        { label: "Mężczyzna", value: "male", tags: [] }
+      ]
+    },
+    {
+      id: "age",
+      question: "Ile masz lat?",
+      type: "single",
+      options: [
+        { label: "18-30", value: "18-30", tags: ["young"] },
+        { label: "31-50", value: "31-50", tags: ["middle"] },
+        { label: "51+", value: "51+", tags: ["senior"] }
+      ]
+    },
+    // ... kolejne pytania
+  ],
+  product_recommendations: [
+    {
+      tags: ["stawy", "senior"],       // jeśli użytkownik zebrał te tagi
+      product_name: "Marine Collagen",
+      description: "Kolagen morski wspierający stawy"
+    }
+  ],
+  result_heading: "Twoje rekomendowane produkty",
+  result_description: "Na bazie Twoich odpowiedzi dopasowaliśmy:"
+}
+```
 
-| Opcja | Typ | Opis |
-|-------|-----|------|
-| `card_width` | Slider (180–400px) | Szerokość karty |
-| `card_bg_color` | ColorInput | Kolor tła kart (nadpisuje gradient) |
-| `card_text_color` | ColorInput | Kolor tekstu |
-| `card_border_radius` | Slider (0–32px) | Zaokrąglenie rogów |
-| `card_font_size` | Select (sm/base/lg) | Rozmiar czcionki |
-| `avatar_size` | Slider (40–120px) | Rozmiar avatara |
-| `auto_scroll` | Checkbox | Automatyczne przesuwanie |
-| `auto_scroll_interval` | Slider (2–10s) | Interwał przesuwania |
+Logika dopasowania: każda opcja odpowiedzi ma `tags[]`. Po zakończeniu ankiety zbierane są wszystkie tagi użytkownika → produkty z `product_recommendations` które mają pasujące tagi są wyświetlane.
 
-**Plik**: `TestimonialsSectionEditor.tsx`
+## Nowe pliki i zmiany
 
-## 3. Renderer Testimonials — zastosować nowe opcje
+### 1. Nowe pliki
 
-W `TestimonialsSection.tsx`:
-- Użyć `card_width`, `card_bg_color`, `card_text_color`, `card_border_radius`, `card_font_size`, `avatar_size` z configu
-- Dodać `useEffect` z `setInterval` dla auto-scroll (jeśli `auto_scroll === true`) — scrolluje w prawo co X sekund, resetuje do początku po dotarciu do końca
-- Jeśli `card_bg_color` jest ustawiony, nie stosować gradientu
+| Plik | Opis |
+|------|------|
+| `src/components/partner-page/sections/SurveySection.tsx` | Renderer ankiety: stepper, pytania, nawigacja, wynik |
+| `src/components/admin/template-sections/SurveySectionEditor.tsx` | Edytor: zarządzanie pytaniami, opcjami, tagami, rekomendacjami |
 
-**Plik**: `TestimonialsSection.tsx`
-
-## Pliki do zmian
+### 2. Modyfikowane pliki
 
 | Plik | Zmiana |
 |------|--------|
-| `StepsSectionEditor.tsx` | Emoji input → IconPicker |
-| `StepsSection.tsx` | Renderowanie ikony Lucide dynamicznie |
-| `TestimonialsSectionEditor.tsx` | Dodać sekcję "Styl kart" z kontrolkami |
-| `TestimonialsSection.tsx` | Zastosować styl z configu + auto-scroll |
+| `src/types/partnerPage.ts` | Dodać `'survey'` do `TemplateElementType` |
+| `src/components/admin/template-preview/defaultSectionConfigs.ts` | Dodać default config + opcję w `SECTION_TYPE_OPTIONS` |
+| `src/components/admin/template-sections/SectionConfigEditor.tsx` | Dodać `case 'survey'` |
+| `src/components/admin/template-sections/index.ts` | Export `SurveySectionEditor` |
+| `src/pages/PartnerPage.tsx` | Dodać `case 'survey'` w renderSection |
+| `src/pages/TemplatePreviewPage.tsx` | Dodać `case 'survey'` w renderSection |
+
+### 3. Default config z gotowymi pytaniami
+
+Domyślna konfiguracja będzie zawierać ~10 gotowych pytań zdrowotnych (płeć, wiek, wzrost, waga, aktywność, dolegliwości, suplementy, dieta, sen, stres, cele zdrowotne) oraz przykładowe rekomendacje produktów powiązane z tagami.
+
+## Szczegóły komponentów
+
+### SurveySection.tsx
+- Stan: `currentStep` (0..N), `answers: Record<string, string[]>`
+- Progress bar na górze (procent ukończenia)
+- Animacja przejścia między pytaniami (opacity/translate)
+- Pytanie single-choice: klik = zaznacz, pytanie multiple: checkboxy
+- Przyciski "Wstecz" / "Dalej" (Dalej aktywne tylko gdy jest odpowiedź)
+- Ostatni ekran: zbierz tagi z wybranych opcji → filtruj `product_recommendations` → pokaż karty produktów
+- Anchor ID domyślnie `ankieta`
+
+### SurveySectionEditor.tsx
+- Pola globalne: heading, subtitle, bg_color, text_color, result_heading, result_description
+- Lista pytań (dodaj/usuń/reorder): każde pytanie ma `question`, `type` (single/multiple), listę opcji z `label`, `value`, `tags[]`
+- Lista rekomendacji produktów: `tags[]`, `product_name`, `description`, `image_url`, `link`
+- Wszystkie pola tekstowe jako Textarea
 
