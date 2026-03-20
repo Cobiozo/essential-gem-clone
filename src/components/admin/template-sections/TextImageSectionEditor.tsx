@@ -41,7 +41,7 @@ export const TextImageSectionEditor: React.FC<Props> = ({ config, onChange }) =>
             <Label>Podtytuł partnera</Label>
             <EditableFieldToggle fieldName="partner_subtitle" editableFields={editableFields} onToggle={setEditable} />
           </div>
-          <Input value={config.partner_subtitle || ''} onChange={e => update('partner_subtitle', e.target.value)} placeholder="Twój partner w Pure Life" />
+          <Textarea value={config.partner_subtitle || ''} onChange={e => update('partner_subtitle', e.target.value)} placeholder="Twój partner w Pure Life" rows={1} className="min-h-[36px] resize-y" />
         </div>
       </div>
       <div>
