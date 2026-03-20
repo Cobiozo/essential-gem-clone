@@ -160,6 +160,12 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) =>
             {sending ? 'Wysyłanie...' : (submit_text || 'Wyślij')} <ArrowRight className="w-4 h-4" />
           </button>
         </form>
+
+        {config.inner_elements?.length > 0 && (
+          <div className="mt-8">
+            {config.inner_elements.map((el: any) => <InnerElementRenderer key={el.id} element={el} />)}
+          </div>
+        )}
       </div>
     </section>
   );

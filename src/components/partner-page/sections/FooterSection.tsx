@@ -108,6 +108,12 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
           )}
         </div>
 
+        {config.inner_elements?.length > 0 && (
+          <div className="mt-8">
+            {config.inner_elements.map((el: any) => <InnerElementRenderer key={el.id} element={el} />)}
+          </div>
+        )}
+
         <div className="mt-8 pt-6 border-t border-white/10 text-center text-xs opacity-50">
           {copyright_text || `© ${new Date().getFullYear()} ${company_name || 'Firma'}. Wszelkie prawa zastrzeżone.`}
         </div>
