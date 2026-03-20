@@ -1,4 +1,5 @@
 import React from 'react';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface Props {
   config: Record<string, any>;
@@ -21,12 +22,13 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
     logo_font, logo_font_size, logo_font_weight, logo_height,
     nav_align, nav_text_color, nav_hover_color,
     nav_font, nav_font_size, nav_font_weight,
+    show_partner_badge, partner_badge_style, partner_badge_bg_color, partner_badge_text_color,
+    inner_elements,
   } = config;
 
   const isLinks = nav_style === 'links';
   const opacity = bg_opacity ?? 1;
 
-  // Convert hex to rgba for opacity support
   const bgWithOpacity = bg_color
     ? (() => {
         const hex = bg_color.replace('#', '');
@@ -40,6 +42,9 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
   const navJustify = nav_align === 'left' ? 'flex-start' : nav_align === 'center' ? 'center' : 'flex-end';
   const navFontSizePx = FONT_SIZE_MAP[nav_font_size || 'sm'] || '14px';
 
+  const badgeStyle = partner_badge_style || 'compact';
+  const isCard = badgeStyle === 'card';
+
   return (
     <header
       className={`${disableSticky ? 'relative' : 'sticky top-0 z-50'} transition-all`}
@@ -51,7 +56,7 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
       }}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 flex items-center justify-between">
-        {/* Logo */}
+        {/* Logo + Partner Badge */}
         <div className="flex items-center gap-3">
           {logo_image_url ? (
             <img
@@ -73,11 +78,24 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
               {logo_text || 'Logo'}
             </span>
           )}
-          {partnerName && (
+
+          {/* Partner badge */}
+          {partnerName && show_partner_badge ? (
+            <div
+              className={`flex items-center gap-2 ${isCard ? 'px-3 py-1.5 rounded-lg' : ''}`}
+              style={{
+                backgroundColor: isCard ? (partner_badge_bg_color || 'rgba(0,0,0,0.05)') : undefined,
+                color: partner_badge_text_color || text_color || undefined,
+              }}
+            >
+              <span style={{ opacity: 0.5 }}>|</span>
+              <span className="text-sm font-medium">{partnerName}</span>
+            </div>
+          ) : partnerName ? (
             <span className="text-sm hidden sm:inline" style={{ opacity: 0.6 }}>
               | {partnerName}
             </span>
-          )}
+          ) : null}
         </div>
 
         {/* Navigation */}
@@ -111,10 +129,9 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
               );
             }
 
-            // Button mode — per-button overrides
             const isPrimary = btn.variant === 'primary';
             const btnBg = btn.bg_color || (isPrimary ? undefined : 'transparent');
-            const btnText = btn.text_color || (isPrimary ? undefined : undefined);
+            const btnText = btn.text_color || undefined;
             const btnBorder = btn.border_color || (isPrimary ? 'transparent' : undefined);
             const btnRadius = btn.border_radius != null ? `${btn.border_radius}px` : '8px';
 
@@ -145,6 +162,15 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
           })}
         </nav>
       </div>
+
+      {/* Inner elements */}
+      {inner_elements?.length > 0 && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          {inner_elements.map((el: any) => (
+            <InnerElementRenderer key={el.id} element={el} />
+          ))}
+        </div>
+      )}
     </header>
   );
 };
