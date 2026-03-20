@@ -177,7 +177,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
         <div>
           <Label className="text-xs">Podtytuł (np. imię partnera)</Label>
-          <Input value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." />
+          <Textarea value={config.partner_badge?.subtitle || ''} onChange={e => updatePartnerBadge('subtitle', e.target.value)} placeholder="{Imię} - Jesteśmy tu dla Ciebie." rows={1} className="min-h-[36px] resize-y" />
         </div>
         <div>
           <Label className="text-xs">Avatar partnera</Label>
