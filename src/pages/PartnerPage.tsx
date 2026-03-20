@@ -296,6 +296,11 @@ const PartnerPageView: React.FC = () => {
         )}
 
         {template.map(renderSection)}
+
+        {/* Survey modal */}
+        {surveyConfig && (
+          <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
+        )}
       </div>
     );
   }
