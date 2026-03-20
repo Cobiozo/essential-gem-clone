@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
+import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
 
 interface Props {
   config: Record<string, any>;
