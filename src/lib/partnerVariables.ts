@@ -44,7 +44,7 @@ export function resolveVariablesInText(text: string, profile: PartnerProfileData
   if (!text || typeof text !== 'string') return text;
   let result = text;
   for (const [key, resolver] of Object.entries(VARIABLE_MAP)) {
-    result = result.replaceAll(key, resolver(profile));
+    result = result.split(key).join(resolver(profile));
   }
   return result;
 }
