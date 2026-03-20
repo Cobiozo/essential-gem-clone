@@ -192,7 +192,7 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
             <EditableFieldToggle fieldName="cta_primary.url" editableFields={editableFields} onToggle={setEditable} label="URL edytowalny" />
           </div>
         </legend>
-        <Input value={config.cta_primary?.text || ''} onChange={e => updateCta('cta_primary', 'text', e.target.value)} placeholder="Tekst przycisku" />
+        <Textarea value={config.cta_primary?.text || ''} onChange={e => updateCta('cta_primary', 'text', e.target.value)} placeholder="Tekst przycisku" rows={1} className="min-h-[36px] resize-y" />
         <Input value={config.cta_primary?.url || ''} onChange={e => updateCta('cta_primary', 'url', e.target.value)} placeholder="URL" />
       </fieldset>
       <fieldset className="border rounded-lg p-4 space-y-2">
