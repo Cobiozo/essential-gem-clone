@@ -1,28 +1,22 @@
 
 
-# Plan: InnerElements w nagłówku + kafelek partnera w headerze
+# Plan: Wieloliniowe pola tekstowe w kafelku partnera
+
+## Cel
+Zamienić pola `Input` (jednoliniowe) na `Textarea` (wieloliniowe) w edytorze kafelka partnera w nagłówku, aby umożliwić wpisywanie tekstu z Enterem. Dodać `whitespace: pre-line` w rendererze, żeby nowe linie się wyświetlały.
 
 ## Zmiany
 
-### 1. `HeaderSectionEditor.tsx` — dodać sekcję „Dodatkowe elementy"
-Na końcu edytora dodać fieldset z `<InnerElementsList>` (identycznie jak w pozostałych edytorach sekcji), importując go z `./InnerElementsList`.
+### 1. `HeaderSectionEditor.tsx`
+- Import `Textarea` z `@/components/ui/textarea`
+- Zamienić `<Input>` na `<Textarea>` dla pól „Tekst" i „Podtytuł" w sekcji kafelka partnera (linie 244 i 248)
+- Dodać `className="min-h-[60px]"` żeby pola nie były za wysokie
 
-### 2. `HeaderSectionEditor.tsx` — dodać opcję „Kafelek partnera w nagłówku"
-Nowy fieldset z przełącznikiem `show_partner_badge` (Switch). Gdy włączony, kafelek partnera (z konfiguracji hero `partner_badge`) będzie renderowany w nagłówku obok logo, po prawej stronie tekstu partnera.
-
-Dodatkowe pola konfiguracji:
-- `partner_badge_style`: wariant wyświetlania (`compact` — jedna linia, `card` — z tłem i zaokrągleniem)
-- `partner_badge_bg_color` — kolor tła kafelka w nagłówku
-- `partner_badge_text_color` — kolor tekstu
-
-### 3. `HeaderSection.tsx` — renderować inner_elements i partner badge
-- Import `InnerElementRenderer` i renderowanie `config.inner_elements` pod głównym paskiem nagłówka (dodatkowy rząd pod logo+nav).
-- Renderowanie kafelka partnera (`partnerName` + avatar) obok logo gdy `show_partner_badge` jest włączony. Kafelek wyświetla się jako kompaktowy element w rzędzie logo (po separatorze `|`), zastępując obecny prosty `| partnerName`.
-
-### Pliki do zmian
+### 2. `HeaderSection.tsx`
+- Dodać `style={{ whiteSpace: 'pre-line' }}` na obu `<p>` renderujących tekst i podtytuł kafelka partnera (linie 90 i 93), żeby znaki nowej linii (`\n`) były renderowane jako łamanie wiersza
 
 | Plik | Zmiana |
 |------|--------|
-| `HeaderSectionEditor.tsx` | Import InnerElementsList, dodać fieldset „Dodatkowe elementy" + fieldset „Kafelek partnera" z opcjami stylowania |
-| `HeaderSection.tsx` | Import InnerElementRenderer, renderowanie inner_elements pod headerem + rozbudowany partner badge obok logo |
+| `HeaderSectionEditor.tsx` | Input → Textarea dla 2 pól kafelka |
+| `HeaderSection.tsx` | Dodać `whiteSpace: pre-line` na 2 elementach `<p>` |
 
