@@ -45,7 +45,7 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label>Nagłówek</Label>
           <EditableFieldToggle fieldName="heading" editableFields={editableFields} onToggle={setEditable} />
         </div>
-        <Input value={config.heading || ''} onChange={e => update('heading', e.target.value)} placeholder="Daj mi znać..." />
+        <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} placeholder="Daj mi znać..." rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <div className="flex items-center justify-between">
