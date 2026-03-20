@@ -1,35 +1,53 @@
 
 
-# Plan: Naprawa nawigacji w nagłówku — scroll do sekcji + obsługa linków
+# Plan: Wieloliniowe pola tekstowe + wyrównanie tekstu we wszystkich edytorach sekcji
 
-## Problem
+## Cel
+1. Zamienić wszystkie pola `Input` z treścią tekstową na `Textarea` (wieloliniowe, obsługa Enter)
+2. Dodać opcję wyrównania tekstu (lewo/środek/prawo) jako globalną opcję w `SectionConfigEditor`
+3. Zastosować `whiteSpace: pre-line` + `textAlign` w rendererach sekcji
 
-1. **Scroll do sekcji nie działa** — przyciski z URL `#eqology`, `#contact` itp. wywołują `document.getElementById()`, ale element nie jest znajdowany, bo sekcje mogą nie mieć ustawionych pasujących `anchor_id`. Handler milcząco zawodzi (nic się nie dzieje).
-2. **Linki zewnętrzne/wewnętrzne** — brak obsługi `target="_blank"` dla linków zewnętrznych; zwykłe `<a href>` w kontekście SPA może nie działać prawidłowo.
+## Zmiany w edytorach — Input → Textarea
 
-## Rozwiązanie
+Pola do zamiany (tylko pola z treścią tekstową, NIE pola URL, kolory, ikony, numeryczne):
 
-### 1. `HeaderSection.tsx` — ulepszyć `handleClick`
+| Edytor | Pola do zamiany na Textarea |
+|--------|---------------------------|
+| **HeroSectionEditor** | `headline`, `subheadline`, `badge_text`, `cta_primary.text`, `cta_secondary.text`, `partner_badge.text`, `partner_badge.subtitle` |
+| **CtaBannerEditor** | `heading`, `cta_text` |
+| **TextImageSectionEditor** | `partner_name`, `partner_subtitle`, `heading`, `highlight_text`, `highlight_description`, `cta_text`, item `text` |
+| **StepsSectionEditor** | `heading`, `description`, step `title`, step `description` |
+| **TimelineSectionEditor** | `heading`, milestone `title`, milestone `month` |
+| **TestimonialsSectionEditor** | card `label`, card `description`, card `before`, card `after` |
+| **FaqSectionEditor** | `heading` (answer już jest Textarea) |
+| **ContactFormEditor** | `heading`, `subheading`, `submit_text`, `privacy_text` |
+| **FooterSectionEditor** | `company_name`, `address`, `copyright_text` |
+| **ProductsGridEditor** | `heading`, col `name`, col `subtitle`, col `description`, col `cta_text` |
+| **ProductsWithFormEditor** | `heading`, `default_cta_text` |
+| **HeaderSectionEditor** | nav button `text` |
 
-Obecny handler sprawdza tylko `document.getElementById(anchor)`. Trzeba go rozbudować:
+Każdy Textarea: `rows={1}` dla krótkich pól, `rows={2}` dla opisów, `className="min-h-[36px] resize-y"`.
 
-- Jeśli URL zaczyna się od `#` → szukaj elementu po ID. Jeśli nie znaleziono, spróbuj `querySelector([id*="anchor"])` jako fallback. Dodać mały offset dla sticky headera (`scrollTo` z kalkulacją pozycji minus wysokość headera).
-- Jeśli URL jest zewnętrzny (http/https na inną domenę) → `window.open(url, '_blank')` + `e.preventDefault()`
-- Jeśli URL jest ścieżką wewnętrzną (np. `/dashboard`) → `window.location.href = url`
-- Importować `isExternalUrl` z `@/lib/urlUtils`
+## Wyrównanie tekstu — globalna opcja
 
-### 2. `HeaderSection.tsx` — dodać `target="_blank"` dla linków zewnętrznych
+W **`SectionConfigEditor.tsx`** dodać Select z opcjami wyrównania tekstu:
+- `left` — Do lewej
+- `center` — Środek  
+- `right` — Do prawej
 
-Dla `<a>` tagów renderowanych w nawigacji, ustawić `target="_blank"` i `rel="noopener noreferrer"` gdy URL jest zewnętrzny.
+Zapisywane jako `config.text_align`.
 
-### 3. `HeaderSectionEditor.tsx` — dodać podpowiedź o kotwicach
+## Rendering — zastosowanie w sekcjach
 
-W sekcji „Elementy nawigacji" dodać małą informację: „Aby link prowadził do sekcji na stronie, wpisz `#` + anchor ID sekcji (np. `#kontakt`). Anchor ID ustawiasz w edytorze każdej sekcji."
+W rendererach sekcji (`HeroSection`, `CtaBannerSection`, `TextImageSection`, `StepsSection`, `ContactFormSection`, `FooterSection`) dodać:
+- `whiteSpace: 'pre-line'` na wszystkich elementach tekstowych
+- `textAlign: config.text_align` z configa sekcji
 
 ## Pliki do zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `HeaderSection.tsx` | Rozbudować handleClick: fallback scroll, obsługa zewnętrznych linków, offset dla sticky headera |
-| `HeaderSectionEditor.tsx` | Dodać tekst pomocniczy w sekcji nawigacji |
+| 10 edytorów sekcji | Input → Textarea dla pól tekstowych |
+| `SectionConfigEditor.tsx` | Dodać Select wyrównania tekstu |
+| 6+ rendererów sekcji | Dodać `whiteSpace: pre-line` + `textAlign` |
 
