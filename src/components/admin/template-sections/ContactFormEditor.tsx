@@ -91,7 +91,7 @@ export const ContactFormEditor: React.FC<Props> = ({ config, onChange }) => {
 
       <div>
         <Label>Tekst przycisku</Label>
-        <Input value={config.submit_text || ''} onChange={e => update('submit_text', e.target.value)} placeholder="Wyślij" />
+        <Textarea value={config.submit_text || ''} onChange={e => update('submit_text', e.target.value)} placeholder="Wyślij" rows={1} className="min-h-[36px] resize-y" />
       </div>
       <div>
         <Label>Tekst prywatności (opcja)</Label>
