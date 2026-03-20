@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { SurveySectionEditor } from './template-sections/SurveySectionEditor';
+import { SurveySection } from '@/components/partner-page/sections';
 import { AlertElement } from '@/components/elements/AlertElement';
 import { toast } from 'sonner';
-import { Save } from 'lucide-react';
+import { Save, Eye, EyeOff } from 'lucide-react';
 
 export const SurveyManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
