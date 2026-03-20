@@ -11,6 +11,7 @@ import { EditableFieldToggle } from './EditableFieldToggle';
 import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
 import { ColorInput } from '@/components/ui/color-input';
 import { InnerElementsList } from './InnerElementsList';
+import { VariablesLegend } from './VariablesLegend';
 
 interface Props {
   config: Record<string, any>;

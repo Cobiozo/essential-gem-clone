@@ -242,16 +242,17 @@ const PartnerPageView: React.FC = () => {
     if (!sectionNode) return null;
 
     return (
-      <EditableWrapper
-        key={element.id}
-        elementId={element.id}
-        config={baseCfg}
-        overrides={customData[element.id] || {}}
-        onSave={(fieldName, value) => updateField(element.id, fieldName, value)}
-        isEditing={isOwner}
-      >
-        {sectionNode}
-      </EditableWrapper>
+      <div key={element.id} id={anchorId}>
+        <EditableWrapper
+          elementId={element.id}
+          config={baseCfg}
+          overrides={customData[element.id] || {}}
+          onSave={(fieldName, value) => updateField(element.id, fieldName, value)}
+          isEditing={isOwner}
+        >
+          {sectionNode}
+        </EditableWrapper>
+      </div>
     );
   };
 
