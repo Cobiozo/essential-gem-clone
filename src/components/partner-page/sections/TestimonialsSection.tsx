@@ -17,7 +17,7 @@ export const TestimonialsSection: React.FC<Props> = ({ config }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {(cards || []).map((card: any, i: number) => (
             <div key={i} className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-              <p className="font-semibold text-foreground mb-3">{card.label}</p>
+              <p className="font-semibold text-foreground mb-3" style={{ whiteSpace: 'pre-line' }}>{card.label}</p>
               <div className="space-y-2 mb-4">
                 {card.before && (
                   <div className="flex items-center gap-2 text-sm">
