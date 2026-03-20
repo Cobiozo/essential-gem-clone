@@ -63,6 +63,21 @@ export const HeroSection: React.FC<Props> = ({ config }) => {
               {description && (
                 <p className="text-sm sm:text-base leading-relaxed max-w-lg whitespace-pre-line" style={ts ? { color: tc, opacity: 0.8 } : { color: 'rgba(255,255,255,0.8)' }}>{description}</p>
               )}
+              {config.partner_badge && (config.partner_badge.text || config.partner_badge.subtitle) && (
+                <div className="flex items-center gap-3 bg-white/90 backdrop-blur-sm px-4 py-3 rounded-2xl max-w-fit shadow-lg">
+                  {config.partner_badge.avatar_url && (
+                    <img src={config.partner_badge.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover shadow-sm flex-shrink-0" />
+                  )}
+                  <div>
+                    {config.partner_badge.text && (
+                      <p className="text-xs text-gray-500 font-medium">{config.partner_badge.text}</p>
+                    )}
+                    {config.partner_badge.subtitle && (
+                      <p className="text-sm font-semibold text-gray-900">{config.partner_badge.subtitle}</p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 {cta_primary?.text && (
                   <a
