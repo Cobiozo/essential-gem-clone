@@ -83,6 +83,13 @@ export const SurveySectionEditor: React.FC<Props> = ({ config, onChange }) => {
           <Label className="text-xs">Podtytuł</Label>
           <Input value={config.subtitle || ''} onChange={e => set('subtitle', e.target.value)} className="h-8 text-xs" />
         </div>
+        <div>
+          <Label className="text-xs">Anchor ID (kotwica)</Label>
+          <Input value={config.anchor_id || ''} onChange={e => set('anchor_id', e.target.value)} placeholder="ankieta" className="h-8 text-xs" />
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Wpisz ID, np. „ankieta" — użyj w CTA jako #ankieta
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
             <Label className="text-xs">Kolor tła</Label>
