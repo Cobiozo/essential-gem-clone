@@ -1,77 +1,64 @@
 
 
-# "Moje Testy" — Dziennik Optymalizacji Omega
+# Redesign Dziennika Optymalizacji Omega — Health Tracking Dashboard
 
-## Co budujemy
-Nowa strona `/moje-testy` dostępna z paska bocznego pod PureBox → Moje Testy. Użytkownik wpisuje wyniki swoich testów Omega i widzi wizualizację postępów — identycznie jak na załączonym zdjęciu.
+## Overview
+Przebudowa strony `/moje-testy` na nowoczesny dashboard oparty o 6-miesięczny protokół suplementacji Omega-3 (cykl 120 dni krwinek czerwonych). Nowy layout z KPI kartami, osią czasu protokołu, i ulepszonym formularzem.
 
-## Elementy strony (wg zdjęcia)
+## Threshold Logic (kolory warunkowe)
 
-1. **Nagłówek**: "DZIENNIK OPTYMALIZACJI OMEGA: MONITOROWANIE PEŁNEGO SPEKTRUM I BALANSU DLA POPRAWY ZDROWIA"
+Helper function `getThresholdColor()`:
+- **Omega-6:3 Ratio**: Green ≤3.0 | Yellow 3.1-5.0 | Red >5.0
+- **Omega-3 Index**: Green ≥8.0 | Yellow 4.0-7.9 | Red <4.0
 
-2. **Panel lewy — Postęp Witalności** (ilustracja sylwetki z paskiem postępu i etapami: Tydzień 0 → Tydzień 12 → Miesiąc 6 → Cel 1 rok). Uproszczona wersja z progress bar i etapami.
+## Zmiany w plikach
 
-3. **Gauge charts (górny środek)**:
-   - Stosunek Omega-6:3 (AA/EPA) — gauge od czerwonego do zielonego, np. `20:1 → 3:1`
-   - Indeks Omega-3 % (ΣEPA+DHA) — gauge od czerwonego do niebieskiego, np. `2% → 9%`
+### 1. Nowy: `src/components/omega-tests/OmegaThresholds.ts`
+- Export helper functions `getRatioColor(value)` i `getIndexColor(value)` zwracających klasy Tailwind (text-green-400, text-yellow-400, text-red-400)
 
-4. **Formularz "Dodaj wynik nowego testu"** (prawy górny):
-   - Data testu (date picker)
-   - Omega-3 Index %
-   - Omega-6:3 Stosunek
-   - Samopoczucie/Uwagi (textarea)
-   - Przycisk "Zapisz nowe dane"
+### 2. Przebudowa: `VitalityProgress.tsx` → Oś Czasu Przebudowy Komórkowej
+- Tytuł: "Oś Czasu Przebudowy Komórkowej"
+- Zmiana etapów na protokół 6-miesięczny z dwoma kluczowymi kamieniami milowymi:
+  - Miesiąc 0 (Test 1): "Punkt Wyjścia - Stan Zapalny"
+  - Miesiąc 5 (Test 2): "Weryfikacja - Wymiana Krwinek (120+ dni)"
+- Wizualny wskaźnik postępu użytkownika na osi czasu (horizontal stepped progress bar)
 
-5. **Wykres liniowy — Trendy Balansu i Indeksu** (środek):
-   - Oś X = kolejne testy, Oś Y = wartości
-   - Dwie linie: Ratio O6/O3 (czerwona/pomarańczowa) i Index Omega-3 (niebieska)
+### 3. Przebudowa: `OmegaGaugeCharts.tsx` → KPI Cards
+- Zamiana gauge SVG na dwie duże karty KPI:
+  1. "Twój Balans Omega-6:3" — duża liczba z kolorowym formatowaniem (R/Y/G)
+  2. "Twój Indeks Omega-3" — duża liczba + "%" z kolorowym formatowaniem
+- Użycie threshold logic do dynamicznego koloru tekstu
+- Pod wartościami: mała etykieta statusu (Optymalny/W poprawie/Krytyczny)
 
-6. **Wykres obszarowy — Ewolucja Pełnego Spektrum Błony Komórkowej** (dolny środek):
-   - Stacked area chart z kwasami: AA, EPA, DHA, LA itd.
+### 4. Przebudowa: `OmegaTestForm.tsx`
+- Nowy tytuł: "Wprowadź Wyniki Testu Vitas"
+- Dodanie Select input na etap protokołu: "Test 1 (Początek)" / "Test 2 (Miesiąc 5)" / "Kolejny test"
+- Zachowanie Date picker, Number inputs (Ratio step 0.1, Index step 0.1), i pól AA/EPA/DHA/LA
+- Przycisk: "ZAPISZ WYNIKI" (Primary)
 
-7. **Historia Transformacji Omega** (prawy dolny):
-   - Lista wpisów z datą, wynikami i uwagami
+### 5. Przebudowa: `OmegaTrendChart.tsx`
+- Tytuł: "Historia Zmian (Test 1 vs Test 2)"
+- Dual Y-Axis: lewy = Ratio (malejący trend = dobry), prawy = Index % (rosnący = dobry)
+- X-Axis: daty testów
 
-## Baza danych — nowa tabela `omega_tests`
-```sql
-create table public.omega_tests (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete cascade not null,
-  test_date date not null,
-  omega3_index numeric,
-  omega6_3_ratio numeric,
-  aa numeric,
-  epa numeric,
-  dha numeric,
-  la numeric,
-  notes text,
-  created_at timestamptz default now()
-);
-alter table public.omega_tests enable row level security;
-create policy "Users manage own tests" on public.omega_tests
-  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
-```
+### 6. Aktualizacja: `OmegaTests.tsx` (layout)
+- Nowy grid layout:
+  - **Top full-width**: Oś Czasu Przebudowy Komórkowej
+  - **Center (lg:col-span-8)**: KPI Cards (2 kolumny) + LineChart + SpectrumChart
+  - **Right (lg:col-span-4)**: Formularz + Historia
 
-## Pliki do utworzenia/zmiany
+### 7. `OmegaTestHistory.tsx` + `OmegaSpectrumChart.tsx`
+- Dodanie threshold kolorów do historii (wartości kolorowane R/Y/G)
+- SpectrumChart — bez zmian strukturalnych, drobne poprawki stylu
 
+## Pliki do zmiany
 | Plik | Akcja |
 |------|-------|
-| Migracja SQL `omega_tests` | Nowa tabela |
-| `src/pages/OmegaTests.tsx` | Nowa strona — główny layout |
-| `src/components/omega-tests/OmegaGaugeCharts.tsx` | Gauge charts (Ratio + Index) |
-| `src/components/omega-tests/OmegaTrendChart.tsx` | Wykres liniowy trendów |
-| `src/components/omega-tests/OmegaSpectrumChart.tsx` | Stacked area chart spektrum |
-| `src/components/omega-tests/OmegaTestForm.tsx` | Formularz dodawania testu |
-| `src/components/omega-tests/OmegaTestHistory.tsx` | Lista historii testów |
-| `src/components/omega-tests/VitalityProgress.tsx` | Panel postępu witalności |
-| `src/hooks/useOmegaTests.ts` | Hook CRUD do tabeli |
-| `src/components/dashboard/DashboardSidebar.tsx` | Dodanie "Moje Testy" do PureBox submenu |
-| `src/App.tsx` | Nowa trasa `/moje-testy` |
-
-## Styl wizualny
-- Ciemne tło (gradient jak dashboard `from-[hsl(225,50%,6%)]`)
-- Karty z ciemnym tłem, zaokrąglone, subtelne bordery
-- Kolory akcentowe: zielony/niebieski dla pozytywnych wartości, czerwony/pomarańczowy dla negatywnych
-- Gauge charts zbudowane na SVG lub za pomocą recharts RadialBarChart
-- Responsywny grid: na desktop layout jak na zdjęciu, na mobile kolumny stackują się
+| `src/components/omega-tests/OmegaThresholds.ts` | Nowy — helper functions |
+| `src/components/omega-tests/VitalityProgress.tsx` | Przebudowa na oś czasu protokołu |
+| `src/components/omega-tests/OmegaGaugeCharts.tsx` | Przebudowa na KPI cards |
+| `src/components/omega-tests/OmegaTestForm.tsx` | Dodanie Select etapu, nowy tytuł |
+| `src/components/omega-tests/OmegaTrendChart.tsx` | Dual Y-Axis, nowy tytuł |
+| `src/components/omega-tests/OmegaTestHistory.tsx` | Threshold kolory |
+| `src/pages/OmegaTests.tsx` | Nowy layout grid |
 
