@@ -419,6 +419,7 @@ export const DashboardSidebar: React.FC = () => {
       hasSubmenu: true, 
       submenuItems: [
         { id: 'skills-assessment', labelKey: 'Ocena umiejętności', path: '/skills-assessment', icon: Target },
+        { id: 'moje-testy', labelKey: 'Moje Testy', path: '/moje-testy', icon: Heart },
       ],
     },
     { 
