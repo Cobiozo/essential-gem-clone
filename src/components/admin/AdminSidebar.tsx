@@ -257,6 +257,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     platformTeams: 'Zespoły platformy',
     security: 'Bezpieczeństwo',
     emailDelivery: 'Dostarczalność e-mail',
+    purebox: 'PureBox',
   };
 
   const getLabel = (key: string): string => {
