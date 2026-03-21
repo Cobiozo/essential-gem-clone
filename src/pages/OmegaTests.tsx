@@ -1,0 +1,67 @@
+import React from 'react';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { useOmegaTests } from '@/hooks/useOmegaTests';
+import { OmegaGaugeCharts } from '@/components/omega-tests/OmegaGaugeCharts';
+import { OmegaTestForm } from '@/components/omega-tests/OmegaTestForm';
+import { OmegaTrendChart } from '@/components/omega-tests/OmegaTrendChart';
+import { OmegaSpectrumChart } from '@/components/omega-tests/OmegaSpectrumChart';
+import { OmegaTestHistory } from '@/components/omega-tests/OmegaTestHistory';
+import { VitalityProgress } from '@/components/omega-tests/VitalityProgress';
+import { Droplets } from 'lucide-react';
+
+const OmegaTests: React.FC = () => {
+  const { tests, isLoading, addTest, deleteTest, latestTest } = useOmegaTests();
+
+  return (
+    <DashboardLayout title="Moje Testy">
+      <div className="space-y-4 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-blue-500/10">
+            <Droplets className="h-5 w-5 text-blue-400" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-foreground leading-tight">
+              Dziennik Optymalizacji Omega
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Monitorowanie pełnego spektrum i balansu dla poprawy zdrowia
+            </p>
+          </div>
+        </div>
+
+        {/* Main grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left column — Vitality progress */}
+          <div className="lg:col-span-3 space-y-4">
+            <VitalityProgress tests={tests} />
+          </div>
+
+          {/* Center column — Gauges + Charts */}
+          <div className="lg:col-span-5 space-y-4">
+            <OmegaGaugeCharts
+              omega6_3_ratio={latestTest?.omega6_3_ratio ?? null}
+              omega3_index={latestTest?.omega3_index ?? null}
+            />
+            <OmegaTrendChart tests={tests} />
+            <OmegaSpectrumChart tests={tests} />
+          </div>
+
+          {/* Right column — Form + History */}
+          <div className="lg:col-span-4 space-y-4">
+            <OmegaTestForm
+              onSubmit={(data) => addTest.mutate(data)}
+              isLoading={addTest.isPending}
+            />
+            <OmegaTestHistory
+              tests={tests}
+              onDelete={(id) => deleteTest.mutate(id)}
+            />
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default OmegaTests;
