@@ -135,6 +135,7 @@ const LeaderLandingPage = lazyWithRetry(() => import("./pages/LeaderLandingPage"
 const AutoWebinarPage = lazyWithRetry(() => import("./pages/AutoWebinarPage"));
 const AutoWebinarPublicPage = lazyWithRetry(() => import("./pages/AutoWebinarPublicPage"));
 const SkillsAssessment = lazyWithRetry(() => import("./pages/SkillsAssessment"));
+const OmegaTests = lazyWithRetry(() => import("./pages/OmegaTests"));
 const MyPartnerPage = lazyWithRetry(() => import("./pages/MyPartnerPage"));
 const TemplatePreviewPage = lazyWithRetry(() => import("./pages/TemplatePreviewPage"));
 
