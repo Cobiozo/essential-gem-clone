@@ -1,64 +1,79 @@
 
 
-# Redesign Dziennika Optymalizacji Omega — Health Tracking Dashboard
+# PureBox — Zarządzanie modułem w panelu admina
 
-## Overview
-Przebudowa strony `/moje-testy` na nowoczesny dashboard oparty o 6-miesięczny protokół suplementacji Omega-3 (cykl 120 dni krwinek czerwonych). Nowy layout z KPI kartami, osią czasu protokołu, i ulepszonym formularzem.
+## Co budujemy
+Nowa zakładka "PureBox" w sekcji "Wydarzenia i narzędzia" panelu admina. Admin widzi listę elementów modułu PureBox (Ocena umiejętności, Moje Testy), zarządza widocznością per rola i nadaje dostęp indywidualnym użytkownikom do konkretnych elementów.
 
-## Threshold Logic (kolory warunkowe)
+## Baza danych
 
-Helper function `getThresholdColor()`:
-- **Omega-6:3 Ratio**: Green ≤3.0 | Yellow 3.1-5.0 | Red >5.0
-- **Omega-3 Index**: Green ≥8.0 | Yellow 4.0-7.9 | Red <4.0
+### Nowa tabela `purebox_settings`
+Przechowuje ustawienia widoczności per element PureBox:
+```sql
+create table public.purebox_settings (
+  id uuid primary key default gen_random_uuid(),
+  element_key text unique not null,       -- 'skills-assessment', 'moje-testy'
+  element_name text not null,             -- 'Ocena umiejętności', 'Moje Testy'
+  is_active boolean default true,
+  visible_to_admin boolean default true,
+  visible_to_partner boolean default true,
+  visible_to_client boolean default true,
+  visible_to_specjalista boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+```
 
-## Zmiany w plikach
+### Nowa tabela `purebox_user_access`
+Indywidualny dostęp użytkownika do konkretnego elementu:
+```sql
+create table public.purebox_user_access (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade not null,
+  element_key text not null,
+  is_enabled boolean default true,
+  granted_by uuid references auth.users(id),
+  created_at timestamptz default now(),
+  unique(user_id, element_key)
+);
+```
 
-### 1. Nowy: `src/components/omega-tests/OmegaThresholds.ts`
-- Export helper functions `getRatioColor(value)` i `getIndexColor(value)` zwracających klasy Tailwind (text-green-400, text-yellow-400, text-red-400)
+RLS: admin-only for both tables. Seed initial rows for `skills-assessment` and `moje-testy`.
 
-### 2. Przebudowa: `VitalityProgress.tsx` → Oś Czasu Przebudowy Komórkowej
-- Tytuł: "Oś Czasu Przebudowy Komórkowej"
-- Zmiana etapów na protokół 6-miesięczny z dwoma kluczowymi kamieniami milowymi:
-  - Miesiąc 0 (Test 1): "Punkt Wyjścia - Stan Zapalny"
-  - Miesiąc 5 (Test 2): "Weryfikacja - Wymiana Krwinek (120+ dni)"
-- Wizualny wskaźnik postępu użytkownika na osi czasu (horizontal stepped progress bar)
+## Nowy komponent: `PureBoxManagement.tsx`
 
-### 3. Przebudowa: `OmegaGaugeCharts.tsx` → KPI Cards
-- Zamiana gauge SVG na dwie duże karty KPI:
-  1. "Twój Balans Omega-6:3" — duża liczba z kolorowym formatowaniem (R/Y/G)
-  2. "Twój Indeks Omega-3" — duża liczba + "%" z kolorowym formatowaniem
-- Użycie threshold logic do dynamicznego koloru tekstu
-- Pod wartościami: mała etykieta statusu (Optymalny/W poprawie/Krytyczny)
+Interfejs podzielony na dwie sekcje:
 
-### 4. Przebudowa: `OmegaTestForm.tsx`
-- Nowy tytuł: "Wprowadź Wyniki Testu Vitas"
-- Dodanie Select input na etap protokołu: "Test 1 (Początek)" / "Test 2 (Miesiąc 5)" / "Kolejny test"
-- Zachowanie Date picker, Number inputs (Ratio step 0.1, Index step 0.1), i pól AA/EPA/DHA/LA
-- Przycisk: "ZAPISZ WYNIKI" (Primary)
+### Sekcja 1: Elementy modułu i widoczność ról
+- Tabela/lista elementów PureBox (Ocena umiejętności, Moje Testy)
+- Każdy element: nazwa, Switch aktywności, 4 Switche widoczności (admin/partner/klient/specjalista)
+- Wzorowany na PartnerPageAccessManager
 
-### 5. Przebudowa: `OmegaTrendChart.tsx`
-- Tytuł: "Historia Zmian (Test 1 vs Test 2)"
-- Dual Y-Axis: lewy = Ratio (malejący trend = dobry), prawy = Index % (rosnący = dobry)
-- X-Axis: daty testów
+### Sekcja 2: Dostęp indywidualny
+- Wyszukiwarka użytkowników (imię, email, EQ ID)
+- Select do wyboru elementu PureBox
+- Przycisk "Dodaj dostęp"
+- Lista użytkowników z nadanym dostępem (z możliwością usunięcia i togglowania)
 
-### 6. Aktualizacja: `OmegaTests.tsx` (layout)
-- Nowy grid layout:
-  - **Top full-width**: Oś Czasu Przebudowy Komórkowej
-  - **Center (lg:col-span-8)**: KPI Cards (2 kolumny) + LineChart + SpectrumChart
-  - **Right (lg:col-span-4)**: Formularz + Historia
+## Integracja
 
-### 7. `OmegaTestHistory.tsx` + `OmegaSpectrumChart.tsx`
-- Dodanie threshold kolorów do historii (wartości kolorowane R/Y/G)
-- SpectrumChart — bez zmian strukturalnych, drobne poprawki stylu
+### `AdminSidebar.tsx`
+- Dodanie `{ value: 'purebox', labelKey: 'purebox', icon: Sparkles }` do sekcji `events-tools`
+- Dodanie label `purebox: 'PureBox'` do `hardcodedLabels`
+
+### `Admin.tsx`
+- Import `PureBoxManagement`
+- Dodanie `<TabsContent value="purebox"><PureBoxManagement /></TabsContent>`
+
+### `DashboardSidebar.tsx` (opcjonalnie, w przyszłości)
+- Filtrowanie elementów PureBox na podstawie `purebox_settings` i `purebox_user_access` + rola użytkownika
 
 ## Pliki do zmiany
+
 | Plik | Akcja |
 |------|-------|
-| `src/components/omega-tests/OmegaThresholds.ts` | Nowy — helper functions |
-| `src/components/omega-tests/VitalityProgress.tsx` | Przebudowa na oś czasu protokołu |
-| `src/components/omega-tests/OmegaGaugeCharts.tsx` | Przebudowa na KPI cards |
-| `src/components/omega-tests/OmegaTestForm.tsx` | Dodanie Select etapu, nowy tytuł |
-| `src/components/omega-tests/OmegaTrendChart.tsx` | Dual Y-Axis, nowy tytuł |
-| `src/components/omega-tests/OmegaTestHistory.tsx` | Threshold kolory |
-| `src/pages/OmegaTests.tsx` | Nowy layout grid |
+| Migracja SQL | Nowe tabele + seed |
+| `src/components/admin/PureBoxManagement.tsx` | Nowy komponent |
+| `src/components/admin/AdminSidebar.tsx` | Dodanie zakładki |
+| `src/pages/Admin.tsx` | Rejestracja TabsContent |
 
