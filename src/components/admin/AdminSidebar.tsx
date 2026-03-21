@@ -179,6 +179,7 @@ const navCategories: NavCategory[] = [
       { value: 'specialist-calculator', labelKey: 'specialistCalculator', icon: Calculator },
       { value: 'partner-pages', labelKey: 'partnerPages', icon: Globe },
       { value: 'organization-tree', labelKey: 'organizationTree', icon: TreePine },
+      { value: 'purebox', labelKey: 'purebox', icon: Sparkles },
     ],
   },
   {
