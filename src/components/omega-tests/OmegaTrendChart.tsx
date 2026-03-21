@@ -24,12 +24,22 @@ export const OmegaTrendChart: React.FC<OmegaTrendChartProps> = ({ tests }) => {
 
   return (
     <div className="p-4 rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm">
-      <h3 className="text-sm font-semibold text-foreground mb-3">Trendy Balansu i Indeksu</h3>
+      <h3 className="text-sm font-semibold text-foreground mb-3">Historia Zmian (Test 1 vs Test 2)</h3>
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
           <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-          <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+          <YAxis
+            yAxisId="left"
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+            label={{ value: 'Ratio ↓', angle: -90, position: 'insideLeft', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+            label={{ value: 'Index % ↑', angle: 90, position: 'insideRight', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+          />
           <Tooltip
             contentStyle={{
               backgroundColor: 'hsl(var(--card))',
@@ -39,8 +49,8 @@ export const OmegaTrendChart: React.FC<OmegaTrendChartProps> = ({ tests }) => {
             }}
           />
           <Legend wrapperStyle={{ fontSize: '11px' }} />
-          <Line type="monotone" dataKey="Stosunek O6:O3" stroke="hsl(25, 95%, 53%)" strokeWidth={2} dot={{ r: 3 }} />
-          <Line type="monotone" dataKey="Indeks Omega-3" stroke="hsl(210, 100%, 52%)" strokeWidth={2} dot={{ r: 3 }} />
+          <Line yAxisId="left" type="monotone" dataKey="Stosunek O6:O3" stroke="hsl(25, 95%, 53%)" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+          <Line yAxisId="right" type="monotone" dataKey="Indeks Omega-3" stroke="hsl(210, 100%, 52%)" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>

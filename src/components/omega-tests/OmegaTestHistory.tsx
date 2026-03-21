@@ -4,6 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getRatioThreshold, getIndexThreshold } from './OmegaThresholds';
 
 interface OmegaTestHistoryProps {
   tests: OmegaTest[];
@@ -20,35 +21,39 @@ export const OmegaTestHistory: React.FC<OmegaTestHistoryProps> = ({ tests, onDel
         <p className="text-xs text-muted-foreground">Brak wpisów. Dodaj swój pierwszy test.</p>
       ) : (
         <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-          {reversed.map((test) => (
-            <div key={test.id} className="p-3 rounded-lg bg-background/50 border border-border/20 space-y-1">
-              <div className="flex justify-between items-start">
-                <span className="text-xs font-medium text-foreground">
-                  {format(parseISO(test.test_date), 'dd MMMM yyyy', { locale: pl })}
-                </span>
-                {onDelete && (
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDelete(test.id)}>
-                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                  </Button>
+          {reversed.map((test) => {
+            const ratioT = getRatioThreshold(test.omega6_3_ratio);
+            const indexT = getIndexThreshold(test.omega3_index);
+            return (
+              <div key={test.id} className="p-3 rounded-lg bg-background/50 border border-border/20 space-y-1">
+                <div className="flex justify-between items-start">
+                  <span className="text-xs font-medium text-foreground">
+                    {format(parseISO(test.test_date), 'dd MMMM yyyy', { locale: pl })}
+                  </span>
+                  {onDelete && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDelete(test.id)}>
+                      <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                    </Button>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {test.omega3_index !== null && (
+                    <span>Index: <strong className={indexT.color}>{test.omega3_index}%</strong></span>
+                  )}
+                  {test.omega6_3_ratio !== null && (
+                    <span>Ratio: <strong className={ratioT.color}>{test.omega6_3_ratio}:1</strong></span>
+                  )}
+                  {test.epa !== null && <span>EPA: {test.epa}%</span>}
+                  {test.dha !== null && <span>DHA: {test.dha}%</span>}
+                  {test.aa !== null && <span>AA: {test.aa}%</span>}
+                  {test.la !== null && <span>LA: {test.la}%</span>}
+                </div>
+                {test.notes && (
+                  <p className="text-[11px] text-muted-foreground/80 italic mt-1">„{test.notes}"</p>
                 )}
               </div>
-              <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                {test.omega3_index !== null && (
-                  <span>Index: <strong className="text-blue-400">{test.omega3_index}%</strong></span>
-                )}
-                {test.omega6_3_ratio !== null && (
-                  <span>Ratio: <strong className="text-orange-400">{test.omega6_3_ratio}:1</strong></span>
-                )}
-                {test.epa !== null && <span>EPA: {test.epa}%</span>}
-                {test.dha !== null && <span>DHA: {test.dha}%</span>}
-                {test.aa !== null && <span>AA: {test.aa}%</span>}
-                {test.la !== null && <span>LA: {test.la}%</span>}
-              </div>
-              {test.notes && (
-                <p className="text-[11px] text-muted-foreground/80 italic mt-1">„{test.notes}"</p>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
