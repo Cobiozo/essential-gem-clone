@@ -4767,6 +4767,48 @@ export type Database = {
           },
         ]
       }
+      omega_tests: {
+        Row: {
+          aa: number | null
+          created_at: string | null
+          dha: number | null
+          epa: number | null
+          id: string
+          la: number | null
+          notes: string | null
+          omega3_index: number | null
+          omega6_3_ratio: number | null
+          test_date: string
+          user_id: string
+        }
+        Insert: {
+          aa?: number | null
+          created_at?: string | null
+          dha?: number | null
+          epa?: number | null
+          id?: string
+          la?: number | null
+          notes?: string | null
+          omega3_index?: number | null
+          omega6_3_ratio?: number | null
+          test_date: string
+          user_id: string
+        }
+        Update: {
+          aa?: number | null
+          created_at?: string | null
+          dha?: number | null
+          epa?: number | null
+          id?: string
+          la?: number | null
+          notes?: string | null
+          omega3_index?: number | null
+          omega6_3_ratio?: number | null
+          test_date?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       organization_tree_settings: {
         Row: {
           client_max_depth: number
