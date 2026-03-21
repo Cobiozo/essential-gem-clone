@@ -6011,6 +6011,72 @@ export type Database = {
           },
         ]
       }
+      purebox_settings: {
+        Row: {
+          created_at: string | null
+          element_key: string
+          element_name: string
+          id: string
+          is_active: boolean | null
+          updated_at: string | null
+          visible_to_admin: boolean | null
+          visible_to_client: boolean | null
+          visible_to_partner: boolean | null
+          visible_to_specjalista: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          element_key: string
+          element_name: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          visible_to_admin?: boolean | null
+          visible_to_client?: boolean | null
+          visible_to_partner?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Update: {
+          created_at?: string | null
+          element_key?: string
+          element_name?: string
+          id?: string
+          is_active?: boolean | null
+          updated_at?: string | null
+          visible_to_admin?: boolean | null
+          visible_to_client?: boolean | null
+          visible_to_partner?: boolean | null
+          visible_to_specjalista?: boolean | null
+        }
+        Relationships: []
+      }
+      purebox_user_access: {
+        Row: {
+          created_at: string | null
+          element_key: string
+          granted_by: string | null
+          id: string
+          is_enabled: boolean | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          element_key: string
+          granted_by?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          element_key?: string
+          granted_by?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_notification_config: {
         Row: {
           badge_icon_url: string | null

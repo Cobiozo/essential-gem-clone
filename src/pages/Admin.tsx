@@ -80,6 +80,7 @@ import { LeaderPanelManagement } from '@/components/admin/LeaderPanelManagement'
 import { PlatformTeamsManagement } from '@/components/admin/PlatformTeamsManagement';
 import { SecurityModule } from '@/components/admin/SecurityModule';
 import { EmailDeliveryDashboard } from '@/components/admin/EmailDeliveryDashboard';
+import { PureBoxManagement } from '@/components/admin/PureBoxManagement';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4711,6 +4712,10 @@ const Admin = () => {
 
           <TabsContent value="security">
             <SecurityModule />
+          </TabsContent>
+
+          <TabsContent value="purebox">
+            <PureBoxManagement />
           </TabsContent>
         </Tabs>
       </div>
