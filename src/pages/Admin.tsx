@@ -4713,6 +4713,10 @@ const Admin = () => {
           <TabsContent value="security">
             <SecurityModule />
           </TabsContent>
+
+          <TabsContent value="purebox">
+            <PureBoxManagement />
+          </TabsContent>
         </Tabs>
       </div>
 
