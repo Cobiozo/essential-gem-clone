@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CalendarIcon, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
@@ -17,6 +18,7 @@ interface OmegaTestFormProps {
 }
 
 export const OmegaTestForm: React.FC<OmegaTestFormProps> = ({ onSubmit, isLoading }) => {
+  const [stage, setStage] = useState('test1');
   const [date, setDate] = useState<Date>(new Date());
   const [omega3Index, setOmega3Index] = useState('');
   const [omega6_3Ratio, setOmega6_3Ratio] = useState('');
@@ -38,7 +40,6 @@ export const OmegaTestForm: React.FC<OmegaTestFormProps> = ({ onSubmit, isLoadin
       la: la ? parseFloat(la) : null,
       notes: notes || null,
     });
-    // Reset form
     setOmega3Index('');
     setOmega6_3Ratio('');
     setAa('');
@@ -50,10 +51,24 @@ export const OmegaTestForm: React.FC<OmegaTestFormProps> = ({ onSubmit, isLoadin
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 p-4 rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm">
-      <h3 className="text-sm font-semibold text-foreground">Dodaj wynik nowego testu</h3>
+      <h3 className="text-sm font-semibold text-foreground">Wprowadź Wyniki Testu Vitas</h3>
       
       <div>
-        <Label className="text-xs text-muted-foreground">Data testu</Label>
+        <Label className="text-xs text-muted-foreground">Wybierz etap protokołu</Label>
+        <Select value={stage} onValueChange={setStage}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="test1">Test 1 (Początek)</SelectItem>
+            <SelectItem value="test2">Test 2 (Miesiąc 5)</SelectItem>
+            <SelectItem value="next">Kolejny test</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label className="text-xs text-muted-foreground">Data wykonania testu</Label>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-9 text-sm", !date && "text-muted-foreground")}>
@@ -69,12 +84,12 @@ export const OmegaTestForm: React.FC<OmegaTestFormProps> = ({ onSubmit, isLoadin
 
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <Label className="text-xs text-muted-foreground">Omega-3 Index %</Label>
-          <Input type="number" step="0.1" placeholder="np. 5.2" value={omega3Index} onChange={e => setOmega3Index(e.target.value)} className="h-9 text-sm" />
+          <Label className="text-xs text-muted-foreground">Stosunek Omega-6:3</Label>
+          <Input type="number" step="0.1" placeholder="np. 15.2" value={omega6_3Ratio} onChange={e => setOmega6_3Ratio(e.target.value)} className="h-9 text-sm" />
         </div>
         <div>
-          <Label className="text-xs text-muted-foreground">Stosunek O6:O3</Label>
-          <Input type="number" step="0.1" placeholder="np. 8.5" value={omega6_3Ratio} onChange={e => setOmega6_3Ratio(e.target.value)} className="h-9 text-sm" />
+          <Label className="text-xs text-muted-foreground">Indeks Omega-3 (%)</Label>
+          <Input type="number" step="0.1" placeholder="np. 3.1" value={omega3Index} onChange={e => setOmega3Index(e.target.value)} className="h-9 text-sm" />
         </div>
       </div>
 
@@ -107,7 +122,7 @@ export const OmegaTestForm: React.FC<OmegaTestFormProps> = ({ onSubmit, isLoadin
 
       <Button type="submit" className="w-full" variant="action" disabled={isLoading}>
         <Save className="h-4 w-4 mr-2" />
-        Zapisz nowe dane
+        ZAPISZ WYNIKI
       </Button>
     </form>
   );

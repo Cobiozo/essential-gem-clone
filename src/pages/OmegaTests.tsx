@@ -25,20 +25,18 @@ const OmegaTests: React.FC = () => {
               Dziennik Optymalizacji Omega
             </h1>
             <p className="text-xs text-muted-foreground">
-              Monitorowanie pełnego spektrum i balansu dla poprawy zdrowia
+              Protokół 6-miesięczny oparty o cykl życia krwinek czerwonych (120 dni)
             </p>
           </div>
         </div>
 
-        {/* Main grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left column — Vitality progress */}
-          <div className="lg:col-span-3 space-y-4">
-            <VitalityProgress tests={tests} />
-          </div>
+        {/* Section A: Protocol Timeline — full width */}
+        <VitalityProgress tests={tests} />
 
-          {/* Center column — Gauges + Charts */}
-          <div className="lg:col-span-5 space-y-4">
+        {/* Main grid: Section B (center) + Section C (right) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Section B: KPI Cards + Charts */}
+          <div className="lg:col-span-8 space-y-4">
             <OmegaGaugeCharts
               omega6_3_ratio={latestTest?.omega6_3_ratio ?? null}
               omega3_index={latestTest?.omega3_index ?? null}
@@ -47,7 +45,7 @@ const OmegaTests: React.FC = () => {
             <OmegaSpectrumChart tests={tests} />
           </div>
 
-          {/* Right column — Form + History */}
+          {/* Section C: Form + History */}
           <div className="lg:col-span-4 space-y-4">
             <OmegaTestForm
               onSubmit={(data) => addTest.mutate(data)}
