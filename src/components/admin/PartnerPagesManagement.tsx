@@ -35,6 +35,10 @@ export const PartnerPagesManagement: React.FC = () => {
             <FolderOpen className="w-4 h-4 mr-2" />
             Pliki na stronę BP
           </TabsTrigger>
+          <TabsTrigger value="forms">
+            <FileInput className="w-4 h-4 mr-2" />
+            Formularze
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="access">
