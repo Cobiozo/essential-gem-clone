@@ -8,7 +8,7 @@ import { formatFileSize } from '@/lib/storageConfig';
 import { copyToClipboard } from '@/lib/clipboardUtils';
 import {
   FolderPlus, Upload, Trash2, Copy, Eye, Loader2,
-  FolderOpen, Plus, X, Image as ImageIcon, FileText
+  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -16,6 +16,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
+import BpFileMappingEditor from './BpFileMappingEditor';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -50,6 +51,8 @@ export const BpPageFilesManager: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BpFile | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<BpFolder | null>(null);
+  const [mappingFile, setMappingFile] = useState<BpFile | null>(null);
+  const [mappedFileIds, setMappedFileIds] = useState<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading, uploadProgress } = useLocalStorage();
@@ -75,6 +78,20 @@ export const BpPageFilesManager: React.FC = () => {
 
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
+
+  // Fetch which files have mappings
+  useEffect(() => {
+    const fetchMapped = async () => {
+      const fileIds = files.map(f => f.id);
+      if (!fileIds.length) { setMappedFileIds(new Set()); return; }
+      const { data } = await supabase
+        .from('bp_file_mappings')
+        .select('file_id')
+        .in('file_id', fileIds);
+      if (data) setMappedFileIds(new Set(data.map(d => d.file_id)));
+    };
+    fetchMapped();
+  }, [files]);
 
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
@@ -277,6 +294,9 @@ export const BpPageFilesManager: React.FC = () => {
 
               {/* Actions overlay */}
               <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Mapuj dane">
+                  <Wand2 className="w-3 h-3" />
+                </Button>
                 {isImage(file.mime_type) && (
                   <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setPreviewUrl(file.file_url)}>
                     <Eye className="w-3 h-3" />
@@ -290,9 +310,16 @@ export const BpPageFilesManager: React.FC = () => {
                 </Button>
               </div>
 
-              {/* Position badge */}
-              <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded text-foreground">
-                #{idx + 1}
+              {/* Position badge + mapping indicator */}
+              <div className="absolute top-1 left-1 flex items-center gap-1">
+                <span className="bg-background/80 text-xs px-1.5 py-0.5 rounded text-foreground">
+                  #{idx + 1}
+                </span>
+                {mappedFileIds.has(file.id) && (
+                  <span className="bg-primary/80 text-primary-foreground text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
+                    <Wand2 className="w-2.5 h-2.5" />
+                  </span>
+                )}
               </div>
             </div>
           ))}
@@ -342,6 +369,21 @@ export const BpPageFilesManager: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mapping editor dialog */}
+      <Dialog open={!!mappingFile} onOpenChange={() => setMappingFile(null)}>
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] h-[95vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Edytor mapowania danych</DialogTitle>
+          </DialogHeader>
+          {mappingFile && (
+            <BpFileMappingEditor
+              file={mappingFile}
+              onClose={() => setMappingFile(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
