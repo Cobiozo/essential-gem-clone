@@ -769,6 +769,72 @@ export type Database = {
         }
         Relationships: []
       }
+      bp_page_files: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          file_name: string
+          file_size: number
+          file_url: string
+          folder: string
+          id: string
+          mime_type: string | null
+          original_name: string
+          position: number
+          updated_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          file_name: string
+          file_size?: number
+          file_url: string
+          folder?: string
+          id?: string
+          mime_type?: string | null
+          original_name: string
+          position?: number
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          file_name?: string
+          file_size?: number
+          file_url?: string
+          folder?: string
+          id?: string
+          mime_type?: string | null
+          original_name?: string
+          position?: number
+          updated_at?: string | null
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      bp_page_folders: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       calculator_settings: {
         Row: {
           base_commission_per_client: number | null
