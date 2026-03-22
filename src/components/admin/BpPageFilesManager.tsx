@@ -294,6 +294,9 @@ export const BpPageFilesManager: React.FC = () => {
 
               {/* Actions overlay */}
               <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Mapuj dane">
+                  <Wand2 className="w-3 h-3" />
+                </Button>
                 {isImage(file.mime_type) && (
                   <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setPreviewUrl(file.file_url)}>
                     <Eye className="w-3 h-3" />
