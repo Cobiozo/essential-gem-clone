@@ -5,6 +5,7 @@ import { TickerItem, TickerSettings } from './types';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { isAfter, isBefore } from 'date-fns';
+import { isMultiOccurrenceEvent, getNextActiveOccurrence } from '@/hooks/useOccurrences';
 
 interface NewsTickerData {
   items: TickerItem[];
