@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Save, Loader2, Eye, Megaphone, Video, Users, AlertCircle, ChevronDown, Search, User, Calendar, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Loader2, Eye, Megaphone, Video, Users, AlertCircle, ChevronDown, Search, User, Calendar, Sparkles, Activity, UserPlus, GraduationCap, Award, CalendarCheck, BookOpen, Handshake, UserCog, Upload } from 'lucide-react';
 import { NewsTicker } from '@/components/news-ticker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format, isPast } from 'date-fns';
@@ -33,6 +33,10 @@ interface TickerSettings {
   source_team_meetings: boolean;
   source_announcements: boolean;
   source_important_banners: boolean;
+  source_live_activity: boolean;
+  live_activity_types: string[];
+  live_activity_max_items: number;
+  live_activity_hours: number;
   animation_mode: 'scroll' | 'rotate' | 'static';
   scroll_speed: number;
   rotate_interval: number;
@@ -261,12 +265,16 @@ export const NewsTickerManagement: React.FC = () => {
         source_team_meetings: settings.source_team_meetings,
         source_announcements: settings.source_announcements,
         source_important_banners: settings.source_important_banners,
+        source_live_activity: settings.source_live_activity,
+        live_activity_types: settings.live_activity_types,
+        live_activity_max_items: settings.live_activity_max_items,
+        live_activity_hours: settings.live_activity_hours,
         animation_mode: settings.animation_mode,
         scroll_speed: settings.scroll_speed,
         rotate_interval: settings.rotate_interval,
         background_color: settings.background_color || null,
         text_color: settings.text_color || null,
-      })
+      } as any)
       .eq('id', settings.id);
 
     setSaving(false);
@@ -552,6 +560,86 @@ export const NewsTickerManagement: React.FC = () => {
                     </label>
                   </div>
                 </div>
+              </div>
+
+              {/* Live Activity Source */}
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="source_live_activity"
+                    checked={settings?.source_live_activity ?? false}
+                    onCheckedChange={(checked) => setSettings(s => s ? { ...s, source_live_activity: !!checked } : null)}
+                  />
+                  <label htmlFor="source_live_activity" className="text-sm flex items-center gap-2 font-medium">
+                    <Activity className="h-4 w-4" />
+                    Aktywność użytkowników na żywo
+                  </label>
+                </div>
+
+                {settings?.source_live_activity && (
+                  <div className="ml-6 space-y-4">
+                    <Label className="text-sm text-muted-foreground">Wybierz typy aktywności do wyświetlania:</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        { value: 'new_user_welcome', label: 'Nowy użytkownik', icon: UserPlus },
+                        { value: 'training_module_complete', label: 'Ukończenie modułu', icon: GraduationCap },
+                        { value: 'certificate_generated', label: 'Certyfikat', icon: Award },
+                        { value: 'event_registration', label: 'Rejestracja na wydarzenie', icon: CalendarCheck },
+                        { value: 'training_lesson_complete', label: 'Ukończenie lekcji', icon: BookOpen },
+                        { value: 'new_partner_joined', label: 'Nowy partner', icon: Handshake },
+                        { value: 'profile_update', label: 'Aktualizacja profilu', icon: UserCog },
+                        { value: 'file_upload', label: 'Przesłanie pliku', icon: Upload },
+                      ].map(({ value, label, icon: Icon }) => (
+                        <div key={value} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`activity_${value}`}
+                            checked={(settings?.live_activity_types ?? []).includes(value)}
+                            onCheckedChange={(checked) => {
+                              setSettings(s => {
+                                if (!s) return null;
+                                const types = s.live_activity_types || [];
+                                return {
+                                  ...s,
+                                  live_activity_types: checked
+                                    ? [...types, value]
+                                    : types.filter(t => t !== value),
+                                };
+                              });
+                            }}
+                          />
+                          <label htmlFor={`activity_${value}`} className="text-sm flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            {label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Pokaż z ostatnich: {settings.live_activity_hours}h</Label>
+                      <Slider
+                        value={[settings.live_activity_hours]}
+                        onValueChange={([value]) => setSettings(s => s ? { ...s, live_activity_hours: value } : null)}
+                        min={1}
+                        max={72}
+                        step={1}
+                        className="w-[300px]"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Maks. elementów aktywności: {settings.live_activity_max_items}</Label>
+                      <Slider
+                        value={[settings.live_activity_max_items]}
+                        onValueChange={([value]) => setSettings(s => s ? { ...s, live_activity_max_items: value } : null)}
+                        min={1}
+                        max={20}
+                        step={1}
+                        className="w-[300px]"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Animation settings */}

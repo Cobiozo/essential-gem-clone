@@ -1,6 +1,6 @@
 export interface TickerItem {
   id: string;
-  type: 'webinar' | 'meeting' | 'announcement' | 'banner';
+  type: 'webinar' | 'meeting' | 'announcement' | 'banner' | 'activity';
   icon: string;
   content: string;
   isImportant: boolean;
@@ -30,6 +30,10 @@ export interface TickerSettings {
   sourceTeamMeetings: boolean;
   sourceAnnouncements: boolean;
   sourceImportantBanners: boolean;
+  sourceLiveActivity: boolean;
+  liveActivityTypes: string[];
+  liveActivityMaxItems: number;
+  liveActivityHours: number;
 }
 
 export interface SelectedEvent {

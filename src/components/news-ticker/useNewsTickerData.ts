@@ -47,6 +47,10 @@ export const useNewsTickerData = (): NewsTickerData => {
           sourceTeamMeetings: data.source_team_meetings,
           sourceAnnouncements: data.source_announcements,
           sourceImportantBanners: data.source_important_banners,
+          sourceLiveActivity: (data as any).source_live_activity ?? false,
+          liveActivityTypes: (data as any).live_activity_types ?? [],
+          liveActivityMaxItems: (data as any).live_activity_max_items ?? 5,
+          liveActivityHours: (data as any).live_activity_hours ?? 24,
         });
       }
     };
@@ -226,6 +230,150 @@ export const useNewsTickerData = (): NewsTickerData => {
               priority: 40,
             });
           });
+        }
+      }
+
+      // Fetch live activity
+      if (settings.sourceLiveActivity && settings.liveActivityTypes.length > 0) {
+        const hoursAgo = new Date(now.getTime() - settings.liveActivityHours * 60 * 60 * 1000);
+        
+        // Map ticker activity types to user_activity_log action_types
+        const activityTypeMap: Record<string, string> = {
+          'training_module_complete': 'training_lesson_complete',
+          'training_lesson_complete': 'training_lesson_complete',
+          'certificate_generated': 'certificate_download',
+          'event_registration': 'meeting_join',
+          'profile_update': 'profile_update',
+          'file_upload': 'file_upload',
+        };
+
+        // Fetch from user_activity_log
+        const logTypes = settings.liveActivityTypes
+          .map(t => activityTypeMap[t])
+          .filter(Boolean);
+
+        if (logTypes.length > 0) {
+          const { data: activityLogs } = await supabase
+            .from('user_activity_log' as any)
+            .select('id, user_id, action_type, action_data, created_at')
+            .in('action_type', logTypes)
+            .gte('created_at', hoursAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(settings.liveActivityMaxItems);
+
+          if (activityLogs && (activityLogs as any[]).length > 0) {
+            // Fetch profiles for user names
+            const userIds = [...new Set((activityLogs as any[]).map((l: any) => l.user_id))];
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name')
+              .in('user_id', userIds);
+
+            const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
+
+            (activityLogs as any[]).forEach((log: any) => {
+              const profile = profileMap.get(log.user_id);
+              const userName = profile 
+                ? `${profile.first_name || ''} ${(profile.last_name || '').charAt(0)}.`.trim()
+                : 'Użytkownik';
+              const logDate = new Date(log.created_at);
+              const timeStr = format(logDate, 'HH:mm dd.MM.yyyy', { locale: pl });
+              const actionData = log.action_data || {};
+
+              let content = '';
+              let icon = 'Activity';
+
+              switch (log.action_type) {
+                case 'training_lesson_complete':
+                  content = `${timeStr} — ${userName} ukończył lekcję${actionData.module_title ? ` w module „${actionData.module_title}"` : ''}`;
+                  icon = 'BookOpen';
+                  break;
+                case 'certificate_download':
+                  content = `${timeStr} — ${userName} wygenerował certyfikat ukończenia. GRATULUJEMY! 🎉`;
+                  icon = 'Award';
+                  break;
+                case 'meeting_join':
+                  content = `${timeStr} — ${userName} zarejestrowała się na wydarzenie${actionData.event_title ? ` „${actionData.event_title}"` : ''}`;
+                  icon = 'CalendarCheck';
+                  break;
+                case 'profile_update':
+                  content = `${timeStr} — ${userName} zaktualizował swój profil`;
+                  icon = 'UserCog';
+                  break;
+                case 'file_upload':
+                  content = `${timeStr} — ${userName} przesłał nowy plik`;
+                  icon = 'Upload';
+                  break;
+                default:
+                  content = `${timeStr} — ${userName} wykonał akcję w systemie`;
+              }
+
+              allItems.push({
+                id: `activity-${log.id}`,
+                type: 'activity',
+                icon,
+                content,
+                isImportant: false,
+                sourceId: log.id,
+                priority: 30,
+              });
+            });
+          }
+        }
+
+        // Fetch new user registrations
+        if (settings.liveActivityTypes.includes('new_user_welcome')) {
+          const { data: newUsers } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name, created_at')
+            .gte('created_at', hoursAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(settings.liveActivityMaxItems);
+
+          if (newUsers) {
+            newUsers.forEach(u => {
+              const regDate = new Date(u.created_at!);
+              const timeStr = format(regDate, 'HH:mm dd.MM.yyyy', { locale: pl });
+              const name = `${u.first_name || ''} ${(u.last_name || '').charAt(0)}.`.trim();
+              allItems.push({
+                id: `activity-newuser-${u.user_id}`,
+                type: 'activity',
+                icon: 'UserPlus',
+                content: `${timeStr} — Witamy ${name}, nowego użytkownika Pure Life Center! 🎉`,
+                isImportant: false,
+                sourceId: u.user_id,
+                priority: 35,
+              });
+            });
+          }
+        }
+
+        // Fetch new partners
+        if (settings.liveActivityTypes.includes('new_partner_joined')) {
+          const { data: newPartners } = await supabase
+            .from('profiles')
+            .select('user_id, first_name, last_name, created_at')
+            .eq('role', 'partner')
+            .gte('created_at', hoursAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(settings.liveActivityMaxItems);
+
+          if (newPartners) {
+            newPartners.forEach(p => {
+              const regDate = new Date(p.created_at!);
+              const timeStr = format(regDate, 'HH:mm dd.MM.yyyy', { locale: pl });
+              const name = `${p.first_name || ''} ${(p.last_name || '').charAt(0)}.`.trim();
+              allItems.push({
+                id: `activity-partner-${p.user_id}`,
+                type: 'activity',
+                icon: 'Handshake',
+                content: `${timeStr} — Nowy partner dołączył do zespołu: ${name}`,
+                isImportant: false,
+                sourceId: p.user_id,
+                priority: 35,
+              });
+            });
+          }
         }
       }
 
