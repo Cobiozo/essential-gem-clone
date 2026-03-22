@@ -19,6 +19,7 @@ import { NewsTicker } from '@/components/news-ticker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { isMultiOccurrenceEvent, getNextActiveOccurrence } from '@/hooks/useOccurrences';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMultiFormProtection } from '@/hooks/useFormProtection';
