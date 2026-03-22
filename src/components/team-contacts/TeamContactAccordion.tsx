@@ -180,10 +180,11 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
             >
               {/* Collapsed View - Always Visible */}
               <div
-                className="flex items-center justify-between p-4 cursor-pointer"
+                className="flex flex-col p-3 sm:p-4 cursor-pointer gap-2"
                 onClick={() => toggleExpand(contact.id)}
               >
-                <div className="flex items-center gap-4 flex-1 min-w-0">
+                {/* Top row: Avatar + Name + Chevron */}
+                <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="flex-shrink-0">
                     <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="w-5 h-5 text-primary" />
@@ -192,95 +193,20 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground truncate">
+                      <h3 className="font-semibold text-foreground truncate max-w-[160px] sm:max-w-none">
                         {contact.first_name} {contact.last_name}
                       </h3>
                       {contactType !== 'private' && getRoleBadge(contact.role)}
                        {getStatusBadge(contact, contactType === 'team_member')}
                     </div>
-                    {/* Event badges inline */}
-                    {eventContactDetails && eventContactDetails.get(contact.id) && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {eventContactDetails.get(contact.id)!.map((ev) => (
-                          <React.Fragment key={`${ev.event_id}-${ev.registered_at}`}>
-                            <Badge variant="outline" className="text-xs font-normal">
-                              📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
-                              {ev.registered_at && (
-                                <span className="ml-1 text-muted-foreground">
-                                  (zapis: {new Date(ev.registered_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})
-                                </span>
-                              )}
-                            </Badge>
-                            {ev.registration_attempts && ev.registration_attempts > 1 && (
-                              <Badge variant="destructive" className="text-xs font-normal">
-                                🔄 Ponowna próba ×{ev.registration_attempts}
-                              </Badge>
-                            )}
-                          </React.Fragment>
-                        ))}
-                      </div>
-                    )}
                     {contactType !== 'private' && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground whitespace-nowrap truncate">
                         EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
                       </p>
                     )}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  {!readOnly && (
-                    <>
-                      {showInviteButton && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setInviteContact(contact);
-                          }}
-                          title="Zaproś na wydarzenie"
-                        >
-                          <Send className="w-4 h-4 text-primary" />
-                        </Button>
-                      )}
-                      {!hideEventInfo && <ContactEventInfoButton contact={contact} />}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setHistoryContact(contact);
-                        }}
-                        title={t('common.history')}
-                      >
-                        <History className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEdit(contact);
-                        }}
-                        title={t('common.edit')}
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirm(contact.id);
-                        }}
-                        title={t('common.delete')}
-                      >
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </>
-                  )}
-                  <Button variant="ghost" size="icon">
+                  <Button variant="ghost" size="icon" className="flex-shrink-0">
                     {isExpanded ? (
                       <ChevronUp className="w-5 h-5" />
                     ) : (
@@ -288,6 +214,86 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                     )}
                   </Button>
                 </div>
+
+                {/* Event badges */}
+                {eventContactDetails && eventContactDetails.get(contact.id) && (
+                  <div className="flex flex-wrap gap-1 pl-[52px] sm:pl-[52px] max-w-full overflow-hidden">
+                    {eventContactDetails.get(contact.id)!.map((ev) => (
+                      <React.Fragment key={`${ev.event_id}-${ev.registered_at}`}>
+                        <Badge variant="outline" className="text-xs font-normal truncate max-w-full">
+                          📅 {ev.event_title} • {new Date(ev.event_start_time).toLocaleDateString('pl-PL')}
+                          {ev.registered_at && (
+                            <span className="ml-1 text-muted-foreground hidden sm:inline">
+                              (zapis: {new Date(ev.registered_at).toLocaleString('pl-PL', { timeZone: 'Europe/Warsaw', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })})
+                            </span>
+                          )}
+                        </Badge>
+                        {ev.registration_attempts && ev.registration_attempts > 1 && (
+                          <Badge variant="destructive" className="text-xs font-normal">
+                            🔄 ×{ev.registration_attempts}
+                          </Badge>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                )}
+
+                {/* Action buttons row */}
+                {!readOnly && (
+                  <div className="flex items-center gap-1 flex-wrap pl-[52px] sm:pl-[52px]">
+                    {showInviteButton && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInviteContact(contact);
+                        }}
+                        title="Zaproś na wydarzenie"
+                      >
+                        <Send className="w-4 h-4 text-primary" />
+                      </Button>
+                    )}
+                    {!hideEventInfo && <ContactEventInfoButton contact={contact} />}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHistoryContact(contact);
+                      }}
+                      title={t('common.history')}
+                    >
+                      <History className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEdit(contact);
+                      }}
+                      title={t('common.edit')}
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteConfirm(contact.id);
+                      }}
+                      title={t('common.delete')}
+                    >
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Expanded View - Details */}
