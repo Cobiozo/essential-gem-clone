@@ -4,6 +4,7 @@ import { useNewsTickerData } from './useNewsTickerData';
 import { TickerItemComponent } from './TickerItem';
 import { TickerItem } from './types';
 import { Loader2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface NewsTickerProps {
   className?: string;
