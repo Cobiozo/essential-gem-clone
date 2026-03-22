@@ -30,6 +30,10 @@ export const PartnerPagesManagement: React.FC = () => {
             <ClipboardList className="w-4 h-4 mr-2" />
             Ankieta
           </TabsTrigger>
+          <TabsTrigger value="bp-files">
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Pliki na stronę BP
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="access">
@@ -46,6 +50,10 @@ export const PartnerPagesManagement: React.FC = () => {
 
         <TabsContent value="survey">
           <SurveyManager />
+        </TabsContent>
+
+        <TabsContent value="bp-files">
+          <BpPageFilesManager />
         </TabsContent>
       </Tabs>
     </div>
