@@ -232,7 +232,7 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
     textObjs.forEach(o => canvas.remove(o));
 
     if (data?.elements && Array.isArray(data.elements)) {
-      for (const el of data.elements as MappingElement[]) {
+      for (const el of data.elements as unknown as MappingElement[]) {
         if (el.type === 'text') {
           const displayContent = previewMode
             ? resolveVariablesInText(el.content, PREVIEW_PROFILE)
