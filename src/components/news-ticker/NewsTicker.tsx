@@ -109,11 +109,17 @@ const StaticContent: React.FC<{ items: TickerItem[] }> = ({ items }) => {
 
 export const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
   const { items, settings, loading } = useNewsTickerData();
+  const isMobile = useIsMobile();
 
   // Don't render if disabled or no items
   if (!settings?.isEnabled || (items.length === 0 && !loading)) {
     return null;
   }
+
+  // Force rotate mode on mobile for better readability
+  const effectiveMode = isMobile && settings.animationMode === 'scroll'
+    ? 'rotate'
+    : settings.animationMode;
 
   // Custom styling from settings
   const customStyles: React.CSSProperties = {};
@@ -132,6 +138,7 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
         "bg-gradient-to-r from-muted/60 via-muted/40 to-muted/60",
         "border border-border/40",
         "py-2 px-3",
+        "text-xs sm:text-sm",
         className
       )}
       style={customStyles}
@@ -140,9 +147,9 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
         <div className="flex items-center justify-center py-1">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
-      ) : settings.animationMode === 'scroll' ? (
+      ) : effectiveMode === 'scroll' ? (
         <MarqueeContent items={items} speed={settings.scrollSpeed} />
-      ) : settings.animationMode === 'rotate' ? (
+      ) : effectiveMode === 'rotate' ? (
         <RotatingContent items={items} interval={settings.rotateInterval} />
       ) : (
         <StaticContent items={items} />
