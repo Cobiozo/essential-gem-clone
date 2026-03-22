@@ -16,7 +16,7 @@ interface Props {
   onProductLinkSave?: (productId: string, purchaseUrl: string) => void;
 }
 
-export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks, partnerEmail, isEditing, onProductLinkSave }) => {
+export const ProductsWithFormSection: React.FC<Props> = ({ config, products, productLinks, partnerEmail, partnerUserId, isEditing, onProductLinkSave }) => {
   const { heading, columns, form_config, cta_bg_color } = config;
   const ctaBg = cta_bg_color || '#2d6a4f';
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
