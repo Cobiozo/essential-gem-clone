@@ -199,11 +199,11 @@ export const NewsTickerManagement: React.FC = () => {
         setItems(itemsData as TickerItem[]);
       }
 
-      // Fetch all events (webinars and team_training)
+      // Fetch all events (webinars, team_training, meeting_public)
       const { data: eventsData } = await supabase
         .from('events')
-        .select('id, title, event_type, start_time, is_active')
-        .in('event_type', ['webinar', 'team_training'])
+        .select('id, title, event_type, start_time, is_active, occurrences')
+        .in('event_type', ['webinar', 'team_training', 'meeting_public'])
         .eq('is_active', true)
         .order('start_time', { ascending: true });
 
