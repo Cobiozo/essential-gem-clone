@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { formatFileSize } from '@/lib/storageConfig';
 import { copyToClipboard } from '@/lib/clipboardUtils';
+import { resolveVariablesInText, PREVIEW_PROFILE } from '@/lib/partnerVariables';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FolderPlus, Upload, Trash2, Copy, Eye, Loader2,
   FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2, Hash
@@ -44,6 +46,69 @@ interface BpFile {
   cta_label: string | null;
 }
 
+const CANVAS_WIDTH_EDITOR = 842;
+
+const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file, mappings }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [renderedWidth, setRenderedWidth] = useState(0);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(entries => {
+      for (const e of entries) setRenderedWidth(e.contentRect.width);
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const scale = renderedWidth / CANVAS_WIDTH_EDITOR;
+  const canvasH = naturalSize ? CANVAS_WIDTH_EDITOR * (naturalSize.h / naturalSize.w) : 0;
+
+  return (
+    <div ref={containerRef} className="relative inline-block w-full">
+      <img
+        src={file.file_url}
+        alt={file.original_name}
+        className="w-full h-auto rounded-lg block"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+        }}
+      />
+      {naturalSize && renderedWidth > 0 && mappings.map((el: any, i: number) => {
+        const leftPct = ((el.x || 0) / CANVAS_WIDTH_EDITOR) * 100;
+        const topPct = ((el.y || 0) / canvasH) * 100;
+        const widthPct = el.width ? (el.width / CANVAS_WIDTH_EDITOR) * 100 : undefined;
+        const scaledFontSize = (el.fontSize || 24) * scale;
+        const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
+        return (
+          <div
+            key={el.id || i}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${leftPct}%`,
+              top: `${topPct}%`,
+              width: widthPct ? `${widthPct}%` : 'auto',
+              fontSize: `${scaledFontSize}px`,
+              fontFamily: el.fontFamily || 'Arial',
+              fontWeight: el.fontWeight || 'normal',
+              fontStyle: el.fontStyle || 'normal',
+              textDecoration: el.textDecoration || 'none',
+              color: el.color || '#000000',
+              textAlign: el.align || 'left',
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.2,
+            }}
+          >
+            {resolvedText}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const BpPageFilesManager: React.FC = () => {
   const [folders, setFolders] = useState<BpFolder[]>([]);
   const [files, setFiles] = useState<BpFile[]>([]);
@@ -52,7 +117,8 @@ export const BpPageFilesManager: React.FC = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderCtaLabel, setNewFolderCtaLabel] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<BpFile | null>(null);
+  const [previewMappings, setPreviewMappings] = useState<any[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<BpFile | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<BpFolder | null>(null);
   const [mappingFile, setMappingFile] = useState<BpFile | null>(null);
@@ -356,7 +422,15 @@ export const BpPageFilesManager: React.FC = () => {
                   <Wand2 className="w-3 h-3" />
                 </Button>
                 {isImage(file.mime_type) && (
-                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setPreviewUrl(file.file_url)}>
+                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => {
+                    setPreviewFile(file);
+                    setPreviewMappings([]);
+                    supabase.from('bp_file_mappings').select('elements').eq('file_id', file.id).eq('page_index', 0).maybeSingle().then(({ data }) => {
+                      if (data?.elements && Array.isArray(data.elements)) {
+                        setPreviewMappings(data.elements);
+                      }
+                    });
+                  }}>
                     <Eye className="w-3 h-3" />
                   </Button>
                 )}
@@ -384,15 +458,19 @@ export const BpPageFilesManager: React.FC = () => {
         </div>
       )}
 
-      {/* Preview dialog */}
-      <Dialog open={!!previewUrl} onOpenChange={() => setPreviewUrl(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Podgląd</DialogTitle>
+      {/* Preview dialog — full page with mapping overlays */}
+      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] flex flex-col p-0">
+          <DialogHeader className="p-4 pb-2 shrink-0">
+            <DialogTitle>{previewFile?.original_name || 'Podgląd'}</DialogTitle>
           </DialogHeader>
-          {previewUrl && (
-            <img src={previewUrl} alt="Preview" className="w-full rounded-lg" />
-          )}
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-4 pt-0">
+              {previewFile && (
+                <PreviewWithMappings file={previewFile} mappings={previewMappings} />
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
