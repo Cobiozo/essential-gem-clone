@@ -1,46 +1,35 @@
 
 
-# Rozbudowa sekcji Timeline zgodnie ze screenem (szablon Eqology)
+# Update Eqology Timeline Section — exact match to screenshot
 
-## Co widać na screenie
-- Ciemne tło (dark green ~#0a1628)
-- Nagłówek bold + tekst opisowy (subtitle) pod nagłówkiem
-- 5 kamieni milowych w jednym rzędzie połączonych linią
-- Kółka: zielone (highlighted) lub ciemnoszare z obramowaniem, z numerem lub ikoną
-- Wyróżniony kamień (highlight) ma złoty/żółty kolor tekstu miesiąca
-- Linia łącząca przechodzi przez środek kółek
+## What needs to change
 
-## Zmiany
+The timeline section in the Eqology template (`id: 892223f1-cccf-4922-bab3-5781f7629a8a`) has outdated content (4 milestones, wrong heading/subtitle, no colors). Must be updated to match the screenshot exactly.
 
-### 1. `TimelineSection.tsx` — rozbudowa renderowania
-- Dodać obsługę pola `subtitle` (tekst pod nagłówkiem)
-- Dodać obsługę `bg_color` i `text_color` dla sekcji (ciemne tło)
-- Zmienić grid z sztywnego `md:grid-cols-4` na dynamiczny w zależności od liczby milestones (do 6 kolumn)
-- Poprawić styl linii łączącej — linia na środku kółek (top-7 zamiast top-8)
-- Wyróżniony kamień: tekst miesiąca w kolorze żółtym/złotym (`text-yellow-400`)
-- Kółka: numer wewnątrz zamiast tylko emoji (obsługa `m.icon` jako tekst/numer)
+## Screenshot content (verbatim)
 
-### 2. `TimelineSectionEditor.tsx` — dodanie pól edycji
-- Dodać pole `subtitle` (tekst opisowy)
-- Dodać pola kolorów: `bg_color`, `text_color`, `line_color`, `highlight_text_color`
+- **Heading**: "Proces wymaga czasu"
+- **Subtitle**: "System trwa 6 miesięcy. To biologia i zaplanowana, komórkowa odbudowa Twojego organizmu."
+- **Background**: dark green (#0a1628)
+- **Text color**: white (#ffffff)
+- **Line color**: green (#10b981)
+- **Highlight text color**: yellow/gold (#facc15)
+- **5 milestones**:
+  1. Icon: "1", green highlight → "Miesiąc 1" / "Start. Wykonujesz 1. test i zaczynasz dawkę nasycającą."
+  2. Icon: "2–3", no highlight → "Miesiąc 2–3" / "Kontynuacja. Komórki przyswajają EPA i DHA."
+  3. Icon: "🎁", highlight, yellow month text → "Miesiąc 4" / "Gratis: Otrzymujesz bonus Eqology Essential."
+  4. Icon: "5", green highlight → "Miesiąc 5" / "2. test kontrolny. Porównanie wyników."
+  5. Icon: "6", no highlight → "Miesiąc 6" / "Zakończenie cyklu i trwała kontynuacja nawyku."
 
-### 3. Szablon Eqology w bazie danych
-- Dodanie sekcji timeline z odpowiednią konfiguracją (5 milestones) — to admin zrobi ręcznie przez edytor, ale komponent musi to obsługiwać
+## Changes
 
-## Szczegóły techniczne
+### 1. Database migration
+Update the `timeline_plan` element in the Eqology template with exact content, colors, and 5 milestones matching the screenshot.
 
-**TimelineSection** — dynamiczne kolumny:
-```text
-const colsClass = count <= 3 ? 'md:grid-cols-3' 
-  : count === 4 ? 'md:grid-cols-4' 
-  : count === 5 ? 'md:grid-cols-5' 
-  : 'md:grid-cols-6';
-```
+### 2. No component changes needed
+`TimelineSection.tsx` already supports all required features (subtitle, bg_color, text_color, line_color, highlight_text_color, dynamic columns).
 
-**Nowe pola config**: `subtitle`, `bg_color`, `text_color`, `line_color`, `highlight_text_color`
-
-| Plik | Zmiana |
+| File | Change |
 |------|--------|
-| `src/components/partner-page/sections/TimelineSection.tsx` | Subtitle, kolory tła/tekstu, dynamiczne kolumny, styl highlight |
-| `src/components/admin/template-sections/TimelineSectionEditor.tsx` | Pola: subtitle, bg_color, text_color, line_color, highlight_text_color |
+| New migration SQL | Update Eqology template timeline config with exact screenshot content |
 
