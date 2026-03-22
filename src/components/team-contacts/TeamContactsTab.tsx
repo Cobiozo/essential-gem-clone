@@ -352,6 +352,16 @@ export const TeamContactsTab: React.FC = () => {
                   <Badge variant="secondary" className="ml-2">{eventContacts.length}</Badge>
                 </Button>
                 <Button
+                  variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('partner-page')}
+                >
+                  Z Mojej Strony Partnera
+                  {partnerPageContacts.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
+                  )}
+                </Button>
+                <Button
                   variant={privateSubTab === 'deleted' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('deleted')}
