@@ -57,6 +57,8 @@ const PartnerPageView: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [formKeys, setFormKeys] = useState<string[]>([]);
+  const [activeFormKey, setActiveFormKey] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPage = async () => {
