@@ -124,6 +124,14 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
                 onSurveyOpen();
                 return;
               }
+              if (isAnchor && formKeys && onFormOpen) {
+                const anchor = url.substring(1);
+                if (formKeys.includes(anchor)) {
+                  e.preventDefault();
+                  onFormOpen(anchor);
+                  return;
+                }
+              }
               if (isAnchor) {
                 e.preventDefault();
                 const anchor = url.substring(1);
