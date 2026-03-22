@@ -274,15 +274,46 @@ async function handleSendEmailWithFile(
   const fileBase64 = btoa(binary);
 
   // 7. Build email HTML
+  const partnerName = `${partnerData.first_name || ''} ${partnerData.last_name || ''}`.trim() || 'Twój opiekun';
+  const partnerSpec = partnerData.specialization || '';
+  const partnerPhone = partnerData.phone_number || '';
+  const partnerEmailAddr = partnerData.email || '';
+  const partnerAvatar = partnerData.avatar_url || '';
+
+  const avatarHtml = partnerAvatar
+    ? `<img src="${partnerAvatar}" alt="${partnerName}" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; margin-bottom: 12px;" />`
+    : '';
+
+  const phoneHtml = partnerPhone
+    ? `<p style="color: #555; font-size: 14px; margin: 4px 0;">Tel: <a href="tel:${partnerPhone}" style="color: #2d6a4f; text-decoration: none;">${partnerPhone}</a></p>`
+    : '';
+
+  const specHtml = partnerSpec
+    ? `<p style="color: #777; font-size: 13px; margin: 4px 0;">${partnerSpec}</p>`
+    : '';
+
+  const contactButtonHtml = partnerEmailAddr
+    ? `<a href="mailto:${partnerEmailAddr}?subject=Kontakt ze strony partnerskiej" style="display: inline-block; margin-top: 12px; padding: 10px 24px; background-color: #2d6a4f; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px;">Napisz do mnie</a>`
+    : '';
+
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #333;">Cześć ${recipientFirstName || ''}!</h2>
       <p style="color: #555; line-height: 1.6;">
-        Dziękujemy za wypełnienie formularza. W załączniku znajdziesz poradnik/e-book, który dla Ciebie przygotowaliśmy.
+        Dziękujemy za wypełnienie formularza. W załączniku znajdziesz poradnik, który przygotował/a dla Ciebie Twój opiekun.
       </p>
       <p style="color: #555; line-height: 1.6;">
-        Jeśli masz pytania, nie wahaj się z nami skontaktować.
+        Jeśli masz pytania, skontaktuj się bezpośrednio ze swoim opiekunem:
       </p>
+
+      <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 24px 0; text-align: center;">
+        ${avatarHtml}
+        <h3 style="color: #333; margin: 0 0 4px; font-size: 18px;">${partnerName}</h3>
+        ${specHtml}
+        ${phoneHtml}
+        ${contactButtonHtml}
+      </div>
+
       <p style="color: #555; line-height: 1.6; margin-top: 30px;">
         Pozdrawiamy,<br/>
         <strong>Zespół Pure Life</strong>
