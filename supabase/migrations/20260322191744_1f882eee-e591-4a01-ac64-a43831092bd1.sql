@@ -1,0 +1,1 @@
+ALTER TABLE public.partner_page_forms ADD COLUMN post_submit_actions JSONB DEFAULT '[]'::jsonb;

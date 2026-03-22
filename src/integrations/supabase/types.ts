@@ -5547,6 +5547,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          post_submit_actions: Json | null
           submit_text: string
           success_message: string
           updated_at: string
@@ -5560,6 +5561,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          post_submit_actions?: Json | null
           submit_text?: string
           success_message?: string
           updated_at?: string
@@ -5573,6 +5575,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          post_submit_actions?: Json | null
           submit_text?: string
           success_message?: string
           updated_at?: string
