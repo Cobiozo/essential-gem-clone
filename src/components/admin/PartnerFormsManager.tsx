@@ -113,6 +113,8 @@ export const PartnerFormsManager: React.FC = () => {
       submit_text: editingForm.submit_text,
       success_message: editingForm.success_message,
       is_active: editingForm.is_active,
+      description: editingForm.description || null,
+      consent_text: editingForm.consent_text || null,
     };
 
     if (isNew) {
