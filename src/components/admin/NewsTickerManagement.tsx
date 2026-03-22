@@ -19,6 +19,7 @@ import { NewsTicker } from '@/components/news-ticker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format, isPast } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { isMultiOccurrenceEvent, getNextActiveOccurrence } from '@/hooks/useOccurrences';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMultiFormProtection } from '@/hooks/useFormProtection';
@@ -74,6 +75,7 @@ interface EventItem {
   event_type: string;
   start_time: string;
   is_active: boolean;
+  occurrences?: any;
 }
 
 interface SelectedEvent {
@@ -197,11 +199,11 @@ export const NewsTickerManagement: React.FC = () => {
         setItems(itemsData as TickerItem[]);
       }
 
-      // Fetch all events (webinars and team_training)
+      // Fetch all events (webinars, team_training, meeting_public)
       const { data: eventsData } = await supabase
         .from('events')
-        .select('id, title, event_type, start_time, is_active')
-        .in('event_type', ['webinar', 'team_training'])
+        .select('id, title, event_type, start_time, is_active, occurrences')
+        .in('event_type', ['webinar', 'team_training', 'meeting_public'])
         .eq('is_active', true)
         .order('start_time', { ascending: true });
 
@@ -431,7 +433,7 @@ export const NewsTickerManagement: React.FC = () => {
 
   // Filter events by type
   const webinars = allEvents.filter(e => e.event_type === 'webinar');
-  const meetings = allEvents.filter(e => e.event_type === 'team_training');
+  const meetings = allEvents.filter(e => e.event_type === 'team_training' || e.event_type === 'meeting_public');
 
   if (loading) {
     return (
@@ -725,8 +727,11 @@ export const NewsTickerManagement: React.FC = () => {
                       <p className="text-sm text-muted-foreground py-2">Brak aktywnych webinarów</p>
                     ) : (
                       webinars.map(event => {
-                        const eventDate = new Date(event.start_time);
-                        const isOld = isPast(eventDate);
+                        const eventAsAny = event as any;
+                        const hasOccurrences = isMultiOccurrenceEvent(eventAsAny);
+                        const nextOcc = hasOccurrences ? getNextActiveOccurrence(eventAsAny) : null;
+                        const displayDate = nextOcc ? nextOcc.start_datetime : new Date(event.start_time);
+                        const isOld = hasOccurrences ? !nextOcc : isPast(displayDate);
                         return (
                           <div
                             key={event.id}
@@ -742,7 +747,7 @@ export const NewsTickerManagement: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{event.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                {format(eventDate, 'd MMMM yyyy, HH:mm', { locale: pl })}
+                                {format(displayDate, 'd MMMM yyyy, HH:mm', { locale: pl })}
                                 {isOld && ' - minęło'}
                               </p>
                             </div>
@@ -770,8 +775,11 @@ export const NewsTickerManagement: React.FC = () => {
                       <p className="text-sm text-muted-foreground py-2">Brak aktywnych spotkań zespołowych</p>
                     ) : (
                       meetings.map(event => {
-                        const eventDate = new Date(event.start_time);
-                        const isOld = isPast(eventDate);
+                        const eventAsAny = event as any;
+                        const hasOccurrences = isMultiOccurrenceEvent(eventAsAny);
+                        const nextOcc = hasOccurrences ? getNextActiveOccurrence(eventAsAny) : null;
+                        const displayDate = nextOcc ? nextOcc.start_datetime : new Date(event.start_time);
+                        const isOld = hasOccurrences ? !nextOcc : isPast(displayDate);
                         return (
                           <div
                             key={event.id}
@@ -787,7 +795,7 @@ export const NewsTickerManagement: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{event.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                {format(eventDate, 'd MMMM yyyy, HH:mm', { locale: pl })}
+                                {format(displayDate, 'd MMMM yyyy, HH:mm', { locale: pl })}
                                 {isOld && ' - minęło'}
                               </p>
                             </div>
