@@ -26,6 +26,7 @@ import {
   SurveySection,
   SurveyModal,
 } from '@/components/partner-page/sections';
+import { PartnerFormModal } from '@/components/partner-page/sections/PartnerFormModal';
 
 interface PartnerProfile {
   first_name: string | null;
