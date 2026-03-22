@@ -333,11 +333,11 @@ serve(async (req) => {
     const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {}, attachments = [] }: SendEmailRequest = await req.json();
     console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template, html_body_length: html_body?.length, attachments_count: attachments.length });
 
-    if (!skip_template) {
+    if (!skip_template && !isInternalCall) {
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
+        .eq("user_id", callerUserId!)
         .eq("role", "admin")
         .single();
       if (!roleData) throw new Error("Only admins can send template emails");
