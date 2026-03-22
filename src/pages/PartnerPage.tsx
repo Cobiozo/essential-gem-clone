@@ -101,6 +101,7 @@ const PartnerPageView: React.FC = () => {
       setProfile(profileRes.data as any);
       setProducts(productsRes.data as any || []);
       setProductLinks((linksRes.data as any) || []);
+      setFormKeys((formsRes.data || []).map((f: any) => f.cta_key));
       setLoading(false);
     };
 
