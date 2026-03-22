@@ -1,71 +1,47 @@
 
 
-# Fix: Mobile layout issues in Team Contacts accordion cards
+# Fix: News Ticker mobile display issues (iOS)
 
 ## Problem
 
-On iPhone (narrow screens ~375px), the contact card header row overflows because:
+The screenshot shows the ticker in **scroll (marquee) mode** is garbled on mobile — text with emojis/flags overlaps and becomes unreadable. The ticker sits inside the WelcomeWidget card which already has constrained width on mobile.
 
-1. **Action buttons row doesn't collapse** — Up to 6 icon buttons (Invite, EventInfo, History, Edit, Delete, Chevron) sit in a non-wrapping `flex` row alongside the contact info, squeezing the text area to near-zero width
-2. **EQID text breaks vertically** — With almost no horizontal space left, "EQID: ..." wraps character-by-character
-3. **Badges overflow** — Role badge + Status badge + EQID line all compete for the tiny remaining space
+Root causes:
+1. **No mobile-specific mode**: The marquee scroll animation doesn't work well on narrow screens (~375px) — items with emojis and long text overlap because `translateX(-50%)` assumes enough horizontal space
+2. **Missing text size reduction**: `text-sm` is still relatively large when combined with emojis and icons in a narrow container
+3. **No mobile fallback**: On small screens, the scroll mode should switch to **rotate** mode (one item at a time) for readability
 
 ## Solution
 
-### File: `src/components/team-contacts/TeamContactAccordion.tsx`
+### File: `src/components/news-ticker/NewsTicker.tsx`
 
-**1. Restructure collapsed header for mobile** (lines 182-291):
-- Change the main layout from horizontal `flex justify-between` to a stacked layout on mobile
-- Top row: Avatar + Name + Badges + Chevron toggle (essential info)
-- Bottom row (mobile only): Action buttons in a scrollable/wrapping row
-- Use responsive classes: `flex-col sm:flex-row`
+1. **Auto-switch to rotate mode on mobile**: Use `useIsMobile()` hook. When on mobile and `animationMode === 'scroll'`, force rotate mode instead — this shows one item at a time with fade transition, which is much more readable on narrow screens
 
-**2. Move action buttons below on mobile** (lines 231-290):
-- Wrap action buttons in a container that shows as inline on desktop but as a separate row on mobile
-- Add `flex-wrap` and `gap-1` for mobile
-- Hide less critical buttons behind a "more" menu on very small screens, OR simply allow wrapping
+2. **Add `text-xs` on mobile**: Add responsive font size to the ticker container: `text-xs sm:text-sm`
 
-**3. EQID line — add `whitespace-nowrap` and `truncate`** (lines 223-227):
-- Prevent character-level breaking with `whitespace-nowrap truncate`
+3. **Constrain ticker item content on mobile**: Ensure items in rotate mode truncate if still too long
 
-**4. Expanded details grid** (line 296):
-- Already uses `grid-cols-1 md:grid-cols-2 lg:grid-cols-3` — OK
+### File: `src/components/news-ticker/TickerItem.tsx`
+
+4. **Truncate long content on mobile**: Add `max-w-full` and truncation for the content span so text doesn't overflow the container on narrow screens
 
 ### Specific changes:
 
-**Header restructure:**
+**NewsTicker.tsx** — import `useIsMobile`, determine effective animation mode:
 ```tsx
-// Outer container: stack on mobile, row on desktop
-<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 cursor-pointer gap-2" ...>
-  {/* Top: avatar + name + chevron */}
-  <div className="flex items-center gap-3 flex-1 min-w-0">
-    {/* avatar */}
-    <div className="flex-1 min-w-0">
-      {/* name, badges, EQID with truncation */}
-    </div>
-    {/* Chevron always visible, right-aligned */}
-    <Button variant="ghost" size="icon" className="flex-shrink-0">...</Button>
-  </div>
-  {/* Action buttons: wrap on mobile */}
-  <div className="flex items-center gap-1 flex-wrap pl-14 sm:pl-0">
-    {/* buttons */}
-  </div>
-</div>
+const isMobile = useIsMobile();
+const effectiveMode = isMobile && settings.animationMode === 'scroll' 
+  ? 'rotate' 
+  : settings.animationMode;
 ```
+Use `effectiveMode` in the render switch. Add `text-xs sm:text-sm` to container.
 
-**EQID fix:**
-```tsx
-<p className="text-sm text-muted-foreground whitespace-nowrap truncate">
-  EQID: <span className="font-mono">{contact.eq_id || '-'}</span>
-</p>
-```
-
-**Event badges — limit display on mobile:**
-- Add `max-w-full overflow-hidden` to the event badges container
+**TickerItem.tsx** — add `max-w-full overflow-hidden` to outer span, and `truncate max-w-[70vw]` to content text span for scroll mode (non-wrap).
 
 ### Files to change
 
 | File | Change |
 |------|--------|
-| `src/components/team-contacts/TeamContactAccordion.tsx` | Restructure card header for mobile: stack layout, wrap action buttons, truncate EQID |
+| `src/components/news-ticker/NewsTicker.tsx` | Force rotate mode on mobile, add responsive text sizing |
+| `src/components/news-ticker/TickerItem.tsx` | Add truncation/overflow handling for narrow screens |
 
