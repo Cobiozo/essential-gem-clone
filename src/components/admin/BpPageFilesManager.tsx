@@ -97,18 +97,30 @@ export const BpPageFilesManager: React.FC = () => {
     fetchMapped();
   }, [files]);
 
+  const sanitizeAnchor = (val: string) =>
+    val.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-_]/g, '');
+
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) return;
-    const { error } = await supabase.from('bp_page_folders').insert({ name });
+    const cta = newFolderCtaLabel.trim() ? sanitizeAnchor(newFolderCtaLabel) : null;
+    const { error } = await supabase.from('bp_page_folders').insert({ name, cta_label: cta } as any);
     if (error) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
     setNewFolderName('');
+    setNewFolderCtaLabel('');
     setShowNewFolder(false);
     fetchFolders();
     toast({ title: 'Folder utworzony' });
+  };
+
+  const handleUpdateCtaLabel = async (table: 'bp_page_folders' | 'bp_page_files', id: string, value: string) => {
+    const cta = value.trim() ? sanitizeAnchor(value) : null;
+    await supabase.from(table).update({ cta_label: cta } as any).eq('id', id);
+    if (table === 'bp_page_folders') fetchFolders();
+    else fetchFiles();
   };
 
   const handleDeleteFolder = async () => {
