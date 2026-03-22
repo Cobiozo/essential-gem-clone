@@ -26,6 +26,7 @@ interface BpFolder {
   id: string;
   name: string;
   description: string | null;
+  cta_label: string | null;
 }
 
 interface BpFile {
@@ -39,6 +40,7 @@ interface BpFile {
   description: string | null;
   position: number;
   created_at: string;
+  cta_label: string | null;
 }
 
 export const BpPageFilesManager: React.FC = () => {
