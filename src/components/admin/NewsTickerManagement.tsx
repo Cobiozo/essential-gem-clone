@@ -75,6 +75,7 @@ interface EventItem {
   event_type: string;
   start_time: string;
   is_active: boolean;
+  occurrences?: any;
 }
 
 interface SelectedEvent {
