@@ -254,15 +254,44 @@ export const BpPageFilesManager: React.FC = () => {
         </div>
       )}
 
+      {/* Folder CTA label inline edit */}
+      {(() => {
+        const currentFolder = folders.find(f => f.name === selectedFolder);
+        if (!currentFolder) return null;
+        return (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Hash className="w-3.5 h-3.5" />
+            <span>Kotwica folderu:</span>
+            <Input
+              placeholder="np. ebook-folder"
+              defaultValue={currentFolder.cta_label || ''}
+              onBlur={e => handleUpdateCtaLabel('bp_page_folders', currentFolder.id, e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              className="h-7 text-xs max-w-[200px]"
+            />
+            {currentFolder.cta_label && (
+              <Badge variant="outline" className="text-[10px]">#{currentFolder.cta_label}</Badge>
+            )}
+          </div>
+        );
+      })()}
+
       {/* New folder inline form */}
       {showNewFolder && (
-        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50 flex-wrap">
           <Input
             placeholder="Nazwa folderu"
             value={newFolderName}
             onChange={e => setNewFolderName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
             className="max-w-xs"
+          />
+          <Input
+            placeholder="Kotwica CTA (opcjonalnie)"
+            value={newFolderCtaLabel}
+            onChange={e => setNewFolderCtaLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+            className="max-w-[200px]"
           />
           <Button size="sm" onClick={handleCreateFolder}><Plus className="w-4 h-4" /></Button>
           <Button size="sm" variant="ghost" onClick={() => setShowNewFolder(false)}><X className="w-4 h-4" /></Button>
