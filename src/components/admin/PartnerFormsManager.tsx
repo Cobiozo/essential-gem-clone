@@ -239,6 +239,27 @@ export const PartnerFormsManager: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Tekst wprowadzający (opis formularza)</Label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm min-h-[60px] resize-none bg-background text-foreground"
+                    value={editingForm.description || ''}
+                    onChange={e => setEditingForm({ ...editingForm, description: e.target.value })}
+                    placeholder="np. Pobierz nasz darmowy poradnik. Po wypełnieniu formularza poradnik zostanie wysłany na podany adres email."
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Treść zgody na przetwarzanie danych</Label>
+                  <textarea
+                    className="w-full px-3 py-2 border border-border rounded-lg text-sm min-h-[60px] resize-none bg-background text-foreground"
+                    value={editingForm.consent_text || ''}
+                    onChange={e => setEditingForm({ ...editingForm, consent_text: e.target.value })}
+                    placeholder="np. Wyrażam zgodę na przetwarzanie moich danych osobowych..."
+                  />
+                  <p className="text-xs text-muted-foreground">Jeśli wypełnione, checkbox zgody będzie wymagany przed wysłaniem formularza</p>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={editingForm.is_active}
