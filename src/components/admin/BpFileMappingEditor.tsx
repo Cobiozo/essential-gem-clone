@@ -475,6 +475,34 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+        {/* Variables legend panel */}
+        <div className="w-56 border-r border-border bg-muted/30 p-3 overflow-y-auto shrink-0 space-y-3">
+          <div>
+            <h4 className="text-sm font-semibold text-foreground flex items-center gap-1.5 mb-1">
+              <Variable className="w-4 h-4" />
+              Zmienne dynamiczne
+            </h4>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Kliknij zmienną aby wstawić ją na canvas lub do zaznaczonego elementu.
+            </p>
+          </div>
+          <div className="space-y-1">
+            {VARIABLES_LEGEND.map(v => (
+              <button
+                key={v.variable}
+                type="button"
+                onClick={() => insertVariable(v.variable)}
+                className="w-full text-left px-2 py-1.5 rounded-md hover:bg-accent/50 transition-colors group"
+              >
+                <code className="block text-xs font-mono text-primary group-hover:text-primary/80">
+                  {v.variable}
+                </code>
+                <span className="text-[10px] text-muted-foreground">{v.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Canvas area */}
         <div ref={containerRef} className="flex-1 overflow-auto p-4 bg-muted/20 flex items-start justify-center">
           {loading && (
