@@ -46,6 +46,69 @@ interface BpFile {
   cta_label: string | null;
 }
 
+const CANVAS_WIDTH_EDITOR = 842;
+
+const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file, mappings }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [renderedWidth, setRenderedWidth] = useState(0);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver(entries => {
+      for (const e of entries) setRenderedWidth(e.contentRect.width);
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  const scale = renderedWidth / CANVAS_WIDTH_EDITOR;
+  const canvasH = naturalSize ? CANVAS_WIDTH_EDITOR * (naturalSize.h / naturalSize.w) : 0;
+
+  return (
+    <div ref={containerRef} className="relative inline-block w-full">
+      <img
+        src={file.file_url}
+        alt={file.original_name}
+        className="w-full h-auto rounded-lg block"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+        }}
+      />
+      {naturalSize && renderedWidth > 0 && mappings.map((el: any, i: number) => {
+        const leftPct = ((el.x || 0) / CANVAS_WIDTH_EDITOR) * 100;
+        const topPct = ((el.y || 0) / canvasH) * 100;
+        const widthPct = el.width ? (el.width / CANVAS_WIDTH_EDITOR) * 100 : undefined;
+        const scaledFontSize = (el.fontSize || 24) * scale;
+        const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
+        return (
+          <div
+            key={el.id || i}
+            className="absolute pointer-events-none"
+            style={{
+              left: `${leftPct}%`,
+              top: `${topPct}%`,
+              width: widthPct ? `${widthPct}%` : 'auto',
+              fontSize: `${scaledFontSize}px`,
+              fontFamily: el.fontFamily || 'Arial',
+              fontWeight: el.fontWeight || 'normal',
+              fontStyle: el.fontStyle || 'normal',
+              textDecoration: el.textDecoration || 'none',
+              color: el.color || '#000000',
+              textAlign: el.align || 'left',
+              whiteSpace: 'pre-wrap',
+              lineHeight: 1.2,
+            }}
+          >
+            {resolvedText}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 export const BpPageFilesManager: React.FC = () => {
   const [folders, setFolders] = useState<BpFolder[]>([]);
   const [files, setFiles] = useState<BpFile[]>([]);
