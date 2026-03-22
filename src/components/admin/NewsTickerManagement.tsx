@@ -14,7 +14,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, Save, Loader2, Eye, Megaphone, Video, Users, AlertCircle, ChevronDown, Search, User, Calendar, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Trash2, Save, Loader2, Eye, Megaphone, Video, Users, AlertCircle, ChevronDown, Search, User, Calendar, Sparkles, Activity, UserPlus, GraduationCap, Award, CalendarCheck, BookOpen, Handshake, UserCog, Upload } from 'lucide-react';
 import { NewsTicker } from '@/components/news-ticker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format, isPast } from 'date-fns';
