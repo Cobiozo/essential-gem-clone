@@ -47,6 +47,10 @@ export const useNewsTickerData = (): NewsTickerData => {
           sourceTeamMeetings: data.source_team_meetings,
           sourceAnnouncements: data.source_announcements,
           sourceImportantBanners: data.source_important_banners,
+          sourceLiveActivity: (data as any).source_live_activity ?? false,
+          liveActivityTypes: (data as any).live_activity_types ?? [],
+          liveActivityMaxItems: (data as any).live_activity_max_items ?? 5,
+          liveActivityHours: (data as any).live_activity_hours ?? 24,
         });
       }
     };

@@ -4603,10 +4603,14 @@ export type Database = {
           created_at: string | null
           id: string
           is_enabled: boolean | null
+          live_activity_hours: number
+          live_activity_max_items: number
+          live_activity_types: Json
           rotate_interval: number | null
           scroll_speed: number | null
           source_announcements: boolean | null
           source_important_banners: boolean | null
+          source_live_activity: boolean
           source_team_meetings: boolean | null
           source_webinars: boolean | null
           text_color: string | null
@@ -4621,10 +4625,14 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_enabled?: boolean | null
+          live_activity_hours?: number
+          live_activity_max_items?: number
+          live_activity_types?: Json
           rotate_interval?: number | null
           scroll_speed?: number | null
           source_announcements?: boolean | null
           source_important_banners?: boolean | null
+          source_live_activity?: boolean
           source_team_meetings?: boolean | null
           source_webinars?: boolean | null
           text_color?: string | null
@@ -4639,10 +4647,14 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_enabled?: boolean | null
+          live_activity_hours?: number
+          live_activity_max_items?: number
+          live_activity_types?: Json
           rotate_interval?: number | null
           scroll_speed?: number | null
           source_announcements?: boolean | null
           source_important_banners?: boolean | null
+          source_live_activity?: boolean
           source_team_meetings?: boolean | null
           source_webinars?: boolean | null
           text_color?: string | null
