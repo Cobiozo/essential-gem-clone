@@ -85,6 +85,6 @@ export const PREVIEW_PROFILE: PartnerProfileData = {
   country: 'Polska',
   specialization: 'Zdrowie i wellness',
   profile_description: 'Pasjonat zdrowego stylu życia',
-  eq_id: 'EQ123456',
+  eq_id: '123456',
   avatar_url: '',
 };
