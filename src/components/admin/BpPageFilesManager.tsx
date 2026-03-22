@@ -51,6 +51,8 @@ export const BpPageFilesManager: React.FC = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BpFile | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<BpFolder | null>(null);
+  const [mappingFile, setMappingFile] = useState<BpFile | null>(null);
+  const [mappedFileIds, setMappedFileIds] = useState<Set<string>>(new Set());
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading, uploadProgress } = useLocalStorage();
