@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface FormField {
   id: string;
@@ -18,6 +19,8 @@ interface FormDef {
   fields: FormField[];
   submit_text: string;
   success_message: string;
+  description?: string;
+  consent_text?: string;
 }
 
 interface Props {
@@ -33,11 +36,13 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [consentChecked, setConsentChecked] = useState(false);
 
   useEffect(() => {
     if (!open || !ctaKey) return;
     setSubmitted(false);
     setValues({});
+    setConsentChecked(false);
     setLoading(true);
 
     supabase
@@ -53,6 +58,8 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
           setFormDef({
             ...data,
             fields: (data.fields as any) || [],
+            description: (data as any).description || '',
+            consent_text: (data as any).consent_text || '',
           });
         }
         setLoading(false);
@@ -65,17 +72,19 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
     e.preventDefault();
     if (!formDef) return;
 
-    // Build lead data from field values
+    if (formDef.consent_text && !consentChecked) {
+      toast.error('Musisz wyrazić zgodę na przetwarzanie danych');
+      return;
+    }
+
     const findField = (type: string) => {
       const f = formDef.fields.find(f => f.type === type);
       return f ? values[f.id] || '' : '';
     };
 
-    // Try to extract known fields by type, then by label patterns
     const emailValue = findField('email') || '';
     const phoneValue = findField('tel') || '';
     
-    // For name fields, look for fields labeled like "Imię", "Nazwisko", or first text field
     const textFields = formDef.fields.filter(f => f.type === 'text');
     const firstNameField = textFields.find(f => /imi[eę]/i.test(f.label)) || textFields[0];
     const lastNameField = textFields.find(f => /nazw/i.test(f.label));
@@ -83,13 +92,11 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
     const firstName = firstNameField ? values[firstNameField.id] || '' : '';
     const lastName = lastNameField ? values[lastNameField.id] || '' : '';
 
-    // Collect all field values as message/notes
     const messageLines = formDef.fields
       .filter(f => f.type === 'textarea')
       .map(f => values[f.id] || '')
       .filter(Boolean);
 
-    // Also include all field values as structured notes
     const allFieldNotes = formDef.fields
       .map(f => `${f.label}: ${values[f.id] || '(puste)'}`)
       .join('\n');
@@ -119,6 +126,8 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
       setSubmitting(false);
     }
   };
+
+  const hasConsent = formDef?.consent_text && formDef.consent_text.trim().length > 0;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
@@ -155,6 +164,11 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Description / intro text */}
+              {formDef.description && (
+                <p className="text-sm text-gray-600 leading-relaxed">{formDef.description}</p>
+              )}
+
               {formDef.fields.map(field => (
                 <div key={field.id} className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-700">
@@ -181,9 +195,26 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
                   )}
                 </div>
               ))}
+
+              {/* Consent checkbox */}
+              {hasConsent && (
+                <div className="flex items-start gap-2.5 pt-2">
+                  <Checkbox
+                    id="form-consent"
+                    checked={consentChecked}
+                    onCheckedChange={(checked) => setConsentChecked(!!checked)}
+                    className="mt-0.5"
+                  />
+                  <label htmlFor="form-consent" className="text-xs text-gray-500 leading-relaxed cursor-pointer">
+                    {formDef.consent_text}
+                    <span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (hasConsent && !consentChecked)}
                 className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
