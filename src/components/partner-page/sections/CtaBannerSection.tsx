@@ -29,6 +29,14 @@ export const CtaBannerSection: React.FC<Props> = ({ config, onSurveyOpen, formKe
                 onSurveyOpen();
                 return;
               }
+              if (url.startsWith('#') && formKeys && onFormOpen) {
+                const anchor = url.substring(1);
+                if (formKeys.includes(anchor)) {
+                  e.preventDefault();
+                  onFormOpen(anchor);
+                  return;
+                }
+              }
               if (url.startsWith('#')) {
                 e.preventDefault();
                 const anchor = url.substring(1);
