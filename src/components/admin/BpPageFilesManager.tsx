@@ -433,21 +433,6 @@ export const BpPageFilesManager: React.FC = () => {
         </DndContext>
       )}
 
-      {/* Preview dialog — full page with mapping overlays */}
-      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] flex flex-col p-0">
-          <DialogHeader className="p-4 pb-2 shrink-0">
-            <DialogTitle>{previewFile?.original_name || 'Podgląd'}</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="p-4 pt-0">
-              {previewFile && (
-                <PreviewWithMappings file={previewFile} mappings={previewMappings} />
-              )}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete file confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
