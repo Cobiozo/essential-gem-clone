@@ -30,6 +30,8 @@ interface FormDefinition {
   success_message: string;
   is_active: boolean;
   created_at: string;
+  description?: string;
+  consent_text?: string;
 }
 
 const generateId = () => crypto.randomUUID().slice(0, 8);
