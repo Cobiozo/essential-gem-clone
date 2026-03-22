@@ -1,27 +1,19 @@
 
 
-# Dodanie formularza "Odbierz darmowy poradnik" i podpięcie pod przycisk
+# Fix: Formularze nie działają na stronie partnera i w podglądzie szablonu
 
-## Zmiany
+## Problem
+`TemplatePreviewPage.tsx` (podgląd szablonu w panelu admina) renderuje sekcje `HeaderSection`, `HeroSection` i `CtaBannerSection` **bez** propsów `formKeys` i `onFormOpen`. W efekcie kliknięcie przycisku `#darmowy-poradnik` nie przechwytuje eventu i nie otwiera modala formularza.
 
-### 1. Insert definicji formularza do `partner_page_forms`
-Migracja SQL wstawiająca formularz:
-- `name`: "Odbierz darmowy poradnik"
-- `cta_key`: `darmowy-poradnik`
-- `fields`: imię, nazwisko, email (wszystkie wymagane)
-- `submit_text`: "Odbieram poradnik"
-- `success_message`: "Dziękujemy! Poradnik zostanie wysłany na podany adres email."
-- `is_active`: true
+Strona partnerska (`PartnerPage.tsx`) ma poprawną implementację — problem dotyczy podglądu w panelu admina.
 
-### 2. Update URL przycisku w szablonie
-W szablonie `e5ae6342-1e2a-469d-8ab6-d493bb48f55e` przycisk "Odbierz darmowy poradnik" ma pusty URL. Migracja zaktualizuje go na `#darmowy-poradnik`, aby kotwica pasowała do `cta_key` formularza.
+## Rozwiązanie
+Dodać do `TemplatePreviewPage.tsx`:
+1. Fetch `partner_page_forms` (cta_key) przy ładowaniu
+2. Stan `formKeys` i `activeFormKey`
+3. Przekazanie `formKeys` i `onFormOpen` do `HeaderSection`, `HeroSection`, `CtaBannerSection`
+4. Import i render `PartnerFormModal` (w trybie podglądu — bez zapisu leada, lub z fikcyjnym `partnerUserId`)
 
-Update zostanie wykonany na wszystkich szablonach, które mają ten przycisk (przeszukanie JSONB i zamiana).
-
-### Efekt
-Po kliknięciu "Odbierz darmowy poradnik" w nawigacji strony partnera otworzy się modal z polami: Imię, Nazwisko, Email. Po wypełnieniu dane zapiszą się jako kontakt prywatny partnera.
-
-## Pliki
-- Migracja SQL (insert + update template)
-- Brak zmian w kodzie — logika formKeys/onFormOpen/PartnerFormModal jest już zaimplementowana
+## Pliki do modyfikacji
+- `src/pages/TemplatePreviewPage.tsx` — dodanie fetcha formularzy, stanu, propsów i modala
 
