@@ -1,65 +1,64 @@
 
 
-# Zakładka "Formularze" + zapis leadów do kontaktów prywatnych
+# Formularze na stronie partnera — system definicji formularzy z kotwicami CTA
 
-## Opis
-Dodanie zakładki "Formularze" w zarządzaniu stronami partnerskimi (obok Ankieta). Dane z formularzy kontaktowych na stronie partnera będą automatycznie zapisywane jako kontakty prywatne (`contact_type: 'private'`) w tabeli `team_contacts` partnera, widoczne w nowej pod-zakładce "Z Mojej Strony Partnera" w sekcji Pure-kontakty.
+## Obecny stan
+- Zakładka "Formularze" zawiera `PartnerFormsManager` — wyświetla jedynie listę zebranych leadów
+- Brak systemu definicji formularzy konfigurowalnych przez admina
+- Przyciski CTA obsługują kotwicę `#ankieta` (otwiera modal ankiety) — ten sam wzorzec zastosujemy do formularzy
+
+## Cel
+Admin tworzy formularze w zakładce "Formularze", każdy z unikalną kotwicą CTA (np. `darmowy-poradnik`). Gdy przycisk na stronie partnera ma URL `#darmowy-poradnik`, kliknięcie otwiera modal z tym formularzem. Po wypełnieniu dane zapisują się jako kontakt prywatny partnera (`contact_source: 'Strona partnerska'`).
 
 ## Zmiany
 
-### 1. Zakładka "Formularze" w admin panelu
-**Plik: `src/components/admin/PartnerPagesManagement.tsx`**
-- Dodanie TabsTrigger "Formularze" z ikoną `FileInput`
-- Nowy komponent `PartnerFormsManager` — podgląd wszystkich leadów zebranych z formularzy stron partnerskich (lista z filtrami po partnerze, dacie)
-- Dane pobierane z `team_contacts` WHERE `contact_source = 'Strona partnerska'`
+### 1. Nowa tabela `partner_page_forms` (migracja SQL)
+```
+id, name, cta_key (unique), fields (jsonb), submit_text, success_message, 
+is_active, created_at, updated_at
+```
+Pole `fields` — tablica obiektów: `{ label, type (text/email/tel/textarea), placeholder, required }`.
+Pole `cta_key` — kotwica CTA (np. `darmowy-poradnik`), unikalna, używana jako `#darmowy-poradnik` w URL przycisków.
 
-**Nowy plik: `src/components/admin/PartnerFormsManager.tsx`**
-- Tabela leadów: imię, nazwisko, email, telefon, partner (właściciel strony), data dodania
-- Filtrowanie po partnerze i dacie
-- Podgląd szczegółów kontaktu
+RLS: select dla wszystkich (anonimowe strony), insert/update/delete tylko admin.
 
-### 2. Zapis leada z formularza kontaktowego
-**Plik: `src/components/partner-page/sections/ContactFormSection.tsx`**
-- Po wysłaniu formularza, oprócz emaila — insert do `team_contacts`:
-  - `user_id` = partner's user_id (nowy prop `partnerUserId`)
-  - `contact_type` = `'private'`
-  - `contact_source` = `'Strona partnerska'`
-  - `first_name`, `last_name`, `email`, `phone_number` z pól formularza
-  - `role` = `'client'`
-  - `notes` = treść wiadomości (jeśli jest pole textarea)
-  - `contact_reason` = `'Formularz kontaktowy'`
-- Nowy prop `partnerUserId: string` przekazywany z `PartnerPage.tsx`
+### 2. Przebudowa `PartnerFormsManager.tsx`
+Dwie pod-zakładki:
+- **Definicje formularzy** — CRUD formularzy: nazwa, kotwica CTA, lista pól (dodawanie/usuwanie/edycja), tekst przycisku, wiadomość sukcesu, aktywny/nieaktywny
+- **Zebrane leady** — obecna tabela leadów (przeniesiona do osobnego komponentu `PartnerLeadsList`)
 
-**Plik: `src/pages/PartnerPage.tsx`**
-- Przekazać `partnerUserId={page.user_id}` do sekcji `contact_form` i `products_with_form`
+### 3. Nowy komponent `PartnerFormModal.tsx`
+Modal wyświetlany na stronie partnera po kliknięciu przycisku z kotwicą formularza:
+- Pobiera definicję formularza z `partner_page_forms` po `cta_key`
+- Renderuje pola dynamicznie z konfiguracji `fields`
+- Po submit: wywołuje edge function `save-partner-lead` z danymi + `contact_reason` = nazwa formularza
 
-**Plik: `src/components/partner-page/sections/ProductsWithFormSection.tsx`**
-- Przekazać `partnerUserId` do `ContactFormSection`
+### 4. Modyfikacja sekcji ze wsparciem CTA
+Wzorzec identyczny jak `#ankieta` → `onSurveyOpen`:
+- `PartnerPage.tsx`: pobiera aktywne formularze, tworzy mapę `cta_key → form`, przekazuje callback `onFormOpen(ctaKey)` do sekcji
+- `HeaderSection`, `HeroSection`, `CtaBannerSection`: rozszerzenie `handleClick` — jeśli URL to `#<cta_key>` pasujący do formularza, otwiera `PartnerFormModal`
+- Nowy prop `formKeys?: string[]` + `onFormOpen?: (key: string) => void`
 
-### 3. Pod-zakładka "Z Mojej Strony Partnera" w kontaktach prywatnych
-**Plik: `src/components/team-contacts/TeamContactsTab.tsx`**
-- Rozszerzenie `privateSubTab` o wartość `'partner-page'`
-- Nowy przycisk "Z Mojej Strony Partnera" obok istniejących
-- Filtrowanie: `privateContacts.filter(c => c.contact_source === 'Strona partnerska')`
-- Wyświetlanie w tym samym `TeamContactAccordion` z `contactType="private"`
-
-### 4. Edge function insert — bez auth
-Ponieważ formularz wypełnia niezalogowany użytkownik, insert do `team_contacts` musi być wykonany przez edge function (RLS nie pozwoli anonowi wstawić wiersza).
-
-**Nowa edge function: `save-partner-lead`**
-- Przyjmuje: `partner_user_id`, `first_name`, `last_name`, `email`, `phone_number`, `message`
-- Walidacja danych (email, wymagane pola)
-- Insert do `team_contacts` z service_role key
-- Zwraca sukces/błąd
+### 5. Stan formularza w `PartnerPage.tsx`
+```
+const [formDefs, setFormDefs] = useState<FormDef[]>([]);
+const [activeFormKey, setActiveFormKey] = useState<string | null>(null);
+```
+- Fetch `partner_page_forms` where `is_active = true` on mount
+- `handleFormOpen(ctaKey)` → `setActiveFormKey(ctaKey)`
+- Render `<PartnerFormModal>` gdy `activeFormKey !== null`
 
 ## Pliki do utworzenia
-- `src/components/admin/PartnerFormsManager.tsx`
-- `supabase/functions/save-partner-lead/index.ts`
+- `src/components/partner-page/sections/PartnerFormModal.tsx`
+- `src/components/admin/PartnerLeadsList.tsx` (wydzielona tabela leadów)
 
 ## Pliki do modyfikacji
-- `src/components/admin/PartnerPagesManagement.tsx` — nowa zakładka
-- `src/components/partner-page/sections/ContactFormSection.tsx` — wywołanie edge function
-- `src/pages/PartnerPage.tsx` — przekazanie `partnerUserId`
-- `src/components/partner-page/sections/ProductsWithFormSection.tsx` — przekazanie `partnerUserId`
-- `src/components/team-contacts/TeamContactsTab.tsx` — nowa pod-zakładka
+- `src/components/admin/PartnerFormsManager.tsx` — przebudowa na edytor formularzy + pod-zakładka leadów
+- `src/pages/PartnerPage.tsx` — fetch form defs, stan modala, przekazanie callbacków
+- `src/components/partner-page/sections/HeaderSection.tsx` — obsługa `onFormOpen`
+- `src/components/partner-page/sections/HeroSection.tsx` — obsługa `onFormOpen`
+- `src/components/partner-page/sections/CtaBannerSection.tsx` — obsługa `onFormOpen`
+
+## Migracja SQL
+Tabela `partner_page_forms` + RLS policies.
 
