@@ -1,34 +1,38 @@
 
 
-# Poprawka podglądu pliku — pełna strona z nałożonym mapowaniem
+# Poprawka podglądu + Drag & Drop dla plików w folderze
 
-## Problem
-Aktualny podgląd (`Dialog` z `<img>`) pokazuje tylko surowy obraz bez nałożonych elementów mapowania. Ponadto duże obrazy mogą być ucinane przez ograniczenia dialogu.
+## 1. Poprawka podglądu (pełna strona z mapowaniem)
 
-## Rozwiązanie
+Komponent `PreviewWithMappings` zostanie przebudowany, aby odtwarzał scenę identyczną z edytorem mapowania:
 
-### Zmiana w `BpPageFilesManager.tsx`
+- Stage o stałych proporcjach `842×595` (jak edytor), nie proporcjach naturalnego obrazu
+- Tło renderowane w trybie `contain` wewnątrz stage z odpowiednimi marginesami (offsety X/Y)
+- Elementy mapowania pozycjonowane względem stage `842×595`, a nie obrazu
+- Skalowanie `fontSize` proporcjonalne do rozmiaru stage w przeglądarce
+- Dialog z `max-w-[95vw]` i `ScrollArea` — brak ucinania
 
-1. **Zamiana prostego `previewUrl` na `previewFile: BpFile | null`** — potrzebujemy ID pliku aby pobrać mapowanie.
+## 2. Drag & Drop dla plików w folderze (NOWE)
 
-2. **Dialog podglądu — pełnoekranowy z ScrollArea**:
-   - `DialogContent` z klasami `max-w-[95vw] max-h-[95vh]` i wewnętrznym `ScrollArea`
-   - Obraz wyświetlany w pełnym rozmiarze (`w-full h-auto`) bez przycinania
+Pliki w gridzie będą przestawialne przez przeciąganie, z automatycznym zapisem nowej kolejności do bazy.
 
-3. **Nałożenie elementów mapowania**:
-   - Po otwarciu podglądu: zapytanie do `bp_file_mappings` po `file_id` i `page_index=0`
-   - Renderowanie elementów jako `<div>` / `<span>` z `position: absolute` nad obrazem (wrapper `relative`)
-   - Zmienne rozwiązywane przez `resolveVariablesInText` z `PREVIEW_PROFILE` (tak jak w edytorze)
-   - Każdy element pozycjonowany procentowo względem kontenera obrazu (przeliczenie `x/y` z pikseli canvasu na procenty)
+### Implementacja
+- Import `DndContext`, `SortableContext`, `useSortable` z `@dnd-kit/core` i `@dnd-kit/sortable` (już w projekcie)
+- Owinięcie siatki plików w `DndContext` + `SortableContext` z listą ID plików
+- Każda karta pliku stanie się sortowalna (`useSortable`) z uchwytem `GripVertical`
+- Strategia: `rectSortingStrategy` (grid) zamiast `verticalListSortingStrategy`
+- `onDragEnd`: przeliczenie nowych `position` i batch update do `bp_page_files`
+- Natychmiastowa aktualizacja stanu lokalnego (optymistyczny UI)
+- Grid layout z `gridTemplateColumns` kompatybilny z dnd-kit (wymagane `rectSortingStrategy`)
 
-4. **Obsługa PDF**: jeśli plik to PDF — analogicznie jak w edytorze, renderowanie strony przez `pdfjs-dist` jako canvas/obraz, z nałożonym mapowaniem.
+### Handler `onDragEnd`
+```text
+1. Znajdź oldIndex i newIndex z active/over
+2. arrayMove(files, oldIndex, newIndex)
+3. Zaktualizuj stan lokalny natychmiast
+4. Batch update position dla każdego pliku w tle
+```
 
-### Szczegóły techniczne
-
-- Pobranie wymiarów obrazu (`naturalWidth/naturalHeight`) aby przeliczyć absolutne pozycje z Fabric.js na pozycje procentowe w kontenerze podglądu
-- Style tekstu: `fontSize`, `fontFamily`, `fontWeight`, `fontStyle`, `color`, `textAlign` — bezpośrednio z `MappingElement`
-- Skalowanie `fontSize` proporcjonalnie do wyświetlanego rozmiaru vs rozmiar canvasu (800px w edytorze)
-
-### Plik do zmiany
-`src/components/admin/BpPageFilesManager.tsx`
+## Pliki do zmiany
+- `src/components/admin/BpPageFilesManager.tsx` — oba zadania
 
