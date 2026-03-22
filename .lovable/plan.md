@@ -1,39 +1,34 @@
 
 
-# Dodanie pola "Nazwa CTA / Kotwica" do folderów i plików BP
+# Poprawka podglądu pliku — pełna strona z nałożonym mapowaniem
 
-## Cel
-Każdy folder i plik w module "Pliki na stronę BP" musi mieć edytowalne pole `cta_label` (nazwa pod przycisk / kotwica `#`), które będzie używane do linkowania CTA na stronie partnera.
+## Problem
+Aktualny podgląd (`Dialog` z `<img>`) pokazuje tylko surowy obraz bez nałożonych elementów mapowania. Ponadto duże obrazy mogą być ucinane przez ograniczenia dialogu.
 
-## Baza danych — migracja
+## Rozwiązanie
 
-Dodanie kolumny `cta_label text` do obu tabel:
+### Zmiana w `BpPageFilesManager.tsx`
 
-```sql
-ALTER TABLE public.bp_page_folders ADD COLUMN cta_label text;
-ALTER TABLE public.bp_page_files ADD COLUMN cta_label text;
-```
+1. **Zamiana prostego `previewUrl` na `previewFile: BpFile | null`** — potrzebujemy ID pliku aby pobrać mapowanie.
 
-## Zmiany w UI (`BpPageFilesManager.tsx`)
+2. **Dialog podglądu — pełnoekranowy z ScrollArea**:
+   - `DialogContent` z klasami `max-w-[95vw] max-h-[95vh]` i wewnętrznym `ScrollArea`
+   - Obraz wyświetlany w pełnym rozmiarze (`w-full h-auto`) bez przycinania
 
-### Foldery
-- Rozszerzenie interfejsu `BpFolder` o `cta_label: string | null`
-- W formularzu tworzenia folderu: dodanie pola `Input` na "Nazwa CTA (kotwica #)"
-- Przy wybranym folderze: wyświetlenie i edycja `cta_label` inline (np. mały input pod selectem folderów lub obok niego) z zapisem do bazy po blur/Enter
+3. **Nałożenie elementów mapowania**:
+   - Po otwarciu podglądu: zapytanie do `bp_file_mappings` po `file_id` i `page_index=0`
+   - Renderowanie elementów jako `<div>` / `<span>` z `position: absolute` nad obrazem (wrapper `relative`)
+   - Zmienne rozwiązywane przez `resolveVariablesInText` z `PREVIEW_PROFILE` (tak jak w edytorze)
+   - Każdy element pozycjonowany procentowo względem kontenera obrazu (przeliczenie `x/y` z pikseli canvasu na procenty)
 
-### Pliki
-- Rozszerzenie interfejsu `BpFile` o `cta_label: string | null`
-- Pod nazwą pliku w karcie (sekcja Info, linie 288-293): dodanie edytowalnego pola `cta_label` — małe pole input lub klikalna etykieta z inline edit
-- Zapis do `bp_page_files` po blur/Enter
-- Wyświetlenie kotwicy jako badge (np. `#moj-ebook`) gdy ustawiona
+4. **Obsługa PDF**: jeśli plik to PDF — analogicznie jak w edytorze, renderowanie strony przez `pdfjs-dist` jako canvas/obraz, z nałożonym mapowaniem.
 
-### Sanityzacja
-- Automatyczna zamiana spacji na myślniki, lowercase — zgodnie z wzorcem anchor z `navigation-governance`
+### Szczegóły techniczne
 
-## Pliki do zmiany
-| Plik | Akcja |
-|------|-------|
-| Migracja SQL | `ALTER TABLE` — dodanie `cta_label` do obu tabel |
-| `BpPageFilesManager.tsx` | Edycja CTA label na folderach i plikach |
-| `types.ts` (supabase) | Auto-regeneracja typów |
+- Pobranie wymiarów obrazu (`naturalWidth/naturalHeight`) aby przeliczyć absolutne pozycje z Fabric.js na pozycje procentowe w kontenerze podglądu
+- Style tekstu: `fontSize`, `fontFamily`, `fontWeight`, `fontStyle`, `color`, `textAlign` — bezpośrednio z `MappingElement`
+- Skalowanie `fontSize` proporcjonalnie do wyświetlanego rozmiaru vs rozmiar canvasu (800px w edytorze)
+
+### Plik do zmiany
+`src/components/admin/BpPageFilesManager.tsx`
 
