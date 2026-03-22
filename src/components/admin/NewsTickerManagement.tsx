@@ -433,7 +433,7 @@ export const NewsTickerManagement: React.FC = () => {
 
   // Filter events by type
   const webinars = allEvents.filter(e => e.event_type === 'webinar');
-  const meetings = allEvents.filter(e => e.event_type === 'team_training');
+  const meetings = allEvents.filter(e => e.event_type === 'team_training' || e.event_type === 'meeting_public');
 
   if (loading) {
     return (
