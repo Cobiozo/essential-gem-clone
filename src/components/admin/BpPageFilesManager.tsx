@@ -330,11 +330,24 @@ export const BpPageFilesManager: React.FC = () => {
               </div>
 
               {/* Info */}
-              <div className="p-2">
+              <div className="p-2 space-y-1">
                 <p className="text-xs font-medium truncate text-foreground" title={file.original_name}>
                   {file.original_name}
                 </p>
                 <p className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</p>
+                <div className="flex items-center gap-1">
+                  <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <input
+                    placeholder="kotwica CTA"
+                    defaultValue={file.cta_label || ''}
+                    onBlur={e => handleUpdateCtaLabel('bp_page_files', file.id, e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="text-[10px] bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none w-full text-muted-foreground"
+                  />
+                </div>
+                {file.cta_label && (
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">#{file.cta_label}</Badge>
+                )}
               </div>
 
               {/* Actions overlay */}
