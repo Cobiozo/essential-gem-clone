@@ -265,12 +265,16 @@ export const NewsTickerManagement: React.FC = () => {
         source_team_meetings: settings.source_team_meetings,
         source_announcements: settings.source_announcements,
         source_important_banners: settings.source_important_banners,
+        source_live_activity: settings.source_live_activity,
+        live_activity_types: settings.live_activity_types,
+        live_activity_max_items: settings.live_activity_max_items,
+        live_activity_hours: settings.live_activity_hours,
         animation_mode: settings.animation_mode,
         scroll_speed: settings.scroll_speed,
         rotate_interval: settings.rotate_interval,
         background_color: settings.background_color || null,
         text_color: settings.text_color || null,
-      })
+      } as any)
       .eq('id', settings.id);
 
     setSaving(false);
