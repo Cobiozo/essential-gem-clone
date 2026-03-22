@@ -425,7 +425,7 @@ serve(async (req) => {
       error_message: result.error || null,
       sent_at: result.success ? new Date().toISOString() : null,
       metadata: {
-        forced_by_admin: user.id,
+        forced_by_admin: callerUserId || 'internal-service',
         skip_template: skip_template || false,
         custom_variables,
         attachments_count: attachments.length,
