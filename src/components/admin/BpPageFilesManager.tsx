@@ -115,7 +115,8 @@ const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file
       {scale > 0 && mappings.map((el: any, i: number) => {
         const leftPct = ((el.x || 0) / CANVAS_WIDTH) * 100;
         const topPct = ((el.y || 0) / CANVAS_HEIGHT) * 100;
-        const widthPct = el.width ? (el.width / CANVAS_WIDTH) * 100 : undefined;
+        const elWidth = el.width || 300;
+        const widthPct = (elWidth / CANVAS_WIDTH) * 100;
         const scaledFontSize = (el.fontSize || 24) * scale;
         const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
         return (
@@ -125,7 +126,7 @@ const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file
             style={{
               left: `${leftPct}%`,
               top: `${topPct}%`,
-              width: widthPct ? `${widthPct}%` : 'auto',
+              width: `${widthPct}%`,
               fontSize: `${scaledFontSize}px`,
               fontFamily: el.fontFamily || 'Arial',
               fontWeight: el.fontWeight || 'normal',
@@ -135,6 +136,8 @@ const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file
               textAlign: el.align || 'left',
               whiteSpace: 'pre-wrap',
               lineHeight: 1.2,
+              overflow: 'hidden',
+              wordBreak: 'break-word' as const,
             }}
           >
             {resolvedText}
