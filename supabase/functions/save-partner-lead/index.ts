@@ -455,9 +455,10 @@ function drawTextElement(
 }
 
 // ── Detect image format from magic bytes ──
-function detectImageFormat(bytes: Uint8Array): 'png' | 'jpeg' | null {
+function detectImageFormat(bytes: Uint8Array): 'png' | 'jpeg' | 'webp' | null {
   if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
   if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xD8) return 'jpeg';
+  if (bytes.length >= 4 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46) return 'webp';
   return null;
 }
 
@@ -470,16 +471,54 @@ async function drawImageElement(
   pageHeight: number,
 ) {
   try {
+    let imgBytes: Uint8Array;
+    let format: 'png' | 'jpeg' | 'webp' | null;
+
     const imgResp = await fetch(el.src);
     if (!imgResp.ok) {
       console.error(`[post-action] Failed to fetch image: ${el.src}`);
       return;
     }
 
-    const imgBytes = new Uint8Array(await imgResp.arrayBuffer());
-    const format = detectImageFormat(imgBytes);
+    imgBytes = new Uint8Array(await imgResp.arrayBuffer());
+    format = detectImageFormat(imgBytes);
 
-    if (!format) {
+    // If WebP, convert to PNG via wsrv.nl proxy or Supabase transform
+    if (format === 'webp') {
+      console.log(`[post-action] WebP detected for ${el.src}, converting to PNG...`);
+      let pngUrl: string;
+
+      if (el.src.includes('/object/public/') || el.src.includes('/storage/v1/')) {
+        // Supabase Storage: use render/image transform endpoint
+        pngUrl = el.src.replace('/object/public/', '/render/image/public/');
+        pngUrl += (pngUrl.includes('?') ? '&' : '?') + 'format=png&width=1600';
+      } else {
+        // External URL: use wsrv.nl proxy
+        pngUrl = `https://wsrv.nl/?url=${encodeURIComponent(el.src)}&output=png`;
+      }
+
+      const pngResp = await fetch(pngUrl);
+      if (pngResp.ok) {
+        imgBytes = new Uint8Array(await pngResp.arrayBuffer());
+        format = detectImageFormat(imgBytes);
+        console.log(`[post-action] Converted format: ${format}`);
+      } else {
+        console.error(`[post-action] WebP conversion failed (status ${pngResp.status}), trying wsrv.nl fallback...`);
+        // Fallback to wsrv.nl if Supabase transform failed
+        const fallbackUrl = `https://wsrv.nl/?url=${encodeURIComponent(el.src)}&output=png`;
+        const fallbackResp = await fetch(fallbackUrl);
+        if (fallbackResp.ok) {
+          imgBytes = new Uint8Array(await fallbackResp.arrayBuffer());
+          format = detectImageFormat(imgBytes);
+          console.log(`[post-action] Fallback converted format: ${format}`);
+        } else {
+          console.error(`[post-action] All WebP conversion attempts failed for ${el.src}. Skipping.`);
+          return;
+        }
+      }
+    }
+
+    if (!format || format === 'webp') {
       console.warn(`[post-action] Unsupported image format for ${el.src} (magic bytes: ${imgBytes[0]?.toString(16)}, ${imgBytes[1]?.toString(16)}). Skipping.`);
       return;
     }
