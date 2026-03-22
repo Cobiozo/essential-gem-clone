@@ -237,7 +237,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <FaqSection config={cfg} />;
         break;
       case 'cta_banner':
-        sectionNode = <CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
+        sectionNode = <CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />;
         break;
       case 'contact_form':
         sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} partnerUserId={page?.user_id} />;
