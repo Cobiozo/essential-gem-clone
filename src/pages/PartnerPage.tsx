@@ -308,6 +308,16 @@ const PartnerPageView: React.FC = () => {
         {surveyConfig && (
           <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
         )}
+
+        {/* Form modal */}
+        {activeFormKey && page && (
+          <PartnerFormModal
+            ctaKey={activeFormKey}
+            partnerUserId={page.user_id}
+            open={!!activeFormKey}
+            onClose={() => setActiveFormKey(null)}
+          />
+        )}
       </div>
     );
   }
