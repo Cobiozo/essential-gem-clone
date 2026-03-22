@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, GripVertical, FileText, Users, Pencil, X, Save } from 'lucide-react';
+import { Plus, Trash2, GripVertical, FileText, Users, Pencil, X, Save, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { toast } from 'sonner';
@@ -21,6 +21,11 @@ interface FormField {
   required: boolean;
 }
 
+interface PostSubmitAction {
+  type: string;
+  bp_file_id?: string | null;
+}
+
 interface FormDefinition {
   id: string;
   name: string;
@@ -32,6 +37,14 @@ interface FormDefinition {
   created_at: string;
   description?: string;
   consent_text?: string;
+  post_submit_actions?: PostSubmitAction[];
+}
+
+interface BpFile {
+  id: string;
+  file_name: string;
+  original_name: string;
+  folder: string;
 }
 
 const generateId = () => crypto.randomUUID().slice(0, 8);
@@ -47,9 +60,11 @@ export const PartnerFormsManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [editingForm, setEditingForm] = useState<FormDefinition | null>(null);
   const [isNew, setIsNew] = useState(false);
+  const [bpFiles, setBpFiles] = useState<BpFile[]>([]);
 
   useEffect(() => {
     fetchForms();
+    fetchBpFiles();
   }, []);
 
   const fetchForms = async () => {
@@ -68,9 +83,19 @@ export const PartnerFormsManager: React.FC = () => {
         fields: (d.fields as any) || [],
         description: (d as any).description || '',
         consent_text: (d as any).consent_text || '',
+        post_submit_actions: ((d as any).post_submit_actions as PostSubmitAction[]) || [],
       })));
     }
     setLoading(false);
+  };
+
+  const fetchBpFiles = async () => {
+    const { data } = await supabase
+      .from('bp_page_files')
+      .select('id, file_name, original_name, folder')
+      .order('folder')
+      .order('position');
+    setBpFiles(data || []);
   };
 
   const handleNew = () => {
@@ -85,8 +110,33 @@ export const PartnerFormsManager: React.FC = () => {
       created_at: '',
       description: '',
       consent_text: 'Wyrażam zgodę na przetwarzanie moich danych osobowych zawartych w formularzu w celu przesłania poradnika/e-booka na podany adres email.',
+      post_submit_actions: [],
     });
     setIsNew(true);
+  };
+
+  // Helpers for post_submit_actions
+  const getEmailAction = (form: FormDefinition): PostSubmitAction | undefined => {
+    return form.post_submit_actions?.find(a => a.type === 'send_email_with_file');
+  };
+
+  const hasEmailAction = (form: FormDefinition): boolean => !!getEmailAction(form);
+
+  const setEmailAction = (enabled: boolean, bpFileId?: string | null) => {
+    if (!editingForm) return;
+    const otherActions = (editingForm.post_submit_actions || []).filter(a => a.type !== 'send_email_with_file');
+    if (enabled) {
+      otherActions.push({ type: 'send_email_with_file', bp_file_id: bpFileId || null });
+    }
+    setEditingForm({ ...editingForm, post_submit_actions: otherActions });
+  };
+
+  const setEmailFileId = (fileId: string) => {
+    if (!editingForm) return;
+    const actions = (editingForm.post_submit_actions || []).map(a =>
+      a.type === 'send_email_with_file' ? { ...a, bp_file_id: fileId || null } : a
+    );
+    setEditingForm({ ...editingForm, post_submit_actions: actions });
   };
 
   const handleSave = async () => {
@@ -115,6 +165,7 @@ export const PartnerFormsManager: React.FC = () => {
       is_active: editingForm.is_active,
       description: editingForm.description || null,
       consent_text: editingForm.consent_text || null,
+      post_submit_actions: (editingForm.post_submit_actions || []) as any,
     };
 
     if (isNew) {
@@ -260,6 +311,47 @@ export const PartnerFormsManager: React.FC = () => {
                   <p className="text-xs text-muted-foreground">Jeśli wypełnione, checkbox zgody będzie wymagany przed wysłaniem formularza</p>
                 </div>
 
+                {/* Post-submit actions */}
+                <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-base font-semibold">Akcja po wysłaniu formularza</Label>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={hasEmailAction(editingForm)}
+                      onCheckedChange={v => setEmailAction(v)}
+                    />
+                    <Label>Wyślij email z plikiem BP jako załącznikiem</Label>
+                  </div>
+
+                  {hasEmailAction(editingForm) && (
+                    <div className="space-y-2 pl-10">
+                      <Label className="text-sm">Wybierz plik do załączenia</Label>
+                      <Select
+                        value={getEmailAction(editingForm)?.bp_file_id || ''}
+                        onValueChange={v => setEmailFileId(v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Wybierz plik z biblioteki BP..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {bpFiles.map(f => (
+                            <SelectItem key={f.id} value={f.id}>
+                              <span className="text-xs text-muted-foreground">[{f.folder}]</span>{' '}
+                              {f.original_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!getEmailAction(editingForm)?.bp_file_id && (
+                        <p className="text-xs text-amber-600">⚠ Wybierz plik, aby akcja działała poprawnie</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={editingForm.is_active}
@@ -368,6 +460,11 @@ export const PartnerFormsManager: React.FC = () => {
                             <Badge variant={form.is_active ? 'default' : 'secondary'}>
                               {form.is_active ? 'Aktywny' : 'Nieaktywny'}
                             </Badge>
+                            {hasEmailAction(form) && (
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <Mail className="w-3 h-3" /> Email z plikiem
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm text-muted-foreground">
                             Kotwica: <code className="bg-muted px-1.5 py-0.5 rounded text-xs">#{form.cta_key}</code>
