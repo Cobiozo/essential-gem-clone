@@ -79,6 +79,20 @@ export const BpPageFilesManager: React.FC = () => {
   useEffect(() => { fetchFolders(); }, [fetchFolders]);
   useEffect(() => { fetchFiles(); }, [fetchFiles]);
 
+  // Fetch which files have mappings
+  useEffect(() => {
+    const fetchMapped = async () => {
+      const fileIds = files.map(f => f.id);
+      if (!fileIds.length) { setMappedFileIds(new Set()); return; }
+      const { data } = await supabase
+        .from('bp_file_mappings')
+        .select('file_id')
+        .in('file_id', fileIds);
+      if (data) setMappedFileIds(new Set(data.map(d => d.file_id)));
+    };
+    fetchMapped();
+  }, [files]);
+
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) return;
