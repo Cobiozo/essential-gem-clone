@@ -54,7 +54,9 @@ export const BpPageFilesManager: React.FC = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderCtaLabel, setNewFolderCtaLabel] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFile, setPreviewFile] = useState<BpFile | null>(null);
+  const [previewMappings, setPreviewMappings] = useState<any[]>([]);
+  const [previewImageSize, setPreviewImageSize] = useState<{ w: number; h: number } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BpFile | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<BpFolder | null>(null);
   const [mappingFile, setMappingFile] = useState<BpFile | null>(null);
