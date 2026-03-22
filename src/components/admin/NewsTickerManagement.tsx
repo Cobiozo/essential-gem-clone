@@ -33,6 +33,10 @@ interface TickerSettings {
   source_team_meetings: boolean;
   source_announcements: boolean;
   source_important_banners: boolean;
+  source_live_activity: boolean;
+  live_activity_types: string[];
+  live_activity_max_items: number;
+  live_activity_hours: number;
   animation_mode: 'scroll' | 'rotate' | 'static';
   scroll_speed: number;
   rotate_interval: number;
