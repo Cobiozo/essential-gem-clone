@@ -61,10 +61,11 @@ const TemplatePreviewPage: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (!templateId) { setLoading(false); return; }
-      const [templateRes, productsRes, allTemplatesRes] = await Promise.all([
+      const [templateRes, productsRes, allTemplatesRes, formsRes] = await Promise.all([
         supabase.from('partner_page_template').select('name, template_data').eq('id', templateId).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_page_template').select('id, name').order('name'),
+        supabase.from('partner_page_forms').select('cta_key').eq('is_active', true),
       ]);
       if (templateRes.data) {
         setTemplateName(templateRes.data.name);
@@ -74,6 +75,7 @@ const TemplatePreviewPage: React.FC = () => {
       }
       setProducts((productsRes.data as any) || []);
       setAllTemplates((allTemplatesRes.data as any) || []);
+      setFormKeys((formsRes.data || []).map((f: any) => f.cta_key));
       setLoading(false);
     };
     fetchData();
