@@ -157,10 +157,10 @@ export const TestimonialsSection: React.FC<Props> = ({ config }) => {
 
           <button
             onClick={() => scroll(1)}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 rounded-full bg-card border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
+            className="absolute right-0 sm:-right-3 top-1/2 -translate-y-1/2 z-10 w-7 h-7 sm:w-9 sm:h-9 rounded-full bg-card border border-border shadow-md flex items-center justify-center hover:bg-accent transition-colors"
             aria-label="Przewiń w prawo"
           >
-            <ChevronRight className="w-5 h-5 text-foreground" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-foreground" />
           </button>
         </div>
 

@@ -281,7 +281,7 @@ const PartnerPageView: React.FC = () => {
 
   if (hasRichSections) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background overflow-x-hidden">
         {/* Floating edit toolbar for owner */}
         {isOwner && (
           <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card border border-border rounded-xl px-4 py-2.5 shadow-lg">
