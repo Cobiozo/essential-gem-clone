@@ -1,10 +1,77 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
+import QRCode from "https://esm.sh/qrcode@1.5.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Canvas dimensions used by Fabric.js editor
+const CANVAS_WIDTH = 842;
+const CANVAS_HEIGHT = 595;
+
+// ── Partner variable resolver (port of src/lib/partnerVariables.ts) ──
+interface PartnerProfile {
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  city?: string | null;
+  country?: string | null;
+  specialization?: string | null;
+  profile_description?: string | null;
+  eq_id?: string | null;
+  avatar_url?: string | null;
+}
+
+function resolvePartnerVariables(text: string, p: PartnerProfile): string {
+  if (!text || typeof text !== "string") return text;
+  const map: Record<string, string> = {
+    "{{imie}}": p.first_name || "",
+    "{{nazwisko}}": p.last_name || "",
+    "{{imie_nazwisko}}": `${p.first_name || ""} ${p.last_name || ""}`.trim(),
+    "{{email}}": p.email || "",
+    "{{telefon}}": p.phone_number || "",
+    "{{miasto}}": p.city || "",
+    "{{kraj}}": p.country || "",
+    "{{specjalizacja}}": p.specialization || "",
+    "{{opis}}": p.profile_description || "",
+    "{{eq_id}}": p.eq_id || "",
+    "{{avatar_url}}": p.avatar_url || "",
+  };
+  let result = text;
+  for (const [key, val] of Object.entries(map)) {
+    result = result.split(key).join(val);
+  }
+  return result;
+}
+
+// ── Hex color → pdf-lib rgb ──
+function hexToRgb(hex: string) {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.substring(0, 2), 16) / 255;
+  const g = parseInt(h.substring(2, 4), 16) / 255;
+  const b = parseInt(h.substring(4, 6), 16) / 255;
+  return rgb(r, g, b);
+}
+
+// ── Fetch font bytes (cached per invocation) ──
+let _cachedFontBytes: Uint8Array | null = null;
+async function getUnicodeFontBytes(): Promise<Uint8Array | null> {
+  if (_cachedFontBytes) return _cachedFontBytes;
+  try {
+    const resp = await fetch(
+      "https://cdn.jsdelivr.net/fontsource/fonts/roboto@latest/latin-ext-400-normal.woff"
+    );
+    if (!resp.ok) return null;
+    _cachedFontBytes = new Uint8Array(await resp.arrayBuffer());
+    return _cachedFontBytes;
+  } catch {
+    return null;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -102,11 +169,10 @@ Deno.serve(async (req) => {
 
         for (const action of actions) {
           if (action?.type === "send_email_with_file" && action?.bp_file_id) {
-            await handleSendEmailWithFile(supabase, action.bp_file_id, email.trim(), first_name.trim());
+            await handleSendEmailWithFile(supabase, action.bp_file_id, email.trim(), first_name.trim(), partner_user_id);
           }
         }
       } catch (actionErr) {
-        // Log but don't fail the lead save
         console.error("Post-submit action error:", actionErr);
       }
     }
@@ -124,15 +190,17 @@ Deno.serve(async (req) => {
   }
 });
 
+// ── Main handler for send_email_with_file action ──
 async function handleSendEmailWithFile(
   supabase: any,
   bpFileId: string,
   recipientEmail: string,
-  recipientFirstName: string
+  recipientFirstName: string,
+  partnerUserId: string,
 ) {
-  console.log(`[post-action] Sending email with BP file ${bpFileId} to ${recipientEmail}`);
+  console.log(`[post-action] Sending personalized PDF for BP file ${bpFileId} to ${recipientEmail}`);
 
-  // 1. Fetch the BP file record
+  // 1. Fetch BP file record
   const { data: bpFile, error: bpErr } = await supabase
     .from("bp_page_files")
     .select("file_name, original_name, file_url, mime_type")
@@ -144,25 +212,68 @@ async function handleSendEmailWithFile(
     return;
   }
 
-  // 2. Download the file and convert to base64
+  // 2. Fetch partner profile for variable resolution
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("first_name, last_name, email, phone_number, city, country, specialization, profile_description, eq_id, avatar_url")
+    .eq("user_id", partnerUserId)
+    .single();
+
+  const partnerData: PartnerProfile = profile || {};
+
+  // 3. Fetch all mappings for this file
+  const { data: mappings } = await supabase
+    .from("bp_file_mappings")
+    .select("page_index, elements")
+    .eq("file_id", bpFileId)
+    .order("page_index", { ascending: true });
+
+  // 4. Download the original file
   console.log(`[post-action] Downloading file from: ${bpFile.file_url}`);
   const fileResp = await fetch(bpFile.file_url);
   if (!fileResp.ok) {
     console.error(`[post-action] Failed to download file: ${fileResp.status}`);
     return;
   }
+  const fileBytes = new Uint8Array(await fileResp.arrayBuffer());
 
-  const fileBuffer = await fileResp.arrayBuffer();
-  const uint8 = new Uint8Array(fileBuffer);
-  let binary = '';
-  for (let i = 0; i < uint8.length; i++) {
-    binary += String.fromCharCode(uint8[i]);
+  // 5. Generate personalized PDF (or fallback to raw file)
+  let finalPdfBytes: Uint8Array;
+  let finalMimeType: string;
+  let finalFileName: string;
+
+  const hasMappings = mappings && mappings.length > 0 && mappings.some((m: any) => {
+    const els = m.elements as any[];
+    return Array.isArray(els) && els.length > 0;
+  });
+
+  if (hasMappings) {
+    try {
+      finalPdfBytes = await generatePersonalizedPdf(fileBytes, bpFile.mime_type, mappings, partnerData);
+      finalMimeType = "application/pdf";
+      finalFileName = (bpFile.original_name || bpFile.file_name).replace(/\.[^.]+$/, "") + ".pdf";
+      console.log(`[post-action] Personalized PDF generated, size: ${finalPdfBytes.length} bytes`);
+    } catch (genErr) {
+      console.error("[post-action] PDF generation failed, sending raw file:", genErr);
+      finalPdfBytes = fileBytes;
+      finalMimeType = bpFile.mime_type || "application/octet-stream";
+      finalFileName = bpFile.original_name || bpFile.file_name;
+    }
+  } else {
+    console.log("[post-action] No mappings found, sending raw file");
+    finalPdfBytes = fileBytes;
+    finalMimeType = bpFile.mime_type || "application/octet-stream";
+    finalFileName = bpFile.original_name || bpFile.file_name;
+  }
+
+  // 6. Convert to base64
+  let binary = "";
+  for (let i = 0; i < finalPdfBytes.length; i++) {
+    binary += String.fromCharCode(finalPdfBytes[i]);
   }
   const fileBase64 = btoa(binary);
 
-  console.log(`[post-action] File downloaded, size: ${uint8.length} bytes`);
-
-  // 3. Build email HTML
+  // 7. Build email HTML
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #333;">Cześć ${recipientFirstName || ''}!</h2>
@@ -179,7 +290,7 @@ async function handleSendEmailWithFile(
     </div>
   `;
 
-  // 4. Call send-single-email with attachment
+  // 8. Send email with attachment
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -196,9 +307,9 @@ async function handleSendEmailWithFile(
       html_body: htmlBody,
       attachments: [
         {
-          filename: bpFile.original_name || bpFile.file_name,
+          filename: finalFileName,
           content_base64: fileBase64,
-          content_type: bpFile.mime_type || "application/octet-stream",
+          content_type: finalMimeType,
         },
       ],
     }),
@@ -206,4 +317,206 @@ async function handleSendEmailWithFile(
 
   const sendResult = await sendResp.json();
   console.log(`[post-action] Email send result:`, sendResult);
+}
+
+// ── Generate personalized PDF with mapping overlays ──
+async function generatePersonalizedPdf(
+  originalBytes: Uint8Array,
+  mimeType: string | null,
+  mappings: any[],
+  profile: PartnerProfile,
+): Promise<Uint8Array> {
+  const isPdf = mimeType === "application/pdf";
+  let pdfDoc: any;
+
+  if (isPdf) {
+    pdfDoc = await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+  } else {
+    // Image file (JPG/PNG) → create new PDF with image as background
+    pdfDoc = await PDFDocument.create();
+    const isJpeg = mimeType === "image/jpeg" || mimeType === "image/jpg";
+    const embedFn = isJpeg ? pdfDoc.embedJpg.bind(pdfDoc) : pdfDoc.embedPng.bind(pdfDoc);
+    const img = await embedFn(originalBytes);
+    
+    // A4 landscape dimensions in points
+    const pageWidth = 842;
+    const pageHeight = 595;
+    const page = pdfDoc.addPage([pageWidth, pageHeight]);
+    page.drawImage(img, {
+      x: 0,
+      y: 0,
+      width: pageWidth,
+      height: pageHeight,
+    });
+  }
+
+  // Embed font for Unicode support (Polish characters)
+  let font: any;
+  try {
+    const fontBytes = await getUnicodeFontBytes();
+    if (fontBytes) {
+      font = await pdfDoc.embedFont(fontBytes);
+      console.log("[post-action] Embedded Roboto font for Unicode support");
+    } else {
+      font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      console.log("[post-action] Fallback to Helvetica (no Unicode)");
+    }
+  } catch {
+    font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    console.log("[post-action] Fallback to Helvetica after font error");
+  }
+
+  // Process each mapping
+  for (const mapping of mappings) {
+    const pageIndex = mapping.page_index || 0;
+    if (pageIndex >= pdfDoc.getPageCount()) continue;
+
+    const page = pdfDoc.getPage(pageIndex);
+    const { width: pageWidth, height: pageHeight } = page.getSize();
+    const elements = (mapping.elements as any[]) || [];
+
+    for (const el of elements) {
+      try {
+        if (el.type === "text") {
+          await drawTextElement(page, el, profile, font, pageWidth, pageHeight);
+        } else if (el.type === "image" && el.src) {
+          await drawImageElement(pdfDoc, page, el, pageWidth, pageHeight);
+        } else if (el.type === "qr_code" && el.qrContent) {
+          await drawQrElement(pdfDoc, page, el, profile, pageWidth, pageHeight);
+        }
+      } catch (elErr) {
+        console.error(`[post-action] Error drawing element ${el.id}:`, elErr);
+      }
+    }
+  }
+
+  return pdfDoc.save();
+}
+
+// ── Draw text element ──
+function drawTextElement(
+  page: any,
+  el: any,
+  profile: PartnerProfile,
+  font: any,
+  pageWidth: number,
+  pageHeight: number,
+) {
+  const resolvedText = resolvePartnerVariables(el.content || "", profile);
+  if (!resolvedText.trim()) return;
+
+  const fontSize = el.fontSize || 24;
+  const color = el.color ? hexToRgb(el.color) : rgb(0, 0, 0);
+
+  // Scale from canvas coords to PDF coords
+  const scaleX = pageWidth / CANVAS_WIDTH;
+  const scaleY = pageHeight / CANVAS_HEIGHT;
+  const scaledFontSize = fontSize * scaleY;
+
+  const elWidth = (el.width || 300) * scaleX;
+  let x = (el.x || 0) * scaleX;
+  // Canvas Y is from top, PDF Y is from bottom
+  const y = pageHeight - (el.y || 0) * scaleY - scaledFontSize;
+
+  // Handle text alignment
+  const align = el.align || "left";
+  if (align === "center" || align === "right") {
+    try {
+      const textWidth = font.widthOfTextAtSize(resolvedText, scaledFontSize);
+      if (align === "center") {
+        x = x + (elWidth - textWidth) / 2;
+      } else {
+        x = x + elWidth - textWidth;
+      }
+    } catch {
+      // If width calculation fails, use left alignment
+    }
+  }
+
+  // Split multiline text
+  const lines = resolvedText.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    
+    try {
+      page.drawText(line, {
+        x,
+        y: y - i * scaledFontSize * 1.2,
+        size: scaledFontSize,
+        font,
+        color,
+      });
+    } catch (drawErr) {
+      // Some characters might not be in the font — try stripping unsupported chars
+      console.error(`[post-action] drawText error for line "${line}":`, drawErr);
+    }
+  }
+}
+
+// ── Draw image element ──
+async function drawImageElement(
+  pdfDoc: any,
+  page: any,
+  el: any,
+  pageWidth: number,
+  pageHeight: number,
+) {
+  const imgResp = await fetch(el.src);
+  if (!imgResp.ok) {
+    console.error(`[post-action] Failed to fetch image: ${el.src}`);
+    return;
+  }
+
+  const imgBytes = new Uint8Array(await imgResp.arrayBuffer());
+  const contentType = imgResp.headers.get("content-type") || "";
+
+  let img: any;
+  if (contentType.includes("png")) {
+    img = await pdfDoc.embedPng(imgBytes);
+  } else {
+    img = await pdfDoc.embedJpg(imgBytes);
+  }
+
+  const scaleX = pageWidth / CANVAS_WIDTH;
+  const scaleY = pageHeight / CANVAS_HEIGHT;
+  const w = (el.width || 200) * scaleX;
+  const h = (el.height || 200) * scaleY;
+  const x = (el.x || 0) * scaleX;
+  const y = pageHeight - (el.y || 0) * scaleY - h;
+
+  page.drawImage(img, { x, y, width: w, height: h });
+}
+
+// ── Draw QR code element ──
+async function drawQrElement(
+  pdfDoc: any,
+  page: any,
+  el: any,
+  profile: PartnerProfile,
+  pageWidth: number,
+  pageHeight: number,
+) {
+  const resolvedContent = resolvePartnerVariables(el.qrContent || "", profile);
+  if (!resolvedContent.trim()) return;
+
+  // Generate QR as PNG data URL then extract bytes
+  const qrDataUrl: string = await QRCode.toDataURL(resolvedContent, { width: 512, margin: 1 });
+  const base64Part = qrDataUrl.split(",")[1];
+  const binaryStr = atob(base64Part);
+  const qrBytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    qrBytes[i] = binaryStr.charCodeAt(i);
+  }
+
+  const qrImg = await pdfDoc.embedPng(qrBytes);
+
+  const scaleX = pageWidth / CANVAS_WIDTH;
+  const scaleY = pageHeight / CANVAS_HEIGHT;
+  const w = (el.width || 150) * scaleX;
+  const h = (el.height || 150) * scaleY;
+  const x = (el.x || 0) * scaleX;
+  const y = pageHeight - (el.y || 0) * scaleY - h;
+
+  page.drawImage(qrImg, { x, y, width: w, height: h });
 }
