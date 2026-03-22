@@ -318,19 +318,26 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-    if (authError || !user) throw new Error("Unauthorized");
+    const token = authHeader.replace("Bearer ", "");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const isInternalCall = token === serviceRoleKey;
+
+    let callerUserId: string | null = null;
+
+    if (!isInternalCall) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) throw new Error("Unauthorized");
+      callerUserId = user.id;
+    }
 
     const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {}, attachments = [] }: SendEmailRequest = await req.json();
     console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template, html_body_length: html_body?.length, attachments_count: attachments.length });
 
-    if (!skip_template) {
+    if (!skip_template && !isInternalCall) {
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", user.id)
+        .eq("user_id", callerUserId!)
         .eq("role", "admin")
         .single();
       if (!roleData) throw new Error("Only admins can send template emails");
@@ -418,7 +425,7 @@ serve(async (req) => {
       error_message: result.error || null,
       sent_at: result.success ? new Date().toISOString() : null,
       metadata: {
-        forced_by_admin: user.id,
+        forced_by_admin: callerUserId || 'internal-service',
         skip_template: skip_template || false,
         custom_variables,
         attachments_count: attachments.length,
