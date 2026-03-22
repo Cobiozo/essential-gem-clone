@@ -17,7 +17,7 @@ interface Props {
   partnerUserId?: string;
 }
 
-export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) => {
+export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail, partnerUserId }) => {
   const { toast } = useToast();
   const {
     heading, subheading, fields, submit_text, privacy_text,
