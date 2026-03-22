@@ -6,8 +6,6 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { formatFileSize } from '@/lib/storageConfig';
 import { copyToClipboard } from '@/lib/clipboardUtils';
-import { resolveVariablesInText, PREVIEW_PROFILE } from '@/lib/partnerVariables';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DndContext, DragEndEvent, PointerSensor, TouchSensor,
   useSensor, useSensors, closestCenter,
@@ -54,99 +52,6 @@ interface BpFile {
   cta_label: string | null;
 }
 
-const CANVAS_WIDTH = 842;
-const CANVAS_HEIGHT = 595;
-
-const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file, mappings }) => {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  const [bgStyle, setBgStyle] = useState<React.CSSProperties>({});
-
-  // Calculate scale from rendered stage width vs editor canvas width
-  useEffect(() => {
-    if (!stageRef.current) return;
-    const obs = new ResizeObserver(entries => {
-      for (const e of entries) {
-        setScale(e.contentRect.width / CANVAS_WIDTH);
-      }
-    });
-    obs.observe(stageRef.current);
-    return () => obs.disconnect();
-  }, []);
-
-  // Calculate background image contain-fit inside the 842×595 stage
-  const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    const natW = img.naturalWidth;
-    const natH = img.naturalHeight;
-    const scaleX = CANVAS_WIDTH / natW;
-    const scaleY = CANVAS_HEIGHT / natH;
-    const fitScale = Math.min(scaleX, scaleY);
-    const w = natW * fitScale;
-    const h = natH * fitScale;
-    const offsetX = (CANVAS_WIDTH - w) / 2;
-    const offsetY = (CANVAS_HEIGHT - h) / 2;
-    setBgStyle({
-      position: 'absolute',
-      left: `${(offsetX / CANVAS_WIDTH) * 100}%`,
-      top: `${(offsetY / CANVAS_HEIGHT) * 100}%`,
-      width: `${(w / CANVAS_WIDTH) * 100}%`,
-      height: `${(h / CANVAS_HEIGHT) * 100}%`,
-      objectFit: 'fill',
-    });
-  }, []);
-
-  return (
-    <div
-      ref={stageRef}
-      className="relative w-full bg-muted/30 border rounded-lg overflow-hidden"
-      style={{ aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}` }}
-    >
-      {/* Background image fitted like editor */}
-      <img
-        src={file.file_url}
-        alt={file.original_name}
-        className="pointer-events-none"
-        style={bgStyle.width ? bgStyle : { width: '100%', height: '100%', objectFit: 'contain' }}
-        onLoad={handleImgLoad}
-      />
-
-      {/* Mapping elements positioned relative to the full stage */}
-      {scale > 0 && mappings.map((el: any, i: number) => {
-        const leftPct = ((el.x || 0) / CANVAS_WIDTH) * 100;
-        const topPct = ((el.y || 0) / CANVAS_HEIGHT) * 100;
-        const elWidth = el.width || 300;
-        const widthPct = (elWidth / CANVAS_WIDTH) * 100;
-        const scaledFontSize = (el.fontSize || 24) * scale;
-        const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
-        return (
-          <div
-            key={el.id || i}
-            className="absolute pointer-events-none"
-            style={{
-              left: `${leftPct}%`,
-              top: `${topPct}%`,
-              width: `${widthPct}%`,
-              fontSize: `${scaledFontSize}px`,
-              fontFamily: el.fontFamily || 'Arial',
-              fontWeight: el.fontWeight || 'normal',
-              fontStyle: el.fontStyle || 'normal',
-              textDecoration: el.textDecoration || 'none',
-              color: el.color || '#000000',
-              textAlign: el.align || 'left',
-              whiteSpace: 'pre-wrap',
-              lineHeight: 1.2,
-              overflow: 'hidden',
-              wordBreak: 'break-word' as const,
-            }}
-          >
-            {resolvedText}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
 
 /* ---- Sortable file card wrapper ---- */
 const SortableFileCard: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => {
@@ -179,8 +84,6 @@ export const BpPageFilesManager: React.FC = () => {
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderCtaLabel, setNewFolderCtaLabel] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
-  const [previewFile, setPreviewFile] = useState<BpFile | null>(null);
-  const [previewMappings, setPreviewMappings] = useState<any[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<BpFile | null>(null);
   const [deleteFolderTarget, setDeleteFolderTarget] = useState<BpFolder | null>(null);
   const [mappingFile, setMappingFile] = useState<BpFile | null>(null);
@@ -500,19 +403,9 @@ export const BpPageFilesManager: React.FC = () => {
                       <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Mapuj dane">
                         <Wand2 className="w-3 h-3" />
                       </Button>
-                      {isImage(file.mime_type) && (
-                        <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => {
-                          setPreviewFile(file);
-                          setPreviewMappings([]);
-                          supabase.from('bp_file_mappings').select('elements').eq('file_id', file.id).eq('page_index', 0).maybeSingle().then(({ data }) => {
-                            if (data?.elements && Array.isArray(data.elements)) {
-                              setPreviewMappings(data.elements);
-                            }
-                          });
-                        }}>
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                      )}
+                      <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Podgląd / Edytuj mapowanie">
+                        <Eye className="w-3 h-3" />
+                      </Button>
                       <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => handleCopyUrl(file.file_url)}>
                         <Copy className="w-3 h-3" />
                       </Button>
@@ -540,21 +433,6 @@ export const BpPageFilesManager: React.FC = () => {
         </DndContext>
       )}
 
-      {/* Preview dialog — full page with mapping overlays */}
-      <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
-        <DialogContent className="max-w-[95vw] max-h-[95vh] flex flex-col p-0">
-          <DialogHeader className="p-4 pb-2 shrink-0">
-            <DialogTitle>{previewFile?.original_name || 'Podgląd'}</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="p-4 pt-0">
-              {previewFile && (
-                <PreviewWithMappings file={previewFile} mappings={previewMappings} />
-              )}
-            </div>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
 
       {/* Delete file confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>

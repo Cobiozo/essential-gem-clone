@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Canvas as FabricCanvas, IText } from 'fabric';
+import { Canvas as FabricCanvas, IText, FabricImage } from 'fabric';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,26 +9,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { toast } from '@/hooks/use-toast';
 import { VARIABLES_LEGEND, PREVIEW_PROFILE, resolveVariablesInText } from '@/lib/partnerVariables';
+import QRCode from 'qrcode';
 import {
   Save, Trash2, Type, Bold, Italic, Underline,
   AlignLeft, AlignCenter, AlignRight, Eye, EyeOff,
-  ChevronLeft, ChevronRight, Loader2, Plus, Variable
+  ChevronLeft, ChevronRight, Loader2, Variable,
+  Image as ImageIcon, QrCode, Upload
 } from 'lucide-react';
 
 interface MappingElement {
   id: string;
-  type: 'text';
+  type: 'text' | 'image' | 'qr_code';
   content: string;
   x: number;
   y: number;
-  fontSize: number;
-  fontFamily: string;
-  color: string;
-  align: 'left' | 'center' | 'right';
-  fontWeight: string;
+  width?: number;
+  height?: number;
+  fontSize?: number;
+  fontFamily?: string;
+  color?: string;
+  align?: 'left' | 'center' | 'right';
+  fontWeight?: string;
   fontStyle?: 'normal' | 'italic';
   textDecoration?: 'none' | 'underline';
-  width?: number;
+  qrContent?: string;
+  src?: string;
 }
 
 interface Props {
@@ -52,14 +58,22 @@ const FONT_FAMILIES = [
 ];
 
 const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
+  const { user } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [selectedObject, setSelectedObject] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<'text' | 'image' | 'qr_code' | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [containerScale, setContainerScale] = useState(1);
+  const [uploading, setUploading] = useState(false);
+
+  // QR dialog state
+  const [showQrInput, setShowQrInput] = useState(false);
+  const [qrText, setQrText] = useState('');
 
   // PDF state
   const isPdf = file.mime_type === 'application/pdf';
@@ -67,7 +81,7 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
   const [currentPage, setCurrentPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Selected element properties
+  // Selected element properties (text)
   const [textColor, setTextColor] = useState('#000000');
   const [fontSize, setFontSize] = useState(24);
   const [fontFamily, setFontFamily] = useState('Arial');
@@ -75,6 +89,10 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
   const [fontStyle, setFontStyle] = useState<'normal' | 'italic'>('normal');
   const [textDecoration, setTextDecoration] = useState<'none' | 'underline'>('none');
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('left');
+
+  // Selected element properties (image/qr)
+  const [elWidth, setElWidth] = useState(200);
+  const [elHeight, setElHeight] = useState(200);
 
   const CANVAS_WIDTH = 842;
   const CANVAS_HEIGHT = 595;
@@ -129,21 +147,35 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
       setSelectedObject(obj);
       syncPropertiesFromObject(obj);
     });
-    canvas.on('selection:cleared', () => setSelectedObject(null));
+    canvas.on('selection:cleared', () => {
+      setSelectedObject(null);
+      setSelectedType(null);
+    });
 
     return () => { canvas.dispose(); };
   }, []);
 
   // Sync UI properties from selected object
   const syncPropertiesFromObject = (obj: any) => {
-    if (!obj || obj.type !== 'i-text') return;
-    setTextColor(obj.fill?.toString() || '#000000');
-    setFontSize(obj.fontSize || 24);
-    setFontFamily(obj.fontFamily || 'Arial');
-    setFontWeight(obj.fontWeight === 'bold' ? 'bold' : 'normal');
-    setFontStyle(obj.fontStyle === 'italic' ? 'italic' : 'normal');
-    setTextDecoration(obj.underline ? 'underline' : 'none');
-    setTextAlign((obj.textAlign as any) || 'left');
+    if (!obj) return;
+    
+    if (obj._bpType === 'image' || obj._bpType === 'qr_code') {
+      setSelectedType(obj._bpType);
+      setElWidth(Math.round((obj.width || 200) * (obj.scaleX || 1)));
+      setElHeight(Math.round((obj.height || 200) * (obj.scaleY || 1)));
+      return;
+    }
+    
+    if (obj.type === 'i-text' || obj.type === 'text') {
+      setSelectedType('text');
+      setTextColor(obj.fill?.toString() || '#000000');
+      setFontSize(obj.fontSize || 24);
+      setFontFamily(obj.fontFamily || 'Arial');
+      setFontWeight(obj.fontWeight === 'bold' ? 'bold' : 'normal');
+      setFontStyle(obj.fontStyle === 'italic' ? 'italic' : 'normal');
+      setTextDecoration(obj.underline ? 'underline' : 'none');
+      setTextAlign((obj.textAlign as any) || 'left');
+    }
   };
 
   // Load background image (for current page)
@@ -151,15 +183,12 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      // Scale image to fit canvas while preserving aspect ratio
       const scaleX = CANVAS_WIDTH / img.width;
       const scaleY = CANVAS_HEIGHT / img.height;
       const scale = Math.min(scaleX, scaleY);
-
       const scaledW = img.width * scale;
       const scaledH = img.height * scale;
 
-      // Create an offscreen canvas for the background
       const offCanvas = document.createElement('canvas');
       offCanvas.width = CANVAS_WIDTH;
       offCanvas.height = CANVAS_HEIGHT;
@@ -171,28 +200,24 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
       canvas.set('backgroundImage', undefined);
       canvas.setDimensions({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
 
-      import('fabric').then(({ FabricImage }) => {
-        FabricImage.fromURL(offCanvas.toDataURL()).then((bgImg) => {
-          bgImg.set({
-            left: 0,
-            top: 0,
-            selectable: false,
-            evented: false,
-            hasControls: false,
-          });
-          // Remove old background objects
-          const oldBgs = canvas.getObjects().filter((o: any) => o._isBpBackground);
-          oldBgs.forEach(o => canvas.remove(o));
-
-          (bgImg as any)._isBpBackground = true;
-          canvas.add(bgImg);
-          // Move background to bottom
-          const objects = canvas.getObjects();
-          if (objects.length > 1) {
-            canvas.sendObjectToBack(bgImg);
-          }
-          canvas.renderAll();
+      FabricImage.fromURL(offCanvas.toDataURL()).then((bgImg) => {
+        bgImg.set({
+          left: 0,
+          top: 0,
+          selectable: false,
+          evented: false,
+          hasControls: false,
         });
+        const oldBgs = canvas.getObjects().filter((o: any) => o._isBpBackground);
+        oldBgs.forEach(o => canvas.remove(o));
+
+        (bgImg as any)._isBpBackground = true;
+        canvas.add(bgImg);
+        const objects = canvas.getObjects();
+        if (objects.length > 1) {
+          canvas.sendObjectToBack(bgImg);
+        }
+        canvas.renderAll();
       });
     };
     img.src = imgUrl;
@@ -227,9 +252,9 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
       .eq('page_index', pageIndex)
       .maybeSingle();
 
-    // Remove old text objects (keep background)
-    const textObjs = canvas.getObjects().filter((o: any) => !o._isBpBackground);
-    textObjs.forEach(o => canvas.remove(o));
+    // Remove old non-background objects
+    const objs = canvas.getObjects().filter((o: any) => !o._isBpBackground);
+    objs.forEach(o => canvas.remove(o));
 
     if (data?.elements && Array.isArray(data.elements)) {
       for (const el of data.elements as unknown as MappingElement[]) {
@@ -251,7 +276,48 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
             width: el.width || 300,
           });
           (text as any)._mappingId = el.id;
+          (text as any)._bpType = 'text';
           canvas.add(text);
+        } else if (el.type === 'image' && el.src) {
+          try {
+            const imgObj = await FabricImage.fromURL(el.src, { crossOrigin: 'anonymous' });
+            const targetW = el.width || 200;
+            const targetH = el.height || 200;
+            imgObj.set({
+              left: el.x,
+              top: el.y,
+              scaleX: targetW / (imgObj.width || 1),
+              scaleY: targetH / (imgObj.height || 1),
+            });
+            (imgObj as any)._mappingId = el.id;
+            (imgObj as any)._bpType = 'image';
+            (imgObj as any)._bpSrc = el.src;
+            canvas.add(imgObj);
+          } catch (err) {
+            console.error('Failed to load mapping image:', err);
+          }
+        } else if (el.type === 'qr_code' && el.qrContent) {
+          try {
+            const qrContent = previewMode
+              ? resolveVariablesInText(el.qrContent, PREVIEW_PROFILE)
+              : el.qrContent;
+            const qrDataUrl = await QRCode.toDataURL(qrContent, { width: 512, margin: 1 });
+            const imgObj = await FabricImage.fromURL(qrDataUrl);
+            const targetW = el.width || 150;
+            const targetH = el.height || 150;
+            imgObj.set({
+              left: el.x,
+              top: el.y,
+              scaleX: targetW / (imgObj.width || 1),
+              scaleY: targetH / (imgObj.height || 1),
+            });
+            (imgObj as any)._mappingId = el.id;
+            (imgObj as any)._bpType = 'qr_code';
+            (imgObj as any)._qrContent = el.qrContent;
+            canvas.add(imgObj);
+          } catch (err) {
+            console.error('Failed to generate QR:', err);
+          }
         }
       }
     }
@@ -278,8 +344,37 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
   const collectElements = (): MappingElement[] => {
     if (!fabricCanvas) return [];
     return fabricCanvas.getObjects()
-      .filter((o: any) => !o._isBpBackground && (o.type === 'i-text' || o.type === 'text'))
+      .filter((o: any) => !o._isBpBackground)
       .map((obj, idx) => {
+        const bpType = (obj as any)._bpType;
+        
+        if (bpType === 'image') {
+          return {
+            id: (obj as any)._mappingId || `el-${Date.now()}-${idx}`,
+            type: 'image' as const,
+            content: '',
+            src: (obj as any)._bpSrc || '',
+            x: Math.round(obj.left || 0),
+            y: Math.round(obj.top || 0),
+            width: Math.round((obj.width || 200) * (obj.scaleX || 1)),
+            height: Math.round((obj.height || 200) * (obj.scaleY || 1)),
+          };
+        }
+        
+        if (bpType === 'qr_code') {
+          return {
+            id: (obj as any)._mappingId || `el-${Date.now()}-${idx}`,
+            type: 'qr_code' as const,
+            content: '',
+            qrContent: (obj as any)._qrContent || '',
+            x: Math.round(obj.left || 0),
+            y: Math.round(obj.top || 0),
+            width: Math.round((obj.width || 150) * (obj.scaleX || 1)),
+            height: Math.round((obj.height || 150) * (obj.scaleY || 1)),
+          };
+        }
+        
+        // text
         const t = obj as IText;
         return {
           id: (t as any)._mappingId || `el-${Date.now()}-${idx}`,
@@ -333,20 +428,125 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
       width: 300,
     });
     (text as any)._mappingId = `el-${Date.now()}`;
+    (text as any)._bpType = 'text';
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.renderAll();
   };
 
+  // Add image element
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileObj = e.target.files?.[0];
+    if (!fileObj || !user || !fabricCanvas) return;
+
+    if (!fileObj.type.startsWith('image/')) {
+      toast({ title: 'Błąd', description: 'Dozwolone tylko pliki graficzne.', variant: 'destructive' });
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = fileObj.name.split('.').pop();
+      const path = `${user.id}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error } = await supabase.storage.from('landing-images').upload(path, fileObj);
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from('landing-images').getPublicUrl(path);
+      const imgUrl = urlData.publicUrl;
+
+      const imgObj = await FabricImage.fromURL(imgUrl, { crossOrigin: 'anonymous' });
+      // Scale to reasonable size on canvas
+      const maxDim = 200;
+      const scale = Math.min(maxDim / (imgObj.width || 1), maxDim / (imgObj.height || 1), 1);
+      imgObj.set({
+        left: 100,
+        top: 100,
+        scaleX: scale,
+        scaleY: scale,
+      });
+      (imgObj as any)._mappingId = `el-${Date.now()}`;
+      (imgObj as any)._bpType = 'image';
+      (imgObj as any)._bpSrc = imgUrl;
+      fabricCanvas.add(imgObj);
+      fabricCanvas.setActiveObject(imgObj);
+      fabricCanvas.renderAll();
+      toast({ title: 'Obraz dodany na canvas' });
+    } catch (err: any) {
+      toast({ title: 'Błąd uploadu', description: err.message, variant: 'destructive' });
+    } finally {
+      setUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
+  // Add QR code element
+  const addQrCode = async () => {
+    if (!fabricCanvas || !qrText.trim()) return;
+    try {
+      const qrDataUrl = await QRCode.toDataURL(qrText, { width: 512, margin: 1 });
+      const imgObj = await FabricImage.fromURL(qrDataUrl);
+      const targetSize = 150;
+      imgObj.set({
+        left: 100,
+        top: 100,
+        scaleX: targetSize / (imgObj.width || 1),
+        scaleY: targetSize / (imgObj.height || 1),
+      });
+      (imgObj as any)._mappingId = `el-${Date.now()}`;
+      (imgObj as any)._bpType = 'qr_code';
+      (imgObj as any)._qrContent = qrText;
+      fabricCanvas.add(imgObj);
+      fabricCanvas.setActiveObject(imgObj);
+      fabricCanvas.renderAll();
+      setShowQrInput(false);
+      setQrText('');
+      toast({ title: 'Kod QR dodany' });
+    } catch (err: any) {
+      toast({ title: 'Błąd generowania QR', description: err.message, variant: 'destructive' });
+    }
+  };
+
   // Insert variable as new text element
   const insertVariable = (variable: string) => {
-    if (selectedObject && (selectedObject.type === 'i-text' || selectedObject.type === 'text')) {
-      // Append variable to existing selected text
+    if (selectedObject && selectedType === 'text') {
       const t = selectedObject as IText;
       t.set('text', (t.text || '') + variable);
       fabricCanvas?.renderAll();
+    } else if (selectedObject && selectedType === 'qr_code') {
+      // Update QR content with variable
+      const currentContent = (selectedObject as any)._qrContent || '';
+      (selectedObject as any)._qrContent = currentContent + variable;
+      // Regenerate QR
+      regenerateQr(selectedObject);
     } else {
       addTextElement(variable);
+    }
+  };
+
+  // Regenerate QR for an object
+  const regenerateQr = async (obj: any) => {
+    if (!fabricCanvas) return;
+    const content = obj._qrContent || '';
+    try {
+      const qrDataUrl = await QRCode.toDataURL(content, { width: 512, margin: 1 });
+      const newImg = await FabricImage.fromURL(qrDataUrl);
+      const currentW = (obj.width || 150) * (obj.scaleX || 1);
+      const currentH = (obj.height || 150) * (obj.scaleY || 1);
+      newImg.set({
+        left: obj.left,
+        top: obj.top,
+        scaleX: currentW / (newImg.width || 1),
+        scaleY: currentH / (newImg.height || 1),
+      });
+      (newImg as any)._mappingId = obj._mappingId;
+      (newImg as any)._bpType = 'qr_code';
+      (newImg as any)._qrContent = content;
+      fabricCanvas.remove(obj);
+      fabricCanvas.add(newImg);
+      fabricCanvas.setActiveObject(newImg);
+      fabricCanvas.renderAll();
+    } catch (err) {
+      console.error('QR regeneration error:', err);
     }
   };
 
@@ -355,6 +555,7 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
     if (!fabricCanvas || !selectedObject) return;
     fabricCanvas.remove(selectedObject);
     setSelectedObject(null);
+    setSelectedType(null);
     fabricCanvas.renderAll();
   };
 
@@ -369,25 +570,34 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
     fabricCanvas.renderAll();
   };
 
+  // Resize image/qr
+  const applySize = (w: number, h: number) => {
+    if (!selectedObject || !fabricCanvas) return;
+    selectedObject.set({
+      scaleX: w / (selectedObject.width || 1),
+      scaleY: h / (selectedObject.height || 1),
+    });
+    fabricCanvas.renderAll();
+  };
+
   // Toggle preview mode
   const togglePreview = async () => {
     if (!fabricCanvas) return;
     const newMode = !previewMode;
     setPreviewMode(newMode);
 
-    // Re-render elements with or without resolved variables
     const objects = fabricCanvas.getObjects().filter((o: any) => !o._isBpBackground);
-    objects.forEach(obj => {
-      if (obj.type === 'i-text' || obj.type === 'text') {
+    for (const obj of objects) {
+      const bpType = (obj as any)._bpType;
+      
+      if (bpType === 'text' && (obj.type === 'i-text' || obj.type === 'text')) {
         const t = obj as IText;
         const currentText = t.text || '';
         if (newMode) {
-          // Store original and show resolved
           (t as any)._originalContent = currentText;
           t.set('text', resolveVariablesInText(currentText, PREVIEW_PROFILE));
           t.set('editable', false);
         } else {
-          // Restore original
           const original = (t as any)._originalContent;
           if (original !== undefined) {
             t.set('text', original);
@@ -395,15 +605,30 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
           }
           t.set('editable', true);
         }
+      } else if (bpType === 'qr_code' && newMode) {
+        // Regenerate QR with resolved variables
+        const content = (obj as any)._qrContent || '';
+        const resolved = resolveVariablesInText(content, PREVIEW_PROFILE);
+        if (resolved !== content) {
+          (obj as any)._originalQrContent = content;
+          (obj as any)._qrContent = resolved;
+          await regenerateQr(obj);
+        }
+      } else if (bpType === 'qr_code' && !newMode) {
+        const original = (obj as any)._originalQrContent;
+        if (original !== undefined) {
+          (obj as any)._qrContent = original;
+          delete (obj as any)._originalQrContent;
+          await regenerateQr(obj);
+        }
       }
-    });
+    }
     fabricCanvas.renderAll();
   };
 
   // Page navigation for PDF
   const goToPage = async (page: number) => {
     if (!fabricCanvas || page < 0 || page >= totalPages) return;
-    // Save current page first
     await handleSave();
     setCurrentPage(page);
   };
@@ -420,6 +645,22 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
 
         <Button size="sm" variant="outline" onClick={() => addTextElement()}>
           <Type className="w-4 h-4 mr-1" /> Tekst
+        </Button>
+
+        <Button size="sm" variant="outline" onClick={() => imageInputRef.current?.click()} disabled={uploading}>
+          {uploading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <ImageIcon className="w-4 h-4 mr-1" />}
+          Obraz
+        </Button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleImageUpload}
+        />
+
+        <Button size="sm" variant="outline" onClick={() => setShowQrInput(true)}>
+          <QrCode className="w-4 h-4 mr-1" /> Kod QR
         </Button>
 
         <Select onValueChange={(v) => insertVariable(v)}>
@@ -474,6 +715,24 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
         </div>
       </div>
 
+      {/* QR input inline */}
+      {showQrInput && (
+        <div className="flex items-center gap-2 p-3 border-b border-border bg-muted/50 shrink-0">
+          <QrCode className="w-4 h-4 text-muted-foreground shrink-0" />
+          <Input
+            value={qrText}
+            onChange={e => setQrText(e.target.value)}
+            placeholder="Treść kodu QR (URL, tekst, {{zmienna}}...)"
+            className="flex-1"
+            onKeyDown={e => e.key === 'Enter' && addQrCode()}
+          />
+          <Button size="sm" onClick={addQrCode} disabled={!qrText.trim()}>Dodaj QR</Button>
+          <Button size="sm" variant="ghost" onClick={() => { setShowQrInput(false); setQrText(''); }}>
+            Anuluj
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-1 overflow-hidden">
         {/* Variables legend panel */}
         <div className="w-56 border-r border-border bg-muted/30 p-3 overflow-y-auto shrink-0 space-y-3">
@@ -520,131 +779,220 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
           <div className="w-64 border-l border-border p-4 overflow-y-auto space-y-4 bg-background shrink-0">
             <h4 className="text-sm font-semibold text-foreground">Właściwości</h4>
 
-            {/* Font Family */}
-            <div className="space-y-1">
-              <Label className="text-xs">Czcionka</Label>
-              <Select value={fontFamily} onValueChange={(v) => { setFontFamily(v); applyProperty('fontFamily', v); }}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FONT_FAMILIES.map(f => (
-                    <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* TEXT properties */}
+            {selectedType === 'text' && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">Czcionka</Label>
+                  <Select value={fontFamily} onValueChange={(v) => { setFontFamily(v); applyProperty('fontFamily', v); }}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONT_FAMILIES.map(f => (
+                        <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            {/* Font Size */}
-            <div className="space-y-1">
-              <Label className="text-xs">Rozmiar</Label>
-              <Input
-                type="number"
-                value={fontSize}
-                onChange={e => { const v = Number(e.target.value); setFontSize(v); applyProperty('fontSize', v); }}
-                className="h-8 text-xs"
-                min={8}
-                max={120}
-              />
-            </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Rozmiar</Label>
+                  <Input
+                    type="number"
+                    value={fontSize}
+                    onChange={e => { const v = Number(e.target.value); setFontSize(v); applyProperty('fontSize', v); }}
+                    className="h-8 text-xs"
+                    min={8}
+                    max={120}
+                  />
+                </div>
 
-            {/* Color */}
-            <div className="space-y-1">
-              <Label className="text-xs">Kolor</Label>
-              <div className="flex gap-2">
-                <input
-                  type="color"
-                  value={textColor}
-                  onChange={e => { setTextColor(e.target.value); applyProperty('fill', e.target.value); }}
-                  className="w-8 h-8 rounded border border-input cursor-pointer"
-                />
-                <Input
-                  value={textColor}
-                  onChange={e => { setTextColor(e.target.value); applyProperty('fill', e.target.value); }}
-                  className="h-8 text-xs flex-1"
-                />
-              </div>
-            </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Kolor</Label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      value={textColor}
+                      onChange={e => { setTextColor(e.target.value); applyProperty('fill', e.target.value); }}
+                      className="w-8 h-8 rounded border border-input cursor-pointer"
+                    />
+                    <Input
+                      value={textColor}
+                      onChange={e => { setTextColor(e.target.value); applyProperty('fill', e.target.value); }}
+                      className="h-8 text-xs flex-1"
+                    />
+                  </div>
+                </div>
 
-            {/* Style toggles */}
-            <div className="space-y-1">
-              <Label className="text-xs">Styl</Label>
-              <ToggleGroup type="multiple" className="justify-start">
-                <ToggleGroupItem
-                  value="bold"
-                  aria-label="Bold"
-                  data-state={fontWeight === 'bold' ? 'on' : 'off'}
-                  onClick={() => {
-                    const nw = fontWeight === 'bold' ? 'normal' : 'bold';
-                    setFontWeight(nw);
-                    applyProperty('fontWeight', nw);
-                  }}
-                >
-                  <Bold className="w-4 h-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="italic"
-                  aria-label="Italic"
-                  data-state={fontStyle === 'italic' ? 'on' : 'off'}
-                  onClick={() => {
-                    const ns = fontStyle === 'italic' ? 'normal' : 'italic';
-                    setFontStyle(ns);
-                    applyProperty('fontStyle', ns);
-                  }}
-                >
-                  <Italic className="w-4 h-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="underline"
-                  aria-label="Underline"
-                  data-state={textDecoration === 'underline' ? 'on' : 'off'}
-                  onClick={() => {
-                    const nd = textDecoration === 'underline' ? 'none' : 'underline';
-                    setTextDecoration(nd);
-                    applyProperty('underline', nd === 'underline');
-                  }}
-                >
-                  <Underline className="w-4 h-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Styl</Label>
+                  <ToggleGroup type="multiple" className="justify-start">
+                    <ToggleGroupItem
+                      value="bold"
+                      aria-label="Bold"
+                      data-state={fontWeight === 'bold' ? 'on' : 'off'}
+                      onClick={() => {
+                        const nw = fontWeight === 'bold' ? 'normal' : 'bold';
+                        setFontWeight(nw);
+                        applyProperty('fontWeight', nw);
+                      }}
+                    >
+                      <Bold className="w-4 h-4" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                      value="italic"
+                      aria-label="Italic"
+                      data-state={fontStyle === 'italic' ? 'on' : 'off'}
+                      onClick={() => {
+                        const ns = fontStyle === 'italic' ? 'normal' : 'italic';
+                        setFontStyle(ns);
+                        applyProperty('fontStyle', ns);
+                      }}
+                    >
+                      <Italic className="w-4 h-4" />
+                    </ToggleGroupItem>
+                    <ToggleGroupItem
+                      value="underline"
+                      aria-label="Underline"
+                      data-state={textDecoration === 'underline' ? 'on' : 'off'}
+                      onClick={() => {
+                        const nd = textDecoration === 'underline' ? 'none' : 'underline';
+                        setTextDecoration(nd);
+                        applyProperty('underline', nd === 'underline');
+                      }}
+                    >
+                      <Underline className="w-4 h-4" />
+                    </ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
 
-            {/* Alignment */}
-            <div className="space-y-1">
-              <Label className="text-xs">Wyrównanie</Label>
-              <ToggleGroup
-                type="single"
-                value={textAlign}
-                onValueChange={(v) => {
-                  if (v) {
-                    setTextAlign(v as any);
-                    applyProperty('textAlign', v);
-                  }
-                }}
-                className="justify-start"
-              >
-                <ToggleGroupItem value="left" aria-label="Left"><AlignLeft className="w-4 h-4" /></ToggleGroupItem>
-                <ToggleGroupItem value="center" aria-label="Center"><AlignCenter className="w-4 h-4" /></ToggleGroupItem>
-                <ToggleGroupItem value="right" aria-label="Right"><AlignRight className="w-4 h-4" /></ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            {/* Quick variable insert */}
-            <div className="space-y-1">
-              <Label className="text-xs">Szybkie zmienne</Label>
-              <div className="flex flex-wrap gap-1">
-                {VARIABLES_LEGEND.slice(0, 6).map(v => (
-                  <button
-                    key={v.variable}
-                    onClick={() => insertVariable(v.variable)}
-                    className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors font-mono"
-                    title={v.label}
+                <div className="space-y-1">
+                  <Label className="text-xs">Wyrównanie</Label>
+                  <ToggleGroup
+                    type="single"
+                    value={textAlign}
+                    onValueChange={(v) => {
+                      if (v) {
+                        setTextAlign(v as any);
+                        applyProperty('textAlign', v);
+                      }
+                    }}
+                    className="justify-start"
                   >
-                    {v.variable}
-                  </button>
-                ))}
-              </div>
-            </div>
+                    <ToggleGroupItem value="left" aria-label="Left"><AlignLeft className="w-4 h-4" /></ToggleGroupItem>
+                    <ToggleGroupItem value="center" aria-label="Center"><AlignCenter className="w-4 h-4" /></ToggleGroupItem>
+                    <ToggleGroupItem value="right" aria-label="Right"><AlignRight className="w-4 h-4" /></ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Szybkie zmienne</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {VARIABLES_LEGEND.slice(0, 6).map(v => (
+                      <button
+                        key={v.variable}
+                        onClick={() => insertVariable(v.variable)}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors font-mono"
+                        title={v.label}
+                      >
+                        {v.variable}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* IMAGE properties */}
+            {selectedType === 'image' && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">Szerokość (px)</Label>
+                  <Input
+                    type="number"
+                    value={elWidth}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      setElWidth(v);
+                      applySize(v, elHeight);
+                    }}
+                    className="h-8 text-xs"
+                    min={10}
+                    max={CANVAS_WIDTH}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Wysokość (px)</Label>
+                  <Input
+                    type="number"
+                    value={elHeight}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      setElHeight(v);
+                      applySize(elWidth, v);
+                    }}
+                    className="h-8 text-xs"
+                    min={10}
+                    max={CANVAS_HEIGHT}
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground">Możesz też skalować obrazek bezpośrednio na canvasie.</p>
+              </>
+            )}
+
+            {/* QR CODE properties */}
+            {selectedType === 'qr_code' && (
+              <>
+                <div className="space-y-1">
+                  <Label className="text-xs">Treść QR</Label>
+                  <Input
+                    value={(selectedObject as any)?._qrContent || ''}
+                    onChange={e => {
+                      if (selectedObject) {
+                        (selectedObject as any)._qrContent = e.target.value;
+                      }
+                    }}
+                    onBlur={() => {
+                      if (selectedObject) regenerateQr(selectedObject);
+                    }}
+                    className="h-8 text-xs"
+                    placeholder="URL lub tekst..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Rozmiar (px)</Label>
+                  <Input
+                    type="number"
+                    value={elWidth}
+                    onChange={e => {
+                      const v = Number(e.target.value);
+                      setElWidth(v);
+                      setElHeight(v);
+                      applySize(v, v);
+                    }}
+                    className="h-8 text-xs"
+                    min={50}
+                    max={500}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Zmienne w QR</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {VARIABLES_LEGEND.slice(0, 6).map(v => (
+                      <button
+                        key={v.variable}
+                        onClick={() => insertVariable(v.variable)}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors font-mono"
+                        title={v.label}
+                      >
+                        {v.variable}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
