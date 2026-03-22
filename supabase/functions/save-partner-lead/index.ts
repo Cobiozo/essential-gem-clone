@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { partner_user_id, first_name, last_name, email, phone_number, message, form_name } = await req.json();
+    const { partner_user_id, first_name, last_name, email, phone_number, message, form_name, form_cta_key } = await req.json();
 
     // Validation
     if (!partner_user_id || typeof partner_user_id !== "string") {
@@ -88,6 +88,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ===== POST-SUBMIT ACTIONS =====
+    if (form_cta_key && typeof form_cta_key === "string") {
+      try {
+        const { data: formDef } = await supabase
+          .from("partner_page_forms")
+          .select("post_submit_actions")
+          .eq("cta_key", form_cta_key)
+          .eq("is_active", true)
+          .maybeSingle();
+
+        const actions = (formDef?.post_submit_actions as any[]) || [];
+
+        for (const action of actions) {
+          if (action?.type === "send_email_with_file" && action?.bp_file_id) {
+            await handleSendEmailWithFile(supabase, action.bp_file_id, email.trim(), first_name.trim());
+          }
+        }
+      } catch (actionErr) {
+        // Log but don't fail the lead save
+        console.error("Post-submit action error:", actionErr);
+      }
+    }
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -100,3 +123,87 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function handleSendEmailWithFile(
+  supabase: any,
+  bpFileId: string,
+  recipientEmail: string,
+  recipientFirstName: string
+) {
+  console.log(`[post-action] Sending email with BP file ${bpFileId} to ${recipientEmail}`);
+
+  // 1. Fetch the BP file record
+  const { data: bpFile, error: bpErr } = await supabase
+    .from("bp_page_files")
+    .select("file_name, original_name, file_url, mime_type")
+    .eq("id", bpFileId)
+    .single();
+
+  if (bpErr || !bpFile) {
+    console.error("[post-action] BP file not found:", bpErr);
+    return;
+  }
+
+  // 2. Download the file and convert to base64
+  console.log(`[post-action] Downloading file from: ${bpFile.file_url}`);
+  const fileResp = await fetch(bpFile.file_url);
+  if (!fileResp.ok) {
+    console.error(`[post-action] Failed to download file: ${fileResp.status}`);
+    return;
+  }
+
+  const fileBuffer = await fileResp.arrayBuffer();
+  const uint8 = new Uint8Array(fileBuffer);
+  let binary = '';
+  for (let i = 0; i < uint8.length; i++) {
+    binary += String.fromCharCode(uint8[i]);
+  }
+  const fileBase64 = btoa(binary);
+
+  console.log(`[post-action] File downloaded, size: ${uint8.length} bytes`);
+
+  // 3. Build email HTML
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #333;">Cześć ${recipientFirstName || ''}!</h2>
+      <p style="color: #555; line-height: 1.6;">
+        Dziękujemy za wypełnienie formularza. W załączniku znajdziesz poradnik/e-book, który dla Ciebie przygotowaliśmy.
+      </p>
+      <p style="color: #555; line-height: 1.6;">
+        Jeśli masz pytania, nie wahaj się z nami skontaktować.
+      </p>
+      <p style="color: #555; line-height: 1.6; margin-top: 30px;">
+        Pozdrawiamy,<br/>
+        <strong>Zespół Pure Life</strong>
+      </p>
+    </div>
+  `;
+
+  // 4. Call send-single-email with attachment
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const sendResp = await fetch(`${supabaseUrl}/functions/v1/send-single-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify({
+      skip_template: true,
+      recipient_email: recipientEmail,
+      subject: "Twój darmowy poradnik od Pure Life",
+      html_body: htmlBody,
+      attachments: [
+        {
+          filename: bpFile.original_name || bpFile.file_name,
+          content_base64: fileBase64,
+          content_type: bpFile.mime_type || "application/octet-stream",
+        },
+      ],
+    }),
+  });
+
+  const sendResult = await sendResp.json();
+  console.log(`[post-action] Email send result:`, sendResult);
+}
