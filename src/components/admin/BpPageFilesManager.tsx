@@ -8,7 +8,7 @@ import { formatFileSize } from '@/lib/storageConfig';
 import { copyToClipboard } from '@/lib/clipboardUtils';
 import {
   FolderPlus, Upload, Trash2, Copy, Eye, Loader2,
-  FolderOpen, Plus, X, Image as ImageIcon, FileText
+  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2
 } from 'lucide-react';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
