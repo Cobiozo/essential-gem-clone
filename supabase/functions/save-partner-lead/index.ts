@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { partner_user_id, first_name, last_name, email, phone_number, message } = await req.json();
+    const { partner_user_id, first_name, last_name, email, phone_number, message, form_name } = await req.json();
 
     // Validation
     if (!partner_user_id || typeof partner_user_id !== "string") {
