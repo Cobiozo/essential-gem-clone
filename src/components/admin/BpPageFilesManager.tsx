@@ -26,6 +26,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog';
 import BpFileMappingEditor from './BpFileMappingEditor';
+import PdfThumbnail from './PdfThumbnail';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -372,6 +373,8 @@ export const BpPageFilesManager: React.FC = () => {
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
+                      ) : file.mime_type === 'application/pdf' ? (
+                        <PdfThumbnail url={file.file_url} />
                       ) : (
                         <FileText className="w-10 h-10 text-muted-foreground" />
                       )}
