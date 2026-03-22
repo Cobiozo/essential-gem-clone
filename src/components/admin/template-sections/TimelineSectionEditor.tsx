@@ -7,6 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { InnerElementsList } from './InnerElementsList';
+import { ColorInput } from '@/components/ui/color-input';
 
 interface Props {
   config: Record<string, any>;
@@ -34,12 +35,24 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
         </div>
         <Textarea value={config.heading || ''} onChange={e => update('heading', e.target.value)} rows={1} className="min-h-[36px] resize-y" />
       </div>
+      <div>
+        <Label>Podtytuł / opis</Label>
+        <Textarea value={config.subtitle || ''} onChange={e => update('subtitle', e.target.value)} rows={2} className="min-h-[36px] resize-y" />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <ColorInput label="Kolor tła sekcji" value={config.bg_color || ''} onChange={v => update('bg_color', v)} />
+        <ColorInput label="Kolor tekstu" value={config.text_color || ''} onChange={v => update('text_color', v)} />
+        <ColorInput label="Kolor linii / highlight" value={config.line_color || ''} onChange={v => update('line_color', v)} />
+        <ColorInput label="Kolor tekstu wyróżnienia" value={config.highlight_text_color || ''} onChange={v => update('highlight_text_color', v)} />
+      </div>
+
       <Label>Punkty na osi czasu</Label>
       {milestones.map((m, i) => (
         <div key={i} className="flex gap-2 items-start border rounded-lg p-3">
           <div className="flex-1 space-y-2">
             <div className="grid grid-cols-3 gap-2">
-              <Input value={m.icon || ''} onChange={e => updateMilestone(i, 'icon', e.target.value)} placeholder="Ikona" />
+              <Input value={m.icon || ''} onChange={e => updateMilestone(i, 'icon', e.target.value)} placeholder="Ikona / numer" />
               <Input value={m.month || ''} onChange={e => updateMilestone(i, 'month', e.target.value)} placeholder="Miesiąc" />
               <div className="flex items-center gap-2">
                 <Label className="text-xs">Wyróżniony</Label>
@@ -53,7 +66,7 @@ export const TimelineSectionEditor: React.FC<Props> = ({ config, onChange }) => 
           </Button>
         </div>
       ))}
-      <Button variant="outline" size="sm" onClick={() => update('milestones', [...milestones, { icon: '📌', month: '', title: '', highlight: false }])}>
+      <Button variant="outline" size="sm" onClick={() => update('milestones', [...milestones, { icon: '', month: '', title: '', highlight: false }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj punkt
       </Button>
 
