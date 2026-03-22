@@ -234,13 +234,13 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
         break;
       case 'contact_form':
-        sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} />;
+        sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} partnerUserId={page?.user_id} />;
         break;
       case 'footer':
         sectionNode = <FooterSection config={cfg} />;
         break;
       case 'products_with_form':
-        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
+        sectionNode = <ProductsWithFormSection config={cfg} products={products} productLinks={linkedProducts} partnerEmail={profile?.email || undefined} partnerUserId={page?.user_id} isEditing={isOwner} onProductLinkSave={handleProductLinkSave} />;
         break;
       case 'static':
         sectionNode = element.content ? (

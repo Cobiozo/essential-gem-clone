@@ -81,7 +81,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events' | 'deleted'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events' | 'partner-page' | 'deleted'>('own');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -206,10 +206,13 @@ export const TeamContactsTab: React.FC = () => {
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
   const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id) || (c as any).moved_to_own_list);
   const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id) && !(c as any).moved_to_own_list);
+  const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska');
   
   const filteredContacts = (() => {
     if (activeTab === 'private') {
-      return privateSubTab === 'events' ? eventContacts : ownContacts;
+      if (privateSubTab === 'events') return eventContacts;
+      if (privateSubTab === 'partner-page') return partnerPageContacts;
+      return ownContacts;
     }
     if (activeTab === 'team') return contacts.filter(c => c.contact_type === 'team_member');
     return contacts;
@@ -347,6 +350,16 @@ export const TeamContactsTab: React.FC = () => {
                 >
                   Z zaproszeń na wydarzenia
                   <Badge variant="secondary" className="ml-2">{eventContacts.length}</Badge>
+                </Button>
+                <Button
+                  variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('partner-page')}
+                >
+                  Z Mojej Strony Partnera
+                  {partnerPageContacts.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
+                  )}
                 </Button>
                 <Button
                   variant={privateSubTab === 'deleted' ? 'default' : 'outline'}

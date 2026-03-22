@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Globe, Layout, Package, ClipboardList, FolderOpen } from 'lucide-react';
+import { Globe, Layout, Package, ClipboardList, FolderOpen, FileInput } from 'lucide-react';
 import { PartnerPageAccessManager } from './PartnerPageAccessManager';
 import { PartnerTemplateEditor } from './PartnerTemplateEditor';
 import { ProductCatalogManager } from './ProductCatalogManager';
 import { SurveyManager } from './SurveyManager';
 import { BpPageFilesManager } from './BpPageFilesManager';
+import { PartnerFormsManager } from './PartnerFormsManager';
 
 export const PartnerPagesManagement: React.FC = () => {
   const [subTab, setSubTab] = useState('access');
@@ -34,6 +35,10 @@ export const PartnerPagesManagement: React.FC = () => {
             <FolderOpen className="w-4 h-4 mr-2" />
             Pliki na stronę BP
           </TabsTrigger>
+          <TabsTrigger value="forms">
+            <FileInput className="w-4 h-4 mr-2" />
+            Formularze
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="access">
@@ -54,6 +59,10 @@ export const PartnerPagesManagement: React.FC = () => {
 
         <TabsContent value="bp-files">
           <BpPageFilesManager />
+        </TabsContent>
+
+        <TabsContent value="forms">
+          <PartnerFormsManager />
         </TabsContent>
       </Tabs>
     </div>
