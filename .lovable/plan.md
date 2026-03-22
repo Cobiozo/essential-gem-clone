@@ -1,38 +1,39 @@
 
 
-# Naprawa: błąd wysyłki formularza + kolor czcionki
+# Optymalizacja rozmiaru PDF certyfikatów (11.9 MB → ~1-2 MB)
 
-## Problem 1: Błąd wysyłki emaila z załącznikiem
-Funkcja `save-partner-lead` wywołuje `send-single-email` przekazując **service role key** jako Bearer token. Jednak `send-single-email` robi `supabase.auth.getUser()` na tym tokenie — co nie zadziała, bo service role key nie jest tokenem JWT użytkownika. Wynik: `{ success: false, error: "Unauthorized" }`.
+## Przyczyna problemu
+Certyfikaty mają 11.9 MB, ponieważ:
+1. **Obrazy dodawane jako PNG bez kompresji** — linia 326: `doc.addImage(imageData, 'PNG', ...)` — PNG jest bezstratny i ciężki
+2. **Brak kompresji/skalowania obrazów** — tło certyfikatu (np. 3000x2000px) jest wstawiane w pełnej rozdzielczości
+3. **Fonty DejaVu TTF** (~700KB each) — osadzone w PDF, ale to mniejszy problem
 
-Formularz sam się zapisuje poprawnie (lead trafia do kontaktów), ale email z załącznikiem nie jest wysyłany.
+## Rozwiązanie
 
-### Rozwiązanie
-Zamiast wywoływać `send-single-email` (która wymaga autentykacji użytkownika), zaimplementować wysyłkę SMTP **bezpośrednio** w `save-partner-lead`:
-- Pobrać ustawienia SMTP z tabeli `smtp_settings`
-- Użyć tego samego kodu SMTP co w `send-single-email` (connect, EHLO, AUTH, MAIL FROM, RCPT TO, DATA z załącznikiem)
-- Owinąć HTML brandingiem (helper `wrapWithBranding`)
+### Plik: `src/hooks/useCertificateGeneration.ts`
 
-Alternatywnie (prostsze): dodać w `send-single-email` obsługę tokena service role — sprawdzić, czy token === service role key, i jeśli tak, pominąć `getUser()`.
+**Zmiana 1**: Zastąpić `loadImageAsBase64` nową wersją, która kompresuje obrazy przed dodaniem do PDF:
+- Załadować obraz na Canvas
+- Przeskalować do max 1600px szerokości (A4 landscape @150dpi = ~1750px)
+- Eksportować jako JPEG z quality 0.75 zamiast PNG
+- Zmniejszy rozmiar obrazu z ~10MB na ~200-400KB
 
-**Rekomendacja**: Prostsze rozwiązanie — w `send-single-email` dodać warunek: jeśli Bearer token = service role key, pominąć walidację użytkownika (zaufane wewnętrzne wywołanie). To wymaga minimalnych zmian.
+**Zmiana 2**: W `doc.addImage()` użyć `'JPEG'` zamiast `'PNG'`
 
-### Plik: `supabase/functions/send-single-email/index.ts`
-- Linie 318-324: dodać sprawdzenie, czy token === service role key → jeśli tak, pominąć `getUser()` i traktować jako wewnętrzne wywołanie
-- Po zmianie: **redeploy** obu funkcji (`save-partner-lead` i `send-single-email`)
+**Zmiana 3**: Włączyć kompresję jsPDF — dodać `compress: true` w opcjach konstruktora:
+```text
+new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true })
+```
 
-## Problem 2: Kolor czcionki niewidoczny
-Potrzebuję więcej kontekstu — proszę wskazać, w którym edytorze sekcji nie można zmienić koloru (Hero, Header, TextImage, Footer, ContactForm, InnerElement?). Na screenshocie widoczny jest formularz na stronie partnerskiej — czy chodzi o kolor tekstu w:
-- opisie formularza (`description`)?
-- nagłówkach sekcji na stronie?
-- innym elemencie?
+### Szczegóły kompresji obrazów
+Nowa funkcja `loadAndCompressImage`:
+- Tworzy HTMLCanvasElement
+- Skaluje obraz proporcjonalnie do max 1600x1200
+- Wywołuje `canvas.toDataURL('image/jpeg', 0.75)`
+- Zwraca skompresowany base64
 
-Jeśli chodzi o edytor sekcji np. Hero/TextImage — `ColorInput` powinien działać. Sprawdzę rendering kolorów po wskazaniu konkretnej sekcji.
+Oczekiwany rezultat: PDF z ~11.9MB spadnie do ~1-2MB.
 
-## Zmiany techniczne
-
-| Plik | Zmiana |
-|------|--------|
-| `supabase/functions/send-single-email/index.ts` | Dodać bypass `getUser()` dla wywołań z service role key |
-| Redeploy: `send-single-email`, `save-partner-lead` | Konieczne po każdej zmianie edge functions |
+## Pliki do zmiany
+- `src/hooks/useCertificateGeneration.ts` — kompresja obrazów + opcja compress w jsPDF
 
