@@ -7,6 +7,8 @@ interface Props {
   partnerName?: string;
   disableSticky?: boolean;
   onSurveyOpen?: () => void;
+  formKeys?: string[];
+  onFormOpen?: (key: string) => void;
 }
 
 const FONT_SIZE_MAP: Record<string, string> = {
@@ -16,7 +18,7 @@ const FONT_SIZE_MAP: Record<string, string> = {
   lg: '18px',
 };
 
-export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky, onSurveyOpen }) => {
+export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky, onSurveyOpen, formKeys, onFormOpen }) => {
   const {
     logo_text, logo_image_url, buttons, nav_style,
     bg_color, text_color, border_color, hide_border,
@@ -121,6 +123,14 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
                 e.preventDefault();
                 onSurveyOpen();
                 return;
+              }
+              if (isAnchor && formKeys && onFormOpen) {
+                const anchor = url.substring(1);
+                if (formKeys.includes(anchor)) {
+                  e.preventDefault();
+                  onFormOpen(anchor);
+                  return;
+                }
               }
               if (isAnchor) {
                 e.preventDefault();

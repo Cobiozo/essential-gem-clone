@@ -13,9 +13,11 @@ interface StatItem {
 interface Props {
   config: Record<string, any>;
   onSurveyOpen?: () => void;
+  formKeys?: string[];
+  onFormOpen?: (key: string) => void;
 }
 
-export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
+export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen, formKeys, onFormOpen }) => {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -44,6 +46,14 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
       e.preventDefault();
       onSurveyOpen();
       return;
+    }
+    if (url.startsWith('#') && formKeys && onFormOpen) {
+      const anchor = url.substring(1);
+      if (formKeys.includes(anchor)) {
+        e.preventDefault();
+        onFormOpen(anchor);
+        return;
+      }
     }
     if (url.startsWith('#')) {
       e.preventDefault();

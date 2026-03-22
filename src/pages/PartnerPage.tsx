@@ -26,6 +26,7 @@ import {
   SurveySection,
   SurveyModal,
 } from '@/components/partner-page/sections';
+import { PartnerFormModal } from '@/components/partner-page/sections/PartnerFormModal';
 
 interface PartnerProfile {
   first_name: string | null;
@@ -56,6 +57,8 @@ const PartnerPageView: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [saving, setSaving] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
+  const [formKeys, setFormKeys] = useState<string[]>([]);
+  const [activeFormKey, setActiveFormKey] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPage = async () => {
@@ -86,17 +89,19 @@ const PartnerPageView: React.FC = () => {
         ? supabase.from('partner_page_template').select('template_data').eq('id', (pageData as any).selected_template_id).maybeSingle()
         : supabase.from('partner_page_template').select('template_data').limit(1).maybeSingle();
 
-      const [templateRes, profileRes, productsRes, linksRes] = await Promise.all([
+      const [templateRes, profileRes, productsRes, linksRes, formsRes] = await Promise.all([
         templateQuery,
         supabase.from('profiles').select('first_name, last_name, avatar_url, email, phone_number, city, country, specialization, profile_description, eq_id').eq('user_id', pageData.user_id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
+        supabase.from('partner_page_forms').select('cta_key').eq('is_active', true),
       ]);
 
       setTemplate(((templateRes.data?.template_data as any) || []).sort((a: TemplateElement, b: TemplateElement) => a.position - b.position));
       setProfile(profileRes.data as any);
       setProducts(productsRes.data as any || []);
       setProductLinks((linksRes.data as any) || []);
+      setFormKeys((formsRes.data || []).map((f: any) => f.cta_key));
       setLoading(false);
     };
 
@@ -153,6 +158,7 @@ const PartnerPageView: React.FC = () => {
   }, [page, productLinks]);
 
   const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+  const handleFormOpen = useCallback((key: string) => setActiveFormKey(key), []);
 
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
@@ -207,10 +213,10 @@ const PartnerPageView: React.FC = () => {
 
     switch (element.type) {
       case 'header':
-        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
+        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />;
         break;
       case 'hero':
-        sectionNode = <HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
+        sectionNode = <HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />;
         break;
       case 'text_image':
         sectionNode = <TextImageSection config={cfg} />;
@@ -231,7 +237,7 @@ const PartnerPageView: React.FC = () => {
         sectionNode = <FaqSection config={cfg} />;
         break;
       case 'cta_banner':
-        sectionNode = <CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
+        sectionNode = <CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />;
         break;
       case 'contact_form':
         sectionNode = <ContactFormSection config={cfg} partnerEmail={profile?.email || undefined} partnerUserId={page?.user_id} />;
@@ -301,6 +307,16 @@ const PartnerPageView: React.FC = () => {
         {/* Survey modal */}
         {surveyConfig && (
           <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
+        )}
+
+        {/* Form modal */}
+        {activeFormKey && page && (
+          <PartnerFormModal
+            ctaKey={activeFormKey}
+            partnerUserId={page.user_id}
+            open={!!activeFormKey}
+            onClose={() => setActiveFormKey(null)}
+          />
         )}
       </div>
     );

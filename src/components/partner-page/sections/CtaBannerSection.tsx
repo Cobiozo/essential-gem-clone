@@ -4,9 +4,11 @@ import { InnerElementRenderer } from '@/components/admin/template-sections/Inner
 interface Props {
   config: Record<string, any>;
   onSurveyOpen?: () => void;
+  formKeys?: string[];
+  onFormOpen?: (key: string) => void;
 }
 
-export const CtaBannerSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
+export const CtaBannerSection: React.FC<Props> = ({ config, onSurveyOpen, formKeys, onFormOpen }) => {
   const { heading, description, cta_text, cta_url, bg_color, text_color, text_align } = config;
   const tc = text_color || undefined;
   const ts = tc ? { color: tc } : { color: 'white' };
@@ -26,6 +28,14 @@ export const CtaBannerSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
                 e.preventDefault();
                 onSurveyOpen();
                 return;
+              }
+              if (url.startsWith('#') && formKeys && onFormOpen) {
+                const anchor = url.substring(1);
+                if (formKeys.includes(anchor)) {
+                  e.preventDefault();
+                  onFormOpen(anchor);
+                  return;
+                }
               }
               if (url.startsWith('#')) {
                 e.preventDefault();

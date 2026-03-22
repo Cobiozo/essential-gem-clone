@@ -12,7 +12,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { partner_user_id, first_name, last_name, email, phone_number, message } = await req.json();
+    const { partner_user_id, first_name, last_name, email, phone_number, message, form_name } = await req.json();
 
     // Validation
     if (!partner_user_id || typeof partner_user_id !== "string") {
@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       role: "client",
       contact_type: "private",
       contact_source: "Strona partnerska",
-      contact_reason: "Formularz kontaktowy",
+      contact_reason: (typeof form_name === "string" && form_name.trim()) ? form_name.trim().slice(0, 200) : "Formularz kontaktowy",
       notes: notesArr.length > 0 ? notesArr.join("\n") : null,
       added_at: new Date().toISOString().split("T")[0],
       is_active: true,
