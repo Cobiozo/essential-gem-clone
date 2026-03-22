@@ -9,8 +9,16 @@ import { copyToClipboard } from '@/lib/clipboardUtils';
 import { resolveVariablesInText, PREVIEW_PROFILE } from '@/lib/partnerVariables';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  DndContext, DragEndEvent, PointerSensor, TouchSensor,
+  useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext, rectSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   FolderPlus, Upload, Trash2, Copy, Eye, Loader2,
-  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2, Hash
+  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2, Hash, GripVertical
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -46,40 +54,68 @@ interface BpFile {
   cta_label: string | null;
 }
 
-const CANVAS_WIDTH_EDITOR = 842;
+const CANVAS_WIDTH = 842;
+const CANVAS_HEIGHT = 595;
 
 const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file, mappings }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [renderedWidth, setRenderedWidth] = useState(0);
-  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [bgStyle, setBgStyle] = useState<React.CSSProperties>({});
 
+  // Calculate scale from rendered stage width vs editor canvas width
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!stageRef.current) return;
     const obs = new ResizeObserver(entries => {
-      for (const e of entries) setRenderedWidth(e.contentRect.width);
+      for (const e of entries) {
+        setScale(e.contentRect.width / CANVAS_WIDTH);
+      }
     });
-    obs.observe(containerRef.current);
+    obs.observe(stageRef.current);
     return () => obs.disconnect();
   }, []);
 
-  const scale = renderedWidth / CANVAS_WIDTH_EDITOR;
-  const canvasH = naturalSize ? CANVAS_WIDTH_EDITOR * (naturalSize.h / naturalSize.w) : 0;
+  // Calculate background image contain-fit inside the 842×595 stage
+  const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    const scaleX = CANVAS_WIDTH / natW;
+    const scaleY = CANVAS_HEIGHT / natH;
+    const fitScale = Math.min(scaleX, scaleY);
+    const w = natW * fitScale;
+    const h = natH * fitScale;
+    const offsetX = (CANVAS_WIDTH - w) / 2;
+    const offsetY = (CANVAS_HEIGHT - h) / 2;
+    setBgStyle({
+      position: 'absolute',
+      left: `${(offsetX / CANVAS_WIDTH) * 100}%`,
+      top: `${(offsetY / CANVAS_HEIGHT) * 100}%`,
+      width: `${(w / CANVAS_WIDTH) * 100}%`,
+      height: `${(h / CANVAS_HEIGHT) * 100}%`,
+      objectFit: 'fill',
+    });
+  }, []);
 
   return (
-    <div ref={containerRef} className="relative inline-block w-full">
+    <div
+      ref={stageRef}
+      className="relative w-full bg-muted/30 border rounded-lg overflow-hidden"
+      style={{ aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}` }}
+    >
+      {/* Background image fitted like editor */}
       <img
         src={file.file_url}
         alt={file.original_name}
-        className="w-full h-auto rounded-lg block"
-        onLoad={(e) => {
-          const img = e.currentTarget;
-          setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-        }}
+        className="pointer-events-none"
+        style={bgStyle.width ? bgStyle : { width: '100%', height: '100%', objectFit: 'contain' }}
+        onLoad={handleImgLoad}
       />
-      {naturalSize && renderedWidth > 0 && mappings.map((el: any, i: number) => {
-        const leftPct = ((el.x || 0) / CANVAS_WIDTH_EDITOR) * 100;
-        const topPct = ((el.y || 0) / canvasH) * 100;
-        const widthPct = el.width ? (el.width / CANVAS_WIDTH_EDITOR) * 100 : undefined;
+
+      {/* Mapping elements positioned relative to the full stage */}
+      {scale > 0 && mappings.map((el: any, i: number) => {
+        const leftPct = ((el.x || 0) / CANVAS_WIDTH) * 100;
+        const topPct = ((el.y || 0) / CANVAS_HEIGHT) * 100;
+        const widthPct = el.width ? (el.width / CANVAS_WIDTH) * 100 : undefined;
         const scaledFontSize = (el.fontSize || 24) * scale;
         const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
         return (
@@ -109,6 +145,29 @@ const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file
   );
 };
 
+/* ---- Sortable file card wrapper ---- */
+const SortableFileCard: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        className="absolute top-1 left-8 z-10 bg-background/80 p-0.5 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Przeciągnij aby zmienić kolejność"
+      >
+        <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+      </div>
+      {children}
+    </div>
+  );
+};
 export const BpPageFilesManager: React.FC = () => {
   const [folders, setFolders] = useState<BpFolder[]>([]);
   const [files, setFiles] = useState<BpFile[]>([]);
