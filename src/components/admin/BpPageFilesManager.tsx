@@ -6,8 +6,6 @@ import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { formatFileSize } from '@/lib/storageConfig';
 import { copyToClipboard } from '@/lib/clipboardUtils';
-import { resolveVariablesInText, PREVIEW_PROFILE } from '@/lib/partnerVariables';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DndContext, DragEndEvent, PointerSensor, TouchSensor,
   useSensor, useSensors, closestCenter,
