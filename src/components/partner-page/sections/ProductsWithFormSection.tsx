@@ -11,6 +11,7 @@ interface Props {
   products: ProductCatalogItem[];
   productLinks: (PartnerProductLink & { product?: ProductCatalogItem })[];
   partnerEmail?: string;
+  partnerUserId?: string;
   isEditing?: boolean;
   onProductLinkSave?: (productId: string, purchaseUrl: string) => void;
 }
