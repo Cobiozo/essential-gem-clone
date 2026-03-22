@@ -1,39 +1,67 @@
 
 
-# Optymalizacja rozmiaru PDF certyfikatów (11.9 MB → ~1-2 MB)
+# Generowanie spersonalizowanego PDF z mapowaniami przed wysyłką emaila
 
-## Przyczyna problemu
-Certyfikaty mają 11.9 MB, ponieważ:
-1. **Obrazy dodawane jako PNG bez kompresji** — linia 326: `doc.addImage(imageData, 'PNG', ...)` — PNG jest bezstratny i ciężki
-2. **Brak kompresji/skalowania obrazów** — tło certyfikatu (np. 3000x2000px) jest wstawiane w pełnej rozdzielczości
-3. **Fonty DejaVu TTF** (~700KB each) — osadzone w PDF, ale to mniejszy problem
+## Problem
+Obecnie `save-partner-lead` wysyła surowy plik z biblioteki BP jako załącznik. Pliki BP mają mapowania (`bp_file_mappings`) z dynamicznymi zmiennymi partnera (`{{imie}}`, `{{email}}`, itp.), obrazami i kodami QR — ale te mapowania nie są nakładane na plik przed wysyłką. Lead dostaje "pusty" PDF bez spersonalizowanych danych.
 
 ## Rozwiązanie
+Przenieść logikę generowania spersonalizowanego PDF do Edge Function `save-partner-lead`. Funkcja musi:
+1. Pobrać dane profilu partnera (`profiles`)
+2. Pobrać mapowania z `bp_file_mappings` dla danego pliku
+3. Rozwiązać zmienne (`{{imie}}` → dane partnera)
+4. Wygenerować PDF z nałożonymi elementami (tekst, obrazy, kody QR)
+5. Wysłać wygenerowany PDF jako załącznik emaila
 
-### Plik: `src/hooks/useCertificateGeneration.ts`
+## Wyzwanie techniczne
+Edge Functions (Deno) nie mają dostępu do DOM/Canvas. Certyfikaty używają klienckich bibliotek (jsPDF + Canvas). W Deno trzeba użyć biblioteki `pdf-lib` (dostępna na esm.sh), która pozwala:
+- Załadować istniejący PDF
+- Nakładać tekst z fontami
+- Osadzać obrazy (PNG/JPG)
+- Generować wielostronicowe dokumenty
 
-**Zmiana 1**: Zastąpić `loadImageAsBase64` nową wersją, która kompresuje obrazy przed dodaniem do PDF:
-- Załadować obraz na Canvas
-- Przeskalować do max 1600px szerokości (A4 landscape @150dpi = ~1750px)
-- Eksportować jako JPEG z quality 0.75 zamiast PNG
-- Zmniejszy rozmiar obrazu z ~10MB na ~200-400KB
+Dla plików JPG/PNG (nie-PDF): `pdf-lib` tworzy nowy dokument i osadza obraz jako tło strony.
 
-**Zmiana 2**: W `doc.addImage()` użyć `'JPEG'` zamiast `'PNG'`
+## Zmiany
 
-**Zmiana 3**: Włączyć kompresję jsPDF — dodać `compress: true` w opcjach konstruktora:
-```text
-new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4', compress: true })
-```
+### Plik: `supabase/functions/save-partner-lead/index.ts`
 
-### Szczegóły kompresji obrazów
-Nowa funkcja `loadAndCompressImage`:
-- Tworzy HTMLCanvasElement
-- Skaluje obraz proporcjonalnie do max 1600x1200
-- Wywołuje `canvas.toDataURL('image/jpeg', 0.75)`
-- Zwraca skompresowany base64
+**Zmiana 1** — W `handleSendEmailWithFile` dodać parametr `partner_user_id` i nową logikę:
 
-Oczekiwany rezultat: PDF z ~11.9MB spadnie do ~1-2MB.
+1. Pobrać profil partnera z `profiles` (imię, nazwisko, email, telefon, miasto, kraj, specjalizacja, opis, eq_id, avatar_url)
+2. Pobrać wszystkie mapowania z `bp_file_mappings` dla `bpFileId` (mogą być wielostronicowe — `page_index`)
+3. Jeśli brak mapowań → wysłać surowy plik jak dotychczas (fallback)
+4. Jeśli są mapowania → wygenerować spersonalizowany PDF:
+
+**Generowanie PDF (pdf-lib w Deno):**
+- Import `pdf-lib` z esm.sh
+- Dla PDF: załadować oryginalny PDF (`PDFDocument.load`), iterować strony
+- Dla JPG/PNG: stworzyć nowy `PDFDocument`, osadzić obraz jako tło
+- Dla każdej strony pobrać mapowanie (`page_index`), iterować elementy:
+  - `text`: rozwiązać zmienne partnera, narysować tekst (`page.drawText`) z fontem, kolorem, wyrównaniem, rozmiarem
+  - `image`: pobrać obraz z URL, osadzić w PDF (`doc.embedPng`/`embedJpg`), narysować
+  - `qr_code`: wygenerować QR jako PNG (biblioteka `qrcode` na esm.sh), osadzić i narysować
+- Konwertować układ współrzędnych: mapowania używają systemu canvas (842×595px, Y od góry), pdf-lib używa punktów (Y od dołu)
+- Wyeksportować do `Uint8Array` i skonwertować na base64
+
+**Zmiana 2** — Dodać helper `resolvePartnerVariables(text, profile)` w Edge Function (port logiki z `src/lib/partnerVariables.ts`)
+
+**Zmiana 3** — Zaktualizować wywołanie `handleSendEmailWithFile` aby przekazać `partner_user_id`
+
+### Przeliczanie współrzędnych
+Mapowania z Fabric.js canvas (842×595px) → PDF:
+- Canvas pixel → PDF point: przeskalować proporcjonalnie do rozmiaru strony PDF
+- Odwrócić Y: `pdfY = pageHeight - (canvasY / canvasHeight * pageHeight) - elementHeight`
+
+### Fonty w PDF
+pdf-lib ma wbudowane standardowe fonty (Helvetica). Dla polskich znaków trzeba osadzić font Unicode — można pobrać font z zasobów projektu lub użyć `StandardFonts.Helvetica` z fallbackiem (polskie znaki mogą nie wyświetlać się poprawnie). Alternatywnie: osadzić Roboto z base64 (jak w certyfikatach).
 
 ## Pliki do zmiany
-- `src/hooks/useCertificateGeneration.ts` — kompresja obrazów + opcja compress w jsPDF
+| Plik | Zmiana |
+|------|--------|
+| `supabase/functions/save-partner-lead/index.ts` | Dodanie generowania spersonalizowanego PDF z mapowaniami, resolver zmiennych, obsługa wielostronicowych plików |
+
+## Po wdrożeniu
+- Redeploy: `save-partner-lead`
+- Test: wypełnić formularz na stronie partnera → sprawdzić czy email zawiera PDF z danymi partnera
 
