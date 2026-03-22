@@ -192,15 +192,15 @@ const TemplatePreviewPage: React.FC = () => {
     const anchorId = cfg.anchor_id || element.id;
     const wrapWithAnchor = (node: React.ReactNode) => <div id={anchorId}>{node}</div>;
     switch (element.type) {
-      case 'header': return wrapWithAnchor(<HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
-      case 'hero': return wrapWithAnchor(<HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
+      case 'header': return wrapWithAnchor(<HeaderSection config={cfg} partnerName="Jan Kowalski (podgląd)" disableSticky onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />);
+      case 'hero': return wrapWithAnchor(<HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />);
       case 'text_image': return wrapWithAnchor(<TextImageSection config={cfg} />);
       case 'steps': return wrapWithAnchor(<StepsSection config={cfg} />);
       case 'timeline': return wrapWithAnchor(<TimelineSection config={cfg} />);
       case 'testimonials': return wrapWithAnchor(<TestimonialsSection config={cfg} />);
       case 'products_grid': return wrapWithAnchor(<ProductsGridSection config={cfg} products={products} productLinks={dummyLinks} />);
       case 'faq': return wrapWithAnchor(<FaqSection config={cfg} />);
-      case 'cta_banner': return wrapWithAnchor(<CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />);
+      case 'cta_banner': return wrapWithAnchor(<CtaBannerSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />);
       case 'contact_form': return wrapWithAnchor(<ContactFormSection config={cfg} partnerEmail="preview@example.com" />);
       case 'footer': return wrapWithAnchor(<FooterSection config={cfg} />);
       case 'products_with_form': return wrapWithAnchor(<ProductsWithFormSection config={cfg} products={products} productLinks={dummyLinks} partnerEmail="preview@example.com" />);
