@@ -407,9 +407,9 @@ export const useNewsTickerData = (): NewsTickerData => {
         if (settings.liveActivityTypes.includes('event_registration')) {
           const { data: regs } = await supabase
             .from('event_registrations')
-            .select('id, user_id, event_id, created_at')
-            .gte('created_at', hoursAgo.toISOString())
-            .order('created_at', { ascending: false })
+            .select('id, user_id, event_id, registered_at')
+            .gte('registered_at', hoursAgo.toISOString())
+            .order('registered_at', { ascending: false })
             .limit(maxItems);
 
           if (regs && regs.length > 0) {
@@ -430,7 +430,7 @@ export const useNewsTickerData = (): NewsTickerData => {
             regs.forEach(reg => {
               const prof = profMap.get(reg.user_id);
               const evt = evtMap.get(reg.event_id);
-              const timeStr = format(new Date(reg.created_at!), 'HH:mm dd.MM', { locale: pl });
+              const timeStr = format(new Date(reg.registered_at!), 'HH:mm dd.MM', { locale: pl });
               allItems.push({
                 id: `activity-reg-${reg.id}`,
                 type: 'activity',
