@@ -309,6 +309,23 @@ export const BpPageFilesManager: React.FC = () => {
     toast({ title: ok ? 'URL skopiowany' : 'Nie udało się skopiować' });
   };
 
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 10 } });
+  const dndSensors = useSensors(pointerSensor, touchSensor);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = files.findIndex(f => f.id === active.id);
+    const newIndex = files.findIndex(f => f.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(files, oldIndex, newIndex);
+    setFiles(reordered);
+    // Batch update positions
+    const updates = reordered.map((f, i) => supabase.from('bp_page_files').update({ position: i } as any).eq('id', f.id));
+    await Promise.all(updates);
+  }, [files]);
+
   const isImage = (mime: string | null) => mime?.startsWith('image/');
 
   return (
