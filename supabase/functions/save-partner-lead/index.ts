@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
       role: "client",
       contact_type: "private",
       contact_source: "Strona partnerska",
-      contact_reason: "Formularz kontaktowy",
+      contact_reason: (typeof form_name === "string" && form_name.trim()) ? form_name.trim().slice(0, 200) : "Formularz kontaktowy",
       notes: notesArr.length > 0 ? notesArr.join("\n") : null,
       added_at: new Date().toISOString().split("T")[0],
       is_active: true,
