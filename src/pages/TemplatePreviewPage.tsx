@@ -316,6 +316,16 @@ const TemplatePreviewPage: React.FC = () => {
       {surveyConfig && (
         <SurveyModal config={surveyConfig} open={surveyOpen} onClose={() => setSurveyOpen(false)} />
       )}
+
+      {/* Form modal */}
+      {activeFormKey && (
+        <PartnerFormModal
+          ctaKey={activeFormKey}
+          partnerUserId="preview"
+          open={!!activeFormKey}
+          onClose={() => setActiveFormKey(null)}
+        />
+      )}
     </div>
   );
 };
