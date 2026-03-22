@@ -9,8 +9,16 @@ import { copyToClipboard } from '@/lib/clipboardUtils';
 import { resolveVariablesInText, PREVIEW_PROFILE } from '@/lib/partnerVariables';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  DndContext, DragEndEvent, PointerSensor, TouchSensor,
+  useSensor, useSensors, closestCenter,
+} from '@dnd-kit/core';
+import {
+  SortableContext, rectSortingStrategy, useSortable, arrayMove,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import {
   FolderPlus, Upload, Trash2, Copy, Eye, Loader2,
-  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2, Hash
+  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2, Hash, GripVertical
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -46,40 +54,68 @@ interface BpFile {
   cta_label: string | null;
 }
 
-const CANVAS_WIDTH_EDITOR = 842;
+const CANVAS_WIDTH = 842;
+const CANVAS_HEIGHT = 595;
 
 const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file, mappings }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [renderedWidth, setRenderedWidth] = useState(0);
-  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  const [bgStyle, setBgStyle] = useState<React.CSSProperties>({});
 
+  // Calculate scale from rendered stage width vs editor canvas width
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!stageRef.current) return;
     const obs = new ResizeObserver(entries => {
-      for (const e of entries) setRenderedWidth(e.contentRect.width);
+      for (const e of entries) {
+        setScale(e.contentRect.width / CANVAS_WIDTH);
+      }
     });
-    obs.observe(containerRef.current);
+    obs.observe(stageRef.current);
     return () => obs.disconnect();
   }, []);
 
-  const scale = renderedWidth / CANVAS_WIDTH_EDITOR;
-  const canvasH = naturalSize ? CANVAS_WIDTH_EDITOR * (naturalSize.h / naturalSize.w) : 0;
+  // Calculate background image contain-fit inside the 842×595 stage
+  const handleImgLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    const natW = img.naturalWidth;
+    const natH = img.naturalHeight;
+    const scaleX = CANVAS_WIDTH / natW;
+    const scaleY = CANVAS_HEIGHT / natH;
+    const fitScale = Math.min(scaleX, scaleY);
+    const w = natW * fitScale;
+    const h = natH * fitScale;
+    const offsetX = (CANVAS_WIDTH - w) / 2;
+    const offsetY = (CANVAS_HEIGHT - h) / 2;
+    setBgStyle({
+      position: 'absolute',
+      left: `${(offsetX / CANVAS_WIDTH) * 100}%`,
+      top: `${(offsetY / CANVAS_HEIGHT) * 100}%`,
+      width: `${(w / CANVAS_WIDTH) * 100}%`,
+      height: `${(h / CANVAS_HEIGHT) * 100}%`,
+      objectFit: 'fill',
+    });
+  }, []);
 
   return (
-    <div ref={containerRef} className="relative inline-block w-full">
+    <div
+      ref={stageRef}
+      className="relative w-full bg-muted/30 border rounded-lg overflow-hidden"
+      style={{ aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}` }}
+    >
+      {/* Background image fitted like editor */}
       <img
         src={file.file_url}
         alt={file.original_name}
-        className="w-full h-auto rounded-lg block"
-        onLoad={(e) => {
-          const img = e.currentTarget;
-          setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-        }}
+        className="pointer-events-none"
+        style={bgStyle.width ? bgStyle : { width: '100%', height: '100%', objectFit: 'contain' }}
+        onLoad={handleImgLoad}
       />
-      {naturalSize && renderedWidth > 0 && mappings.map((el: any, i: number) => {
-        const leftPct = ((el.x || 0) / CANVAS_WIDTH_EDITOR) * 100;
-        const topPct = ((el.y || 0) / canvasH) * 100;
-        const widthPct = el.width ? (el.width / CANVAS_WIDTH_EDITOR) * 100 : undefined;
+
+      {/* Mapping elements positioned relative to the full stage */}
+      {scale > 0 && mappings.map((el: any, i: number) => {
+        const leftPct = ((el.x || 0) / CANVAS_WIDTH) * 100;
+        const topPct = ((el.y || 0) / CANVAS_HEIGHT) * 100;
+        const widthPct = el.width ? (el.width / CANVAS_WIDTH) * 100 : undefined;
         const scaledFontSize = (el.fontSize || 24) * scale;
         const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
         return (
@@ -109,6 +145,29 @@ const PreviewWithMappings: React.FC<{ file: BpFile; mappings: any[] }> = ({ file
   );
 };
 
+/* ---- Sortable file card wrapper ---- */
+const SortableFileCard: React.FC<{ id: string; children: React.ReactNode }> = ({ id, children }) => {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        className="absolute top-1 left-8 z-10 bg-background/80 p-0.5 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+        title="Przeciągnij aby zmienić kolejność"
+      >
+        <GripVertical className="w-3.5 h-3.5 text-muted-foreground" />
+      </div>
+      {children}
+    </div>
+  );
+};
 export const BpPageFilesManager: React.FC = () => {
   const [folders, setFolders] = useState<BpFolder[]>([]);
   const [files, setFiles] = useState<BpFile[]>([]);
@@ -250,6 +309,23 @@ export const BpPageFilesManager: React.FC = () => {
     toast({ title: ok ? 'URL skopiowany' : 'Nie udało się skopiować' });
   };
 
+  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 8 } });
+  const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 10 } });
+  const dndSensors = useSensors(pointerSensor, touchSensor);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = files.findIndex(f => f.id === active.id);
+    const newIndex = files.findIndex(f => f.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(files, oldIndex, newIndex);
+    setFiles(reordered);
+    // Batch update positions
+    const updates = reordered.map((f, i) => supabase.from('bp_page_files').update({ position: i } as any).eq('id', f.id));
+    await Promise.all(updates);
+  }, [files]);
+
   const isImage = (mime: string | null) => mime?.startsWith('image/');
 
   return (
@@ -375,87 +451,90 @@ export const BpPageFilesManager: React.FC = () => {
           <p>Brak plików w tym folderze</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          {files.map((file, idx) => (
-            <div
-              key={file.id}
-              className="group relative border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow"
-            >
-              {/* Thumbnail */}
-              <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
-                {isImage(file.mime_type) ? (
-                  <img
-                    src={file.file_url}
-                    alt={file.original_name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <FileText className="w-10 h-10 text-muted-foreground" />
-                )}
-              </div>
+        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={files.map(f => f.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {files.map((file, idx) => (
+                <SortableFileCard key={file.id} id={file.id}>
+                  <div className="border rounded-lg overflow-hidden bg-card hover:shadow-md transition-shadow">
+                    {/* Thumbnail */}
+                    <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+                      {isImage(file.mime_type) ? (
+                        <img
+                          src={file.file_url}
+                          alt={file.original_name}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <FileText className="w-10 h-10 text-muted-foreground" />
+                      )}
+                    </div>
 
-              {/* Info */}
-              <div className="p-2 space-y-1">
-                <p className="text-xs font-medium truncate text-foreground" title={file.original_name}>
-                  {file.original_name}
-                </p>
-                <p className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</p>
-                <div className="flex items-center gap-1">
-                  <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
-                  <input
-                    placeholder="kotwica CTA"
-                    defaultValue={file.cta_label || ''}
-                    onBlur={e => handleUpdateCtaLabel('bp_page_files', file.id, e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    className="text-[10px] bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none w-full text-muted-foreground"
-                  />
-                </div>
-                {file.cta_label && (
-                  <Badge variant="outline" className="text-[9px] px-1 py-0">#{file.cta_label}</Badge>
-                )}
-              </div>
+                    {/* Info */}
+                    <div className="p-2 space-y-1">
+                      <p className="text-xs font-medium truncate text-foreground" title={file.original_name}>
+                        {file.original_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</p>
+                      <div className="flex items-center gap-1">
+                        <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
+                        <input
+                          placeholder="kotwica CTA"
+                          defaultValue={file.cta_label || ''}
+                          onBlur={e => handleUpdateCtaLabel('bp_page_files', file.id, e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                          className="text-[10px] bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none w-full text-muted-foreground"
+                        />
+                      </div>
+                      {file.cta_label && (
+                        <Badge variant="outline" className="text-[9px] px-1 py-0">#{file.cta_label}</Badge>
+                      )}
+                    </div>
 
-              {/* Actions overlay */}
-              <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Mapuj dane">
-                  <Wand2 className="w-3 h-3" />
-                </Button>
-                {isImage(file.mime_type) && (
-                  <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => {
-                    setPreviewFile(file);
-                    setPreviewMappings([]);
-                    supabase.from('bp_file_mappings').select('elements').eq('file_id', file.id).eq('page_index', 0).maybeSingle().then(({ data }) => {
-                      if (data?.elements && Array.isArray(data.elements)) {
-                        setPreviewMappings(data.elements);
-                      }
-                    });
-                  }}>
-                    <Eye className="w-3 h-3" />
-                  </Button>
-                )}
-                <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => handleCopyUrl(file.file_url)}>
-                  <Copy className="w-3 h-3" />
-                </Button>
-                <Button size="icon" variant="destructive" className="h-7 w-7" onClick={() => setDeleteTarget(file)}>
-                  <Trash2 className="w-3 h-3" />
-                </Button>
-              </div>
+                    {/* Actions overlay */}
+                    <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Mapuj dane">
+                        <Wand2 className="w-3 h-3" />
+                      </Button>
+                      {isImage(file.mime_type) && (
+                        <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => {
+                          setPreviewFile(file);
+                          setPreviewMappings([]);
+                          supabase.from('bp_file_mappings').select('elements').eq('file_id', file.id).eq('page_index', 0).maybeSingle().then(({ data }) => {
+                            if (data?.elements && Array.isArray(data.elements)) {
+                              setPreviewMappings(data.elements);
+                            }
+                          });
+                        }}>
+                          <Eye className="w-3 h-3" />
+                        </Button>
+                      )}
+                      <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => handleCopyUrl(file.file_url)}>
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                      <Button size="icon" variant="destructive" className="h-7 w-7" onClick={() => setDeleteTarget(file)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
 
-              {/* Position badge + mapping indicator */}
-              <div className="absolute top-1 left-1 flex items-center gap-1">
-                <span className="bg-background/80 text-xs px-1.5 py-0.5 rounded text-foreground">
-                  #{idx + 1}
-                </span>
-                {mappedFileIds.has(file.id) && (
-                  <span className="bg-primary/80 text-primary-foreground text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
-                    <Wand2 className="w-2.5 h-2.5" />
-                  </span>
-                )}
-              </div>
+                    {/* Position badge + mapping indicator */}
+                    <div className="absolute top-1 left-1 flex items-center gap-1">
+                      <span className="bg-background/80 text-xs px-1.5 py-0.5 rounded text-foreground">
+                        #{idx + 1}
+                      </span>
+                      {mappedFileIds.has(file.id) && (
+                        <span className="bg-primary/80 text-primary-foreground text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
+                          <Wand2 className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </SortableFileCard>
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Preview dialog — full page with mapping overlays */}
