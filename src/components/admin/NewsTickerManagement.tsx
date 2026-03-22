@@ -775,8 +775,11 @@ export const NewsTickerManagement: React.FC = () => {
                       <p className="text-sm text-muted-foreground py-2">Brak aktywnych spotkań zespołowych</p>
                     ) : (
                       meetings.map(event => {
-                        const eventDate = new Date(event.start_time);
-                        const isOld = isPast(eventDate);
+                        const eventAsAny = event as any;
+                        const hasOccurrences = isMultiOccurrenceEvent(eventAsAny);
+                        const nextOcc = hasOccurrences ? getNextActiveOccurrence(eventAsAny) : null;
+                        const displayDate = nextOcc ? nextOcc.start_datetime : new Date(event.start_time);
+                        const isOld = hasOccurrences ? !nextOcc : isPast(displayDate);
                         return (
                           <div
                             key={event.id}
@@ -792,7 +795,7 @@ export const NewsTickerManagement: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{event.title}</p>
                               <p className="text-xs text-muted-foreground">
-                                {format(eventDate, 'd MMMM yyyy, HH:mm', { locale: pl })}
+                                {format(displayDate, 'd MMMM yyyy, HH:mm', { locale: pl })}
                                 {isOld && ' - minęło'}
                               </p>
                             </div>

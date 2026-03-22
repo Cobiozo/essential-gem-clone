@@ -210,9 +210,7 @@ export const useNewsTickerData = (): NewsTickerData => {
           .from('events')
           .select('*')
           .in('id', eventIds)
-          .eq('is_active', true)
-          .eq('event_type', 'team_training')
-          .order('start_time', { ascending: true });
+          .in('event_type', ['team_training', 'meeting_public'])
 
         if (events) {
           const filteredEvents = events.filter(event => {
