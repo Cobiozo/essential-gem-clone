@@ -83,6 +83,8 @@ export const PartnerFormsManager: React.FC = () => {
       success_message: 'Dziękujemy! Formularz został wysłany.',
       is_active: true,
       created_at: '',
+      description: '',
+      consent_text: 'Wyrażam zgodę na przetwarzanie moich danych osobowych zawartych w formularzu w celu przesłania poradnika/e-booka na podany adres email.',
     });
     setIsNew(true);
   };
