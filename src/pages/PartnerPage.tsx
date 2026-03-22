@@ -213,10 +213,10 @@ const PartnerPageView: React.FC = () => {
 
     switch (element.type) {
       case 'header':
-        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
+        sectionNode = <HeaderSection config={cfg} partnerName={partnerName} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />;
         break;
       case 'hero':
-        sectionNode = <HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} />;
+        sectionNode = <HeroSection config={cfg} onSurveyOpen={surveyConfig ? handleSurveyOpen : undefined} formKeys={formKeys} onFormOpen={handleFormOpen} />;
         break;
       case 'text_image':
         sectionNode = <TextImageSection config={cfg} />;
