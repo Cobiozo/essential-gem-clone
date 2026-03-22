@@ -89,11 +89,12 @@ const PartnerPageView: React.FC = () => {
         ? supabase.from('partner_page_template').select('template_data').eq('id', (pageData as any).selected_template_id).maybeSingle()
         : supabase.from('partner_page_template').select('template_data').limit(1).maybeSingle();
 
-      const [templateRes, profileRes, productsRes, linksRes] = await Promise.all([
+      const [templateRes, profileRes, productsRes, linksRes, formsRes] = await Promise.all([
         templateQuery,
         supabase.from('profiles').select('first_name, last_name, avatar_url, email, phone_number, city, country, specialization, profile_description, eq_id').eq('user_id', pageData.user_id).maybeSingle(),
         supabase.from('product_catalog').select('*').eq('is_active', true).order('position'),
         supabase.from('partner_product_links').select('*').eq('partner_page_id', pageData.id).eq('is_active', true).order('position'),
+        supabase.from('partner_page_forms').select('cta_key').eq('is_active', true),
       ]);
 
       setTemplate(((templateRes.data?.template_data as any) || []).sort((a: TemplateElement, b: TemplateElement) => a.position - b.position));
