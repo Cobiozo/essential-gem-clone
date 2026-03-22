@@ -13,9 +13,11 @@ interface StatItem {
 interface Props {
   config: Record<string, any>;
   onSurveyOpen?: () => void;
+  formKeys?: string[];
+  onFormOpen?: (key: string) => void;
 }
 
-export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen }) => {
+export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen, formKeys, onFormOpen }) => {
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
 
