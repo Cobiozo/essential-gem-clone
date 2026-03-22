@@ -807,6 +807,7 @@ export type Database = {
       bp_page_files: {
         Row: {
           created_at: string | null
+          cta_label: string | null
           description: string | null
           file_name: string
           file_size: number
@@ -821,6 +822,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          cta_label?: string | null
           description?: string | null
           file_name: string
           file_size?: number
@@ -835,6 +837,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          cta_label?: string | null
           description?: string | null
           file_name?: string
           file_size?: number
@@ -852,18 +855,21 @@ export type Database = {
       bp_page_folders: {
         Row: {
           created_at: string | null
+          cta_label: string | null
           description: string | null
           id: string
           name: string
         }
         Insert: {
           created_at?: string | null
+          cta_label?: string | null
           description?: string | null
           id?: string
           name: string
         }
         Update: {
           created_at?: string | null
+          cta_label?: string | null
           description?: string | null
           id?: string
           name?: string

@@ -8,8 +8,9 @@ import { formatFileSize } from '@/lib/storageConfig';
 import { copyToClipboard } from '@/lib/clipboardUtils';
 import {
   FolderPlus, Upload, Trash2, Copy, Eye, Loader2,
-  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2
+  FolderOpen, Plus, X, Image as ImageIcon, FileText, Wand2, Hash
 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from '@/components/ui/select';
@@ -26,6 +27,7 @@ interface BpFolder {
   id: string;
   name: string;
   description: string | null;
+  cta_label: string | null;
 }
 
 interface BpFile {
@@ -39,6 +41,7 @@ interface BpFile {
   description: string | null;
   position: number;
   created_at: string;
+  cta_label: string | null;
 }
 
 export const BpPageFilesManager: React.FC = () => {
@@ -47,6 +50,7 @@ export const BpPageFilesManager: React.FC = () => {
   const [selectedFolder, setSelectedFolder] = useState('default');
   const [loading, setLoading] = useState(true);
   const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderCtaLabel, setNewFolderCtaLabel] = useState('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BpFile | null>(null);
@@ -93,18 +97,30 @@ export const BpPageFilesManager: React.FC = () => {
     fetchMapped();
   }, [files]);
 
+  const sanitizeAnchor = (val: string) =>
+    val.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9\-_]/g, '');
+
   const handleCreateFolder = async () => {
     const name = newFolderName.trim();
     if (!name) return;
-    const { error } = await supabase.from('bp_page_folders').insert({ name });
+    const cta = newFolderCtaLabel.trim() ? sanitizeAnchor(newFolderCtaLabel) : null;
+    const { error } = await supabase.from('bp_page_folders').insert({ name, cta_label: cta } as any);
     if (error) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
     setNewFolderName('');
+    setNewFolderCtaLabel('');
     setShowNewFolder(false);
     fetchFolders();
     toast({ title: 'Folder utworzony' });
+  };
+
+  const handleUpdateCtaLabel = async (table: 'bp_page_folders' | 'bp_page_files', id: string, value: string) => {
+    const cta = value.trim() ? sanitizeAnchor(value) : null;
+    await supabase.from(table).update({ cta_label: cta } as any).eq('id', id);
+    if (table === 'bp_page_folders') fetchFolders();
+    else fetchFiles();
   };
 
   const handleDeleteFolder = async () => {
@@ -238,15 +254,44 @@ export const BpPageFilesManager: React.FC = () => {
         </div>
       )}
 
+      {/* Folder CTA label inline edit */}
+      {(() => {
+        const currentFolder = folders.find(f => f.name === selectedFolder);
+        if (!currentFolder) return null;
+        return (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Hash className="w-3.5 h-3.5" />
+            <span>Kotwica folderu:</span>
+            <Input
+              placeholder="np. ebook-folder"
+              defaultValue={currentFolder.cta_label || ''}
+              onBlur={e => handleUpdateCtaLabel('bp_page_folders', currentFolder.id, e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+              className="h-7 text-xs max-w-[200px]"
+            />
+            {currentFolder.cta_label && (
+              <Badge variant="outline" className="text-[10px]">#{currentFolder.cta_label}</Badge>
+            )}
+          </div>
+        );
+      })()}
+
       {/* New folder inline form */}
       {showNewFolder && (
-        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50">
+        <div className="flex items-center gap-2 p-3 border rounded-lg bg-muted/50 flex-wrap">
           <Input
             placeholder="Nazwa folderu"
             value={newFolderName}
             onChange={e => setNewFolderName(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
             className="max-w-xs"
+          />
+          <Input
+            placeholder="Kotwica CTA (opcjonalnie)"
+            value={newFolderCtaLabel}
+            onChange={e => setNewFolderCtaLabel(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreateFolder()}
+            className="max-w-[200px]"
           />
           <Button size="sm" onClick={handleCreateFolder}><Plus className="w-4 h-4" /></Button>
           <Button size="sm" variant="ghost" onClick={() => setShowNewFolder(false)}><X className="w-4 h-4" /></Button>
@@ -285,11 +330,24 @@ export const BpPageFilesManager: React.FC = () => {
               </div>
 
               {/* Info */}
-              <div className="p-2">
+              <div className="p-2 space-y-1">
                 <p className="text-xs font-medium truncate text-foreground" title={file.original_name}>
                   {file.original_name}
                 </p>
                 <p className="text-xs text-muted-foreground">{formatFileSize(file.file_size)}</p>
+                <div className="flex items-center gap-1">
+                  <Hash className="w-3 h-3 text-muted-foreground shrink-0" />
+                  <input
+                    placeholder="kotwica CTA"
+                    defaultValue={file.cta_label || ''}
+                    onBlur={e => handleUpdateCtaLabel('bp_page_files', file.id, e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="text-[10px] bg-transparent border-b border-transparent hover:border-border focus:border-primary outline-none w-full text-muted-foreground"
+                  />
+                </div>
+                {file.cta_label && (
+                  <Badge variant="outline" className="text-[9px] px-1 py-0">#{file.cta_label}</Badge>
+                )}
               </div>
 
               {/* Actions overlay */}
