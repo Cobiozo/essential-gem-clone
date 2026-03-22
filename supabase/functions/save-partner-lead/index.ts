@@ -454,6 +454,13 @@ function drawTextElement(
   }
 }
 
+// ── Detect image format from magic bytes ──
+function detectImageFormat(bytes: Uint8Array): 'png' | 'jpeg' | null {
+  if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'png';
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xD8) return 'jpeg';
+  return null;
+}
+
 // ── Draw image element ──
 async function drawImageElement(
   pdfDoc: any,
@@ -462,30 +469,39 @@ async function drawImageElement(
   pageWidth: number,
   pageHeight: number,
 ) {
-  const imgResp = await fetch(el.src);
-  if (!imgResp.ok) {
-    console.error(`[post-action] Failed to fetch image: ${el.src}`);
-    return;
+  try {
+    const imgResp = await fetch(el.src);
+    if (!imgResp.ok) {
+      console.error(`[post-action] Failed to fetch image: ${el.src}`);
+      return;
+    }
+
+    const imgBytes = new Uint8Array(await imgResp.arrayBuffer());
+    const format = detectImageFormat(imgBytes);
+
+    if (!format) {
+      console.warn(`[post-action] Unsupported image format for ${el.src} (magic bytes: ${imgBytes[0]?.toString(16)}, ${imgBytes[1]?.toString(16)}). Skipping.`);
+      return;
+    }
+
+    let img: any;
+    if (format === 'png') {
+      img = await pdfDoc.embedPng(imgBytes);
+    } else {
+      img = await pdfDoc.embedJpg(imgBytes);
+    }
+
+    const scaleX = pageWidth / CANVAS_WIDTH;
+    const scaleY = pageHeight / CANVAS_HEIGHT;
+    const w = (el.width || 200) * scaleX;
+    const h = (el.height || 200) * scaleY;
+    const x = (el.x || 0) * scaleX;
+    const y = pageHeight - (el.y || 0) * scaleY - h;
+
+    page.drawImage(img, { x, y, width: w, height: h });
+  } catch (imgErr) {
+    console.error(`[post-action] Error embedding image ${el.src}:`, imgErr);
   }
-
-  const imgBytes = new Uint8Array(await imgResp.arrayBuffer());
-  const contentType = imgResp.headers.get("content-type") || "";
-
-  let img: any;
-  if (contentType.includes("png")) {
-    img = await pdfDoc.embedPng(imgBytes);
-  } else {
-    img = await pdfDoc.embedJpg(imgBytes);
-  }
-
-  const scaleX = pageWidth / CANVAS_WIDTH;
-  const scaleY = pageHeight / CANVAS_HEIGHT;
-  const w = (el.width || 200) * scaleX;
-  const h = (el.height || 200) * scaleY;
-  const x = (el.x || 0) * scaleX;
-  const y = pageHeight - (el.y || 0) * scaleY - h;
-
-  page.drawImage(img, { x, y, width: w, height: h });
 }
 
 // ── Draw QR code element ──
@@ -500,23 +516,27 @@ async function drawQrElement(
   const resolvedContent = resolvePartnerVariables(el.qrContent || "", profile);
   if (!resolvedContent.trim()) return;
 
-  // Generate QR as PNG data URL then extract bytes
-  const qrDataUrl: string = await QRCode.toDataURL(resolvedContent, { width: 512, margin: 1 });
-  const base64Part = qrDataUrl.split(",")[1];
-  const binaryStr = atob(base64Part);
-  const qrBytes = new Uint8Array(binaryStr.length);
-  for (let i = 0; i < binaryStr.length; i++) {
-    qrBytes[i] = binaryStr.charCodeAt(i);
+  try {
+    // Use external QR API to get a PNG (avoids Canvas dependency in Deno)
+    const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=512x512&format=png&data=${encodeURIComponent(resolvedContent)}`;
+    const qrResp = await fetch(qrApiUrl);
+    if (!qrResp.ok) {
+      console.error(`[post-action] QR API failed for: ${resolvedContent}`);
+      return;
+    }
+
+    const qrBytes = new Uint8Array(await qrResp.arrayBuffer());
+    const qrImg = await pdfDoc.embedPng(qrBytes);
+
+    const scaleX = pageWidth / CANVAS_WIDTH;
+    const scaleY = pageHeight / CANVAS_HEIGHT;
+    const w = (el.width || 150) * scaleX;
+    const h = (el.height || 150) * scaleY;
+    const x = (el.x || 0) * scaleX;
+    const y = pageHeight - (el.y || 0) * scaleY - h;
+
+    page.drawImage(qrImg, { x, y, width: w, height: h });
+  } catch (qrErr) {
+    console.error(`[post-action] Error generating QR for "${resolvedContent}":`, qrErr);
   }
-
-  const qrImg = await pdfDoc.embedPng(qrBytes);
-
-  const scaleX = pageWidth / CANVAS_WIDTH;
-  const scaleY = pageHeight / CANVAS_HEIGHT;
-  const w = (el.width || 150) * scaleX;
-  const h = (el.height || 150) * scaleY;
-  const x = (el.x || 0) * scaleX;
-  const y = pageHeight - (el.y || 0) * scaleY - h;
-
-  page.drawImage(qrImg, { x, y, width: w, height: h });
 }
