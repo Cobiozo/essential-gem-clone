@@ -256,113 +256,211 @@ export const useNewsTickerData = (): NewsTickerData => {
         }
       }
 
-      // Fetch live activity
+      // Fetch live activity from source tables
       if (settings.sourceLiveActivity && settings.liveActivityTypes.length > 0) {
         const hoursAgo = new Date(now.getTime() - settings.liveActivityHours * 60 * 60 * 1000);
-        
-        // Map ticker activity types to user_activity_log action_types
-        const activityTypeMap: Record<string, string> = {
-          'training_module_complete': 'training_lesson_complete',
-          'training_lesson_complete': 'training_lesson_complete',
-          'certificate_generated': 'certificate_download',
-          'event_registration': 'meeting_join',
-          'profile_update': 'profile_update',
-          'file_upload': 'file_upload',
-        };
+        const maxItems = settings.liveActivityMaxItems;
 
-        // Fetch from user_activity_log
-        const logTypes = settings.liveActivityTypes
-          .map(t => activityTypeMap[t])
-          .filter(Boolean);
+        // Helper to format user name
+        const formatName = (p: { first_name?: string | null; last_name?: string | null }) =>
+          `${p.first_name || ''} ${(p.last_name || '').charAt(0)}.`.trim() || 'Użytkownik';
 
-        if (logTypes.length > 0) {
-          const { data: activityLogs } = await supabase
-            .from('user_activity_log' as any)
-            .select('id, user_id, action_type, action_data, created_at')
-            .in('action_type', logTypes)
-            .gte('created_at', hoursAgo.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(settings.liveActivityMaxItems);
+        // 1. Lesson completions
+        if (settings.liveActivityTypes.includes('training_lesson_complete')) {
+          const { data: lessonProgress } = await supabase
+            .from('training_progress')
+            .select('id, user_id, completed_at, lesson_id')
+            .eq('is_completed', true)
+            .gte('completed_at', hoursAgo.toISOString())
+            .order('completed_at', { ascending: false })
+            .limit(maxItems);
 
-          if (activityLogs && (activityLogs as any[]).length > 0) {
-            // Fetch profiles for user names
-            const userIds = [...new Set((activityLogs as any[]).map((l: any) => l.user_id))];
-            const { data: profiles } = await supabase
+          if (lessonProgress && lessonProgress.length > 0) {
+            // Fetch lesson+module titles
+            const lessonIds = [...new Set(lessonProgress.map(l => l.lesson_id))];
+            const { data: lessons } = await supabase
+              .from('training_lessons')
+              .select('id, title, module_id')
+              .in('id', lessonIds);
+            const lessonMap = new Map((lessons || []).map(l => [l.id, l]));
+
+            const moduleIds = [...new Set((lessons || []).map(l => l.module_id))];
+            const { data: modules } = await supabase
+              .from('training_modules')
+              .select('id, title')
+              .in('id', moduleIds);
+            const moduleMap = new Map((modules || []).map(m => [m.id, m]));
+
+            // Fetch profiles
+            const userIds = [...new Set(lessonProgress.map(l => l.user_id))];
+            const { data: profs } = await supabase
               .from('profiles')
               .select('user_id, first_name, last_name')
               .in('user_id', userIds);
+            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
 
-            const profileMap = new Map((profiles || []).map(p => [p.user_id, p]));
-
-            (activityLogs as any[]).forEach((log: any) => {
-              const profile = profileMap.get(log.user_id);
-              const userName = profile 
-                ? `${profile.first_name || ''} ${(profile.last_name || '').charAt(0)}.`.trim()
-                : 'Użytkownik';
-              const logDate = new Date(log.created_at);
-              const timeStr = format(logDate, 'HH:mm dd.MM.yyyy', { locale: pl });
-              const actionData = log.action_data || {};
-
-              let content = '';
-              let icon = 'Activity';
-
-              switch (log.action_type) {
-                case 'training_lesson_complete':
-                  content = `${timeStr} — ${userName} ukończył lekcję${actionData.module_title ? ` w module „${actionData.module_title}"` : ''}`;
-                  icon = 'BookOpen';
-                  break;
-                case 'certificate_download':
-                  content = `${timeStr} — ${userName} wygenerował certyfikat ukończenia. GRATULUJEMY! 🎉`;
-                  icon = 'Award';
-                  break;
-                case 'meeting_join':
-                  content = `${timeStr} — ${userName} zarejestrowała się na wydarzenie${actionData.event_title ? ` „${actionData.event_title}"` : ''}`;
-                  icon = 'CalendarCheck';
-                  break;
-                case 'profile_update':
-                  content = `${timeStr} — ${userName} zaktualizował swój profil`;
-                  icon = 'UserCog';
-                  break;
-                case 'file_upload':
-                  content = `${timeStr} — ${userName} przesłał nowy plik`;
-                  icon = 'Upload';
-                  break;
-                default:
-                  content = `${timeStr} — ${userName} wykonał akcję w systemie`;
-              }
-
+            lessonProgress.forEach(lp => {
+              const prof = profMap.get(lp.user_id);
+              const lesson = lessonMap.get(lp.lesson_id);
+              const mod = lesson ? moduleMap.get(lesson.module_id) : null;
+              const timeStr = format(new Date(lp.completed_at!), 'HH:mm dd.MM', { locale: pl });
+              const modulePart = mod ? ` w module „${mod.title}"` : '';
               allItems.push({
-                id: `activity-${log.id}`,
+                id: `activity-lesson-${lp.id}`,
                 type: 'activity',
-                icon,
-                content,
+                icon: 'BookOpen',
+                content: `${timeStr} — ${formatName(prof || {})} ukończył lekcję${lesson ? ` „${lesson.title}"` : ''}${modulePart}`,
                 isImportant: false,
-                sourceId: log.id,
+                sourceId: lp.id,
                 priority: 30,
               });
             });
           }
         }
 
-        // Fetch new user registrations
+        // 2. Module completions
+        if (settings.liveActivityTypes.includes('training_module_complete')) {
+          const { data: moduleCompletions } = await supabase
+            .from('training_assignments')
+            .select('id, user_id, completed_at, module_id')
+            .eq('is_completed', true)
+            .not('completed_at', 'is', null)
+            .gte('completed_at', hoursAgo.toISOString())
+            .order('completed_at', { ascending: false })
+            .limit(maxItems);
+
+          if (moduleCompletions && moduleCompletions.length > 0) {
+            const modIds = [...new Set(moduleCompletions.map(m => m.module_id))];
+            const { data: mods } = await supabase
+              .from('training_modules')
+              .select('id, title')
+              .in('id', modIds);
+            const modMap = new Map((mods || []).map(m => [m.id, m]));
+
+            const userIds = [...new Set(moduleCompletions.map(m => m.user_id))];
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name')
+              .in('user_id', userIds);
+            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
+
+            moduleCompletions.forEach(mc => {
+              const prof = profMap.get(mc.user_id);
+              const mod = modMap.get(mc.module_id);
+              const timeStr = format(new Date(mc.completed_at!), 'HH:mm dd.MM', { locale: pl });
+              allItems.push({
+                id: `activity-module-${mc.id}`,
+                type: 'activity',
+                icon: 'GraduationCap',
+                content: `${timeStr} — ${formatName(prof || {})} ukończył moduł${mod ? ` „${mod.title}"` : ''} 🎓`,
+                isImportant: false,
+                sourceId: mc.id,
+                priority: 32,
+              });
+            });
+          }
+        }
+
+        // 3. Certificates
+        if (settings.liveActivityTypes.includes('certificate_generated')) {
+          const { data: certs } = await supabase
+            .from('certificates')
+            .select('id, user_id, module_id, generated_at, created_at')
+            .gte('created_at', hoursAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(maxItems);
+
+          if (certs && certs.length > 0) {
+            const modIds = [...new Set(certs.map(c => c.module_id))];
+            const { data: mods } = await supabase
+              .from('training_modules')
+              .select('id, title')
+              .in('id', modIds);
+            const modMap = new Map((mods || []).map(m => [m.id, m]));
+
+            const userIds = [...new Set(certs.map(c => c.user_id))];
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name')
+              .in('user_id', userIds);
+            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
+
+            certs.forEach(cert => {
+              const prof = profMap.get(cert.user_id);
+              const mod = modMap.get(cert.module_id);
+              const dateCol = cert.generated_at || cert.created_at;
+              const timeStr = format(new Date(dateCol), 'HH:mm dd.MM', { locale: pl });
+              allItems.push({
+                id: `activity-cert-${cert.id}`,
+                type: 'activity',
+                icon: 'Award',
+                content: `${timeStr} — ${formatName(prof || {})} zdobył certyfikat${mod ? ` „${mod.title}"` : ''}. GRATULUJEMY! 🎉`,
+                isImportant: false,
+                sourceId: cert.id,
+                priority: 33,
+              });
+            });
+          }
+        }
+
+        // 4. Event registrations
+        if (settings.liveActivityTypes.includes('event_registration')) {
+          const { data: regs } = await supabase
+            .from('event_registrations')
+            .select('id, user_id, event_id, created_at')
+            .gte('created_at', hoursAgo.toISOString())
+            .order('created_at', { ascending: false })
+            .limit(maxItems);
+
+          if (regs && regs.length > 0) {
+            const eventIds = [...new Set(regs.map(r => r.event_id))];
+            const { data: evts } = await supabase
+              .from('events')
+              .select('id, title')
+              .in('id', eventIds);
+            const evtMap = new Map((evts || []).map(e => [e.id, e]));
+
+            const userIds = [...new Set(regs.map(r => r.user_id))];
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('user_id, first_name, last_name')
+              .in('user_id', userIds);
+            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
+
+            regs.forEach(reg => {
+              const prof = profMap.get(reg.user_id);
+              const evt = evtMap.get(reg.event_id);
+              const timeStr = format(new Date(reg.created_at!), 'HH:mm dd.MM', { locale: pl });
+              allItems.push({
+                id: `activity-reg-${reg.id}`,
+                type: 'activity',
+                icon: 'CalendarCheck',
+                content: `${timeStr} — ${formatName(prof || {})} zarejestrował się na${evt ? ` „${evt.title}"` : ' wydarzenie'}`,
+                isImportant: false,
+                sourceId: reg.id,
+                priority: 30,
+              });
+            });
+          }
+        }
+
+        // 5. New user registrations (unchanged)
         if (settings.liveActivityTypes.includes('new_user_welcome')) {
           const { data: newUsers } = await supabase
             .from('profiles')
             .select('user_id, first_name, last_name, created_at')
             .gte('created_at', hoursAgo.toISOString())
             .order('created_at', { ascending: false })
-            .limit(settings.liveActivityMaxItems);
+            .limit(maxItems);
 
           if (newUsers) {
             newUsers.forEach(u => {
-              const regDate = new Date(u.created_at!);
-              const timeStr = format(regDate, 'HH:mm dd.MM.yyyy', { locale: pl });
-              const name = `${u.first_name || ''} ${(u.last_name || '').charAt(0)}.`.trim();
+              const timeStr = format(new Date(u.created_at!), 'HH:mm dd.MM', { locale: pl });
               allItems.push({
                 id: `activity-newuser-${u.user_id}`,
                 type: 'activity',
                 icon: 'UserPlus',
-                content: `${timeStr} — Witamy ${name}, nowego użytkownika Pure Life Center! 🎉`,
+                content: `${timeStr} — Witamy ${formatName(u)}, nowego użytkownika Pure Life Center! 🎉`,
                 isImportant: false,
                 sourceId: u.user_id,
                 priority: 35,
@@ -371,7 +469,7 @@ export const useNewsTickerData = (): NewsTickerData => {
           }
         }
 
-        // Fetch new partners
+        // 6. New partners (unchanged)
         if (settings.liveActivityTypes.includes('new_partner_joined')) {
           const { data: newPartners } = await supabase
             .from('profiles')
@@ -379,18 +477,16 @@ export const useNewsTickerData = (): NewsTickerData => {
             .eq('role', 'partner')
             .gte('created_at', hoursAgo.toISOString())
             .order('created_at', { ascending: false })
-            .limit(settings.liveActivityMaxItems);
+            .limit(maxItems);
 
           if (newPartners) {
             newPartners.forEach(p => {
-              const regDate = new Date(p.created_at!);
-              const timeStr = format(regDate, 'HH:mm dd.MM.yyyy', { locale: pl });
-              const name = `${p.first_name || ''} ${(p.last_name || '').charAt(0)}.`.trim();
+              const timeStr = format(new Date(p.created_at!), 'HH:mm dd.MM', { locale: pl });
               allItems.push({
                 id: `activity-partner-${p.user_id}`,
                 type: 'activity',
                 icon: 'Handshake',
-                content: `${timeStr} — Nowy partner dołączył do zespołu: ${name}`,
+                content: `${timeStr} — Nowy partner dołączył do zespołu: ${formatName(p)}`,
                 isImportant: false,
                 sourceId: p.user_id,
                 priority: 35,
