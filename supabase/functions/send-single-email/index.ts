@@ -318,10 +318,17 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
-    if (authError || !user) throw new Error("Unauthorized");
+    const token = authHeader.replace("Bearer ", "");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const isInternalCall = token === serviceRoleKey;
+
+    let callerUserId: string | null = null;
+
+    if (!isInternalCall) {
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) throw new Error("Unauthorized");
+      callerUserId = user.id;
+    }
 
     const { template_id, recipient_user_id, recipient_email, subject: directSubject, html_body, skip_template, custom_variables = {}, attachments = [] }: SendEmailRequest = await req.json();
     console.log('[send-single-email] Request data:', { template_id, recipient_user_id, recipient_email, skip_template, html_body_length: html_body?.length, attachments_count: attachments.length });
