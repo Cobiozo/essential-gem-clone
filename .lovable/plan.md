@@ -1,47 +1,47 @@
 
 
-# Fix: News Ticker mobile display issues (iOS)
+# Fix: Partner Page mobile compatibility
 
 ## Problem
 
-The screenshot shows the ticker in **scroll (marquee) mode** is garbled on mobile — text with emojis/flags overlaps and becomes unreadable. The ticker sits inside the WelcomeWidget card which already has constrained width on mobile.
-
-Root causes:
-1. **No mobile-specific mode**: The marquee scroll animation doesn't work well on narrow screens (~375px) — items with emojis and long text overlap because `translateX(-50%)` assumes enough horizontal space
-2. **Missing text size reduction**: `text-sm` is still relatively large when combined with emojis and icons in a narrow container
-3. **No mobile fallback**: On small screens, the scroll mode should switch to **rotate** mode (one item at a time) for readability
+The partner page is completely broken on mobile (iOS). The screenshot shows:
+1. **Header navigation** has no mobile collapse — all nav buttons (Produkty, O mnie, Kontakt, Odbierz darmowy poradnik) are forced into a single horizontal row alongside the logo and partner badge, crushing text into vertical single-character columns
+2. **No overflow protection** on the main page container, allowing horizontal overflow to break the entire layout
+3. **Testimonials carousel** nav buttons positioned at `-left-3`/`-right-3` can overflow off-screen on narrow devices
 
 ## Solution
 
-### File: `src/components/news-ticker/NewsTicker.tsx`
+### 1. HeaderSection — Mobile hamburger menu
+**File: `src/components/partner-page/sections/HeaderSection.tsx`**
 
-1. **Auto-switch to rotate mode on mobile**: Use `useIsMobile()` hook. When on mobile and `animationMode === 'scroll'`, force rotate mode instead — this shows one item at a time with fade transition, which is much more readable on narrow screens
+- Add `useState` for mobile menu open/close
+- Hide nav buttons on mobile (`hidden md:flex`), show hamburger icon (`md:hidden`)
+- When hamburger clicked, show a full-width dropdown panel below the header with nav items stacked vertically
+- Close menu on item click
+- Partner badge: hide on mobile in header (it's also shown in Hero)
 
-2. **Add `text-xs` on mobile**: Add responsive font size to the ticker container: `text-xs sm:text-sm`
+### 2. PartnerPage — overflow protection
+**File: `src/pages/PartnerPage.tsx`**
 
-3. **Constrain ticker item content on mobile**: Ensure items in rotate mode truncate if still too long
+- Add `overflow-x-hidden` to the main `min-h-screen` container (line 284)
 
-### File: `src/components/news-ticker/TickerItem.tsx`
+### 3. TestimonialsSection — mobile button fix
+**File: `src/components/partner-page/sections/TestimonialsSection.tsx`**
 
-4. **Truncate long content on mobile**: Add `max-w-full` and truncation for the content span so text doesn't overflow the container on narrow screens
+- Change carousel arrow positioning from `-left-3`/`-right-3` to `left-1`/`right-1` on mobile using responsive classes
+- Reduce button size on mobile
 
-### Specific changes:
+### 4. HeroSection — partner badge mobile sizing
+**File: `src/components/partner-page/sections/HeroSection.tsx`**
 
-**NewsTicker.tsx** — import `useIsMobile`, determine effective animation mode:
-```tsx
-const isMobile = useIsMobile();
-const effectiveMode = isMobile && settings.animationMode === 'scroll' 
-  ? 'rotate' 
-  : settings.animationMode;
-```
-Use `effectiveMode` in the render switch. Add `text-xs sm:text-sm` to container.
-
-**TickerItem.tsx** — add `max-w-full overflow-hidden` to outer span, and `truncate max-w-[70vw]` to content text span for scroll mode (non-wrap).
+- Reduce partner badge padding and font size on very small screens
 
 ### Files to change
 
 | File | Change |
 |------|--------|
-| `src/components/news-ticker/NewsTicker.tsx` | Force rotate mode on mobile, add responsive text sizing |
-| `src/components/news-ticker/TickerItem.tsx` | Add truncation/overflow handling for narrow screens |
+| `src/components/partner-page/sections/HeaderSection.tsx` | Add hamburger menu for mobile, hide nav items on small screens |
+| `src/pages/PartnerPage.tsx` | Add `overflow-x-hidden` to main container |
+| `src/components/partner-page/sections/TestimonialsSection.tsx` | Fix carousel button overflow on mobile |
+| `src/components/partner-page/sections/HeroSection.tsx` | Minor mobile sizing adjustments for partner badge |
 
