@@ -203,7 +203,8 @@ export const useCertificateGeneration = () => {
       const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        compress: true
       });
 
       // Register Unicode font for Polish character support
@@ -215,19 +216,57 @@ export const useCertificateGeneration = () => {
       const pageHeight = doc.internal.pageSize.getHeight();
       const PX_TO_MM = 0.352729;
 
-      // Helper function to load image as base64
-      const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+      // Helper function to load and compress image for PDF
+      const loadAndCompressImage = async (url: string): Promise<{ data: string; format: 'JPEG' | 'PNG' } | null> => {
         try {
           const response = await fetch(url);
           const blob = await response.blob();
-          return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => resolve(null);
-            reader.readAsDataURL(blob);
-          });
-        } catch {
-          return null;
+          
+          const img = await createImageBitmap(blob);
+          
+          const MAX_WIDTH = 1600;
+          const MAX_HEIGHT = 1200;
+          let { width, height } = img;
+          
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            const scale = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { img.close(); return null; }
+          
+          ctx.drawImage(img, 0, 0, width, height);
+          img.close();
+          
+          // Use JPEG for non-transparent images (much smaller)
+          const isPNG = blob.type === 'image/png';
+          const format: 'JPEG' | 'PNG' = isPNG ? 'PNG' : 'JPEG';
+          const mimeType = isPNG ? 'image/png' : 'image/jpeg';
+          const quality = isPNG ? undefined : 0.75;
+          
+          const dataUrl = canvas.toDataURL(mimeType, quality);
+          console.log(`📦 Image compressed: ${(blob.size / 1024).toFixed(0)}KB → ~${(dataUrl.length * 0.75 / 1024).toFixed(0)}KB (${width}x${height}, ${format})`);
+          
+          return { data: dataUrl, format };
+        } catch (e) {
+          console.warn('Image compression failed, trying raw load:', e);
+          try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result ? { data: reader.result as string, format: 'JPEG' } : null);
+              reader.onerror = () => resolve(null);
+              reader.readAsDataURL(blob);
+            });
+          } catch {
+            return null;
+          }
         }
       };
 
@@ -321,10 +360,10 @@ export const useCertificateGeneration = () => {
         if (element.type === 'image' && element.imageUrl) {
           try {
             console.log('Loading image from:', element.imageUrl);
-            const imageData = await loadImageAsBase64(element.imageUrl);
-            if (imageData) {
-              doc.addImage(imageData, 'PNG', x, y, width, height);
-              console.log('✅ Image added to PDF');
+            const compressed = await loadAndCompressImage(element.imageUrl);
+            if (compressed) {
+              doc.addImage(compressed.data, compressed.format, x, y, width, height);
+              console.log('✅ Image added to PDF as', compressed.format);
             }
           } catch (e) {
             console.warn('Could not load image:', e);
