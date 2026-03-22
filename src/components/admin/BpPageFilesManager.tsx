@@ -310,9 +310,16 @@ export const BpPageFilesManager: React.FC = () => {
                 </Button>
               </div>
 
-              {/* Position badge */}
-              <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded text-foreground">
-                #{idx + 1}
+              {/* Position badge + mapping indicator */}
+              <div className="absolute top-1 left-1 flex items-center gap-1">
+                <span className="bg-background/80 text-xs px-1.5 py-0.5 rounded text-foreground">
+                  #{idx + 1}
+                </span>
+                {mappedFileIds.has(file.id) && (
+                  <span className="bg-primary/80 text-primary-foreground text-[9px] px-1 py-0.5 rounded flex items-center gap-0.5">
+                    <Wand2 className="w-2.5 h-2.5" />
+                  </span>
+                )}
               </div>
             </div>
           ))}
