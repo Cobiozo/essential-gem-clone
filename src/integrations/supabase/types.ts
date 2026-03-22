@@ -5539,8 +5539,10 @@ export type Database = {
       }
       partner_page_forms: {
         Row: {
+          consent_text: string | null
           created_at: string
           cta_key: string
+          description: string | null
           fields: Json
           id: string
           is_active: boolean
@@ -5550,8 +5552,10 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          consent_text?: string | null
           created_at?: string
           cta_key: string
+          description?: string | null
           fields?: Json
           id?: string
           is_active?: boolean
@@ -5561,8 +5565,10 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          consent_text?: string | null
           created_at?: string
           cta_key?: string
+          description?: string | null
           fields?: Json
           id?: string
           is_active?: boolean
