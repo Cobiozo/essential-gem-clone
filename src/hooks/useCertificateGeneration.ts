@@ -203,7 +203,8 @@ export const useCertificateGeneration = () => {
       const doc = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4',
+        compress: true
       });
 
       // Register Unicode font for Polish character support
