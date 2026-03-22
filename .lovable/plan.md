@@ -1,25 +1,27 @@
 
-# Formularze na stronie partnera — system definicji formularzy z kotwicami CTA
 
-## Status: ✅ Zaimplementowane
+# Dodanie formularza "Odbierz darmowy poradnik" i podpięcie pod przycisk
 
-## Co zostało zrobione
+## Zmiany
 
-### 1. Tabela `partner_page_forms`
-- Migracja SQL z polami: `id, name, cta_key (unique), fields (jsonb), submit_text, success_message, is_active`
-- RLS: SELECT dla wszystkich (aktywne), CRUD tylko admin
+### 1. Insert definicji formularza do `partner_page_forms`
+Migracja SQL wstawiająca formularz:
+- `name`: "Odbierz darmowy poradnik"
+- `cta_key`: `darmowy-poradnik`
+- `fields`: imię, nazwisko, email (wszystkie wymagane)
+- `submit_text`: "Odbieram poradnik"
+- `success_message`: "Dziękujemy! Poradnik zostanie wysłany na podany adres email."
+- `is_active`: true
 
-### 2. Admin: zakładka "Formularze" z dwoma pod-zakładkami
-- **Definicje formularzy** — CRUD: nazwa, kotwica CTA, dynamiczne pola (typ, etykieta, placeholder, wymagane), tekst submit, wiadomość sukcesu, aktywny/nieaktywny
-- **Zebrane leady** — tabela leadów z formularzy stron partnerskich
+### 2. Update URL przycisku w szablonie
+W szablonie `e5ae6342-1e2a-469d-8ab6-d493bb48f55e` przycisk "Odbierz darmowy poradnik" ma pusty URL. Migracja zaktualizuje go na `#darmowy-poradnik`, aby kotwica pasowała do `cta_key` formularza.
 
-### 3. `PartnerFormModal` — modal formularza na stronie partnera
-- Pobiera definicję po `cta_key`, renderuje pola dynamicznie
-- Po submit wywołuje edge function `save-partner-lead` → zapis do `team_contacts` partnera
+Update zostanie wykonany na wszystkich szablonach, które mają ten przycisk (przeszukanie JSONB i zamiana).
 
-### 4. Kotwice CTA w sekcjach
-- `HeaderSection`, `HeroSection`, `CtaBannerSection` — przyciski z URL `#<cta_key>` otwierają modal formularza
-- Wzorzec identyczny jak `#ankieta` → `onSurveyOpen`
+### Efekt
+Po kliknięciu "Odbierz darmowy poradnik" w nawigacji strony partnera otworzy się modal z polami: Imię, Nazwisko, Email. Po wypełnieniu dane zapiszą się jako kontakt prywatny partnera.
 
-### 5. Leady w kontaktach prywatnych partnera
-- Pod-zakładka "Z Mojej Strony Partnera" w Pure-kontaktach (zaimplementowana wcześniej)
+## Pliki
+- Migracja SQL (insert + update template)
+- Brak zmian w kodzie — logika formKeys/onFormOpen/PartnerFormModal jest już zaimplementowana
+
