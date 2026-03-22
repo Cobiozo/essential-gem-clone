@@ -39,6 +39,20 @@ export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail, part
     setSending(true);
 
     try {
+      // Save lead to team_contacts via edge function
+      if (partnerUserId) {
+        const leadData = {
+          partner_user_id: partnerUserId,
+          first_name: formData['Imię'] || formData['imię'] || Object.values(formData)[0] || '',
+          last_name: formData['Nazwisko'] || formData['nazwisko'] || '',
+          email: formData['Email'] || formData['email'] || formData['E-mail'] || '',
+          phone_number: formData['Telefon'] || formData['telefon'] || formData['Phone'] || null,
+          message: formData['Wiadomość'] || formData['wiadomość'] || formData['Message'] || null,
+        };
+
+        await supabase.functions.invoke('save-partner-lead', { body: leadData });
+      }
+
       if (partnerEmail) {
         const fieldsSummary = Object.entries(formData)
           .map(([key, val]) => `<strong>${key}:</strong> ${val}`)

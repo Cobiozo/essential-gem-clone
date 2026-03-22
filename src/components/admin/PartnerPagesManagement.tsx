@@ -60,6 +60,10 @@ export const PartnerPagesManagement: React.FC = () => {
         <TabsContent value="bp-files">
           <BpPageFilesManager />
         </TabsContent>
+
+        <TabsContent value="forms">
+          <PartnerFormsManager />
+        </TabsContent>
       </Tabs>
     </div>
   );
