@@ -170,6 +170,7 @@ const TemplatePreviewPage: React.FC = () => {
   }, [editingIndex]);
 
   const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+  const handleFormOpen = useCallback((key: string) => setActiveFormKey(key), []);
 
   if (loading) return <LoadingSpinner />;
 
