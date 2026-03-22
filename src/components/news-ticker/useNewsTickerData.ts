@@ -211,7 +211,6 @@ export const useNewsTickerData = (): NewsTickerData => {
           .in('id', eventIds)
           .eq('is_active', true)
           .eq('event_type', 'team_training')
-          .gte('start_time', now.toISOString())
           .order('start_time', { ascending: true });
 
         if (events) {
@@ -224,9 +223,21 @@ export const useNewsTickerData = (): NewsTickerData => {
           });
 
           filteredEvents.forEach(event => {
+            const eventAsAny = event as any;
+            let displayDate: Date;
+
+            if (isMultiOccurrenceEvent(eventAsAny)) {
+              const nextOcc = getNextActiveOccurrence(eventAsAny);
+              if (!nextOcc) return; // all occurrences past
+              displayDate = nextOcc.start_datetime;
+            } else {
+              const endTime = event.end_time ? new Date(event.end_time) : new Date(event.start_time);
+              if (endTime < now) return; // past event
+              displayDate = new Date(event.start_time);
+            }
+
             const selectedItem = allSelectedEvents.find(s => s.event_id === event.id);
-            const eventDate = new Date(event.start_time);
-            const formattedDate = format(eventDate, 'd MMM HH:mm', { locale: pl });
+            const formattedDate = format(displayDate, 'd MMM HH:mm', { locale: pl });
             const label = selectedItem?.custom_label || event.title;
             
             allItems.push({
