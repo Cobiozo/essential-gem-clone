@@ -1,38 +1,59 @@
 
 
-# Poprawka wyrównania tekstu w podglądzie mapowania
+# Poprawka podglądu + edycja mapowania + nowe typy elementów
 
 ## Problem
-Elementy mapowania z `textAlign: center` (lub `right`) nie są prawidłowo wyrównywane w podglądzie. Na screenshocie widać, że tekst nachodzi na siebie i nie jest wyśrodkowany tak jak ustawił admin w edytorze.
+1. Podgląd (Eye) obcina dół obrazów portretowych — stały aspect-ratio 842:595 nie pasuje do pionowych plików
+2. Podgląd jest tylko do odczytu — użytkownik chce edytować mapowanie bezpośrednio z podglądu
+3. Brakuje nowych typów elementów: obrazy i kody QR
 
-## Przyczyna
-W `PreviewWithMappings` (linia 128) szerokość elementu jest ustawiana jako `widthPct ? ... : 'auto'`. Gdy `width` nie jest zapisany lub wynosi 0, element dostaje `width: auto`, co sprawia że `text-align: center` nie działa (div zwija się do szerokości tekstu). Dodatkowo brak `overflow: hidden` i `wordBreak` może powodować wychodzenie tekstu poza ramki.
+## Rozwiązanie
 
-## Rozwiązanie w `BpPageFilesManager.tsx`
+### 1. Usunięcie osobnego podglądu — Eye otwiera edytor
+Przycisk Eye (podgląd) otworzy ten sam `BpFileMappingEditor` co przycisk Wand2 (mapowanie). Usuwamy komponent `PreviewWithMappings` i osobny dialog podglądu — są zbędne, skoro edytor ma już tryb podglądu (przycisk "Podgląd/Edytuj").
 
-### Zmiana w `PreviewWithMappings` (linie ~115-140)
-1. **Zawsze ustawiaj width** — jeśli `el.width` nie jest zapisany, użyj domyślnej wartości 300px (tak samo jak edytor Fabric.js w linii 251: `width: el.width || 300`)
-2. **Popraw style elementu**:
-   - `width` zawsze wyrażone jako procent stage (nigdy `auto`)
-   - `textAlign` z danych mapowania (center/left/right) — zawsze respektowany
-   - Dodaj `overflow: hidden` i `wordBreak: 'break-word'` aby tekst nie wychodził poza ramkę
+**Zmiana w `BpPageFilesManager.tsx`:**
+- Usunąć `PreviewWithMappings`, `previewFile`, `previewMappings` i dialog podglądu
+- Przycisk Eye → `setMappingFile(file)` (tak jak Wand2)
 
-### Konkretna zmiana
+### 2. Nowe typy elementów w `BpFileMappingEditor.tsx`
+
+**a) Dodawanie obrazów na canvas:**
+- Przycisk "Obraz" w toolbarze → input file → upload do bucketu `landing-images`
+- `FabricImage.fromURL(url)` → dodanie do canvas jako element z `_isBpBackground = false`
+- Typ w `MappingElement`: `type: 'image'`, z polami `src`, `x`, `y`, `width`, `height`
+- W panelu właściwości: rozmiar, pozycja
+
+**b) Kody QR:**
+- Instalacja biblioteki `qrcode` (generowanie QR jako data URL)
+- Przycisk "Kod QR" → dialog z inputem na treść (URL/tekst) → generacja QR → `FabricImage.fromURL(qrDataUrl)` → dodanie na canvas
+- Typ: `type: 'qr_code'`, z polami `qrContent`, `x`, `y`, `width`, `height`
+- Obsługa zmiennych w QR: jeśli `qrContent` zawiera `{{eq_id}}` itp., rozwiązywanie w trybie podglądu
+
+**c) Rozszerzenie `MappingElement`:**
 ```typescript
-// Zamiast:
-const widthPct = el.width ? (el.width / CANVAS_WIDTH) * 100 : undefined;
-// ...
-width: widthPct ? `${widthPct}%` : 'auto',
-
-// Na:
-const elWidth = el.width || 300;
-const widthPct = (elWidth / CANVAS_WIDTH) * 100;
-// ...
-width: `${widthPct}%`,
-overflow: 'hidden',
-wordBreak: 'break-word',
+interface MappingElement {
+  id: string;
+  type: 'text' | 'image' | 'qr_code';
+  content: string;       // tekst lub URL obrazu lub treść QR
+  x: number; y: number;
+  width?: number; height?: number;
+  // pola tekstowe (fontSize, fontFamily, etc.) — tylko dla type='text'
+  // pola QR: qrContent — tylko dla type='qr_code'
+}
 ```
 
-## Plik do zmiany
-- `src/components/admin/BpPageFilesManager.tsx` — sekcja `PreviewWithMappings`, linie 115-140
+**d) Zapis i odczyt:** `collectElements` i `loadMappingElements` rozszerzone o nowe typy — serializacja/deserializacja obrazów i QR jako FabricImage.
+
+### 3. Panel właściwości — adaptacja do typu elementu
+- Tekst: obecne opcje (czcionka, rozmiar, kolor, wyrównanie)
+- Obraz: szerokość, wysokość, proporcje
+- QR: treść kodu, rozmiar
+
+## Pliki do zmiany
+- `src/components/admin/BpPageFilesManager.tsx` — usunięcie PreviewWithMappings, uproszczenie Eye
+- `src/components/admin/BpFileMappingEditor.tsx` — dodanie obsługi obrazów i QR, rozszerzenie MappingElement
+
+## Zależności
+- `qrcode` — do generowania kodów QR (npm install)
 
