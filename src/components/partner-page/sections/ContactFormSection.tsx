@@ -14,6 +14,7 @@ interface FormField {
 interface Props {
   config: Record<string, any>;
   partnerEmail?: string;
+  partnerUserId?: string;
 }
 
 export const ContactFormSection: React.FC<Props> = ({ config, partnerEmail }) => {
