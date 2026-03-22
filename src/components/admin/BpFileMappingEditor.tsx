@@ -185,7 +185,12 @@ const BpFileMappingEditor: React.FC<Props> = ({ file, onClose }) => {
           oldBgs.forEach(o => canvas.remove(o));
 
           (bgImg as any)._isBpBackground = true;
-          canvas.insertAt(bgImg, 0);
+          canvas.add(bgImg);
+          // Move background to bottom
+          const objects = canvas.getObjects();
+          if (objects.length > 1) {
+            canvas.sendObjectToBack(bgImg);
+          }
           canvas.renderAll();
         });
       });
