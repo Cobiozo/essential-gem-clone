@@ -369,6 +369,21 @@ export const BpPageFilesManager: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mapping editor dialog */}
+      <Dialog open={!!mappingFile} onOpenChange={() => setMappingFile(null)}>
+        <DialogContent className="max-w-[95vw] w-[95vw] max-h-[95vh] h-[95vh] p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Edytor mapowania danych</DialogTitle>
+          </DialogHeader>
+          {mappingFile && (
+            <BpFileMappingEditor
+              file={mappingFile}
+              onClose={() => setMappingFile(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
