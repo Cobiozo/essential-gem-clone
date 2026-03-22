@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Globe, Layout, Package, ClipboardList, FolderOpen } from 'lucide-react';
+import { Globe, Layout, Package, ClipboardList, FolderOpen, FileInput } from 'lucide-react';
 import { PartnerPageAccessManager } from './PartnerPageAccessManager';
 import { PartnerTemplateEditor } from './PartnerTemplateEditor';
 import { ProductCatalogManager } from './ProductCatalogManager';
 import { SurveyManager } from './SurveyManager';
 import { BpPageFilesManager } from './BpPageFilesManager';
+import { PartnerFormsManager } from './PartnerFormsManager';
 
 export const PartnerPagesManagement: React.FC = () => {
   const [subTab, setSubTab] = useState('access');
