@@ -158,6 +158,7 @@ const PartnerPageView: React.FC = () => {
   }, [page, productLinks]);
 
   const handleSurveyOpen = useCallback(() => setSurveyOpen(true), []);
+  const handleFormOpen = useCallback((key: string) => setActiveFormKey(key), []);
 
   if (loading) return <LoadingSpinner />;
   if (notFound || !page) return <NotFound />;
