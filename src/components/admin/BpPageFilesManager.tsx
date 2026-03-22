@@ -373,6 +373,8 @@ export const BpPageFilesManager: React.FC = () => {
                           className="w-full h-full object-cover"
                           loading="lazy"
                         />
+                      ) : file.mime_type === 'application/pdf' ? (
+                        <PdfThumbnail url={file.file_url} />
                       ) : (
                         <FileText className="w-10 h-10 text-muted-foreground" />
                       )}
