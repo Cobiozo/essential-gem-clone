@@ -360,10 +360,10 @@ export const useCertificateGeneration = () => {
         if (element.type === 'image' && element.imageUrl) {
           try {
             console.log('Loading image from:', element.imageUrl);
-            const imageData = await loadImageAsBase64(element.imageUrl);
-            if (imageData) {
-              doc.addImage(imageData, 'PNG', x, y, width, height);
-              console.log('✅ Image added to PDF');
+            const compressed = await loadAndCompressImage(element.imageUrl);
+            if (compressed) {
+              doc.addImage(compressed.data, compressed.format, x, y, width, height);
+              console.log('✅ Image added to PDF as', compressed.format);
             }
           } catch (e) {
             console.warn('Could not load image:', e);
