@@ -769,6 +769,41 @@ export type Database = {
         }
         Relationships: []
       }
+      bp_file_mappings: {
+        Row: {
+          created_at: string | null
+          elements: Json
+          file_id: string
+          id: string
+          page_index: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          elements?: Json
+          file_id: string
+          id?: string
+          page_index?: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          elements?: Json
+          file_id?: string
+          id?: string
+          page_index?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bp_file_mappings_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "bp_page_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bp_page_files: {
         Row: {
           created_at: string | null
