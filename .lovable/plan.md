@@ -1,60 +1,57 @@
 
 
-# Fix: Nadchodzące spotkania zespołowe nie pojawiają się w News Ticker
+# Fix: Aktywności na żywo w pasku informacyjnym — brak danych
 
-## Problem (3 błędy)
+## Problem
 
-1. **Admin lista wydarzeń** (`NewsTickerManagement.tsx`) pobiera tylko `event_type = 'team_training'`, pomijając `meeting_public`. Zapytanie: `.in('event_type', ['webinar', 'team_training'])` — brak `meeting_public`.
+Pasek informacyjny próbuje pobierać aktywności (lekcje, certyfikaty, moduły) z tabeli `user_activity_log`, która jest **pusta** (0 rekordów). Hook `useActivityTracking` istnieje, ale **nigdzie nie jest używany** — żaden komponent nie wywołuje `trackActivity()`.
 
-2. **Admin lista — status "minęło"** bazuje na `isPast(start_time)` bez uwzględnienia `occurrences`. Wydarzenie cykliczne, którego `start_time` minął, ale ma przyszłe terminy, jest pokazywane jako "minęło" i wyszarzone.
-
-3. **Ticker data hook** (`useNewsTickerData.ts`) filtruje spotkania tylko po `event_type = 'team_training'`, pomijając `meeting_public`.
+Tymczasem prawdziwe dane istnieją w odpowiednich tabelach:
+- **268** ukończonych lekcji w ostatnich 7 dniach (`training_progress`)
+- **14** ukończonych modułów (`training_assignments`)
+- **14** wygenerowanych certyfikatów (`certificates`)
 
 ## Rozwiązanie
 
-### 1. `NewsTickerManagement.tsx` — lista wydarzeń w panelu admina
+Zmienić źródło danych aktywności w `useNewsTickerData.ts` — zamiast czytać z pustej `user_activity_log`, pobierać bezpośrednio z tabel źródłowych. Podejście jest bardziej niezawodne niż poleganie na ręcznym logowaniu zdarzeń.
 
-**Zapytanie Supabase** (linia ~204): dodać `meeting_public` do filtra:
-```typescript
-.in('event_type', ['webinar', 'team_training', 'meeting_public'])
-```
+### Plik: `src/components/news-ticker/useNewsTickerData.ts`
 
-**Filtrowanie spotkań** (linia 434): uwzględnić oba typy:
-```typescript
-const meetings = allEvents.filter(e => e.event_type === 'team_training' || e.event_type === 'meeting_public');
-```
+Zastąpić sekcję "Fetch from user_activity_log" (linie ~273-345) nową logiką:
 
-**EventItem interface** (linia 71): dodać pole `occurrences`:
-```typescript
-interface EventItem {
-  id: string;
-  title: string;
-  event_type: string;
-  start_time: string;
-  is_active: boolean;
-  occurrences?: any;
-}
-```
+**1. Ukończenie lekcji** (`training_lesson_complete`):
+- Zapytanie do `training_progress` z joinem do `training_lessons` → `training_modules` po tytuł modułu
+- Filtr: `is_completed = true`, `completed_at >= hoursAgo`
+- Limit: `liveActivityMaxItems`
 
-**Zapytanie select** (linia 203): dodać `occurrences`:
-```typescript
-.select('id, title, event_type, start_time, is_active, occurrences')
-```
+**2. Ukończenie modułu** (`training_module_complete`):
+- Zapytanie do `training_assignments` z joinem do `training_modules` po tytuł
+- Filtr: `is_completed = true`, `completed_at >= hoursAgo`
 
-**Wyświetlanie daty i statusu "minęło"** (linie 728-746 i 772-794): zamiast `isPast(eventDate)` użyć logiki occurrences — jeśli event ma occurrences, sprawdzić `getNextActiveOccurrence()` i wyświetlić najbliższy przyszły termin. Dodać import helperów z `useOccurrences`.
+**3. Certyfikat** (`certificate_generated`):
+- Zapytanie do `certificates` z joinem do `training_modules` po tytuł modułu
+- Filtr: `generated_at >= hoursAgo`
 
-### 2. `useNewsTickerData.ts` — pobieranie spotkań do tickera
+**4. Rejestracja na wydarzenie** (`event_registration`):
+- Zapytanie do `event_registrations` z joinem do `events` po tytuł
+- Filtr: `created_at >= hoursAgo`
 
-**Sekcja "Fetch SELECTED team meetings"** (linia ~213): dodać `meeting_public`:
-```typescript
-.in('event_type', ['team_training', 'meeting_public'])
-```
-(zamiast `.eq('event_type', 'team_training')`)
+Dla każdego typu — pobrać profile użytkowników (batch), sformatować komunikat z datą i nazwiskiem (skróconym: `Jan K.`), dodać do `allItems`.
+
+Sekcje `new_user_welcome` i `new_partner_joined` — bez zmian (już działają poprawnie, czytają z `profiles`).
+
+### Tabele źródłowe i kolumny
+
+| Typ aktywności | Tabela | Kolumna daty | Join |
+|---|---|---|---|
+| Lekcja | `training_progress` | `completed_at` | `training_lessons(module_id, training_modules(title))` |
+| Moduł | `training_assignments` | `completed_at` | `training_modules(title)` |
+| Certyfikat | `certificates` | `generated_at` | `training_modules(title)` |
+| Rejestracja | `event_registrations` | `created_at` | `events(title)` |
 
 ### Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/NewsTickerManagement.tsx` | Dodać `meeting_public` do zapytania i filtra, pobrać `occurrences`, naprawić logikę "minęło" |
-| `src/components/news-ticker/useNewsTickerData.ts` | Dodać `meeting_public` do filtra event_type |
+| `src/components/news-ticker/useNewsTickerData.ts` | Zastąpić sekcję `user_activity_log` zapytaniami do tabel źródłowych |
 
