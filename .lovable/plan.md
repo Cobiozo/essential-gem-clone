@@ -1,47 +1,46 @@
 
 
-# Personalizacja treści emaila — dane partnera i link kontaktowy
+# Rozbudowa sekcji Timeline zgodnie ze screenem (szablon Eqology)
 
-## Co się zmienia
+## Co widać na screenie
+- Ciemne tło (dark green ~#0a1628)
+- Nagłówek bold + tekst opisowy (subtitle) pod nagłówkiem
+- 5 kamieni milowych w jednym rzędzie połączonych linią
+- Kółka: zielone (highlighted) lub ciemnoszare z obramowaniem, z numerem lub ikoną
+- Wyróżniony kamień (highlight) ma złoty/żółty kolor tekstu miesiąca
+- Linia łącząca przechodzi przez środek kółek
 
-Aktualnie email wysyłany do leada (linie 277-291 w `save-partner-lead/index.ts`) jest generyczny — mówi „Zespół Pure Life" bez żadnych danych partnera. 
+## Zmiany
 
-Zmieniamy treść HTML emaila, aby zawierała:
-1. **Dane partnera** — imię, nazwisko, specjalizacja, telefon
-2. **Przycisk/link „Napisz do opiekuna"** — mailto link na email partnera
-3. **Awatar partnera** (jeśli dostępny)
+### 1. `TimelineSection.tsx` — rozbudowa renderowania
+- Dodać obsługę pola `subtitle` (tekst pod nagłówkiem)
+- Dodać obsługę `bg_color` i `text_color` dla sekcji (ciemne tło)
+- Zmienić grid z sztywnego `md:grid-cols-4` na dynamiczny w zależności od liczby milestones (do 6 kolumn)
+- Poprawić styl linii łączącej — linia na środku kółek (top-7 zamiast top-8)
+- Wyróżniony kamień: tekst miesiąca w kolorze żółtym/złotym (`text-yellow-400`)
+- Kółka: numer wewnątrz zamiast tylko emoji (obsługa `m.icon` jako tekst/numer)
 
-## Zmiana
+### 2. `TimelineSectionEditor.tsx` — dodanie pól edycji
+- Dodać pole `subtitle` (tekst opisowy)
+- Dodać pola kolorów: `bg_color`, `text_color`, `line_color`, `highlight_text_color`
 
-### Plik: `supabase/functions/save-partner-lead/index.ts`
+### 3. Szablon Eqology w bazie danych
+- Dodanie sekcji timeline z odpowiednią konfiguracją (5 milestones) — to admin zrobi ręcznie przez edytor, ale komponent musi to obsługiwać
 
-**Linie 277-291** — zastąpić generyczny HTML nową wersją, która korzysta z już pobranych danych `partnerData` (linia 222):
+## Szczegóły techniczne
 
-```html
-<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-  <h2>Cześć {recipientFirstName}!</h2>
-  <p>Dziękujemy za wypełnienie formularza. W załączniku znajdziesz poradnik, 
-     który przygotował/a dla Ciebie Twój opiekun.</p>
-
-  <!-- Sekcja partnera -->
-  <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin: 24px 0;">
-    {avatar jeśli dostępny}
-    <h3>{imię} {nazwisko}</h3>
-    <p>{specjalizacja}</p>
-    <p>Tel: {telefon}</p>
-    <a href="mailto:{email}" style="button-style">Napisz do mnie</a>
-  </div>
-
-  <p>Pozdrawiamy,<br/><strong>Zespół Pure Life</strong></p>
-</div>
+**TimelineSection** — dynamiczne kolumny:
+```text
+const colsClass = count <= 3 ? 'md:grid-cols-3' 
+  : count === 4 ? 'md:grid-cols-4' 
+  : count === 5 ? 'md:grid-cols-5' 
+  : 'md:grid-cols-6';
 ```
 
-Dane partnera (`first_name`, `last_name`, `email`, `phone_number`, `specialization`, `avatar_url`) są już pobrane w linii 216-221 jako `partnerData` — wystarczy je wstawić do HTML.
-
-### Redeploy
-`save-partner-lead`
+**Nowe pola config**: `subtitle`, `bg_color`, `text_color`, `line_color`, `highlight_text_color`
 
 | Plik | Zmiana |
 |------|--------|
-| `supabase/functions/save-partner-lead/index.ts` | Personalizacja treści emaila danymi partnera + link mailto |
+| `src/components/partner-page/sections/TimelineSection.tsx` | Subtitle, kolory tła/tekstu, dynamiczne kolumny, styl highlight |
+| `src/components/admin/template-sections/TimelineSectionEditor.tsx` | Pola: subtitle, bg_color, text_color, line_color, highlight_text_color |
 
