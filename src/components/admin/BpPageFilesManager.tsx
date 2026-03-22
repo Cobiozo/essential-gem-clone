@@ -403,19 +403,9 @@ export const BpPageFilesManager: React.FC = () => {
                       <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Mapuj dane">
                         <Wand2 className="w-3 h-3" />
                       </Button>
-                      {isImage(file.mime_type) && (
-                        <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => {
-                          setPreviewFile(file);
-                          setPreviewMappings([]);
-                          supabase.from('bp_file_mappings').select('elements').eq('file_id', file.id).eq('page_index', 0).maybeSingle().then(({ data }) => {
-                            if (data?.elements && Array.isArray(data.elements)) {
-                              setPreviewMappings(data.elements);
-                            }
-                          });
-                        }}>
-                          <Eye className="w-3 h-3" />
-                        </Button>
-                      )}
+                      <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => setMappingFile(file)} title="Podgląd / Edytuj mapowanie">
+                        <Eye className="w-3 h-3" />
+                      </Button>
                       <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => handleCopyUrl(file.file_url)}>
                         <Copy className="w-3 h-3" />
                       </Button>
