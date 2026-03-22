@@ -206,10 +206,13 @@ export const TeamContactsTab: React.FC = () => {
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
   const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id) || (c as any).moved_to_own_list);
   const eventContacts = privateContacts.filter(c => eventContactIds.has(c.id) && !(c as any).moved_to_own_list);
+  const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska');
   
   const filteredContacts = (() => {
     if (activeTab === 'private') {
-      return privateSubTab === 'events' ? eventContacts : ownContacts;
+      if (privateSubTab === 'events') return eventContacts;
+      if (privateSubTab === 'partner-page') return partnerPageContacts;
+      return ownContacts;
     }
     if (activeTab === 'team') return contacts.filter(c => c.contact_type === 'team_member');
     return contacts;
