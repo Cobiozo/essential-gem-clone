@@ -406,48 +406,7 @@ export const BpPageFilesManager: React.FC = () => {
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-4 pt-0">
               {previewFile && (
-                <div className="relative inline-block w-full">
-                  <img
-                    src={previewFile.file_url}
-                    alt={previewFile.original_name}
-                    className="w-full h-auto rounded-lg block"
-                    onLoad={(e) => {
-                      const img = e.currentTarget;
-                      setPreviewImageSize({ w: img.naturalWidth, h: img.naturalHeight });
-                    }}
-                  />
-                  {previewImageSize && previewMappings.length > 0 && previewMappings.map((el: any, i: number) => {
-                    const CANVAS_W = 842;
-                    const canvasH = CANVAS_W * (previewImageSize.h / previewImageSize.w);
-                    const leftPct = ((el.x || 0) / CANVAS_W) * 100;
-                    const topPct = ((el.y || 0) / canvasH) * 100;
-                    const widthPct = el.width ? (el.width / CANVAS_W) * 100 : undefined;
-                    const fontSizeScale = 1 / CANVAS_W * 100;
-                    const resolvedText = resolveVariablesInText(el.content || '', PREVIEW_PROFILE);
-                    return (
-                      <div
-                        key={el.id || i}
-                        className="absolute pointer-events-none"
-                        style={{
-                          left: `${leftPct}%`,
-                          top: `${topPct}%`,
-                          width: widthPct ? `${widthPct}%` : 'auto',
-                          fontSize: `calc(${(el.fontSize || 24) * fontSizeScale} * 1cqw)`,
-                          fontFamily: el.fontFamily || 'Arial',
-                          fontWeight: el.fontWeight || 'normal',
-                          fontStyle: el.fontStyle || 'normal',
-                          textDecoration: el.textDecoration || 'none',
-                          color: el.color || '#000000',
-                          textAlign: el.align || 'left',
-                          whiteSpace: 'pre-wrap',
-                          lineHeight: 1.2,
-                        }}
-                      >
-                        {resolvedText}
-                      </div>
-                    );
-                  })}
-                </div>
+                <PreviewWithMappings file={previewFile} mappings={previewMappings} />
               )}
             </div>
           </ScrollArea>
