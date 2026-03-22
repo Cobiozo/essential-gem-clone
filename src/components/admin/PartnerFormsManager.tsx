@@ -66,6 +66,8 @@ export const PartnerFormsManager: React.FC = () => {
       setForms((data || []).map(d => ({
         ...d,
         fields: (d.fields as any) || [],
+        description: (d as any).description || '',
+        consent_text: (d as any).consent_text || '',
       })));
     }
     setLoading(false);
