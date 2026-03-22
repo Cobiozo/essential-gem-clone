@@ -18,7 +18,7 @@ const FONT_SIZE_MAP: Record<string, string> = {
   lg: '18px',
 };
 
-export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky, onSurveyOpen }) => {
+export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSticky, onSurveyOpen, formKeys, onFormOpen }) => {
   const {
     logo_text, logo_image_url, buttons, nav_style,
     bg_color, text_color, border_color, hide_border,
