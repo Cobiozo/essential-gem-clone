@@ -1,42 +1,60 @@
 
 
-# Fix: Wydarzenia w News Ticker — minione znikają, cykliczne pokazują najbliższy termin
+# Fix: Nadchodzące spotkania zespołowe nie pojawiają się w News Ticker
 
-## Problem
+## Problem (3 błędy)
 
-Dwa błędy w `useNewsTickerData.ts`:
+1. **Admin lista wydarzeń** (`NewsTickerManagement.tsx`) pobiera tylko `event_type = 'team_training'`, pomijając `meeting_public`. Zapytanie: `.in('event_type', ['webinar', 'team_training'])` — brak `meeting_public`.
 
-1. **Filtr `.gte('start_time', now)` odcina wydarzenia cykliczne** — jeśli `start_time` (pierwszy termin) już minął, cały event jest pomijany, nawet gdy ma przyszłe terminy w `occurrences`.
-2. **Brak obsługi `occurrences`** — dla wydarzeń cyklicznych ticker zawsze wyświetla `start_time` zamiast najbliższego przyszłego terminu z tablicy `occurrences`.
+2. **Admin lista — status "minęło"** bazuje na `isPast(start_time)` bez uwzględnienia `occurrences`. Wydarzenie cykliczne, którego `start_time` minął, ale ma przyszłe terminy, jest pokazywane jako "minęło" i wyszarzone.
+
+3. **Ticker data hook** (`useNewsTickerData.ts`) filtruje spotkania tylko po `event_type = 'team_training'`, pomijając `meeting_public`.
 
 ## Rozwiązanie
 
-### Plik: `src/components/news-ticker/useNewsTickerData.ts`
+### 1. `NewsTickerManagement.tsx` — lista wydarzeń w panelu admina
 
-**Dla webinarów (linie 152-192) i spotkań zespołowych (linie 194-233):**
-
-1. **Usunąć filtr** `.gte('start_time', now.toISOString())` z zapytania Supabase — pobrać wszystkie aktywne wybrane wydarzenia.
-2. **Po pobraniu, dla każdego eventu:**
-   - Użyć `isMultiOccurrenceEvent()` i `getNextActiveOccurrence()` z `useOccurrences.ts` do sprawdzenia czy event ma przyszłe terminy w `occurrences`.
-   - Jeśli event ma `occurrences` → użyć daty najbliższego przyszłego terminu. Jeśli żaden termin nie jest przyszły → pominąć event.
-   - Jeśli event nie ma `occurrences` → sprawdzić czy `end_time >= now`. Jeśli minął → pominąć.
-3. **Dodać import** `isMultiOccurrenceEvent`, `getNextActiveOccurrence` z `@/hooks/useOccurrences`.
-
-**Logika per event (pseudokod):**
+**Zapytanie Supabase** (linia ~204): dodać `meeting_public` do filtra:
+```typescript
+.in('event_type', ['webinar', 'team_training', 'meeting_public'])
 ```
-for each event:
-  if hasOccurrences(event):
-    nextOcc = getNextActiveOccurrence(event)
-    if !nextOcc → skip (all past)
-    displayDate = nextOcc.start_datetime
-  else:
-    if event.end_time < now → skip
-    displayDate = event.start_time
-  
-  push to allItems with formatted displayDate
+
+**Filtrowanie spotkań** (linia 434): uwzględnić oba typy:
+```typescript
+const meetings = allEvents.filter(e => e.event_type === 'team_training' || e.event_type === 'meeting_public');
 ```
+
+**EventItem interface** (linia 71): dodać pole `occurrences`:
+```typescript
+interface EventItem {
+  id: string;
+  title: string;
+  event_type: string;
+  start_time: string;
+  is_active: boolean;
+  occurrences?: any;
+}
+```
+
+**Zapytanie select** (linia 203): dodać `occurrences`:
+```typescript
+.select('id, title, event_type, start_time, is_active, occurrences')
+```
+
+**Wyświetlanie daty i statusu "minęło"** (linie 728-746 i 772-794): zamiast `isPast(eventDate)` użyć logiki occurrences — jeśli event ma occurrences, sprawdzić `getNextActiveOccurrence()` i wyświetlić najbliższy przyszły termin. Dodać import helperów z `useOccurrences`.
+
+### 2. `useNewsTickerData.ts` — pobieranie spotkań do tickera
+
+**Sekcja "Fetch SELECTED team meetings"** (linia ~213): dodać `meeting_public`:
+```typescript
+.in('event_type', ['team_training', 'meeting_public'])
+```
+(zamiast `.eq('event_type', 'team_training')`)
+
+### Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/news-ticker/useNewsTickerData.ts` | Import helperów z useOccurrences, usunięcie filtra `.gte()`, dodanie logiki occurrences per event |
+| `src/components/admin/NewsTickerManagement.tsx` | Dodać `meeting_public` do zapytania i filtra, pobrać `occurrences`, naprawić logikę "minęło" |
+| `src/components/news-ticker/useNewsTickerData.ts` | Dodać `meeting_public` do filtra event_type |
 
