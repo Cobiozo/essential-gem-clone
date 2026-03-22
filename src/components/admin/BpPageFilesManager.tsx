@@ -362,7 +362,6 @@ export const BpPageFilesManager: React.FC = () => {
                   <Button size="icon" variant="secondary" className="h-7 w-7" onClick={() => {
                     setPreviewFile(file);
                     setPreviewMappings([]);
-                    setPreviewImageSize(null);
                     supabase.from('bp_file_mappings').select('elements').eq('file_id', file.id).eq('page_index', 0).maybeSingle().then(({ data }) => {
                       if (data?.elements && Array.isArray(data.elements)) {
                         setPreviewMappings(data.elements);
