@@ -56,7 +56,8 @@ const TemplatePreviewPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [surveyOpen, setSurveyOpen] = useState(false);
-
+  const [formKeys, setFormKeys] = useState<string[]>([]);
+  const [activeFormKey, setActiveFormKey] = useState<string | null>(null);
   useEffect(() => {
     const fetchData = async () => {
       if (!templateId) { setLoading(false); return; }
