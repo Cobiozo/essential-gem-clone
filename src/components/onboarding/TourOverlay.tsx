@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TourStep } from './tourSteps';
 import { TourTooltip } from './TourTooltip';
-import { TourArrow } from './TourArrow';
 
 interface TourOverlayProps {
   step: TourStep;
