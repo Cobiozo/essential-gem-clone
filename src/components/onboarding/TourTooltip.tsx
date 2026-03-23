@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -13,6 +13,7 @@ interface TourTooltipProps {
   onNext: () => void;
   onPrev: () => void;
   onSkip: () => void;
+  onTooltipRect?: (rect: { top: number; left: number; width: number; height: number }) => void;
 }
 
 export const TourTooltip: React.FC<TourTooltipProps> = ({
@@ -23,11 +24,14 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
   onNext,
   onPrev,
   onSkip,
+  onTooltipRect,
 }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+
   const tooltipPosition = useMemo(() => {
-    const tooltipWidth = 320;
-    const tooltipHeight = 200;
-    const gap = 16;
+    const tooltipWidth = 340;
+    const tooltipHeight = 220;
+    const gap = 20;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
 
@@ -60,13 +64,33 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
     return { top, left };
   }, [step.position, highlightRect]);
 
+  // Report tooltip rect for arrow positioning
+  const reportRect = useCallback(() => {
+    if (cardRef.current && onTooltipRect) {
+      const rect = cardRef.current.getBoundingClientRect();
+      onTooltipRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height,
+      });
+    }
+  }, [onTooltipRect]);
+
+  useEffect(() => {
+    // Small delay to allow rendering
+    const timer = setTimeout(reportRect, 50);
+    return () => clearTimeout(timer);
+  }, [reportRect, tooltipPosition]);
+
   const progress = ((currentStep + 1) / totalSteps) * 100;
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === totalSteps - 1;
 
   return (
     <Card
-      className="fixed w-80 shadow-2xl pointer-events-auto z-[10000] animate-in fade-in-0 slide-in-from-bottom-2 duration-300"
+      ref={cardRef}
+      className="fixed w-[340px] shadow-2xl pointer-events-auto z-[10000] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 border-primary/20"
       style={{
         top: tooltipPosition.top,
         left: tooltipPosition.left,
@@ -91,7 +115,7 @@ export const TourTooltip: React.FC<TourTooltipProps> = ({
             Krok {currentStep + 1} z {totalSteps}
           </span>
         </div>
-        <Progress value={progress} className="h-1" />
+        <Progress value={progress} className="h-1.5" />
       </CardHeader>
       <CardContent className="pb-4">
         <p className="text-sm text-muted-foreground leading-relaxed">
