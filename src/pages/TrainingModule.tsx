@@ -12,7 +12,6 @@ import {
   ArrowLeft, 
   ArrowRight, 
   CheckCircle, 
-  Lock, 
   Clock,
   FileText,
   Video,
@@ -22,7 +21,9 @@ import {
   Link,
   Download,
   StickyNote,
-  ChevronDown
+  ChevronDown,
+  CircleDot,
+  Circle
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -49,6 +50,7 @@ interface TrainingLesson {
   is_required: boolean;
   position: number;
   action_buttons?: LessonActionButton[];
+  completion_method?: string;
 }
 
 interface LessonProgress {
@@ -61,6 +63,9 @@ interface LessonProgress {
   updated_at?: string;
 }
 
+// Completion threshold: 80% of video duration (tolerant for iOS)
+const VIDEO_COMPLETION_THRESHOLD = 0.8;
+
 const TrainingModule = () => {
   const { moduleId } = useParams<{ moduleId: string }>();
   const [module, setModule] = useState<TrainingModule | null>(null);
@@ -69,8 +74,9 @@ const TrainingModule = () => {
   const [progress, setProgress] = useState<Record<string, LessonProgress>>({});
   const [isNavigating, setIsNavigating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isCompleting, setIsCompleting] = useState(false);
   
-  // Video position = time spent (single source of truth for video lessons)
+  // Video position tracking (lightweight — no auto-save)
   const [videoPosition, setVideoPosition] = useState(0);
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
   const [positionLoaded, setPositionLoaded] = useState(false);
@@ -85,18 +91,13 @@ const TrainingModule = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const timerRef = useRef<NodeJS.Timeout>();
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const videoPositionRef = useRef<number>(0);
-  const hasInitialSaveRef = useRef<boolean>(false);
   
   // Refs for beforeunload to access current values without triggering re-registrations
   const textLessonTimeRef = useRef<number>(0);
   const currentLessonIndexRef = useRef<number>(0);
   const lessonsRef = useRef<TrainingLesson[]>([]);
-  
-  // Ref to prevent race conditions during lesson transitions
-  const currentLessonIdRef = useRef<string | null>(null);
-  const isTransitioningRef = useRef<boolean>(false);
+  const progressRef = useRef<Record<string, LessonProgress>>({});
   
   // Notes dialog state
   const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
@@ -148,7 +149,7 @@ const TrainingModule = () => {
   // Get current lesson for notes hook (must be before any conditional returns)
   const currentLesson = lessons[currentLessonIndex];
   
-  // Notes hook - MUST be called unconditionally at the top level
+  // Notes hook
   const {
     notes,
     noteMarkers,
@@ -159,14 +160,12 @@ const TrainingModule = () => {
     getNoteById
   } = useLessonNotes(currentLesson?.id, user?.id);
   
-  // Helper to format time for notes
   const formatNoteTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
   
-  // Handle note marker click on timeline - MUST be before any conditional returns
   const handleNoteMarkerClick = useCallback((noteId: string) => {
     const note = getNoteById(noteId);
     if (note) {
@@ -177,7 +176,6 @@ const TrainingModule = () => {
     }
   }, [getNoteById, toast]);
   
-  // Handle seek to time from notes dialog - MUST be before any conditional returns
   const handleSeekToTime = useCallback((seconds: number) => {
     const currentProgress = progress[currentLesson?.id];
     const completed = currentProgress?.is_completed || false;
@@ -191,7 +189,7 @@ const TrainingModule = () => {
     return uuidRegex.test(str);
   };
 
-  // Redirect unauthenticated users to login with returnTo parameter
+  // Redirect unauthenticated users
   useEffect(() => {
     if (!user && !loading) {
       const returnUrl = encodeURIComponent(window.location.pathname);
@@ -206,7 +204,6 @@ const TrainingModule = () => {
     const loadData = async () => {
       if (!moduleId || !user) return;
       
-      // Walidacja UUID przed zapytaniem do bazy
       if (!isValidUUID(moduleId)) {
         console.error('[TrainingModule] Invalid module ID format:', moduleId);
         toast({
@@ -265,7 +262,8 @@ const TrainingModule = () => {
         
         const mappedLessons = (lessonsData || []).map(lesson => ({
           ...lesson,
-          action_buttons: (Array.isArray(lesson.action_buttons) ? lesson.action_buttons : []) as unknown as LessonActionButton[]
+          action_buttons: (Array.isArray(lesson.action_buttons) ? lesson.action_buttons : []) as unknown as LessonActionButton[],
+          completion_method: (lesson as any).completion_method || 'auto'
         }));
         setLessons(mappedLessons);
 
@@ -284,70 +282,7 @@ const TrainingModule = () => {
             return acc;
           }, {} as Record<string, LessonProgress>);
 
-          // Sync ALL localStorage backups to database before setting progress
-          const syncAllLocalBackups = async () => {
-            for (const lesson of lessonsData) {
-              const backupKey = `lesson_progress_${lesson.id}`;
-              const backupStr = localStorage.getItem(backupKey);
-              if (backupStr) {
-                try {
-                  const backup = JSON.parse(backupStr);
-                  const dbUpdatedAt = progressMap[lesson.id]?.updated_at 
-                    ? new Date(progressMap[lesson.id].updated_at as unknown as string).getTime() 
-                    : 0;
-                  
-                  // Only sync if backup is newer than DB and not older than 24h
-                  if (backup.timestamp > dbUpdatedAt && Date.now() - backup.timestamp < 86400000) {
-                    console.log(`[TrainingModule] Syncing localStorage backup for lesson: ${lesson.title}`);
-                    
-                    // PROTECTION: Never reset completed lessons - once true, always true
-                    const wasCompletedInDb = progressMap[lesson.id]?.is_completed;
-                    const backupCompleted = backup.is_completed || false;
-                    const finalCompleted = wasCompletedInDb || backupCompleted;
-                    
-                    if (wasCompletedInDb && !backupCompleted) {
-                      console.log(`[TrainingModule] Protecting completed status for: ${lesson.title}`);
-                    }
-                    
-                    const { error } = await supabase.from('training_progress').upsert({
-                      user_id: user.id,
-                      lesson_id: lesson.id,
-                      time_spent_seconds: backup.time_spent_seconds || 0,
-                      video_position_seconds: backup.video_position_seconds || 0,
-                      is_completed: finalCompleted,
-                      completed_at: finalCompleted ? (progressMap[lesson.id]?.completed_at || new Date().toISOString()) : null
-                    }, {
-                      onConflict: 'user_id,lesson_id'
-                    });
-                    
-                    if (!error) {
-                      // Update progressMap with synced data
-                      progressMap[lesson.id] = {
-                        ...progressMap[lesson.id],
-                        lesson_id: lesson.id,
-                        time_spent_seconds: backup.time_spent_seconds || 0,
-                        video_position_seconds: backup.video_position_seconds || 0,
-                        is_completed: finalCompleted,
-                        started_at: progressMap[lesson.id]?.started_at || new Date().toISOString(),
-                        completed_at: finalCompleted ? (progressMap[lesson.id]?.completed_at || new Date().toISOString()) : null
-                      };
-                      localStorage.removeItem(backupKey);
-                      console.log(`[TrainingModule] Backup synced successfully for: ${lesson.title}`);
-                    }
-                  } else {
-                    localStorage.removeItem(backupKey);
-                  }
-                } catch (e) {
-                  console.warn(`[TrainingModule] Failed to sync backup for ${lesson.id}:`, e);
-                  localStorage.removeItem(backupKey);
-                }
-              }
-            }
-          };
-          
-          await syncAllLocalBackups();
-          
-          // Auto-create training_assignment if missing (for admins or users without assignment)
+          // Auto-create training_assignment if missing
           const { data: existingAssignment } = await supabase
             .from('training_assignments')
             .select('id')
@@ -356,7 +291,6 @@ const TrainingModule = () => {
             .maybeSingle();
           
           if (!existingAssignment) {
-            console.log('[TrainingModule] No assignment found, creating one automatically');
             await supabase.from('training_assignments').insert({
               user_id: user.id,
               module_id: moduleId,
@@ -368,12 +302,11 @@ const TrainingModule = () => {
 
           setProgress(progressMap);
 
-          // Find the last lesson with progress (most advanced lesson user worked on)
+          // Find the last lesson with progress
           let targetIndex = 0;
           for (let i = lessonsData.length - 1; i >= 0; i--) {
             const lessonProgress = progressMap[lessonsData[i].id];
             if (lessonProgress && lessonProgress.time_spent_seconds > 0) {
-              // If this lesson is completed, move to next (if exists)
               if (lessonProgress.is_completed && i < lessonsData.length - 1) {
                 targetIndex = i + 1;
               } else {
@@ -385,16 +318,12 @@ const TrainingModule = () => {
           
           setCurrentLessonIndex(targetIndex);
           const lessonId = lessonsData[targetIndex].id;
-          
-          // Get saved position from synced progress
           const savedPos = progressMap[lessonId]?.video_position_seconds || 0;
           
           setSavedVideoPosition(savedPos);
           setVideoPosition(savedPos);
           videoPositionRef.current = savedPos;
           setTextLessonTime(progressMap[lessonId]?.time_spent_seconds || 0);
-          
-          // Mark position as loaded so SecureMedia receives correct initialTime
           setPositionLoaded(true);
         }
       } catch (error) {
@@ -414,37 +343,14 @@ const TrainingModule = () => {
     };
 
     loadData();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [moduleId, user, toast]);
 
-  // Keep refs in sync for beforeunload (avoids useEffect re-registrations every second)
-  useEffect(() => {
-    textLessonTimeRef.current = textLessonTime;
-  }, [textLessonTime]);
-  
-  useEffect(() => {
-    currentLessonIndexRef.current = currentLessonIndex;
-  }, [currentLessonIndex]);
-  
-  useEffect(() => {
-    lessonsRef.current = lessons;
-  }, [lessons]);
-  
-  // Update currentLessonIdRef when lesson changes
-  useEffect(() => {
-    const currentLesson = lessons[currentLessonIndex];
-    currentLessonIdRef.current = currentLesson?.id || null;
-  }, [lessons, currentLessonIndex]);
-
-  // NOTE: Removed the useEffect that updated savedVideoPosition when lesson changes.
-  // This was causing issues because it ran whenever currentLessonIndex changed,
-  // but the lesson navigation functions (goToNextLesson, goToPreviousLesson, jumpToLesson)
-  // already handle setting the correct video position directly.
-  // Having this useEffect caused race conditions where the old lesson's state
-  // could overwrite the new lesson's state.
+  // Keep refs in sync
+  useEffect(() => { textLessonTimeRef.current = textLessonTime; }, [textLessonTime]);
+  useEffect(() => { currentLessonIndexRef.current = currentLessonIndex; }, [currentLessonIndex]);
+  useEffect(() => { lessonsRef.current = lessons; }, [lessons]);
+  useEffect(() => { progressRef.current = progress; }, [progress]);
 
   // Timer only for text lessons (no video)
   useEffect(() => {
@@ -452,12 +358,8 @@ const TrainingModule = () => {
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     const isLessonCompleted = progress[currentLesson?.id]?.is_completed;
     
-    // Only run timer for non-video lessons that are not completed
-    // Also stop timer when notes dialog is open
     if (hasVideo || isLessonCompleted || isNotesDialogOpen) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
 
@@ -466,13 +368,11 @@ const TrainingModule = () => {
     }, 1000);
     
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [currentLessonIndex, lessons, progress, isNotesDialogOpen]);
 
-  // Preconnect to VPS for faster SSL handshake (runs once on mount)
+  // Preconnect to VPS
   useEffect(() => {
     const preconnect = document.createElement('link');
     preconnect.rel = 'preconnect';
@@ -485,69 +385,38 @@ const TrainingModule = () => {
     dnsPrefetch.href = 'https://purelife.info.pl';
     document.head.appendChild(dnsPrefetch);
     
-    console.log('[TrainingModule] Added preconnect hint for VPS');
-    
     return () => {
-      if (preconnect.parentNode) {
-        document.head.removeChild(preconnect);
-      }
-      if (dnsPrefetch.parentNode) {
-        document.head.removeChild(dnsPrefetch);
-      }
+      if (preconnect.parentNode) document.head.removeChild(preconnect);
+      if (dnsPrefetch.parentNode) document.head.removeChild(dnsPrefetch);
     };
   }, []);
 
-  // Prefetch usunięty - zanieczyszczał cache przeglądarki i powodował wyświetlanie klatek z innej lekcji
-
-  // Save progress before unload with localStorage backup and proper auth
-  // STABILIZED: Uses refs to avoid re-registering listener every second
+  // Save video position on beforeunload (position only, NOT completion)
   useEffect(() => {
     const handleBeforeUnload = async () => {
-      // Use refs to get current values (avoids stale closures)
       const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
       if (!user || !currentLesson) return;
-
-      // PROTECTION: Never overwrite completed lessons - completion is irreversible
-      const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
-      if (wasAlreadyCompleted) {
-        console.log('[TrainingModule] Skipping beforeunload save for already completed lesson:', currentLesson.title);
-        return;
-      }
+      if (progressRef.current[currentLesson.id]?.is_completed) return;
 
       const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
       const currentVideoPos = videoPositionRef.current;
-      const currentVideoDuration = videoDurationRef.current;
       const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTimeRef.current;
-      // For video lessons, use video duration; for text lessons, use min_time_seconds
-      const requiredTime = hasVideo && currentVideoDuration > 0 
-        ? Math.floor(currentVideoDuration) 
-        : (currentLesson.min_time_seconds || 0);
-      const isCompleted = effectiveTime >= requiredTime;
 
-      // 1. Always save to localStorage as backup
+      // Save position to localStorage for resume
       const backupData = {
         lesson_id: currentLesson.id,
         video_position_seconds: hasVideo ? currentVideoPos : 0,
         time_spent_seconds: effectiveTime,
-        is_completed: isCompleted,
+        is_completed: false, // NEVER auto-complete on unload
         timestamp: Date.now()
       };
       localStorage.setItem(`lesson_progress_${currentLesson.id}`, JSON.stringify(backupData));
 
-      // 2. Try to save via fetch with keepalive (proper auth headers)
+      // Try to save position via fetch+keepalive (no completion)
       try {
         const session = await supabase.auth.getSession();
         const token = session.data.session?.access_token;
-        
         if (token) {
-          const payload = {
-            user_id: user.id,
-            lesson_id: currentLesson.id,
-            time_spent_seconds: effectiveTime,
-            video_position_seconds: hasVideo ? currentVideoPos : 0,
-            is_completed: isCompleted
-          };
-
           fetch(
             `https://xzlhssqqbajqhnsmbucf.supabase.co/rest/v1/training_progress?on_conflict=user_id,lesson_id`,
             {
@@ -558,574 +427,172 @@ const TrainingModule = () => {
                 'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
                 'Prefer': 'resolution=merge-duplicates'
               },
-              body: JSON.stringify(payload),
+              body: JSON.stringify({
+                user_id: user.id,
+                lesson_id: currentLesson.id,
+                time_spent_seconds: effectiveTime,
+                video_position_seconds: hasVideo ? currentVideoPos : 0,
+                is_completed: false // Position save only
+              }),
               keepalive: true
             }
           );
         }
       } catch (e) {
-        console.warn('[TrainingModule] beforeunload save failed, backup in localStorage');
+        console.warn('[TrainingModule] beforeunload position save failed');
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user]);  // ONLY user as dependency - stable, registered ONCE
-
-  // Ref to hold latest saveProgressWithPosition function (for stable callbacks)
-  const saveProgressRef = useRef<() => Promise<boolean | void>>();
-  const progressRef = useRef<Record<string, LessonProgress>>({});
-  
-  // Keep progressRef in sync
-  useEffect(() => {
-    progressRef.current = progress;
-  }, [progress]);
-
-  // Save with retry mechanism for reliability
-  const saveProgressWithRetry = useCallback(async (
-    lessonId: string,
-    videoPos: number,
-    timeSpent: number,
-    isCompleted: boolean,
-    maxRetries = 3
-  ): Promise<boolean> => {
-    if (!user) return false;
-    
-    // FIX A: Never overwrite completed lessons — guard at the lowest level
-    const wasAlreadyCompleted = progressRef.current[lessonId]?.is_completed;
-    if (wasAlreadyCompleted && !isCompleted) {
-      console.log('[TrainingModule] saveProgressWithRetry: Skipping — lesson already completed, refusing to revert');
-      return true;
-    }
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const { error } = await supabase
-          .from('training_progress')
-          .upsert({
-            user_id: user.id,
-            lesson_id: lessonId,
-            time_spent_seconds: timeSpent,
-            video_position_seconds: videoPos,
-            is_completed: isCompleted,
-            ...(isCompleted ? { completed_at: new Date().toISOString() } : {})
-          }, { 
-            onConflict: 'user_id,lesson_id'
-          });
-
-        if (!error) {
-          // Clear localStorage backup after successful save
-          localStorage.removeItem(`lesson_progress_${lessonId}`);
-          console.log(`[TrainingModule] Progress saved successfully for lesson ${lessonId}`);
-          
-          // Check if all lessons are now completed (redundant safety with DB trigger)
-          if (isCompleted && moduleId && user) {
-            const allCompleted = lessons.every(l => 
-              l.id === lessonId ? true : progress[l.id]?.is_completed
-            );
-            if (allCompleted && lessons.length > 0) {
-              console.log('[TrainingModule] All lessons completed, ensuring assignment is marked');
-              supabase
-                .from('training_assignments')
-                .update({
-                  is_completed: true,
-                  completed_at: new Date().toISOString()
-                })
-                .eq('user_id', user.id)
-                .eq('module_id', moduleId)
-                .eq('is_completed', false)
-                .then(({ error: assignErr }) => {
-                  if (!assignErr) console.log('[TrainingModule] Assignment auto-completed via save');
-                });
-            }
-          }
-          
-          return true;
-        }
-        throw error;
-      } catch (e) {
-        console.warn(`[TrainingModule] Save attempt ${attempt + 1} failed:`, e);
-      }
-      // Wait before retry (500ms, 1s, 2s - exponential backoff)
-      if (attempt < maxRetries - 1) {
-        await new Promise(r => setTimeout(r, 500 * Math.pow(2, attempt)));
-      }
-    }
-    console.error('[TrainingModule] All save attempts failed');
-    return false;
   }, [user]);
 
-  const saveProgressWithPosition = useCallback(async (): Promise<boolean> => {
-    if (!user || lessons.length === 0) return false;
+  // Save position on visibility change (tab hidden)
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (!document.hidden || !user) return;
+      const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
+      if (!currentLesson || progressRef.current[currentLesson.id]?.is_completed) return;
 
-    const currentLesson = lessons[currentLessonIndex];
-    if (!currentLesson) return false;
-    
-    // Prevent saving during lesson transition (race condition prevention)
-    if (isTransitioningRef.current) {
-      console.log('[TrainingModule] Skipping save during transition');
-      return false;
-    }
-    
-    // Check if lesson changed (race condition prevention)
-    if (currentLessonIdRef.current !== currentLesson.id) {
-      console.log('[TrainingModule] Lesson changed, skipping save for old lesson');
-      return false;
-    }
-
-    // Check if was already completed using ref (avoid stale state)
-    const wasAlreadyCompleted = progressRef.current[currentLesson.id]?.is_completed;
-    
-    // KLUCZOWA ZMIANA: Nie zapisuj postępu dla ukończonych lekcji (tryb przeglądania)
-    // Użytkownik może swobodnie przewijać bez wpływu na status ukończenia
-    if (wasAlreadyCompleted) {
-      console.log('[TrainingModule] Skipping save for completed lesson (review mode)');
-      return true; // Return true as there's nothing to save
-    }
-
-    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-    // Use ref for accurate position (state might be stale in callbacks)
-    const currentVideoPos = videoPositionRef.current;
-    const currentVideoDuration = videoDurationRef.current;
-    const effectiveTime = hasVideo ? Math.floor(currentVideoPos) : textLessonTime;
-    // For video lessons, use video duration; for text lessons, use min_time_seconds
-    const requiredTime = hasVideo && currentVideoDuration > 0 
-      ? Math.floor(currentVideoDuration) 
-      : (currentLesson.min_time_seconds || 0);
-    const isCompleted = effectiveTime >= requiredTime;
-
-    // Save to localStorage first as backup
-    const backupData = {
-      lesson_id: currentLesson.id,
-      video_position_seconds: hasVideo ? currentVideoPos : 0,
-      time_spent_seconds: effectiveTime,
-      is_completed: isCompleted,
-      timestamp: Date.now()
+      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTimeRef.current;
+      
+      // Just save position, not completion
+      await supabase.from('training_progress').upsert({
+        user_id: user.id,
+        lesson_id: currentLesson.id,
+        time_spent_seconds: effectiveTime,
+        video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+        is_completed: false
+      }, { onConflict: 'user_id,lesson_id' });
     };
-    localStorage.setItem(`lesson_progress_${currentLesson.id}`, JSON.stringify(backupData));
 
-    // Try to save with retry
-    const success = await saveProgressWithRetry(
-      currentLesson.id,
-      hasVideo ? currentVideoPos : 0,
-      effectiveTime,
-      isCompleted
-    );
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user]);
 
-    if (success) {
+  // ============================================================
+  // EXPLICIT COMPLETION: User clicks "Zalicz lekcję" button
+  // ============================================================
+  const completeCurrentLesson = useCallback(async () => {
+    if (!user || !currentLesson || isCompleting) return;
+    if (progressRef.current[currentLesson.id]?.is_completed) return;
+    
+    setIsCompleting(true);
+    
+    const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+    const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
+    
+    try {
+      const { error } = await supabase.from('training_progress').upsert({
+        user_id: user.id,
+        lesson_id: currentLesson.id,
+        time_spent_seconds: effectiveTime,
+        video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+        is_completed: true,
+        completed_at: new Date().toISOString()
+      }, { onConflict: 'user_id,lesson_id' });
+
+      if (error) throw error;
+
+      // Clear any localStorage backup
+      localStorage.removeItem(`lesson_progress_${currentLesson.id}`);
+
+      // Update local state
       setProgress(prev => ({
         ...prev,
         [currentLesson.id]: {
           ...prev[currentLesson.id],
           lesson_id: currentLesson.id,
           time_spent_seconds: effectiveTime,
-          video_position_seconds: hasVideo ? currentVideoPos : 0,
-          is_completed: isCompleted,
+          video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+          is_completed: true,
           started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
-          completed_at: isCompleted ? new Date().toISOString() : null
+          completed_at: new Date().toISOString()
         }
       }));
 
-      // Show toast when lesson is completed
-      if (isCompleted && !wasAlreadyCompleted) {
+      toast({
+        title: "✓ Lekcja zaliczona!",
+        description: `Pomyślnie zaliczyłeś lekcję "${currentLesson.title}"`,
+      });
+
+      // Check if all lessons are now completed
+      const allCompleted = lessons.every(l => 
+        l.id === currentLesson.id ? true : progressRef.current[l.id]?.is_completed
+      );
+      if (allCompleted && lessons.length > 0 && moduleId) {
+        await supabase.from('training_assignments').update({
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        }).eq('user_id', user.id).eq('module_id', moduleId).eq('is_completed', false);
+        
         toast({
-          title: "Lekcja ukończona!",
-          description: `Pomyślnie ukończyłeś lekcję "${currentLesson.title}"`,
+          title: "🎓 Moduł ukończony!",
+          description: "Gratulacje! Ukończyłeś szkolenie. Możesz wygenerować certyfikat na stronie Akademii.",
         });
       }
+    } catch (error) {
+      console.error('[TrainingModule] Failed to complete lesson:', error);
+      toast({
+        title: "Błąd zapisu",
+        description: "Nie udało się zaliczyć lekcji. Spróbuj ponownie.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCompleting(false);
     }
-    
-    return success;
-  }, [user, lessons, currentLessonIndex, textLessonTime, toast, saveProgressWithRetry]);
-  
-  // Update saveProgressRef whenever saveProgressWithPosition changes
-  useEffect(() => {
-    saveProgressRef.current = saveProgressWithPosition;
-  }, [saveProgressWithPosition]);
+  }, [user, currentLesson, textLessonTime, lessons, moduleId, toast, isCompleting]);
 
-  // Stable callback for video time updates (uses refs to avoid dependency cycles)
+  // Lightweight video time update (no auto-save, just track position)
   const handleVideoTimeUpdate = useCallback((newTime: number) => {
     setVideoPosition(newTime);
-    videoPositionRef.current = newTime; // Always keep ref in sync
-    
-    // Save immediately after first 3 seconds (initial save)
-    if (newTime > 3 && !hasInitialSaveRef.current) {
-      hasInitialSaveRef.current = true;
-      saveProgressRef.current?.();
-      return;
-    }
-    
-    // Debounce save - save every 5 seconds
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
-    
-    saveTimeoutRef.current = setTimeout(() => {
-      saveProgressRef.current?.();
-    }, 5000);
-  }, []); // Empty deps - uses refs for stability
+    videoPositionRef.current = newTime;
+  }, []);
 
-  // Handle video duration change from SecureMedia - auto-update database if needed
+  // Handle video duration change — auto-update DB if needed
   const handleDurationChange = useCallback(async (duration: number) => {
     setVideoDuration(duration);
     videoDurationRef.current = duration;
     
-    // Auto-update database if duration is unknown or significantly different
     const currentLesson = lessons[currentLessonIndex];
     if (!currentLesson || currentLesson.media_type !== 'video') return;
     
     const storedDuration = currentLesson.video_duration_seconds || 0;
     const roundedDuration = Math.round(duration);
     
-    // Skip if duration is 0 or NaN (invalid)
     if (!roundedDuration || roundedDuration <= 0) return;
     
-    // Update if stored is 0 or differs by more than 5 seconds
     if (storedDuration === 0 || Math.abs(storedDuration - roundedDuration) > 5) {
-      console.log('[TrainingModule] Auto-updating video duration:', {
-        lesson: currentLesson.title,
-        old: storedDuration,
-        new: roundedDuration
-      });
-      
-      // Retry up to 3 times for reliability
-      let attempts = 0;
-      while (attempts < 3) {
-        try {
-          const { error } = await supabase
-            .from('training_lessons')
-            .update({ video_duration_seconds: roundedDuration })
-            .eq('id', currentLesson.id);
-            
-          if (error) throw error;
+      try {
+        const { error } = await supabase
+          .from('training_lessons')
+          .update({ video_duration_seconds: roundedDuration })
+          .eq('id', currentLesson.id);
           
-          // Update local state to reflect new duration in sidebar
+        if (!error) {
           setLessons(prev => prev.map(lesson => 
             lesson.id === currentLesson.id 
               ? { ...lesson, video_duration_seconds: roundedDuration }
               : lesson
           ));
-          
-          console.log('[TrainingModule] Duration updated successfully');
-          break;
-        } catch (error) {
-          attempts++;
-          console.error(`[TrainingModule] Failed to update duration (attempt ${attempts}):`, error);
-          if (attempts >= 3) {
-            toast({
-              title: "Uwaga",
-              description: "Nie udało się zapisać czasu wideo. Spróbuj odświeżyć stronę.",
-              variant: "destructive"
-            });
-          }
-          await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
         }
+      } catch (error) {
+        console.error('[TrainingModule] Failed to update duration:', error);
       }
     }
-  }, [lessons, currentLessonIndex, toast]);
+  }, [lessons, currentLessonIndex]);
 
-  // Stable callback for play state changes (uses refs to avoid dependency cycles)
-  const handlePlayStateChange = useCallback((playing: boolean) => {
-    // Save immediately when pausing
-    if (!playing) {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-      saveProgressRef.current?.();
-    }
-  }, []); // Empty deps - uses refs for stability
-
-  // Visibility API - save progress when tab is hidden
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        saveProgressWithPosition();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [saveProgressWithPosition]);
-
-  // Cleanup on unmount - clear timeouts
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = undefined;
-      }
-    };
+  const handlePlayStateChange = useCallback((_playing: boolean) => {
+    // No auto-save on pause — completion is explicit via button
   }, []);
 
-  // Save to localStorage on unmount (separate effect to capture latest values)
-  useEffect(() => {
-    const currentLesson = lessons[currentLessonIndex];
-    const lessonId = currentLesson?.id;
-    
-    return () => {
-      if (lessonId && user) {
-        // PROTECTION: Never overwrite completed lessons - completion is irreversible
-        const wasAlreadyCompleted = progressRef.current[lessonId]?.is_completed;
-        if (wasAlreadyCompleted) {
-          console.log('[TrainingModule] Skipping unmount save for already completed lesson');
-          return;
-        }
-        
-        const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-        const currentVideoDuration = videoDurationRef.current;
-        const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
-        
-        // Don't save if position is 0 - prevents overwriting with zero during transitions
-        if (hasVideo && videoPositionRef.current <= 0) return;
-        if (!hasVideo && effectiveTime <= 0) return;
-        
-        const requiredTime = hasVideo && currentVideoDuration > 0 
-          ? Math.floor(currentVideoDuration) 
-          : (currentLesson?.min_time_seconds || 0);
-        const isCompleted = effectiveTime >= requiredTime;
-        
-        const backupData = {
-          lesson_id: lessonId,
-          video_position_seconds: hasVideo ? videoPositionRef.current : 0,
-          time_spent_seconds: effectiveTime,
-          is_completed: isCompleted,
-          timestamp: Date.now()
-        };
-        localStorage.setItem(`lesson_progress_${lessonId}`, JSON.stringify(backupData));
-      }
-    };
-  }, [lessons, currentLessonIndex, user, textLessonTime]);
-
-  const goToNextLesson = async () => {
-    if (isNavigating) return;
-    setIsNavigating(true);
-    isTransitioningRef.current = true; // Block saves during transition
-    
-    // Cancel pending save timeout to prevent race condition
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = undefined;
-    }
-    
-    try {
-      const currentLesson = lessons[currentLessonIndex];
-      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
-      
-      // ALWAYS mark current lesson as completed when navigating to next
-      if (user && currentLesson) {
-        const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
-        
-        const { error: progressError } = await supabase
-          .from('training_progress')
-          .upsert({
-            user_id: user.id,
-            lesson_id: currentLesson.id,
-            time_spent_seconds: effectiveTime,
-            video_position_seconds: hasVideo ? videoPositionRef.current : 0,
-            is_completed: true,  // Always mark as completed when moving to next
-            completed_at: new Date().toISOString()
-          }, { 
-            onConflict: 'user_id,lesson_id'
-          });
-        
-        if (progressError) {
-          console.error('[TrainingModule] Error saving lesson completion:', progressError);
-          toast({
-            title: "Błąd zapisu",
-            description: "Nie udało się zapisać postępu lekcji. Spróbuj ponownie.",
-            variant: "destructive"
-          });
-          setIsNavigating(false);
-          isTransitioningRef.current = false;
-          return; // Don't navigate if save failed
-        }
-        
-        // Update local state
-        setProgress(prev => ({
-          ...prev,
-          [currentLesson.id]: {
-            ...prev[currentLesson.id],
-            lesson_id: currentLesson.id,
-            time_spent_seconds: effectiveTime,
-            video_position_seconds: hasVideo ? videoPositionRef.current : 0,
-            is_completed: true,
-            started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
-            completed_at: new Date().toISOString()
-          }
-        }));
-      }
-      
-      if (currentLessonIndex < lessons.length - 1) {
-        const nextIndex = currentLessonIndex + 1;
-        const nextLessonId = lessons[nextIndex].id;
-        const nextProgress = progress[nextLessonId];
-        const nextVideoPosition = nextProgress?.video_position_seconds || 0;
-        const nextTimeSpent = nextProgress?.time_spent_seconds || 0;
-        
-        setCurrentLessonIndex(nextIndex);
-        setVideoPosition(nextVideoPosition);
-        setSavedVideoPosition(nextVideoPosition);
-        setTextLessonTime(nextTimeSpent);
-        hasInitialSaveRef.current = false;
-        videoPositionRef.current = nextVideoPosition;
-      } else {
-        // Last lesson - build set of completed lessons manually to avoid async state bug
-        const completedLessonIds = new Set<string>();
-        
-        // Add lessons from current progress state
-        Object.entries(progress).forEach(([lessonId, lessonProgress]) => {
-          if (lessonProgress.is_completed) {
-            completedLessonIds.add(lessonId);
-          }
-        });
-        
-        // Add the lesson we just marked as completed (not yet in state due to async update)
-        completedLessonIds.add(currentLesson.id);
-        
-        // Check if ALL lessons are now completed
-        const allCompleted = lessons.every(lesson => completedLessonIds.has(lesson.id));
-
-        if (allCompleted && user && moduleId) {
-          try {
-            // First try to update existing assignment
-            const { error: updateError, count } = await supabase
-              .from('training_assignments')
-              .update({
-                is_completed: true,
-                completed_at: new Date().toISOString()
-              })
-              .eq('user_id', user.id)
-              .eq('module_id', moduleId);
-
-            // If no record was updated (e.g., admin without assignment), create one
-            if (updateError || count === 0) {
-              console.log('No existing assignment found, creating one...');
-              const { error: insertError } = await supabase
-                .from('training_assignments')
-                .insert({
-                  user_id: user.id,
-                  module_id: moduleId,
-                  is_completed: true,
-                  completed_at: new Date().toISOString(),
-                  assigned_by: user.id,
-                  assigned_at: new Date().toISOString()
-                });
-              
-              if (insertError) {
-                console.warn('Could not create training assignment:', insertError);
-              }
-            }
-
-            toast({
-              title: "Moduł ukończony!",
-              description: "Gratulacje! Ukończyłeś szkolenie. Możesz teraz wygenerować certyfikat na stronie Akademii.",
-            });
-          } catch (error) {
-            console.error('Error updating training assignment:', error);
-            toast({
-              title: "Moduł ukończony!",
-              description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
-            });
-          }
-        } else {
-          toast({
-            title: "Moduł ukończony!",
-            description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
-          });
-        }
-        
-        navigate('/training');
-      }
-    } finally {
-      setIsNavigating(false);
-      // Reset transition flag after a render cycle
-      requestAnimationFrame(() => {
-        isTransitioningRef.current = false;
-      });
-    }
-  };
-
-  const goToPreviousLesson = async () => {
-    if (isNavigating) return;
+  // Navigation: free navigation, no locks
+  const jumpToLesson = useCallback(async (index: number) => {
+    if (isNavigating || index === currentLessonIndex) return;
     setIsNavigating(true);
     
-    // Cancel pending save timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = undefined;
-    }
-    
     try {
-      // FIRST save progress of current lesson BEFORE setting transition flag
-      await saveProgressWithPosition();
-      
-      // THEN block subsequent saves during transition
-      isTransitioningRef.current = true;
-      
-      if (currentLessonIndex > 0) {
-        const prevIndex = currentLessonIndex - 1;
-        const prevLessonId = lessons[prevIndex].id;
-        const prevProgress = progress[prevLessonId];
-        const prevVideoPosition = prevProgress?.video_position_seconds || 0;
-        const prevTimeSpent = prevProgress?.time_spent_seconds || 0;
-        
-        setCurrentLessonIndex(prevIndex);
-        setVideoPosition(prevVideoPosition);
-        setSavedVideoPosition(prevVideoPosition);
-        setTextLessonTime(prevTimeSpent);
-        hasInitialSaveRef.current = false;
-        videoPositionRef.current = prevVideoPosition;
-      }
-    } finally {
-      setIsNavigating(false);
-      setTimeout(() => {
-        isTransitioningRef.current = false;
-      }, 100);
-    }
-  };
-
-  const jumpToLesson = async (index: number) => {
-    if (isNavigating) return;
-    
-    if (index > 0) {
-      // FIX D: More permissive navigation — check ALL previous lessons, not just the immediate one
-      // Allow jumping if: target lesson has any progress, OR all previous lessons are completed
-      const targetLessonProgress = progress[lessons[index]?.id];
-      const hasProgressInTargetLesson = targetLessonProgress && (
-        targetLessonProgress.is_completed ||
-        targetLessonProgress.time_spent_seconds > 0 || 
-        (targetLessonProgress.video_position_seconds && targetLessonProgress.video_position_seconds > 0)
-      );
-      
-      if (!hasProgressInTargetLesson) {
-        // Check if the immediately previous lesson is completed
-        const previousLesson = lessons[index - 1];
-        if (previousLesson && !progress[previousLesson.id]?.is_completed) {
-          toast({
-            title: "Dostęp zablokowany",
-            description: "Musisz ukończyć poprzednią lekcję, aby przejść dalej.",
-            variant: "destructive"
-          });
-          return;
-        }
-      }
-    }
-
-    setIsNavigating(true);
-    
-    // Cancel pending save timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-      saveTimeoutRef.current = undefined;
-    }
-    
-    try {
-      // FIRST save progress of current lesson BEFORE setting transition flag
-      await saveProgressWithPosition();
-      
-      // THEN block subsequent saves during transition
-      isTransitioningRef.current = true;
-      
       const targetLessonId = lessons[index].id;
       const targetProgress = progress[targetLessonId];
       const targetVideoPosition = targetProgress?.video_position_seconds || 0;
@@ -1135,15 +602,42 @@ const TrainingModule = () => {
       setVideoPosition(targetVideoPosition);
       setSavedVideoPosition(targetVideoPosition);
       setTextLessonTime(targetTimeSpent);
-      hasInitialSaveRef.current = false;
       videoPositionRef.current = targetVideoPosition;
     } finally {
       setIsNavigating(false);
-      setTimeout(() => {
-        isTransitioningRef.current = false;
-      }, 100);
     }
-  };
+  }, [isNavigating, currentLessonIndex, lessons, progress]);
+
+  const goToNextLesson = useCallback(async () => {
+    if (isNavigating) return;
+    
+    // Must complete current lesson before going to next
+    const isCurrentCompleted = progress[currentLesson?.id]?.is_completed;
+    if (!isCurrentCompleted) {
+      toast({
+        title: "Zalicz lekcję",
+        description: "Kliknij przycisk \"Zalicz lekcję\" aby przejść dalej.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (currentLessonIndex < lessons.length - 1) {
+      jumpToLesson(currentLessonIndex + 1);
+    } else {
+      // Last lesson completed — navigate back
+      toast({
+        title: "🎓 Moduł ukończony!",
+        description: "Gratulacje! Ukończyłeś wszystkie lekcje w tym module.",
+      });
+      navigate('/training');
+    }
+  }, [isNavigating, progress, currentLesson?.id, currentLessonIndex, lessons.length, jumpToLesson, navigate, toast]);
+
+  const goToPreviousLesson = useCallback(async () => {
+    if (isNavigating || currentLessonIndex === 0) return;
+    jumpToLesson(currentLessonIndex - 1);
+  }, [isNavigating, currentLessonIndex, jumpToLesson]);
 
   const getMediaIcon = (mediaType: string) => {
     switch (mediaType) {
@@ -1170,7 +664,6 @@ const TrainingModule = () => {
       if (button.type === 'file' && button.file_url) {
         try {
           let downloadUrl = button.file_url;
-          
           if (!downloadUrl.startsWith('http')) {
             const { data } = await supabase.storage
               .from('training-media')
@@ -1178,7 +671,6 @@ const TrainingModule = () => {
             if (!data?.signedUrl) return;
             downloadUrl = data.signedUrl;
           }
-          
           const response = await fetch(downloadUrl);
           if (!response.ok) throw new Error('Fetch failed');
           const blob = await response.blob();
@@ -1241,12 +733,7 @@ const TrainingModule = () => {
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card">
           <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => navigate('/training')}
-              className="flex items-center gap-2"
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate('/training')} className="flex items-center gap-2">
               <ArrowLeft className="h-4 w-4" />
               Powrót
             </Button>
@@ -1283,35 +770,86 @@ const TrainingModule = () => {
     );
   }
 
-  // currentLesson already defined at top level for hooks
   const currentProgress = progress[currentLesson?.id];
   const isLessonCompleted = currentProgress?.is_completed || false;
   
-  // Determine effective time based on lesson type
   const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
   const effectiveTimeSpent = hasVideo ? Math.floor(videoPosition) : textLessonTime;
   
-  // Determine required time with proper fallbacks to handle missing/zero durations
+  // Determine required time
   const getRequiredTime = () => {
-    // Priority 1: video_duration_seconds from DB (if valid)
     if (currentLesson?.video_duration_seconds && currentLesson.video_duration_seconds > 0) {
       return currentLesson.video_duration_seconds;
     }
-    // Priority 2: live detected duration (for videos with missing DB duration)
     if (hasVideo && videoDuration > 0) {
       return Math.floor(videoDuration);
     }
-    // Priority 3: min_time_seconds (for text lessons or as fallback)
     return currentLesson?.min_time_seconds || 0;
   };
   const requiredTime = getRequiredTime();
   
-  // Allow proceeding if requiredTime is 0 (fallback for misconfigured lessons)
-  const canProceed = requiredTime === 0 || effectiveTimeSpent >= requiredTime;
+  // Completion button eligibility
+  const completionMethod = currentLesson?.completion_method || 'auto';
+  const canComplete = (() => {
+    if (isLessonCompleted) return false;
+    if (completionMethod === 'manual') return true; // Always active for manual
+    if (requiredTime === 0) return true; // No time requirement
+    // For video: 80% threshold; for text: 100% of min_time
+    const threshold = hasVideo ? VIDEO_COMPLETION_THRESHOLD : 1.0;
+    return effectiveTimeSpent >= requiredTime * threshold;
+  })();
   
   const progressPercentage = requiredTime > 0
     ? Math.min(100, (effectiveTimeSpent / requiredTime) * 100)
     : 100;
+
+  // Sidebar lesson item renderer
+  const LessonSidebarItem = ({ lesson, index }: { lesson: TrainingLesson; index: number }) => {
+    const lessonProgress = progress[lesson.id];
+    const isCompleted = lessonProgress?.is_completed;
+    const isCurrent = index === currentLessonIndex;
+    const hasAnyProgress = lessonProgress && (
+      lessonProgress.time_spent_seconds > 0 || 
+      (lessonProgress.video_position_seconds && lessonProgress.video_position_seconds > 0)
+    );
+
+    return (
+      <button
+        key={lesson.id}
+        onClick={() => jumpToLesson(index)}
+        className={`w-full text-left p-3 rounded-lg border transition-colors ${
+          isCurrent 
+            ? 'border-yellow-500 bg-yellow-500/10' 
+            : isCompleted
+            ? 'border-green-500 bg-green-500/5'
+            : 'border-border hover:border-yellow-500/50'
+        }`}
+      >
+        <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
+          {isCompleted ? (
+            <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+          ) : hasAnyProgress ? (
+            <CircleDot className="h-4 w-4 flex-shrink-0 text-yellow-500" />
+          ) : (
+            <Circle className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          )}
+          <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
+            {lesson.title}
+          </span>
+        </div>
+        {(lesson.video_duration_seconds || lesson.min_time_seconds) > 0 && (
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Clock className="h-3 w-3" />
+            <span>
+              {lesson.video_duration_seconds && lesson.video_duration_seconds > 0 
+                ? formatTime(lesson.video_duration_seconds)
+                : `min. ${formatTime(lesson.min_time_seconds)}`}
+            </span>
+          </div>
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -1352,58 +890,9 @@ const TrainingModule = () => {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="space-y-2 pt-0">
-                    {displayLessons.map((lesson, index) => {
-                      const lessonProgress = progress[lesson.id];
-                      const isCompleted = lessonProgress?.is_completed;
-                      const isCurrent = index === currentLessonIndex;
-                      const hasProgressInLesson = lessonProgress && (
-                        lessonProgress.time_spent_seconds > 0 || 
-                        (lessonProgress.video_position_seconds && lessonProgress.video_position_seconds > 0)
-                      );
-                      const isLocked = index > 0 && 
-                        !progress[lessons[index - 1].id]?.is_completed && 
-                        !hasProgressInLesson;
-
-                      return (
-                        <button
-                          key={lesson.id}
-                          onClick={() => jumpToLesson(index)}
-                          disabled={isLocked}
-                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                            isCurrent 
-                              ? 'border-yellow-500 bg-yellow-500/10' 
-                              : isCompleted
-                              ? 'border-green-500 bg-green-500/5'
-                              : isLocked 
-                              ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
-                              : 'border-border hover:border-yellow-500/50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
-                            {isLocked ? (
-                              <Lock className="h-4 w-4 flex-shrink-0 text-red-500" />
-                            ) : isCompleted ? (
-                              <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                            ) : (
-                              <span className="flex-shrink-0 text-red-500">{getMediaIcon(lesson.media_type)}</span>
-                            )}
-                            <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
-                              {lesson.title}
-                            </span>
-                          </div>
-                          {(lesson.video_duration_seconds || lesson.min_time_seconds) > 0 && (
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              <span>
-                                {lesson.video_duration_seconds && lesson.video_duration_seconds > 0 
-                                  ? formatTime(lesson.video_duration_seconds)
-                                  : `min. ${formatTime(lesson.min_time_seconds)}`}
-                              </span>
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
+                    {displayLessons.map((lesson, index) => (
+                      <LessonSidebarItem key={lesson.id} lesson={lesson} index={index} />
+                    ))}
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
@@ -1417,58 +906,9 @@ const TrainingModule = () => {
                 <CardTitle className="text-lg">Lekcje</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {displayLessons.map((lesson, index) => {
-                  const lessonProgress = progress[lesson.id];
-                  const isCompleted = lessonProgress?.is_completed;
-                  const isCurrent = index === currentLessonIndex;
-                  const hasProgressInLesson = lessonProgress && (
-                    lessonProgress.time_spent_seconds > 0 || 
-                    (lessonProgress.video_position_seconds && lessonProgress.video_position_seconds > 0)
-                  );
-                  const isLocked = index > 0 && 
-                    !progress[lessons[index - 1].id]?.is_completed && 
-                    !hasProgressInLesson;
-
-                  return (
-                    <button
-                      key={lesson.id}
-                      onClick={() => jumpToLesson(index)}
-                      disabled={isLocked}
-                      className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                        isCurrent 
-                          ? 'border-yellow-500 bg-yellow-500/10' 
-                          : isCompleted
-                          ? 'border-green-500 bg-green-500/5'
-                          : isLocked 
-                          ? 'border-border bg-muted/30 cursor-not-allowed opacity-60'
-                          : 'border-border hover:border-yellow-500/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
-                        {isLocked ? (
-                          <Lock className="h-4 w-4 flex-shrink-0 text-red-500" />
-                        ) : isCompleted ? (
-                          <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                        ) : (
-                          <span className="flex-shrink-0 text-red-500">{getMediaIcon(lesson.media_type)}</span>
-                        )}
-                        <span className="text-sm font-medium truncate max-w-[calc(100%-24px)]">
-                          {lesson.title}
-                        </span>
-                      </div>
-                      {(lesson.video_duration_seconds || lesson.min_time_seconds) > 0 && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>
-                            {lesson.video_duration_seconds && lesson.video_duration_seconds > 0 
-                              ? formatTime(lesson.video_duration_seconds)
-                              : `min. ${formatTime(lesson.min_time_seconds)}`}
-                          </span>
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+                {displayLessons.map((lesson, index) => (
+                  <LessonSidebarItem key={lesson.id} lesson={lesson} index={index} />
+                ))}
               </CardContent>
             </Card>
           </div>
@@ -1481,7 +921,6 @@ const TrainingModule = () => {
                     {displayLessons[currentLessonIndex]?.title || currentLesson.title}
                   </CardTitle>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Notes button - only for video lessons */}
                     {hasVideo && (
                       <Button
                         variant="outline"
@@ -1499,17 +938,18 @@ const TrainingModule = () => {
                       </Button>
                     )}
                     <Badge variant={isLessonCompleted ? "default" : "secondary"} className="whitespace-nowrap">
-                      {isLessonCompleted ? "Ukończone" : "W trakcie"}
+                      {isLessonCompleted ? "✓ Zaliczone" : "W trakcie"}
                     </Badge>
                   </div>
                 </div>
                 
-                {(currentLesson.min_time_seconds > 0 || hasVideo) && (
+                {!isLessonCompleted && completionMethod === 'auto' && requiredTime > 0 && (
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Postęp</span>
                       <span>
                         {formatTime(effectiveTimeSpent)} / {formatTime(requiredTime)}
+                        {hasVideo && <span className="text-muted-foreground ml-1">(wymagane 80%)</span>}
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
@@ -1538,7 +978,7 @@ const TrainingModule = () => {
                     />
                     {isLessonCompleted && currentLesson.media_type === 'video' && (
                       <div className="bg-green-50 dark:bg-green-950/30 border-t border-green-200 dark:border-green-800 px-4 py-2 text-sm text-green-700 dark:text-green-300">
-                        ✓ Lekcja ukończona - możesz obejrzeć ponownie z pełnymi kontrolkami
+                        ✓ Lekcja zaliczona — możesz obejrzeć ponownie z pełnymi kontrolkami
                       </div>
                     )}
                   </div>
@@ -1573,6 +1013,56 @@ const TrainingModule = () => {
                   </div>
                 )}
 
+                {/* ========== COMPLETION BUTTON ========== */}
+                {isLessonCompleted ? (
+                  <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center gap-3">
+                    <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-green-800 dark:text-green-200">Lekcja zaliczona</p>
+                      <p className="text-sm text-green-600 dark:text-green-400">Możesz przejść do następnej lekcji lub przeglądać tę ponownie.</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Button
+                      onClick={completeCurrentLesson}
+                      disabled={!canComplete || isCompleting}
+                      size="lg"
+                      className="w-full h-14 text-base font-semibold rounded-xl bg-green-600 hover:bg-green-700 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isCompleting ? (
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Zapisywanie...
+                        </div>
+                      ) : canComplete ? (
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5" />
+                          Zalicz lekcję
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-5 w-5" />
+                          Zalicz lekcję
+                        </div>
+                      )}
+                    </Button>
+                    {!canComplete && completionMethod === 'auto' && requiredTime > 0 && (
+                      <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-center">
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                          {hasVideo 
+                            ? `Obejrzyj co najmniej 80% wideo (${formatTime(Math.ceil(requiredTime * VIDEO_COMPLETION_THRESHOLD))}), aby odblokować przycisk.`
+                            : `Spędź co najmniej ${formatTime(requiredTime)} na tej lekcji, aby odblokować przycisk.`
+                          }
+                        </p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                          Pozostało: {formatTime(Math.max(0, Math.ceil(requiredTime * (hasVideo ? VIDEO_COMPLETION_THRESHOLD : 1)) - effectiveTimeSpent))}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Separator />
 
                 <div className="flex flex-wrap justify-between items-center gap-2">
@@ -1592,26 +1082,13 @@ const TrainingModule = () => {
 
                   <Button
                     onClick={goToNextLesson}
-                    disabled={isNavigating || (!canProceed && requiredTime > 0 && !isLessonCompleted)}
+                    disabled={isNavigating || !isLessonCompleted}
                     className="min-h-[44px]"
                   >
                     {currentLessonIndex === lessons.length - 1 ? "Zakończ" : "Następna"}
                     <ArrowRight className="h-4 w-4 ml-2" />
                   </Button>
                 </div>
-
-                {!canProceed && requiredTime > 0 && !isLessonCompleted && (
-                  <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-center">
-                    <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400 mx-auto mb-2" />
-                    <p className="text-sm text-amber-800 dark:text-amber-200">
-                      Musisz spędzić co najmniej {formatTime(requiredTime)} na tej lekcji, 
-                      aby przejść do następnej.
-                    </p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      Pozostało: {formatTime(Math.max(0, requiredTime - effectiveTimeSpent))}
-                    </p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>

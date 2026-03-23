@@ -135,6 +135,7 @@ interface TrainingLesson {
   is_active: boolean;
   language_code?: string | null;
   action_buttons?: LessonActionButton[];
+  completion_method?: string;
 }
 
 interface LessonProgressDetail {
@@ -2445,6 +2446,7 @@ const LessonForm = ({
     language_code: lesson?.language_code || 'pl',
     action_buttons: lesson?.action_buttons || [],
     position: lesson?.position ?? 0,
+    completion_method: lesson?.completion_method || 'auto',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -2571,6 +2573,25 @@ const LessonForm = ({
             }));
           }}
         />
+      </div>
+
+      <div>
+        <Label>Metoda zaliczenia</Label>
+        <Select
+          value={formData.completion_method || 'auto'}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, completion_method: v }))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Automatyczna (po 80% czasu wideo / min. czasu)</SelectItem>
+            <SelectItem value="manual">Ręczna (przycisk zawsze aktywny)</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          Automatyczna: przycisk "Zalicz lekcję" aktywuje się po spełnieniu warunku czasu. Ręczna: przycisk zawsze aktywny.
+        </p>
       </div>
 
       <div className="flex items-center space-x-4">

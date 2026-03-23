@@ -1,0 +1,2 @@
+ALTER TABLE public.training_lessons ADD COLUMN IF NOT EXISTS completion_method text NOT NULL DEFAULT 'auto';
+COMMENT ON COLUMN public.training_lessons.completion_method IS 'auto = requires time threshold, manual = button always active';

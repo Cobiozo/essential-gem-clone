@@ -7500,6 +7500,7 @@ export type Database = {
       training_lessons: {
         Row: {
           action_buttons: Json | null
+          completion_method: string
           content: string | null
           created_at: string
           id: string
@@ -7518,6 +7519,7 @@ export type Database = {
         }
         Insert: {
           action_buttons?: Json | null
+          completion_method?: string
           content?: string | null
           created_at?: string
           id?: string
@@ -7536,6 +7538,7 @@ export type Database = {
         }
         Update: {
           action_buttons?: Json | null
+          completion_method?: string
           content?: string | null
           created_at?: string
           id?: string
