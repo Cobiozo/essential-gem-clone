@@ -1156,6 +1156,17 @@ const TrainingModule = () => {
       }
       
       if (button.type === 'file' && button.file_url) {
+        if (button.file_url.startsWith('http')) {
+          const link = document.createElement('a');
+          link.href = button.file_url;
+          link.download = button.file_name || 'file';
+          link.target = '_blank';
+          link.rel = 'noopener noreferrer';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
         const { data } = await supabase.storage
           .from('training-media')
           .createSignedUrl(button.file_url, 3600);
@@ -1163,7 +1174,9 @@ const TrainingModule = () => {
           const link = document.createElement('a');
           link.href = data.signedUrl;
           link.download = button.file_name || 'file';
+          document.body.appendChild(link);
           link.click();
+          document.body.removeChild(link);
           return;
         }
       }
