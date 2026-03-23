@@ -1168,6 +1168,7 @@ const TrainingModule = () => {
           }
           
           const response = await fetch(downloadUrl);
+          if (!response.ok) throw new Error('Fetch failed');
           const blob = await response.blob();
           const blobUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
@@ -1176,10 +1177,16 @@ const TrainingModule = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          URL.revokeObjectURL(blobUrl);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
         } catch (error) {
           console.error('Download error:', error);
-          window.open(button.file_url, '_blank');
+          const link = document.createElement('a');
+          link.href = button.file_url;
+          link.download = button.file_name || 'file';
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
         }
         return;
       }
