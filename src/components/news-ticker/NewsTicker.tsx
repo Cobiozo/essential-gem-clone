@@ -116,10 +116,7 @@ export const NewsTicker: React.FC<NewsTickerProps> = ({ className }) => {
     return null;
   }
 
-  // Force rotate mode on mobile for better readability
-  const effectiveMode = isMobile && settings.animationMode === 'scroll'
-    ? 'rotate'
-    : settings.animationMode;
+  const effectiveMode = settings.animationMode;
 
   // Custom styling from settings
   const customStyles: React.CSSProperties = {};
