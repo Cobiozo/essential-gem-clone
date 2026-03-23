@@ -2575,6 +2575,25 @@ const LessonForm = ({
         />
       </div>
 
+      <div>
+        <Label>Metoda zaliczenia</Label>
+        <Select
+          value={formData.completion_method || 'auto'}
+          onValueChange={(v) => setFormData(prev => ({ ...prev, completion_method: v }))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="auto">Automatyczna (po 80% czasu wideo / min. czasu)</SelectItem>
+            <SelectItem value="manual">Ręczna (przycisk zawsze aktywny)</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground mt-1">
+          Automatyczna: przycisk "Zalicz lekcję" aktywuje się po spełnieniu warunku czasu. Ręczna: przycisk zawsze aktywny.
+        </p>
+      </div>
+
       <div className="flex items-center space-x-4">
         <div className="flex items-center space-x-2">
           <Checkbox
