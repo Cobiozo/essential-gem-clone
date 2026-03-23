@@ -1354,6 +1354,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       } else {
         setIsTabHidden(false);
         isTabHiddenRef.current = false;
+        
+        // FIX G: iOS PWA visibility recovery — disable canplay guard and attempt play after delay
+        if (isMobileDevice && videoRef.current) {
+          canplayGuardRef.current = false;
+          const video = videoRef.current;
+          setTimeout(() => {
+            if (video && video.paused && !document.hidden) {
+              console.log('[SecureMedia] FIX G: iOS visibility recovery — attempting play');
+              video.play().catch(() => {
+                // Ignore — user may need to tap to play on iOS
+                console.log('[SecureMedia] FIX G: Auto-play blocked by browser, user tap required');
+              });
+            }
+          }, 500);
+        }
       }
     };
 
