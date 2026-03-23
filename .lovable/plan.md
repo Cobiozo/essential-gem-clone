@@ -1,47 +1,51 @@
 
 
-# Fix: Lesson file download button not working
+# Fix: Force file download instead of opening in browser tab
 
 ## Problem
-
-The `ActionButton` component in `TrainingModule.tsx` (line 1158-1169) handles file downloads by calling `supabase.storage.from('training-media').createSignedUrl(button.file_url, 3600)`. However, `MediaUpload` stores a **full URL** (from VPS upload) in `file_url`, not a Supabase storage path. The `createSignedUrl` call fails silently because the path is invalid, so nothing downloads.
+The current implementation creates an `<a>` element with `download` attribute and `target="_blank"`. For cross-origin URLs, browsers ignore the `download` attribute and simply open the file in a new tab. The user wants clicking the attachment button to always trigger a file download to the device.
 
 ## Solution
 
-### File: `src/pages/TrainingModule.tsx` (lines 1158-1169)
+### File: `src/pages/TrainingModule.tsx` (lines 1158-1181)
 
-Modify the `type === 'file'` handler to:
-1. Check if `file_url` is already a full URL (starts with `http`)
-2. If yes — download directly using that URL (create `<a>` element with `download` attribute)
-3. If no — keep existing `createSignedUrl` logic as fallback for any legacy Supabase storage paths
+Replace the direct `<a>` link approach with a **fetch-as-blob** strategy:
+
+1. For full HTTP URLs: fetch the file as a blob, create a blob URL, then trigger download via `<a>` with the blob URL (same-origin, so `download` attribute works)
+2. For Supabase storage paths: same blob approach after getting the signed URL
+3. Remove `target="_blank"` — we never want to open in a new tab
 
 ```tsx
 if (button.type === 'file' && button.file_url) {
-  // If file_url is already a full URL, download directly
-  if (button.file_url.startsWith('http')) {
+  try {
+    let downloadUrl = button.file_url;
+    
+    if (!downloadUrl.startsWith('http')) {
+      // Supabase storage path — get signed URL first
+      const { data } = await supabase.storage
+        .from('training-media')
+        .createSignedUrl(downloadUrl, 3600);
+      if (!data?.signedUrl) return;
+      downloadUrl = data.signedUrl;
+    }
+    
+    // Fetch as blob to force download (bypasses cross-origin download attribute issue)
+    const response = await fetch(downloadUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = button.file_url;
+    link.href = blobUrl;
     link.download = button.file_name || 'file';
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    return;
+    URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('Download error:', error);
+    // Fallback: open in new tab if blob fetch fails
+    window.open(button.file_url, '_blank');
   }
-  // Fallback: Supabase storage path
-  const { data } = await supabase.storage
-    .from('training-media')
-    .createSignedUrl(button.file_url, 3600);
-  if (data?.signedUrl) {
-    const link = document.createElement('a');
-    link.href = data.signedUrl;
-    link.download = button.file_name || 'file';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    return;
-  }
+  return;
 }
 ```
 
@@ -49,5 +53,5 @@ if (button.type === 'file' && button.file_url) {
 
 | File | Change |
 |------|--------|
-| `src/pages/TrainingModule.tsx` | Fix file download to handle full URLs directly, keep signed URL as fallback |
+| `src/pages/TrainingModule.tsx` | Replace `<a>` link download with fetch-as-blob approach to force actual file download |
 
