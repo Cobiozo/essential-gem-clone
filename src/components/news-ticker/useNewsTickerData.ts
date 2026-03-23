@@ -256,243 +256,34 @@ export const useNewsTickerData = (): NewsTickerData => {
         }
       }
 
-      // Fetch live activity from source tables
+      // Fetch live activity via RPC (SECURITY DEFINER — bypasses RLS)
       if (settings.sourceLiveActivity && settings.liveActivityTypes.length > 0) {
-        const hoursAgo = new Date(now.getTime() - settings.liveActivityHours * 60 * 60 * 1000);
-        const maxItems = settings.liveActivityMaxItems;
+        const { data: rpcResult, error: rpcError } = await supabase
+          .rpc('get_ticker_live_activity', {
+            p_types: settings.liveActivityTypes,
+            p_hours: settings.liveActivityHours,
+            p_max_items: settings.liveActivityMaxItems,
+          });
 
-        // Helper to format user name
-        const formatName = (p: { first_name?: string | null; last_name?: string | null }) =>
-          `${p.first_name || ''} ${(p.last_name || '').charAt(0)}.`.trim() || 'Użytkownik';
-
-        // 1. Lesson completions
-        if (settings.liveActivityTypes.includes('training_lesson_complete')) {
-          const { data: lessonProgress } = await supabase
-            .from('training_progress')
-            .select('id, user_id, completed_at, lesson_id')
-            .eq('is_completed', true)
-            .gte('completed_at', hoursAgo.toISOString())
-            .order('completed_at', { ascending: false })
-            .limit(maxItems);
-
-          if (lessonProgress && lessonProgress.length > 0) {
-            // Fetch lesson+module titles
-            const lessonIds = [...new Set(lessonProgress.map(l => l.lesson_id))];
-            const { data: lessons } = await supabase
-              .from('training_lessons')
-              .select('id, title, module_id')
-              .in('id', lessonIds);
-            const lessonMap = new Map((lessons || []).map(l => [l.id, l]));
-
-            const moduleIds = [...new Set((lessons || []).map(l => l.module_id))];
-            const { data: modules } = await supabase
-              .from('training_modules')
-              .select('id, title')
-              .in('id', moduleIds);
-            const moduleMap = new Map((modules || []).map(m => [m.id, m]));
-
-            // Fetch profiles
-            const userIds = [...new Set(lessonProgress.map(l => l.user_id))];
-            const { data: profs } = await supabase
-              .from('profiles')
-              .select('user_id, first_name, last_name')
-              .in('user_id', userIds);
-            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
-
-            lessonProgress.forEach(lp => {
-              const prof = profMap.get(lp.user_id);
-              const lesson = lessonMap.get(lp.lesson_id);
-              const mod = lesson ? moduleMap.get(lesson.module_id) : null;
-              const timeStr = format(new Date(lp.completed_at!), 'HH:mm dd.MM', { locale: pl });
-              const modulePart = mod ? ` w module „${mod.title}"` : '';
-              allItems.push({
-                id: `activity-lesson-${lp.id}`,
-                type: 'activity',
-                icon: 'BookOpen',
-                content: `${timeStr} — ${formatName(prof || {})} ukończył lekcję${lesson ? ` „${lesson.title}"` : ''}${modulePart}`,
-                isImportant: false,
-                sourceId: lp.id,
-                priority: 30,
-              });
+        if (!rpcError && rpcResult) {
+          const parsed = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
+          const activityItems = (parsed?.items || []) as Array<{
+            id: string; type: string; icon: string; content: string;
+            isImportant: boolean; sourceId: string; priority: number;
+          }>;
+          activityItems.forEach(item => {
+            allItems.push({
+              id: item.id,
+              type: 'activity',
+              icon: item.icon,
+              content: item.content,
+              isImportant: item.isImportant ?? false,
+              sourceId: item.sourceId,
+              priority: item.priority,
             });
-          }
-        }
-
-        // 2. Module completions
-        if (settings.liveActivityTypes.includes('training_module_complete')) {
-          const { data: moduleCompletions } = await supabase
-            .from('training_assignments')
-            .select('id, user_id, completed_at, module_id')
-            .eq('is_completed', true)
-            .not('completed_at', 'is', null)
-            .gte('completed_at', hoursAgo.toISOString())
-            .order('completed_at', { ascending: false })
-            .limit(maxItems);
-
-          if (moduleCompletions && moduleCompletions.length > 0) {
-            const modIds = [...new Set(moduleCompletions.map(m => m.module_id))];
-            const { data: mods } = await supabase
-              .from('training_modules')
-              .select('id, title')
-              .in('id', modIds);
-            const modMap = new Map((mods || []).map(m => [m.id, m]));
-
-            const userIds = [...new Set(moduleCompletions.map(m => m.user_id))];
-            const { data: profs } = await supabase
-              .from('profiles')
-              .select('user_id, first_name, last_name')
-              .in('user_id', userIds);
-            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
-
-            moduleCompletions.forEach(mc => {
-              const prof = profMap.get(mc.user_id);
-              const mod = modMap.get(mc.module_id);
-              const timeStr = format(new Date(mc.completed_at!), 'HH:mm dd.MM', { locale: pl });
-              allItems.push({
-                id: `activity-module-${mc.id}`,
-                type: 'activity',
-                icon: 'GraduationCap',
-                content: `${timeStr} — ${formatName(prof || {})} ukończył moduł${mod ? ` „${mod.title}"` : ''} 🎓`,
-                isImportant: false,
-                sourceId: mc.id,
-                priority: 32,
-              });
-            });
-          }
-        }
-
-        // 3. Certificates
-        if (settings.liveActivityTypes.includes('certificate_generated')) {
-          const { data: certs } = await supabase
-            .from('certificates')
-            .select('id, user_id, module_id, generated_at, created_at')
-            .gte('created_at', hoursAgo.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(maxItems);
-
-          if (certs && certs.length > 0) {
-            const modIds = [...new Set(certs.map(c => c.module_id))];
-            const { data: mods } = await supabase
-              .from('training_modules')
-              .select('id, title')
-              .in('id', modIds);
-            const modMap = new Map((mods || []).map(m => [m.id, m]));
-
-            const userIds = [...new Set(certs.map(c => c.user_id))];
-            const { data: profs } = await supabase
-              .from('profiles')
-              .select('user_id, first_name, last_name')
-              .in('user_id', userIds);
-            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
-
-            certs.forEach(cert => {
-              const prof = profMap.get(cert.user_id);
-              const mod = modMap.get(cert.module_id);
-              const dateCol = cert.generated_at || cert.created_at;
-              const timeStr = format(new Date(dateCol), 'HH:mm dd.MM', { locale: pl });
-              allItems.push({
-                id: `activity-cert-${cert.id}`,
-                type: 'activity',
-                icon: 'Award',
-                content: `${timeStr} — ${formatName(prof || {})} zdobył certyfikat${mod ? ` „${mod.title}"` : ''}. GRATULUJEMY! 🎉`,
-                isImportant: false,
-                sourceId: cert.id,
-                priority: 33,
-              });
-            });
-          }
-        }
-
-        // 4. Event registrations
-        if (settings.liveActivityTypes.includes('event_registration')) {
-          const { data: regs } = await supabase
-            .from('event_registrations')
-            .select('id, user_id, event_id, registered_at')
-            .gte('registered_at', hoursAgo.toISOString())
-            .order('registered_at', { ascending: false })
-            .limit(maxItems);
-
-          if (regs && regs.length > 0) {
-            const eventIds = [...new Set(regs.map(r => r.event_id))];
-            const { data: evts } = await supabase
-              .from('events')
-              .select('id, title')
-              .in('id', eventIds);
-            const evtMap = new Map((evts || []).map(e => [e.id, e]));
-
-            const userIds = [...new Set(regs.map(r => r.user_id))];
-            const { data: profs } = await supabase
-              .from('profiles')
-              .select('user_id, first_name, last_name')
-              .in('user_id', userIds);
-            const profMap = new Map((profs || []).map(p => [p.user_id, p]));
-
-            regs.forEach(reg => {
-              const prof = profMap.get(reg.user_id);
-              const evt = evtMap.get(reg.event_id);
-              const timeStr = format(new Date(reg.registered_at!), 'HH:mm dd.MM', { locale: pl });
-              allItems.push({
-                id: `activity-reg-${reg.id}`,
-                type: 'activity',
-                icon: 'CalendarCheck',
-                content: `${timeStr} — ${formatName(prof || {})} zarejestrował się na${evt ? ` „${evt.title}"` : ' wydarzenie'}`,
-                isImportant: false,
-                sourceId: reg.id,
-                priority: 30,
-              });
-            });
-          }
-        }
-
-        // 5. New user registrations (unchanged)
-        if (settings.liveActivityTypes.includes('new_user_welcome')) {
-          const { data: newUsers } = await supabase
-            .from('profiles')
-            .select('user_id, first_name, last_name, created_at')
-            .gte('created_at', hoursAgo.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(maxItems);
-
-          if (newUsers) {
-            newUsers.forEach(u => {
-              const timeStr = format(new Date(u.created_at!), 'HH:mm dd.MM', { locale: pl });
-              allItems.push({
-                id: `activity-newuser-${u.user_id}`,
-                type: 'activity',
-                icon: 'UserPlus',
-                content: `${timeStr} — Witamy ${formatName(u)}, nowego użytkownika Pure Life Center! 🎉`,
-                isImportant: false,
-                sourceId: u.user_id,
-                priority: 35,
-              });
-            });
-          }
-        }
-
-        // 6. New partners (unchanged)
-        if (settings.liveActivityTypes.includes('new_partner_joined')) {
-          const { data: newPartners } = await supabase
-            .from('profiles')
-            .select('user_id, first_name, last_name, created_at')
-            .eq('role', 'partner')
-            .gte('created_at', hoursAgo.toISOString())
-            .order('created_at', { ascending: false })
-            .limit(maxItems);
-
-          if (newPartners) {
-            newPartners.forEach(p => {
-              const timeStr = format(new Date(p.created_at!), 'HH:mm dd.MM', { locale: pl });
-              allItems.push({
-                id: `activity-partner-${p.user_id}`,
-                type: 'activity',
-                icon: 'Handshake',
-                content: `${timeStr} — Nowy partner dołączył do zespołu: ${formatName(p)}`,
-                isImportant: false,
-                sourceId: p.user_id,
-                priority: 35,
-              });
-            });
-          }
+          });
+        } else if (rpcError) {
+          console.error('Error fetching ticker live activity:', rpcError);
         }
       }
 

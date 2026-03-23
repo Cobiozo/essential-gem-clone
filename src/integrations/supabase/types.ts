@@ -8525,6 +8525,10 @@ export type Database = {
           team_custom_name: string
         }[]
       }
+      get_ticker_live_activity: {
+        Args: { p_hours?: number; p_max_items?: number; p_types: string[] }
+        Returns: Json
+      }
       get_training_assignments_without_notification: {
         Args: never
         Returns: {
