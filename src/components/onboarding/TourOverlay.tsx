@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TourStep } from './tourSteps';
 import { TourTooltip } from './TourTooltip';
-import { TourArrow } from './TourArrow';
 
 interface TourOverlayProps {
   step: TourStep;
@@ -34,7 +33,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
   onDropdownToggle,
 }) => {
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
-  const [tooltipRect, setTooltipRect] = useState<HighlightRect | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -82,7 +80,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
   useEffect(() => {
     // Reset state on step change
     retryCountRef.current = 0;
-    setTooltipRect(null);
     
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
@@ -106,10 +103,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
       }
     };
   }, [step, updateHighlight, onDropdownToggle]);
-
-  const handleTooltipRect = useCallback((rect: HighlightRect) => {
-    setTooltipRect(rect);
-  }, []);
 
   if (!isVisible || !highlightRect) {
     return null;
@@ -156,15 +149,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
         }}
       />
 
-      {/* Arrow from tooltip to highlighted element */}
-      {tooltipRect && (
-        <TourArrow
-          tooltipRect={tooltipRect}
-          highlightRect={highlightRect}
-          position={step.position}
-        />
-      )}
-
       {/* Tooltip */}
       <TourTooltip
         step={step}
@@ -174,7 +158,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
         onNext={onNext}
         onPrev={onPrev}
         onSkip={onSkip}
-        onTooltipRect={handleTooltipRect}
       />
     </div>
   );
