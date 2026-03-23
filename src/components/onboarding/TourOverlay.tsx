@@ -104,10 +104,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
     };
   }, [step, updateHighlight, onDropdownToggle]);
 
-  const handleTooltipRect = useCallback((rect: HighlightRect) => {
-    setTooltipRect(rect);
-  }, []);
-
   if (!isVisible || !highlightRect) {
     return null;
   }
