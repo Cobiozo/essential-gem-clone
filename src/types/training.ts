@@ -43,6 +43,7 @@ export interface TrainingLesson {
   is_active: boolean;
   language_code?: string | null;
   action_buttons?: LessonActionButton[];
+  completion_method?: string;
 }
 
 export interface LinkedResource {
