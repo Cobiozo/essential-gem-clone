@@ -98,6 +98,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const pendingTokenRefreshRef = useRef<string | null>(null); // Deferred token refresh URL
   const smartBufferingTimeoutRef = useRef<NodeJS.Timeout>(); // CHANGE 3: Timeout recovery for smart buffering
   const isTabHiddenRef = useRef<boolean>(false); // CHANGE 5: Ref for blur-induced pause detection
+  const videoReadyTimeoutRef = useRef<NodeJS.Timeout>(); // FIX E: iOS PWA safety timeout for videoReady
   
   // NEW: Hide video until loadeddata fires to prevent showing wrong frame
   const [videoReady, setVideoReady] = useState(false);
