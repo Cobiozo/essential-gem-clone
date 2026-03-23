@@ -170,7 +170,7 @@ export const WelcomeWidget: React.FC = () => {
         </div>
         
         {/* News Ticker - pasek informacyjny */}
-        <div className="mt-4 overflow-hidden w-full max-w-full">
+        <div data-tour="news-ticker" className="mt-4 overflow-hidden w-full max-w-full">
           <NewsTicker />
         </div>
       </CardContent>
