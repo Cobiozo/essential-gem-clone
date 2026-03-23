@@ -65,18 +65,5 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
     </span>
   );
 
-  if (item.linkUrl) {
-    return (
-      <a
-        href={item.linkUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hover:underline hover:opacity-80 transition-opacity"
-      >
-        {content}
-      </a>
-    );
-  }
-
   return <>{content}</>;
 };

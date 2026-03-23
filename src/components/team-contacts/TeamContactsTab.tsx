@@ -334,7 +334,7 @@ export const TeamContactsTab: React.FC = () => {
                 </div>
               )}
               {/* Sub-tabs for private contacts */}
-              <div className="flex items-center gap-2 mb-4">
+              <div className="flex items-center gap-2 mb-4 flex-wrap">
                 <Button
                   variant={privateSubTab === 'own' ? 'default' : 'outline'}
                   size="sm"
