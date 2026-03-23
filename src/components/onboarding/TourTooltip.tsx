@@ -28,30 +28,28 @@ function calcPosition(
   vw: number,
   vh: number
 ) {
-  const hlTop = hlRect.top - window.scrollY;
   let top = 0;
   let left = 0;
 
   switch (pos) {
     case 'bottom':
-      top = hlTop + hlRect.height + GAP;
+      top = hlRect.top + hlRect.height + GAP;
       left = hlRect.left + hlRect.width / 2 - TOOLTIP_WIDTH / 2;
       break;
     case 'top':
-      top = hlTop - TOOLTIP_HEIGHT - GAP;
+      top = hlRect.top - TOOLTIP_HEIGHT - GAP;
       left = hlRect.left + hlRect.width / 2 - TOOLTIP_WIDTH / 2;
       break;
     case 'left':
-      top = hlTop + hlRect.height / 2 - TOOLTIP_HEIGHT / 2;
+      top = hlRect.top + hlRect.height / 2 - TOOLTIP_HEIGHT / 2;
       left = hlRect.left - TOOLTIP_WIDTH - GAP;
       break;
     case 'right':
-      top = hlTop + hlRect.height / 2 - TOOLTIP_HEIGHT / 2;
+      top = hlRect.top + hlRect.height / 2 - TOOLTIP_HEIGHT / 2;
       left = hlRect.left + hlRect.width + GAP;
       break;
   }
 
-  // Clamp to viewport
   left = Math.max(16, Math.min(left, vw - TOOLTIP_WIDTH - 16));
   top = Math.max(16, Math.min(top, vh - TOOLTIP_HEIGHT - 16));
 
@@ -62,13 +60,12 @@ function isOverlapping(
   tooltip: { top: number; left: number },
   hlRect: { top: number; left: number; width: number; height: number }
 ) {
-  const hlTop = hlRect.top - window.scrollY;
   const tRight = tooltip.left + TOOLTIP_WIDTH;
   const tBottom = tooltip.top + TOOLTIP_HEIGHT;
   const hRight = hlRect.left + hlRect.width;
-  const hBottom = hlTop + hlRect.height;
+  const hBottom = hlRect.top + hlRect.height;
 
-  return !(tRight < hlRect.left || tooltip.left > hRight || tBottom < hlTop || tooltip.top > hBottom);
+  return !(tRight < hlRect.left || tooltip.left > hRight || tBottom < hlRect.top || tooltip.top > hBottom);
 }
 
 function distanceBetween(
@@ -78,7 +75,7 @@ function distanceBetween(
   const tCx = tooltip.left + TOOLTIP_WIDTH / 2;
   const tCy = tooltip.top + TOOLTIP_HEIGHT / 2;
   const hCx = hlRect.left + hlRect.width / 2;
-  const hCy = (hlRect.top - window.scrollY) + hlRect.height / 2;
+  const hCy = hlRect.top + hlRect.height / 2;
   return Math.sqrt((tCx - hCx) ** 2 + (tCy - hCy) ** 2);
 }
 
