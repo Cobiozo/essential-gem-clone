@@ -80,7 +80,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
   useEffect(() => {
     // Reset state on step change
     retryCountRef.current = 0;
-    setTooltipRect(null);
     
     if (retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current);
