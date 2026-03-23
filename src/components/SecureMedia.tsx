@@ -498,6 +498,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       clearTimeout(bufferingTimeoutRef.current);
       bufferingTimeoutRef.current = undefined;
     }
+    // FIX E: Clear previous videoReady timeout
+    if (videoReadyTimeoutRef.current) {
+      clearTimeout(videoReadyTimeoutRef.current);
+      videoReadyTimeoutRef.current = undefined;
+    }
+    // FIX E: iOS PWA safety timeout — force videoReady after 8s if events don't fire
+    videoReadyTimeoutRef.current = setTimeout(() => {
+      setVideoReady(prev => {
+        if (!prev) {
+          console.warn('[SecureMedia] FIX E: Forcing videoReady=true after 8s timeout (iOS PWA safety)');
+          return true;
+        }
+        return prev;
+      });
+    }, 8000);
     // Refresh buffer config on new video
     bufferConfigRef.current = getAdaptiveBufferConfig();
   }, [mediaUrl]);
