@@ -98,6 +98,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const pendingTokenRefreshRef = useRef<string | null>(null); // Deferred token refresh URL
   const smartBufferingTimeoutRef = useRef<NodeJS.Timeout>(); // CHANGE 3: Timeout recovery for smart buffering
   const isTabHiddenRef = useRef<boolean>(false); // CHANGE 5: Ref for blur-induced pause detection
+  const videoReadyTimeoutRef = useRef<NodeJS.Timeout>(); // FIX E: iOS PWA safety timeout for videoReady
   
   // NEW: Hide video until loadeddata fires to prevent showing wrong frame
   const [videoReady, setVideoReady] = useState(false);
@@ -294,51 +295,60 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     // Protected URL — use token proxy (purelife.info.pl videos)
     if (shouldProtectUrl(mediaUrl)) {
       const fetchTokenUrl = async () => {
-        try {
-          console.log('[SecureMedia] Generating token for protected URL');
-          const token = await generateMediaToken(mediaUrl);
-          if (!mounted) return;
-          mediaTokenRef.current = token;
-          const realUrl = await resolveStreamUrl(token);
-          if (!mounted) return;
-          setSignedUrl(realUrl);
-          setLoading(false);
-          
-          // CHANGE 5: Schedule token refresh - defer URL swap if video is playing
-          if (tokenRefreshTimerRef.current) clearTimeout(tokenRefreshTimerRef.current);
-          tokenRefreshTimerRef.current = setTimeout(async () => {
+        // FIX F: Token proxy with retry (2 attempts)
+        const maxTokenRetries = 2;
+        for (let attempt = 0; attempt < maxTokenRetries; attempt++) {
+          try {
+            console.log(`[SecureMedia] Generating token for protected URL (attempt ${attempt + 1})`);
+            const token = await generateMediaToken(mediaUrl);
             if (!mounted) return;
-            try {
-              console.log('[SecureMedia] Refreshing media token before expiry');
-              const newToken = await generateMediaToken(mediaUrl);
-              if (!mounted) return;
-              mediaTokenRef.current = newToken;
-              const newRealUrl = await resolveStreamUrl(newToken);
-              if (!mounted) return;
-              
-              const video = videoRef.current;
-              // CHANGE 5: If video is paused or not available, swap URL immediately
-              if (!video || video.paused) {
-                const currentVideoTime = video?.currentTime || 0;
-                lastValidTimeRef.current = currentVideoTime;
-                initialPositionSetRef.current = false;
-                setSignedUrl(newRealUrl);
-              } else {
-                // CHANGE 5: Video is playing - store new URL and apply on next pause
-                console.log('[SecureMedia] Video is playing - deferring URL swap to next pause');
-                pendingTokenRefreshRef.current = newRealUrl;
-              }
-            } catch (err) {
-              console.error('[SecureMedia] Token refresh failed:', err);
-            }
-          }, 3.5 * 60 * 1000);
-        } catch (err) {
-          console.error('[SecureMedia] Failed to generate media token:', err);
-          // Fallback to direct URL if token generation fails
-          if (mounted) {
-            setSignedUrl(mediaUrl);
+            mediaTokenRef.current = token;
+            const realUrl = await resolveStreamUrl(token);
+            if (!mounted) return;
+            setSignedUrl(realUrl);
             setLoading(false);
+            
+            // Schedule token refresh
+            if (tokenRefreshTimerRef.current) clearTimeout(tokenRefreshTimerRef.current);
+            tokenRefreshTimerRef.current = setTimeout(async () => {
+              if (!mounted) return;
+              try {
+                console.log('[SecureMedia] Refreshing media token before expiry');
+                const newToken = await generateMediaToken(mediaUrl);
+                if (!mounted) return;
+                mediaTokenRef.current = newToken;
+                const newRealUrl = await resolveStreamUrl(newToken);
+                if (!mounted) return;
+                
+                const video = videoRef.current;
+                if (!video || video.paused) {
+                  const currentVideoTime = video?.currentTime || 0;
+                  lastValidTimeRef.current = currentVideoTime;
+                  initialPositionSetRef.current = false;
+                  setSignedUrl(newRealUrl);
+                } else {
+                  console.log('[SecureMedia] Video is playing - deferring URL swap to next pause');
+                  pendingTokenRefreshRef.current = newRealUrl;
+                }
+              } catch (err) {
+                console.error('[SecureMedia] Token refresh failed:', err);
+              }
+            }, 3.5 * 60 * 1000);
+            
+            return; // Success — exit retry loop
+          } catch (err) {
+            console.error(`[SecureMedia] Token attempt ${attempt + 1} failed:`, err);
+            if (attempt < maxTokenRetries - 1) {
+              await new Promise(r => setTimeout(r, 1500)); // Wait before retry
+            }
           }
+        }
+        
+        // FIX F: All retries failed — fallback to direct URL
+        console.warn('[SecureMedia] All token retries failed, falling back to direct URL');
+        if (mounted) {
+          setSignedUrl(mediaUrl);
+          setLoading(false);
         }
       };
       fetchTokenUrl();
@@ -488,6 +498,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       clearTimeout(bufferingTimeoutRef.current);
       bufferingTimeoutRef.current = undefined;
     }
+    // FIX E: Clear previous videoReady timeout
+    if (videoReadyTimeoutRef.current) {
+      clearTimeout(videoReadyTimeoutRef.current);
+      videoReadyTimeoutRef.current = undefined;
+    }
+    // FIX E: iOS PWA safety timeout — force videoReady after 8s if events don't fire
+    videoReadyTimeoutRef.current = setTimeout(() => {
+      setVideoReady(prev => {
+        if (!prev) {
+          console.warn('[SecureMedia] FIX E: Forcing videoReady=true after 8s timeout (iOS PWA safety)');
+          return true;
+        }
+        return prev;
+      });
+    }, 8000);
     // Refresh buffer config on new video
     bufferConfigRef.current = getAdaptiveBufferConfig();
   }, [mediaUrl]);
@@ -1329,6 +1354,21 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       } else {
         setIsTabHidden(false);
         isTabHiddenRef.current = false;
+        
+        // FIX G: iOS PWA visibility recovery — disable canplay guard and attempt play after delay
+        if (isMobileDevice && videoRef.current) {
+          canplayGuardRef.current = false;
+          const video = videoRef.current;
+          setTimeout(() => {
+            if (video && video.paused && !document.hidden) {
+              console.log('[SecureMedia] FIX G: iOS visibility recovery — attempting play');
+              video.play().catch(() => {
+                // Ignore — user may need to tap to play on iOS
+                console.log('[SecureMedia] FIX G: Auto-play blocked by browser, user tap required');
+              });
+            }
+          }, 500);
+        }
       }
     };
 

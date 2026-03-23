@@ -591,6 +591,13 @@ const TrainingModule = () => {
   ): Promise<boolean> => {
     if (!user) return false;
     
+    // FIX A: Never overwrite completed lessons — guard at the lowest level
+    const wasAlreadyCompleted = progressRef.current[lessonId]?.is_completed;
+    if (wasAlreadyCompleted && !isCompleted) {
+      console.log('[TrainingModule] saveProgressWithRetry: Skipping — lesson already completed, refusing to revert');
+      return true;
+    }
+    
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const { error } = await supabase
@@ -1081,21 +1088,26 @@ const TrainingModule = () => {
     if (isNavigating) return;
     
     if (index > 0) {
-      const previousLesson = lessons[index - 1];
+      // FIX D: More permissive navigation — check ALL previous lessons, not just the immediate one
+      // Allow jumping if: target lesson has any progress, OR all previous lessons are completed
       const targetLessonProgress = progress[lessons[index]?.id];
       const hasProgressInTargetLesson = targetLessonProgress && (
+        targetLessonProgress.is_completed ||
         targetLessonProgress.time_spent_seconds > 0 || 
         (targetLessonProgress.video_position_seconds && targetLessonProgress.video_position_seconds > 0)
       );
       
-      // Block only if previous lesson is NOT completed AND user has NO progress in target lesson
-      if (previousLesson && !progress[previousLesson.id]?.is_completed && !hasProgressInTargetLesson) {
-        toast({
-          title: "Dostęp zablokowany",
-          description: "Musisz ukończyć poprzednią lekcję, aby przejść dalej.",
-          variant: "destructive"
-        });
-        return;
+      if (!hasProgressInTargetLesson) {
+        // Check if the immediately previous lesson is completed
+        const previousLesson = lessons[index - 1];
+        if (previousLesson && !progress[previousLesson.id]?.is_completed) {
+          toast({
+            title: "Dostęp zablokowany",
+            description: "Musisz ukończyć poprzednią lekcję, aby przejść dalej.",
+            variant: "destructive"
+          });
+          return;
+        }
       }
     }
 
