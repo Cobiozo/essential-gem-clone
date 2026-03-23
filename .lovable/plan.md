@@ -1,62 +1,85 @@
 
 
-# Fix: Download triggers popup blocker instead of downloading
+# Fix: Academy stability issues on iOS PWA
 
-## Problem
-The `fetch()` call in the blob download approach fails due to CORS restrictions on the file's origin server. The fallback code uses `window.open(url, '_blank')`, which triggers the browser's popup blocker (visible in the screenshot: "Ta witryna próbuje otworzyć okno podręczne").
+## Problems Identified
+
+After deep analysis of the code, I found **5 root causes** for the reported issues:
+
+### 1. Lesson completion reverts after refresh
+**Root cause**: `saveProgressWithRetry` (line 596-607) does **NOT** protect against overwriting `is_completed=true` with `false`. While `saveProgressWithPosition` (line 670-677) skips already-completed lessons, the periodic auto-save via `handleVideoTimeUpdate` (line 756-758) calls `saveProgressWithPosition` which calls `saveProgressWithRetry` with `isCompleted` calculated from current video position. If the user rewatches a video and the position is less than duration, `isCompleted` becomes `false`, and the upsert overwrites the database.
+
+Additionally, `beforeunload` handler (line 505-568) also recalculates `isCompleted` and can overwrite with `false`.
+
+### 2. Lesson navigation confusion
+**Root cause**: `jumpToLesson` (line 1080-1133) blocks access if the previous lesson isn't completed, BUT `goToNextLesson` (line 892-1039) always marks the current lesson as completed when navigating forward - even if the video hasn't been fully watched. This creates an inconsistency where clicking "Następna" always works but clicking a lesson in the sidebar doesn't.
+
+### 3. Video stuck loading on iOS PWA
+**Root cause A**: Token proxy flow (`generateMediaToken` -> `resolveStreamUrl`) makes two sequential network calls before the video URL is set. On iOS PWA with poor connectivity, either call can timeout/fail silently.
+
+**Root cause B**: The `videoReady` state is only set via `canplay`/`loadeddata` events. On iOS Safari in PWA mode, these events can be delayed or never fire if the device is low on memory. The video stays hidden (opacity: 0) indefinitely with only a spinner showing.
+
+**Root cause C**: iOS aggressively pauses video when `visibilitychange` fires (e.g., notification banner pull-down). After resume, the video may need to rebuffer but the `canplayGuardRef` blocks the waiting handler, creating a deadlock.
 
 ## Solution
 
-### File: `src/pages/TrainingModule.tsx` (lines 1158-1184)
+### File 1: `src/pages/TrainingModule.tsx`
 
-Two changes:
-1. **Remove `window.open` fallback** — replace with a non-popup approach using `window.location.href` which navigates to the file URL directly (browsers will download binary files or display viewable ones without popup warning)
-2. **Add CORS mode handling** — use `fetch(url, { mode: 'cors' })` and if that fails, try with `no-cors` won't work for blob, so the fallback should use a hidden `<a>` element *without* `target="_blank"` to avoid popup blockers entirely
+**Fix A — Protect completed status in `saveProgressWithRetry`**:
+Add a check at the beginning of `saveProgressWithRetry` — if the lesson is already completed in `progressRef`, skip the save entirely (same pattern as `saveProgressWithPosition` line 670).
 
-Updated logic:
-```tsx
-if (button.type === 'file' && button.file_url) {
-  try {
-    let downloadUrl = button.file_url;
-    
-    if (!downloadUrl.startsWith('http')) {
-      const { data } = await supabase.storage
-        .from('training-media')
-        .createSignedUrl(downloadUrl, 3600);
-      if (!data?.signedUrl) return;
-      downloadUrl = data.signedUrl;
-    }
-    
-    // Try fetch-as-blob for forced download
-    const response = await fetch(downloadUrl);
-    if (!response.ok) throw new Error('Fetch failed');
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = button.file_name || 'file';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-  } catch (error) {
-    console.error('Download error:', error);
-    // Fallback: use <a> without target="_blank" to avoid popup blocker
-    const link = document.createElement('a');
-    link.href = button.file_url;
-    link.download = button.file_name || 'file';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
-  return;
-}
+**Fix B — Protect `beforeunload` upsert payload**:
+The beforeunload handler already has protection (line 510-515), but the `visibilitychange` handler (line 832-840) calls `saveProgressWithPosition` which CAN overwrite. Need to ensure `saveProgressWithRetry` itself is the final guard.
+
+**Fix C — Database-level protection**:
+Add a SQL migration with a trigger that prevents `is_completed` from being set to `false` if it's currently `true`. This is the ultimate safety net.
+
+**Fix D — Consistent lesson navigation**:
+Allow `jumpToLesson` to navigate to any lesson that the user has already started (has any progress record), not just lessons after completed ones.
+
+### File 2: `src/components/SecureMedia.tsx`
+
+**Fix E — iOS PWA video loading timeout**:
+Add a safety timeout (8 seconds) that forces `videoReady = true` even if `canplay`/`loadeddata` events haven't fired. On iOS PWA, this prevents the infinite loading spinner.
+
+**Fix F — Token proxy resilience**:
+Add retry logic (2 attempts) around the `generateMediaToken` + `resolveStreamUrl` chain. If both fail, fall back to direct URL.
+
+**Fix G — iOS visibility recovery**:
+After `visibilitychange` returns to visible on mobile, temporarily disable the canplay guard and force a `video.play()` attempt after a short delay (500ms).
+
+### File 3: SQL Migration
+
+**Fix H — Database trigger to protect completion status**:
+```sql
+CREATE OR REPLACE FUNCTION protect_training_completion()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  -- Never allow is_completed to revert from true to false
+  IF OLD.is_completed = true AND NEW.is_completed = false THEN
+    NEW.is_completed = true;
+    NEW.completed_at = OLD.completed_at;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_protect_training_completion
+  BEFORE UPDATE ON training_progress
+  FOR EACH ROW
+  EXECUTE FUNCTION protect_training_completion();
 ```
 
-Key difference: The fallback no longer uses `window.open` — it creates an `<a>` element without `target="_blank"`, which avoids popup blockers entirely. The `download` attribute hints the browser to download rather than navigate.
+### Files to change
 
-| File | Change |
-|------|--------|
-| `src/pages/TrainingModule.tsx` | Replace `window.open` fallback with hidden `<a>` click (no popup) |
+| File | Changes |
+|------|---------|
+| `src/pages/TrainingModule.tsx` | Add completed-lesson guard in `saveProgressWithRetry`; fix `jumpToLesson` access logic |
+| `src/components/SecureMedia.tsx` | Add 8s videoReady timeout for iOS PWA; add token retry; fix iOS visibility recovery |
+| SQL Migration | Add trigger preventing `is_completed` from reverting to false |
+
+### Summary of fixes
+- **Completion reverts**: Triple protection — client-side guard in `saveProgressWithRetry`, client-side guard in `saveProgressWithPosition` (already exists), and database trigger as safety net
+- **Navigation**: More permissive `jumpToLesson` that allows accessing any lesson the user has started
+- **Video loading stuck**: Timeout fallback + token retry + iOS visibility recovery
 
