@@ -591,6 +591,13 @@ const TrainingModule = () => {
   ): Promise<boolean> => {
     if (!user) return false;
     
+    // FIX A: Never overwrite completed lessons — guard at the lowest level
+    const wasAlreadyCompleted = progressRef.current[lessonId]?.is_completed;
+    if (wasAlreadyCompleted && !isCompleted) {
+      console.log('[TrainingModule] saveProgressWithRetry: Skipping — lesson already completed, refusing to revert');
+      return true;
+    }
+    
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         const { error } = await supabase
