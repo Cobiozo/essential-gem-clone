@@ -177,7 +177,7 @@ export const PartnerFormModal: React.FC<Props> = ({ ctaKey, partnerUserId, open,
                   </label>
                   {field.type === 'textarea' ? (
                     <textarea
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none min-h-[80px]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none min-h-[80px]"
                       placeholder={field.placeholder}
                       required={field.required}
                       value={values[field.id] || ''}
