@@ -149,15 +149,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
         }}
       />
 
-      {/* Arrow from tooltip to highlighted element */}
-      {tooltipRect && (
-        <TourArrow
-          tooltipRect={tooltipRect}
-          highlightRect={highlightRect}
-          position={step.position}
-        />
-      )}
-
       {/* Tooltip */}
       <TourTooltip
         step={step}
@@ -167,7 +158,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
         onNext={onNext}
         onPrev={onPrev}
         onSkip={onSkip}
-        onTooltipRect={handleTooltipRect}
       />
     </div>
   );
