@@ -33,7 +33,6 @@ export const TourOverlay: React.FC<TourOverlayProps> = ({
   onDropdownToggle,
 }) => {
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
-  const [tooltipRect, setTooltipRect] = useState<HighlightRect | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
