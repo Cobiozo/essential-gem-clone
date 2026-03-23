@@ -1,47 +1,38 @@
 
 
-# Fix: Partner Page mobile compatibility
+# Fix: Three issues — ticker scroll on mobile, contacts layout, ticker non-clickable
 
-## Problem
+## Issues
 
-The partner page is completely broken on mobile (iOS). The screenshot shows:
-1. **Header navigation** has no mobile collapse — all nav buttons (Produkty, O mnie, Kontakt, Odbierz darmowy poradnik) are forced into a single horizontal row alongside the logo and partner badge, crushing text into vertical single-character columns
-2. **No overflow protection** on the main page container, allowing horizontal overflow to break the entire layout
-3. **Testimonials carousel** nav buttons positioned at `-left-3`/`-right-3` can overflow off-screen on narrow devices
+1. **Ticker forced to rotate on mobile** — admin's "scroll" setting is overridden to "rotate" on mobile. User wants scroll mode to work on mobile too.
+2. **Private contacts sub-tabs overflow on mobile** — 4 buttons ("Moja lista kontaktów", "Z zaproszeń na wydarzenia", "Z Mojej Strony Partnera", "Usunięte") are in a non-wrapping `flex` row, crushing text on narrow screens (visible in screenshot).
+3. **Ticker items are clickable** — `TickerItem.tsx` wraps items with `linkUrl` in an `<a>` tag. All clickability must be removed.
 
 ## Solution
 
-### 1. HeaderSection — Mobile hamburger menu
-**File: `src/components/partner-page/sections/HeaderSection.tsx`**
+### File: `src/components/news-ticker/NewsTicker.tsx`
 
-- Add `useState` for mobile menu open/close
-- Hide nav buttons on mobile (`hidden md:flex`), show hamburger icon (`md:hidden`)
-- When hamburger clicked, show a full-width dropdown panel below the header with nav items stacked vertically
-- Close menu on item click
-- Partner badge: hide on mobile in header (it's also shown in Hero)
+**Remove mobile scroll→rotate override** (lines 119-122):
+- Delete the `isMobile` forced override. Use `settings.animationMode` directly for all devices.
+- Keep `useIsMobile` import if needed elsewhere, or remove it.
 
-### 2. PartnerPage — overflow protection
-**File: `src/pages/PartnerPage.tsx`**
+### File: `src/components/news-ticker/TickerItem.tsx`
 
-- Add `overflow-x-hidden` to the main `min-h-screen` container (line 284)
+**Remove all clickable behavior** (lines 68-79):
+- Remove the `<a>` tag wrapper for items with `linkUrl`. Always render `{content}` directly without any link wrapping.
+- Remove `hover:underline hover:opacity-80` styles.
 
-### 3. TestimonialsSection — mobile button fix
-**File: `src/components/partner-page/sections/TestimonialsSection.tsx`**
+### File: `src/components/team-contacts/TeamContactsTab.tsx`
 
-- Change carousel arrow positioning from `-left-3`/`-right-3` to `left-1`/`right-1` on mobile using responsive classes
-- Reduce button size on mobile
-
-### 4. HeroSection — partner badge mobile sizing
-**File: `src/components/partner-page/sections/HeroSection.tsx`**
-
-- Reduce partner badge padding and font size on very small screens
+**Make sub-tabs scrollable/wrapping on mobile** (line 337):
+- Change the sub-tabs container from `flex items-center gap-2` to `flex items-center gap-2 flex-wrap` so buttons wrap to a second line on narrow screens instead of overflowing.
+- Optionally add `overflow-x-auto` as fallback.
 
 ### Files to change
 
 | File | Change |
 |------|--------|
-| `src/components/partner-page/sections/HeaderSection.tsx` | Add hamburger menu for mobile, hide nav items on small screens |
-| `src/pages/PartnerPage.tsx` | Add `overflow-x-hidden` to main container |
-| `src/components/partner-page/sections/TestimonialsSection.tsx` | Fix carousel button overflow on mobile |
-| `src/components/partner-page/sections/HeroSection.tsx` | Minor mobile sizing adjustments for partner badge |
+| `src/components/news-ticker/NewsTicker.tsx` | Remove mobile scroll→rotate override, use admin setting on all devices |
+| `src/components/news-ticker/TickerItem.tsx` | Remove `<a>` link wrapper — items must not be clickable |
+| `src/components/team-contacts/TeamContactsTab.tsx` | Add `flex-wrap` to private contacts sub-tabs container |
 
