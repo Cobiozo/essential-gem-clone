@@ -2446,6 +2446,7 @@ const LessonForm = ({
     language_code: lesson?.language_code || 'pl',
     action_buttons: lesson?.action_buttons || [],
     position: lesson?.position ?? 0,
+    completion_method: lesson?.completion_method || 'auto',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
