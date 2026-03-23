@@ -1156,29 +1156,32 @@ const TrainingModule = () => {
       }
       
       if (button.type === 'file' && button.file_url) {
-        if (button.file_url.startsWith('http')) {
+        try {
+          let downloadUrl = button.file_url;
+          
+          if (!downloadUrl.startsWith('http')) {
+            const { data } = await supabase.storage
+              .from('training-media')
+              .createSignedUrl(downloadUrl, 3600);
+            if (!data?.signedUrl) return;
+            downloadUrl = data.signedUrl;
+          }
+          
+          const response = await fetch(downloadUrl);
+          const blob = await response.blob();
+          const blobUrl = URL.createObjectURL(blob);
           const link = document.createElement('a');
-          link.href = button.file_url;
+          link.href = blobUrl;
           link.download = button.file_name || 'file';
-          link.target = '_blank';
-          link.rel = 'noopener noreferrer';
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          return;
+          URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+          console.error('Download error:', error);
+          window.open(button.file_url, '_blank');
         }
-        const { data } = await supabase.storage
-          .from('training-media')
-          .createSignedUrl(button.file_url, 3600);
-        if (data?.signedUrl) {
-          const link = document.createElement('a');
-          link.href = data.signedUrl;
-          link.download = button.file_name || 'file';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          return;
-        }
+        return;
       }
       
       if (targetUrl) {
