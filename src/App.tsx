@@ -367,63 +367,62 @@ const AppContent = () => {
           <ProfileCompletionGuard>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
-          <Suspense fallback={<LoadingSpinner />}>
-            <Routes>
-              <Route path="/" element={
-                // All authenticated users go to modern dashboard
-                user ? <Navigate to="/dashboard" replace /> : <Index />
-              } />
-              <Route path="/auth" element={
-                user ? <Navigate to="/dashboard" replace /> : <Auth />
-              } />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/change-password" element={<ChangeTempPassword />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/my-account" element={<MyAccount />} />
-              <Route path="/training" element={<Training />} />
-              <Route path="/training/:moduleId" element={<TrainingModule />} />
-              <Route path="/knowledge" element={<KnowledgeCenter />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/events/individual-meetings" element={<IndividualMeetingsPage />} />
-              <Route path="/events/webinars" element={<WebinarsPage />} />
-              <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />
-              <Route path="/events/register/:eventId" element={<EventGuestRegistration />} />
-              <Route path="/e/:slug" element={<EventRegistrationBySlug />} />
-              <Route path="/infolink/:slug" element={<InfoLinkPage />} />
-              <Route path="/zdrowa-wiedza" element={<HealthyKnowledge />} />
-              <Route path="/zdrowa-wiedza/player/:id" element={<HealthyKnowledgePlayer />} />
-              <Route path="/zdrowa-wiedza/:slug" element={<HealthyKnowledgePublicPage />} />
-              <Route path="/page/:slug" element={<Page />} />
-              <Route path="/html/:slug" element={<HtmlPage />} />
-              <Route path="/admin/html-editor/:id" element={<HtmlEditorPage />} />
-              <Route path="/calculator" element={<Navigate to="/calculator/influencer" replace />} />
-              <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
-              <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
-              <Route path="/messages" element={<MessagesPage />} />
-              <Route path="/paid-events" element={<PaidEventsListPage />} />
-              <Route path="/events/:slug" element={<PaidEventPage />} />
-              <Route path="/install" element={<InstallPage />} />
-              <Route path="/meeting-room/:roomId" element={<MeetingRoom />} />
-              <Route path="/leader" element={<LeaderPanel />} />
-              <Route path="/omega-base" element={<OmegaBasePage />} />
-              <Route path="/landing-preview" element={<LeaderLandingPage />} />
-              <Route path="/auto-webinar" element={<AutoWebinarPage />} />
-              <Route path="/auto-webinar/watch/:slug" element={<AutoWebinarPublicPage />} />
-              <Route path="/skills-assessment" element={<SkillsAssessment />} />
-              <Route path="/moje-testy" element={<OmegaTests />} />
-              <Route path="/moja-strona" element={<MyPartnerPage />} />
-              <Route path="/admin/template-preview/:templateId" element={<TemplatePreviewPage />} />
-              <Route path="/:alias" element={<PartnerPage />} />
-              <Route path="/:alias" element={<PartnerPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </Suspense>
-        </ProfileCompletionGuard>
-        
-        {/* Chat widgets - inside BrowserRouter to access location */}
-        <ChatWidgetsWrapper />
-        <PWAInstallBanner />
+                <Route path="/" element={
+                  // All authenticated users go to modern dashboard
+                  user ? <Navigate to="/dashboard" replace /> : <Index />
+                } />
+                <Route path="/auth" element={
+                  user ? <Navigate to="/dashboard" replace /> : <Auth />
+                } />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/change-password" element={<ChangeTempPassword />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/my-account" element={<MyAccount />} />
+                <Route path="/training" element={<Training />} />
+                <Route path="/training/:moduleId" element={<TrainingModule />} />
+                <Route path="/knowledge" element={<KnowledgeCenter />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/events/individual-meetings" element={<IndividualMeetingsPage />} />
+                <Route path="/events/webinars" element={<WebinarsPage />} />
+                <Route path="/events/team-meetings" element={<TeamMeetingsPage />} />
+                <Route path="/events/register/:eventId" element={<EventGuestRegistration />} />
+                <Route path="/e/:slug" element={<EventRegistrationBySlug />} />
+                <Route path="/infolink/:slug" element={<InfoLinkPage />} />
+                <Route path="/zdrowa-wiedza" element={<HealthyKnowledge />} />
+                <Route path="/zdrowa-wiedza/player/:id" element={<HealthyKnowledgePlayer />} />
+                <Route path="/zdrowa-wiedza/:slug" element={<HealthyKnowledgePublicPage />} />
+                <Route path="/page/:slug" element={<Page />} />
+                <Route path="/html/:slug" element={<HtmlPage />} />
+                <Route path="/admin/html-editor/:id" element={<HtmlEditorPage />} />
+                <Route path="/calculator" element={<Navigate to="/calculator/influencer" replace />} />
+                <Route path="/calculator/influencer" element={<CommissionCalculatorPage />} />
+                <Route path="/calculator/specialist" element={<SpecialistCalculatorPage />} />
+                <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/paid-events" element={<PaidEventsListPage />} />
+                <Route path="/events/:slug" element={<PaidEventPage />} />
+                <Route path="/install" element={<InstallPage />} />
+                <Route path="/meeting-room/:roomId" element={<MeetingRoom />} />
+                <Route path="/leader" element={<LeaderPanel />} />
+                <Route path="/omega-base" element={<OmegaBasePage />} />
+                <Route path="/landing-preview" element={<LeaderLandingPage />} />
+                <Route path="/auto-webinar" element={<AutoWebinarPage />} />
+                <Route path="/auto-webinar/watch/:slug" element={<AutoWebinarPublicPage />} />
+                <Route path="/skills-assessment" element={<SkillsAssessment />} />
+                <Route path="/moje-testy" element={<OmegaTests />} />
+                <Route path="/moja-strona" element={<MyPartnerPage />} />
+                <Route path="/admin/template-preview/:templateId" element={<TemplatePreviewPage />} />
+                <Route path="/:alias" element={<PartnerPage />} />
+                <Route path="/:alias" element={<PartnerPage />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </ProfileCompletionGuard>
+          
+          {/* Chat widgets - inside BrowserRouter to access location */}
+          <ChatWidgetsWrapper />
+          <PWAInstallBanner />
+        </InactivityHandler>
       </BrowserRouter>
       <CookieConsentBanner />
       <SWUpdateBanner />
