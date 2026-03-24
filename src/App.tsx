@@ -21,7 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
-import SessionTimer from "@/components/SessionTimer";
+import { SessionTimerProvider } from "@/contexts/SessionTimerContext";
 import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
