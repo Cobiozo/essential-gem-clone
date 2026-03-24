@@ -31,8 +31,8 @@ export const usePureBoxVisibility = () => {
       ]);
 
       return {
-        settings: (settingsRes.data || []) as PureBoxSetting[],
-        userAccess: (accessRes.data || []) as PureBoxUserAccess[],
+        settings: (settingsRes.data || []) as unknown as PureBoxSetting[],
+        userAccess: (accessRes.data || []) as unknown as PureBoxUserAccess[],
       };
     },
     enabled: !!user && !!role,
