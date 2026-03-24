@@ -711,9 +711,20 @@ export const useEvents = () => {
 
     if (!user?.id) return;
 
-    // Subscribe to real-time changes on event_registrations filtered by user_id
+    // Subscribe to real-time changes on events and registrations
     const channel = supabase
-      .channel(`event-registrations-${user.id}`)
+      .channel(`events-and-registrations-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events',
+        },
+        () => {
+          fetchEvents();
+        }
+      )
       .on(
         'postgres_changes',
         {
