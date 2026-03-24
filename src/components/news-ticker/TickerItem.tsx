@@ -11,7 +11,7 @@ interface TickerItemProps {
   mode?: 'scroll' | 'wrap';
 }
 
-export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className, allowWrap = false }) => {
+export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className, allowWrap = false, mode = 'wrap' }) => {
   // Dynamically get icon component
   const IconComponent = (LucideIcons as any)[item.icon] || Info;
 
