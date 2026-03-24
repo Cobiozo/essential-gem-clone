@@ -66,33 +66,34 @@ const LEADER_PERM_FIELDS: LeaderPermField[] = [
 interface ColumnDef {
   key: string;
   label: string;
+  description: string;
   icon: React.ElementType;
   type: 'leader' | 'calc_influencer' | 'calc_specialist';
   group: string;
 }
 
 const columns: ColumnDef[] = [
-  { key: 'individual_meetings_enabled', label: 'Spotkania', icon: CalendarDays, type: 'leader', group: 'Podstawowe' },
-  { key: 'can_view_team_progress', label: 'Szkolenia', icon: GraduationCap, type: 'leader', group: 'Podstawowe' },
-  { key: 'can_view_org_tree', label: 'Struktura', icon: TreePine, type: 'leader', group: 'Podstawowe' },
-  { key: 'can_approve_registrations', label: 'Zatwierdzanie', icon: UserCheck, type: 'leader', group: 'Podstawowe' },
-  { key: 'can_create_team_events', label: 'Wydarzenia', icon: CalendarPlus, type: 'leader', group: 'Wydarzenia' },
-  { key: 'can_manage_event_registrations', label: 'Rejestracje', icon: ClipboardList, type: 'leader', group: 'Wydarzenia' },
-  { key: 'can_manage_team_training', label: 'Zarz. szkoleniami', icon: BookOpenCheck, type: 'leader', group: 'Szkolenia' },
-  { key: 'can_manage_knowledge_base', label: 'Baza wiedzy', icon: Library, type: 'leader', group: 'Szkolenia' },
-  { key: 'can_send_team_notifications', label: 'Powiadomienia', icon: Bell, type: 'leader', group: 'Komunikacja' },
-  { key: 'can_send_team_emails', label: 'Emaile', icon: Mail, type: 'leader', group: 'Komunikacja' },
-  { key: 'can_send_team_push', label: 'Push', icon: Smartphone, type: 'leader', group: 'Komunikacja' },
-  { key: 'can_view_team_contacts', label: 'Kontakty', icon: Contact, type: 'leader', group: 'Kontakty' },
-  { key: 'can_manage_team_contacts', label: 'Edycja kontaktów', icon: UserCog, type: 'leader', group: 'Kontakty' },
-  { key: 'can_manage_daily_signal', label: 'Sygnał Dnia', icon: Sun, type: 'leader', group: 'Treść' },
-  { key: 'can_manage_important_info', label: 'Ważne info', icon: Info, type: 'leader', group: 'Treść' },
-  { key: 'can_manage_team_reflinks', label: 'Reflinki', icon: Link, type: 'leader', group: 'Treść' },
-  { key: 'can_customize_landing_page', label: 'Moja strona', icon: Globe, type: 'leader', group: 'Treść' },
-  { key: 'can_view_team_reports', label: 'Raporty', icon: BarChart3, type: 'leader', group: 'Raporty' },
-  { key: 'can_manage_certificates', label: 'Certyfikaty', icon: Award, type: 'leader', group: 'Raporty' },
-  { key: 'has_influencer_calc', label: 'Kalk. Influencer', icon: Calculator, type: 'calc_influencer', group: 'Kalkulatory' },
-  { key: 'has_specialist_calc', label: 'Kalk. Specjalista', icon: UserRound, type: 'calc_specialist', group: 'Kalkulatory' },
+  { key: 'individual_meetings_enabled', label: 'Spotkania', description: 'Konfiguracja dostępności i prowadzenie spotkań indywidualnych z zespołem', icon: CalendarDays, type: 'leader', group: 'Podstawowe' },
+  { key: 'can_view_team_progress', label: 'Szkolenia', description: 'Podgląd postępów szkoleniowych członków zespołu', icon: GraduationCap, type: 'leader', group: 'Podstawowe' },
+  { key: 'can_view_org_tree', label: 'Struktura', description: 'Widok drzewa organizacyjnego (downline) zespołu', icon: TreePine, type: 'leader', group: 'Podstawowe' },
+  { key: 'can_approve_registrations', label: 'Zatwierdzanie', description: 'Zatwierdzanie rejestracji nowych użytkowników w zespole', icon: UserCheck, type: 'leader', group: 'Podstawowe' },
+  { key: 'can_create_team_events', label: 'Wydarzenia', description: 'Tworzenie i zarządzanie wydarzeniami dla zespołu', icon: CalendarPlus, type: 'leader', group: 'Wydarzenia' },
+  { key: 'can_manage_event_registrations', label: 'Rejestracje', description: 'Zarządzanie rejestracjami uczestników na wydarzenia', icon: ClipboardList, type: 'leader', group: 'Wydarzenia' },
+  { key: 'can_manage_team_training', label: 'Zarz. szkoleniami', description: 'Tworzenie i edycja szkoleń dostępnych dla zespołu', icon: BookOpenCheck, type: 'leader', group: 'Szkolenia' },
+  { key: 'can_manage_knowledge_base', label: 'Baza wiedzy', description: 'Dodawanie i edycja materiałów w bazie wiedzy zespołu', icon: Library, type: 'leader', group: 'Szkolenia' },
+  { key: 'can_send_team_notifications', label: 'Powiadomienia', description: 'Wysyłanie powiadomień w aplikacji do członków zespołu', icon: Bell, type: 'leader', group: 'Komunikacja' },
+  { key: 'can_send_team_emails', label: 'Emaile', description: 'Wysyłanie wiadomości e-mail do członków zespołu', icon: Mail, type: 'leader', group: 'Komunikacja' },
+  { key: 'can_send_team_push', label: 'Push', description: 'Wysyłanie powiadomień push do członków zespołu', icon: Smartphone, type: 'leader', group: 'Komunikacja' },
+  { key: 'can_view_team_contacts', label: 'Kontakty', description: 'Przeglądanie danych kontaktowych członków zespołu', icon: Contact, type: 'leader', group: 'Kontakty' },
+  { key: 'can_manage_team_contacts', label: 'Edycja kontaktów', description: 'Edycja danych kontaktowych członków zespołu', icon: UserCog, type: 'leader', group: 'Kontakty' },
+  { key: 'can_manage_daily_signal', label: 'Sygnał Dnia', description: 'Zarządzanie treścią Sygnału Dnia dla zespołu', icon: Sun, type: 'leader', group: 'Treść' },
+  { key: 'can_manage_important_info', label: 'Ważne info', description: 'Publikowanie ważnych informacji widocznych dla zespołu', icon: Info, type: 'leader', group: 'Treść' },
+  { key: 'can_manage_team_reflinks', label: 'Reflinki', description: 'Zarządzanie linkami referencyjnymi członków zespołu', icon: Link, type: 'leader', group: 'Treść' },
+  { key: 'can_customize_landing_page', label: 'Moja strona', description: 'Personalizacja strony landing page dla zespołu', icon: Globe, type: 'leader', group: 'Treść' },
+  { key: 'can_view_team_reports', label: 'Raporty', description: 'Przeglądanie raportów i statystyk zespołu', icon: BarChart3, type: 'leader', group: 'Raporty' },
+  { key: 'can_manage_certificates', label: 'Certyfikaty', description: 'Zarządzanie certyfikatami członków zespołu', icon: Award, type: 'leader', group: 'Raporty' },
+  { key: 'has_influencer_calc', label: 'Kalk. Influencer', description: 'Dostęp do kalkulatora influencerów', icon: Calculator, type: 'calc_influencer', group: 'Kalkulatory' },
+  { key: 'has_specialist_calc', label: 'Kalk. Specjalista', description: 'Dostęp do druków specjalisty', icon: UserRound, type: 'calc_specialist', group: 'Kalkulatory' },
 ];
 
 const TOTAL_PERMS = columns.length;
@@ -358,7 +359,7 @@ export const LeaderPanelManagement: React.FC = () => {
                                       const checked = (partner as any)[col.key] as boolean;
                                       const isSavingThis = saving === `${partner.user_id}-${col.key}` || saving === `${partner.user_id}-calc-${col.type === 'calc_influencer' ? 'influencer' : 'specialist'}`;
                                       return (
-                                        <label key={col.key} className="flex items-center gap-2 cursor-pointer group">
+                                        <label key={col.key} className="flex items-start gap-2 cursor-pointer group">
                                           <Switch
                                             checked={checked}
                                             disabled={isSavingThis || isSavingAll}
@@ -367,10 +368,13 @@ export const LeaderPanelManagement: React.FC = () => {
                                               else if (col.type === 'calc_specialist') toggleCalculatorAccess(partner.user_id, 'specialist', v);
                                               else toggleLeaderPermission(partner.user_id, col.key as LeaderPermField, v);
                                             }}
-                                            className="scale-90"
+                                            className="scale-90 mt-0.5"
                                           />
-                                          <col.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                          <span className="text-xs truncate">{col.label}</span>
+                                          <col.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                          <div className="flex flex-col">
+                                            <span className="text-xs">{col.label}</span>
+                                            <span className="text-[10px] text-muted-foreground leading-tight">{col.description}</span>
+                                          </div>
                                         </label>
                                       );
                                     })}
