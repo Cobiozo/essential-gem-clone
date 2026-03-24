@@ -1,65 +1,48 @@
 
 
-# Dodanie opisów do uprawnień w Panelu Lidera
+# Wymuszenie widoczności PureBox na podstawie `purebox_settings`
 
-## Zmiana
+## Problem
+Menu boczne i strona `/moje-testy` renderują się bezwarunkowo dla wszystkich zalogowanych użytkowników. Tabela `purebox_settings` w Supabase zawiera flagi `is_active`, `visible_to_partner`, `visible_to_client`, `visible_to_specjalista`, `visible_to_admin` ale nikt ich nie sprawdza.
 
-Rozszerzyć definicję `columns` w `LeaderPanelManagement.tsx` o pole `description` z krótkim opisem każdego uprawnienia. Opis wyświetlany pod nazwą uprawnienia (pod `col.label`) mniejszą czcionką.
+## Plan
 
-## Opisy uprawnień
+### 1. Nowy hook: `usePureBoxVisibility`
+**Plik:** `src/hooks/usePureBoxVisibility.ts`
 
-| Uprawnienie | Opis |
-|---|---|
-| Spotkania | Lider może konfigurować dostępność i prowadzić spotkania indywidualne ze swoim zespołem |
-| Szkolenia | Lider widzi postępy szkoleniowe członków swojego zespołu |
-| Struktura | Lider widzi drzewo organizacyjne (downline) swojego zespołu |
-| Zatwierdzanie | Lider może zatwierdzać rejestracje nowych użytkowników w swoim zespole |
-| Wydarzenia | Lider może tworzyć i zarządzać wydarzeniami dla swojego zespołu |
-| Rejestracje | Lider może zarządzać rejestracjami uczestników na wydarzenia |
-| Zarz. szkoleniami | Lider może tworzyć i edytować szkolenia dostępne dla zespołu |
-| Baza wiedzy | Lider może dodawać i edytować materiały w bazie wiedzy zespołu |
-| Powiadomienia | Lider może wysyłać powiadomienia w aplikacji do członków zespołu |
-| Emaile | Lider może wysyłać wiadomości e-mail do członków zespołu |
-| Push | Lider może wysyłać powiadomienia push do członków zespołu |
-| Kontakty | Lider może przeglądać dane kontaktowe członków swojego zespołu |
-| Edycja kontaktów | Lider może edytować dane kontaktowe członków zespołu |
-| Sygnał Dnia | Lider może zarządzać treścią Sygnału Dnia dla zespołu |
-| Ważne info | Lider może publikować ważne informacje widoczne dla zespołu |
-| Reflinki | Lider może zarządzać linkami referencyjnymi członków zespołu |
-| Moja strona | Lider może personalizować stronę landing page dla swojego zespołu |
-| Raporty | Lider może przeglądać raporty i statystyki swojego zespołu |
-| Certyfikaty | Lider może zarządzać certyfikatami członków zespołu |
-| Kalk. Influencer | Lider uzyskuje dostęp do kalkulatora influencerów |
-| Kalk. Specjalista | Lider uzyskuje dostęp do druków specjalisty |
+Hook pobiera z `purebox_settings` + `purebox_user_access` dane i zwraca mapę `Record<string, boolean>` (klucz = `element_key`, wartość = czy widoczny).
 
-## Zmiany w kodzie
+Logika widoczności dla danego `element_key`:
+1. `is_active` musi być `true`
+2. Flaga roli musi pasować (`visible_to_partner` dla partnera itd.) **LUB** użytkownik ma indywidualny dostęp w `purebox_user_access` z `is_enabled = true`
+3. Admin widzi jeśli `visible_to_admin = true`
 
-**Plik: `src/components/admin/LeaderPanelManagement.tsx`**
+Zwraca: `{ isVisible: (elementKey: string) => boolean, loading: boolean }`
 
-1. Dodać pole `description: string` do interfejsu `ColumnDef`
-2. Uzupełnić tablicę `columns` o opisy (jak w tabeli powyżej)
-3. W renderowaniu każdego uprawnienia (linia ~361-374) dodać pod `col.label` mały tekst `col.description` w klasie `text-[10px] text-muted-foreground leading-tight`
-4. Tooltip na hover (Tooltip z shadcn) jako alternatywa — ale user chce widzieć opis od razu, więc lepiej tekst pod labelem
+### 2. Filtrowanie submenu PureBox w sidebarze
+**Plik:** `src/components/dashboard/DashboardSidebar.tsx`
 
-## Layout
+- Wywołać `usePureBoxVisibility()`
+- Powiązać `element_key` z submenu items: `skills-assessment` i `moje-testy` (lub ich odpowiedniki w bazie)
+- Filtrować `submenuItems` — pokazywać tylko te gdzie `isVisible(elementKey)` = true
+- Jeśli żaden submenu item nie jest widoczny, ukryć cały PureBox z menu
 
-Obecny układ: `Switch | Icon | Label` w jednej linii.
-Nowy: `Switch | Icon | [Label + Description pod spodem]` — label i description w kolumnie flex-col.
+### 3. Guard na stronie `/moje-testy`
+**Plik:** `src/pages/OmegaTests.tsx`
 
-```
-<label className="flex items-start gap-2 cursor-pointer group">
-  <Switch ... className="scale-90 mt-0.5" />
-  <col.icon className="h-3.5 w-3.5 mt-0.5 ..." />
-  <div className="flex flex-col">
-    <span className="text-xs">{col.label}</span>
-    <span className="text-[10px] text-muted-foreground leading-tight">{col.description}</span>
-  </div>
-</label>
-```
+- Użyć `usePureBoxVisibility()` do sprawdzenia dostępu
+- Jeśli `loading` — spinner
+- Jeśli brak dostępu — przekierowanie na `/dashboard` lub komunikat "Brak dostępu"
 
-## Zakres
+### 4. Guard na stronie `/skills-assessment`
+**Plik:** `src/pages/SkillsAssessment.tsx` (analogicznie jak OmegaTests)
+
+## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/components/admin/LeaderPanelManagement.tsx` | Dodanie `description` do `ColumnDef` i `columns`, wyświetlenie w UI |
+| `src/hooks/usePureBoxVisibility.ts` | **Nowy** — hook sprawdzający purebox_settings + user_access |
+| `src/components/dashboard/DashboardSidebar.tsx` | Filtrowanie submenu PureBox |
+| `src/pages/OmegaTests.tsx` | Guard dostępu |
+| `src/pages/SkillsAssessment.tsx` | Guard dostępu |
 
