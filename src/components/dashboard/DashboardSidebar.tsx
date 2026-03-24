@@ -65,6 +65,7 @@ import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { Badge } from '@/components/ui/badge';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
@@ -197,6 +198,7 @@ export const DashboardSidebar: React.FC = () => {
   const { data: chatVisibility } = useChatSidebarVisibility();
   const { data: paidEventsVisibility } = usePaidEventsVisibility();
   const { totalUnread } = useUnifiedChat({ enableRealtime: false });
+  const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
@@ -412,16 +414,20 @@ export const DashboardSidebar: React.FC = () => {
     { id: 'academy', icon: GraduationCap, labelKey: 'dashboard.menu.academy', path: '/training' },
     { id: 'healthy-knowledge', icon: Heart, labelKey: 'dashboard.menu.healthyKnowledge', path: '/zdrowa-wiedza' },
     { id: 'resources', icon: FolderOpen, labelKey: 'dashboard.menu.resources', path: '/knowledge' },
-    { 
-      id: 'purebox', 
-      icon: Sparkles, 
-      labelKey: 'PureBox', 
-      hasSubmenu: true, 
-      submenuItems: [
+    ...(() => {
+      const pureBoxSubs = [
         { id: 'skills-assessment', labelKey: 'Ocena umiejętności', path: '/skills-assessment', icon: Target },
         { id: 'moje-testy', labelKey: 'Moje Testy', path: '/moje-testy', icon: Heart },
-      ],
-    },
+      ].filter(sub => isPureBoxVisible(sub.id));
+      if (pureBoxSubs.length === 0) return [];
+      return [{
+        id: 'purebox',
+        icon: Sparkles,
+        labelKey: 'PureBox',
+        hasSubmenu: true,
+        submenuItems: pureBoxSubs,
+      }] as MenuItem[];
+    })(),
     { 
       id: 'pureContacts', 
       icon: Users, 
