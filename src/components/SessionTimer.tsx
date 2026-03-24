@@ -24,11 +24,11 @@ const SessionTimer = ({ timeRemaining, onRefresh, hidden }: SessionTimerProps) =
     <div className="fixed bottom-4 right-4 z-40 flex items-center gap-2 rounded-xl border bg-card px-3 py-2 shadow-lg">
       <Clock className={cn(
         'h-4 w-4',
-        isCritical ? 'text-destructive' : isWarning ? 'text-yellow-500' : 'text-muted-foreground'
+        isCritical ? 'text-destructive' : isWarning ? 'text-accent-foreground' : 'text-muted-foreground'
       )} />
       <span className={cn(
         'font-mono text-sm font-semibold tabular-nums',
-        isCritical ? 'text-destructive' : isWarning ? 'text-yellow-500' : 'text-foreground'
+        isCritical ? 'text-destructive' : isWarning ? 'text-accent-foreground' : 'text-foreground'
       )}>
         {formatTime(timeRemaining)}
       </span>
