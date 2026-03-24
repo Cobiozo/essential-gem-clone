@@ -517,8 +517,8 @@ ${labels.signUp}: ${inviteUrl}
                                       {isGroupType && (event as any).allow_invites === true && (
                                         <>
                                           <InvitationLanguageSelect
-                                            value={inviteLang}
-                                            onValueChange={setInviteLang}
+                                            value={inviteLangs[event.id] || 'pl'}
+                                            onValueChange={(lang) => setInviteLangs(prev => ({ ...prev, [event.id]: lang }))}
                                           />
                                           <Button
                                             variant="ghost"
