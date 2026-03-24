@@ -180,7 +180,9 @@ export const useEvents = () => {
               if (!event.host_user_id) return true;
               // If host doesn't have team event permissions, treat as global event
               if (!actualLeaderSet.has(event.host_user_id)) return true;
-              // Leader event: show only if I'm the host OR in their team
+              // If admin created this event (created_by !== host), treat as global
+              if (event.created_by !== event.host_user_id) return true;
+              // Leader-created event: show only if I'm the host OR in their team
               return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id) || event.is_registered;
             });
           }
