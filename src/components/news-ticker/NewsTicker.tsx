@@ -34,7 +34,7 @@ const MarqueeContent: React.FC<{ items: TickerItem[]; speed: number }> = ({ item
           <React.Fragment key={`${item.id}-${i}`}>
             <TickerItemComponent item={item} />
             {i < items.length * 2 - 1 && (
-              <span className="mx-2 text-muted-foreground/50 select-none">•</span>
+              <span className="mx-2 select-none" style={{ opacity: 0.5 }}>•</span>
             )}
           </React.Fragment>
         ))}

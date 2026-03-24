@@ -40,7 +40,7 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
   const content = (
     <span
       className={cn(
-        "inline-flex items-center gap-2 max-w-full overflow-hidden text-foreground",
+        "inline-flex items-center gap-2 max-w-full overflow-hidden",
         allowWrap ? "whitespace-normal mx-2 text-center flex-wrap" : "whitespace-nowrap mx-3",
         fontSizeClass,
         effectClass,
