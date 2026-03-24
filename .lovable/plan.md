@@ -1,40 +1,65 @@
 
 
-# Plan: Naprawa samouczka + per-event język zaproszenia
+# Dodanie opisów do uprawnień w Panelu Lidera
 
-## Problem 1: Samouczek — złe wskazywanie i powtórzenia
+## Zmiana
 
-**Diagnoza ze screena:** Krok 19/30 "Zdrowa Wiedza (widget)" podświetla "Pulpit" w sidebarze zamiast widgetu na dashboardzie. Widget jest poza widokiem, a scroll nie działa poprawnie lub element nie jest widoczny w momencie namierzania.
+Rozszerzyć definicję `columns` w `LeaderPanelManagement.tsx` o pole `description` z krótkim opisem każdego uprawnienia. Opis wyświetlany pod nazwą uprawnienia (pod `col.label`) mniejszą czcionką.
 
-**Powtórzenia treści w krokach:**
-- `healthy-knowledge-widget` (widget na dashboardzie) — opis prawie identyczny jak...
-- `zdrowa-wiedza` / `menu-healthy-knowledge` (element w sidebar) — ten sam temat "Zdrowa Wiedza"
-- Podobnie: `reflinks-widget` vs `pure-linki`, `infolinks-widget` vs `info-linki`, `training-widget` vs `training` (akademia)
+## Opisy uprawnień
 
-**Zmiany w `src/components/onboarding/tourSteps.ts`:**
-- Usunąć duplikujące się kroki widgetów, które mają swoje odpowiedniki w sekcji menu bocznego. Zostawić kroki menu bocznego (bardziej stabilne selektory) i połączyć opisy — np. "Zdrowa Wiedza" w menu sidebar wspomni o widgecie na dashboardzie
-- Widgety do usunięcia: `healthy-knowledge-widget`, `infolinks-widget`, `reflinks-widget` — ich treść przenieść do odpowiednich kroków w sekcji menu
-- Widgety unikalne (bez odpowiednika w menu): `welcome-widget`, `news-ticker`, `calendar`, `my-meetings-widget`, `training-widget`, `otp-codes-widget`, `resources-widget`, `team-contacts-widget` — te zostają
+| Uprawnienie | Opis |
+|---|---|
+| Spotkania | Lider może konfigurować dostępność i prowadzić spotkania indywidualne ze swoim zespołem |
+| Szkolenia | Lider widzi postępy szkoleniowe członków swojego zespołu |
+| Struktura | Lider widzi drzewo organizacyjne (downline) swojego zespołu |
+| Zatwierdzanie | Lider może zatwierdzać rejestracje nowych użytkowników w swoim zespole |
+| Wydarzenia | Lider może tworzyć i zarządzać wydarzeniami dla swojego zespołu |
+| Rejestracje | Lider może zarządzać rejestracjami uczestników na wydarzenia |
+| Zarz. szkoleniami | Lider może tworzyć i edytować szkolenia dostępne dla zespołu |
+| Baza wiedzy | Lider może dodawać i edytować materiały w bazie wiedzy zespołu |
+| Powiadomienia | Lider może wysyłać powiadomienia w aplikacji do członków zespołu |
+| Emaile | Lider może wysyłać wiadomości e-mail do członków zespołu |
+| Push | Lider może wysyłać powiadomienia push do członków zespołu |
+| Kontakty | Lider może przeglądać dane kontaktowe członków swojego zespołu |
+| Edycja kontaktów | Lider może edytować dane kontaktowe członków zespołu |
+| Sygnał Dnia | Lider może zarządzać treścią Sygnału Dnia dla zespołu |
+| Ważne info | Lider może publikować ważne informacje widoczne dla zespołu |
+| Reflinki | Lider może zarządzać linkami referencyjnymi członków zespołu |
+| Moja strona | Lider może personalizować stronę landing page dla swojego zespołu |
+| Raporty | Lider może przeglądać raporty i statystyki swojego zespołu |
+| Certyfikaty | Lider może zarządzać certyfikatami członków zespołu |
+| Kalk. Influencer | Lider uzyskuje dostęp do kalkulatora influencerów |
+| Kalk. Specjalista | Lider uzyskuje dostęp do druków specjalisty |
 
-**Zmiany w `src/components/onboarding/TourOverlay.tsx`:**
-- Dodać zabezpieczenie: jeśli element nie został znaleziony po retries, zamiast `onNext()` automatycznie, pokazać tooltip bez podświetlenia (fallback centralny) z informacją że element nie jest widoczny — lub po prostu pominąć krok bez błędu (obecne zachowanie, ale upewnić się że `onNext` nie wchodzi w pętlę)
+## Zmiany w kodzie
 
-**Efekt:** Redukcja z ~30 do ~25 kroków dla partnera, brak powtórzeń treści, stabilniejsze targetowanie.
+**Plik: `src/components/admin/LeaderPanelManagement.tsx`**
 
-## Problem 2: Flaga języka zaproszenia zmienia język dla wszystkich spotkań
+1. Dodać pole `description: string` do interfejsu `ColumnDef`
+2. Uzupełnić tablicę `columns` o opisy (jak w tabeli powyżej)
+3. W renderowaniu każdego uprawnienia (linia ~361-374) dodać pod `col.label` mały tekst `col.description` w klasie `text-[10px] text-muted-foreground leading-tight`
+4. Tooltip na hover (Tooltip z shadcn) jako alternatywa — ale user chce widzieć opis od razu, więc lepiej tekst pod labelem
 
-**Diagnoza:** W `MyMeetingsWidget.tsx` jest jeden `useState` — `const [inviteLang, setInviteLang] = useState('pl')` — współdzielony przez wszystkie spotkania na liście.
+## Layout
 
-**Zmiana w `src/components/dashboard/widgets/MyMeetingsWidget.tsx`:**
-- Zamienić `inviteLang: string` na `inviteLangs: Record<string, string>` — klucz to `event.id`, wartość to wybrany język
-- Getter: `inviteLangs[event.id] || 'pl'`
-- Setter: `setInviteLangs(prev => ({ ...prev, [event.id]: lang }))`
-- Dostosować `handleCopyInvitation` aby brać język z `inviteLangs[event.id]`
+Obecny układ: `Switch | Icon | Label` w jednej linii.
+Nowy: `Switch | Icon | [Label + Description pod spodem]` — label i description w kolumnie flex-col.
 
-## Pliki do zmiany
+```
+<label className="flex items-start gap-2 cursor-pointer group">
+  <Switch ... className="scale-90 mt-0.5" />
+  <col.icon className="h-3.5 w-3.5 mt-0.5 ..." />
+  <div className="flex flex-col">
+    <span className="text-xs">{col.label}</span>
+    <span className="text-[10px] text-muted-foreground leading-tight">{col.description}</span>
+  </div>
+</label>
+```
+
+## Zakres
 
 | Plik | Zmiana |
-|------|--------|
-| `src/components/onboarding/tourSteps.ts` | Usunięcie 3 zduplikowanych kroków widgetów, wzbogacenie opisów kroków menu |
-| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Per-event `inviteLang` zamiast globalnego |
+|---|---|
+| `src/components/admin/LeaderPanelManagement.tsx` | Dodanie `description` do `ColumnDef` i `columns`, wyświetlenie w UI |
 
