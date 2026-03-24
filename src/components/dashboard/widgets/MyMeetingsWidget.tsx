@@ -40,7 +40,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
-  const [inviteLang, setInviteLang] = useState('pl');
+  const [inviteLangs, setInviteLangs] = useState<Record<string, string>>({});
 
   const locale = language === 'pl' ? pl : enUS;
 
@@ -151,6 +151,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
 
   // Handle invitation copy
   const handleCopyInvitation = (event: EventWithRegistration) => {
+    const lang = inviteLangs[event.id] || 'pl';
     const eventTz = event.timezone || DEFAULT_EVENT_TIMEZONE;
     const startDate = new Date(event.start_time);
     const endDate = new Date(event.end_time);
@@ -162,15 +163,15 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
     if (eventSlug) {
       const params = new URLSearchParams();
       if (eqId) params.set('ref', eqId);
-      if (inviteLang !== 'pl') params.set('lang', inviteLang);
+      if (lang !== 'pl') params.set('lang', lang);
       const qs = params.toString();
       inviteUrl = `${baseUrl}/e/${eventSlug}${qs ? `?${qs}` : ''}`;
     } else {
       inviteUrl = `${baseUrl}/events/register/${event.id}${user ? `?invited_by=${user.id}` : ''}`;
     }
 
-    const labels = getInvitationLabels(inviteLang);
-    const invLocale = getDateLocale(inviteLang);
+    const labels = getInvitationLabels(lang);
+    const invLocale = getDateLocale(lang);
     const invitationText = `
 🎥 ${labels.webinarInvitation}: ${event.title}
 
@@ -516,8 +517,8 @@ ${labels.signUp}: ${inviteUrl}
                                       {isGroupType && (event as any).allow_invites === true && (
                                         <>
                                           <InvitationLanguageSelect
-                                            value={inviteLang}
-                                            onValueChange={setInviteLang}
+                                            value={inviteLangs[event.id] || 'pl'}
+                                            onValueChange={(lang) => setInviteLangs(prev => ({ ...prev, [event.id]: lang }))}
                                           />
                                           <Button
                                             variant="ghost"
