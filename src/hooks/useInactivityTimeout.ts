@@ -9,10 +9,11 @@ const WARNING_BEFORE_LOGOUT_MS = 5 * 60 * 1000; // 5 minutes before logout
 interface UseInactivityTimeoutOptions {
   enabled?: boolean;
   onLogout?: () => void;
+  signOut?: () => Promise<void>;
 }
 
 export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) => {
-  const { enabled = true, onLogout } = options;
+  const { enabled = true, onLogout, signOut } = options;
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -24,11 +25,13 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
   
   // Stable refs for callbacks to avoid re-creating timers
   const onLogoutRef = useRef(onLogout);
+  const signOutRef = useRef(signOut);
   const navigateRef = useRef(navigate);
   const toastRef = useRef(toast);
   
   // Update refs on each render
   onLogoutRef.current = onLogout;
+  signOutRef.current = signOut;
   navigateRef.current = navigate;
   toastRef.current = toast;
 
@@ -44,7 +47,12 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       console.log('[useInactivityTimeout] Logging out due to inactivity');
       
       try {
-        await supabase.auth.signOut();
+        // Use AuthContext signOut to properly set userInitiatedSignOutRef
+        if (signOutRef.current) {
+          await signOutRef.current();
+        } else {
+          await supabase.auth.signOut();
+        }
       } catch (error) {
         console.error('[useInactivityTimeout] Error during signOut:', error);
       }
@@ -101,6 +109,7 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       'touchstart',
       'click',
       'wheel',
+      'mousemove',
     ];
 
     // Throttle activity detection to avoid too many timer resets
@@ -132,15 +141,13 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
         }
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         
-        // Add buffer to prevent immediate logout on tab return
-        // 5 minutes for active meetings (passive viewing), 1 minute otherwise
-        const timeoutWithBuffer = isMeetingActiveRef.current
-          ? INACTIVITY_TIMEOUT_MS + 5 * 60 * 1000
-          : INACTIVITY_TIMEOUT_MS + 60000;
-        
-        // If user was away longer than timeout + buffer, logout immediately
-        if (timeSinceLastActivity >= timeoutWithBuffer) {
-          handleLogout();
+        if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
+          // Show warning and give 30 seconds grace period instead of immediate logout
+          showWarning();
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          timeoutRef.current = setTimeout(() => {
+            handleLogout();
+          }, 30_000);
         } else {
           resetTimer();
         }
