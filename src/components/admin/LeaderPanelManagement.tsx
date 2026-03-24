@@ -66,6 +66,7 @@ const LEADER_PERM_FIELDS: LeaderPermField[] = [
 interface ColumnDef {
   key: string;
   label: string;
+  description: string;
   icon: React.ElementType;
   type: 'leader' | 'calc_influencer' | 'calc_specialist';
   group: string;
