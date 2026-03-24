@@ -25,11 +25,13 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
   
   // Stable refs for callbacks to avoid re-creating timers
   const onLogoutRef = useRef(onLogout);
+  const signOutRef = useRef(signOut);
   const navigateRef = useRef(navigate);
   const toastRef = useRef(toast);
   
   // Update refs on each render
   onLogoutRef.current = onLogout;
+  signOutRef.current = signOut;
   navigateRef.current = navigate;
   toastRef.current = toast;
 
