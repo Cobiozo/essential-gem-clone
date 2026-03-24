@@ -152,9 +152,31 @@ const queryClient = new QueryClient({
 // Component to handle inactivity timeout and last seen updates - MUST be inside BrowserRouter for useNavigate
 const InactivityHandler = () => {
   const { user, signOut } = useAuth();
-  useInactivityTimeout({ enabled: !!user, signOut });
-  useLastSeenUpdater(); // Track user activity for notifications
-  return null;
+  const location = useLocation();
+  const {
+    showSessionDialog, dialogCountdown,
+    onContinueSession, onConfirmLogout,
+    timeRemaining, onRefreshTimer, isProtectedRoute,
+  } = useInactivityTimeout({ enabled: !!user, signOut, pathname: location.pathname });
+  useLastSeenUpdater();
+
+  if (!user) return null;
+
+  return (
+    <>
+      <SessionTimer
+        timeRemaining={timeRemaining}
+        onRefresh={onRefreshTimer}
+        hidden={isProtectedRoute}
+      />
+      <SessionTimeoutDialog
+        open={showSessionDialog}
+        countdown={dialogCountdown}
+        onContinue={onContinueSession}
+        onLogout={onConfirmLogout}
+      />
+    </>
+  );
 };
 
 // Wrapper component to access location inside BrowserRouter
