@@ -40,7 +40,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
-  const [inviteLang, setInviteLang] = useState('pl');
+  const [inviteLangs, setInviteLangs] = useState<Record<string, string>>({});
 
   const locale = language === 'pl' ? pl : enUS;
 
