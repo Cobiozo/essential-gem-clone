@@ -17,6 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import SessionTimer from '@/components/SessionTimer';
+import { useSessionTimer } from '@/contexts/SessionTimerContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { CacheManagementDialog } from './CacheManagementDialog';
@@ -39,6 +41,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const { profile, signOut, isAdmin } = useAuth();
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
+  const sessionTimer = useSessionTimer();
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   
@@ -90,6 +93,15 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           >
             <LayoutGrid className="h-4 w-4" />
           </Button>
+        )}
+
+        {/* Session Timer */}
+        {sessionTimer && (
+          <SessionTimer
+            timeRemaining={sessionTimer.timeRemaining}
+            onRefresh={sessionTimer.onRefreshTimer}
+            hidden={sessionTimer.isProtectedRoute}
+          />
         )}
 
         {/* Notifications */}
