@@ -9,6 +9,7 @@ const WARNING_BEFORE_LOGOUT_MS = 5 * 60 * 1000; // 5 minutes before logout
 interface UseInactivityTimeoutOptions {
   enabled?: boolean;
   onLogout?: () => void;
+  signOut?: () => Promise<void>;
 }
 
 export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) => {
