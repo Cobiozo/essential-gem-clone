@@ -1,55 +1,44 @@
 
-Cel: naprawić produkcyjny przypadek, w którym „Szkolenie Techniczne” nadal nie pojawia się w widżecie „Webinary i spotkania”.
 
-1. Zidentyfikowany problem
-- W bazie wydarzenie istnieje i jest aktywne/published:
-  - `event_type = team_training`
-  - `visible_to_partners = true`
-  - start 24.03.2026 19:00 lokalnie
-- Problem nie wygląda już na realtime ani datę.
-- Źródło problemu jest w `src/hooks/useEvents.ts`:
-  - dashboard pobiera wszystkie eventy, a potem nakłada filtr „leader/downline”
-  - host wydarzenia (`8b7ef46c-...`) ma rekord w `leader_permissions`, ale wszystkie uprawnienia związane z team events są `false`
-  - obecna logika uznaje go za „lidera” wyłącznie dlatego, że istnieje w `leader_permissions`
-  - przez to wydarzenie zostaje potraktowane jako ograniczone do jego zespołu i ukryte dla innych partnerów
-- To jest zbyt agresywne: sam wpis w `leader_permissions` nie powinien automatycznie oznaczać, że jego webinar/szkolenie jest „leader-only”.
+# Fix: Rozróżnienie wydarzeń tworzonych przez lidera vs admina
 
-2. Co zmienić
-- Poprawić klasyfikację hosta w `useEvents`, tak aby filtr zespołowy był stosowany tylko do hostów, którzy realnie mają uprawnienia do prowadzenia team events.
-- Zamiast opierać się na RPC `filter_leader_user_ids` (sprawdza tylko istnienie rekordu), użyć danych z `leader_permissions` z właściwymi flagami.
-- Za „leader-hosted restricted event” uznać tylko hosta mającego co najmniej jedno z uprawnień związanych z wydarzeniami zespołowymi, np.:
-  - `can_create_team_events = true`
-  - ewentualnie także `can_manage_team_training = true` jeśli to ma być część reguły biznesowej
-- Host z rekordem w `leader_permissions`, ale bez tych flag, powinien być traktowany jak host globalny dla widoczności rolowej.
+## Problem
+Obecna logika filtruje wydarzenia na podstawie uprawnień hosta (`can_create_team_events` / `can_manage_team_training`), ale nie rozróżnia **kto utworzył** wydarzenie. Jeśli admin w CMS ustawi hosta na lidera z tymi uprawnieniami, wydarzenie i tak zostanie ograniczone do downline — a nie powinno.
 
-3. Pliki do zmiany
-- `src/hooks/useEvents.ts`
-  - zastąpić obecny mechanizm:
-    - `filter_leader_user_ids(...)`
-  - nowym sprawdzeniem:
-    - pobrać `user_id, can_create_team_events, can_manage_team_training` dla hostów
-    - zbudować zbiór tylko tych hostów, którzy naprawdę podlegają ograniczeniu „mój zespół”
-  - zostawić resztę logiki bez zmian:
-    - role visibility
-    - registered override
-    - realtime
-- Opcjonalnie, jeśli chcemy ujednolicić logikę w całym projekcie:
-  - rozważyć zmianę lub dodanie nowego RPC zamiast samego hooka
-  - ale najbezpieczniej na teraz poprawić tylko `useEvents`, bo to właśnie dashboard jest błędny
+## Reguła biznesowa
+- **Lider tworzy w Panelu Lidera** (`created_by === host_user_id`) → widoczne tylko dla zespołu/downline
+- **Admin tworzy w CMS** (`created_by !== host_user_id`, bo twórcą jest admin) → widoczne globalnie wg flag ról
 
-4. Oczekiwany efekt po wdrożeniu
-- „Szkolenie Techniczne” zacznie być widoczne na produkcji w widżecie dashboardu dla partnerów/specjalistów zgodnie z flagami widoczności wydarzenia.
-- Nadal zostanie zachowane ograniczenie dla faktycznych liderów publikujących własne wydarzenia zespołowe tylko do swojego downline.
-- Nie naruszymy wcześniejszej poprawki realtime.
+## Zmiana
 
-5. Weryfikacja po wdrożeniu
-- sprawdzić na produkcji konto Sebastiana:
-  - czy 24.03.2026 pokazuje zieloną kropkę / wpis szkolenia
-- sprawdzić event hostowany przez prawdziwego lidera z aktywnym uprawnieniem team events:
-  - czy nadal widzi go tylko jego zespół
-- sprawdzić, że zapisany użytkownik nadal widzi wydarzenie niezależnie od filtrowania zespołu
+### Plik: `src/hooks/useEvents.ts` (linie ~167-185)
 
-6. Krótka diagnoza biznesowa
-- Błąd nie polega na tym, że event „nie istnieje”.
-- Błąd polega na tym, że dashboard błędnie interpretuje „ma rekord w `leader_permissions`” jako „jest liderem ograniczającym widoczność swoich team events”.
-- W tym przypadku host nie ma aktywnych uprawnień team-training, więc event nie powinien być ukrywany.
+W filtrze downline dodać warunek: wydarzenie jest „leader-restricted" **tylko gdy** `created_by === host_user_id` (lider sam stworzył swoje wydarzenie). Jeśli twórcą jest ktoś inny (admin), traktuj jako globalne.
+
+```typescript
+// Build set of hosts who actually have team event permissions
+// AND created the event themselves (leader panel)
+const actualLeaderSet = new Set<string>(
+  (leaderPerms || [])
+    .filter(lp => lp.can_create_team_events === true || lp.can_manage_team_training === true)
+    .map(lp => lp.user_id)
+);
+
+// w filtrze:
+filteredEvents = filteredEvents.filter(event => {
+  if (!['webinar', 'team_training'].includes(event.event_type)) return true;
+  if (!event.host_user_id) return true;
+  if (!actualLeaderSet.has(event.host_user_id)) return true;
+  // KEY: only restrict if the leader created this event themselves
+  if (event.created_by !== event.host_user_id) return true;
+  // Leader-created event: show only to host, team, or registered
+  return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id) || event.is_registered;
+});
+```
+
+Jedna linia dodana. Reszta logiki bez zmian.
+
+## Efekt
+- Szkolenie Techniczne utworzone przez admina z hostem = lider → widoczne dla wszystkich wg flag ról
+- Szkolenie utworzone przez lidera w Panelu Lidera (created_by = host_user_id) → nadal ograniczone do downline
+
