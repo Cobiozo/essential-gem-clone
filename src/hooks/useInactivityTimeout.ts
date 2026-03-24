@@ -141,15 +141,13 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
         }
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
         
-        // Add buffer to prevent immediate logout on tab return
-        // 5 minutes for active meetings (passive viewing), 1 minute otherwise
-        const timeoutWithBuffer = isMeetingActiveRef.current
-          ? INACTIVITY_TIMEOUT_MS + 5 * 60 * 1000
-          : INACTIVITY_TIMEOUT_MS + 60000;
-        
-        // If user was away longer than timeout + buffer, logout immediately
-        if (timeSinceLastActivity >= timeoutWithBuffer) {
-          handleLogout();
+        if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
+          // Show warning and give 30 seconds grace period instead of immediate logout
+          showWarning();
+          if (timeoutRef.current) clearTimeout(timeoutRef.current);
+          timeoutRef.current = setTimeout(() => {
+            handleLogout();
+          }, 30_000);
         } else {
           resetTimer();
         }

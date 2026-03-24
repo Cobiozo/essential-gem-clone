@@ -151,8 +151,8 @@ const queryClient = new QueryClient({
 
 // Component to handle inactivity timeout and last seen updates - MUST be inside BrowserRouter for useNavigate
 const InactivityHandler = () => {
-  const { user } = useAuth();
-  useInactivityTimeout({ enabled: !!user });
+  const { user, signOut } = useAuth();
+  useInactivityTimeout({ enabled: !!user, signOut });
   useLastSeenUpdater(); // Track user activity for notifications
   return null;
 };

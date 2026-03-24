@@ -153,6 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hard fail-safe: expired token should immediately clear stale auth state
       if (isJwtExpiredError(profileResult.error) || isJwtExpiredError(roleResult.error)) {
         console.warn('[Auth] JWT expired detected during profile fetch - clearing session');
+        userInitiatedSignOutRef.current = true;
         await supabase.auth.signOut();
         setUser(null);
         setSession(null);
