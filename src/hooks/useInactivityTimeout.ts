@@ -13,7 +13,7 @@ interface UseInactivityTimeoutOptions {
 }
 
 export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) => {
-  const { enabled = true, onLogout } = options;
+  const { enabled = true, onLogout, signOut } = options;
   const navigate = useNavigate();
   const { toast } = useToast();
   
