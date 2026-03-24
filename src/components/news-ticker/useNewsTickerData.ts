@@ -287,10 +287,11 @@ export const useNewsTickerData = (): NewsTickerData => {
         }
       }
 
-      // Sort by priority (highest first)
-      allItems.sort((a, b) => b.priority - a.priority);
+      // Filter out empty content and sort by priority (highest first)
+      const validItems = allItems.filter(item => item.content && item.content.trim().length > 0);
+      validItems.sort((a, b) => b.priority - a.priority);
       
-      setItems(allItems);
+      setItems(validItems);
       setLoading(false);
     };
 
