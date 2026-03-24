@@ -359,7 +359,7 @@ export const LeaderPanelManagement: React.FC = () => {
                                       const checked = (partner as any)[col.key] as boolean;
                                       const isSavingThis = saving === `${partner.user_id}-${col.key}` || saving === `${partner.user_id}-calc-${col.type === 'calc_influencer' ? 'influencer' : 'specialist'}`;
                                       return (
-                                        <label key={col.key} className="flex items-center gap-2 cursor-pointer group">
+                                        <label key={col.key} className="flex items-start gap-2 cursor-pointer group">
                                           <Switch
                                             checked={checked}
                                             disabled={isSavingThis || isSavingAll}
@@ -368,10 +368,13 @@ export const LeaderPanelManagement: React.FC = () => {
                                               else if (col.type === 'calc_specialist') toggleCalculatorAccess(partner.user_id, 'specialist', v);
                                               else toggleLeaderPermission(partner.user_id, col.key as LeaderPermField, v);
                                             }}
-                                            className="scale-90"
+                                            className="scale-90 mt-0.5"
                                           />
-                                          <col.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                                          <span className="text-xs truncate">{col.label}</span>
+                                          <col.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                                          <div className="flex flex-col">
+                                            <span className="text-xs">{col.label}</span>
+                                            <span className="text-[10px] text-muted-foreground leading-tight">{col.description}</span>
+                                          </div>
                                         </label>
                                       );
                                     })}
