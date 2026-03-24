@@ -109,6 +109,7 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       'touchstart',
       'click',
       'wheel',
+      'mousemove',
     ];
 
     // Throttle activity detection to avoid too many timer resets
