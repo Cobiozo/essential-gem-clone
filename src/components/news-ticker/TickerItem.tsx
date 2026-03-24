@@ -8,9 +8,10 @@ interface TickerItemProps {
   item: TickerItemType;
   className?: string;
   allowWrap?: boolean;
+  mode?: 'scroll' | 'wrap';
 }
 
-export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className, allowWrap = false }) => {
+export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className, allowWrap = false, mode = 'wrap' }) => {
   // Dynamically get icon component
   const IconComponent = (LucideIcons as any)[item.icon] || Info;
 
@@ -37,11 +38,18 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
     shake: 'animate-shake',
   }[item.iconAnimation || 'none'];
 
+  const isScroll = mode === 'scroll';
+
   const content = (
     <span
       className={cn(
-        "inline-flex items-center gap-2 max-w-full overflow-hidden",
-        allowWrap ? "whitespace-normal mx-2 text-center flex-wrap" : "whitespace-nowrap mx-3",
+        "inline-flex items-center gap-2",
+        isScroll
+          ? "whitespace-nowrap flex-shrink-0 w-max mx-3"
+          : cn(
+              "max-w-full overflow-hidden",
+              allowWrap ? "whitespace-normal mx-2 text-center flex-wrap" : "whitespace-nowrap mx-3"
+            ),
         fontSizeClass,
         effectClass,
         item.isImportant && !item.customColor && "text-amber-600 dark:text-amber-400 font-medium",
@@ -58,7 +66,7 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
       ) : (
         <IconComponent className={cn("h-4 w-4 flex-shrink-0", iconAnimationClass)} />
       )}
-      <span className={cn(allowWrap && "truncate max-w-[75vw] sm:max-w-none")}>{item.content}</span>
+      <span className={cn(!isScroll && allowWrap && "truncate max-w-[75vw] sm:max-w-none")}>{item.content}</span>
       {item.isImportant && (
         <span className="inline-flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
       )}

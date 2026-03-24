@@ -14,12 +14,12 @@ interface NewsTickerData {
 }
 
 export const useNewsTickerData = (): NewsTickerData => {
-  const { profile, isAdmin, user } = useAuth();
+  const { profile, isAdmin, user, userRole: userRoleObj } = useAuth();
   const [settings, setSettings] = useState<TickerSettings | null>(null);
   const [items, setItems] = useState<TickerItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const userRole = profile?.role || 'user';
+  const userRole = userRoleObj?.role || profile?.role || 'user';
 
   // Fetch settings
   useEffect(() => {
