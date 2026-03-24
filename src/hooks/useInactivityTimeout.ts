@@ -132,7 +132,7 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
     }, 1000);
 
     const activityEvents = [
-      'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'wheel', 'mousemove',
+      'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'wheel',
     ];
 
     let throttleTimeout: NodeJS.Timeout | null = null;
