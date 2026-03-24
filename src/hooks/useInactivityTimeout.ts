@@ -47,7 +47,12 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       console.log('[useInactivityTimeout] Logging out due to inactivity');
       
       try {
-        await supabase.auth.signOut();
+        // Use AuthContext signOut to properly set userInitiatedSignOutRef
+        if (signOutRef.current) {
+          await signOutRef.current();
+        } else {
+          await supabase.auth.signOut();
+        }
       } catch (error) {
         console.error('[useInactivityTimeout] Error during signOut:', error);
       }
