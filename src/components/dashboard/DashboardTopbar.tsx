@@ -17,6 +17,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
+import SessionTimer from '@/components/SessionTimer';
+import { useSessionTimer } from '@/contexts/SessionTimerContext';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { CacheManagementDialog } from './CacheManagementDialog';
