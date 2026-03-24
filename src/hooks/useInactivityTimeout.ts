@@ -1,194 +1,191 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-const WARNING_BEFORE_LOGOUT_MS = 5 * 60 * 1000; // 5 minutes before logout
+const DIALOG_COUNTDOWN_S = 60; // 60 seconds to react
+
+const PROTECTED_ROUTE_PATTERNS = [
+  '/szkolenia/',
+  '/skills-assessment',
+  '/zdrowa-wiedza/',
+  '/meeting-room/',
+];
 
 interface UseInactivityTimeoutOptions {
   enabled?: boolean;
   onLogout?: () => void;
   signOut?: () => Promise<void>;
+  pathname?: string;
 }
 
 export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) => {
-  const { enabled = true, onLogout, signOut } = options;
+  const { enabled = true, onLogout, signOut, pathname = '' } = options;
   const navigate = useNavigate();
-  const { toast } = useToast();
-  
+
+  const [showSessionDialog, setShowSessionDialog] = useState(false);
+  const [dialogCountdown, setDialogCountdown] = useState(DIALOG_COUNTDOWN_S);
+  const [timeRemaining, setTimeRemaining] = useState(INACTIVITY_TIMEOUT_MS / 1000);
+
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const warningShownRef = useRef(false);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const tickIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const protectedIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const isMeetingActiveRef = useRef(false);
-  
-  // Stable refs for callbacks to avoid re-creating timers
+
   const onLogoutRef = useRef(onLogout);
   const signOutRef = useRef(signOut);
-  const navigateRef = useRef(navigate);
-  const toastRef = useRef(toast);
-  
-  // Update refs on each render
   onLogoutRef.current = onLogout;
   signOutRef.current = signOut;
-  navigateRef.current = navigate;
-  toastRef.current = toast;
+
+  const isProtectedRoute = PROTECTED_ROUTE_PATTERNS.some(p => pathname.includes(p));
+
+  const handleLogout = useCallback(async () => {
+    console.log('[useInactivityTimeout] Logging out due to inactivity');
+    try {
+      if (signOutRef.current) {
+        await signOutRef.current();
+      } else {
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.error('[useInactivityTimeout] Error during signOut:', error);
+    }
+    onLogoutRef.current?.();
+    sessionStorage.setItem('session_expired_message', 'true');
+    window.location.href = '/auth';
+  }, []);
+
+  const clearAllTimers = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (tickIntervalRef.current) clearInterval(tickIntervalRef.current);
+    if (protectedIntervalRef.current) clearInterval(protectedIntervalRef.current);
+    timeoutRef.current = null;
+    countdownIntervalRef.current = null;
+    tickIntervalRef.current = null;
+    protectedIntervalRef.current = null;
+  }, []);
+
+  const startDialogCountdown = useCallback(() => {
+    setShowSessionDialog(true);
+    setDialogCountdown(DIALOG_COUNTDOWN_S);
+
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = setInterval(() => {
+      setDialogCountdown(prev => {
+        if (prev <= 1) {
+          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+          handleLogout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }, [handleLogout]);
+
+  const resetTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    setTimeRemaining(INACTIVITY_TIMEOUT_MS / 1000);
+    setShowSessionDialog(false);
+    setDialogCountdown(DIALOG_COUNTDOWN_S);
+
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = null;
+
+    timeoutRef.current = setTimeout(() => {
+      if (isMeetingActiveRef.current) {
+        console.log('[useInactivityTimeout] Meeting active, skipping dialog');
+        resetTimer();
+        return;
+      }
+      startDialogCountdown();
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [startDialogCountdown]);
+
+  const onContinueSession = useCallback(() => {
+    console.log('[useInactivityTimeout] User chose to continue');
+    resetTimer();
+  }, [resetTimer]);
+
+  const onConfirmLogout = useCallback(() => {
+    console.log('[useInactivityTimeout] User chose to logout');
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    handleLogout();
+  }, [handleLogout]);
+
+  const onRefreshTimer = useCallback(() => {
+    console.log('[useInactivityTimeout] Manual timer refresh');
+    resetTimer();
+  }, [resetTimer]);
 
   useEffect(() => {
     if (!enabled) return;
 
-    const handleLogout = async () => {
-      if (isMeetingActiveRef.current) {
-        console.log('[useInactivityTimeout] Meeting active, skipping logout');
-        resetTimer();
-        return;
-      }
-      console.log('[useInactivityTimeout] Logging out due to inactivity');
-      
-      try {
-        // Use AuthContext signOut to properly set userInitiatedSignOutRef
-        if (signOutRef.current) {
-          await signOutRef.current();
-        } else {
-          await supabase.auth.signOut();
-        }
-      } catch (error) {
-        console.error('[useInactivityTimeout] Error during signOut:', error);
-      }
-      
-      onLogoutRef.current?.();
-      
-      // Zapisz komunikat o wygaśnięciu sesji do wyświetlenia po przeładowaniu
-      sessionStorage.setItem('session_expired_message', 'true');
-      
-      // Użyj twardego przeładowania zamiast React Router navigate
-      // To gwarantuje pełny reset stanu aplikacji i pewne przekierowanie
-      window.location.href = '/auth';
-    };
+    // Tick interval to update timeRemaining display
+    tickIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - lastActivityRef.current;
+      const remaining = Math.max(0, Math.floor((INACTIVITY_TIMEOUT_MS - elapsed) / 1000));
+      setTimeRemaining(remaining);
+    }, 1000);
 
-    const showWarning = () => {
-      if (warningShownRef.current) return;
-      warningShownRef.current = true;
-      
-      toastRef.current({
-        title: 'Ostrzeżenie o sesji',
-        description: 'Za 5 minut zostaniesz wylogowany z powodu braku aktywności. Kliknij gdziekolwiek, aby pozostać zalogowanym.',
-        duration: 10000,
-      });
-    };
-
-    const resetTimer = () => {
-      lastActivityRef.current = Date.now();
-      warningShownRef.current = false;
-
-      // Clear existing timers
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      if (warningTimeoutRef.current) {
-        clearTimeout(warningTimeoutRef.current);
-      }
-
-      // Set warning timeout (5 min before logout)
-      warningTimeoutRef.current = setTimeout(() => {
-        showWarning();
-      }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_LOGOUT_MS);
-
-      // Set logout timeout
-      timeoutRef.current = setTimeout(() => {
-        handleLogout();
-      }, INACTIVITY_TIMEOUT_MS);
-    };
-
-    // Events that indicate user activity (no mousemove - only actual interactions)
     const activityEvents = [
-      'mousedown',
-      'keydown',
-      'scroll',
-      'touchstart',
-      'click',
-      'wheel',
-      'mousemove',
+      'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'wheel', 'mousemove',
     ];
 
-    // Throttle activity detection to avoid too many timer resets
     let throttleTimeout: NodeJS.Timeout | null = null;
     const throttledResetTimer = () => {
       if (throttleTimeout) return;
-      
       throttleTimeout = setTimeout(() => {
         throttleTimeout = null;
         resetTimer();
-      }, 1000); // Only reset timer once per second max
+      }, 1000);
     };
 
-    // Initial timer setup
     resetTimer();
 
-    // Add event listeners
-    activityEvents.forEach((event) => {
+    activityEvents.forEach(event => {
       document.addEventListener(event, throttledResetTimer, { passive: true });
     });
 
-    // Handle visibility change - reset timer when tab becomes visible
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        // Never logout during an active meeting
         if (isMeetingActiveRef.current) {
           resetTimer();
           return;
         }
         const timeSinceLastActivity = Date.now() - lastActivityRef.current;
-        
         if (timeSinceLastActivity >= INACTIVITY_TIMEOUT_MS) {
-          // Show warning and give 30 seconds grace period instead of immediate logout
-          showWarning();
-          if (timeoutRef.current) clearTimeout(timeoutRef.current);
-          timeoutRef.current = setTimeout(() => {
-            handleLogout();
-          }, 30_000);
+          startDialogCountdown();
         } else {
           resetTimer();
         }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    // Handle video activity events (emitted by SecureMedia during video playback)
+
     const handleVideoActivity = () => {
-      console.log('[useInactivityTimeout] Video activity detected, resetting timer');
       resetTimer();
     };
     window.addEventListener('video-activity', handleVideoActivity);
 
-    // Handle meeting active/ended events
     const handleMeetingActive = () => {
-      console.log('[useInactivityTimeout] Meeting active, disabling logout');
       isMeetingActiveRef.current = true;
       resetTimer();
     };
     const handleMeetingEnded = () => {
-      console.log('[useInactivityTimeout] Meeting ended, re-enabling logout');
       isMeetingActiveRef.current = false;
       resetTimer();
     };
     window.addEventListener('meeting-active', handleMeetingActive);
     window.addEventListener('meeting-ended', handleMeetingEnded);
 
-    // Cleanup
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      if (warningTimeoutRef.current) {
-        clearTimeout(warningTimeoutRef.current);
-      }
-      if (throttleTimeout) {
-        clearTimeout(throttleTimeout);
-      }
-      
-      activityEvents.forEach((event) => {
+      clearAllTimers();
+      if (throttleTimeout) clearTimeout(throttleTimeout);
+      activityEvents.forEach(event => {
         document.removeEventListener(event, throttledResetTimer);
       });
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -196,10 +193,38 @@ export const useInactivityTimeout = (options: UseInactivityTimeoutOptions = {}) 
       window.removeEventListener('meeting-active', handleMeetingActive);
       window.removeEventListener('meeting-ended', handleMeetingEnded);
     };
-  }, [enabled]);
+  }, [enabled, resetTimer, startDialogCountdown, clearAllTimers]);
+
+  // Protected route: auto-reset timer every 60s
+  useEffect(() => {
+    if (!enabled) return;
+    if (protectedIntervalRef.current) {
+      clearInterval(protectedIntervalRef.current);
+      protectedIntervalRef.current = null;
+    }
+    if (isProtectedRoute) {
+      console.log('[useInactivityTimeout] Protected route, auto-resetting timer');
+      resetTimer();
+      protectedIntervalRef.current = setInterval(() => {
+        resetTimer();
+      }, 60_000);
+    }
+    return () => {
+      if (protectedIntervalRef.current) {
+        clearInterval(protectedIntervalRef.current);
+        protectedIntervalRef.current = null;
+      }
+    };
+  }, [enabled, isProtectedRoute, resetTimer]);
 
   return {
-    lastActivity: lastActivityRef.current,
+    showSessionDialog,
+    dialogCountdown,
+    onContinueSession,
+    onConfirmLogout,
+    timeRemaining,
+    onRefreshTimer,
+    isProtectedRoute,
   };
 };
 
