@@ -198,6 +198,7 @@ export const DashboardSidebar: React.FC = () => {
   const { data: chatVisibility } = useChatSidebarVisibility();
   const { data: paidEventsVisibility } = usePaidEventsVisibility();
   const { totalUnread } = useUnifiedChat({ enableRealtime: false });
+  const { isVisible: isPureBoxVisible } = usePureBoxVisibility();
 
   // Dynamic HTML pages for sidebar
   const { data: htmlPages } = useQuery({
