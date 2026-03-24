@@ -1,42 +1,65 @@
 
+# Naprawa: pasek informacyjny na pulpicie użytkownika pokazuje tylko kropki
 
-# Zmiany w timerze sesji: 1h, bez mousemove, przeniesienie do topbar
+## Co najpewniej jest zepsute
+Problem nie wygląda już na dane, tylko na renderowanie w trybie `scroll` na dashboardzie użytkownika.
 
-## 3 zmiany do wykonania
+Najbardziej prawdopodobna przyczyna:
+- elementy tickera w marquee mogą się zwijać do szerokości `0` w kontenerze flex
+- wtedy zostają widoczne prawie wyłącznie separatory `•`
+- w podglądzie admina wygląda dobrze, bo układ i/lub zestaw elementów jest inny
 
-### 1. Timeout z 30 min → 1h + usunięcie `mousemove` z eventów aktywności
-**Plik:** `src/hooks/useInactivityTimeout.ts`
-- Zmiana `INACTIVITY_TIMEOUT_MS` z `30 * 60 * 1000` na `60 * 60 * 1000`
-- Usunięcie `mousemove` z listy `activityEvents` — timer resetuje się tylko przy kliknięciach, scrollu, klawiaturze, touch, nawigacji
+Dodatkowo w hooku tickera rola nadal jest brana z `profile?.role`, mimo że aplikacja trzyma role w `user_roles`. To może powodować inny zestaw elementów dla użytkownika niż w rzeczywistym widoku.
 
-### 2. Przeniesienie zegara z fixed bottom-right do topbar (obok dzwoneczka)
-**Plik:** `src/components/SessionTimer.tsx`
-- Usunięcie `fixed bottom-4 right-4` — komponent staje się inline (bez pozycjonowania)
-- Zmniejszenie do kompaktowej formy pasującej do topbar (ikona + czas + przycisk refresh)
+## Plan wdrożenia
 
-**Plik:** `src/components/dashboard/DashboardTopbar.tsx`
-- Import `SessionTimer` i renderowanie go obok `NotificationBell`
-- Przekazanie `timeRemaining` i `onRefreshTimer` przez nowy kontekst lub portal
+### 1. Usztywnić layout marquee, żeby elementy nie zapadały się do zera
+**Pliki:**
+- `src/components/news-ticker/NewsTicker.tsx`
+- `src/components/news-ticker/TickerItem.tsx`
 
-**Problem:** Timer jest obecnie renderowany w `InactivityHandler` (App.tsx), a topbar nie ma dostępu do stanu hooka. Rozwiązanie: przenieść rendering `SessionTimer` z `App.tsx` do `DashboardTopbar.tsx` i udostępnić stan timera przez React Context.
+**Zmiany:**
+- w trybie `scroll` nadać każdemu elementowi tickera klasy typu `flex-shrink-0` / `w-max` / `min-w-max`
+- separator `•` też ustawić jako `shrink-0`
+- kontener marquee doprecyzować pod poziomy przepływ (`items-center`, ewentualnie `w-max`)
+- nie używać w marquee klas, które mogą ucinać szerokość całego itemu (`max-w-full overflow-hidden` na root dla scrolla)
 
-**Nowy plik:** `src/contexts/SessionTimerContext.tsx`
-- Prosty context eksportujący `timeRemaining`, `onRefreshTimer`, `isProtectedRoute`
-- Provider w `InactivityHandler` (App.tsx)
-- Consumer w `DashboardTopbar`
+Efekt: tekst i ikona każdego komunikatu zachowają swoją naturalną szerokość i nie znikną, nawet gdy komunikatów jest dużo.
 
-### 3. App.tsx — usunięcie SessionTimer z InactivityHandler
-**Plik:** `src/App.tsx`
-- `InactivityHandler` opakowuje children w `SessionTimerProvider` zamiast renderować `SessionTimer` bezpośrednio
-- `SessionTimeoutDialog` pozostaje w `InactivityHandler`
+### 2. Rozdzielić stylowanie dla trybu `scroll` oraz `rotate/static`
+**Plik:**
+- `src/components/news-ticker/TickerItem.tsx`
 
-## Pliki do zmiany
+**Zmiany:**
+- dodać osobny wariant renderowania dla marquee, np. przez prop `mode="scroll" | "wrap"`
+- w `scroll`:
+  - bez zawijania
+  - bez `truncate`
+  - bez klas ściskających szerokość
+- w `rotate/static`:
+  - zostawić obecne bezpieczne zawijanie dla mobile
 
+Efekt: naprawa nie popsuje trybu rotacyjnego i statycznego.
+
+### 3. Ujednolicić źródło roli użytkownika w tickerze
+**Plik:**
+- `src/components/news-ticker/useNewsTickerData.ts`
+
+**Zmiany:**
+- zamiast `profile?.role || 'user'` użyć `userRole?.role` z `useAuth()`
+- zostawić zgodność z adminem przez `isAdmin`
+- filtrowanie widoczności elementów wykonywać na tej samej roli, której używa reszta aplikacji
+
+Efekt: dashboard partnera/specjalisty dostanie właściwy zestaw komunikatów, zgodny z konfiguracją.
+
+## Zakres plików
 | Plik | Zmiana |
-|------|--------|
-| `src/hooks/useInactivityTimeout.ts` | Timeout 1h, usunięcie `mousemove` |
-| `src/contexts/SessionTimerContext.tsx` | Nowy context dla stanu timera |
-| `src/components/SessionTimer.tsx` | Inline styling zamiast fixed position |
-| `src/components/dashboard/DashboardTopbar.tsx` | Renderowanie SessionTimer obok NotificationBell |
-| `src/App.tsx` | SessionTimerProvider zamiast bezpośredniego renderowania |
+|---|---|
+| `src/components/news-ticker/NewsTicker.tsx` | usztywnienie marquee i separatorów |
+| `src/components/news-ticker/TickerItem.tsx` | osobny wariant dla scroll vs wrap |
+| `src/components/news-ticker/useNewsTickerData.ts` | rola z `userRole`, nie z `profile.role` |
 
+## Oczekiwany rezultat
+- na pulpicie głównym użytkowników będą widoczne pełne treści tickera, nie same kropki
+- preview admina i realny dashboard użytkownika będą zachowywać się spójniej
+- duża liczba komunikatów nie będzie już ściskać elementów do zera
