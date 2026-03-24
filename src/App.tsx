@@ -364,10 +364,9 @@ const AppContent = () => {
       <Sonner />
       <BrowserRouter>
         <InactivityHandler>
-        <ErrorBoundary fallback={null}>
-          <></>
-        </ErrorBoundary>
-        <ProfileCompletionGuard>
+          <ProfileCompletionGuard>
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
               <Route path="/" element={
