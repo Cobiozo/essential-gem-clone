@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -8,6 +8,7 @@ import { AssessmentStep } from '@/components/skills-assessment/AssessmentStep';
 import { SkillsRadarChart } from '@/components/skills-assessment/SkillsRadarChart';
 import { AssessmentSummary } from '@/components/skills-assessment/AssessmentSummary';
 import { ASSESSMENT_STEPS } from '@/components/skills-assessment/assessmentData';
+import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
 
 const initialScores = (): Record<string, number> =>
   Object.fromEntries(ASSESSMENT_STEPS.map((s) => [s.key, 5]));
