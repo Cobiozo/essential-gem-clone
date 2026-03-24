@@ -1,65 +1,40 @@
 
-# Naprawa: pasek informacyjny na pulpicie użytkownika pokazuje tylko kropki
 
-## Co najpewniej jest zepsute
-Problem nie wygląda już na dane, tylko na renderowanie w trybie `scroll` na dashboardzie użytkownika.
+# Plan: Naprawa samouczka + per-event język zaproszenia
 
-Najbardziej prawdopodobna przyczyna:
-- elementy tickera w marquee mogą się zwijać do szerokości `0` w kontenerze flex
-- wtedy zostają widoczne prawie wyłącznie separatory `•`
-- w podglądzie admina wygląda dobrze, bo układ i/lub zestaw elementów jest inny
+## Problem 1: Samouczek — złe wskazywanie i powtórzenia
 
-Dodatkowo w hooku tickera rola nadal jest brana z `profile?.role`, mimo że aplikacja trzyma role w `user_roles`. To może powodować inny zestaw elementów dla użytkownika niż w rzeczywistym widoku.
+**Diagnoza ze screena:** Krok 19/30 "Zdrowa Wiedza (widget)" podświetla "Pulpit" w sidebarze zamiast widgetu na dashboardzie. Widget jest poza widokiem, a scroll nie działa poprawnie lub element nie jest widoczny w momencie namierzania.
 
-## Plan wdrożenia
+**Powtórzenia treści w krokach:**
+- `healthy-knowledge-widget` (widget na dashboardzie) — opis prawie identyczny jak...
+- `zdrowa-wiedza` / `menu-healthy-knowledge` (element w sidebar) — ten sam temat "Zdrowa Wiedza"
+- Podobnie: `reflinks-widget` vs `pure-linki`, `infolinks-widget` vs `info-linki`, `training-widget` vs `training` (akademia)
 
-### 1. Usztywnić layout marquee, żeby elementy nie zapadały się do zera
-**Pliki:**
-- `src/components/news-ticker/NewsTicker.tsx`
-- `src/components/news-ticker/TickerItem.tsx`
+**Zmiany w `src/components/onboarding/tourSteps.ts`:**
+- Usunąć duplikujące się kroki widgetów, które mają swoje odpowiedniki w sekcji menu bocznego. Zostawić kroki menu bocznego (bardziej stabilne selektory) i połączyć opisy — np. "Zdrowa Wiedza" w menu sidebar wspomni o widgecie na dashboardzie
+- Widgety do usunięcia: `healthy-knowledge-widget`, `infolinks-widget`, `reflinks-widget` — ich treść przenieść do odpowiednich kroków w sekcji menu
+- Widgety unikalne (bez odpowiednika w menu): `welcome-widget`, `news-ticker`, `calendar`, `my-meetings-widget`, `training-widget`, `otp-codes-widget`, `resources-widget`, `team-contacts-widget` — te zostają
 
-**Zmiany:**
-- w trybie `scroll` nadać każdemu elementowi tickera klasy typu `flex-shrink-0` / `w-max` / `min-w-max`
-- separator `•` też ustawić jako `shrink-0`
-- kontener marquee doprecyzować pod poziomy przepływ (`items-center`, ewentualnie `w-max`)
-- nie używać w marquee klas, które mogą ucinać szerokość całego itemu (`max-w-full overflow-hidden` na root dla scrolla)
+**Zmiany w `src/components/onboarding/TourOverlay.tsx`:**
+- Dodać zabezpieczenie: jeśli element nie został znaleziony po retries, zamiast `onNext()` automatycznie, pokazać tooltip bez podświetlenia (fallback centralny) z informacją że element nie jest widoczny — lub po prostu pominąć krok bez błędu (obecne zachowanie, ale upewnić się że `onNext` nie wchodzi w pętlę)
 
-Efekt: tekst i ikona każdego komunikatu zachowają swoją naturalną szerokość i nie znikną, nawet gdy komunikatów jest dużo.
+**Efekt:** Redukcja z ~30 do ~25 kroków dla partnera, brak powtórzeń treści, stabilniejsze targetowanie.
 
-### 2. Rozdzielić stylowanie dla trybu `scroll` oraz `rotate/static`
-**Plik:**
-- `src/components/news-ticker/TickerItem.tsx`
+## Problem 2: Flaga języka zaproszenia zmienia język dla wszystkich spotkań
 
-**Zmiany:**
-- dodać osobny wariant renderowania dla marquee, np. przez prop `mode="scroll" | "wrap"`
-- w `scroll`:
-  - bez zawijania
-  - bez `truncate`
-  - bez klas ściskających szerokość
-- w `rotate/static`:
-  - zostawić obecne bezpieczne zawijanie dla mobile
+**Diagnoza:** W `MyMeetingsWidget.tsx` jest jeden `useState` — `const [inviteLang, setInviteLang] = useState('pl')` — współdzielony przez wszystkie spotkania na liście.
 
-Efekt: naprawa nie popsuje trybu rotacyjnego i statycznego.
+**Zmiana w `src/components/dashboard/widgets/MyMeetingsWidget.tsx`:**
+- Zamienić `inviteLang: string` na `inviteLangs: Record<string, string>` — klucz to `event.id`, wartość to wybrany język
+- Getter: `inviteLangs[event.id] || 'pl'`
+- Setter: `setInviteLangs(prev => ({ ...prev, [event.id]: lang }))`
+- Dostosować `handleCopyInvitation` aby brać język z `inviteLangs[event.id]`
 
-### 3. Ujednolicić źródło roli użytkownika w tickerze
-**Plik:**
-- `src/components/news-ticker/useNewsTickerData.ts`
+## Pliki do zmiany
 
-**Zmiany:**
-- zamiast `profile?.role || 'user'` użyć `userRole?.role` z `useAuth()`
-- zostawić zgodność z adminem przez `isAdmin`
-- filtrowanie widoczności elementów wykonywać na tej samej roli, której używa reszta aplikacji
-
-Efekt: dashboard partnera/specjalisty dostanie właściwy zestaw komunikatów, zgodny z konfiguracją.
-
-## Zakres plików
 | Plik | Zmiana |
-|---|---|
-| `src/components/news-ticker/NewsTicker.tsx` | usztywnienie marquee i separatorów |
-| `src/components/news-ticker/TickerItem.tsx` | osobny wariant dla scroll vs wrap |
-| `src/components/news-ticker/useNewsTickerData.ts` | rola z `userRole`, nie z `profile.role` |
+|------|--------|
+| `src/components/onboarding/tourSteps.ts` | Usunięcie 3 zduplikowanych kroków widgetów, wzbogacenie opisów kroków menu |
+| `src/components/dashboard/widgets/MyMeetingsWidget.tsx` | Per-event `inviteLang` zamiast globalnego |
 
-## Oczekiwany rezultat
-- na pulpicie głównym użytkowników będą widoczne pełne treści tickera, nie same kropki
-- preview admina i realny dashboard użytkownika będą zachowywać się spójniej
-- duża liczba komunikatów nie będzie już ściskać elementów do zera
