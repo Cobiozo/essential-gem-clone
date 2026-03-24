@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutes
 const DIALOG_COUNTDOWN_S = 60; // 60 seconds to react
 
 const PROTECTED_ROUTE_PATTERNS = [
