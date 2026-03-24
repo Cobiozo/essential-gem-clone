@@ -154,12 +154,23 @@ export const useEvents = () => {
           .map(e => e.host_user_id!);
 
         if (allHostIds.length > 0) {
-          // Determine which hosts are actual leaders (exist in leader_permissions)
+          // Determine which hosts are actual team-event leaders
+          // Only hosts with can_create_team_events or can_manage_team_training
+          // should have their events restricted to their downline
           const uniqueHostIds = [...new Set(allHostIds)];
-          const { data: actualLeaderIds } = await supabase.rpc('filter_leader_user_ids', { p_user_ids: uniqueHostIds });
-          const actualLeaderSet = new Set<string>(actualLeaderIds || []);
+          const { data: leaderPerms } = await supabase
+            .from('leader_permissions')
+            .select('user_id, can_create_team_events, can_manage_team_training')
+            .in('user_id', uniqueHostIds);
 
-          // Only apply downline filtering for actual leader hosts
+          // Build set of hosts who actually have team event permissions
+          const actualLeaderSet = new Set<string>(
+            (leaderPerms || [])
+              .filter(lp => lp.can_create_team_events === true || lp.can_manage_team_training === true)
+              .map(lp => lp.user_id)
+          );
+
+          // Only apply downline filtering for actual team-event leader hosts
           if (actualLeaderSet.size > 0) {
             const { data: myLeaderIds } = await supabase.rpc('get_user_leader_ids', { p_user_id: user.id });
             const myLeaderSet = new Set<string>(myLeaderIds || []);
@@ -167,7 +178,7 @@ export const useEvents = () => {
             filteredEvents = filteredEvents.filter(event => {
               if (!['webinar', 'team_training'].includes(event.event_type)) return true;
               if (!event.host_user_id) return true;
-              // If host is NOT a leader (e.g. admin), treat as global event (visible by role flags)
+              // If host doesn't have team event permissions, treat as global event
               if (!actualLeaderSet.has(event.host_user_id)) return true;
               // Leader event: show only if I'm the host OR in their team
               return event.host_user_id === user.id || myLeaderSet.has(event.host_user_id) || event.is_registered;
