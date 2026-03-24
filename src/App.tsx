@@ -21,6 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
+import SessionTimer from "@/components/SessionTimer";
+import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
