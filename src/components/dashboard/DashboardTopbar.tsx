@@ -94,6 +94,15 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           </Button>
         )}
 
+        {/* Session Timer */}
+        {sessionTimer && (
+          <SessionTimer
+            timeRemaining={sessionTimer.timeRemaining}
+            onRefresh={sessionTimer.onRefreshTimer}
+            hidden={sessionTimer.isProtectedRoute}
+          />
+        )}
+
         {/* Notifications */}
         <NotificationBell />
 
