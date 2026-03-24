@@ -8,6 +8,7 @@ interface TickerItemProps {
   item: TickerItemType;
   className?: string;
   allowWrap?: boolean;
+  mode?: 'scroll' | 'wrap';
 }
 
 export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className, allowWrap = false }) => {
