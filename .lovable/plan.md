@@ -1,44 +1,93 @@
 
 
-# Fix: Pasek informacyjny pokazuje tylko kropki zamiast treści
+# Ochrona aktywnej pracy + zegar sesji z przyciskiem odświeżenia
 
-## Problem
-Pasek informacyjny (News Ticker) w trybie "scroll" renderuje elementy z separatorami `•` między nimi. Na produkcji widoczne są tylko te separatory — treść elementów jest pusta lub niewidoczna.
+## Zakres zmian
 
-## Prawdopodobna przyczyna
-Źródło danych (prawdopodobnie Live Activity z RPC `get_ticker_live_activity` lub ogłoszenia z `news_ticker_items`) zwraca elementy z pustym polem `content`. Kod nie waliduje tego pola — dodaje element do listy nawet gdy `content` jest `null`, `""` lub `undefined`. W efekcie MarqueeContent renderuje wiele elementów z ikonkami i separatorami, ale bez tekstu.
+### 1. Przebudowa `useInactivityTimeout` (`src/hooks/useInactivityTimeout.ts`)
 
-Druga możliwość: jeśli admin ustawił `textColor` na kolor zbliżony do tła, tekst jest niewidoczny, ale separatory (które mają osobną klasę `text-muted-foreground/50`) pozostają widoczne.
+**Nowa logika:**
+- Hook przyjmuje dodatkowy parametr `pathname` (z `useLocation`)
+- Definiuje chronione trasy: `/szkolenia/`, `/skills-assessment`, `/zdrowa-wiedza/`, `/meeting-room/`
+- Na chronionych trasach: timer jest automatycznie resetowany co 60s (użytkownik aktywnie pracuje)
+- Po upływie 30 min **bez aktywności**: zamiast cichego logout → ustawia `showSessionDialog = true`
+- Dialog daje 60s na reakcję; po 60s → logout
+- Przy powrocie na kartę po timeout → dialog zamiast natychmiastowego logout
+- Usunięcie toast-warning (`showWarning`) — zastąpiony dialogiem
 
-## Plan naprawy
-
-### 1. Walidacja — filtruj puste elementy (`useNewsTickerData.ts`)
-Przed ustawieniem `setItems(allItems)` odfiltrować elementy bez treści:
-
+**Nowy return z hooka:**
 ```typescript
-const validItems = allItems.filter(item => item.content && item.content.trim().length > 0);
-validItems.sort((a, b) => b.priority - a.priority);
-setItems(validItems);
+return {
+  showSessionDialog: boolean;
+  dialogCountdown: number;        // sekundy do auto-logout (60→0)
+  onContinueSession: () => void;  // reset timer + zamknij dialog
+  onConfirmLogout: () => void;    // natychmiastowy logout
+  timeRemaining: number;          // sekundy do końca timeout (do zegara)
+  onRefreshTimer: () => void;     // ręczny reset timera (przycisk)
+};
 ```
 
-### 2. Fix koloru tekstu — TickerItem nie powinien nadpisywać ustawionego koloru (`TickerItem.tsx`)
-Klasa `text-foreground` na elemencie treści nadpisuje kolor ustawiony przez admina na kontenerze (inline `style.color`). Zmienić tak, aby `text-foreground` był stosowany tylko gdy nie ma custom koloru z ustawień:
-- Usunąć `text-foreground` z domyślnych klas w `TickerItemComponent`
-- Zostawić je jako fallback tylko gdy brak inline `color` na kontenerze
+### 2. Nowy komponent `SessionTimeoutDialog` (`src/components/SessionTimeoutDialog.tsx`)
 
-### 3. Separator też powinien dziedziczyć kolor (`NewsTicker.tsx`)
-Separator `•` ma klasę `text-muted-foreground/50` — to kolor niezależny od ustawień admina. Jeśli admin ustawi `textColor`, separator powinien go też odziedziczyć z odpowiednią przezroczystością:
+Modalny `AlertDialog`:
+- Tytuł: "Czy kontynuujesz pracę?"
+- Opis: "Nie wykryliśmy aktywności. Za X sekund nastąpi automatyczne wylogowanie."
+- Odliczanie 60→0
+- Przycisk "Kontynuuję" (primary) → `onContinueSession`
+- Przycisk "Wyloguj" (outline) → `onConfirmLogout`
+
+### 3. Nowy komponent `SessionTimer` (`src/components/SessionTimer.tsx`)
+
+Widoczny zegar w stylu ze screena (żółty tekst `HH:MM:SS` + przycisk odświeżenia):
+- Wyświetla `timeRemaining` w formacie `HH:MM:SS`
+- Przycisk z ikoną `RefreshCw` obok — klik wywołuje `onRefreshTimer` (resetuje timer do 30 min)
+- Pozycja: fixed, prawy dolny róg (lub w headerze — małe, nieinwazyjne)
+- Kolor zmienia się: normalny → żółty (< 5 min) → czerwony (< 1 min)
+- Ukryty na chronionych trasach (timer zawieszony, zegar niepotrzebny)
+
+### 4. Integracja w `App.tsx`
+
+`InactivityHandler` przestaje zwracać `null` — renderuje `SessionTimeoutDialog` + `SessionTimer`:
 
 ```typescript
-<span className="mx-2 select-none" style={{ opacity: 0.5 }}>•</span>
+const InactivityHandler = () => {
+  const { user, signOut } = useAuth();
+  const location = useLocation();
+  const {
+    showSessionDialog, dialogCountdown,
+    onContinueSession, onConfirmLogout,
+    timeRemaining, onRefreshTimer
+  } = useInactivityTimeout({ 
+    enabled: !!user, signOut, pathname: location.pathname 
+  });
+  useLastSeenUpdater();
+  
+  if (!user) return null;
+  
+  return (
+    <>
+      <SessionTimer 
+        timeRemaining={timeRemaining} 
+        onRefresh={onRefreshTimer}
+        pathname={location.pathname}
+      />
+      <SessionTimeoutDialog 
+        open={showSessionDialog}
+        countdown={dialogCountdown}
+        onContinue={onContinueSession}
+        onLogout={onConfirmLogout}
+      />
+    </>
+  );
+};
 ```
 
-### Pliki do zmiany
+## Podsumowanie
+
 | Plik | Zmiana |
 |------|--------|
-| `src/components/news-ticker/useNewsTickerData.ts` | Filtrowanie pustych `content` przed `setItems` |
-| `src/components/news-ticker/TickerItem.tsx` | Usunięcie nadpisania `text-foreground`, dziedziczenie koloru |
-| `src/components/news-ticker/NewsTicker.tsx` | Separator dziedziczy kolor z ustawień |
-
-3 pliki, 3 zmiany. Główna naprawa to walidacja pustych treści — reszta to zabezpieczenie na przyszłość.
+| `src/hooks/useInactivityTimeout.ts` | Chronione trasy, dialog zamiast logout, odliczanie, eksport stanu zegara |
+| `src/components/SessionTimeoutDialog.tsx` | Nowy — modal potwierdzenia z 60s countdown |
+| `src/components/SessionTimer.tsx` | Nowy — zegar HH:MM:SS + przycisk odświeżenia (wzór ze screena) |
+| `src/App.tsx` | InactivityHandler renderuje oba komponenty |
 
