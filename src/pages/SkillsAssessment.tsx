@@ -24,9 +24,22 @@ const BackButton = () => {
 };
 
 const SkillsAssessment: React.FC = () => {
+  const { isVisible, loading: visLoading } = usePureBoxVisibility();
   const [currentStep, setCurrentStep] = useState(0);
   const [scores, setScores] = useState<Record<string, number>>(initialScores);
   const [completed, setCompleted] = useState(false);
+
+  if (visLoading) {
+    return (
+      <div className="min-h-screen bg-background flex justify-center items-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
+
+  if (!isVisible('skills-assessment')) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const totalSteps = ASSESSMENT_STEPS.length;
   const progress = ((currentStep + 1) / totalSteps) * 100;
