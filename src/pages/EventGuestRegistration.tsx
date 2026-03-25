@@ -262,6 +262,11 @@ const EventGuestRegistration: React.FC = () => {
     setError(null);
 
     try {
+      // Calculate slot_time for auto-webinars
+      const slotTimeValue = isAutoWebinar && autoWebinarConfig 
+        ? getNextSlot(autoWebinarConfig, slotParam).time 
+        : null;
+
       // Use RPC for atomic registration with attempt counting
       const { data: rpcResult, error: rpcError } = await supabase.rpc('register_event_guest', {
         p_event_id: eventId,
@@ -271,6 +276,7 @@ const EventGuestRegistration: React.FC = () => {
         p_phone: data.phone || null,
         p_invited_by: invitedBy || null,
         p_source: 'webinar_form',
+        p_slot_time: slotTimeValue,
       });
 
       if (rpcError) throw rpcError;
