@@ -40,6 +40,7 @@ export const AutoWebinarManagement: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [logoPickerOpen, setLogoPickerOpen] = useState(false);
   const [invitationClickCount, setInvitationClickCount] = useState<number>(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
