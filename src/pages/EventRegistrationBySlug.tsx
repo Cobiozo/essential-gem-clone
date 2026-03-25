@@ -60,7 +60,7 @@ const EventRegistrationBySlug: React.FC = () => {
         const watchParams = new URLSearchParams();
         if (slot) watchParams.set('slot', slot);
         const paramStr = watchParams.toString();
-        const target = `/auto-webinar/watch/${slug}${paramStr ? `?${paramStr}` : ''}`;
+        const target = `/a-w/${slug}${paramStr ? `?${paramStr}` : ''}`;
         if (isInAppWebView()) {
           window.location.replace(target);
         } else {

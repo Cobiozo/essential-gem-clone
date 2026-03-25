@@ -187,7 +187,7 @@ const ChatWidgetsWrapper = () => {
   const isMeetingPage = location.pathname.startsWith('/meeting-room/');
 
   // Known app route prefixes — anything else at top level is a partner page
-  const knownPrefixes = ['/admin', '/dashboard', '/login', '/register', '/reset', '/messages', '/calendar', '/training', '/settings', '/my-account', '/events', '/tools', '/compass', '/clients', '/team', '/knowledge', '/meeting-room', '/infolink', '/auto-webinar', '/certificates', '/leaderboard', '/auth'];
+  const knownPrefixes = ['/admin', '/dashboard', '/login', '/register', '/reset', '/messages', '/calendar', '/training', '/settings', '/my-account', '/events', '/tools', '/compass', '/clients', '/team', '/knowledge', '/meeting-room', '/infolink', '/auto-webinar', '/a-w', '/certificates', '/leaderboard', '/auth'];
   const path = location.pathname;
   const isPartnerPage = path !== '/' && !knownPrefixes.some(p => path.startsWith(p));
 
@@ -406,7 +406,7 @@ const AppContent = () => {
                 <Route path="/omega-base" element={<OmegaBasePage />} />
                 <Route path="/landing-preview" element={<LeaderLandingPage />} />
                 <Route path="/auto-webinar" element={<AutoWebinarPage />} />
-                <Route path="/auto-webinar/watch/:slug" element={<AutoWebinarPublicPage />} />
+                <Route path="/a-w/:slug" element={<AutoWebinarPublicPage />} />
                 <Route path="/skills-assessment" element={<SkillsAssessment />} />
                 <Route path="/moje-testy" element={<OmegaTests />} />
                 <Route path="/moja-strona" element={<MyPartnerPage />} />
