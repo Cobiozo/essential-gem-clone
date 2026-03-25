@@ -162,8 +162,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
-  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && !isTooLate;
+  // In preview mode: admin is never blocked by isTooLate, always sees what participants see
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode);
   const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate;
+  const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
