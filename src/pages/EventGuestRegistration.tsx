@@ -262,7 +262,7 @@ const EventGuestRegistration: React.FC = () => {
     const fetchConfig = async () => {
       const { data } = await supabase
         .from('auto_webinar_config')
-        .select('start_hour, end_hour, interval_minutes')
+        .select('start_hour, end_hour, interval_minutes, slot_hours')
         .eq('event_id', event.id)
         .maybeSingle();
       if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
@@ -426,7 +426,7 @@ const EventGuestRegistration: React.FC = () => {
                           <span>{format(slot.date, 'EEEE, d MMMM', { locale: dateLocale })} • {slot.time}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {autoWebinarConfig.interval_minutes >= 30
+                          {(autoWebinarConfig.slot_hours?.length > 0 || autoWebinarConfig.interval_minutes >= 30)
                             ? labels.roomOpens5min
                             : labels.roomOpensOnTime}
                         </p>
@@ -465,7 +465,7 @@ const EventGuestRegistration: React.FC = () => {
                         return labels.checkEmail;
                       }
                       
-                      const accessNote = autoWebinarConfig.interval_minutes >= 30
+                      const accessNote = (autoWebinarConfig.slot_hours?.length > 0 || autoWebinarConfig.interval_minutes >= 30)
                         ? labels.roomOpens5min
                         : labels.roomOpensOnTime;
                       const dateStr = format(slot.date, 'EEEE, d MMMM', { locale: dateLocale });
@@ -568,7 +568,7 @@ const EventGuestRegistration: React.FC = () => {
                           </div>
                         </div>
                         <p className="text-sm text-muted-foreground ml-8">
-                          {autoWebinarConfig.interval_minutes >= 30
+                          {(autoWebinarConfig.slot_hours?.length > 0 || autoWebinarConfig.interval_minutes >= 30)
                             ? labels.roomOpens5min
                             : labels.roomOpensOnTime}
                         </p>
