@@ -539,7 +539,14 @@ export const AutoWebinarManagement: React.FC = () => {
               <Label>Godzina startu</Label>
               <Select
                 value={String(config?.start_hour ?? 8)}
-                onValueChange={(v) => handleUpdateConfig({ start_hour: parseInt(v) })}
+                onValueChange={(v) => {
+                  const newStart = parseInt(v);
+                  if (newStart >= (config?.end_hour ?? 22)) {
+                    toast({ title: 'Błąd', description: 'Godzina startu musi być mniejsza niż godzina zakończenia', variant: 'destructive' });
+                    return;
+                  }
+                  handleUpdateConfig({ start_hour: newStart });
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -553,7 +560,14 @@ export const AutoWebinarManagement: React.FC = () => {
               <Label>Godzina zakończenia</Label>
               <Select
                 value={String(config?.end_hour ?? 22)}
-                onValueChange={(v) => handleUpdateConfig({ end_hour: parseInt(v) })}
+                onValueChange={(v) => {
+                  const newEnd = parseInt(v);
+                  if (newEnd <= (config?.start_hour ?? 8)) {
+                    toast({ title: 'Błąd', description: 'Godzina zakończenia musi być większa niż godzina startu', variant: 'destructive' });
+                    return;
+                  }
+                  handleUpdateConfig({ end_hour: newEnd });
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -562,6 +576,9 @@ export const AutoWebinarManagement: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {(config?.start_hour ?? 8) >= (config?.end_hour ?? 22) && (
+                <p className="text-xs text-destructive mt-1">⚠️ Godzina zakończenia musi być większa niż startu</p>
+              )}
             </div>
             <div>
               <Label>Interwał odtwarzania</Label>
