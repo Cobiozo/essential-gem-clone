@@ -1075,7 +1075,155 @@ export const AutoWebinarManagement: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Event Linking Section */}
+      {/* Fake Participants Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Fikcyjni uczestnicy
+          </CardTitle>
+          <CardDescription>
+            Wyświetlaj fikcyjną liczbę uczestników w prawym górnym rogu odtwarzacza
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Włącz licznik uczestników</Label>
+              <p className="text-xs text-muted-foreground">Pokaż fikcyjną liczbę osób na webinarze</p>
+            </div>
+            <Switch checked={fakeParticipantsEnabled} onCheckedChange={setFakeParticipantsEnabled} />
+          </div>
+          {fakeParticipantsEnabled && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Minimum uczestników</Label>
+                <Input
+                  type="number"
+                  value={fakeParticipantsMin}
+                  onChange={(e) => setFakeParticipantsMin(parseInt(e.target.value) || 0)}
+                  min={1}
+                />
+              </div>
+              <div>
+                <Label>Maksimum uczestników</Label>
+                <Input
+                  type="number"
+                  value={fakeParticipantsMax}
+                  onChange={(e) => setFakeParticipantsMax(parseInt(e.target.value) || 0)}
+                  min={1}
+                />
+              </div>
+            </div>
+          )}
+          <Button onClick={handleSaveFakeParticipants}>Zapisz ustawienia uczestników</Button>
+        </CardContent>
+      </Card>
+
+      {/* Fake Chat Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Czat fikcyjny
+          </CardTitle>
+          <CardDescription>
+            Automatyczne wiadomości od fikcyjnych uczestników pojawiające się wg harmonogramu
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Włącz czat fikcyjny</Label>
+              <p className="text-xs text-muted-foreground">Wysuwany panel czatu z automatycznymi wiadomościami</p>
+            </div>
+            <Switch checked={fakeChatEnabled} onCheckedChange={setFakeChatEnabled} />
+          </div>
+          <Button onClick={handleSaveFakeChat} variant="outline" size="sm">Zapisz ustawienia czatu</Button>
+
+          {fakeChatEnabled && (
+            <>
+              <div className="border-t pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">Wiadomości ({fakeMessages.length})</Label>
+                  <Button variant="outline" size="sm" onClick={handleLoadDefaultMessages}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Załaduj domyślne
+                  </Button>
+                </div>
+
+                {/* Add message form */}
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-2">
+                    <Label className="text-xs">Minuta</Label>
+                    <Input
+                      type="number"
+                      value={fakeMessageForm.appear_at_minute}
+                      onChange={(e) => setFakeMessageForm(p => ({ ...p, appear_at_minute: parseInt(e.target.value) || 0 }))}
+                      min={0}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Label className="text-xs">Autor</Label>
+                    <Input
+                      value={fakeMessageForm.author_name}
+                      onChange={(e) => setFakeMessageForm(p => ({ ...p, author_name: e.target.value }))}
+                      placeholder="Jan K."
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="col-span-5">
+                    <Label className="text-xs">Treść</Label>
+                    <Input
+                      value={fakeMessageForm.content}
+                      onChange={(e) => setFakeMessageForm(p => ({ ...p, content: e.target.value }))}
+                      placeholder="Dzień dobry!"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Button size="sm" className="w-full h-8" onClick={handleAddFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Messages table */}
+                {fakeMessages.length > 0 && (
+                  <div className="max-h-64 overflow-y-auto border rounded-lg">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-16 text-xs">Min.</TableHead>
+                          <TableHead className="w-28 text-xs">Autor</TableHead>
+                          <TableHead className="text-xs">Treść</TableHead>
+                          <TableHead className="w-12 text-xs"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {fakeMessages.map((msg) => (
+                          <TableRow key={msg.id}>
+                            <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
+                            <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
+                            <TableCell>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
