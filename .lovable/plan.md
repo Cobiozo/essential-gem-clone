@@ -1,33 +1,46 @@
 
+# Plan udoskonalenia Auto-Webinarów — ZREALIZOWANY ✅
 
-# Master toggle dla PureBox
+## Faza 1 — Naprawy krytyczne ✅
 
-## Koncepcja
+### 1.1 RLS dla anon ✅
+- Dodano polityki SELECT dla `anon` na `auto_webinar_config` i `auto_webinar_videos`
 
-Dodać rekord `element_key = 'purebox-master'` w tabeli `purebox_settings` jako główny przełącznik. Gdy wyłączony — cały moduł PureBox jest niewidoczny. Gdy włączony — widoczność poszczególnych elementów działa jak dotychczas.
+### 1.2 Autoplay policy ✅
+- Video startuje `muted={true}`, overlay "Włącz dźwięk" po załadowaniu
+- Po kliknięciu unmute, overlay znika i pojawiają się kontrolki playera
 
-## Zmiany
+### 1.3 Obsługa błędów video ✅
+- `onError` — komunikat + przycisk "Spróbuj ponownie"
+- `onWaiting`/`onPlaying` — spinner podczas buforowania
 
-### 1. `src/hooks/usePureBoxVisibility.ts`
-- W `isVisible()` najpierw sprawdzić rekord `purebox-master`: jeśli `is_active = false`, zwracać `false` dla wszystkich elementów
-- Dodać nową funkcję `isPureBoxEnabled()` zwracającą stan master toggle (do użycia w sidebarze)
+### 1.4 Error state i retry w hookach ✅
+- 3 próby z exponential backoff w `useAutoWebinarConfig` i `useAutoWebinarVideos`
+- Stan `error` eksponowany do UI
 
-### 2. `src/components/admin/PureBoxManagement.tsx`
-- Wyodrębnić rekord `purebox-master` z listy `elements` i nie wyświetlać go w grid elementów
-- Na górze karty "Elementy modułu PureBox" dodać widoczny master switch z etykietą "Moduł PureBox" i opisem "Włącz/wyłącz cały moduł PureBox dla użytkowników"
-- Gdy master jest wyłączony, reszta elementów jest wyszarzona (opacity + disabled)
+## Faza 2 — Ulepszenia funkcjonalne ✅
 
-### 3. `src/components/dashboard/DashboardSidebar.tsx`
-- Bez zmian — obecna logika `isPureBoxVisible()` + filtrowanie submenu automatycznie ukryje PureBox gdy master jest off (bo `isVisible` zwróci false dla wszystkich elementów)
+### 2.1 Kontrolki playera ✅
+- Nowy `AutoWebinarPlayerControls.tsx`: mute/unmute, suwak głośności, fullscreen
+- Auto-hide po 3s bez ruchu myszy
 
-### 4. Baza danych — dodać rekord master
-- INSERT do `purebox_settings`: `element_key = 'purebox-master'`, `element_name = 'Moduł PureBox'`, `is_active = true` (domyślnie włączony)
+### 2.2 Walidacja godzin ✅
+- Blokada zapisu gdy `start_hour >= end_hour` z komunikatem toast
+- Wizualne ostrzeżenie pod polami
 
-## Pliki do zmiany
+### 2.3 Publiczna strona ✅
+- Przekazuje `isGuest` do `AutoWebinarEmbed` dla trackingu
 
-| Plik | Zmiana |
-|---|---|
-| `src/hooks/usePureBoxVisibility.ts` | Sprawdzanie master toggle w `isVisible()` |
-| `src/components/admin/PureBoxManagement.tsx` | Master switch na górze UI, wyszarzenie gdy off |
-| Migracja SQL | Insert rekordu `purebox-master` |
+### 2.4 Optymalizacja timera ✅
+- 10s interwał normalnie, 1s podczas countdown (≤300s)
 
+## Faza 3 — Rozszerzenia ✅
+
+### 3.1 Analityka oglądalności ✅
+- Tabela `auto_webinar_views` z RLS
+- Hook `useAutoWebinarTracking` — loguje join/leave/duration
+- `sendBeacon` na `beforeunload` dla niezawodnego zapisu
+
+### 3.2 Podgląd admina ✅
+- Przycisk "Podgląd" w panelu admina, otwiera modal z playerem w trybie preview
+- Ignoruje harmonogram, odtwarza pierwszy aktywny film
