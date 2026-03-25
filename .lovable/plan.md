@@ -1,37 +1,26 @@
 
 
-# Fix: Browser auto-translation breaking React app
+# Przebudowa systemu slotów Auto-Webinar — ZAIMPLEMENTOWANO
 
-## Problem
-When users enable browser auto-translation (Chrome Translate, Safari, etc.), it modifies the DOM directly — inserting `<font>` tags, replacing text nodes, wrapping content in `<span>`. This breaks React's virtual DOM reconciliation, causing crashes, broken event handlers, and UI glitches.
+## Zmiany
 
-## Solution — two-pronged approach
+### Baza danych
+- Dodano kolumny: `slot_hours text[]`, `room_open_minutes_before int`, `countdown_minutes_before int`, `link_expiry_minutes int`
 
-### 1. Disable browser auto-translate on the app (`index.html`)
-Add the `translate="no"` attribute and the `notranslate` class to the `<html>` tag, plus the Google-specific meta tag. This tells all major browsers (Chrome, Edge, Safari, Firefox) to NOT offer auto-translation.
+### Logika synchronizacji
+- Nowy plik `src/hooks/useAutoWebinarSync.ts` — jawne sloty + walidacja linków gości
+- `useAutoWebinar.ts` — re-eksportuje nowy hook, zawiera tylko config/videos
+- Goście z `?slot=HH:MM` → walidacja: za wcześnie → countdown, na czas → play, po wygaśnięciu → "Link wygasł"
+- Goście BEZ `?slot` → "Brak aktywnego zaproszenia"
+- Zalogowani użytkownicy → automatycznie znajdują aktualny/następny slot
 
-```html
-<html lang="en" translate="no" class="notranslate">
-  <head>
-    <meta name="google" content="notranslate" />
-```
+### UI
+- `AutoWebinarPublicPage` → czyta `?slot` z URL, przekazuje do embed
+- `AutoWebinarEmbed` → nowe ekrany: "Link wygasł", "Brak zaproszenia"
+- `AutoWebinarManagement` → nowy UI: grid godzin 00:00–23:30, konfiguracja faz (pokój, countdown, wygaśnięcie)
+- `AutoWebinarEventView` → używa `slot_hours` jeśli dostępne
+- `EventGuestRegistration` → roomLink zawiera `?slot=HH:MM`
+- `EventRegistrationBySlug` → przekazuje `slot` param przy redirectcie
 
-This is the standard, widely-adopted fix used by Gmail, Google Docs, and most React SPAs.
-
-### 2. Set `lang` attribute dynamically (already done)
-The app already sets `document.documentElement.lang = language` in `LanguageContext.tsx`. This further signals browsers that the page is already in the user's language, reducing translation prompts.
-
-## Why this is safe
-- The app has its own multi-language system (i18n with database translations)
-- Browser translation is redundant and destructive to React
-- Users who need a different language can use the built-in language selector
-
-## Files to change
-
-| File | Change |
-|---|---|
-| `index.html` | Add `translate="no"` + `class="notranslate"` to `<html>`, add `<meta name="google" content="notranslate" />` |
-
-## Scope
-Single file, 2-line change. No risk to existing functionality.
-
+### Kompatybilność
+- Pusta tablica `slot_hours` → fallback do starej logiki start_hour/interval_minutes
