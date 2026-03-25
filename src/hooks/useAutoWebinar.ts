@@ -81,11 +81,12 @@ export function useAutoWebinarVideos() {
  * synchronized based on interval_minutes from start_hour.
  * Timer optimized: 10s interval normally, 1s during countdown.
  */
-export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebinarConfig | null) {
+export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebinarConfig | null, isGuest = false) {
   const [currentVideo, setCurrentVideo] = useState<AutoWebinarVideo | null>(null);
   const [startOffset, setStartOffset] = useState(0);
   const [isInActiveHours, setIsInActiveHours] = useState(false);
   const [secondsToNext, setSecondsToNext] = useState(0);
+  const [isTooLate, setIsTooLate] = useState(false);
 
   useEffect(() => {
     if (!config?.is_enabled || videos.length === 0) {
@@ -144,6 +145,18 @@ export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebin
       const currentSlotIndex = Math.floor(secondsSinceStart / intervalSeconds);
       const secondsIntoSlot = secondsSinceStart % intervalSeconds;
       const nextSlotStartSec = activeStartSeconds + (currentSlotIndex + 1) * intervalSeconds;
+      const lateJoinMaxSeconds = config.late_join_max_seconds ?? 300;
+
+      // Guest late join policy — block if too late into slot
+      if (isGuest && secondsIntoSlot > lateJoinMaxSeconds) {
+        setIsTooLate(true);
+        setCurrentVideo(null);
+        setStartOffset(-1);
+        setSecondsToNext(0);
+        updateInterval(10000);
+        return;
+      }
+      setIsTooLate(false);
 
       let videoIndex: number;
       if (config.playlist_mode === 'sequential') {
@@ -184,7 +197,7 @@ export function useAutoWebinarSync(videos: AutoWebinarVideo[], config: AutoWebin
     currentIntervalMs = 10000;
 
     return () => clearInterval(intervalId);
-  }, [videos, config]);
+  }, [videos, config, isGuest]);
 
-  return { currentVideo, startOffset, isInActiveHours, secondsToNext };
+  return { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate };
 }

@@ -17,7 +17,7 @@ interface AutoWebinarEmbedProps {
 export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
-  const { currentVideo, startOffset, isInActiveHours, secondsToNext } = useAutoWebinarSync(videos, config);
+  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate } = useAutoWebinarSync(videos, config, isGuest);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -155,8 +155,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
-  const shouldShowPlayer = previewMode || (isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome);
-  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0;
+  const shouldShowPlayer = previewMode || (isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && !isTooLate);
+  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
@@ -264,6 +264,30 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                   )}
                 </>
               )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : isTooLate ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              {config?.room_logo_url && (
+                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              )}
+              <AlertTriangle className="h-10 w-10 text-yellow-400 mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Spotkanie jest w trakcie
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+                Cenimy sobie punktualność w celu pełnego zrozumienia przekazywanej wiedzy.
+                Dołączenie w tym momencie nie jest możliwe.
+              </p>
+              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+                W celu ustalenia nowego terminu skontaktuj się z osobą, która zaprosiła Cię na to spotkanie.
+              </p>
             </div>
           </CardContent>
         </Card>

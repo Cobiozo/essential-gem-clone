@@ -535,6 +535,7 @@ export type Database = {
           invitation_image_url: string | null
           invitation_title: string | null
           is_enabled: boolean
+          late_join_max_seconds: number | null
           playlist_mode: string
           room_background_color: string | null
           room_custom_section_content: string | null
@@ -565,6 +566,7 @@ export type Database = {
           invitation_image_url?: string | null
           invitation_title?: string | null
           is_enabled?: boolean
+          late_join_max_seconds?: number | null
           playlist_mode?: string
           room_background_color?: string | null
           room_custom_section_content?: string | null
@@ -595,6 +597,7 @@ export type Database = {
           invitation_image_url?: string | null
           invitation_title?: string | null
           is_enabled?: boolean
+          late_join_max_seconds?: number | null
           playlist_mode?: string
           room_background_color?: string | null
           room_custom_section_content?: string | null
