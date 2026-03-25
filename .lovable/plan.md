@@ -1,48 +1,33 @@
 
 
-# Wymuszenie widoczności PureBox na podstawie `purebox_settings`
+# Master toggle dla PureBox
 
-## Problem
-Menu boczne i strona `/moje-testy` renderują się bezwarunkowo dla wszystkich zalogowanych użytkowników. Tabela `purebox_settings` w Supabase zawiera flagi `is_active`, `visible_to_partner`, `visible_to_client`, `visible_to_specjalista`, `visible_to_admin` ale nikt ich nie sprawdza.
+## Koncepcja
 
-## Plan
+Dodać rekord `element_key = 'purebox-master'` w tabeli `purebox_settings` jako główny przełącznik. Gdy wyłączony — cały moduł PureBox jest niewidoczny. Gdy włączony — widoczność poszczególnych elementów działa jak dotychczas.
 
-### 1. Nowy hook: `usePureBoxVisibility`
-**Plik:** `src/hooks/usePureBoxVisibility.ts`
+## Zmiany
 
-Hook pobiera z `purebox_settings` + `purebox_user_access` dane i zwraca mapę `Record<string, boolean>` (klucz = `element_key`, wartość = czy widoczny).
+### 1. `src/hooks/usePureBoxVisibility.ts`
+- W `isVisible()` najpierw sprawdzić rekord `purebox-master`: jeśli `is_active = false`, zwracać `false` dla wszystkich elementów
+- Dodać nową funkcję `isPureBoxEnabled()` zwracającą stan master toggle (do użycia w sidebarze)
 
-Logika widoczności dla danego `element_key`:
-1. `is_active` musi być `true`
-2. Flaga roli musi pasować (`visible_to_partner` dla partnera itd.) **LUB** użytkownik ma indywidualny dostęp w `purebox_user_access` z `is_enabled = true`
-3. Admin widzi jeśli `visible_to_admin = true`
+### 2. `src/components/admin/PureBoxManagement.tsx`
+- Wyodrębnić rekord `purebox-master` z listy `elements` i nie wyświetlać go w grid elementów
+- Na górze karty "Elementy modułu PureBox" dodać widoczny master switch z etykietą "Moduł PureBox" i opisem "Włącz/wyłącz cały moduł PureBox dla użytkowników"
+- Gdy master jest wyłączony, reszta elementów jest wyszarzona (opacity + disabled)
 
-Zwraca: `{ isVisible: (elementKey: string) => boolean, loading: boolean }`
+### 3. `src/components/dashboard/DashboardSidebar.tsx`
+- Bez zmian — obecna logika `isPureBoxVisible()` + filtrowanie submenu automatycznie ukryje PureBox gdy master jest off (bo `isVisible` zwróci false dla wszystkich elementów)
 
-### 2. Filtrowanie submenu PureBox w sidebarze
-**Plik:** `src/components/dashboard/DashboardSidebar.tsx`
-
-- Wywołać `usePureBoxVisibility()`
-- Powiązać `element_key` z submenu items: `skills-assessment` i `moje-testy` (lub ich odpowiedniki w bazie)
-- Filtrować `submenuItems` — pokazywać tylko te gdzie `isVisible(elementKey)` = true
-- Jeśli żaden submenu item nie jest widoczny, ukryć cały PureBox z menu
-
-### 3. Guard na stronie `/moje-testy`
-**Plik:** `src/pages/OmegaTests.tsx`
-
-- Użyć `usePureBoxVisibility()` do sprawdzenia dostępu
-- Jeśli `loading` — spinner
-- Jeśli brak dostępu — przekierowanie na `/dashboard` lub komunikat "Brak dostępu"
-
-### 4. Guard na stronie `/skills-assessment`
-**Plik:** `src/pages/SkillsAssessment.tsx` (analogicznie jak OmegaTests)
+### 4. Baza danych — dodać rekord master
+- INSERT do `purebox_settings`: `element_key = 'purebox-master'`, `element_name = 'Moduł PureBox'`, `is_active = true` (domyślnie włączony)
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/hooks/usePureBoxVisibility.ts` | **Nowy** — hook sprawdzający purebox_settings + user_access |
-| `src/components/dashboard/DashboardSidebar.tsx` | Filtrowanie submenu PureBox |
-| `src/pages/OmegaTests.tsx` | Guard dostępu |
-| `src/pages/SkillsAssessment.tsx` | Guard dostępu |
+| `src/hooks/usePureBoxVisibility.ts` | Sprawdzanie master toggle w `isVisible()` |
+| `src/components/admin/PureBoxManagement.tsx` | Master switch na górze UI, wyszarzenie gdy off |
+| Migracja SQL | Insert rekordu `purebox-master` |
 
