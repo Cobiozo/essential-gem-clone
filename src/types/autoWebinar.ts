@@ -40,6 +40,11 @@ export interface AutoWebinarConfig {
   room_custom_section_content: string | null;
   countdown_label: string | null;
   late_join_max_seconds: number | null;
+  // Explicit slot hours
+  slot_hours: string[];
+  room_open_minutes_before: number;
+  countdown_minutes_before: number;
+  link_expiry_minutes: number;
   // Role visibility
   visible_to_partners: boolean;
   visible_to_specjalista: boolean;
