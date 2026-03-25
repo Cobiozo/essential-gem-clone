@@ -14,12 +14,13 @@ import { Button } from '@/components/ui/button';
 interface AutoWebinarEmbedProps {
   isGuest?: boolean;
   previewMode?: boolean;
+  guestSlotTime?: string | null;
 }
 
-export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false }) => {
+export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
-  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate } = useAutoWebinarSync(videos, config, isGuest);
+  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
