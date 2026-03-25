@@ -1255,6 +1255,24 @@ export const AutoWebinarManagement: React.FC = () => {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Admin Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <Monitor className="h-5 w-5" />
+              Podgląd pokoju webinarowego
+            </DialogTitle>
+            <DialogDescription>
+              Tryb podglądu — odtwarza pierwszy aktywny film niezależnie od harmonogramu
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-4 pb-4">
+            <AutoWebinarEmbed previewMode />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
