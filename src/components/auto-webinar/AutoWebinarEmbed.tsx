@@ -1,55 +1,109 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Radio } from 'lucide-react';
+import { Radio, Volume2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '@/hooks/useAutoWebinar';
+import { useAutoWebinarTracking } from '@/hooks/useAutoWebinarTracking';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
+import { AutoWebinarPlayerControls } from './AutoWebinarPlayerControls';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Button } from '@/components/ui/button';
 
-export const AutoWebinarEmbed: React.FC = () => {
-  const { config, loading: configLoading } = useAutoWebinarConfig();
-  const { videos, loading: videosLoading } = useAutoWebinarVideos();
+interface AutoWebinarEmbedProps {
+  isGuest?: boolean;
+  previewMode?: boolean;
+}
+
+export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false }) => {
+  const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
+  const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
   const { currentVideo, startOffset, isInActiveHours, secondsToNext } = useAutoWebinarSync(videos, config);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(true);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [isBuffering, setIsBuffering] = useState(false);
 
-  // Welcome message overlay — show for 30 seconds on initial load
+  // Determine effective playback state for tracking
+  const effectiveIsPlaying = previewMode
+    ? !!(videos.find(v => v.is_active))
+    : (isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome);
+
+  const effectiveVideoId = previewMode
+    ? (videos.find(v => v.is_active)?.id || null)
+    : (currentVideo?.id || null);
+
+  // Analytics tracking
+  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest);
+
+  // Welcome message overlay
   useEffect(() => {
     if (!config?.welcome_message || !isInActiveHours || !currentVideo || startOffset < 0) {
       setShowWelcome(false);
       return;
     }
+    if (previewMode) { setShowWelcome(false); return; }
     setShowWelcome(true);
     const timer = setTimeout(() => setShowWelcome(false), 30000);
     return () => clearTimeout(timer);
-    // Only trigger on first join (config load)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.id, isInActiveHours]);
+  }, [config?.id, isInActiveHours, previewMode]);
 
+  // Video playback — starts muted for autoplay compliance
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !currentVideo || startOffset < 0 || showWelcome) return;
+    if (!video) return;
+
+    const videoToPlay = previewMode ? videos.find(v => v.is_active) : currentVideo;
+    if (!videoToPlay || (!previewMode && (startOffset < 0 || showWelcome))) return;
+
+    setVideoError(null);
 
     const handleCanPlay = () => {
-      if (!hasStarted && startOffset > 0) {
+      if (!hasStarted && !previewMode && startOffset > 0) {
         video.currentTime = startOffset;
       }
+      video.muted = true;
+      setIsMuted(true);
       video.play().catch(console.warn);
       setHasStarted(true);
     };
 
     video.addEventListener('canplay', handleCanPlay, { once: true });
+    video.src = videoToPlay.video_url;
     video.load();
 
     return () => {
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, [currentVideo, startOffset, hasStarted, showWelcome]);
+  }, [currentVideo, startOffset, hasStarted, showWelcome, previewMode, videos]);
 
   useEffect(() => {
     setHasStarted(false);
+    setShowUnmuteOverlay(true);
   }, [currentVideo?.id]);
+
+  const handleUnmute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = false;
+      setIsMuted(false);
+    }
+    setShowUnmuteOverlay(false);
+  };
+
+  const handleToggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
+
+  const handleVideoError = () => {
+    setVideoError('Nie udało się załadować transmisji.');
+  };
 
   if (configLoading || videosLoading) {
     return (
@@ -59,7 +113,20 @@ export const AutoWebinarEmbed: React.FC = () => {
     );
   }
 
-  if (!config?.is_enabled) {
+  if (configError || videosError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center gap-4">
+        <AlertTriangle className="h-12 w-12 text-destructive" />
+        <h2 className="text-xl font-semibold">Błąd ładowania</h2>
+        <p className="text-muted-foreground">{configError || videosError}</p>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+          <RefreshCw className="h-4 w-4 mr-2" /> Odśwież stronę
+        </Button>
+      </div>
+    );
+  }
+
+  if (!config?.is_enabled && !previewMode) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <Radio className="h-12 w-12 text-muted-foreground mb-4" />
@@ -81,40 +148,45 @@ export const AutoWebinarEmbed: React.FC = () => {
     );
   }
 
-  const roomTitle = config.room_title || 'Webinar NA ŻYWO';
-  const roomSubtitle = config.room_subtitle || `Automatyczne odtwarzanie co ${config.interval_minutes || 60} min (${config.start_hour}:00 – ${config.end_hour}:00)`;
-  const bgColor = config.room_background_color || '#000000';
-  const showLiveBadge = config.room_show_live_badge !== false;
-  const showScheduleInfo = config.room_show_schedule_info !== false;
-  const countdownLabel = config.countdown_label || 'Następny webinar za';
+  const roomTitle = config?.room_title || 'Webinar NA ŻYWO';
+  const roomSubtitle = config?.room_subtitle || `Automatyczne odtwarzanie co ${config?.interval_minutes || 60} min (${config?.start_hour}:00 – ${config?.end_hour}:00)`;
+  const bgColor = config?.room_background_color || '#000000';
+  const showLiveBadge = config?.room_show_live_badge !== false;
+  const showScheduleInfo = config?.room_show_schedule_info !== false;
+  const countdownLabel = config?.countdown_label || 'Następny webinar za';
+
+  const shouldShowPlayer = previewMode || (isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome);
+  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {config.room_logo_url ? (
-            <img src={config.room_logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
-          ) : (
-            <div className="p-2 rounded-lg bg-destructive/10">
-              <Radio className="h-5 w-5 text-destructive" />
+      {!previewMode && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {config?.room_logo_url ? (
+              <img src={config.room_logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
+            ) : (
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <Radio className="h-5 w-5 text-destructive" />
+              </div>
+            )}
+            <div>
+              <h2 className="text-xl font-bold">{roomTitle}</h2>
+              <p className="text-sm text-muted-foreground">{roomSubtitle}</p>
             </div>
-          )}
-          <div>
-            <h2 className="text-xl font-bold">{roomTitle}</h2>
-            <p className="text-sm text-muted-foreground">{roomSubtitle}</p>
           </div>
+          {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
+            <Badge variant="destructive" className="animate-pulse gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-background" />
+              NA ŻYWO
+            </Badge>
+          )}
         </div>
-        {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
-          <Badge variant="destructive" className="animate-pulse gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-background" />
-            NA ŻYWO
-          </Badge>
-        )}
-      </div>
+      )}
 
-      {/* Welcome message overlay or Video player or countdown */}
-      {showWelcome && config.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 ? (
+      {/* Welcome message overlay */}
+      {shouldShowWelcome ? (
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
@@ -123,7 +195,7 @@ export const AutoWebinarEmbed: React.FC = () => {
             >
               <Radio className="h-12 w-12 text-white/60 mb-6 animate-pulse" />
               <p className="text-white text-xl md:text-2xl font-semibold max-w-2xl leading-relaxed">
-                {config.welcome_message}
+                {config?.welcome_message}
               </p>
               <p className="text-white/50 text-sm mt-6">
                 Transmisja rozpocznie się za chwilę...
@@ -131,28 +203,75 @@ export const AutoWebinarEmbed: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-      ) : isInActiveHours && currentVideo && startOffset >= 0 ? (
+      ) : shouldShowPlayer ? (
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
-            <div className="relative aspect-video" style={{ backgroundColor: bgColor }}>
-              <video
-                ref={videoRef}
-                className="w-full h-full"
-                controls={false}
-                playsInline
-                muted={false}
-              >
-                <source src={currentVideo.video_url} type="video/mp4" />
-              </video>
+            <div ref={containerRef} className="relative aspect-video" style={{ backgroundColor: bgColor }}>
+              {/* Video error state */}
+              {videoError ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3">
+                  <AlertTriangle className="h-10 w-10 text-destructive" />
+                  <p className="text-sm">{videoError}</p>
+                  <Button variant="secondary" size="sm" onClick={() => {
+                    setVideoError(null);
+                    setHasStarted(false);
+                  }}>
+                    <RefreshCw className="h-4 w-4 mr-2" /> Spróbuj ponownie
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full"
+                    controls={false}
+                    playsInline
+                    muted
+                    onError={handleVideoError}
+                    onWaiting={() => setIsBuffering(true)}
+                    onPlaying={() => setIsBuffering(false)}
+                    onCanPlay={() => setIsBuffering(false)}
+                  />
+
+                  {/* Buffering spinner */}
+                  {isBuffering && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+                      <LoadingSpinner />
+                    </div>
+                  )}
+
+                  {/* Unmute overlay */}
+                  {showUnmuteOverlay && hasStarted && (
+                    <button
+                      onClick={handleUnmute}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer transition-opacity hover:bg-black/50 z-10"
+                    >
+                      <div className="flex items-center gap-2 bg-white/90 text-black rounded-full px-6 py-3 shadow-lg font-medium">
+                        <Volume2 className="h-5 w-5" />
+                        Włącz dźwięk
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Player controls */}
+                  {hasStarted && !showUnmuteOverlay && (
+                    <AutoWebinarPlayerControls
+                      videoRef={videoRef}
+                      containerRef={containerRef}
+                      isMuted={isMuted}
+                      onToggleMute={handleToggleMute}
+                    />
+                  )}
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
-      ) : secondsToNext > 0 && secondsToNext <= 300 ? (
-        /* Countdown 5 minutes before next slot */
+      ) : secondsToNext > 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
-            {config.welcome_message && (
+            {config?.welcome_message && (
               <p className="mt-6 text-center text-muted-foreground max-w-md">
                 {config.welcome_message}
               </p>
@@ -162,18 +281,14 @@ export const AutoWebinarEmbed: React.FC = () => {
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
-            {config.welcome_message && (
-              <p className="mt-6 text-center text-muted-foreground max-w-md">
-                {config.welcome_message}
-              </p>
-            )}
+            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground">Oczekiwanie na transmisję...</p>
           </CardContent>
         </Card>
       )}
 
       {/* Custom section */}
-      {showScheduleInfo && config.room_custom_section_title && config.room_custom_section_content && (
+      {!previewMode && showScheduleInfo && config?.room_custom_section_title && config?.room_custom_section_content && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium">{config.room_custom_section_title}</CardTitle>

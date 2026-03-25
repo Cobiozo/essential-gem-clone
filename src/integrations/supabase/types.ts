@@ -709,6 +709,50 @@ export type Database = {
         }
         Relationships: []
       }
+      auto_webinar_views: {
+        Row: {
+          created_at: string
+          id: string
+          is_guest: boolean | null
+          joined_at: string
+          left_at: string | null
+          session_id: string
+          user_id: string | null
+          video_id: string
+          watch_duration_seconds: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_guest?: boolean | null
+          joined_at?: string
+          left_at?: string | null
+          session_id?: string
+          user_id?: string | null
+          video_id: string
+          watch_duration_seconds?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_guest?: boolean | null
+          joined_at?: string
+          left_at?: string | null
+          session_id?: string
+          user_id?: string | null
+          video_id?: string
+          watch_duration_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_webinar_views_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "auto_webinar_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       banner_interactions: {
         Row: {
           action_after_banner: string | null
