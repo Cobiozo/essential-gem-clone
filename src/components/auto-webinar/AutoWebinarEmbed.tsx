@@ -53,6 +53,9 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   }, [config?.id, isInActiveHours, previewMode]);
 
   // Video playback — starts muted for autoplay compliance
+  const hasStartedRef = useRef(false);
+  const currentSrcRef = useRef<string | null>(null);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -60,15 +63,22 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     const videoToPlay = previewMode ? videos.find(v => v.is_active) : currentVideo;
     if (!videoToPlay || (!previewMode && (startOffset < 0 || showWelcome))) return;
 
+    // Only reload if source actually changed
+    if (currentSrcRef.current === videoToPlay.video_url && hasStartedRef.current) {
+      return;
+    }
+
     setVideoError(null);
+    currentSrcRef.current = videoToPlay.video_url;
 
     const handleCanPlay = () => {
-      if (!hasStarted && !previewMode && startOffset > 0) {
+      if (!hasStartedRef.current && !previewMode && startOffset > 0) {
         video.currentTime = startOffset;
       }
       video.muted = true;
       setIsMuted(true);
       video.play().catch(console.warn);
+      hasStartedRef.current = true;
       setHasStarted(true);
     };
 
@@ -79,7 +89,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     return () => {
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, [currentVideo, startOffset, hasStarted, showWelcome, previewMode, videos]);
+  }, [currentVideo, startOffset, showWelcome, previewMode, videos]);
 
   useEffect(() => {
     setHasStarted(false);
