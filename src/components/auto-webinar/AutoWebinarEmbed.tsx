@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Radio, Volume2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Radio, Volume2, AlertTriangle, RefreshCw, Heart, XCircle } from 'lucide-react';
 import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '@/hooks/useAutoWebinar';
 import { useAutoWebinarTracking } from '@/hooks/useAutoWebinarTracking';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
@@ -20,7 +20,7 @@ interface AutoWebinarEmbedProps {
 export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
-  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
+  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -166,8 +166,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
   // In preview mode: admin is never blocked by isTooLate/expired, always sees what participants see
-  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode) && !isLinkExpired && !isNoInvitation;
-  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation;
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode) && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
+  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
   const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
   return (
@@ -297,6 +297,49 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
             </div>
           </CardContent>
         </Card>
+      ) : isRoomClosed ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              <XCircle className="h-10 w-10 text-destructive mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Spotkanie już się odbyło
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+                Ten link jest nieważny, ponieważ spotkanie już się odbyło.
+              </p>
+              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+                Skontaktuj się z osobą, która Cię zaprosiła, aby uzyskać więcej informacji.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : isVideoEnded ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              {config?.room_logo_url && (
+                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              )}
+              <Heart className="h-10 w-10 text-destructive mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Dziękujemy za uczestnictwo!
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+                Mamy nadzieję, że spotkanie było dla Ciebie wartościowe.
+              </p>
+              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+                Skontaktuj się z osobą, która Cię zaprosiła na to spotkanie — chętnie odpowie na Twoje pytania i pomoże w kolejnych krokach.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       ) : isLinkExpired ? (
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
@@ -378,6 +421,14 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
             <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
+            {config?.fake_participants_enabled && isInActiveHours && (
+              <div className="mt-4">
+                <AutoWebinarParticipantCount
+                  min={config.fake_participants_min || 45}
+                  max={config.fake_participants_max || 120}
+                />
+              </div>
+            )}
             {config?.welcome_message && (
               <p className="mt-6 text-center text-muted-foreground max-w-md">
                 {config.welcome_message}
