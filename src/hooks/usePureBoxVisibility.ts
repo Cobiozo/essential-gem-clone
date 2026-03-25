@@ -69,5 +69,5 @@ export const usePureBoxVisibility = () => {
     }
   };
 
-  return { isVisible, loading: isLoading };
+  return { isVisible, isPureBoxEnabled, loading: isLoading };
 };
