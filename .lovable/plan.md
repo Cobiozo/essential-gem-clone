@@ -1,32 +1,21 @@
 
 
-# Naprawa: podgląd pokazuje "10:00–23:00" zamiast godzin slotów
+# Zmiana URL z `/auto-webinar/watch/` na `/a-w/`
 
 ## Problem
-Dwie rzeczy:
-1. **Ekran "Poza godzinami emisji"** (linia 370 w AutoWebinarEmbed.tsx) wyświetla `config.start_hour:00 – config.end_hour:00` — stare pola. Gdy admin używa `slot_hours`, powinien pokazać listę aktywnych slotów lub zakres.
-2. **Zapis działa poprawnie** — `handleUpdateConfig` zapisuje `slot_hours` do bazy. Problem jest tylko w warstwie prezentacji offline info.
+Link wysyłany gościom zawiera `/auto-webinar/watch/` w URL, co zdradza że to nie jest transmisja na żywo.
 
 ## Zmiany
 
-### 1. `src/components/auto-webinar/AutoWebinarEmbed.tsx` (linia 368-372)
+Zamiana ścieżki `/auto-webinar/watch/:slug` → `/a-w/:slug` w 4 plikach:
 
-Zmienić tekst "Poza godzinami emisji" aby uwzględniał `slot_hours`:
+| Plik | Zmiana |
+|---|---|
+| `src/App.tsx` | Route path: `/auto-webinar/watch/:slug` → `/a-w/:slug` |
+| `src/App.tsx` | knownPrefixes: dodać `/a-w` |
+| `src/pages/EventGuestRegistration.tsx` | roomLink URL: `/auto-webinar/watch/` → `/a-w/` |
+| `src/pages/EventRegistrationBySlug.tsx` | redirect target: `/auto-webinar/watch/` → `/a-w/` |
+| `src/components/profile/ProfileCompletionGuard.tsx` | PUBLIC_PATHS: `/auto-webinar/watch/` → `/a-w/` |
 
-```tsx
-// Zamiast:
-Transmisja aktywna w godzinach {config?.start_hour}:00 – {config?.end_hour}:00.
-
-// Nowa logika:
-const slotHours = config?.slot_hours || [];
-if (slotHours.length > 0) {
-  // Pokaż np. "Następne emisje: 01:00, 14:00, 17:00"
-  "Godziny emisji: {slotHours.sort().join(', ')}"
-} else {
-  // Legacy fallback
-  "Transmisja aktywna w godzinach {start_hour}:00 – {end_hour}:00."
-}
-```
-
-To jedyna zmiana — zapis do bazy działa prawidłowo, problem jest wyłącznie w tekście wyświetlanym na ekranie offline/podglądu.
+Stara ścieżka `/auto-webinar` (panel admina, bez `/watch/`) zostaje bez zmian — goście jej nie widzą.
 
