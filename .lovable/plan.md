@@ -1,33 +1,82 @@
 
 
-# Master toggle dla PureBox
+# Plan udoskonalenia Auto-Webinarów
 
-## Koncepcja
+Bazując na audycie, plan podzielony na 3 fazy: naprawy krytyczne, ulepszenia funkcjonalne, rozszerzenia.
 
-Dodać rekord `element_key = 'purebox-master'` w tabeli `purebox_settings` jako główny przełącznik. Gdy wyłączony — cały moduł PureBox jest niewidoczny. Gdy włączony — widoczność poszczególnych elementów działa jak dotychczas.
+---
 
-## Zmiany
+## Faza 1 — Naprawy krytyczne (stabilność)
 
-### 1. `src/hooks/usePureBoxVisibility.ts`
-- W `isVisible()` najpierw sprawdzić rekord `purebox-master`: jeśli `is_active = false`, zwracać `false` dla wszystkich elementów
-- Dodać nową funkcję `isPureBoxEnabled()` zwracającą stan master toggle (do użycia w sidebarze)
+### 1.1 RLS dla anonimowych użytkowników na publicznej stronie
+**Migracja SQL** — dodać polityki SELECT dla roli `anon` na `auto_webinar_config` i `auto_webinar_videos`, aby publiczna strona `/auto-webinar/watch/:slug` mogła pobierać dane bez logowania.
 
-### 2. `src/components/admin/PureBoxManagement.tsx`
-- Wyodrębnić rekord `purebox-master` z listy `elements` i nie wyświetlać go w grid elementów
-- Na górze karty "Elementy modułu PureBox" dodać widoczny master switch z etykietą "Moduł PureBox" i opisem "Włącz/wyłącz cały moduł PureBox dla użytkowników"
-- Gdy master jest wyłączony, reszta elementów jest wyszarzona (opacity + disabled)
+### 1.2 Autoplay policy — muted start + przycisk unmute
+**Plik:** `AutoWebinarEmbed.tsx`
+- Video startuje z `muted={true}`
+- Overlay z przyciskiem "🔊 Włącz dźwięk" pojawia się na playerze
+- Po kliknięciu: `video.muted = false`, ukryj overlay
+- Eliminuje blokadę autoplay we wszystkich przeglądarkach
 
-### 3. `src/components/dashboard/DashboardSidebar.tsx`
-- Bez zmian — obecna logika `isPureBoxVisible()` + filtrowanie submenu automatycznie ukryje PureBox gdy master jest off (bo `isVisible` zwróci false dla wszystkich elementów)
+### 1.3 Obsługa błędów video
+**Plik:** `AutoWebinarEmbed.tsx`
+- Dodać `onError` na `<video>` — wyświetlić komunikat "Nie udało się załadować transmisji. Spróbuj odświeżyć stronę."
+- Dodać `onStalled` / `onWaiting` — pokazać spinner/bufor overlay
 
-### 4. Baza danych — dodać rekord master
-- INSERT do `purebox_settings`: `element_key = 'purebox-master'`, `element_name = 'Moduł PureBox'`, `is_active = true` (domyślnie włączony)
+### 1.4 Error state i retry w hookach
+**Plik:** `useAutoWebinar.ts`
+- Dodać `error` state do `useAutoWebinarConfig` i `useAutoWebinarVideos`
+- Automatyczny retry (3 próby z backoff) przy błędzie sieci
+
+---
+
+## Faza 2 — Ulepszenia funkcjonalne
+
+### 2.1 Kontrolki playera (volume, fullscreen)
+**Nowy komponent:** `AutoWebinarPlayerControls.tsx`
+- Pasek na dole playera: przycisk mute/unmute, suwak głośności, przycisk fullscreen
+- Styl: półprzezroczyste tło, auto-hide po 3s bez ruchu myszy
+
+### 2.2 Walidacja godzin w panelu admina
+**Plik:** `AutoWebinarManagement.tsx`
+- Blokada zapisu gdy `start_hour >= end_hour`
+- Komunikat walidacyjny pod polami godzin
+
+### 2.3 Publiczna strona — lepszy fallback
+**Plik:** `AutoWebinarPublicPage.tsx`
+- Gdy `is_enabled = false` → przekierowanie na stronę główną zamiast komunikatu "Auto-webinary są wyłączone"
+- Gdy poza godzinami → komunikat "Transmisja zakończyła się. Następna sesja wkrótce." (bez ujawniania mechaniki)
+
+### 2.4 Optymalizacja timera synchronizacji
+**Plik:** `useAutoWebinar.ts` (`useAutoWebinarSync`)
+- Zmienić interwał z 1s na 10s dla ogólnej synchronizacji
+- Przełączać na 1s tylko podczas countdown (secondsToNext <= 300)
+
+---
+
+## Faza 3 — Rozszerzenia (roadmap)
+
+### 3.1 Analityka oglądalności
+- Nowa tabela `auto_webinar_views` (user_id, video_id, joined_at, left_at, watch_duration_seconds)
+- Hook `useAutoWebinarTracking` — loguje wejście/wyjście z pokoju
+- Sekcja w panelu admina z podstawowymi statystykami
+
+### 3.2 Podgląd admina
+**Plik:** `AutoWebinarManagement.tsx`
+- Przycisk "Podgląd pokoju" otwierający modal z `AutoWebinarEmbed` w trybie preview (ignoruje harmonogram, odtwarza pierwszy aktywny film)
+
+---
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |---|---|
-| `src/hooks/usePureBoxVisibility.ts` | Sprawdzanie master toggle w `isVisible()` |
-| `src/components/admin/PureBoxManagement.tsx` | Master switch na górze UI, wyszarzenie gdy off |
-| Migracja SQL | Insert rekordu `purebox-master` |
+| Migracja SQL | RLS anon dla config + videos |
+| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Muted autoplay, unmute overlay, error handling |
+| `src/hooks/useAutoWebinar.ts` | Error/retry, optymalizacja timera |
+| `src/components/auto-webinar/AutoWebinarPlayerControls.tsx` | **Nowy** — volume, fullscreen |
+| `src/components/auto-webinar/AutoWebinarManagement.tsx` | Walidacja godzin, podgląd admina |
+| `src/pages/AutoWebinarPublicPage.tsx` | Lepszy fallback gdy wyłączone |
+| Migracja SQL (faza 3) | Tabela `auto_webinar_views` |
+| `src/hooks/useAutoWebinarTracking.ts` | **Nowy** — tracking oglądalności |
 
