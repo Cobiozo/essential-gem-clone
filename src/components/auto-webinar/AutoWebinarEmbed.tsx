@@ -28,13 +28,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [isBuffering, setIsBuffering] = useState(false);
 
   // Determine effective playback state for tracking
-  const effectiveIsPlaying = previewMode
-    ? !!(videos.find(v => v.is_active))
-    : (isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome);
-
-  const effectiveVideoId = previewMode
-    ? (videos.find(v => v.is_active)?.id || null)
-    : (currentVideo?.id || null);
+  const effectiveIsPlaying = isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome;
+  const effectiveVideoId = currentVideo?.id || null;
 
   // Analytics tracking
   useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest);
@@ -60,8 +55,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     const video = videoRef.current;
     if (!video) return;
 
-    const videoToPlay = previewMode ? videos.find(v => v.is_active) : currentVideo;
-    if (!videoToPlay || (!previewMode && (startOffset < 0 || showWelcome))) return;
+    const videoToPlay = currentVideo;
+    if (!videoToPlay || startOffset < 0 || (!previewMode && showWelcome)) return;
 
     // Only reload if source actually changed
     if (currentSrcRef.current === videoToPlay.video_url && hasStartedRef.current) {
@@ -72,7 +67,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     currentSrcRef.current = videoToPlay.video_url;
 
     const handleCanPlay = () => {
-      if (!hasStartedRef.current && !previewMode && startOffset > 0) {
+      if (!hasStartedRef.current && startOffset > 0) {
         video.currentTime = startOffset;
       }
       video.muted = true;
@@ -167,8 +162,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
-  const shouldShowPlayer = previewMode || (isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && !isTooLate);
+  // In preview mode: admin is never blocked by isTooLate, always sees what participants see
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode);
   const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate;
+  const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto">
@@ -301,6 +298,17 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                 W celu ustalenia nowego terminu skontaktuj się z osobą, która zaprosiła Cię na to spotkanie.
               </p>
             </div>
+          </CardContent>
+        </Card>
+      ) : showPreviewOfflineInfo ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-lg font-semibold mb-2">Poza godzinami emisji</h2>
+            <p className="text-muted-foreground text-sm max-w-md">
+              Transmisja aktywna w godzinach {config?.start_hour}:00 – {config?.end_hour}:00.
+              {secondsToNext > 0 && ' Uczestnicy widzą odliczanie do następnej sesji.'}
+            </p>
           </CardContent>
         </Card>
       ) : secondsToNext > 0 ? (
