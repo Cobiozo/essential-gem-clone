@@ -14,12 +14,13 @@ import { Button } from '@/components/ui/button';
 interface AutoWebinarEmbedProps {
   isGuest?: boolean;
   previewMode?: boolean;
+  guestSlotTime?: string | null;
 }
 
-export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false }) => {
+export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
-  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate } = useAutoWebinarSync(videos, config, isGuest);
+  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -164,9 +165,9 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
-  // In preview mode: admin is never blocked by isTooLate, always sees what participants see
-  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode);
-  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate;
+  // In preview mode: admin is never blocked by isTooLate/expired, always sees what participants see
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode) && !isLinkExpired && !isNoInvitation;
+  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation;
   const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
   return (
@@ -293,6 +294,46 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                   )}
                 </>
               )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : isLinkExpired ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              {config?.room_logo_url && (
+                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              )}
+              <AlertTriangle className="h-10 w-10 text-destructive mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Ten link wygasł
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+                Link do tego webinaru jest już nieaktywny.
+              </p>
+              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+                Skontaktuj się z osobą, która Cię zaprosiła, aby otrzymać nowy link na najbliższy termin.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : isNoInvitation ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              <Radio className="h-10 w-10 text-white/60 mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Brak aktywnego zaproszenia
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed">
+                Aby dołączyć do webinaru, potrzebujesz linku zaproszeniowego z wyznaczoną godziną.
+              </p>
             </div>
           </CardContent>
         </Card>

@@ -668,65 +668,96 @@ export const AutoWebinarManagement: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Slot Hours Configuration */}
+          <div className="space-y-4">
             <div>
-              <Label>Godzina startu</Label>
-              <Select
-                value={String(config?.start_hour ?? 8)}
-                onValueChange={(v) => {
-                  const newStart = parseInt(v);
-                  if (newStart >= (config?.end_hour ?? 22)) {
-                    toast({ title: 'Błąd', description: 'Godzina startu musi być mniejsza niż godzina zakończenia', variant: 'destructive' });
-                    return;
-                  }
-                  handleUpdateConfig({ start_hour: newStart });
-                }}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <SelectItem key={i} value={String(i)}>{i}:00</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Godzina zakończenia</Label>
-              <Select
-                value={String(config?.end_hour ?? 22)}
-                onValueChange={(v) => {
-                  const newEnd = parseInt(v);
-                  if (newEnd <= (config?.start_hour ?? 8)) {
-                    toast({ title: 'Błąd', description: 'Godzina zakończenia musi być większa niż godzina startu', variant: 'destructive' });
-                    return;
-                  }
-                  handleUpdateConfig({ end_hour: newEnd });
-                }}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {Array.from({ length: 24 }, (_, i) => (
-                    <SelectItem key={i + 1} value={String(i + 1)}>{i + 1}:00</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {(config?.start_hour ?? 8) >= (config?.end_hour ?? 22) && (
-                <p className="text-xs text-destructive mt-1">⚠️ Godzina zakończenia musi być większa niż startu</p>
+              <Label className="text-sm font-semibold">Godziny emisji (sloty)</Label>
+              <p className="text-xs text-muted-foreground mt-1">
+                Wybierz konkretne godziny, w których webinar będzie dostępny. Goście otrzymają linki z przypisaną godziną.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {Array.from({ length: 24 }, (_, h) => {
+                  const times = ['00', '30'];
+                  return times.map(m => {
+                    const timeStr = `${String(h).padStart(2, '0')}:${m}`;
+                    const currentSlots = (config as any)?.slot_hours as string[] || [];
+                    const isSelected = currentSlots.includes(timeStr);
+                    return (
+                      <Button
+                        key={timeStr}
+                        variant={isSelected ? 'default' : 'outline'}
+                        size="sm"
+                        className="text-xs px-2 py-1 h-7"
+                        onClick={() => {
+                          const newSlots = isSelected
+                            ? currentSlots.filter((s: string) => s !== timeStr)
+                            : [...currentSlots, timeStr].sort();
+                          handleUpdateConfig({ slot_hours: newSlots } as any);
+                        }}
+                      >
+                        {timeStr}
+                      </Button>
+                    );
+                  });
+                })}
+              </div>
+              {((config as any)?.slot_hours as string[] || []).length > 0 && (
+                <div className="mt-2">
+                  <Badge variant="secondary" className="text-xs">
+                    Aktywne sloty: {((config as any)?.slot_hours as string[]).sort().join(', ')}
+                  </Badge>
+                </div>
               )}
             </div>
-            <div>
-              <Label>Interwał odtwarzania</Label>
-              <Select
-                value={String(config?.interval_minutes ?? 60)}
-                onValueChange={(v) => handleUpdateConfig({ interval_minutes: parseInt(v) })}
-              >
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30">Co 30 minut</SelectItem>
-                  <SelectItem value="60">Co 1 godzinę</SelectItem>
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <Label>Pokój otwiera się (min przed)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={(config as any)?.room_open_minutes_before ?? 5}
+                  onChange={(e) => handleUpdateConfig({ room_open_minutes_before: parseInt(e.target.value) || 5 } as any)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Ile minut przed startem gość widzi countdown</p>
+              </div>
+              <div>
+                <Label>Odliczanie precyzyjne (min przed)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={(config as any)?.countdown_minutes_before ?? 2}
+                  onChange={(e) => handleUpdateConfig({ countdown_minutes_before: parseInt(e.target.value) || 2 } as any)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Odliczanie co 1 sekundę</p>
+              </div>
+              <div>
+                <Label>Wygaśnięcie linku (min po starcie)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={60}
+                  value={(config as any)?.link_expiry_minutes ?? 10}
+                  onChange={(e) => handleUpdateConfig({ link_expiry_minutes: parseInt(e.target.value) || 10 } as any)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Link wygasa po tylu minutach od startu slotu</p>
+              </div>
             </div>
+
+            {/* Legacy fallback info */}
+            {((config as any)?.slot_hours as string[] || []).length === 0 && (
+              <div className="border rounded-lg p-3 bg-muted/50">
+                <p className="text-xs text-muted-foreground">
+                  ⚠️ Brak zdefiniowanych godzin emisji. System używa trybu legacy: co {config?.interval_minutes || 60} min od {config?.start_hour}:00 do {config?.end_hour}:00.
+                  Dodaj godziny emisji powyżej, aby przejść na nowy system z walidacją linków.
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Tryb playlisty</Label>
               <Select

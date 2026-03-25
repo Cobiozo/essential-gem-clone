@@ -67,6 +67,11 @@ export const AutoWebinarEventView: React.FC = () => {
 
   const timeSlots = useMemo(() => {
     if (!config) return [];
+    const slotHours = (config as any).slot_hours as string[] | undefined;
+    if (slotHours && slotHours.length > 0) {
+      return [...slotHours].sort();
+    }
+    // Legacy fallback
     const intervalMin = config.interval_minutes || 60;
     const slots: string[] = [];
     for (let m = config.start_hour * 60; m < config.end_hour * 60; m += intervalMin) {

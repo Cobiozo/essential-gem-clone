@@ -57,7 +57,10 @@ const EventRegistrationBySlug: React.FC = () => {
 
       if (event.event_type === 'auto_webinar' && !ref) {
         resolvedRef.current = true;
-        const target = `/auto-webinar/watch/${slug}`;
+        const watchParams = new URLSearchParams();
+        if (slot) watchParams.set('slot', slot);
+        const paramStr = watchParams.toString();
+        const target = `/auto-webinar/watch/${slug}${paramStr ? `?${paramStr}` : ''}`;
         if (isInAppWebView()) {
           window.location.replace(target);
         } else {

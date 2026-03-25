@@ -526,6 +526,7 @@ export type Database = {
         Row: {
           chat_enabled: boolean
           countdown_label: string | null
+          countdown_minutes_before: number | null
           created_at: string
           end_hour: number
           event_id: string | null
@@ -540,17 +541,20 @@ export type Database = {
           invitation_title: string | null
           is_enabled: boolean
           late_join_max_seconds: number | null
+          link_expiry_minutes: number | null
           playlist_mode: string
           room_background_color: string | null
           room_custom_section_content: string | null
           room_custom_section_title: string | null
           room_logo_url: string | null
+          room_open_minutes_before: number | null
           room_show_live_badge: boolean | null
           room_show_schedule_info: boolean | null
           room_subtitle: string | null
           room_title: string | null
           show_in_calendar: boolean | null
           show_participant_count: boolean
+          slot_hours: string[] | null
           start_hour: number
           updated_at: string
           visible_to_clients: boolean | null
@@ -561,6 +565,7 @@ export type Database = {
         Insert: {
           chat_enabled?: boolean
           countdown_label?: string | null
+          countdown_minutes_before?: number | null
           created_at?: string
           end_hour?: number
           event_id?: string | null
@@ -575,17 +580,20 @@ export type Database = {
           invitation_title?: string | null
           is_enabled?: boolean
           late_join_max_seconds?: number | null
+          link_expiry_minutes?: number | null
           playlist_mode?: string
           room_background_color?: string | null
           room_custom_section_content?: string | null
           room_custom_section_title?: string | null
           room_logo_url?: string | null
+          room_open_minutes_before?: number | null
           room_show_live_badge?: boolean | null
           room_show_schedule_info?: boolean | null
           room_subtitle?: string | null
           room_title?: string | null
           show_in_calendar?: boolean | null
           show_participant_count?: boolean
+          slot_hours?: string[] | null
           start_hour?: number
           updated_at?: string
           visible_to_clients?: boolean | null
@@ -596,6 +604,7 @@ export type Database = {
         Update: {
           chat_enabled?: boolean
           countdown_label?: string | null
+          countdown_minutes_before?: number | null
           created_at?: string
           end_hour?: number
           event_id?: string | null
@@ -610,17 +619,20 @@ export type Database = {
           invitation_title?: string | null
           is_enabled?: boolean
           late_join_max_seconds?: number | null
+          link_expiry_minutes?: number | null
           playlist_mode?: string
           room_background_color?: string | null
           room_custom_section_content?: string | null
           room_custom_section_title?: string | null
           room_logo_url?: string | null
+          room_open_minutes_before?: number | null
           room_show_live_badge?: boolean | null
           room_show_schedule_info?: boolean | null
           room_subtitle?: string | null
           room_title?: string | null
           show_in_calendar?: boolean | null
           show_participant_count?: boolean
+          slot_hours?: string[] | null
           start_hour?: number
           updated_at?: string
           visible_to_clients?: boolean | null
