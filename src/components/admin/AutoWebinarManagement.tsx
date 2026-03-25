@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video, Monitor } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
