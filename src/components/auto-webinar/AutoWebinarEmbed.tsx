@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Radio, Volume2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Radio, Volume2, AlertTriangle, RefreshCw, Heart, XCircle } from 'lucide-react';
 import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '@/hooks/useAutoWebinar';
 import { useAutoWebinarTracking } from '@/hooks/useAutoWebinarTracking';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
