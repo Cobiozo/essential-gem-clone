@@ -297,6 +297,46 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
             </div>
           </CardContent>
         </Card>
+      ) : isLinkExpired ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              {config?.room_logo_url && (
+                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              )}
+              <AlertTriangle className="h-10 w-10 text-destructive mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Ten link wygasł
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+                Link do tego webinaru jest już nieaktywny.
+              </p>
+              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+                Skontaktuj się z osobą, która Cię zaprosiła, aby otrzymać nowy link na najbliższy termin.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : isNoInvitation ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              <Radio className="h-10 w-10 text-white/60 mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Brak aktywnego zaproszenia
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed">
+                Aby dołączyć do webinaru, potrzebujesz linku zaproszeniowego z wyznaczoną godziną.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       ) : isTooLate ? (
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
