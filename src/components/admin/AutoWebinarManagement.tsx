@@ -532,7 +532,12 @@ export const AutoWebinarManagement: React.FC = () => {
               <Label>System włączony</Label>
               <p className="text-sm text-muted-foreground">Użytkownicy mogą dołączać do auto-webinarów</p>
             </div>
-            <Switch checked={config?.is_enabled ?? false} onCheckedChange={handleToggleEnabled} />
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
+                <Monitor className="h-4 w-4 mr-1" /> Podgląd
+              </Button>
+              <Switch checked={config?.is_enabled ?? false} onCheckedChange={handleToggleEnabled} />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
