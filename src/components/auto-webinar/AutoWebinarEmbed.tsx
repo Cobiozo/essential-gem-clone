@@ -55,8 +55,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     const video = videoRef.current;
     if (!video) return;
 
-    const videoToPlay = previewMode ? videos.find(v => v.is_active) : currentVideo;
-    if (!videoToPlay || (!previewMode && (startOffset < 0 || showWelcome))) return;
+    const videoToPlay = currentVideo;
+    if (!videoToPlay || startOffset < 0 || (!previewMode && showWelcome)) return;
 
     // Only reload if source actually changed
     if (currentSrcRef.current === videoToPlay.video_url && hasStartedRef.current) {
@@ -67,7 +67,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     currentSrcRef.current = videoToPlay.video_url;
 
     const handleCanPlay = () => {
-      if (!hasStartedRef.current && !previewMode && startOffset > 0) {
+      if (!hasStartedRef.current && startOffset > 0) {
         video.currentTime = startOffset;
       }
       video.muted = true;
@@ -162,7 +162,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
-  const shouldShowPlayer = previewMode || (isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && !isTooLate);
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && !isTooLate;
   const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate;
 
   return (
