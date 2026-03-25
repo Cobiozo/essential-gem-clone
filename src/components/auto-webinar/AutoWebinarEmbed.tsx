@@ -300,6 +300,17 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
             </div>
           </CardContent>
         </Card>
+      ) : showPreviewOfflineInfo ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-lg font-semibold mb-2">Poza godzinami emisji</h2>
+            <p className="text-muted-foreground text-sm max-w-md">
+              Transmisja aktywna w godzinach {config?.start_hour}:00 – {config?.end_hour}:00.
+              {secondsToNext > 0 && ' Uczestnicy widzą odliczanie do następnej sesji.'}
+            </p>
+          </CardContent>
+        </Card>
       ) : secondsToNext > 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
