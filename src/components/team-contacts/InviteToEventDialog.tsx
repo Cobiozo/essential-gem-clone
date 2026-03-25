@@ -182,6 +182,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         p_phone: contact.phone_number || undefined,
         p_invited_by: user.id,
         p_source: 'partner_invite',
+        p_slot_time: null,
       });
 
       if (rpcError) throw rpcError;
@@ -262,6 +263,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         p_phone: contact.phone_number || undefined,
         p_invited_by: user.id,
         p_source: 'partner_invite',
+        p_slot_time: null,
       });
 
       if (rpcError) throw rpcError;

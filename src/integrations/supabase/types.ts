@@ -8748,32 +8748,19 @@ export type Database = {
       }
       leader_unblock_user: { Args: { p_block_id: string }; Returns: boolean }
       refresh_all_active_reflinks: { Args: never; Returns: Json }
-      register_event_guest:
-        | {
-            Args: {
-              p_email: string
-              p_event_id: string
-              p_first_name: string
-              p_invited_by?: string
-              p_last_name?: string
-              p_phone?: string
-              p_source?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_email: string
-              p_event_id: string
-              p_first_name: string
-              p_invited_by?: string
-              p_last_name?: string
-              p_phone?: string
-              p_slot_time?: string
-              p_source?: string
-            }
-            Returns: Json
-          }
+      register_event_guest: {
+        Args: {
+          p_email: string
+          p_event_id: string
+          p_first_name: string
+          p_invited_by?: string
+          p_last_name?: string
+          p_phone?: string
+          p_slot_time?: string
+          p_source?: string
+        }
+        Returns: Json
+      }
       reset_all_active_reflinks: { Args: never; Returns: Json }
       search_guardians: {
         Args: { search_query: string }

@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.register_event_guest(uuid, text, text, text, text, uuid, text);
