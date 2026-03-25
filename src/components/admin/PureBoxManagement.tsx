@@ -143,6 +143,10 @@ export const PureBoxManagement: React.FC = () => {
     return <div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
 
+  const masterElement = elements.find(el => el.element_key === 'purebox-master');
+  const subElements = elements.filter(el => el.element_key !== 'purebox-master');
+  const isMasterActive = masterElement?.is_active ?? false;
+
   const roles = [
     { key: 'visible_to_admin', label: 'Admin' },
     { key: 'visible_to_partner', label: 'Partner' },
@@ -162,7 +166,24 @@ export const PureBoxManagement: React.FC = () => {
           <CardDescription>Zarządzaj widocznością elementów dla poszczególnych ról</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {elements.map(element => (
+          {/* Master toggle */}
+          {masterElement && (
+            <div className="flex items-center justify-between p-4 border-2 border-primary/30 rounded-lg bg-primary/5">
+              <div>
+                <p className="font-semibold text-lg">Moduł PureBox</p>
+                <p className="text-sm text-muted-foreground">Włącz/wyłącz cały moduł PureBox dla użytkowników</p>
+              </div>
+              <Switch
+                checked={isMasterActive}
+                onCheckedChange={(v) => updateElement(masterElement.id, 'is_active', v)}
+              />
+            </div>
+          )}
+
+          <Separator />
+
+          <div className={!isMasterActive ? 'opacity-50 pointer-events-none' : ''}>
+          {subElements.map(element => (
             <div key={element.id} className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -191,6 +212,7 @@ export const PureBoxManagement: React.FC = () => {
               </div>
             </div>
           ))}
+          </div>
         </CardContent>
       </Card>
 

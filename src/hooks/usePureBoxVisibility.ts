@@ -39,8 +39,17 @@ export const usePureBoxVisibility = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const isPureBoxEnabled = (): boolean => {
+    if (!data) return false;
+    const master = data.settings.find(s => s.element_key === 'purebox-master');
+    return !!master?.is_active;
+  };
+
   const isVisible = (elementKey: string): boolean => {
     if (!data) return false;
+
+    // Master toggle check
+    if (!isPureBoxEnabled()) return false;
 
     const setting = data.settings.find(s => s.element_key === elementKey);
     if (!setting || !setting.is_active) return false;
@@ -60,5 +69,5 @@ export const usePureBoxVisibility = () => {
     }
   };
 
-  return { isVisible, loading: isLoading };
+  return { isVisible, isPureBoxEnabled, loading: isLoading };
 };
