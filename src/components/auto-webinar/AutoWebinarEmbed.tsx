@@ -92,6 +92,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   }, [currentVideo, startOffset, showWelcome, previewMode, videos]);
 
   useEffect(() => {
+    hasStartedRef.current = false;
+    currentSrcRef.current = null;
     setHasStarted(false);
     setShowUnmuteOverlay(true);
   }, [currentVideo?.id]);
