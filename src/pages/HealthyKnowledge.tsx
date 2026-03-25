@@ -149,7 +149,8 @@ const HealthyKnowledgePage: React.FC = () => {
         toast.success(`${tf('hk.codeGenerated', 'Kod')} ${otpCode} ${tf('hk.copiedToClipboard', 'wygenerowany i skopiowany do schowka!')}`);
         setShareDialogOpen(false);
       } else {
-        // Keep dialog open — user can manually copy via button in dialog
+        // Keep dialog open — user can manually copy via button below
+        toast.info(tf('hk.codeGeneratedManualCopy', 'Kod wygenerowany. Skopiuj wiadomość przyciskiem poniżej.'));
       }
       
       window.dispatchEvent(new CustomEvent('hkOtpCodeGenerated'));
@@ -164,8 +165,22 @@ const HealthyKnowledgePage: React.FC = () => {
 
   const handleManualCopy = async () => {
     if (!generatedMessage) return;
+
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     
-    // First try clipboard (synchronous in gesture context)
+    // On mobile (especially iOS): prefer navigator.share — most reliable
+    if (isMobile && navigator.share) {
+      try {
+        await navigator.share({ text: generatedMessage });
+        toast.success(tf('hk.shared', 'Udostępniono!'));
+        setShareDialogOpen(false);
+        return;
+      } catch (_err) {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    // Try clipboard (synchronous in fresh gesture context)
     const success = await copyToClipboard(generatedMessage);
     if (success) {
       toast.success(tf('hk.copiedToClipboard', 'Skopiowano do schowka!'));
@@ -173,18 +188,18 @@ const HealthyKnowledgePage: React.FC = () => {
       return;
     }
     
-    // Fallback: native share on mobile
-    if (navigator.share) {
+    // Last resort on desktop: native share if available
+    if (!isMobile && navigator.share) {
       try {
         await navigator.share({ text: generatedMessage });
         toast.success(tf('hk.shared', 'Udostępniono!'));
         setShareDialogOpen(false);
         return;
       } catch (_err) {
-        // User cancelled — keep dialog open
+        // User cancelled
       }
     }
-    
+
     toast.error(tf('hk.copyFailed', 'Nie udało się skopiować. Zaznacz tekst ręcznie i skopiuj.'));
   };
 
