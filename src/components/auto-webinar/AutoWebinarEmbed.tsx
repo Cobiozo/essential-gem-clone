@@ -166,8 +166,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
   // In preview mode: admin is never blocked by isTooLate/expired, always sees what participants see
-  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode) && !isLinkExpired && !isNoInvitation;
-  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation;
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode) && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
+  const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
   const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
   return (
