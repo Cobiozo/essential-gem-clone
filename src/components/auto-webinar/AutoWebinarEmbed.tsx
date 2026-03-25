@@ -20,7 +20,7 @@ interface AutoWebinarEmbedProps {
 export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
-  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
+  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
