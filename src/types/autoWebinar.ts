@@ -45,6 +45,22 @@ export interface AutoWebinarConfig {
   visible_to_specjalista: boolean;
   visible_to_clients: boolean;
   show_in_calendar: boolean;
+  // Fake participants
+  fake_participants_enabled: boolean;
+  fake_participants_min: number;
+  fake_participants_max: number;
+  // Fake chat
+  fake_chat_enabled: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface AutoWebinarFakeMessage {
+  id: string;
+  config_id: string | null;
+  appear_at_minute: number;
+  author_name: string;
+  content: string;
+  sort_order: number;
+  created_at: string;
 }

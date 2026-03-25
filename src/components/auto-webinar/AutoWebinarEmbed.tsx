@@ -6,6 +6,8 @@ import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '
 import { useAutoWebinarTracking } from '@/hooks/useAutoWebinarTracking';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
 import { AutoWebinarPlayerControls } from './AutoWebinarPlayerControls';
+import { AutoWebinarParticipantCount } from './AutoWebinarParticipantCount';
+import { AutoWebinarFakeChat } from './AutoWebinarFakeChat';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 
@@ -216,6 +218,15 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div ref={containerRef} className="relative aspect-video" style={{ backgroundColor: bgColor }}>
+              {/* Participant count */}
+              {config?.fake_participants_enabled && (
+                <div className="absolute top-3 right-3 z-10">
+                  <AutoWebinarParticipantCount
+                    min={config.fake_participants_min || 45}
+                    max={config.fake_participants_max || 120}
+                  />
+                </div>
+              )}
               {/* Video error state */}
               {videoError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3">
@@ -269,6 +280,15 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                       containerRef={containerRef}
                       isMuted={isMuted}
                       onToggleMute={handleToggleMute}
+                    />
+                  )}
+
+                  {/* Fake chat */}
+                  {config?.fake_chat_enabled && hasStarted && !showUnmuteOverlay && (
+                    <AutoWebinarFakeChat
+                      configId={config?.id || null}
+                      startOffset={startOffset}
+                      isPlaying={effectiveIsPlaying}
                     />
                   )}
                 </>
