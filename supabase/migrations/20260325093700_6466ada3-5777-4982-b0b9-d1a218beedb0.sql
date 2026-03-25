@@ -1,0 +1,1 @@
+ALTER TABLE public.auto_webinar_config ADD COLUMN late_join_max_seconds INTEGER DEFAULT 300;
