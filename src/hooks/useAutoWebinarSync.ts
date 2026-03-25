@@ -11,7 +11,6 @@ function parseTimeToSeconds(time: string): number {
 
 /**
  * Find the nearest slot from slot_hours list for current time.
- * Returns the slot that is currently active or the next upcoming one.
  */
 function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, config: AutoWebinarConfig) {
   const roomOpenSec = (config.room_open_minutes_before ?? 5) * 60;
@@ -21,7 +20,6 @@ function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, confi
     .map(t => ({ time: t, seconds: parseTimeToSeconds(t) }))
     .sort((a, b) => a.seconds - b.seconds);
 
-  // Find active slot (room open through link expiry)
   for (const slot of sorted) {
     const windowStart = slot.seconds - roomOpenSec;
     const windowEnd = slot.seconds + linkExpirySec;
@@ -30,14 +28,12 @@ function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, confi
     }
   }
 
-  // Find next upcoming slot
   for (const slot of sorted) {
     if (slot.seconds - roomOpenSec > secondsPastMidnight) {
       return { ...slot, isUpcoming: true };
     }
   }
 
-  // All slots passed today - return first slot tomorrow (conceptually)
   if (sorted.length > 0) {
     return { ...sorted[0], isUpcoming: true, isTomorrow: true };
   }
@@ -53,6 +49,8 @@ export interface AutoWebinarSyncResult {
   isTooLate: boolean;
   isLinkExpired: boolean;
   isNoInvitation: boolean;
+  isVideoEnded: boolean;
+  isRoomClosed: boolean;
 }
 
 /**
@@ -71,6 +69,8 @@ export function useAutoWebinarSync(
   const [isTooLate, setIsTooLate] = useState(false);
   const [isLinkExpired, setIsLinkExpired] = useState(false);
   const [isNoInvitation, setIsNoInvitation] = useState(false);
+  const [isVideoEnded, setIsVideoEnded] = useState(false);
+  const [isRoomClosed, setIsRoomClosed] = useState(false);
 
   useEffect(() => {
     if (!config?.is_enabled || videos.length === 0) {
@@ -99,6 +99,14 @@ export function useAutoWebinarSync(
       }
     };
 
+    const resetFlags = () => {
+      setIsTooLate(false);
+      setIsLinkExpired(false);
+      setIsNoInvitation(false);
+      setIsVideoEnded(false);
+      setIsRoomClosed(false);
+    };
+
     const calculate = () => {
       const now = new Date();
       const currentHour = now.getHours();
@@ -122,17 +130,48 @@ export function useAutoWebinarSync(
       const roomOpenSec = (config.room_open_minutes_before ?? 5) * 60;
       const countdownSec = (config.countdown_minutes_before ?? 2) * 60;
       const linkExpirySec = (config.link_expiry_minutes ?? 10) * 60;
+      const lateJoinMaxSec = config.late_join_max_seconds ?? 300;
+      const roomCloseAfterEndSec = 60; // 1 min after video ends → room closed
 
       // GUEST with slot parameter — strict validation
       if (isGuest && guestSlotTime) {
         const guestSlotSec = parseTimeToSeconds(guestSlotTime);
         const sinceSlot = secondsPastMidnight - guestSlotSec;
 
-        // Link expired (>10 min after slot start)
+        // Select video based on slot index
+        const slotIndex = slotHours.indexOf(guestSlotTime);
+        const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
+        const video = activeVideos[videoIndex];
+        const duration = video.duration_seconds;
+
+        // Room closed (1 min after video ends)
+        if (duration > 0 && sinceSlot >= duration + roomCloseAfterEndSec) {
+          resetFlags();
+          setIsRoomClosed(true);
+          setCurrentVideo(null);
+          setIsInActiveHours(false);
+          setStartOffset(-1);
+          setSecondsToNext(0);
+          updateInterval(10000);
+          return;
+        }
+
+        // Video ended but room still open (thank you screen)
+        if (duration > 0 && sinceSlot >= duration && sinceSlot < duration + roomCloseAfterEndSec) {
+          resetFlags();
+          setIsVideoEnded(true);
+          setIsInActiveHours(true);
+          setCurrentVideo(video);
+          setStartOffset(-1);
+          setSecondsToNext(0);
+          updateInterval(1000);
+          return;
+        }
+
+        // Link expired (>linkExpiry after slot start, but only if video hasn't started logic above)
         if (sinceSlot > linkExpirySec) {
+          resetFlags();
           setIsLinkExpired(true);
-          setIsTooLate(false);
-          setIsNoInvitation(false);
           setCurrentVideo(null);
           setIsInActiveHours(false);
           setStartOffset(-1);
@@ -143,9 +182,7 @@ export function useAutoWebinarSync(
 
         // Too early (before room opens)
         if (sinceSlot < -roomOpenSec) {
-          setIsLinkExpired(false);
-          setIsTooLate(false);
-          setIsNoInvitation(false);
+          resetFlags();
           setCurrentVideo(null);
           setIsInActiveHours(false);
           setSecondsToNext(guestSlotSec - roomOpenSec - secondsPastMidnight);
@@ -155,9 +192,7 @@ export function useAutoWebinarSync(
 
         // Room open, countdown phase (before slot start)
         if (sinceSlot < 0) {
-          setIsLinkExpired(false);
-          setIsTooLate(false);
-          setIsNoInvitation(false);
+          resetFlags();
           setIsInActiveHours(true);
           setCurrentVideo(null);
           setStartOffset(-1);
@@ -166,29 +201,29 @@ export function useAutoWebinarSync(
           return;
         }
 
-        // Playing (0 <= sinceSlot <= linkExpirySec)
-        setIsLinkExpired(false);
-        setIsTooLate(false);
-        setIsNoInvitation(false);
+        // Late join blocking (guest joined after allowed threshold)
+        if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration) {
+          resetFlags();
+          setIsTooLate(true);
+          setCurrentVideo(null);
+          setIsInActiveHours(true);
+          setStartOffset(-1);
+          setSecondsToNext(0);
+          updateInterval(10000);
+          return;
+        }
+
+        // Playing (0 <= sinceSlot < duration)
+        resetFlags();
         setIsInActiveHours(true);
 
-        // Select video based on slot index
-        const slotIndex = slotHours.indexOf(guestSlotTime);
-        const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
-        const video = activeVideos[videoIndex];
-        
-        if (video.duration_seconds > 0 && sinceSlot < video.duration_seconds) {
+        if (duration > 0 && sinceSlot < duration) {
           setCurrentVideo(video);
           setStartOffset(sinceSlot);
           setSecondsToNext(0);
           updateInterval(10000);
-        } else if (video.duration_seconds > 0 && sinceSlot >= video.duration_seconds) {
-          // Video ended but link still valid
-          setCurrentVideo(video);
-          setStartOffset(-1);
-          setSecondsToNext(0);
-          updateInterval(10000);
-        } else {
+        } else if (duration <= 0) {
+          // Unknown duration — just play
           setCurrentVideo(video);
           setStartOffset(0);
           updateInterval(10000);
@@ -198,9 +233,8 @@ export function useAutoWebinarSync(
 
       // GUEST without slot parameter — no access
       if (isGuest && !guestSlotTime) {
+        resetFlags();
         setIsNoInvitation(true);
-        setIsLinkExpired(false);
-        setIsTooLate(false);
         setCurrentVideo(null);
         setIsInActiveHours(false);
         setStartOffset(-1);
@@ -213,6 +247,7 @@ export function useAutoWebinarSync(
       const slot = findCurrentSlot(slotHours, secondsPastMidnight, config);
       
       if (!slot) {
+        resetFlags();
         setIsInActiveHours(false);
         setCurrentVideo(null);
         setSecondsToNext(0);
@@ -223,7 +258,7 @@ export function useAutoWebinarSync(
       const sinceSlot = secondsPastMidnight - slot.seconds;
 
       if ('isUpcoming' in slot && slot.isUpcoming) {
-        // Next slot is in the future
+        resetFlags();
         setIsInActiveHours(false);
         setCurrentVideo(null);
         const secToRoom = 'isTomorrow' in slot && slot.isTomorrow
@@ -236,7 +271,7 @@ export function useAutoWebinarSync(
 
       // Within active window
       if (sinceSlot < 0) {
-        // Countdown
+        resetFlags();
         setIsInActiveHours(true);
         setCurrentVideo(null);
         setStartOffset(-1);
@@ -246,10 +281,8 @@ export function useAutoWebinarSync(
       }
 
       // Playing
+      resetFlags();
       setIsInActiveHours(true);
-      setIsTooLate(false);
-      setIsLinkExpired(false);
-      setIsNoInvitation(false);
 
       const slotIndex = slotHours.indexOf(slot.time);
       const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
@@ -285,7 +318,6 @@ export function useAutoWebinarSync(
       const preEntryWindow = 300;
       const lateJoinMaxSeconds = config.late_join_max_seconds ?? 300;
 
-      // Pre-entry window
       if (secondsPastMidnight >= activeStartSeconds - preEntryWindow && secondsPastMidnight < activeStartSeconds) {
         setIsInActiveHours(false);
         setCurrentVideo(null);
@@ -294,7 +326,6 @@ export function useAutoWebinarSync(
         return;
       }
 
-      // Outside active hours
       if (secondsPastMidnight < activeStartSeconds - preEntryWindow || secondsPastMidnight >= activeEndSeconds) {
         setIsInActiveHours(false);
         setCurrentVideo(null);
@@ -316,7 +347,6 @@ export function useAutoWebinarSync(
       const secondsIntoSlot = secondsSinceStart % intervalSeconds;
       const nextSlotStartSec = activeStartSeconds + (currentSlotIndex + 1) * intervalSeconds;
 
-      // Guest late join policy
       if (isGuest && secondsIntoSlot > lateJoinMaxSeconds) {
         setIsTooLate(true);
         setCurrentVideo(null);
@@ -360,5 +390,5 @@ export function useAutoWebinarSync(
     return () => clearInterval(intervalId);
   }, [videos, config, isGuest, guestSlotTime]);
 
-  return { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation };
+  return { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed };
 }
