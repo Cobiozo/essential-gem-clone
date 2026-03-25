@@ -112,6 +112,120 @@ export const AutoWebinarManagement: React.FC = () => {
     }
   }, [config]);
 
+  const loadFakeMessages = async (configId: string) => {
+    const { data } = await supabase
+      .from('auto_webinar_fake_messages')
+      .select('*')
+      .eq('config_id', configId)
+      .order('appear_at_minute', { ascending: true })
+      .order('sort_order', { ascending: true });
+    setFakeMessages((data as AutoWebinarFakeMessage[]) || []);
+  };
+
+  const handleSaveFakeParticipants = async () => {
+    await handleUpdateConfig({
+      fake_participants_enabled: fakeParticipantsEnabled,
+      fake_participants_min: fakeParticipantsMin,
+      fake_participants_max: fakeParticipantsMax,
+    } as Partial<AutoWebinarConfig>);
+  };
+
+  const handleSaveFakeChat = async () => {
+    await handleUpdateConfig({
+      fake_chat_enabled: fakeChatEnabled,
+    } as Partial<AutoWebinarConfig>);
+  };
+
+  const handleAddFakeMessage = async () => {
+    if (!config || !fakeMessageForm.author_name || !fakeMessageForm.content) return;
+    const { error } = await supabase.from('auto_webinar_fake_messages').insert({
+      config_id: config.id,
+      appear_at_minute: fakeMessageForm.appear_at_minute,
+      author_name: fakeMessageForm.author_name,
+      content: fakeMessageForm.content,
+      sort_order: fakeMessages.length,
+    });
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '' });
+    loadFakeMessages(config.id);
+    toast({ title: 'Dodano wiadomość' });
+  };
+
+  const handleDeleteFakeMessage = async (id: string) => {
+    if (!config) return;
+    await supabase.from('auto_webinar_fake_messages').delete().eq('id', id);
+    loadFakeMessages(config.id);
+    toast({ title: 'Usunięto' });
+  };
+
+  const handleLoadDefaultMessages = async () => {
+    if (!config) return;
+    const defaults = [
+      // Początkowe (minuta 0-2)
+      { m: 0, a: 'Anna K.', c: 'Dzień dobry! 👋' },
+      { m: 0, a: 'Marek W.', c: 'Witam serdecznie' },
+      { m: 0, a: 'Katarzyna P.', c: 'Cześć wszystkim!' },
+      { m: 1, a: 'Tomasz B.', c: 'Pozdrowienia z Łodzi 🙂' },
+      { m: 1, a: 'Joanna M.', c: 'Witam, pierwszy raz tutaj' },
+      { m: 1, a: 'Piotr S.', c: 'Dzień dobry, pozdrawiam z Krakowa' },
+      { m: 2, a: 'Ewa L.', c: 'Witam wszystkich!' },
+      { m: 2, a: 'Robert N.', c: 'Hej, cieszę się że mogę uczestniczyć' },
+      { m: 2, a: 'Agnieszka D.', c: 'Pozdrawiam z Gdańska!' },
+      { m: 3, a: 'Michał Z.', c: 'Super, że mogę tu być 💪' },
+      // Środkowe (minuta 5-25)
+      { m: 5, a: 'Anna K.', c: 'Bardzo ciekawe!' },
+      { m: 7, a: 'Katarzyna P.', c: 'Świetna prezentacja' },
+      { m: 8, a: 'Tomasz B.', c: 'Dokładnie tak!' },
+      { m: 10, a: 'Joanna M.', c: 'To ma sens, dziękuję za wyjaśnienie' },
+      { m: 12, a: 'Piotr S.', c: 'Wow, nie wiedziałem o tym' },
+      { m: 14, a: 'Ewa L.', c: 'Mega wartościowe informacje 🔥' },
+      { m: 15, a: 'Robert N.', c: 'Czy to dotyczy też nowych osób?' },
+      { m: 17, a: 'Marek W.', c: 'Zgadzam się w 100%' },
+      { m: 18, a: 'Agnieszka D.', c: 'Bardzo przydatna wiedza' },
+      { m: 20, a: 'Michał Z.', c: 'Notuję sobie wszystko 📝' },
+      { m: 22, a: 'Anna K.', c: 'To zmienia perspektywę!' },
+      { m: 24, a: 'Katarzyna P.', c: 'Super przykłady!' },
+      { m: 25, a: 'Tomasz B.', c: 'Najlepszy webinar jaki widziałem' },
+      { m: 27, a: 'Joanna M.', c: 'Bardzo profesjonalnie' },
+      { m: 28, a: 'Piotr S.', c: 'Właśnie o tym chciałem się dowiedzieć' },
+      { m: 30, a: 'Robert N.', c: 'Fantastyczne podejście' },
+      { m: 32, a: 'Ewa L.', c: 'Konkretna wiedza, zero lania wody' },
+      { m: 35, a: 'Marek W.', c: 'To jest naprawdę wartościowe 👏' },
+      // Końcowe (minuta 40+)
+      { m: 40, a: 'Agnieszka D.', c: 'Dziękuję za super spotkanie! 🙏' },
+      { m: 40, a: 'Michał Z.', c: 'Dzięki za wiedzę!' },
+      { m: 41, a: 'Anna K.', c: 'Bardzo dziękuję, dużo się dowiedziałam' },
+      { m: 41, a: 'Katarzyna P.', c: 'Dziękuję! Na pewno się odezwę do partnera który mnie tu zaprosił' },
+      { m: 42, a: 'Tomasz B.', c: 'Super spotkanie, pozdrawiam!' },
+      { m: 42, a: 'Joanna M.', c: 'Dziękuję za poświęcony czas' },
+      { m: 43, a: 'Piotr S.', c: 'Do widzenia! Do zobaczenia następnym razem 👋' },
+      { m: 43, a: 'Ewa L.', c: 'Świetne spotkanie, dziękuję!' },
+      { m: 44, a: 'Robert N.', c: 'Bardzo inspirujące, będę polecać' },
+      { m: 44, a: 'Marek W.', c: 'Dziękuję, do następnego razu!' },
+      { m: 45, a: 'Agnieszka D.', c: 'Pozdrawiam i dziękuję! 🌟' },
+      { m: 45, a: 'Michał Z.', c: 'Dzięki wielkie, na pewno wrócę!' },
+    ];
+
+    const rows = defaults.map((d, i) => ({
+      config_id: config.id,
+      appear_at_minute: d.m,
+      author_name: d.a,
+      content: d.c,
+      sort_order: i,
+    }));
+
+    const { error } = await supabase.from('auto_webinar_fake_messages').insert(rows);
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    loadFakeMessages(config.id);
+    toast({ title: 'Załadowano domyślne wiadomości', description: `Dodano ${defaults.length} wiadomości` });
+  };
+
   const loadData = async () => {
     setLoading(true);
     const [videosRes, configRes] = await Promise.all([
