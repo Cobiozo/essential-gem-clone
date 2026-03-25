@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video, Monitor } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
@@ -39,6 +40,7 @@ export const AutoWebinarManagement: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [logoPickerOpen, setLogoPickerOpen] = useState(false);
   const [invitationClickCount, setInvitationClickCount] = useState<number>(0);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
@@ -530,7 +532,12 @@ export const AutoWebinarManagement: React.FC = () => {
               <Label>System włączony</Label>
               <p className="text-sm text-muted-foreground">Użytkownicy mogą dołączać do auto-webinarów</p>
             </div>
-            <Switch checked={config?.is_enabled ?? false} onCheckedChange={handleToggleEnabled} />
+            <div className="flex items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => setPreviewOpen(true)}>
+                <Monitor className="h-4 w-4 mr-1" /> Podgląd
+              </Button>
+              <Switch checked={config?.is_enabled ?? false} onCheckedChange={handleToggleEnabled} />
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -538,7 +545,14 @@ export const AutoWebinarManagement: React.FC = () => {
               <Label>Godzina startu</Label>
               <Select
                 value={String(config?.start_hour ?? 8)}
-                onValueChange={(v) => handleUpdateConfig({ start_hour: parseInt(v) })}
+                onValueChange={(v) => {
+                  const newStart = parseInt(v);
+                  if (newStart >= (config?.end_hour ?? 22)) {
+                    toast({ title: 'Błąd', description: 'Godzina startu musi być mniejsza niż godzina zakończenia', variant: 'destructive' });
+                    return;
+                  }
+                  handleUpdateConfig({ start_hour: newStart });
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -552,7 +566,14 @@ export const AutoWebinarManagement: React.FC = () => {
               <Label>Godzina zakończenia</Label>
               <Select
                 value={String(config?.end_hour ?? 22)}
-                onValueChange={(v) => handleUpdateConfig({ end_hour: parseInt(v) })}
+                onValueChange={(v) => {
+                  const newEnd = parseInt(v);
+                  if (newEnd <= (config?.start_hour ?? 8)) {
+                    toast({ title: 'Błąd', description: 'Godzina zakończenia musi być większa niż godzina startu', variant: 'destructive' });
+                    return;
+                  }
+                  handleUpdateConfig({ end_hour: newEnd });
+                }}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -561,6 +582,9 @@ export const AutoWebinarManagement: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {(config?.start_hour ?? 8) >= (config?.end_hour ?? 22) && (
+                <p className="text-xs text-destructive mt-1">⚠️ Godzina zakończenia musi być większa niż startu</p>
+              )}
             </div>
             <div>
               <Label>Interwał odtwarzania</Label>
@@ -1229,6 +1253,24 @@ export const AutoWebinarManagement: React.FC = () => {
               toast({ title: 'Logo wybrane' });
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle className="flex items-center gap-2">
+              <Monitor className="h-5 w-5" />
+              Podgląd pokoju webinarowego
+            </DialogTitle>
+            <DialogDescription>
+              Tryb podglądu — odtwarza pierwszy aktywny film niezależnie od harmonogramu
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-4 pb-4">
+            <AutoWebinarEmbed previewMode />
+          </div>
         </DialogContent>
       </Dialog>
     </div>

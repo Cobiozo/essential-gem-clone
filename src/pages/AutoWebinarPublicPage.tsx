@@ -18,9 +18,9 @@ const AutoWebinarPublicPage: React.FC = () => {
         </div>
       </header>
 
-      {/* Player */}
+      {/* Player — guest mode */}
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <AutoWebinarEmbed />
+        <AutoWebinarEmbed isGuest />
       </main>
     </div>
   );
