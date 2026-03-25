@@ -212,6 +212,7 @@ export const PureBoxManagement: React.FC = () => {
               </div>
             </div>
           ))}
+          </div>
         </CardContent>
       </Card>
 
