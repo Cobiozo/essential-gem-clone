@@ -406,7 +406,7 @@ const AppContent = () => {
                 <Route path="/omega-base" element={<OmegaBasePage />} />
                 <Route path="/landing-preview" element={<LeaderLandingPage />} />
                 <Route path="/auto-webinar" element={<AutoWebinarPage />} />
-                <Route path="/auto-webinar/watch/:slug" element={<AutoWebinarPublicPage />} />
+                <Route path="/a-w/:slug" element={<AutoWebinarPublicPage />} />
                 <Route path="/skills-assessment" element={<SkillsAssessment />} />
                 <Route path="/moje-testy" element={<OmegaTests />} />
                 <Route path="/moja-strona" element={<MyPartnerPage />} />
