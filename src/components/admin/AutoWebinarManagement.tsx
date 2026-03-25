@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +15,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video, Monitor } from 'lucide-react';
-import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video, Monitor, Users, MessageSquare } from 'lucide-react';
+import type { AutoWebinarVideo, AutoWebinarConfig, AutoWebinarFakeMessage } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
 
@@ -72,6 +72,15 @@ export const AutoWebinarManagement: React.FC = () => {
     room_custom_section_content: '',
   });
 
+  // Fake participants/chat state
+  const [fakeParticipantsEnabled, setFakeParticipantsEnabled] = useState(true);
+  const [fakeParticipantsMin, setFakeParticipantsMin] = useState(45);
+  const [fakeParticipantsMax, setFakeParticipantsMax] = useState(120);
+  const [fakeChatEnabled, setFakeChatEnabled] = useState(true);
+  const [fakeMessages, setFakeMessages] = useState<AutoWebinarFakeMessage[]>([]);
+  const [fakeMessageForm, setFakeMessageForm] = useState({ appear_at_minute: 0, author_name: '', content: '' });
+  const [editingFakeMessage, setEditingFakeMessage] = useState<AutoWebinarFakeMessage | null>(null);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -95,6 +104,11 @@ export const AutoWebinarManagement: React.FC = () => {
         room_custom_section_title: config.room_custom_section_title || '',
         room_custom_section_content: config.room_custom_section_content || '',
       });
+      setFakeParticipantsEnabled(config.fake_participants_enabled !== false);
+      setFakeParticipantsMin(config.fake_participants_min || 45);
+      setFakeParticipantsMax(config.fake_participants_max || 120);
+      setFakeChatEnabled(config.fake_chat_enabled !== false);
+      loadFakeMessages(config.id);
     }
   }, [config]);
 
