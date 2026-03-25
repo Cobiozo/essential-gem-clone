@@ -529,6 +529,10 @@ export type Database = {
           created_at: string
           end_hour: number
           event_id: string | null
+          fake_chat_enabled: boolean | null
+          fake_participants_enabled: boolean | null
+          fake_participants_max: number | null
+          fake_participants_min: number | null
           id: string
           interval_minutes: number
           invitation_description: string | null
@@ -560,6 +564,10 @@ export type Database = {
           created_at?: string
           end_hour?: number
           event_id?: string | null
+          fake_chat_enabled?: boolean | null
+          fake_participants_enabled?: boolean | null
+          fake_participants_max?: number | null
+          fake_participants_min?: number | null
           id?: string
           interval_minutes?: number
           invitation_description?: string | null
@@ -591,6 +599,10 @@ export type Database = {
           created_at?: string
           end_hour?: number
           event_id?: string | null
+          fake_chat_enabled?: boolean | null
+          fake_participants_enabled?: boolean | null
+          fake_participants_max?: number | null
+          fake_participants_min?: number | null
           id?: string
           interval_minutes?: number
           invitation_description?: string | null
@@ -622,6 +634,44 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      auto_webinar_fake_messages: {
+        Row: {
+          appear_at_minute: number
+          author_name: string
+          config_id: string | null
+          content: string
+          created_at: string | null
+          id: string
+          sort_order: number | null
+        }
+        Insert: {
+          appear_at_minute?: number
+          author_name: string
+          config_id?: string | null
+          content: string
+          created_at?: string | null
+          id?: string
+          sort_order?: number | null
+        }
+        Update: {
+          appear_at_minute?: number
+          author_name?: string
+          config_id?: string | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_webinar_fake_messages_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "auto_webinar_config"
             referencedColumns: ["id"]
           },
         ]
