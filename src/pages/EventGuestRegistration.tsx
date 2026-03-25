@@ -21,6 +21,7 @@ interface AutoWebinarSlotConfig {
   start_hour: number;
   end_hour: number;
   interval_minutes: number;
+  slot_hours?: string[];
 }
 
 interface AutoWebinarVideoData {
@@ -36,20 +37,23 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
   const totalMinutes = currentHour * 60 + currentMin;
-  const interval = config.interval_minutes;
+
+  const slotHours = config.slot_hours || [];
+  const useExplicit = slotHours.length > 0;
 
   // If a preferred time is provided (from URL slot param), use it
   if (preferredTime && /^\d{2}:\d{2}$/.test(preferredTime)) {
     const [ph, pm] = preferredTime.split(':').map(Number);
     const preferredMin = ph * 60 + pm;
-    // Check if this time is a valid slot
-    if (ph >= config.start_hour && ph < config.end_hour && preferredMin % interval === (config.start_hour * 60) % interval) {
+    const isValid = useExplicit
+      ? slotHours.includes(preferredTime)
+      : (ph >= config.start_hour && ph < config.end_hour && preferredMin % config.interval_minutes === (config.start_hour * 60) % config.interval_minutes);
+    
+    if (isValid) {
       const slotDate = new Date(now);
       if (preferredMin > totalMinutes) {
-        // Today
         slotDate.setHours(ph, pm, 0, 0);
       } else {
-        // Tomorrow
         const tomorrow = addDays(now, 1);
         tomorrow.setHours(ph, pm, 0, 0);
         return { date: tomorrow, time: preferredTime };
@@ -58,7 +62,28 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
     }
   }
 
-  // Generate slots for today
+  if (useExplicit) {
+    // Find next slot from explicit list
+    const sorted = [...slotHours].sort();
+    for (const slot of sorted) {
+      const [h, m] = slot.split(':').map(Number);
+      const slotMin = h * 60 + m;
+      if (slotMin > totalMinutes) {
+        const slotDate = new Date(now);
+        slotDate.setHours(h, m, 0, 0);
+        return { date: slotDate, time: slot };
+      }
+    }
+    // No future slot today — return first slot tomorrow
+    const firstSlot = sorted[0];
+    const [fh, fm] = firstSlot.split(':').map(Number);
+    const tomorrow = addDays(now, 1);
+    tomorrow.setHours(fh, fm, 0, 0);
+    return { date: tomorrow, time: firstSlot };
+  }
+
+  // Legacy: generate slots from interval
+  const interval = config.interval_minutes;
   for (let h = config.start_hour; h < config.end_hour; h++) {
     for (let m = 0; m < 60; m += interval) {
       const slotMin = h * 60 + m;
