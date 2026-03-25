@@ -28,13 +28,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [isBuffering, setIsBuffering] = useState(false);
 
   // Determine effective playback state for tracking
-  const effectiveIsPlaying = previewMode
-    ? !!(videos.find(v => v.is_active))
-    : (isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome);
-
-  const effectiveVideoId = previewMode
-    ? (videos.find(v => v.is_active)?.id || null)
-    : (currentVideo?.id || null);
+  const effectiveIsPlaying = isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome;
+  const effectiveVideoId = currentVideo?.id || null;
 
   // Analytics tracking
   useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest);
