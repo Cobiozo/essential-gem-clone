@@ -6,6 +6,8 @@ import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '
 import { useAutoWebinarTracking } from '@/hooks/useAutoWebinarTracking';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
 import { AutoWebinarPlayerControls } from './AutoWebinarPlayerControls';
+import { AutoWebinarParticipantCount } from './AutoWebinarParticipantCount';
+import { AutoWebinarFakeChat } from './AutoWebinarFakeChat';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 
