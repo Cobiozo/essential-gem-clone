@@ -238,8 +238,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       {!previewMode && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            {config?.room_logo_url ? (
-              <img src={config.room_logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />
+            {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
+              <div className="flex items-center gap-2">
+                {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-10 w-10 rounded-lg object-cover" />}
+                {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-10 w-10 rounded-lg object-cover" />}
+              </div>
             ) : (
               <div className="p-2 rounded-lg bg-destructive/10">
                 <Radio className="h-5 w-5 text-destructive" />
@@ -386,8 +389,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
               style={{ backgroundColor: bgColor }}
             >
-              {config?.room_logo_url && (
-                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
+                <div className="flex items-center gap-3 mb-6">
+                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover opacity-80" />}
+                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-12 w-12 rounded-lg object-cover opacity-80" />}
+                </div>
               )}
               <Heart className="h-10 w-10 text-destructive mb-4" />
               <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
@@ -409,8 +415,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
               style={{ backgroundColor: bgColor }}
             >
-              {config?.room_logo_url && (
-                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
+                <div className="flex items-center gap-3 mb-6">
+                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover opacity-80" />}
+                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-12 w-12 rounded-lg object-cover opacity-80" />}
+                </div>
               )}
               <AlertTriangle className="h-10 w-10 text-destructive mb-4" />
               <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
@@ -449,8 +458,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
               style={{ backgroundColor: bgColor }}
             >
-              {config?.room_logo_url && (
-                <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover mb-6 opacity-80" />
+              {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
+                <div className="flex items-center gap-3 mb-6">
+                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-12 w-12 rounded-lg object-cover opacity-80" />}
+                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-12 w-12 rounded-lg object-cover opacity-80" />}
+                </div>
               )}
               <AlertTriangle className="h-10 w-10 text-yellow-400 mb-4" />
               <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">

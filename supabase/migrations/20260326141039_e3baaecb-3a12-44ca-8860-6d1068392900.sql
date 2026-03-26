@@ -1,0 +1,1 @@
+ALTER TABLE public.auto_webinar_config ADD COLUMN room_logo_url_2 text;
