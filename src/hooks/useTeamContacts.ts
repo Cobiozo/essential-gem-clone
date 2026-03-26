@@ -439,6 +439,7 @@ export const useTeamContacts = () => {
       const ids = new Set<string>();
       const idsBO = new Set<string>();
       const idsHC = new Set<string>();
+      const idsGeneral = new Set<string>();
       const detailsMap = new Map<string, EventRegistrationInfo[]>();
       
       // Deduplicate: keep best record per contact+event (prefer 'registered', then latest)
@@ -459,12 +460,15 @@ export const useTeamContacts = () => {
         const contactId = r.team_contact_id as string;
         ids.add(contactId);
         
-        const eventCategory = categoryMap.get(r.event_id) || 'business_opportunity';
+        const eventCategory = categoryMap.get(r.event_id);
+        const resolvedCategory = eventCategory || 'general';
         
-        if (eventCategory === 'health_conversation') {
+        if (resolvedCategory === 'health_conversation') {
           idsHC.add(contactId);
-        } else {
+        } else if (resolvedCategory === 'business_opportunity') {
           idsBO.add(contactId);
+        } else {
+          idsGeneral.add(contactId);
         }
         
         const event = r.events as any;
@@ -478,7 +482,7 @@ export const useTeamContacts = () => {
             guest_status: r.status || 'registered',
             registered_at: r.registered_at || '',
             registration_attempts: attempts > 1 ? attempts : undefined,
-            event_category: eventCategory,
+            event_category: resolvedCategory,
           };
           const existing = detailsMap.get(contactId) || [];
           existing.push(info);
@@ -489,6 +493,7 @@ export const useTeamContacts = () => {
       setEventContactIds(ids);
       setEventContactIdsBO(idsBO);
       setEventContactIdsHC(idsHC);
+      setEventContactIdsGeneral(idsGeneral);
       setEventContactDetails(detailsMap);
     } catch (error) {
       console.error('Error fetching event contact IDs:', error);
