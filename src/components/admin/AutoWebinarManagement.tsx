@@ -561,6 +561,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         return;
       }
     } else {
+      const cfg = await ensureConfig();
       const maxOrder = videos.length > 0 ? Math.max(...videos.map(v => v.sort_order)) + 1 : 0;
       const { error } = await supabase
         .from('auto_webinar_videos')
@@ -574,6 +575,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
           cover_image_url: videoForm.cover_image_url || null,
           sort_order: maxOrder,
           uploaded_by: user?.id,
+          config_id: cfg.id,
         });
       if (error) {
         toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
