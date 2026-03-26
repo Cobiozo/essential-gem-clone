@@ -1,35 +1,64 @@
 
 
-# Naprawa wyświetlania stanu po zakończeniu wideo auto-webinaru
+# Analiza synchronizacji wideo auto-webinaru i obsługa ponownego dołączania
 
-## Problem
-Po zakończeniu odtwarzania wideo (webinar2 = 215s), zamiast ekranu "Spotkanie już się odbyło" lub "Dziękujemy za uczestnictwo!", wyświetla się domyślny ekran "Oczekiwanie na transmisję..." — stan domyślny, który pojawia się gdy żaden warunek renderowania nie został spełniony.
+## Obecny stan — co działa dobrze
 
-## Diagnoza
-Webinar **był odtworzony** (rekord w `auto_webinar_views` potwierdza 239s oglądania od 01:00:30). Problem polega na tym, że po zakończeniu wideo komponent nie przechodzi poprawnie do stanu końcowego.
+1. **Synchronizacja czasowa** — działa poprawnie. Wideo startuje punktualnie o godzinie slotu. Gość dołączający o 11:02 widzi `startOffset = 122` (sekundy od startu slotu), a odtwarzacz ustawia `video.currentTime = startOffset`. Wideo toczy się niezależnie od ruchu uczestników.
 
-Potencjalne przyczyny:
-1. **Batching stanów React** — resetFlags() + setIsRoomClosed(true) mogą nie batować się poprawnie w setInterval callback
-2. **Tab w tle** — przeglądarka throttluje setInterval, przez co calculate() nie uruchamia się w odpowiednim momencie
-3. **Brak stanu fallback** — domyślny "Oczekiwanie" nie powinien nigdy pojawić się dla gościa z parametrem slot
+2. **Ciągłość odtwarzania** — po pierwszym załadowaniu wideo gra nieprzerwanie (guard `hasStartedRef` w efekcie playback zapobiega ponownemu ładowaniu). `startOffset` jest przeliczany co 10s, ale NIE nadpisuje pozycji odtwarzacza — służy tylko do inicjalnego seekowania.
 
-## Zmiany
+3. **Blokowanie spóźnionych** — działa, ale za agresywnie (patrz problem).
 
-### 1. `src/hooks/useAutoWebinarSync.ts` — dodanie console.log diagnostycznych
-- Dodać logi stanu przy każdej kalkulacji (sinceSlot, duration, wybrany branch)
-- To pozwoli debugować następne wystąpienie
+## Problem do naprawy
 
-### 2. `src/hooks/useAutoWebinarSync.ts` — naprawa potencjalnego bugu stanów
-- Zamiast wywoływać resetFlags() + setFlag(true) osobno, użyć jednego bloku setState lub upewnić się, że stany są ustawiane atomowo
-- Dodać fallback: jeśli isGuest=true && guestSlotTime istnieje && sinceSlot > duration + 60s → zawsze ustawiać isRoomClosed=true (nawet jeśli resetFlags zawiodło)
+**Brak rozróżnienia między "nigdy nie dołączył" a "był, ale wyszedł z przyczyn technicznych".**
 
-### 3. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — fallback "Oczekiwanie" z info diagnostycznym
-- W trybie guest z parametrem slot, "Oczekiwanie na transmisję..." nie powinno się NIGDY wyświetlić — zamienić na odpowiedni komunikat (np. "Spotkanie niedostępne" z sugestią kontaktu)
-- Dodać warunek: jeśli isGuest && guestSlotTime && !isInActiveHours && secondsToNext === 0 && żaden flag nie jest aktywny → pokazać "Spotkanie już się odbyło" zamiast pustego "Oczekiwania"
+Obecna logika (linia 225 w `useAutoWebinarSync.ts`):
+```
+if (sinceSlot > lateJoinMaxSec && sinceSlot < duration)
+  → isTooLate = true  // blokuje KAŻDEGO
+```
+
+Gość, który dołączył o 11:00, oglądał 5 minut, stracił połączenie i próbuje wrócić o 11:08 — jest blokowany identycznie jak ktoś, kto nigdy nie był na spotkaniu.
+
+## Rozwiązanie
+
+### 1. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — sprawdzenie istniejącej sesji
+
+Dodać zapytanie do `auto_webinar_views` sprawdzające, czy dany gość (po `guest_email` lub `session_id`) ma już rekord dla bieżącego wideo. Jeśli tak → ustawić flagę `hasExistingSession = true`.
+
+### 2. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — bypass `isTooLate` dla powracających
+
+Zmienić warunek renderowania:
+- Jeśli `isTooLate === true` ORAZ `hasExistingSession === true` → pozwól dołączyć (traktuj jak normalny `shouldShowPlayer`)
+- Jeśli `isTooLate === true` ORAZ `hasExistingSession === false` → zablokuj (obecne zachowanie "Spotkanie jest w trakcie")
+
+### 3. Persystencja `sessionId` w `localStorage`
+
+Obecnie `sessionId` jest generowany jako `crypto.randomUUID()` przy każdym renderze — po odświeżeniu strony jest nowy. Aby rozpoznać powracającego gościa:
+- Zapisywać `sessionId` w `localStorage` z kluczem zawierającym `guestSlotTime` i datę
+- Przy ponownym wejściu odczytać ten sam `sessionId`
+- Alternatywnie (prostsze): szukać po `guest_email` w `auto_webinar_views`
+
+### Schemat decyzyjny
+```text
+Gość dołącza po lateJoinMaxSec:
+  ├── Czy istnieje rekord w auto_webinar_views
+  │   dla tego emaila + tego wideo + dzisiejsza data?
+  │   ├── TAK → Wpuść (rejoin), wideo gra od aktualnego offsetu
+  │   └── NIE → Zablokuj (isTooLate = "Spotkanie jest w trakcie")
+```
 
 ### Pliki do modyfikacji
+
 | Plik | Zmiana |
 |---|---|
-| `src/hooks/useAutoWebinarSync.ts` | Console.log diagnostyczne + naprawa atomowości stanów |
-| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Inteligentny fallback zamiast pustego "Oczekiwania" dla gości |
+| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Query do `auto_webinar_views` + bypass `isTooLate` dla istniejących sesji |
+| `src/hooks/useAutoWebinarTracking.ts` | Opcjonalnie: persystencja `sessionId` w localStorage |
+
+### Co NIE wymaga zmian
+- `useAutoWebinarSync.ts` — logika synchronizacji czasowej jest poprawna, wideo startuje punktualnie i gra niezależnie od uczestników
+- Baza danych — nie trzeba nowych tabel ani migracji
+- Blokowanie po `linkExpiry` i `roomClosed` — bez zmian
 
