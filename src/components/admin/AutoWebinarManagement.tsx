@@ -46,6 +46,9 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const [logoPickerOpen, setLogoPickerOpen] = useState(false);
   const [invitationClickCount, setInvitationClickCount] = useState<number>(0);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [editSlug, setEditSlug] = useState('');
+  const [savingSlug, setSavingSlug] = useState(false);
+  const [invitationBaseUrl, setInvitationBaseUrl] = useState('https://purelife.info.pl/e/');
   const logoFileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
@@ -261,6 +264,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       ]);
       const eventData = eventRes.data;
       setLinkedEvent(eventData as LinkedEvent | null);
+      setEditSlug(eventData?.slug || '');
       setInvitationClickCount(clicksRes.count || 0);
 
       // Auto-fix: if system is disabled but event is still active, deactivate it
@@ -493,7 +497,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
 
   const copyInviteLink = async () => {
     if (!linkedEvent?.slug) return;
-    const link = `https://purelife.info.pl/e/${linkedEvent.slug}`;
+    const link = `${invitationBaseUrl}${editSlug || linkedEvent.slug}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopiedLink(true);
@@ -1322,12 +1326,56 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
               </div>
 
               <div>
-                <Label className="text-sm">Link zaproszeniowy</Label>
+                <Label className="text-sm">Slug wydarzenia</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    value={editSlug || linkedEvent.slug || ''}
+                    onChange={(e) => setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    className="font-mono text-sm"
+                    placeholder="np. webinar-biznesowy"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={savingSlug || !editSlug || editSlug === linkedEvent.slug}
+                    onClick={async () => {
+                      if (!editSlug || !linkedEvent) return;
+                      setSavingSlug(true);
+                      const { error } = await supabase
+                        .from('events')
+                        .update({ slug: editSlug })
+                        .eq('id', linkedEvent.id);
+                      setSavingSlug(false);
+                      if (error) {
+                        toast({ title: 'Błąd zapisu slugu', description: error.message, variant: 'destructive' });
+                      } else {
+                        setLinkedEvent({ ...linkedEvent, slug: editSlug });
+                        toast({ title: 'Slug zapisany' });
+                      }
+                    }}
+                  >
+                    {savingSlug ? 'Zapisuję...' : 'Zapisz'}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm">Bazowy URL zaproszeniowy</Label>
+                <Input
+                  value={invitationBaseUrl}
+                  onChange={(e) => setInvitationBaseUrl(e.target.value)}
+                  className="font-mono text-sm mt-1"
+                  placeholder="https://purelife.info.pl/e/"
+                />
+              </div>
+
+              <div>
+                <Label className="text-sm">Link zaproszeniowy (podgląd)</Label>
                 <div className="flex gap-2 mt-1">
                   <Input
                     readOnly
-                    value={`https://purelife.info.pl/e/${linkedEvent.slug}`}
-                    className="font-mono text-sm"
+                    value={`${invitationBaseUrl}${editSlug || linkedEvent.slug || ''}`}
+                    className="font-mono text-sm bg-muted"
                   />
                   <Button variant="outline" size="icon" onClick={copyInviteLink}>
                     {copiedLink ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
