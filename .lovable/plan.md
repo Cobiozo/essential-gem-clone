@@ -1,37 +1,39 @@
 
-
-# Naprawa: PureBox znikający z paska bocznego dla nie-adminów
+# Naprawa: auto-odświeżanie po odliczeniu 30s
 
 ## Problem
-Tabele `purebox_settings` i `purebox_user_access` mają wyłącznie polityki RLS typu `ALL` ograniczone do adminów (`has_role(auth.uid(), 'admin')`). Partnerzy, klienci i specjaliści otrzymują puste wyniki → hook `usePureBoxVisibility` zwraca `false` → zakładka PureBox znika z sidebara.
+`window.location.reload()` jest wywoływany wewnątrz callback'a `setCountdown` (React state setter). React może zoptymalizować/odroczyć ten callback, przez co `reload()` nigdy się nie wykonuje. Dodatkowo closure `show` zamyka się nad `showBanner` — po re-renderze z `showBanner=true` event listener nie wywoła ponownie `startCountdown` jeśli baner jest już widoczny.
 
 ## Rozwiązanie
-Dodać dwie nowe polityki RLS umożliwiające SELECT dla wszystkich zalogowanych użytkowników, zachowując istniejące polityki admin-only (które obsługują INSERT/UPDATE/DELETE):
+W pliku `src/components/pwa/SWUpdateBanner.tsx`:
 
-1. **`purebox_settings`** — wszyscy authenticated mogą czytać (`USING (true)`). Ustawienia widoczności nie są danymi wrażliwymi — hook i tak filtruje po roli.
-2. **`purebox_user_access`** — użytkownicy mogą czytać tylko swoje rekordy (`USING (user_id = auth.uid())`).
+1. **Przenieść logikę reload poza state setter** — użyć `useRef` do śledzenia countdown i osobnego `useEffect` który reaguje na wartość countdown osiągającą 0, wymuszając `window.location.reload()`.
+2. **Upewnić się że `handleRefresh` natychmiast przeładowuje** — usunąć czekanie na `controllerchange`, od razu `reload()`.
+3. **Dodać `forceReload` jako zabezpieczenie** — `setTimeout(reload, 31000)` jako fallback niezależny od React.
 
-## Migracja SQL
-```sql
--- Allow all authenticated users to read purebox visibility settings
-CREATE POLICY "authenticated_select_purebox_settings"
-ON public.purebox_settings
-FOR SELECT
-TO authenticated
-USING (true);
-
--- Allow users to read their own purebox access grants
-CREATE POLICY "users_select_own_purebox_access"
-ON public.purebox_user_access
-FOR SELECT
-TO authenticated
-USING (user_id = auth.uid());
+### Kluczowa zmiana w `startCountdown`:
+```typescript
+countdownRef.current = setInterval(() => {
+  setCountdown(prev => prev - 1);
+}, 1000);
 ```
 
-## Pliki do modyfikacji
+### Nowy `useEffect` wymuszający reload:
+```typescript
+useEffect(() => {
+  if (showBanner && countdown <= 0) {
+    window.location.reload();
+  }
+}, [countdown, showBanner]);
+```
+
+### Fallback timeout (niezależny od React):
+```typescript
+// W startCountdown, po setInterval:
+setTimeout(() => { window.location.reload(); }, AUTO_RELOAD_SECONDS * 1000 + 500);
+```
+
+## Plik do modyfikacji
 | Plik | Zmiana |
 |---|---|
-| Nowa migracja SQL | 2 polityki RLS (SELECT) |
-
-Żadne zmiany w kodzie frontendu nie są potrzebne — hook `usePureBoxVisibility` już poprawnie odpytuje te tabele.
-
+| `src/components/pwa/SWUpdateBanner.tsx` | Wydzielić reload z state settera, dodać useEffect + fallback timeout |
