@@ -208,6 +208,7 @@ const EventGuestRegistration: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  const [existingUserBlocked, setExistingUserBlocked] = useState(false);
   const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
   const [autoWebinarVideo, setAutoWebinarVideo] = useState<AutoWebinarVideoData | null>(null);
 
@@ -280,6 +281,7 @@ const EventGuestRegistration: React.FC = () => {
     fetchConfig();
   }, [event]);
 
+
   const onSubmit = async (data: RegistrationFormData) => {
     if (!eventId) return;
     
@@ -287,6 +289,19 @@ const EventGuestRegistration: React.FC = () => {
     setError(null);
 
     try {
+      // Check if email belongs to a registered platform user
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('email', data.email.trim().toLowerCase())
+        .maybeSingle();
+
+      if (existingProfile) {
+        setExistingUserBlocked(true);
+        setSubmitting(false);
+        return;
+      }
+
       // Calculate slot_time for auto-webinars
       const slotTimeValue = isAutoWebinar && autoWebinarConfig 
         ? getNextSlot(autoWebinarConfig, slotParam).time 
@@ -381,6 +396,23 @@ const EventGuestRegistration: React.FC = () => {
   const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
+
+  if (existingUserBlocked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-lg w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-16 w-16 mx-auto text-amber-500 mb-4" />
+            <CardTitle className="text-2xl">Konto już istnieje</CardTitle>
+            <CardDescription className="text-left mt-4">
+              <p>Użytkownik o takim adresie e-mail istnieje w bazie użytkowników zarejestrowanych na platformie. Skorzystaj z dołączenia do wydarzenia poprzez swoje konto na Pure Life Center.</p>
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (success || alreadyRegistered) {
     return (

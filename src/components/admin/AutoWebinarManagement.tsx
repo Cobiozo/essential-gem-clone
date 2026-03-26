@@ -1130,8 +1130,8 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                   <div className="flex items-center gap-2">
                     {(roomForm.room_logo_url || roomForm.room_logo_url_2) ? (
                       <div className="flex items-center gap-1.5">
-                        {roomForm.room_logo_url && <img src={roomForm.room_logo_url} alt="" className="h-8 w-8 rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />}
-                        {roomForm.room_logo_url_2 && <img src={roomForm.room_logo_url_2} alt="" className="h-8 w-8 rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+                        {roomForm.room_logo_url && <img src={roomForm.room_logo_url} alt="" className="h-8 max-w-[100px] object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+                        {roomForm.room_logo_url_2 && <img src={roomForm.room_logo_url_2} alt="" className="h-8 max-w-[100px] object-contain" onError={(e) => (e.currentTarget.style.display = 'none')} />}
                       </div>
                     ) : (
                       <div className="p-1.5 rounded-lg bg-destructive/10">
