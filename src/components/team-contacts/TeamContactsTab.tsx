@@ -64,7 +64,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
-  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactIdsBO, eventContactIdsHC, eventContactDetails, eventGroupedContacts, eventGroupedContactsBO, eventGroupedContactsHC, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, moveToOwnList } = useTeamContacts();
+  const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactIdsBO, eventContactIdsHC, eventContactIdsGeneral, eventContactDetails, eventGroupedContacts, eventGroupedContactsBO, eventGroupedContactsHC, eventGroupedContactsGeneral, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, moveToOwnList } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
   const location = useLocation();
@@ -81,7 +81,7 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'partner-page' | 'deleted'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'partner-page' | 'deleted'>('own');
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -207,12 +207,14 @@ export const TeamContactsTab: React.FC = () => {
   const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id) || (c as any).moved_to_own_list);
   const eventContactsBO = privateContacts.filter(c => eventContactIdsBO.has(c.id) && !(c as any).moved_to_own_list);
   const eventContactsHC = privateContacts.filter(c => eventContactIdsHC.has(c.id) && !(c as any).moved_to_own_list);
+  const eventContactsGeneral = privateContacts.filter(c => eventContactIdsGeneral.has(c.id) && !(c as any).moved_to_own_list);
   const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska');
   
   const filteredContacts = (() => {
     if (activeTab === 'private') {
       if (privateSubTab === 'events-bo') return eventContactsBO;
       if (privateSubTab === 'events-hc') return eventContactsHC;
+      if (privateSubTab === 'events-general') return eventContactsGeneral;
       if (privateSubTab === 'partner-page') return partnerPageContacts;
       return ownContacts;
     }
@@ -362,6 +364,14 @@ export const TeamContactsTab: React.FC = () => {
                   <Badge variant="secondary" className="ml-2">{eventContactsHC.length}</Badge>
                 </Button>
                 <Button
+                  variant={privateSubTab === 'events-general' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('events-general')}
+                >
+                  Z zaproszeń na webinary ogólne
+                  <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                </Button>
+                <Button
                   variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('partner-page')}
@@ -413,6 +423,17 @@ export const TeamContactsTab: React.FC = () => {
               ) : privateSubTab === 'events-hc' ? (
               <EventGroupedContacts
                   eventGroups={eventGroupedContactsHC}
+                  duplicateContactEvents={duplicateContactEvents}
+                  eventContactDetails={eventContactDetails}
+                  loading={loading}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
+                  onMoveToOwnList={moveToOwnList}
+                />
+              ) : privateSubTab === 'events-general' ? (
+              <EventGroupedContacts
+                  eventGroups={eventGroupedContactsGeneral}
                   duplicateContactEvents={duplicateContactEvents}
                   eventContactDetails={eventContactDetails}
                   loading={loading}

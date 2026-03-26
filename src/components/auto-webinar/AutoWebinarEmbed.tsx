@@ -25,7 +25,16 @@ interface AutoWebinarEmbedProps {
 export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime, guestEmail, category = 'business_opportunity' }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig(category);
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos(config?.id);
-  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime, previewMode);
+  const [hasExistingSession, setHasExistingSession] = useState(() => {
+    // Check localStorage synchronously for immediate bypass on mount
+    if (isGuest && guestEmail) {
+      const today = new Date().toISOString().slice(0, 10);
+      const sessionKey = `aw_session_${guestEmail}_${today}`;
+      return !!localStorage.getItem(sessionKey);
+    }
+    return false;
+  });
+  const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime, previewMode, hasExistingSession);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
@@ -34,7 +43,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [hasExistingSession, setHasExistingSession] = useState(false);
+  // hasExistingSession is declared above (before useAutoWebinarSync) with localStorage init
   const sessionCheckDone = useRef(false);
 
   // Check if guest has an existing session (for rejoin after disconnect)
