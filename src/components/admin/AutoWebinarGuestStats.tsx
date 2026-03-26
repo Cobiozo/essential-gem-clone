@@ -261,7 +261,7 @@ export const AutoWebinarGuestStats: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       {g.joined ? (
-                        <Badge variant="secondary" className="bg-green-600/20 text-green-600 border-0 text-xs">Tak</Badge>
+                        <Badge variant="default" className="text-xs">Tak</Badge>
                       ) : (
                         <Badge variant="secondary" className="bg-muted text-muted-foreground border-0 text-xs">Nie</Badge>
                       )}
