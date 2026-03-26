@@ -1,62 +1,43 @@
 
 
-# Separacja wideo i konfiguracji BO / HC w Auto-Webinar
+# Podgląd admina zawsze dostępny + edycja slugu i linku zaproszeniowego
 
 ## Problem
-Obecnie filmy (`auto_webinar_videos`) nie mają powiązania z konkretną konfiguracją BO lub HC — są ładowane globalnie. Hooki frontowe (`useAutoWebinarConfig`, `useAutoWebinarVideos`) pobierają dane bez filtra `category`. W efekcie BO i HC współdzielą te same wideo i konfigurację, zamiast działać niezależnie.
+1. **Podgląd**: Gdy admin otwiera podgląd poza godzinami emisji, widzi "Poza godzinami emisji" zamiast odtwarzacza. Podgląd powinien zawsze odtwarzać pierwszy aktywny film gdy system jest włączony i mieści się w godzinach emisji.
+2. **Slug**: Admin nie może edytować slugu wydarzenia — jest generowany automatycznie i tylko do odczytu. Nie ma też możliwości budowania pełnego linku zaproszeniowego.
 
 ## Rozwiązanie
 
-### 1. Migracja bazy danych
-Dodać kolumnę `config_id` do tabeli `auto_webinar_videos`:
-```sql
-ALTER TABLE public.auto_webinar_videos
-ADD COLUMN config_id uuid REFERENCES public.auto_webinar_config(id) ON DELETE SET NULL;
-```
-Następnie przypisać istniejące wideo do konfiguracji BO (aby obecne dane nie zostały utracone):
-```sql
-UPDATE public.auto_webinar_videos
-SET config_id = (SELECT id FROM public.auto_webinar_config WHERE category = 'business_opportunity' LIMIT 1)
-WHERE config_id IS NULL;
-```
+### 1. Podgląd admina — zawsze odtwarza w godzinach emisji
 
-### 2. Typ `AutoWebinarVideo` — dodać `config_id`
-Plik: `src/types/autoWebinar.ts`
-- Dodać `config_id: string | null` do interfejsu
+Plik: `src/hooks/useAutoWebinarSync.ts`
 
-### 3. Hooki — dodać filtr `category`
-Plik: `src/hooks/useAutoWebinar.ts`
-- `useAutoWebinarConfig(category)` — dodać parametr `category: 'business_opportunity' | 'health_conversation'`, filtrować `.eq('category', category)`
-- `useAutoWebinarVideos(configId)` — dodać parametr `configId: string | null`, filtrować `.eq('config_id', configId)` gdy podany
+W sekcji "LOGGED-IN USER" (linia ~266), gdy `previewMode` jest aktywny, pominąć logikę slotów i zawsze ustawić pierwszy aktywny film z `startOffset = 0`. Wymaga dodania parametru `previewMode` do hooka `useAutoWebinarSync`.
 
-### 4. Admin panel — filtrować wideo po `config_id`
-Plik: `src/components/admin/AutoWebinarManagement.tsx`
-- W `loadData`: filtrować wideo `.eq('config_id', cfg.id)` zamiast ładować wszystkie
-- W `handleSaveVideo` (insert): dodać `config_id: config.id` do insertu nowego wideo
+- Dodać opcjonalny parametr `previewMode?: boolean` do `useAutoWebinarSync`
+- Na początku `calculate()`: jeśli `previewMode === true`, ustawić `currentVideo = activeVideos[0]`, `startOffset = 0`, `isInActiveHours = true` i zwrócić — bez sprawdzania slotów/godzin
+- W `AutoWebinarEmbed.tsx` (linia ~28): przekazać `previewMode` do `useAutoWebinarSync`
 
-### 5. `AutoWebinarEmbed` — przyjąć prop `category`
 Plik: `src/components/auto-webinar/AutoWebinarEmbed.tsx`
-- Dodać prop `category` (domyślnie `'business_opportunity'`)
-- Przekazać `category` do `useAutoWebinarConfig(category)`
-- Przekazać `config?.id` do `useAutoWebinarVideos(config?.id)`
+- Zmienić wywołanie: `useAutoWebinarSync(videos, config, isGuest, guestSlotTime, previewMode)`
 
-### 6. `AutoWebinarRoom` — przekazać `category` do obu zakładek
-Plik: `src/components/auto-webinar/AutoWebinarRoom.tsx`
-- Zakładka BO: `<AutoWebinarEmbed category="business_opportunity" />`
-- Zakładka HC: `<AutoWebinarEmbed category="health_conversation" />` (zamiast placeholder)
+### 2. Edytowalny slug i link zaproszeniowy
 
-### 7. Strona publiczna i inne konsumenty — dopasować
-- `AutoWebinarPublicPage` — ustalić kategorię na podstawie slugu (query param `?cat=` lub lookup z `events` → `auto_webinar_config.event_id`)
-- `AutoWebinarEventView`, `WebinarsPage` — przekazać odpowiednią kategorię
+Plik: `src/components/admin/AutoWebinarManagement.tsx`
 
-## Pliki do modyfikacji
+W sekcji "Wydarzenie i zaproszenia" (linia ~1324-1350):
+- Zmienić pole `Input` ze slugu z `readOnly` na edytowalne
+- Dodać stan `editSlug` i przycisk "Zapisz slug"
+- Dodać pole do edycji bazowego URL linku zaproszeniowego (domyślnie `https://purelife.info.pl/e/`)
+- Po zapisie slugu: `UPDATE events SET slug = newSlug WHERE id = linkedEvent.id`
+- Wyświetlać podgląd pełnego linku w czasie rzeczywistym
+
+Dodać też pole konfiguracyjne `invitation_base_url` do konfiguracji, aby admin mógł zdefiniować bazowy URL (np. `https://purelife.info.pl/e/` lub inna domena).
+
+### Pliki do edycji
 | Plik | Zmiana |
 |---|---|
-| Nowa migracja SQL | `config_id` na `auto_webinar_videos` + update istniejących |
-| `src/types/autoWebinar.ts` | Dodać `config_id` |
-| `src/hooks/useAutoWebinar.ts` | Parametry `category` i `configId` |
-| `src/components/admin/AutoWebinarManagement.tsx` | Filtr wideo po `config_id`, insert z `config_id` |
-| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Prop `category` |
-| `src/components/auto-webinar/AutoWebinarRoom.tsx` | Przekazanie `category` do obu zakładek |
-| `src/pages/AutoWebinarPublicPage.tsx` | Ustalenie kategorii z kontekstu eventu |
+| `src/hooks/useAutoWebinarSync.ts` | Dodać parametr `previewMode`, bypass logiki slotów |
+| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Przekazać `previewMode` do hooka sync |
+| `src/components/admin/AutoWebinarManagement.tsx` | Edytowalny slug + budowanie linku zaproszeniowego |
 
