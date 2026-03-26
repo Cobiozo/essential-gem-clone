@@ -364,6 +364,13 @@ export const TeamContactsTab: React.FC = () => {
                   <Badge variant="secondary" className="ml-2">{eventContactsHC.length}</Badge>
                 </Button>
                 <Button
+                  variant={privateSubTab === 'events-general' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setPrivateSubTab('events-general')}
+                >
+                  Z zaproszeń na webinary ogólne
+                  <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                <Button
                   variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('partner-page')}
