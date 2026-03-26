@@ -1,64 +1,37 @@
 
 
-# Analiza synchronizacji wideo auto-webinaru i obsługa ponownego dołączania
+# Naprawa: PureBox znikający z paska bocznego dla nie-adminów
 
-## Obecny stan — co działa dobrze
-
-1. **Synchronizacja czasowa** — działa poprawnie. Wideo startuje punktualnie o godzinie slotu. Gość dołączający o 11:02 widzi `startOffset = 122` (sekundy od startu slotu), a odtwarzacz ustawia `video.currentTime = startOffset`. Wideo toczy się niezależnie od ruchu uczestników.
-
-2. **Ciągłość odtwarzania** — po pierwszym załadowaniu wideo gra nieprzerwanie (guard `hasStartedRef` w efekcie playback zapobiega ponownemu ładowaniu). `startOffset` jest przeliczany co 10s, ale NIE nadpisuje pozycji odtwarzacza — służy tylko do inicjalnego seekowania.
-
-3. **Blokowanie spóźnionych** — działa, ale za agresywnie (patrz problem).
-
-## Problem do naprawy
-
-**Brak rozróżnienia między "nigdy nie dołączył" a "był, ale wyszedł z przyczyn technicznych".**
-
-Obecna logika (linia 225 w `useAutoWebinarSync.ts`):
-```
-if (sinceSlot > lateJoinMaxSec && sinceSlot < duration)
-  → isTooLate = true  // blokuje KAŻDEGO
-```
-
-Gość, który dołączył o 11:00, oglądał 5 minut, stracił połączenie i próbuje wrócić o 11:08 — jest blokowany identycznie jak ktoś, kto nigdy nie był na spotkaniu.
+## Problem
+Tabele `purebox_settings` i `purebox_user_access` mają wyłącznie polityki RLS typu `ALL` ograniczone do adminów (`has_role(auth.uid(), 'admin')`). Partnerzy, klienci i specjaliści otrzymują puste wyniki → hook `usePureBoxVisibility` zwraca `false` → zakładka PureBox znika z sidebara.
 
 ## Rozwiązanie
+Dodać dwie nowe polityki RLS umożliwiające SELECT dla wszystkich zalogowanych użytkowników, zachowując istniejące polityki admin-only (które obsługują INSERT/UPDATE/DELETE):
 
-### 1. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — sprawdzenie istniejącej sesji
+1. **`purebox_settings`** — wszyscy authenticated mogą czytać (`USING (true)`). Ustawienia widoczności nie są danymi wrażliwymi — hook i tak filtruje po roli.
+2. **`purebox_user_access`** — użytkownicy mogą czytać tylko swoje rekordy (`USING (user_id = auth.uid())`).
 
-Dodać zapytanie do `auto_webinar_views` sprawdzające, czy dany gość (po `guest_email` lub `session_id`) ma już rekord dla bieżącego wideo. Jeśli tak → ustawić flagę `hasExistingSession = true`.
+## Migracja SQL
+```sql
+-- Allow all authenticated users to read purebox visibility settings
+CREATE POLICY "authenticated_select_purebox_settings"
+ON public.purebox_settings
+FOR SELECT
+TO authenticated
+USING (true);
 
-### 2. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — bypass `isTooLate` dla powracających
-
-Zmienić warunek renderowania:
-- Jeśli `isTooLate === true` ORAZ `hasExistingSession === true` → pozwól dołączyć (traktuj jak normalny `shouldShowPlayer`)
-- Jeśli `isTooLate === true` ORAZ `hasExistingSession === false` → zablokuj (obecne zachowanie "Spotkanie jest w trakcie")
-
-### 3. Persystencja `sessionId` w `localStorage`
-
-Obecnie `sessionId` jest generowany jako `crypto.randomUUID()` przy każdym renderze — po odświeżeniu strony jest nowy. Aby rozpoznać powracającego gościa:
-- Zapisywać `sessionId` w `localStorage` z kluczem zawierającym `guestSlotTime` i datę
-- Przy ponownym wejściu odczytać ten sam `sessionId`
-- Alternatywnie (prostsze): szukać po `guest_email` w `auto_webinar_views`
-
-### Schemat decyzyjny
-```text
-Gość dołącza po lateJoinMaxSec:
-  ├── Czy istnieje rekord w auto_webinar_views
-  │   dla tego emaila + tego wideo + dzisiejsza data?
-  │   ├── TAK → Wpuść (rejoin), wideo gra od aktualnego offsetu
-  │   └── NIE → Zablokuj (isTooLate = "Spotkanie jest w trakcie")
+-- Allow users to read their own purebox access grants
+CREATE POLICY "users_select_own_purebox_access"
+ON public.purebox_user_access
+FOR SELECT
+TO authenticated
+USING (user_id = auth.uid());
 ```
 
-### Pliki do modyfikacji
-
+## Pliki do modyfikacji
 | Plik | Zmiana |
 |---|---|
-| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Query do `auto_webinar_views` + bypass `isTooLate` dla istniejących sesji |
-| `src/hooks/useAutoWebinarTracking.ts` | Opcjonalnie: persystencja `sessionId` w localStorage |
+| Nowa migracja SQL | 2 polityki RLS (SELECT) |
 
-### Co NIE wymaga zmian
-- `useAutoWebinarSync.ts` — logika synchronizacji czasowej jest poprawna, wideo startuje punktualnie i gra niezależnie od uczestników
-- Baza danych — nie trzeba nowych tabel ani migracji
-- Blokowanie po `linkExpiry` i `roomClosed` — bez zmian
+Żadne zmiany w kodzie frontendu nie są potrzebne — hook `usePureBoxVisibility` już poprawnie odpytuje te tabele.
 
