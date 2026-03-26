@@ -33,6 +33,7 @@ export interface AutoWebinarConfig {
   room_show_live_badge: boolean;
   room_show_schedule_info: boolean;
   room_logo_url: string | null;
+  room_logo_url_2: string | null;
   // Invitation customization
   invitation_title: string | null;
   invitation_description: string | null;

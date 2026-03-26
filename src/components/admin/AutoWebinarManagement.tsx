@@ -44,12 +44,14 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [logoPickerOpen, setLogoPickerOpen] = useState(false);
+  const [logo2PickerOpen, setLogo2PickerOpen] = useState(false);
   const [invitationClickCount, setInvitationClickCount] = useState<number>(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [editSlug, setEditSlug] = useState('');
   const [savingSlug, setSavingSlug] = useState(false);
   const [invitationBaseUrl, setInvitationBaseUrl] = useState('https://purelife.info.pl/e/');
   const logoFileRef = useRef<HTMLInputElement>(null);
+  const logo2FileRef = useRef<HTMLInputElement>(null);
   const [videoForm, setVideoForm] = useState({
     title: '',
     description: '',
@@ -75,6 +77,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     room_show_live_badge: true,
     room_show_schedule_info: true,
     room_logo_url: '',
+    room_logo_url_2: '',
     countdown_label: 'Następny webinar za',
     room_custom_section_title: '',
     room_custom_section_content: '',
@@ -108,6 +111,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         room_show_live_badge: config.room_show_live_badge !== false,
         room_show_schedule_info: config.room_show_schedule_info !== false,
         room_logo_url: config.room_logo_url || '',
+        room_logo_url_2: (config as any).room_logo_url_2 || '',
         countdown_label: config.countdown_label || 'Następny webinar za',
         room_custom_section_title: config.room_custom_section_title || '',
         room_custom_section_content: config.room_custom_section_content || '',
@@ -381,6 +385,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       room_show_live_badge: roomForm.room_show_live_badge,
       room_show_schedule_info: roomForm.room_show_schedule_info,
       room_logo_url: roomForm.room_logo_url || null,
+      room_logo_url_2: roomForm.room_logo_url_2 || null,
       countdown_label: roomForm.countdown_label || 'Następny webinar za',
       room_custom_section_title: roomForm.room_custom_section_title || null,
       room_custom_section_content: roomForm.room_custom_section_content || null,
@@ -1003,10 +1008,10 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                 </div>
               </div>
               <div>
-                <Label>Logo pokoju (opcjonalnie)</Label>
+                <Label>Logo 1 (opcjonalnie)</Label>
                 {roomForm.room_logo_url ? (
                   <div className="flex items-center gap-3 mt-2">
-                    <img src={roomForm.room_logo_url} alt="Logo" className="h-12 w-12 rounded-lg object-cover border" />
+                    <img src={roomForm.room_logo_url} alt="Logo 1" className="h-12 w-12 rounded-lg object-cover border" />
                     <Button variant="ghost" size="icon" onClick={() => setRoomForm(prev => ({ ...prev, room_logo_url: '' }))}>
                       <X className="h-4 w-4 text-destructive" />
                     </Button>
@@ -1027,6 +1032,46 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                       accept="image/*"
                       className="hidden"
                       onChange={handleUploadLogo}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Label>Logo 2 (opcjonalnie)</Label>
+                {roomForm.room_logo_url_2 ? (
+                  <div className="flex items-center gap-3 mt-2">
+                    <img src={roomForm.room_logo_url_2} alt="Logo 2" className="h-12 w-12 rounded-lg object-cover border" />
+                    <Button variant="ghost" size="icon" onClick={() => setRoomForm(prev => ({ ...prev, room_logo_url_2: '' }))}>
+                      <X className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 mt-1">
+                    <Button variant="outline" size="sm" onClick={() => setLogo2PickerOpen(true)}>
+                      <ImageIcon className="h-4 w-4 mr-1" />
+                      Z biblioteki
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => logo2FileRef.current?.click()}>
+                      <Upload className="h-4 w-4 mr-1" />
+                      Z komputera
+                    </Button>
+                    <input
+                      ref={logo2FileRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        e.target.value = '';
+                        const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+                        const fileName = `auto-webinar-logo2-${Date.now()}.${ext}`;
+                        const { error: uploadError } = await supabase.storage.from('cms-images').upload(fileName, file, { cacheControl: '3600' });
+                        if (uploadError) { toast({ title: 'Błąd uploadu', description: uploadError.message, variant: 'destructive' }); return; }
+                        const { data: urlData } = supabase.storage.from('cms-images').getPublicUrl(fileName);
+                        setRoomForm(prev => ({ ...prev, room_logo_url_2: urlData.publicUrl }));
+                        toast({ title: 'Logo 2 przesłane' });
+                      }}
                     />
                   </div>
                 )}
@@ -1083,8 +1128,11 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                 {/* Header preview */}
                 <div className="p-3 flex items-center justify-between border-b">
                   <div className="flex items-center gap-2">
-                    {roomForm.room_logo_url ? (
-                      <img src={roomForm.room_logo_url} alt="" className="h-8 w-8 rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    {(roomForm.room_logo_url || roomForm.room_logo_url_2) ? (
+                      <div className="flex items-center gap-1.5">
+                        {roomForm.room_logo_url && <img src={roomForm.room_logo_url} alt="" className="h-8 w-8 rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+                        {roomForm.room_logo_url_2 && <img src={roomForm.room_logo_url_2} alt="" className="h-8 w-8 rounded-lg object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+                      </div>
                     ) : (
                       <div className="p-1.5 rounded-lg bg-destructive/10">
                         <Radio className="h-4 w-4 text-destructive" />
@@ -1608,11 +1656,11 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         </DialogContent>
       </Dialog>
 
-      {/* Logo Picker Dialog */}
+      {/* Logo 1 Picker Dialog */}
       <Dialog open={logoPickerOpen} onOpenChange={setLogoPickerOpen}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Wybierz logo z biblioteki mediów</DialogTitle>
+            <DialogTitle>Wybierz logo 1 z biblioteki mediów</DialogTitle>
           </DialogHeader>
           <AdminMediaLibrary
             mode="picker"
@@ -1620,7 +1668,25 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
             onSelect={(file) => {
               setRoomForm(prev => ({ ...prev, room_logo_url: file.file_url }));
               setLogoPickerOpen(false);
-              toast({ title: 'Logo wybrane' });
+              toast({ title: 'Logo 1 wybrane' });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Logo 2 Picker Dialog */}
+      <Dialog open={logo2PickerOpen} onOpenChange={setLogo2PickerOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Wybierz logo 2 z biblioteki mediów</DialogTitle>
+          </DialogHeader>
+          <AdminMediaLibrary
+            mode="picker"
+            allowedTypes={['image']}
+            onSelect={(file) => {
+              setRoomForm(prev => ({ ...prev, room_logo_url_2: file.file_url }));
+              setLogo2PickerOpen(false);
+              toast({ title: 'Logo 2 wybrane' });
             }}
           />
         </DialogContent>
