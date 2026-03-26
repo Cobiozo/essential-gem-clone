@@ -1,41 +1,51 @@
 
 
-# Dwa zadania: Naprawa modalu powiadomień + Podzakładki Auto-Webinar
+# Podział "Z zaproszeń na wydarzenia" na dwie kategorie: BO i HC
 
-## Problem 1: Modal powiadomień wyskakuje mimo udzielonej zgody (Brave)
+## Cel
+Zastąpić jeden przycisk "Z zaproszeń na wydarzenia" dwoma osobnymi:
+- **Z zaproszeń na Business Opportunity**
+- **Z zaproszeń na Health Conversation**
 
-**Przyczyna**: `PushNotificationModal` sprawdza `isSubscribed`, ale nie `permission === 'granted'`. W Brave użytkownik może udzielić zgody (`granted`), ale subskrypcja push (`PushManager.subscribe`) może nie powieść się (Brave blokuje niektóre push features). Efekt: `isSubscribed = false`, `permission = 'granted'` → modal pokazuje się ponownie.
+Kontakty będą automatycznie przypisywane do odpowiedniej kategorii na podstawie pola `category` w tabeli `auto_webinar_config`.
 
-**Rozwiązanie**: Dodać warunek `permission === 'granted'` do `checkShouldShow()` w `PushNotificationModal.tsx`. Jeśli użytkownik już udzielił zgody, modal nie powinien się pokazywać — niezależnie od statusu subskrypcji. To samo dotyczy `NotificationPermissionBanner.tsx`.
+## Zmiany w bazie danych (migracja SQL)
 
-### Zmiany
-| Plik | Zmiana |
-|---|---|
-| `src/components/notifications/PushNotificationModal.tsx` | Dodać `if (permission === 'granted') return false;` w `checkShouldShow()` |
-| `src/components/messages/NotificationPermissionBanner.tsx` | Dodać `permission === 'granted'` do warunku ukrywania banera |
-
----
-
-## Problem 2: Dwie podzakładki w Auto-Webinar
-
-**Cel**: Na stronie `/auto-webinar` dodać dwie zakładki (Tabs): **Business Opportunity** i **Health Conversation**. Cała istniejąca funkcjonalność trafia do zakładki "Business Opportunity". Zakładka "Health Conversation" na razie pusta (placeholder).
-
-### Zmiany
-| Plik | Zmiana |
-|---|---|
-| `src/components/auto-webinar/AutoWebinarRoom.tsx` | Dodać `Tabs` / `TabsList` / `TabsTrigger` / `TabsContent` z dwoma zakładkami. W "Business Opportunity" renderować `AutoWebinarEmbed`. W "Health Conversation" renderować placeholder. |
-
-### Struktura UI
-```text
-┌─────────────────────────────────────────┐
-│  [Business Opportunity] [Health Conv.]  │  ← TabsList
-├─────────────────────────────────────────┤
-│                                         │
-│   <AutoWebinarEmbed />                  │  ← TabsContent (domyślna)
-│   (dotychczasowa funkcjonalność)        │
-│                                         │
-└─────────────────────────────────────────┘
+Dodanie kolumny `category` do tabeli `auto_webinar_config`:
+```sql
+ALTER TABLE public.auto_webinar_config
+ADD COLUMN category text NOT NULL DEFAULT 'business_opportunity';
 ```
+Wartości: `'business_opportunity'` lub `'health_conversation'`.
 
-Żadne inne pliki nie wymagają zmian — routing, hooki i komponenty auto-webinar pozostają bez zmian.
+## Zmiany w kodzie
+
+### 1. `src/components/team-contacts/types.ts`
+- Dodać `event_category?: string` do `EventRegistrationInfo` i `EventGroup`
+
+### 2. `src/hooks/useTeamContacts.ts`
+- W `fetchEventContactIds`: rozszerzyć select o `events(title, start_time, event_type)`, a następnie dla eventów typu `auto_webinar` pobrać kategorię z `auto_webinar_config` (osobne zapytanie batch po `event_id`).
+- Zapisać `event_category` w każdym `EventRegistrationInfo`.
+- W `buildEventGroups`: przekazać `event_category` do obiektu `EventGroup`.
+- Wyeksportować dwie oddzielne mapy grup: `eventGroupedContactsBO` i `eventGroupedContactsHC`, filtrowane po `category`.
+- Wyeksportować oddzielne sety contact IDs: `eventContactIdsBO` i `eventContactIdsHC`.
+
+### 3. `src/components/team-contacts/TeamContactsTab.tsx`
+- Zmienić typ `privateSubTab` aby obsługiwał `'events-bo'` i `'events-hc'` zamiast `'events'`.
+- Zastąpić przycisk "Z zaproszeń na wydarzenia" dwoma przyciskami:
+  - "Z zaproszeń na Business Opportunity" (badge z liczbą kontaktów BO)
+  - "Z zaproszeń na Health Conversation" (badge z liczbą kontaktów HC)
+- Filtrowanie `eventContacts` → podział na `eventContactsBO` i `eventContactsHC` na podstawie odpowiednich setów ID.
+- Renderowanie `EventGroupedContacts` z odpowiednimi grupami dla każdej pod-zakładki.
+
+### 4. `src/components/auto-webinar/AutoWebinarRoom.tsx` (opcjonalnie)
+- Brak zmian — zakładki BO/HC w auto-webinar już istnieją.
+
+## Pliki do modyfikacji
+| Plik | Zmiana |
+|---|---|
+| Nowa migracja SQL | Dodanie kolumny `category` do `auto_webinar_config` |
+| `src/components/team-contacts/types.ts` | Dodanie `event_category` do interfejsów |
+| `src/hooks/useTeamContacts.ts` | Pobieranie kategorii, podział grup na BO/HC |
+| `src/components/team-contacts/TeamContactsTab.tsx` | Dwa przyciski pod-zakładek, routing do odpowiednich grup |
 
