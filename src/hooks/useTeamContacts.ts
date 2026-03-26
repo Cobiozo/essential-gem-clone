@@ -13,6 +13,7 @@ export const useTeamContacts = () => {
   const [eventContactIds, setEventContactIds] = useState<Set<string>>(new Set());
   const [eventContactIdsBO, setEventContactIdsBO] = useState<Set<string>>(new Set());
   const [eventContactIdsHC, setEventContactIdsHC] = useState<Set<string>>(new Set());
+  const [eventContactIdsGeneral, setEventContactIdsGeneral] = useState<Set<string>>(new Set());
   const [eventContactDetails, setEventContactDetails] = useState<Map<string, EventRegistrationInfo[]>>(new Map());
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
