@@ -205,19 +205,6 @@ export function useAutoWebinarSync(
           return;
         }
 
-        // Link expired — only if video is NOT currently playing
-        // If video is still running (sinceSlot < duration), let it play regardless of linkExpiry
-        if (sinceSlot > linkExpirySec && (duration <= 0 || sinceSlot >= duration)) {
-          resetFlags();
-          setIsLinkExpired(true);
-          setCurrentVideo(null);
-          setIsInActiveHours(false);
-          setStartOffset(-1);
-          setSecondsToNext(0);
-          updateInterval(10000);
-          return;
-        }
-
         // Too early (before room opens)
         if (sinceSlot < -roomOpenSec) {
           resetFlags();
@@ -266,6 +253,17 @@ export function useAutoWebinarSync(
           setCurrentVideo(video);
           setStartOffset(0);
           updateInterval(10000);
+        } else {
+          // Video ended but link expired check was deferred — apply it now
+          if (sinceSlot > linkExpirySec) {
+            resetFlags();
+            setIsLinkExpired(true);
+            setCurrentVideo(null);
+            setIsInActiveHours(false);
+            setStartOffset(-1);
+            setSecondsToNext(0);
+            updateInterval(10000);
+          }
         }
         return;
       }
@@ -320,15 +318,41 @@ export function useAutoWebinarSync(
         return;
       }
 
-      // Playing
-      resetFlags();
-      setIsInActiveHours(true);
-
+      // Playing / ended / closed
       const slotIndex = slotHours.indexOf(slot.time);
       const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
       const video = activeVideos[videoIndex];
+      const duration = video.duration_seconds;
 
-      if (video.duration_seconds > 0 && sinceSlot < video.duration_seconds) {
+      // Room closed (1 min after video ends)
+      if (duration > 0 && sinceSlot >= duration + roomCloseAfterEndSec) {
+        resetFlags();
+        setIsRoomClosed(true);
+        setCurrentVideo(null);
+        setIsInActiveHours(false);
+        setStartOffset(-1);
+        setSecondsToNext(0);
+        updateInterval(10000);
+        return;
+      }
+
+      // Video ended but room still open (thank you screen)
+      if (duration > 0 && sinceSlot >= duration && sinceSlot < duration + roomCloseAfterEndSec) {
+        resetFlags();
+        setIsVideoEnded(true);
+        setIsInActiveHours(true);
+        setCurrentVideo(video);
+        setStartOffset(-1);
+        setSecondsToNext(0);
+        updateInterval(1000);
+        return;
+      }
+
+      // Still playing
+      resetFlags();
+      setIsInActiveHours(true);
+
+      if (duration > 0 && sinceSlot < duration) {
         setCurrentVideo(video);
         setStartOffset(sinceSlot);
         setSecondsToNext(0);

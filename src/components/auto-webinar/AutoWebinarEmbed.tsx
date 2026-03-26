@@ -106,6 +106,18 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   // Analytics tracking
   useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail);
 
+  // Invalidate session when room closes
+  useEffect(() => {
+    if (!isRoomClosed) return;
+    // Clear localStorage session so guest cannot rejoin
+    if (isGuest && guestEmail) {
+      const today = new Date().toISOString().slice(0, 10);
+      const sessionKey = `aw_session_${guestEmail}_${today}`;
+      localStorage.removeItem(sessionKey);
+      console.log('[AutoWebinarEmbed] Room closed — session removed from localStorage');
+    }
+  }, [isRoomClosed, isGuest, guestEmail]);
+
   // Welcome message overlay
   useEffect(() => {
     if (!config?.welcome_message || !isInActiveHours || !currentVideo || startOffset < 0) {
