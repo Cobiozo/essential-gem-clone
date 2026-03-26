@@ -14,20 +14,18 @@ export function useAutoWebinarTracking(
 ) {
   const viewId = useRef<string | null>(null);
   // Persist sessionId in localStorage so returning guests are recognized
-  const sessionId = useRef(() => {
+  const sessionId = useRef<string>('');
+  if (!sessionId.current) {
     const storageKey = `aw_session_${guestEmail || 'user'}_${new Date().toISOString().slice(0, 10)}`;
     const existing = localStorage.getItem(storageKey);
-    if (existing) return existing;
-    const newId = crypto.randomUUID();
-    try { localStorage.setItem(storageKey, newId); } catch {}
-    return newId;
-  });
-  const getSessionId = () => {
-    if (typeof sessionId.current === 'function') {
-      sessionId.current = sessionId.current();
+    if (existing) {
+      sessionId.current = existing;
+    } else {
+      const newId = crypto.randomUUID();
+      sessionId.current = newId;
+      try { localStorage.setItem(storageKey, newId); } catch {}
     }
-    return sessionId.current as string;
-  };
+  }
   const startTime = useRef<number>(0);
   const updateInterval = useRef<ReturnType<typeof setInterval>>();
 
