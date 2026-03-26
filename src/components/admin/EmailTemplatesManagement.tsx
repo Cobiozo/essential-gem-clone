@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2, LayoutGrid, GripVertical } from 'lucide-react';
 import { SmtpConfigurationPanel } from './SmtpConfigurationPanel';
+import { DnsDiagnosticPanel } from './DnsDiagnosticPanel';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { EmailBlockInserter } from './EmailBlockInserter';
 import { EmailDndEditor } from './email-editor/EmailDndEditor';
