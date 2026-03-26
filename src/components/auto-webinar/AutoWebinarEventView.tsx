@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Video, Clock, Copy, Check, Radio } from 'lucide-react';
-import { useAutoWebinarConfig } from '@/hooks/useAutoWebinar';
+import { useAutoWebinarConfig, type AutoWebinarCategory } from '@/hooks/useAutoWebinar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
@@ -26,8 +26,8 @@ interface SlotKey {
   time: string;
 }
 
-export const AutoWebinarEventView: React.FC = () => {
-  const { config, loading: configLoading } = useAutoWebinarConfig();
+export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> = ({ category = 'business_opportunity' }) => {
+  const { config, loading: configLoading } = useAutoWebinarConfig(category);
   const { profile } = useAuth();
   const { toast } = useToast();
   const [linkedEvent, setLinkedEvent] = React.useState<LinkedEvent | null>(null);

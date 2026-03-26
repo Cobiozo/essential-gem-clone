@@ -233,13 +233,18 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
 
   const loadData = async () => {
     setLoading(true);
-    const [videosRes, configRes] = await Promise.all([
-      supabase.from('auto_webinar_videos').select('*').order('sort_order', { ascending: true }),
-      supabase.from('auto_webinar_config').select('*').eq('category', category).maybeSingle(),
-    ]);
-    setVideos((videosRes.data as AutoWebinarVideo[]) || []);
+    // First load config to know the config_id for filtering videos
+    const configRes = await supabase.from('auto_webinar_config').select('*').eq('category', category).maybeSingle();
     const cfg = configRes.data as AutoWebinarConfig | null;
     setConfig(cfg);
+
+    // Load videos filtered by config_id
+    if (cfg) {
+      const videosRes = await supabase.from('auto_webinar_videos').select('*').eq('config_id', cfg.id).order('sort_order', { ascending: true });
+      setVideos((videosRes.data as AutoWebinarVideo[]) || []);
+    } else {
+      setVideos([]);
+    }
 
     // Load linked event if exists
     if (cfg?.event_id) {
@@ -556,6 +561,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         return;
       }
     } else {
+      const cfg = await ensureConfig();
       const maxOrder = videos.length > 0 ? Math.max(...videos.map(v => v.sort_order)) + 1 : 0;
       const { error } = await supabase
         .from('auto_webinar_videos')
@@ -569,6 +575,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
           cover_image_url: videoForm.cover_image_url || null,
           sort_order: maxOrder,
           uploaded_by: user?.id,
+          config_id: cfg.id,
         });
       if (error) {
         toast({ title: 'Błąd', description: error.message, variant: 'destructive' });

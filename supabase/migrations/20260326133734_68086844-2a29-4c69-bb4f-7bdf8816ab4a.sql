@@ -1,0 +1,1 @@
+UPDATE public.auto_webinar_videos SET config_id = 'e8065ae9-3ca2-470d-a43b-7e13b1658eda' WHERE config_id IS NULL;

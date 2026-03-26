@@ -14,7 +14,7 @@ const WebinarsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const highlightedEventId = searchParams.get('event');
   const { upcomingEvents, pastEvents, loading, refetch } = usePublicEvents('webinar');
-  const { config, loading: configLoading } = useAutoWebinarConfig();
+  const { config, loading: configLoading } = useAutoWebinarConfig('business_opportunity');
   const { userRole } = useAuth();
 
   // Check if current user role has access to auto-webinar tab
