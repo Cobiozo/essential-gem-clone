@@ -1715,5 +1715,27 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         </DialogContent>
       </Dialog>
     </div>
+
+      {/* Video Preview Dialog */}
+      <Dialog open={!!videoPreviewUrl} onOpenChange={(open) => { if (!open) setVideoPreviewUrl(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" />
+              Podgląd: {videoPreviewTitle}
+            </DialogTitle>
+          </DialogHeader>
+          {videoPreviewUrl && (
+            <video
+              src={videoPreviewUrl}
+              controls
+              autoPlay
+              className="w-full rounded-lg"
+              style={{ maxHeight: '70vh' }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
