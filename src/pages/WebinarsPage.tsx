@@ -10,25 +10,27 @@ import { AutoWebinarEventView } from '@/components/auto-webinar/AutoWebinarEvent
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Video, CalendarX, Radio } from 'lucide-react';
 
+const checkAccess = (cfg: any, role: string | undefined) => {
+  if (!cfg?.is_enabled) return false;
+  if (role === 'admin') return true;
+  if (role === 'partner' && cfg.visible_to_partners) return true;
+  if (role === 'specjalista' && cfg.visible_to_specjalista) return true;
+  if ((role === 'client' || role === 'user') && cfg.visible_to_clients) return true;
+  return false;
+};
+
 const WebinarsPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const highlightedEventId = searchParams.get('event');
   const { upcomingEvents, pastEvents, loading, refetch } = usePublicEvents('webinar');
-  const { config, loading: configLoading } = useAutoWebinarConfig('business_opportunity');
+  const { config: boConfig, loading: boLoading } = useAutoWebinarConfig('business_opportunity');
+  const { config: hcConfig, loading: hcLoading } = useAutoWebinarConfig('health_conversation');
   const { userRole } = useAuth();
 
-  // Check if current user role has access to auto-webinar tab
   const role = userRole?.role;
-  const hasAutoAccess = (() => {
-    if (!config?.is_enabled) return false;
-    if (role === 'admin') return true;
-    if (role === 'partner' && config.visible_to_partners) return true;
-    if (role === 'specjalista' && config.visible_to_specjalista) return true;
-    if ((role === 'client' || role === 'user') && config.visible_to_clients) return true;
-    return false;
-  })();
-
-  const showAutoTab = !configLoading && hasAutoAccess;
+  const hasBoAccess = !boLoading && checkAccess(boConfig, role);
+  const hasHcAccess = !hcLoading && checkAccess(hcConfig, role);
+  const showTabs = hasBoAccess || hasHcAccess;
 
   if (loading) {
     return (
