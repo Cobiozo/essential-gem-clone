@@ -822,7 +822,18 @@ export const EventsManagement: React.FC = () => {
 
         {/* Auto-Webinar Tab */}
         <TabsContent value="auto-webinar" className="space-y-4 mt-6">
-          <AutoWebinarManagement />
+          <Tabs defaultValue="business_opportunity" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="business_opportunity">Business Opportunity</TabsTrigger>
+              <TabsTrigger value="health_conversation">Health Conversation</TabsTrigger>
+            </TabsList>
+            <TabsContent value="business_opportunity">
+              <AutoWebinarManagement category="business_opportunity" />
+            </TabsContent>
+            <TabsContent value="health_conversation">
+              <AutoWebinarManagement category="health_conversation" />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
 
