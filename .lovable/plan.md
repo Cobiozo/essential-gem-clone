@@ -1,43 +1,39 @@
 
 
-# Podgląd admina zawsze dostępny + edycja slugu i linku zaproszeniowego
+# Dodanie drugiego logo do pokoju webinarowego
 
-## Problem
-1. **Podgląd**: Gdy admin otwiera podgląd poza godzinami emisji, widzi "Poza godzinami emisji" zamiast odtwarzacza. Podgląd powinien zawsze odtwarzać pierwszy aktywny film gdy system jest włączony i mieści się w godzinach emisji.
-2. **Slug**: Admin nie może edytować slugu wydarzenia — jest generowany automatycznie i tylko do odczytu. Nie ma też możliwości budowania pełnego linku zaproszeniowego.
+## Zakres zmian
 
-## Rozwiązanie
+Dodanie pola `room_logo_url_2` obok istniejącego `room_logo_url`, aby admin mógł ustawić dwa logo wyświetlane w nagłówku pokoju webinarowego.
 
-### 1. Podgląd admina — zawsze odtwarza w godzinach emisji
+## Zmiany
 
-Plik: `src/hooks/useAutoWebinarSync.ts`
+### 1. Migracja bazy danych
+Dodać kolumnę `room_logo_url_2` do `auto_webinar_config`:
+```sql
+ALTER TABLE public.auto_webinar_config
+ADD COLUMN room_logo_url_2 text;
+```
 
-W sekcji "LOGGED-IN USER" (linia ~266), gdy `previewMode` jest aktywny, pominąć logikę slotów i zawsze ustawić pierwszy aktywny film z `startOffset = 0`. Wymaga dodania parametru `previewMode` do hooka `useAutoWebinarSync`.
+### 2. Typy
+- `src/types/autoWebinar.ts` — dodać `room_logo_url_2: string | null`
+- `src/integrations/supabase/types.ts` — zaktualizuje się automatycznie po migracji
 
-- Dodać opcjonalny parametr `previewMode?: boolean` do `useAutoWebinarSync`
-- Na początku `calculate()`: jeśli `previewMode === true`, ustawić `currentVideo = activeVideos[0]`, `startOffset = 0`, `isInActiveHours = true` i zwrócić — bez sprawdzania slotów/godzin
-- W `AutoWebinarEmbed.tsx` (linia ~28): przekazać `previewMode` do `useAutoWebinarSync`
+### 3. Admin panel (`AutoWebinarManagement.tsx`)
+- Dodać `room_logo_url_2` do `roomForm` (domyślnie `''`)
+- Dodać drugie pole uploadu logo pod istniejącym (identyczna mechanika: wybór z biblioteki / upload z komputera / usuwanie)
+- Zapisywać `room_logo_url_2` przy save
+- Wyświetlać oba loga w podglądzie pokoju
 
-Plik: `src/components/auto-webinar/AutoWebinarEmbed.tsx`
-- Zmienić wywołanie: `useAutoWebinarSync(videos, config, isGuest, guestSlotTime, previewMode)`
-
-### 2. Edytowalny slug i link zaproszeniowy
-
-Plik: `src/components/admin/AutoWebinarManagement.tsx`
-
-W sekcji "Wydarzenie i zaproszenia" (linia ~1324-1350):
-- Zmienić pole `Input` ze slugu z `readOnly` na edytowalne
-- Dodać stan `editSlug` i przycisk "Zapisz slug"
-- Dodać pole do edycji bazowego URL linku zaproszeniowego (domyślnie `https://purelife.info.pl/e/`)
-- Po zapisie slugu: `UPDATE events SET slug = newSlug WHERE id = linkedEvent.id`
-- Wyświetlać podgląd pełnego linku w czasie rzeczywistym
-
-Dodać też pole konfiguracyjne `invitation_base_url` do konfiguracji, aby admin mógł zdefiniować bazowy URL (np. `https://purelife.info.pl/e/` lub inna domena).
+### 4. Pokój publiczny (`AutoWebinarEmbed.tsx`)
+- W nagłówku pokoju: renderować oba loga obok siebie (jeśli ustawione)
+- W ekranach oczekiwania/zakończenia: wyświetlać oba loga
 
 ### Pliki do edycji
 | Plik | Zmiana |
 |---|---|
-| `src/hooks/useAutoWebinarSync.ts` | Dodać parametr `previewMode`, bypass logiki slotów |
-| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Przekazać `previewMode` do hooka sync |
-| `src/components/admin/AutoWebinarManagement.tsx` | Edytowalny slug + budowanie linku zaproszeniowego |
+| Nowa migracja SQL | `room_logo_url_2` |
+| `src/types/autoWebinar.ts` | Dodać pole |
+| `src/components/admin/AutoWebinarManagement.tsx` | Drugie pole logo + podgląd |
+| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Renderowanie dwóch logo |
 
