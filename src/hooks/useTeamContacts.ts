@@ -496,8 +496,10 @@ export const useTeamContacts = () => {
   }, [user]);
 
   // Build grouped contacts by event and duplicate detection
-  const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; duplicates: Map<string, number> } => {
+  const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; groupsBO: Map<string, EventGroup>; groupsHC: Map<string, EventGroup>; duplicates: Map<string, number> } => {
     const groups = new Map<string, EventGroup>();
+    const groupsBO = new Map<string, EventGroup>();
+    const groupsHC = new Map<string, EventGroup>();
     const duplicates = new Map<string, number>();
 
     for (const [contactId, registrations] of eventContactDetails.entries()) {
@@ -505,15 +507,32 @@ export const useTeamContacts = () => {
       if (!contact) continue;
 
       for (const reg of registrations) {
+        const category = reg.event_category || 'business_opportunity';
+        
         if (!groups.has(reg.event_id)) {
-          groups.set(reg.event_id, {
+          const groupData: EventGroup = {
             event_id: reg.event_id,
             title: reg.event_title,
             date: reg.event_start_time,
             contacts: [],
-          });
+            event_category: category,
+          };
+          groups.set(reg.event_id, groupData);
         }
         groups.get(reg.event_id)!.contacts.push(contact);
+
+        // Add to category-specific map
+        const targetMap = category === 'health_conversation' ? groupsHC : groupsBO;
+        if (!targetMap.has(reg.event_id)) {
+          targetMap.set(reg.event_id, {
+            event_id: reg.event_id,
+            title: reg.event_title,
+            date: reg.event_start_time,
+            contacts: [],
+            event_category: category,
+          });
+        }
+        targetMap.get(reg.event_id)!.contacts.push(contact);
       }
 
       // Per-contact event count — simply count registrations for each contact ID
@@ -522,7 +541,7 @@ export const useTeamContacts = () => {
       }
     }
 
-    return { groups, duplicates };
+    return { groups, groupsBO, groupsHC, duplicates };
   }, [eventContactDetails]);
 
   useEffect(() => {
@@ -532,7 +551,7 @@ export const useTeamContacts = () => {
   }, [fetchContacts, fetchEventContactIds, fetchDeletedContacts]);
 
   // Compute grouped data
-  const { groups: eventGroupedContacts, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
+  const { groups: eventGroupedContacts, groupsBO: eventGroupedContactsBO, groupsHC: eventGroupedContactsHC, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
 
   return {
     contacts,
@@ -545,8 +564,12 @@ export const useTeamContacts = () => {
     getContactHistory,
     refetch: fetchContacts,
     eventContactIds,
+    eventContactIdsBO,
+    eventContactIdsHC,
     eventContactDetails,
     eventGroupedContacts,
+    eventGroupedContactsBO,
+    eventGroupedContactsHC,
     duplicateContactEvents,
     pendingOfflineCount: pendingCount,
     deletedContacts,
