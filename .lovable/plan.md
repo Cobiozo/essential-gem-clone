@@ -1,41 +1,32 @@
 
 
-# Plan: 3 poprawki Auto-Webinar
+# Plan: Poprawki czasu trwania webinaru i unieważnianie linku
 
-## 1. Baner "Dziękujemy" pojawia się za wcześnie (BUG KRYTYCZNY)
+## Problem 1: "Dziękujemy" pojawia się za wcześnie
 
-**Przyczyna**: Funkcja `findCurrentSlot()` (linia 15-42 w `useAutoWebinarSync.ts`) definiuje okno slotu jako `slot.seconds + linkExpirySec` (domyślnie 10 min). Gdy wideo trwa dłużej (np. 18:34), po 10 minutach slot "wygasa" i hook przestaje zwracać wideo.
+**Przyczyna** — dla zalogowanych użytkowników (linia 323-347) brakuje stanów `isVideoEnded` / `isRoomClosed`. Gdy `sinceSlot >= duration`, hook ustawia `currentVideo=null` bez żadnej flagi — co powoduje wyświetlenie nieprawidłowego ekranu.
 
-Dotyczy to zarówno gości jak i zalogowanych użytkowników — `findCurrentSlot` jest używane dla zalogowanych, a dla gości analogiczny warunek `sinceSlot > linkExpirySec` istnieje na linii 206.
+Dodatkowo dla gości — jeśli `bypassLateBlock=true` (rejoin), check `isLinkExpired` na linii 210 nadal może wyrzucić gościa po `linkExpirySec` minut (nawet gdy wideo trwa). Warunek `sinceSlot >= duration` w linii 210 powinien chronić, ale trzeba sprawdzić czy `duration` jest > 0.
 
 **Rozwiązanie** w `useAutoWebinarSync.ts`:
-- `findCurrentSlot()`: zmienić `windowEnd` z `slot.seconds + linkExpirySec` na `slot.seconds + Math.max(linkExpirySec, maxVideoDuration + 60)` — gdzie `maxVideoDuration` to najdłuższy film w playliście. Alternatywnie: przekazać listę wideo do `findCurrentSlot` i użyć duration danego slotu.
-- Prościej: zmienić `windowEnd` na `slot.seconds + maxVideoDurationSec + roomCloseAfterEndSec` aby okno slotu zawsze obejmowało pełne odtwarzanie + 1 min podziękowania.
-- Dla gości: warunek na linii 206 już jest poprawiony (`sinceSlot >= duration`), ale trzeba sprawdzić czy `duration` jest prawidłowe.
+- **Zalogowani użytkownicy (linie 323-347)**: Dodać stany `isVideoEnded` i `isRoomClosed` analogicznie do ścieżki gościa:
+  - `sinceSlot >= duration + 60` → `isRoomClosed`
+  - `sinceSlot >= duration && < duration + 60` → `isVideoEnded` (podziękowanie)
+  - `sinceSlot < duration` → odtwarzanie (bez zmian)
+- **Goście (linie 208-219)**: Przenieść check `isLinkExpired` na sam koniec, PO sekcji "Playing". Dzięki temu wideo trwające dłużej niż `linkExpirySec` nigdy nie zostanie przerwane. Link expired zadziała tylko gdy gość wejdzie po zakończeniu wideo.
 
-**Plik**: `src/hooks/useAutoWebinarSync.ts`
+## Problem 2: Unieważnienie linku po zakończeniu
 
-## 2. Podgląd wideo w playliście admina
+**Obecnie**: Po `isRoomClosed` wyświetla się "Spotkanie już się odbyło", ale link nadal technicznie istnieje. Gość mógłby w teorii odświeżyć i zobaczyć ekran ponownie.
 
-**Problem**: W tabeli playlisty (AutoWebinarManagement.tsx) brak możliwości podglądu wideo — jest tylko miniaturka/ikonka.
+**Rozwiązanie** w `AutoWebinarEmbed.tsx`:
+- Gdy `isRoomClosed=true`, usunąć klucz sesji z localStorage (`aw_session_*`) i oznaczyć rejestrację jako "completed" w DB (update `auto_webinar_views` z `left_at = now()`).
+- Dodać efekt: gdy `isRoomClosed` → `localStorage.removeItem(sessionKey)` — to uniemożliwi bypass po zamknięciu.
 
-**Rozwiązanie**: Dodać przycisk "Podgląd" (ikona Play) obok każdego wideo w tabeli. Po kliknięciu otwiera Dialog z odtwarzaczem `<video>` pokazującym `video.video_url`.
-
-**Plik**: `src/components/admin/AutoWebinarManagement.tsx`
-
-## 3. Ukrycie lupy PLC OMEGA BASE na stronach auto-webinar
-
-**Problem**: `ChatWidgetsWrapper` w `App.tsx` (linia 190) ukrywa widget na `/auto-webinar` i `/a-w`, ale te prefiksy SĄ już w `knownPrefixes`. Trzeba sprawdzić czy trasa rejestracji gościa jest objęta.
-
-**Rozwiązanie**: W `App.tsx` linii 195 — dodać dodatkowy warunek: jeśli ścieżka zaczyna się od `/auto-webinar` lub `/a-w`, ukryć widget (analogicznie do `isMeetingPage`). Aktualnie warunek `!user` ukrywa widget dla niezalogowanych, ale zalogowani admini/partnerzy widzą lupę na stronie auto-webinaru.
-
-**Plik**: `src/App.tsx` — dodać `const isAutoWebinarPage = path.startsWith('/auto-webinar') || path.startsWith('/a-w');` i uwzględnić w warunku ukrywania.
-
-## Podsumowanie
+## Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `useAutoWebinarSync.ts` | `findCurrentSlot` — okno slotu = max(linkExpiry, videoDuration) + 60s |
-| `AutoWebinarManagement.tsx` | Przycisk podglądu wideo z dialogiem odtwarzacza |
-| `App.tsx` | Ukrycie lupy OMEGA na stronach `/auto-webinar` i `/a-w` |
+| `useAutoWebinarSync.ts` | Dodać `isVideoEnded`/`isRoomClosed` dla zalogowanych; przenieść `isLinkExpired` po sekcji Playing dla gości |
+| `AutoWebinarEmbed.tsx` | Usunąć sesję z localStorage gdy `isRoomClosed`; update DB |
 
