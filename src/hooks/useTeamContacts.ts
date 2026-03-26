@@ -11,6 +11,8 @@ export const useTeamContacts = () => {
   const [contacts, setContacts] = useState<TeamContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventContactIds, setEventContactIds] = useState<Set<string>>(new Set());
+  const [eventContactIdsBO, setEventContactIdsBO] = useState<Set<string>>(new Set());
+  const [eventContactIdsHC, setEventContactIdsHC] = useState<Set<string>>(new Set());
   const [eventContactDetails, setEventContactDetails] = useState<Map<string, EventRegistrationInfo[]>>(new Map());
   const [filters, setFilters] = useState<TeamContactFilters>({
     role: '',
@@ -416,7 +418,27 @@ export const useTeamContacts = () => {
         .not('team_contact_id', 'is', null);
       
       if (error) throw error;
+
+      // Fetch auto_webinar_config categories for all event_ids
+      const eventIds = [...new Set((data || []).map(r => r.event_id))];
+      const categoryMap = new Map<string, string>();
+      
+      if (eventIds.length > 0) {
+        const { data: configData } = await supabase
+          .from('auto_webinar_config')
+          .select('event_id, category')
+          .in('event_id', eventIds);
+        
+        for (const cfg of (configData || [])) {
+          if (cfg.event_id) {
+            categoryMap.set(cfg.event_id, cfg.category);
+          }
+        }
+      }
+
       const ids = new Set<string>();
+      const idsBO = new Set<string>();
+      const idsHC = new Set<string>();
       const detailsMap = new Map<string, EventRegistrationInfo[]>();
       
       // Deduplicate: keep best record per contact+event (prefer 'registered', then latest)
@@ -437,6 +459,14 @@ export const useTeamContacts = () => {
         const contactId = r.team_contact_id as string;
         ids.add(contactId);
         
+        const eventCategory = categoryMap.get(r.event_id) || 'business_opportunity';
+        
+        if (eventCategory === 'health_conversation') {
+          idsHC.add(contactId);
+        } else {
+          idsBO.add(contactId);
+        }
+        
         const event = r.events as any;
         if (event) {
           const attempts = (r as any).registration_attempts || 1;
@@ -448,6 +478,7 @@ export const useTeamContacts = () => {
             guest_status: r.status || 'registered',
             registered_at: r.registered_at || '',
             registration_attempts: attempts > 1 ? attempts : undefined,
+            event_category: eventCategory,
           };
           const existing = detailsMap.get(contactId) || [];
           existing.push(info);
@@ -456,6 +487,8 @@ export const useTeamContacts = () => {
       }
       
       setEventContactIds(ids);
+      setEventContactIdsBO(idsBO);
+      setEventContactIdsHC(idsHC);
       setEventContactDetails(detailsMap);
     } catch (error) {
       console.error('Error fetching event contact IDs:', error);
@@ -463,8 +496,10 @@ export const useTeamContacts = () => {
   }, [user]);
 
   // Build grouped contacts by event and duplicate detection
-  const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; duplicates: Map<string, number> } => {
+  const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; groupsBO: Map<string, EventGroup>; groupsHC: Map<string, EventGroup>; duplicates: Map<string, number> } => {
     const groups = new Map<string, EventGroup>();
+    const groupsBO = new Map<string, EventGroup>();
+    const groupsHC = new Map<string, EventGroup>();
     const duplicates = new Map<string, number>();
 
     for (const [contactId, registrations] of eventContactDetails.entries()) {
@@ -472,15 +507,32 @@ export const useTeamContacts = () => {
       if (!contact) continue;
 
       for (const reg of registrations) {
+        const category = reg.event_category || 'business_opportunity';
+        
         if (!groups.has(reg.event_id)) {
-          groups.set(reg.event_id, {
+          const groupData: EventGroup = {
             event_id: reg.event_id,
             title: reg.event_title,
             date: reg.event_start_time,
             contacts: [],
-          });
+            event_category: category,
+          };
+          groups.set(reg.event_id, groupData);
         }
         groups.get(reg.event_id)!.contacts.push(contact);
+
+        // Add to category-specific map
+        const targetMap = category === 'health_conversation' ? groupsHC : groupsBO;
+        if (!targetMap.has(reg.event_id)) {
+          targetMap.set(reg.event_id, {
+            event_id: reg.event_id,
+            title: reg.event_title,
+            date: reg.event_start_time,
+            contacts: [],
+            event_category: category,
+          });
+        }
+        targetMap.get(reg.event_id)!.contacts.push(contact);
       }
 
       // Per-contact event count — simply count registrations for each contact ID
@@ -489,7 +541,7 @@ export const useTeamContacts = () => {
       }
     }
 
-    return { groups, duplicates };
+    return { groups, groupsBO, groupsHC, duplicates };
   }, [eventContactDetails]);
 
   useEffect(() => {
@@ -499,7 +551,7 @@ export const useTeamContacts = () => {
   }, [fetchContacts, fetchEventContactIds, fetchDeletedContacts]);
 
   // Compute grouped data
-  const { groups: eventGroupedContacts, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
+  const { groups: eventGroupedContacts, groupsBO: eventGroupedContactsBO, groupsHC: eventGroupedContactsHC, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
 
   return {
     contacts,
@@ -512,8 +564,12 @@ export const useTeamContacts = () => {
     getContactHistory,
     refetch: fetchContacts,
     eventContactIds,
+    eventContactIdsBO,
+    eventContactIdsHC,
     eventContactDetails,
     eventGroupedContacts,
+    eventGroupedContactsBO,
+    eventGroupedContactsHC,
     duplicateContactEvents,
     pendingOfflineCount: pendingCount,
     deletedContacts,
