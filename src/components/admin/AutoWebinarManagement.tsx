@@ -1714,7 +1714,6 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
           </div>
         </DialogContent>
       </Dialog>
-    </div>
 
       {/* Video Preview Dialog */}
       <Dialog open={!!videoPreviewUrl} onOpenChange={(open) => { if (!open) setVideoPreviewUrl(null); }}>
