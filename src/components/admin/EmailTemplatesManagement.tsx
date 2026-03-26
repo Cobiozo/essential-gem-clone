@@ -680,10 +680,18 @@ export const EmailTemplatesManagement: React.FC = () => {
                 Zdarzenia
               </TabsTrigger>
               <TabsTrigger value="logs">Historia wysyłek</TabsTrigger>
+              <TabsTrigger value="dns" className="flex items-center gap-1">
+                <Shield className="w-4 h-4" />
+                DNS / Uwierzytelnianie
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="smtp">
               <SmtpConfigurationPanel />
+            </TabsContent>
+
+            <TabsContent value="dns">
+              <DnsDiagnosticPanel />
             </TabsContent>
 
             <TabsContent value="templates">
