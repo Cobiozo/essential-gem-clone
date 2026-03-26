@@ -372,7 +372,7 @@ serve(async (req) => {
           .gte("start_time", fromTime)
           .lte("start_time", toTime)
           .eq("is_active", true)
-          .eq("event_type", "webinar");
+          .in("event_type", ["webinar", "team_training"]);
 
         if (wErr) {
           console.error(`[CRON] Error fetching webinars for ${window.type}:`, wErr);
@@ -619,16 +619,28 @@ serve(async (req) => {
             for (const reg of registrations) {
               if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
               
-              // Check if already sent
+              // Check if already sent — for recurring events, ignore old sends (>25h before start_time)
+              const resetThreshold = new Date(eventStart.getTime() - 25 * 60 * 60 * 1000).toISOString();
               const { data: alreadySent } = await supabase
                 .from("event_push_reminders_sent")
-                .select("id")
+                .select("id, sent_at")
                 .eq("event_id", event.id)
                 .eq("user_id", reg.user_id)
                 .eq("reminder_minutes", configuredMinutes)
                 .maybeSingle();
               
-              if (alreadySent) continue;
+              if (alreadySent) {
+                // If sent before the reset threshold, delete old record and re-send
+                if (alreadySent.sent_at && alreadySent.sent_at < resetThreshold) {
+                  await supabase
+                    .from("event_push_reminders_sent")
+                    .delete()
+                    .eq("id", alreadySent.id);
+                  console.log(`[CRON] Reset stale push reminder for user ${reg.user_id}, event "${event.title}"`);
+                } else {
+                  continue;
+                }
+              }
               
               results.pushReminders.processed++;
               
