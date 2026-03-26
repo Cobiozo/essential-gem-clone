@@ -1,58 +1,92 @@
 
 
-# Naprawa flow gościa auto-webinaru — brakujące elementy
+# Śledzenie gości auto-webinaru — kto dołączył, kiedy i jak długo
 
-## Analiza obecnego stanu vs oczekiwany flow
+## Obecny stan
 
-Po przeanalizowaniu kodu (`useAutoWebinarSync.ts`, `AutoWebinarEmbed.tsx`, `process-pending-notifications`) zidentyfikowałem **5 brakujących elementów**:
+| Element | Status |
+|---|---|
+| Rejestracja gościa (email, imię, slot_time) | ✅ `guest_event_registrations` |
+| Tracking sesji oglądania | ✅ `auto_webinar_views` (czas, długość) |
+| **Powiązanie rejestracji z sesją oglądania** | ❌ **Brak** — views nie wie kim jest gość |
 
-| # | Oczekiwane zachowanie | Status |
-|---|---|---|
-| 1 | Rejestracja → email z linkiem | ✅ Działa |
-| 2 | Pokój otwiera się 5 min przed, widać liczbę oczekujących | ⚠️ Pokój się otwiera, ale **brak liczby uczestników** podczas odliczania |
-| 3 | Nagranie startuje, fikcyjny czat działa | ✅ Działa |
-| 4 | Po 5 min od startu — blokada dołączenia ("szanujemy punktualność") | ❌ **Brak** — `late_join_max_seconds` działa TYLKO w trybie legacy, w explicit slots nigdy nie ustawia `isTooLate=true` |
-| 5 | Po zakończeniu nagrania — baner z podziękowaniem i prośbą o kontakt z zapraszającym | ❌ **Brak** — po końcu wideo ekran pokazuje "Oczekiwanie na transmisję..." |
-| 6 | Po 1 min od zakończenia — zamknięcie pokoju, link dezaktywowany z info "spotkanie się odbyło" | ❌ **Brak** — nie ma tego stanu |
-| 7 | Email z podziękowaniem po spotkaniu | ⚠️ Działa dla eventów z `end_time`, ale auto-webinary nie mają tradycyjnego `end_time` per slot |
+## Proponowane rozwiązanie: email w URL + automatyczne powiązanie
 
-## Plan zmian
+Zamiast prosić gościa o ponowne wpisywanie emaila (ryzyko porzucenia), **dodamy email jako zaszyfrowany parametr w linku** wysyłanym w emailu potwierdzającym.
 
-### 1. `src/hooks/useAutoWebinarSync.ts` — dodanie brakujących stanów
+### Jak to działa:
 
-**a) Late join blocking w explicit slots (linia ~169-196):**
-Dodać sprawdzenie `late_join_max_seconds` w sekcji "Playing" dla gościa. Jeśli `sinceSlot > lateJoinMaxSeconds` i `sinceSlot < video.duration_seconds` → `isTooLate = true`.
+1. **Rejestracja** → gość podaje email, system zapisuje `guest_event_registrations`
+2. **Email z linkiem** → link zawiera `?slot=14:00&ref=BASE64(email)` 
+3. **Strona publiczna** → odczytuje `ref` z URL, dekoduje email
+4. **Tracking** → `auto_webinar_views` zapisuje `guest_email` + `guest_registration_id` obok sesji
 
-**b) Nowy stan `isVideoEnded` + `isRoomClosed`:**
-Dodać do interfejsu `AutoWebinarSyncResult`:
-- `isVideoEnded: boolean` — nagranie się skończyło (baner "dziękujemy")
-- `isRoomClosed: boolean` — 60s po zakończeniu nagrania (link dezaktywowany)
+```text
+Flow:
+Rejestracja → Email z linkiem (?ref=am9obkB...) → Strona /a-w/slug
+                                                       ↓
+                                              Dekoduj email z URL
+                                                       ↓
+                                         auto_webinar_views.guest_email = "john@..."
+                                         auto_webinar_views.guest_registration_id = UUID
+```
 
-Logika w `calculateExplicitSlots` dla gościa:
-- Gdy `sinceSlot >= video.duration_seconds` i `sinceSlot < video.duration_seconds + 60` → `isVideoEnded = true`
-- Gdy `sinceSlot >= video.duration_seconds + 60` → `isRoomClosed = true`
+### Zmiana 1: Migracja SQL — nowe kolumny w `auto_webinar_views`
 
-### 2. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — nowe ekrany UI
+```sql
+ALTER TABLE auto_webinar_views 
+  ADD COLUMN guest_email TEXT,
+  ADD COLUMN guest_registration_id UUID REFERENCES guest_event_registrations(id);
+```
 
-**a) Ekran "Dziękujemy za uczestnictwo" (isVideoEnded):**
-Baner z podziękowaniem i prośbą o kontakt z osobą zapraszającą. Styl spójny z resztą (czarne tło, białe napisy).
+### Zmiana 2: Link w emailu (`send-webinar-confirmation`)
 
-**b) Ekran "Spotkanie się odbyło" (isRoomClosed):**
-Informacja: "Ten link jest nieważny, ponieważ spotkanie już się odbyło. Skontaktuj się z osobą, która Cię zaprosiła."
+Przy budowaniu `roomLink` dodać parametr `&ref=` z base64-encoded emailem:
 
-**c) Liczba uczestników podczas odliczania:**
-Dodać `AutoWebinarParticipantCount` do ekranu countdown (przed startem nagrania), aby gość widział "ilu ludzi czeka".
+```typescript
+const refParam = Buffer.from(email).toString('base64url');
+const roomLink = `https://purelife.info.pl/a-w/${slug}?slot=${slotTime}&ref=${refParam}`;
+```
 
-### 3. Zmiana w `AutoWebinarCountdown` lub w embed
+### Zmiana 3: Strona publiczna (`AutoWebinarPublicPage.tsx`)
 
-Podczas fazy odliczania (sekundy do startu, pokój otwarty) wyświetlać fake participant count obok odliczania.
+Odczytać `ref` z URL i przekazać do `AutoWebinarEmbed`:
 
-### Pliki do modyfikacji
-1. `src/hooks/useAutoWebinarSync.ts` — nowe stany + logika late join + video ended + room closed
-2. `src/components/auto-webinar/AutoWebinarEmbed.tsx` — nowe ekrany UI + participant count w countdown
+```tsx
+const guestRef = searchParams.get('ref');
+const guestEmail = guestRef ? atob(guestRef) : null;
+// ...
+<AutoWebinarEmbed isGuest guestSlotTime={guestSlotTime} guestEmail={guestEmail} />
+```
 
-### Co NIE wymaga zmian
-- Email z podziękowaniem — obsługiwany przez `process-pending-notifications` (step 9), działa dla eventów z `end_time`. Auto-webinary powiązane z eventem (`event_id` w config) będą obsłużone automatycznie.
-- Rejestracja — działa poprawnie.
-- Fikcyjny czat — działa poprawnie.
+### Zmiana 4: `AutoWebinarEmbed.tsx` + `useAutoWebinarTracking.ts`
+
+- Dodać prop `guestEmail` do `AutoWebinarEmbed`
+- Przekazać `guestEmail` do `useAutoWebinarTracking`
+- W `createView()`:
+  - Zapisać `guest_email` w `auto_webinar_views`
+  - Wyszukać `guest_registration_id` po emailu i `slot_time` w `guest_event_registrations`
+
+### Zmiana 5: Panel admina — widok statystyk
+
+Nowa sekcja/tabela w panelu admina auto-webinaru pokazująca:
+- Lista zarejestrowanych gości z kolumnami: Imię, Email, Slot, Dołączył?, Czas oglądania
+- Dane pobierane z JOIN `guest_event_registrations` + `auto_webinar_views`
+
+## Pliki do modyfikacji
+
+| Plik | Zmiana |
+|---|---|
+| **Migracja SQL** | Nowe kolumny `guest_email`, `guest_registration_id` w `auto_webinar_views` |
+| `supabase/functions/send-webinar-confirmation/index.ts` | Dodanie `&ref=` do linku |
+| `src/pages/AutoWebinarPublicPage.tsx` | Odczyt `ref` param, przekazanie `guestEmail` |
+| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Nowy prop `guestEmail`, przekazanie do tracking |
+| `src/hooks/useAutoWebinarTracking.ts` | Zapis `guest_email` + lookup `guest_registration_id` |
+| `src/components/admin/` (nowy lub istniejący) | Widok statystyk gości auto-webinaru |
+
+## Bezpieczeństwo
+
+- Base64 emaila w URL nie jest "szyfrowaniem" — ale w kontekście auto-webinaru to wystarczające (link i tak jest jednorazowy, wygasa po `link_expiry_minutes`)
+- RLS na `auto_webinar_views` pozwala na INSERT anonimowy (gość nie jest zalogowany)
+- Dane statystyczne dostępne tylko dla admina
 
