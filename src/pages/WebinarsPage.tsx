@@ -106,22 +106,37 @@ const WebinarsPage: React.FC = () => {
           </div>
         </div>
 
-        {showAutoTab ? (
+        {showTabs ? (
           <Tabs defaultValue="list">
             <TabsList>
               <TabsTrigger value="list" className="gap-1.5">
                 <Video className="h-4 w-4" />
                 Webinary
               </TabsTrigger>
-              <TabsTrigger value="auto" className="gap-1.5">
-                <Radio className="h-4 w-4" />
-                {config?.room_title || 'Webinary Biznesowe 24h/live'}
-              </TabsTrigger>
+              {hasBoAccess && (
+                <TabsTrigger value="bo" className="gap-1.5">
+                  <Radio className="h-4 w-4" />
+                  Business Opportunity
+                </TabsTrigger>
+              )}
+              {hasHcAccess && (
+                <TabsTrigger value="hc" className="gap-1.5">
+                  <Radio className="h-4 w-4" />
+                  Health Conversation
+                </TabsTrigger>
+              )}
             </TabsList>
             <TabsContent value="list">{webinarListContent}</TabsContent>
-            <TabsContent value="auto">
-              <AutoWebinarEventView />
-            </TabsContent>
+            {hasBoAccess && (
+              <TabsContent value="bo">
+                <AutoWebinarEventView category="business_opportunity" />
+              </TabsContent>
+            )}
+            {hasHcAccess && (
+              <TabsContent value="hc">
+                <AutoWebinarEventView category="health_conversation" />
+              </TabsContent>
+            )}
           </Tabs>
         ) : (
           webinarListContent
