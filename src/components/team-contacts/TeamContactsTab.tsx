@@ -370,6 +370,7 @@ export const TeamContactsTab: React.FC = () => {
                 >
                   Z zaproszeń na webinary ogólne
                   <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                </Button>
                 <Button
                   variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
                   size="sm"
