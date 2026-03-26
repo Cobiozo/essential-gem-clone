@@ -731,6 +731,7 @@ export type Database = {
       }
       auto_webinar_videos: {
         Row: {
+          config_id: string | null
           cover_image_url: string | null
           created_at: string
           description: string | null
@@ -746,6 +747,7 @@ export type Database = {
           video_url: string
         }
         Insert: {
+          config_id?: string | null
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
@@ -761,6 +763,7 @@ export type Database = {
           video_url: string
         }
         Update: {
+          config_id?: string | null
           cover_image_url?: string | null
           created_at?: string
           description?: string | null
@@ -775,7 +778,15 @@ export type Database = {
           uploaded_by?: string | null
           video_url?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "auto_webinar_videos_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "auto_webinar_config"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       auto_webinar_views: {
         Row: {
