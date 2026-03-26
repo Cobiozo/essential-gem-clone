@@ -548,6 +548,7 @@ export type Database = {
           room_custom_section_content: string | null
           room_custom_section_title: string | null
           room_logo_url: string | null
+          room_logo_url_2: string | null
           room_open_minutes_before: number | null
           room_show_live_badge: boolean | null
           room_show_schedule_info: boolean | null
@@ -588,6 +589,7 @@ export type Database = {
           room_custom_section_content?: string | null
           room_custom_section_title?: string | null
           room_logo_url?: string | null
+          room_logo_url_2?: string | null
           room_open_minutes_before?: number | null
           room_show_live_badge?: boolean | null
           room_show_schedule_info?: boolean | null
@@ -628,6 +630,7 @@ export type Database = {
           room_custom_section_content?: string | null
           room_custom_section_title?: string | null
           room_logo_url?: string | null
+          room_logo_url_2?: string | null
           room_open_minutes_before?: number | null
           room_show_live_badge?: boolean | null
           room_show_schedule_info?: boolean | null
