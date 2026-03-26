@@ -437,6 +437,26 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
             )}
           </CardContent>
         </Card>
+      ) : isGuest && guestSlotTime ? (
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <CardContent className="p-0">
+            <div
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              style={{ backgroundColor: bgColor }}
+            >
+              <XCircle className="h-10 w-10 text-destructive mb-4" />
+              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+                Spotkanie już się odbyło
+              </h2>
+              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+                Ten link jest nieważny, ponieważ spotkanie już się odbyło.
+              </p>
+              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+                Skontaktuj się z osobą, która Cię zaprosiła, aby uzyskać więcej informacji.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">

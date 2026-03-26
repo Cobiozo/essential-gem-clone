@@ -114,6 +114,15 @@ export function useAutoWebinarSync(
       const currentSecond = now.getSeconds();
       const secondsPastMidnight = currentHour * 3600 + currentMinute * 60 + currentSecond;
 
+      console.log('[AutoWebinarSync] calculate:', {
+        time: `${currentHour}:${currentMinute}:${currentSecond}`,
+        secondsPastMidnight,
+        isGuest,
+        guestSlotTime,
+        useExplicitSlots,
+        videosCount: activeVideos.length,
+      });
+
       if (useExplicitSlots) {
         calculateExplicitSlots(now, secondsPastMidnight, activeVideos, slotHours);
       } else {
@@ -143,6 +152,17 @@ export function useAutoWebinarSync(
         const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
         const video = activeVideos[videoIndex];
         const duration = video.duration_seconds;
+
+        console.log('[AutoWebinarSync] guest slot calc:', {
+          guestSlotTime,
+          guestSlotSec,
+          sinceSlot,
+          duration,
+          roomCloseAfterEndSec,
+          linkExpirySec,
+          lateJoinMaxSec,
+          roomOpenSec,
+        });
 
         // Room closed (1 min after video ends)
         if (duration > 0 && sinceSlot >= duration + roomCloseAfterEndSec) {
