@@ -1,32 +1,57 @@
 
+Plan: poprawa mobilnego auto-webinaru + naprawa zbyt wczesnego końca odtwarzania
 
-# Plan: Poprawki czasu trwania webinaru i unieważnianie linku
+1. Uporządkować layout mobilny auto-webinaru
+- Przejrzeć `src/components/auto-webinar/AutoWebinarEmbed.tsx` i zmienić układ sekcji pod mobile:
+  - ciaśniejsze odstępy, mniejsze marginesy i lepsze skalowanie tekstów,
+  - bardziej czytelny nagłówek z logo i badge “NA ŻYWO”,
+  - lepsze pozycjonowanie licznika uczestników i fake chatu, żeby nie zasłaniały obrazu,
+  - poprawić ekrany: countdown, welcome, thank-you i room-closed pod małe ekrany.
+- Dostosować też `src/pages/AutoWebinarPublicPage.tsx`, żeby kontener mobilny miał lepsze paddingi i proporcje.
 
-## Problem 1: "Dziękujemy" pojawia się za wcześnie
+2. Zmienić kontrolki odtwarzacza na prostsze dla mobile
+- W `src/components/auto-webinar/AutoWebinarPlayerControls.tsx` usunąć cały suwak głośności.
+- Zostawić tylko fullscreen i ewentualnie prosty toggle mute/unmute, jeśli będzie nadal potrzebny.
+- Powiększyć hit area przycisków na telefonie i poprawić ich widoczność na ciemnym tle.
+- Dodać/utrzymać pełny ekran jako łatwo dostępny przycisk bez zasłaniania treści.
 
-**Przyczyna** — dla zalogowanych użytkowników (linia 323-347) brakuje stanów `isVideoEnded` / `isRoomClosed`. Gdy `sinceSlot >= duration`, hook ustawia `currentVideo=null` bez żadnej flagi — co powoduje wyświetlenie nieprawidłowego ekranu.
+3. Start wideo z dźwiękiem
+- W `src/components/auto-webinar/AutoWebinarEmbed.tsx` usunąć obecną logikę startu “muted + overlay Włącz dźwięk”.
+- Przestawić start odtwarzania na próbę uruchomienia z dźwiękiem od razu.
+- Jeśli przeglądarka mobilna zablokuje autoplay z audio, zastosować bezpieczny fallback UX:
+  - nie uruchamiać od razu w ciszy z suwakiem,
+  - tylko pokazać prosty pełnoekranowy przycisk “Odtwórz z dźwiękiem”, który po tapnięciu uruchomi dźwięk.
+- Dzięki temu domyślny scenariusz będzie “od razu głos”, ale bez łamania ograniczeń iOS/Safari.
 
-Dodatkowo dla gości — jeśli `bypassLateBlock=true` (rejoin), check `isLinkExpired` na linii 210 nadal może wyrzucić gościa po `linkExpirySec` minut (nawet gdy wideo trwa). Warunek `sinceSlot >= duration` w linii 210 powinien chronić, ale trzeba sprawdzić czy `duration` jest > 0.
+4. Naprawić przedwczesne ucinanie wideo
+- Główna przyczyna jest w `src/hooks/useAutoWebinarSync.ts`: logika slotu i końca sesji nadal opiera się częściowo na oknie slotu, a nie wyłącznie na czasie konkretnego filmu przypisanego do slotu.
+- Zmienić logikę tak, aby dla gościa i zalogowanego użytkownika obowiązywała jedna zasada:
+  - od `sinceSlot = 0` do `sinceSlot < duration` → trwa odtwarzanie,
+  - od `sinceSlot >= duration` do `< duration + 60` → baner “Dziękujemy”,
+  - od `sinceSlot >= duration + 60` → webinar zamknięty i link nieważny.
+- `findCurrentSlot()` ma tylko wskazać aktywny slot, ale nie może kończyć webinaru wcześniej niż wynika to z `duration_seconds` przypisanego materiału.
+- Trzeba też uszczelnić przypadek graniczny dla filmu np. 18:03, żeby nie przechodził do thank-you przy 17:xx / 18:00 przez opóźnienie odświeżania lub błędne wyliczenie okna.
 
-**Rozwiązanie** w `useAutoWebinarSync.ts`:
-- **Zalogowani użytkownicy (linie 323-347)**: Dodać stany `isVideoEnded` i `isRoomClosed` analogicznie do ścieżki gościa:
-  - `sinceSlot >= duration + 60` → `isRoomClosed`
-  - `sinceSlot >= duration && < duration + 60` → `isVideoEnded` (podziękowanie)
-  - `sinceSlot < duration` → odtwarzanie (bez zmian)
-- **Goście (linie 208-219)**: Przenieść check `isLinkExpired` na sam koniec, PO sekcji "Playing". Dzięki temu wideo trwające dłużej niż `linkExpirySec` nigdy nie zostanie przerwane. Link expired zadziała tylko gdy gość wejdzie po zakończeniu wideo.
+5. Doprecyzować aktualizację timera i stanów końcowych
+- W `useAutoWebinarSync.ts` zwiększyć precyzję odświeżania podczas końcówki filmu i w oknie thank-you, tak aby przejście następowało dokładniej.
+- Upewnić się, że `currentVideo`, `startOffset`, `isVideoEnded` i `isRoomClosed` są ustawiane spójnie w każdej ścieżce:
+  - guest with slot,
+  - logged-in user,
+  - preview mode.
+- Zachować obecne kasowanie sesji z localStorage dopiero po `isRoomClosed`.
 
-## Problem 2: Unieważnienie linku po zakończeniu
+6. Zachować zgodność z obecną specyfikacją
+- Nie przywracać regulacji głośności.
+- Fullscreen ma być dostępny także na mobile.
+- Baner z podziękowaniem ma pojawić się dopiero po pełnym odtworzeniu materiału wideo i trwać 60 sekund.
+- Dopiero po tej minucie link ma zostać unieważniony i webinar zamknięty.
 
-**Obecnie**: Po `isRoomClosed` wyświetla się "Spotkanie już się odbyło", ale link nadal technicznie istnieje. Gość mógłby w teorii odświeżyć i zobaczyć ekran ponownie.
+Sekcje do zmiany
+- `src/components/auto-webinar/AutoWebinarEmbed.tsx`
+- `src/components/auto-webinar/AutoWebinarPlayerControls.tsx`
+- `src/hooks/useAutoWebinarSync.ts`
+- `src/pages/AutoWebinarPublicPage.tsx`
 
-**Rozwiązanie** w `AutoWebinarEmbed.tsx`:
-- Gdy `isRoomClosed=true`, usunąć klucz sesji z localStorage (`aw_session_*`) i oznaczyć rejestrację jako "completed" w DB (update `auto_webinar_views` z `left_at = now()`).
-- Dodać efekt: gdy `isRoomClosed` → `localStorage.removeItem(sessionKey)` — to uniemożliwi bypass po zamknięciu.
-
-## Podsumowanie zmian
-
-| Plik | Zmiana |
-|------|--------|
-| `useAutoWebinarSync.ts` | Dodać `isVideoEnded`/`isRoomClosed` dla zalogowanych; przenieść `isLinkExpired` po sekcji Playing dla gości |
-| `AutoWebinarEmbed.tsx` | Usunąć sesję z localStorage gdy `isRoomClosed`; update DB |
-
+Uwagi techniczne
+- “Autoplay z dźwiękiem od razu” nie jest w 100% gwarantowany na iPhone/Safari bez interakcji użytkownika. Dlatego wdrożenie powinno najpierw próbować startu z audio, a jeśli przeglądarka go zablokuje, pokazać pojedynczy przycisk startu z dźwiękiem zamiast obecnego workflow mute/unmute.
+- Najważniejsza poprawka biznesowa: koniec webinaru ma być liczony od realnego `duration_seconds` bieżącego filmu, nie od ogólnego okna slotu ani limitu link expiry.
