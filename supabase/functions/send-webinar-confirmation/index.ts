@@ -336,72 +336,38 @@ const handler = async (req: Request): Promise<Response> => {
           console.log(`[send-webinar-confirmation] Created NEW auto-webinar contact: ${newContact.id} — ${autoWebinarSource}`);
         }
       } else {
-        // Standard webinar: deduplicate by email+phone
+        // Standard webinar: always create new contact (same as auto-webinar)
         const contactSourceLabel = `Formularz webinar: "${eventTitle}" (${formattedDate})`;
         
-        const { data: matchingContacts } = await supabase
+        const { data: newContact, error: contactError } = await supabase
           .from('team_contacts')
-          .select('id, is_active, email, phone_number')
-          .eq('user_id', invitedByUserId)
-          .eq('contact_type', 'private');
+          .insert({
+            user_id: invitedByUserId,
+            first_name: firstName,
+            last_name: lastName || '',
+            email: email,
+            phone_number: normalizedPhone,
+            contact_type: 'private',
+            role: 'client',
+            relationship_status: 'observation',
+            notes: null,
+            contact_source: contactSourceLabel,
+            is_active: true,
+          })
+          .select('id')
+          .single();
 
-        const existingContact = matchingContacts?.find(c => {
-          const emailMatch = c.email?.toLowerCase().trim() === normalizedEmail;
-          const phoneMatch = (c.phone_number?.trim() || null) === normalizedPhone;
-          return emailMatch && phoneMatch;
-        }) || null;
-
-        if (!existingContact) {
-          const { data: newContact, error: contactError } = await supabase
-            .from('team_contacts')
-            .insert({
-              user_id: invitedByUserId,
-              first_name: firstName,
-              last_name: lastName || '',
-              email: email,
-              phone_number: normalizedPhone,
-              contact_type: 'private',
-              role: 'client',
-              relationship_status: 'observation',
-              notes: null,
-              contact_source: contactSourceLabel,
-              is_active: true,
-            })
-            .select('id')
-            .single();
-
-          if (contactError) {
-            console.error('[send-webinar-confirmation] Error creating contact:', contactError);
-          } else if (newContact) {
-            await supabase
-              .from('guest_event_registrations')
-              .update({ team_contact_id: newContact.id })
-              .eq('event_id', eventId)
-              .eq('email', email);
-            
-            console.log(`[send-webinar-confirmation] Created NEW team contact: ${newContact.id} (email+phone unique)`);
-          }
-        } else {
-          if (!existingContact.is_active) {
-            await supabase
-              .from('team_contacts')
-              .update({
-                is_active: true,
-                first_name: firstName,
-                last_name: lastName || '',
-                contact_source: contactSourceLabel,
-                deleted_at: null,
-              })
-              .eq('id', existingContact.id);
-            console.log(`[send-webinar-confirmation] Reactivated contact: ${existingContact.id}`);
-          } else {
-            console.log(`[send-webinar-confirmation] Exact contact already active: ${existingContact.id}`);
-          }
+        if (contactError) {
+          console.error('[send-webinar-confirmation] Error creating contact:', contactError);
+        } else if (newContact) {
           await supabase
             .from('guest_event_registrations')
-            .update({ team_contact_id: existingContact.id })
+            .update({ team_contact_id: newContact.id })
             .eq('event_id', eventId)
-            .eq('email', email);
+            .eq('email', email)
+            .is('team_contact_id', null);
+          
+          console.log(`[send-webinar-confirmation] Created NEW contact: ${newContact.id} — ${contactSourceLabel}`);
         }
       }
 
