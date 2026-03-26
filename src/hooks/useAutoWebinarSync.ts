@@ -201,8 +201,9 @@ export function useAutoWebinarSync(
           return;
         }
 
-        // Link expired (>linkExpiry after slot start, but only if video hasn't started logic above)
-        if (sinceSlot > linkExpirySec) {
+        // Link expired — only if video is NOT currently playing
+        // If video is still running (sinceSlot < duration), let it play regardless of linkExpiry
+        if (sinceSlot > linkExpirySec && (duration <= 0 || sinceSlot >= duration)) {
           resetFlags();
           setIsLinkExpired(true);
           setCurrentVideo(null);
