@@ -548,7 +548,7 @@ export const useTeamContacts = () => {
       }
     }
 
-    return { groups, groupsBO, groupsHC, duplicates };
+    return { groups, groupsBO, groupsHC, groupsGeneral, duplicates };
   }, [eventContactDetails]);
 
   useEffect(() => {
@@ -558,7 +558,7 @@ export const useTeamContacts = () => {
   }, [fetchContacts, fetchEventContactIds, fetchDeletedContacts]);
 
   // Compute grouped data
-  const { groups: eventGroupedContacts, groupsBO: eventGroupedContactsBO, groupsHC: eventGroupedContactsHC, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
+  const { groups: eventGroupedContacts, groupsBO: eventGroupedContactsBO, groupsHC: eventGroupedContactsHC, groupsGeneral: eventGroupedContactsGeneral, duplicates: duplicateContactEvents } = buildEventGroups(contacts);
 
   return {
     contacts,
@@ -573,10 +573,12 @@ export const useTeamContacts = () => {
     eventContactIds,
     eventContactIdsBO,
     eventContactIdsHC,
+    eventContactIdsGeneral,
     eventContactDetails,
     eventGroupedContacts,
     eventGroupedContactsBO,
     eventGroupedContactsHC,
+    eventGroupedContactsGeneral,
     duplicateContactEvents,
     pendingOfflineCount: pendingCount,
     deletedContacts,
