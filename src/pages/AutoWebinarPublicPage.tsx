@@ -19,14 +19,14 @@ const AutoWebinarPublicPage: React.FC = () => {
     <div className="min-h-screen bg-background">
       {/* Minimal header with logo */}
       <header className="border-b border-border bg-card">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
-          <img src={newPureLifeLogo} alt="Pure Life" className="h-8 object-contain" />
-          <span className="text-sm font-medium text-muted-foreground">Webinar na żywo</span>
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2 sm:py-3 flex items-center gap-2 sm:gap-3">
+          <img src={newPureLifeLogo} alt="Pure Life" className="h-6 sm:h-8 object-contain" />
+          <span className="text-xs sm:text-sm font-medium text-muted-foreground">Webinar na żywo</span>
         </div>
       </header>
 
       {/* Player — guest mode */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <main className="max-w-5xl mx-auto px-2 sm:px-4 py-3 sm:py-6">
         <AutoWebinarEmbed isGuest guestSlotTime={guestSlotTime} guestEmail={guestEmail} category="business_opportunity" />
       </main>
     </div>
