@@ -431,6 +431,17 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   onMoveToOwnList={moveToOwnList}
                 />
+              ) : privateSubTab === 'events-general' ? (
+              <EventGroupedContacts
+                  eventGroups={eventGroupedContactsGeneral}
+                  duplicateContactEvents={duplicateContactEvents}
+                  eventContactDetails={eventContactDetails}
+                  loading={loading}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
+                  onMoveToOwnList={moveToOwnList}
+                />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
                   contacts={filteredContacts}

@@ -61,7 +61,8 @@ export function useAutoWebinarSync(
   config: AutoWebinarConfig | null,
   isGuest = false,
   guestSlotTime?: string | null,
-  previewMode = false
+  previewMode = false,
+  bypassLateBlock = false
 ): AutoWebinarSyncResult {
   const [currentVideo, setCurrentVideo] = useState<AutoWebinarVideo | null>(null);
   const [startOffset, setStartOffset] = useState(0);
