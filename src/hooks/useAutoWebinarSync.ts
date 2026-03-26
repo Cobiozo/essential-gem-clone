@@ -60,7 +60,8 @@ export function useAutoWebinarSync(
   videos: AutoWebinarVideo[],
   config: AutoWebinarConfig | null,
   isGuest = false,
-  guestSlotTime?: string | null
+  guestSlotTime?: string | null,
+  previewMode = false
 ): AutoWebinarSyncResult {
   const [currentVideo, setCurrentVideo] = useState<AutoWebinarVideo | null>(null);
   const [startOffset, setStartOffset] = useState(0);
@@ -108,6 +109,17 @@ export function useAutoWebinarSync(
     };
 
     const calculate = () => {
+      // Preview mode: always play first active video, bypass all slot/time logic
+      if (previewMode && activeVideos.length > 0) {
+        resetFlags();
+        setIsInActiveHours(true);
+        setCurrentVideo(activeVideos[0]);
+        setStartOffset(0);
+        setSecondsToNext(0);
+        updateInterval(30000);
+        return;
+      }
+
       const now = new Date();
       const currentHour = now.getHours();
       const currentMinute = now.getMinutes();
@@ -408,7 +420,7 @@ export function useAutoWebinarSync(
     currentIntervalMs = 10000;
 
     return () => clearInterval(intervalId);
-  }, [videos, config, isGuest, guestSlotTime]);
+  }, [videos, config, isGuest, guestSlotTime, previewMode]);
 
   return { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed };
 }
