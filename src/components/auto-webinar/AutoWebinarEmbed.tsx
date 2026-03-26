@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Radio, Volume2, AlertTriangle, RefreshCw, Heart, XCircle } from 'lucide-react';
@@ -10,6 +10,7 @@ import { AutoWebinarParticipantCount } from './AutoWebinarParticipantCount';
 import { AutoWebinarFakeChat } from './AutoWebinarFakeChat';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AutoWebinarEmbedProps {
   isGuest?: boolean;
@@ -30,6 +31,61 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
+  const [hasExistingSession, setHasExistingSession] = useState(false);
+  const sessionCheckDone = useRef(false);
+
+  // Check if guest has an existing session (for rejoin after disconnect)
+  useEffect(() => {
+    if (!isGuest || !guestEmail || !currentVideo?.id || sessionCheckDone.current) return;
+
+    const checkExistingSession = async () => {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const { data } = await supabase
+        .from('auto_webinar_views')
+        .select('id')
+        .eq('video_id', currentVideo.id)
+        .eq('guest_email', guestEmail)
+        .gte('created_at', todayStart.toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        console.log('[AutoWebinarEmbed] Found existing session for guest, allowing rejoin');
+        setHasExistingSession(true);
+      }
+      sessionCheckDone.current = true;
+    };
+
+    checkExistingSession();
+  }, [isGuest, guestEmail, currentVideo?.id]);
+
+  // Also check when isTooLate becomes true (guest might have been watching before)
+  useEffect(() => {
+    if (!isTooLate || !isGuest || !guestEmail || hasExistingSession) return;
+
+    const checkForRejoin = async () => {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      // Find any view record for this guest today (any video in this webinar)
+      const { data } = await supabase
+        .from('auto_webinar_views')
+        .select('id')
+        .eq('guest_email', guestEmail)
+        .gte('created_at', todayStart.toISOString())
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        console.log('[AutoWebinarEmbed] Guest has prior session today, bypassing isTooLate');
+        setHasExistingSession(true);
+      }
+    };
+
+    checkForRejoin();
+  }, [isTooLate, isGuest, guestEmail, hasExistingSession]);
 
   // Determine effective playback state for tracking
   const effectiveIsPlaying = isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome;
@@ -167,7 +223,9 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
   // In preview mode: admin is never blocked by isTooLate/expired, always sees what participants see
-  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || previewMode) && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
+  // Returning guests (hasExistingSession) bypass isTooLate
+  const canBypassTooLate = previewMode || hasExistingSession;
+  const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || canBypassTooLate) && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
   const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
   const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
