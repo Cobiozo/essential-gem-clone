@@ -1,54 +1,26 @@
 
 
-# Plan: Audyt powiadomień + przebudowa rejestracji gości
+# Plan: Zakładki Webinary — Business Opportunity + Health Conversation
 
-## 1. Audyt powiadomień — znalezione problemy
+## Co się zmieni
 
-### Problem A: Cron filtruje tylko `event_type = 'webinar'`
-W `process-pending-notifications/index.ts` (linia 375) zapytanie pobiera tylko `event_type = 'webinar'`. Wydarzenia typu `team_training` i inne NIE otrzymują przypomnień.
+Strona `WebinarsPage` będzie miała 3 zakładki:
+1. **Webinary** — lista standardowych webinarów (jak dotychczas)
+2. **Business Opportunity** — auto-webinar kategorii `business_opportunity`
+3. **Health Conversation** — auto-webinar kategorii `health_conversation`
 
-**Fix**: Rozszerzyć filtr na `.in("event_type", ["webinar", "team_training"])` w kroku 5.
+Każda zakładka auto-webinaru wyświetla się tylko jeśli dana kategoria jest włączona i widoczna dla roli użytkownika.
 
-### Problem B: Reset flag działa poprawnie
-Mechanizm resetowania starych flag (threshold 25h) w `send-bulk-webinar-reminders` (linie 398-438) jest prawidłowy. Flagi z poprzedniego tygodnia zostaną zresetowane przed wysyłką.
+## Zmiany techniczne
 
-### Problem C: Brak reset `event_push_reminders_sent` dla cyklicznych
-Tabela `event_push_reminders_sent` nie resetuje się dla kolejnych wystąpień cyklicznych wydarzeń — push jest wysyłany tylko raz.
+### Plik: `src/pages/WebinarsPage.tsx`
 
-**Fix**: Przed wysyłką push, sprawdzać czy `sent_at` jest starszy niż 25h przed `start_time` — jeśli tak, usunąć stary rekord i wysłać ponownie.
-
-## 2. Przebudowa rejestracji gości
-
-### Obecny stan
-- Unique index: `(event_id, email, COALESCE(slot_time, ''))` — blokuje duplikaty
-- RPC `register_event_guest`: przy duplikacie zwiększa `registration_attempts`
-- Kontakty: auto-webinary tworzą nowy kontakt (bez dedup), standardowe webinary deduplikują po email+phone
-
-### Wymagane zmiany
-
-**A. RPC `register_event_guest`** — usunąć inkrementację `registration_attempts`. Przy duplikacie zwracać `already_registered` BEZ aktualizacji.
-
-**B. Kontakty w `send-webinar-confirmation`** — dla standardowych webinarów również ZAWSZE tworzyć nowy kontakt (jak dla auto-webinarów), z adnotacją o nazwie wydarzenia i dacie. Usunąć deduplikację email+phone.
-
-**C. Kolumna `registration_attempts`** — zostawić w tabeli (nie kasujemy kolumn), ale nie inkrementować jej.
-
-### Pliki do edycji
-
-| Plik | Zmiana |
-|---|---|
-| `supabase/functions/process-pending-notifications/index.ts` | Filtr `event_type` na `['webinar','team_training']` + reset push reminders |
-| `supabase/functions/send-bulk-webinar-reminders/index.ts` | Bez zmian — reset flag OK |
-| Migracja SQL | Zaktualizować RPC `register_event_guest` — bez inkrementacji attempts |
-| `supabase/functions/send-webinar-confirmation/index.ts` | Kontakty: zawsze nowy wpis (bez dedup email+phone) |
-
-### Szczegóły techniczne
-
-**RPC (migracja)**:
-```sql
--- W bloku EXCEPTION WHEN unique_violation:
--- Zamiast UPDATE SET registration_attempts = ... + 1
--- Tylko SELECT registration_attempts i RETURN 'already_registered'
-```
-
-**Kontakty (send-webinar-confirmation)**: Blok `else` (linie 338-405) — zastąpić logiką identyczną jak dla auto-webinarów: zawsze INSERT nowy kontakt z `contact_source` zawierającym nazwę wydarzenia i datę.
+- Pobrać konfigurację **obu** kategorii: `useAutoWebinarConfig('business_opportunity')` i `useAutoWebinarConfig('health_conversation')`
+- Osobno obliczyć `hasBoAccess` i `hasHcAccess` na podstawie roli i flag widoczności
+- Jeśli żadna nie jest dostępna — renderować listę webinarów bez tabów (jak dotychczas)
+- Jeśli co najmniej jedna dostępna — renderować Tabs z:
+  - Tab "Webinary" → lista standardowych webinarów
+  - Tab "Business Opportunity" (jeśli `hasBoAccess`) → `<AutoWebinarEventView category="business_opportunity" />`
+  - Tab "Health Conversation" (jeśli `hasHcAccess`) → `<AutoWebinarEventView category="health_conversation" />`
+- Usunąć stary tekst `config?.room_title || 'Webinary Biznesowe 24h/live'` z nazwy taba — zastąpić stałymi nazwami "Business Opportunity" i "Health Conversation"
 
