@@ -281,7 +281,6 @@ const EventGuestRegistration: React.FC = () => {
     fetchConfig();
   }, [event]);
 
-  const [existingUserBlocked, setExistingUserBlocked] = useState(false);
 
   const onSubmit = async (data: RegistrationFormData) => {
     if (!eventId) return;
