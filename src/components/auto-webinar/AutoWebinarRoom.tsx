@@ -2,7 +2,7 @@ import React from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { AutoWebinarEmbed } from './AutoWebinarEmbed';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Video } from 'lucide-react';
+
 
 export const AutoWebinarRoom: React.FC = () => {
   return (
