@@ -12,6 +12,8 @@ import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 const AutoWebinarPublicPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const guestSlotTime = searchParams.get('slot');
+  const guestRef = searchParams.get('ref');
+  const guestEmail = guestRef ? (() => { try { return atob(guestRef); } catch { return null; } })() : null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -25,7 +27,7 @@ const AutoWebinarPublicPage: React.FC = () => {
 
       {/* Player — guest mode */}
       <main className="max-w-5xl mx-auto px-4 py-6">
-        <AutoWebinarEmbed isGuest guestSlotTime={guestSlotTime} />
+        <AutoWebinarEmbed isGuest guestSlotTime={guestSlotTime} guestEmail={guestEmail} />
       </main>
     </div>
   );
