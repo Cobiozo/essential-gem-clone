@@ -236,6 +236,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const roomTitle = config?.room_title || 'Webinar NA ŻYWO';
   const roomSubtitle = config?.room_subtitle || `Automatyczne odtwarzanie co ${config?.interval_minutes || 60} min (${config?.start_hour}:00 – ${config?.end_hour}:00)`;
   const bgColor = config?.room_background_color || '#000000';
+  // Lighten pure black backgrounds for info screens so dark logos remain visible
+  const infoBgColor = bgColor === '#000000' ? '#1a1f2e' : bgColor;
   const showLiveBadge = config?.room_show_live_badge !== false;
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
@@ -283,7 +285,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               <Radio className="h-12 w-12 text-white/60 mb-6 animate-pulse" />
               <p className="text-white text-xl md:text-2xl font-semibold max-w-2xl leading-relaxed">
