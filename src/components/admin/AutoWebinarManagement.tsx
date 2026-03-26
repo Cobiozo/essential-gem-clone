@@ -234,7 +234,6 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const loadData = async () => {
     setLoading(true);
     const [videosRes, configRes] = await Promise.all([
-      supabase.from('auto_webinar_videos').select('*').order('sort_order', { ascending: true }),
       supabase.from('auto_webinar_config').select('*').eq('category', category).maybeSingle(),
     ]);
     setVideos((videosRes.data as AutoWebinarVideo[]) || []);

@@ -12,16 +12,19 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
+import type { AutoWebinarCategory } from '@/hooks/useAutoWebinar';
+
 interface AutoWebinarEmbedProps {
   isGuest?: boolean;
   previewMode?: boolean;
   guestSlotTime?: string | null;
   guestEmail?: string | null;
+  category?: AutoWebinarCategory;
 }
 
-export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime, guestEmail }) => {
-  const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
-  const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
+export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime, guestEmail, category = 'business_opportunity' }) => {
+  const { config, loading: configLoading, error: configError } = useAutoWebinarConfig(category);
+  const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos(config?.id);
   const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);

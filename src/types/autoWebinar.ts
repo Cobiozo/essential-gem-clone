@@ -8,6 +8,7 @@ export interface AutoWebinarVideo {
   sort_order: number;
   is_active: boolean;
   uploaded_by: string | null;
+  config_id: string | null;
   host_name: string | null;
   cover_image_url: string | null;
   created_at: string;
