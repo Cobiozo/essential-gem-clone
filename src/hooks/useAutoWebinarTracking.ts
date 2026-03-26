@@ -9,7 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 export function useAutoWebinarTracking(
   videoId: string | null,
   isPlaying: boolean,
-  isGuest: boolean = false
+  isGuest: boolean = false,
+  guestEmail: string | null = null
 ) {
   const viewId = useRef<string | null>(null);
   const sessionId = useRef(crypto.randomUUID());
@@ -20,6 +21,21 @@ export function useAutoWebinarTracking(
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id || null;
 
+    // Look up guest_registration_id if we have an email
+    let guestRegistrationId: string | null = null;
+    if (guestEmail) {
+      const { data: regData } = await supabase
+        .from('guest_event_registrations')
+        .select('id')
+        .eq('email', guestEmail)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (regData) {
+        guestRegistrationId = regData.id;
+      }
+    }
+
     const { data, error } = await supabase
       .from('auto_webinar_views' as any)
       .insert({
@@ -27,6 +43,8 @@ export function useAutoWebinarTracking(
         user_id: userId,
         session_id: sessionId.current,
         is_guest: isGuest || !userId,
+        guest_email: guestEmail || null,
+        guest_registration_id: guestRegistrationId,
       })
       .select('id')
       .single();
@@ -35,7 +53,7 @@ export function useAutoWebinarTracking(
       viewId.current = (data as any).id;
       startTime.current = Date.now();
     }
-  }, [isGuest]);
+  }, [isGuest, guestEmail]);
 
   const updateDuration = useCallback(async () => {
     if (!viewId.current || !startTime.current) return;

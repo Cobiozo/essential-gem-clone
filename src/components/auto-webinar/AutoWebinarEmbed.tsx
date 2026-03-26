@@ -15,9 +15,10 @@ interface AutoWebinarEmbedProps {
   isGuest?: boolean;
   previewMode?: boolean;
   guestSlotTime?: string | null;
+  guestEmail?: string | null;
 }
 
-export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime }) => {
+export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = false, previewMode = false, guestSlotTime, guestEmail }) => {
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig();
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos();
   const { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed } = useAutoWebinarSync(videos, config, isGuest, guestSlotTime);
@@ -35,7 +36,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const effectiveVideoId = currentVideo?.id || null;
 
   // Analytics tracking
-  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest);
+  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail);
 
   // Welcome message overlay
   useEffect(() => {

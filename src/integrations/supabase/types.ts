@@ -777,6 +777,8 @@ export type Database = {
       auto_webinar_views: {
         Row: {
           created_at: string
+          guest_email: string | null
+          guest_registration_id: string | null
           id: string
           is_guest: boolean | null
           joined_at: string
@@ -788,6 +790,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          guest_email?: string | null
+          guest_registration_id?: string | null
           id?: string
           is_guest?: boolean | null
           joined_at?: string
@@ -799,6 +803,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          guest_email?: string | null
+          guest_registration_id?: string | null
           id?: string
           is_guest?: boolean | null
           joined_at?: string
@@ -809,6 +815,13 @@ export type Database = {
           watch_duration_seconds?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "auto_webinar_views_guest_registration_id_fkey"
+            columns: ["guest_registration_id"]
+            isOneToOne: false
+            referencedRelation: "guest_event_registrations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "auto_webinar_views_video_id_fkey"
             columns: ["video_id"]

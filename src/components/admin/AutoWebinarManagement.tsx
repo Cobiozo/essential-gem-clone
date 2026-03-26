@@ -19,6 +19,7 @@ import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown
 import type { AutoWebinarVideo, AutoWebinarConfig, AutoWebinarFakeMessage } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
+import { AutoWebinarGuestStats } from '@/components/admin/AutoWebinarGuestStats';
 
 interface LinkedEvent {
   id: string;
@@ -1350,6 +1351,9 @@ export const AutoWebinarManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Guest Stats */}
+      <AutoWebinarGuestStats />
 
       {/* Videos list */}
       <Card>
