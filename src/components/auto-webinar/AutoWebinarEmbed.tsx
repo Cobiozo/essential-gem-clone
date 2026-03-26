@@ -384,7 +384,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               <XCircle className="h-10 w-10 text-destructive mb-4" />
               <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
@@ -404,7 +404,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
                 <div className="flex items-center gap-3 mb-6">
@@ -430,7 +430,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
                 <div className="flex items-center gap-3 mb-6">
@@ -456,7 +456,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               <Radio className="h-10 w-10 text-white/60 mb-4" />
               <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
@@ -473,7 +473,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
                 <div className="flex items-center gap-3 mb-6">
@@ -517,6 +517,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                 <AutoWebinarParticipantCount
                   min={config.fake_participants_min || 45}
                   max={config.fake_participants_max || 120}
+                  label="oczekujących na rozpoczęcie spotkania:"
                 />
               </div>
             )}
@@ -532,7 +533,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           <CardContent className="p-0">
             <div
               className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
-              style={{ backgroundColor: bgColor }}
+              style={{ backgroundColor: infoBgColor }}
             >
               <XCircle className="h-10 w-10 text-destructive mb-4" />
               <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
