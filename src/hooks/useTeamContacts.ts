@@ -502,10 +502,11 @@ export const useTeamContacts = () => {
   }, [user]);
 
   // Build grouped contacts by event and duplicate detection
-  const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; groupsBO: Map<string, EventGroup>; groupsHC: Map<string, EventGroup>; duplicates: Map<string, number> } => {
+  const buildEventGroups = useCallback((allContacts: TeamContact[]): { groups: Map<string, EventGroup>; groupsBO: Map<string, EventGroup>; groupsHC: Map<string, EventGroup>; groupsGeneral: Map<string, EventGroup>; duplicates: Map<string, number> } => {
     const groups = new Map<string, EventGroup>();
     const groupsBO = new Map<string, EventGroup>();
     const groupsHC = new Map<string, EventGroup>();
+    const groupsGeneral = new Map<string, EventGroup>();
     const duplicates = new Map<string, number>();
 
     for (const [contactId, registrations] of eventContactDetails.entries()) {
@@ -513,7 +514,7 @@ export const useTeamContacts = () => {
       if (!contact) continue;
 
       for (const reg of registrations) {
-        const category = reg.event_category || 'business_opportunity';
+        const category = reg.event_category || 'general';
         
         if (!groups.has(reg.event_id)) {
           const groupData: EventGroup = {
@@ -528,7 +529,7 @@ export const useTeamContacts = () => {
         groups.get(reg.event_id)!.contacts.push(contact);
 
         // Add to category-specific map
-        const targetMap = category === 'health_conversation' ? groupsHC : groupsBO;
+        const targetMap = category === 'health_conversation' ? groupsHC : category === 'business_opportunity' ? groupsBO : groupsGeneral;
         if (!targetMap.has(reg.event_id)) {
           targetMap.set(reg.event_id, {
             event_id: reg.event_id,
