@@ -235,7 +235,7 @@ export function useAutoWebinarSync(
         }
 
         // Late join blocking (guest joined after allowed threshold)
-        if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration) {
+        if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration && !bypassLateBlock) {
           resetFlags();
           setIsTooLate(true);
           setCurrentVideo(null);
@@ -421,7 +421,7 @@ export function useAutoWebinarSync(
     currentIntervalMs = 10000;
 
     return () => clearInterval(intervalId);
-  }, [videos, config, isGuest, guestSlotTime, previewMode]);
+  }, [videos, config, isGuest, guestSlotTime, previewMode, bypassLateBlock]);
 
   return { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed };
 }
