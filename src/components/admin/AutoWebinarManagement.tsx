@@ -28,7 +28,11 @@ interface LinkedEvent {
   is_active: boolean;
 }
 
-export const AutoWebinarManagement: React.FC = () => {
+interface AutoWebinarManagementProps {
+  category: 'business_opportunity' | 'health_conversation';
+}
+
+export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ category }) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [videos, setVideos] = useState<AutoWebinarVideo[]>([]);
@@ -84,7 +88,7 @@ export const AutoWebinarManagement: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [category]);
 
   // Sync forms when config loads
   useEffect(() => {
@@ -231,7 +235,7 @@ export const AutoWebinarManagement: React.FC = () => {
     setLoading(true);
     const [videosRes, configRes] = await Promise.all([
       supabase.from('auto_webinar_videos').select('*').order('sort_order', { ascending: true }),
-      supabase.from('auto_webinar_config').select('*').limit(1).maybeSingle(),
+      supabase.from('auto_webinar_config').select('*').eq('category', category).maybeSingle(),
     ]);
     setVideos((videosRes.data as AutoWebinarVideo[]) || []);
     const cfg = configRes.data as AutoWebinarConfig | null;
@@ -270,7 +274,7 @@ export const AutoWebinarManagement: React.FC = () => {
     if (config) return config;
     const { data, error } = await supabase
       .from('auto_webinar_config')
-      .insert({ is_enabled: false })
+      .insert({ is_enabled: false, category })
       .select()
       .single();
     if (error) throw error;
