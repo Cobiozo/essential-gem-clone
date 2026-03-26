@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Radio, Volume2, AlertTriangle, RefreshCw, Heart, XCircle } from 'lucide-react';
+import { Radio, Volume2, AlertTriangle, RefreshCw, Heart, XCircle, Play } from 'lucide-react';
 import { useAutoWebinarConfig, useAutoWebinarVideos, useAutoWebinarSync } from '@/hooks/useAutoWebinar';
 import { useAutoWebinarTracking } from '@/hooks/useAutoWebinarTracking';
 import { AutoWebinarCountdown } from './AutoWebinarCountdown';
@@ -26,7 +26,6 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const { config, loading: configLoading, error: configError } = useAutoWebinarConfig(category);
   const { videos, loading: videosLoading, error: videosError } = useAutoWebinarVideos(config?.id);
   const [hasExistingSession, setHasExistingSession] = useState(() => {
-    // Check localStorage synchronously for immediate bypass on mount
     if (isGuest && guestEmail) {
       const today = new Date().toISOString().slice(0, 10);
       const sessionKey = `aw_session_${guestEmail}_${today}`;
@@ -39,11 +38,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const containerRef = useRef<HTMLDivElement>(null);
   const [hasStarted, setHasStarted] = useState(false);
   const [showWelcome, setShowWelcome] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
-  const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
+  const [needsUserInteraction, setNeedsUserInteraction] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
-  // hasExistingSession is declared above (before useAutoWebinarSync) with localStorage init
   const sessionCheckDone = useRef(false);
 
   // Check if guest has an existing session (for rejoin after disconnect)
@@ -73,7 +71,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     checkExistingSession();
   }, [isGuest, guestEmail, currentVideo?.id]);
 
-  // Also check when isTooLate becomes true (guest might have been watching before)
+  // Also check when isTooLate becomes true
   useEffect(() => {
     if (!isTooLate || !isGuest || !guestEmail || hasExistingSession) return;
 
@@ -81,7 +79,6 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
-      // Find any view record for this guest today (any video in this webinar)
       const { data } = await supabase
         .from('auto_webinar_views')
         .select('id')
@@ -109,7 +106,6 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   // Invalidate session when room closes
   useEffect(() => {
     if (!isRoomClosed) return;
-    // Clear localStorage session so guest cannot rejoin
     if (isGuest && guestEmail) {
       const today = new Date().toISOString().slice(0, 10);
       const sessionKey = `aw_session_${guestEmail}_${today}`;
@@ -131,7 +127,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config?.id, isInActiveHours, previewMode]);
 
-  // Video playback — starts muted for autoplay compliance
+  // Video playback — try to start with sound
   const hasStartedRef = useRef(false);
   const currentSrcRef = useRef<string | null>(null);
 
@@ -154,17 +150,36 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       if (!hasStartedRef.current && startOffset > 0) {
         video.currentTime = startOffset;
       }
-      video.muted = true;
-      setIsMuted(true);
-      video.play().catch(console.warn);
-      hasStartedRef.current = true;
-      // Save session to localStorage for rejoin after refresh
-      if (isGuest && guestEmail) {
-        const today = new Date().toISOString().slice(0, 10);
-        const sessionKey = `aw_session_${guestEmail}_${today}`;
-        localStorage.setItem(sessionKey, 'active');
-      }
-      setHasStarted(true);
+      // Try to play with sound first
+      video.muted = false;
+      setIsMuted(false);
+      video.play().then(() => {
+        // Autoplay with sound succeeded
+        hasStartedRef.current = true;
+        setNeedsUserInteraction(false);
+        // Save session to localStorage for rejoin after refresh
+        if (isGuest && guestEmail) {
+          const today = new Date().toISOString().slice(0, 10);
+          const sessionKey = `aw_session_${guestEmail}_${today}`;
+          localStorage.setItem(sessionKey, 'active');
+        }
+        setHasStarted(true);
+      }).catch(() => {
+        // Browser blocked autoplay with sound — show interaction overlay
+        console.log('[AutoWebinarEmbed] Autoplay with sound blocked, requesting user interaction');
+        video.muted = true;
+        setIsMuted(true);
+        video.play().then(() => {
+          hasStartedRef.current = true;
+          setNeedsUserInteraction(true);
+          if (isGuest && guestEmail) {
+            const today = new Date().toISOString().slice(0, 10);
+            const sessionKey = `aw_session_${guestEmail}_${today}`;
+            localStorage.setItem(sessionKey, 'active');
+          }
+          setHasStarted(true);
+        }).catch(console.warn);
+      });
     };
 
     video.addEventListener('canplay', handleCanPlay, { once: true });
@@ -180,22 +195,15 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     hasStartedRef.current = false;
     currentSrcRef.current = null;
     setHasStarted(false);
-    setShowUnmuteOverlay(true);
+    setNeedsUserInteraction(false);
   }, [currentVideo?.id]);
 
-  const handleUnmute = () => {
+  const handleEnableSound = () => {
     if (videoRef.current) {
       videoRef.current.muted = false;
       setIsMuted(false);
     }
-    setShowUnmuteOverlay(false);
-  };
-
-  const handleToggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-      setIsMuted(videoRef.current.muted);
-    }
+    setNeedsUserInteraction(false);
   };
 
   const handleVideoError = () => {
@@ -204,7 +212,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
 
   if (configLoading || videosLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[300px] sm:min-h-[400px]">
         <LoadingSpinner />
       </div>
     );
@@ -212,11 +220,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
 
   if (configError || videosError) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center gap-4">
-        <AlertTriangle className="h-12 w-12 text-destructive" />
-        <h2 className="text-xl font-semibold">Błąd ładowania</h2>
-        <p className="text-muted-foreground">{configError || videosError}</p>
-        <Button variant="outline" onClick={() => window.location.reload()}>
+      <div className="flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] text-center gap-3 px-4">
+        <AlertTriangle className="h-10 w-10 sm:h-12 sm:w-12 text-destructive" />
+        <h2 className="text-lg sm:text-xl font-semibold">Błąd ładowania</h2>
+        <p className="text-sm text-muted-foreground">{configError || videosError}</p>
+        <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
           <RefreshCw className="h-4 w-4 mr-2" /> Odśwież stronę
         </Button>
       </div>
@@ -225,10 +233,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
 
   if (!config?.is_enabled && !previewMode) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Auto-webinary są wyłączone</h2>
-        <p className="text-muted-foreground">Sprawdź ponownie później</p>
+      <div className="flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] text-center px-4">
+        <Radio className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3" />
+        <h2 className="text-lg sm:text-xl font-semibold mb-2">Auto-webinary są wyłączone</h2>
+        <p className="text-sm text-muted-foreground">Sprawdź ponownie później</p>
       </div>
     );
   }
@@ -237,10 +245,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
 
   if (activeVideos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
-        <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Brak dostępnych materiałów</h2>
-        <p className="text-muted-foreground">Administrator nie dodał jeszcze żadnych filmów</p>
+      <div className="flex flex-col items-center justify-center min-h-[300px] sm:min-h-[400px] text-center px-4">
+        <Radio className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3" />
+        <h2 className="text-lg sm:text-xl font-semibold mb-2">Brak dostępnych materiałów</h2>
+        <p className="text-sm text-muted-foreground">Administrator nie dodał jeszcze żadnych filmów</p>
       </div>
     );
   }
@@ -248,43 +256,40 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const roomTitle = config?.room_title || 'Webinar NA ŻYWO';
   const roomSubtitle = config?.room_subtitle || `Automatyczne odtwarzanie co ${config?.interval_minutes || 60} min (${config?.start_hour}:00 – ${config?.end_hour}:00)`;
   const bgColor = config?.room_background_color || '#000000';
-  // Lighten pure black backgrounds for info screens so dark logos remain visible
   const infoBgColor = bgColor === '#000000' ? '#1a1f2e' : bgColor;
   const showLiveBadge = config?.room_show_live_badge !== false;
   const showScheduleInfo = config?.room_show_schedule_info !== false;
   const countdownLabel = config?.countdown_label || 'Następny webinar za';
 
-  // In preview mode: admin is never blocked by isTooLate/expired, always sees what participants see
-  // Returning guests (hasExistingSession) bypass isTooLate
   const canBypassTooLate = previewMode || hasExistingSession;
   const shouldShowPlayer = isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (!isTooLate || canBypassTooLate) && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
   const shouldShowWelcome = !previewMode && showWelcome && config?.welcome_message && isInActiveHours && currentVideo && startOffset >= 0 && !isTooLate && !isLinkExpired && !isNoInvitation && !isVideoEnded && !isRoomClosed;
   const showPreviewOfflineInfo = previewMode && !shouldShowPlayer;
 
   return (
-    <div className="space-y-4 max-w-5xl mx-auto">
+    <div className="space-y-3 sm:space-y-4 max-w-5xl mx-auto">
       {/* Header */}
       {!previewMode && (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
-              <div className="flex items-center gap-2">
-                {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-10 max-w-[120px] object-contain" />}
-                {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-10 max-w-[120px] object-contain" />}
+              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
+                {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
               </div>
             ) : (
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <Radio className="h-5 w-5 text-destructive" />
+              <div className="p-1.5 sm:p-2 rounded-lg bg-destructive/10 shrink-0">
+                <Radio className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
               </div>
             )}
-            <div>
-              <h2 className="text-xl font-bold">{roomTitle}</h2>
-              <p className="text-sm text-muted-foreground">{roomSubtitle}</p>
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-xl font-bold truncate">{roomTitle}</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">{roomSubtitle}</p>
             </div>
           </div>
           {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
-            <Badge variant="destructive" className="animate-pulse gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-background" />
+            <Badge variant="destructive" className="animate-pulse gap-1 sm:gap-1.5 text-xs shrink-0">
+              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-background" />
               NA ŻYWO
             </Badge>
           )}
@@ -296,14 +301,14 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
-              <Radio className="h-12 w-12 text-white/60 mb-6 animate-pulse" />
-              <p className="text-white text-xl md:text-2xl font-semibold max-w-2xl leading-relaxed">
+              <Radio className="h-8 w-8 sm:h-12 sm:w-12 text-white/60 mb-4 sm:mb-6 animate-pulse" />
+              <p className="text-white text-base sm:text-xl md:text-2xl font-semibold max-w-2xl leading-relaxed">
                 {config?.welcome_message}
               </p>
-              <p className="text-white/50 text-sm mt-6">
+              <p className="text-white/50 text-xs sm:text-sm mt-4 sm:mt-6">
                 Transmisja rozpocznie się za chwilę...
               </p>
             </div>
@@ -315,7 +320,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
             <div ref={containerRef} className="relative aspect-video" style={{ backgroundColor: bgColor }}>
               {/* Participant count */}
               {config?.fake_participants_enabled && (
-                <div className="absolute top-3 right-3 z-10">
+                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
                   <AutoWebinarParticipantCount
                     min={config.fake_participants_min || 45}
                     max={config.fake_participants_max || 120}
@@ -324,9 +329,9 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
               )}
               {/* Video error state */}
               {videoError ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3">
-                  <AlertTriangle className="h-10 w-10 text-destructive" />
-                  <p className="text-sm">{videoError}</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 px-4">
+                  <AlertTriangle className="h-8 w-8 sm:h-10 sm:w-10 text-destructive" />
+                  <p className="text-xs sm:text-sm text-center">{videoError}</p>
                   <Button variant="secondary" size="sm" onClick={() => {
                     setVideoError(null);
                     setHasStarted(false);
@@ -341,7 +346,6 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                     className="w-full h-full"
                     controls={false}
                     playsInline
-                    muted
                     onError={handleVideoError}
                     onWaiting={() => setIsBuffering(true)}
                     onPlaying={() => setIsBuffering(false)}
@@ -355,31 +359,29 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                     </div>
                   )}
 
-                  {/* Unmute overlay */}
-                  {showUnmuteOverlay && hasStarted && (
+                  {/* Enable sound overlay — shown when autoplay with sound was blocked */}
+                  {needsUserInteraction && hasStarted && (
                     <button
-                      onClick={handleUnmute}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 cursor-pointer transition-opacity hover:bg-black/50 z-10"
+                      onClick={handleEnableSound}
+                      className="absolute inset-0 flex items-center justify-center bg-black/50 cursor-pointer transition-opacity hover:bg-black/60 z-10"
                     >
-                      <div className="flex items-center gap-2 bg-white/90 text-black rounded-full px-6 py-3 shadow-lg font-medium">
-                        <Volume2 className="h-5 w-5" />
-                        Włącz dźwięk
+                      <div className="flex items-center gap-2 bg-white/90 text-black rounded-full px-5 py-2.5 sm:px-6 sm:py-3 shadow-lg font-medium text-sm sm:text-base">
+                        <Play className="h-5 w-5 fill-current" />
+                        Odtwórz z dźwiękiem
                       </div>
                     </button>
                   )}
 
-                  {/* Player controls */}
-                  {hasStarted && !showUnmuteOverlay && (
+                  {/* Player controls — fullscreen only */}
+                  {hasStarted && !needsUserInteraction && (
                     <AutoWebinarPlayerControls
                       videoRef={videoRef}
                       containerRef={containerRef}
-                      isMuted={isMuted}
-                      onToggleMute={handleToggleMute}
                     />
                   )}
 
                   {/* Fake chat */}
-                  {config?.fake_chat_enabled && hasStarted && !showUnmuteOverlay && (
+                  {config?.fake_chat_enabled && hasStarted && !needsUserInteraction && (
                     <AutoWebinarFakeChat
                       configId={config?.id || null}
                       startOffset={startOffset}
@@ -395,17 +397,17 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
-              <XCircle className="h-10 w-10 text-destructive mb-4" />
-              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+              <XCircle className="h-8 w-8 sm:h-10 sm:w-10 text-destructive mb-3 sm:mb-4" />
+              <h2 className="text-white text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">
                 Spotkanie już się odbyło
               </h2>
-              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+              <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-2">
                 Ten link jest nieważny, ponieważ spotkanie już się odbyło.
               </p>
-              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+              <p className="text-white/60 text-xs sm:text-sm max-w-lg leading-relaxed mt-3 sm:mt-4">
                 Skontaktuj się z osobą, która Cię zaprosiła, aby uzyskać więcej informacji.
               </p>
             </div>
@@ -415,23 +417,23 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
               {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
-                <div className="flex items-center gap-3 mb-6">
-                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-12 max-w-[140px] object-contain opacity-80" />}
-                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-12 max-w-[140px] object-contain opacity-80" />}
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-8 sm:h-12 max-w-[100px] sm:max-w-[140px] object-contain opacity-80" />}
+                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-8 sm:h-12 max-w-[100px] sm:max-w-[140px] object-contain opacity-80" />}
                 </div>
               )}
-              <Heart className="h-10 w-10 text-destructive mb-4" />
-              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+              <Heart className="h-8 w-8 sm:h-10 sm:w-10 text-destructive mb-3 sm:mb-4" />
+              <h2 className="text-white text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">
                 Dziękujemy za uczestnictwo!
               </h2>
-              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+              <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-2">
                 Mamy nadzieję, że spotkanie było dla Ciebie wartościowe.
               </p>
-              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+              <p className="text-white/60 text-xs sm:text-sm max-w-lg leading-relaxed mt-3 sm:mt-4">
                 Skontaktuj się z osobą, która Cię zaprosiła na to spotkanie — chętnie odpowie na Twoje pytania i pomoże w kolejnych krokach.
               </p>
             </div>
@@ -441,23 +443,23 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
               {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
-                <div className="flex items-center gap-3 mb-6">
-                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-12 max-w-[140px] object-contain opacity-80" />}
-                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-12 max-w-[140px] object-contain opacity-80" />}
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-8 sm:h-12 max-w-[100px] sm:max-w-[140px] object-contain opacity-80" />}
+                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-8 sm:h-12 max-w-[100px] sm:max-w-[140px] object-contain opacity-80" />}
                 </div>
               )}
-              <AlertTriangle className="h-10 w-10 text-destructive mb-4" />
-              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+              <AlertTriangle className="h-8 w-8 sm:h-10 sm:w-10 text-destructive mb-3 sm:mb-4" />
+              <h2 className="text-white text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">
                 Ten link wygasł
               </h2>
-              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+              <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-2">
                 Link do tego webinaru jest już nieaktywny.
               </p>
-              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+              <p className="text-white/60 text-xs sm:text-sm max-w-lg leading-relaxed mt-3 sm:mt-4">
                 Skontaktuj się z osobą, która Cię zaprosiła, aby otrzymać nowy link na najbliższy termin.
               </p>
             </div>
@@ -467,14 +469,14 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
-              <Radio className="h-10 w-10 text-white/60 mb-4" />
-              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+              <Radio className="h-8 w-8 sm:h-10 sm:w-10 text-white/60 mb-3 sm:mb-4" />
+              <h2 className="text-white text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">
                 Brak aktywnego zaproszenia
               </h2>
-              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed">
+              <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed">
                 Aby dołączyć do webinaru, potrzebujesz linku zaproszeniowego z wyznaczoną godziną.
               </p>
             </div>
@@ -484,24 +486,24 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
               {(config?.room_logo_url || (config as any)?.room_logo_url_2) && (
-                <div className="flex items-center gap-3 mb-6">
-                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-12 max-w-[140px] object-contain opacity-80" />}
-                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-12 max-w-[140px] object-contain opacity-80" />}
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                  {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-8 sm:h-12 max-w-[100px] sm:max-w-[140px] object-contain opacity-80" />}
+                  {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-8 sm:h-12 max-w-[100px] sm:max-w-[140px] object-contain opacity-80" />}
                 </div>
               )}
-              <AlertTriangle className="h-10 w-10 text-yellow-400 mb-4" />
-              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+              <AlertTriangle className="h-8 w-8 sm:h-10 sm:w-10 text-yellow-400 mb-3 sm:mb-4" />
+              <h2 className="text-white text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">
                 Spotkanie jest w trakcie
               </h2>
-              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+              <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-2">
                 Cenimy sobie punktualność w celu pełnego zrozumienia przekazywanej wiedzy.
                 Dołączenie w tym momencie nie jest możliwe.
               </p>
-              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+              <p className="text-white/60 text-xs sm:text-sm max-w-lg leading-relaxed mt-3 sm:mt-4">
                 W celu ustalenia nowego terminu skontaktuj się z osobą, która zaprosiła Cię na to spotkanie.
               </p>
             </div>
@@ -509,10 +511,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         </Card>
       ) : showPreviewOfflineInfo ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-            <h2 className="text-lg font-semibold mb-2">Poza godzinami emisji</h2>
-            <p className="text-muted-foreground text-sm max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-10 sm:py-16 text-center px-4">
+            <Radio className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3 sm:mb-4" />
+            <h2 className="text-base sm:text-lg font-semibold mb-2">Poza godzinami emisji</h2>
+            <p className="text-muted-foreground text-xs sm:text-sm max-w-md">
               {(config?.slot_hours?.length ?? 0) > 0
                 ? `Godziny emisji: ${[...(config!.slot_hours)].sort().join(', ')}.`
                 : `Transmisja aktywna w godzinach ${config?.start_hour}:00 – ${config?.end_hour}:00.`}
@@ -522,10 +524,10 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         </Card>
       ) : secondsToNext > 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
+          <CardContent className="flex flex-col items-center justify-center py-10 sm:py-16 px-4">
             <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
             {config?.fake_participants_enabled && isInActiveHours && (
-              <div className="mt-4">
+              <div className="mt-3 sm:mt-4">
                 <AutoWebinarParticipantCount
                   min={config.fake_participants_min || 45}
                   max={config.fake_participants_max || 120}
@@ -534,7 +536,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
               </div>
             )}
             {config?.welcome_message && (
-              <p className="mt-6 text-center text-muted-foreground max-w-md">
+              <p className="mt-4 sm:mt-6 text-center text-muted-foreground text-xs sm:text-sm max-w-md">
                 {config.welcome_message}
               </p>
             )}
@@ -544,17 +546,17 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div
-              className="relative aspect-video flex flex-col items-center justify-center text-center px-8"
+              className="relative aspect-video flex flex-col items-center justify-center text-center px-4 sm:px-8"
               style={{ backgroundColor: infoBgColor }}
             >
-              <XCircle className="h-10 w-10 text-destructive mb-4" />
-              <h2 className="text-white text-xl md:text-2xl font-semibold mb-4">
+              <XCircle className="h-8 w-8 sm:h-10 sm:w-10 text-destructive mb-3 sm:mb-4" />
+              <h2 className="text-white text-lg sm:text-xl md:text-2xl font-semibold mb-3 sm:mb-4">
                 Spotkanie już się odbyło
               </h2>
-              <p className="text-white/80 text-sm md:text-base max-w-lg leading-relaxed mb-2">
+              <p className="text-white/80 text-xs sm:text-sm md:text-base max-w-lg leading-relaxed mb-2">
                 Ten link jest nieważny, ponieważ spotkanie już się odbyło.
               </p>
-              <p className="text-white/60 text-sm max-w-lg leading-relaxed mt-4">
+              <p className="text-white/60 text-xs sm:text-sm max-w-lg leading-relaxed mt-3 sm:mt-4">
                 Skontaktuj się z osobą, która Cię zaprosiła, aby uzyskać więcej informacji.
               </p>
             </div>
@@ -562,9 +564,9 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         </Card>
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Radio className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Oczekiwanie na transmisję...</p>
+          <CardContent className="flex flex-col items-center justify-center py-10 sm:py-16 px-4">
+            <Radio className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-3 sm:mb-4" />
+            <p className="text-muted-foreground text-sm">Oczekiwanie na transmisję...</p>
           </CardContent>
         </Card>
       )}
@@ -572,11 +574,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       {/* Custom section */}
       {!previewMode && showScheduleInfo && config?.room_custom_section_title && config?.room_custom_section_content && (
         <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium">{config.room_custom_section_title}</CardTitle>
+          <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
+            <CardTitle className="text-xs sm:text-sm font-medium">{config.room_custom_section_title}</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground whitespace-pre-line">
+          <CardContent className="px-3 sm:px-6">
+            <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-line">
               {config.room_custom_section_content}
             </p>
           </CardContent>

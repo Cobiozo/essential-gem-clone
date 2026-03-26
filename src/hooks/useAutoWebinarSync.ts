@@ -11,14 +11,14 @@ function parseTimeToSeconds(time: string): number {
 
 /**
  * Find the nearest slot from slot_hours list for current time.
+ * Window extends to cover full video duration + thank-you + buffer.
  */
 function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, config: AutoWebinarConfig, maxVideoDuration = 0) {
   const roomOpenSec = (config.room_open_minutes_before ?? 5) * 60;
-  const linkExpirySec = (config.link_expiry_minutes ?? 10) * 60;
   const roomCloseAfterEndSec = 60;
   
   // Window must cover full video duration + thank-you screen + close buffer
-  const effectiveWindowEnd = Math.max(linkExpirySec, maxVideoDuration + roomCloseAfterEndSec + 60);
+  const effectiveWindowEnd = maxVideoDuration + roomCloseAfterEndSec + 60;
   
   const sorted = [...slotHours]
     .map(t => ({ time: t, seconds: parseTimeToSeconds(t) }))
@@ -55,6 +55,18 @@ export interface AutoWebinarSyncResult {
   isNoInvitation: boolean;
   isVideoEnded: boolean;
   isRoomClosed: boolean;
+}
+
+/**
+ * Helper: determine video state based on sinceSlot and duration.
+ * Returns 'playing' | 'ended' | 'closed'
+ */
+function getVideoPhase(sinceSlot: number, duration: number): 'playing' | 'ended' | 'closed' {
+  const THANK_YOU_DURATION = 60;
+  if (duration <= 0) return 'playing'; // unknown duration — keep playing
+  if (sinceSlot < duration) return 'playing';
+  if (sinceSlot < duration + THANK_YOU_DURATION) return 'ended';
+  return 'closed';
 }
 
 /**
@@ -155,9 +167,7 @@ export function useAutoWebinarSync(
     ) => {
       const roomOpenSec = (config.room_open_minutes_before ?? 5) * 60;
       const countdownSec = (config.countdown_minutes_before ?? 2) * 60;
-      const linkExpirySec = (config.link_expiry_minutes ?? 10) * 60;
       const lateJoinMaxSec = config.late_join_max_seconds ?? 300;
-      const roomCloseAfterEndSec = 60; // 1 min after video ends → room closed
 
       // GUEST with slot parameter — strict validation
       if (isGuest && guestSlotTime) {
@@ -175,14 +185,15 @@ export function useAutoWebinarSync(
           guestSlotSec,
           sinceSlot,
           duration,
-          roomCloseAfterEndSec,
-          linkExpirySec,
-          lateJoinMaxSec,
           roomOpenSec,
+          lateJoinMaxSec,
         });
 
-        // Room closed (1 min after video ends)
-        if (duration > 0 && sinceSlot >= duration + roomCloseAfterEndSec) {
+        // Determine phase based strictly on video duration
+        const phase = getVideoPhase(sinceSlot, duration);
+
+        // Room closed (after thank-you period)
+        if (phase === 'closed') {
           resetFlags();
           setIsRoomClosed(true);
           setCurrentVideo(null);
@@ -193,8 +204,8 @@ export function useAutoWebinarSync(
           return;
         }
 
-        // Video ended but room still open (thank you screen)
-        if (duration > 0 && sinceSlot >= duration && sinceSlot < duration + roomCloseAfterEndSec) {
+        // Video ended — thank you screen
+        if (phase === 'ended') {
           resetFlags();
           setIsVideoEnded(true);
           setIsInActiveHours(true);
@@ -242,29 +253,12 @@ export function useAutoWebinarSync(
         // Playing (0 <= sinceSlot < duration)
         resetFlags();
         setIsInActiveHours(true);
-
-        if (duration > 0 && sinceSlot < duration) {
-          setCurrentVideo(video);
-          setStartOffset(sinceSlot);
-          setSecondsToNext(0);
-          updateInterval(10000);
-        } else if (duration <= 0) {
-          // Unknown duration — just play
-          setCurrentVideo(video);
-          setStartOffset(0);
-          updateInterval(10000);
-        } else {
-          // Video ended but link expired check was deferred — apply it now
-          if (sinceSlot > linkExpirySec) {
-            resetFlags();
-            setIsLinkExpired(true);
-            setCurrentVideo(null);
-            setIsInActiveHours(false);
-            setStartOffset(-1);
-            setSecondsToNext(0);
-            updateInterval(10000);
-          }
-        }
+        setCurrentVideo(video);
+        setStartOffset(sinceSlot);
+        setSecondsToNext(0);
+        // Increase precision near end of video
+        const timeToEnd = duration > 0 ? duration - sinceSlot : Infinity;
+        updateInterval(timeToEnd <= 30 ? 1000 : 10000);
         return;
       }
 
@@ -307,7 +301,7 @@ export function useAutoWebinarSync(
         return;
       }
 
-      // Within active window
+      // Within active window — countdown phase
       if (sinceSlot < 0) {
         resetFlags();
         setIsInActiveHours(true);
@@ -318,14 +312,15 @@ export function useAutoWebinarSync(
         return;
       }
 
-      // Playing / ended / closed
+      // Playing / ended / closed — select video
       const slotIndex = slotHours.indexOf(slot.time);
       const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
       const video = activeVideos[videoIndex];
       const duration = video.duration_seconds;
+      const phase = getVideoPhase(sinceSlot, duration);
 
-      // Room closed (1 min after video ends)
-      if (duration > 0 && sinceSlot >= duration + roomCloseAfterEndSec) {
+      // Room closed (after thank-you period)
+      if (phase === 'closed') {
         resetFlags();
         setIsRoomClosed(true);
         setCurrentVideo(null);
@@ -336,8 +331,8 @@ export function useAutoWebinarSync(
         return;
       }
 
-      // Video ended but room still open (thank you screen)
-      if (duration > 0 && sinceSlot >= duration && sinceSlot < duration + roomCloseAfterEndSec) {
+      // Video ended — thank you screen
+      if (phase === 'ended') {
         resetFlags();
         setIsVideoEnded(true);
         setIsInActiveHours(true);
@@ -351,24 +346,12 @@ export function useAutoWebinarSync(
       // Still playing
       resetFlags();
       setIsInActiveHours(true);
-
-      if (duration > 0 && sinceSlot < duration) {
-        setCurrentVideo(video);
-        setStartOffset(sinceSlot);
-        setSecondsToNext(0);
-        updateInterval(10000);
-      } else {
-        setCurrentVideo(null);
-        setStartOffset(-1);
-        const nextSlotIdx = slotHours.indexOf(slot.time) + 1;
-        if (nextSlotIdx < slotHours.length) {
-          const nextSec = parseTimeToSeconds(slotHours[nextSlotIdx]);
-          setSecondsToNext(nextSec - secondsPastMidnight);
-        } else {
-          setSecondsToNext(0);
-        }
-        updateInterval(10000);
-      }
+      setCurrentVideo(video);
+      setStartOffset(sinceSlot);
+      setSecondsToNext(0);
+      // Increase precision near end of video
+      const timeToEnd = duration > 0 ? duration - sinceSlot : Infinity;
+      updateInterval(timeToEnd <= 30 ? 1000 : 10000);
     };
 
     const calculateLegacy = (
