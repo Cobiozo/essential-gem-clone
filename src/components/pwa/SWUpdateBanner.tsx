@@ -14,20 +14,30 @@ export const SWUpdateBanner: React.FC = () => {
   const [showBanner, setShowBanner] = useState(false);
   const [countdown, setCountdown] = useState(AUTO_RELOAD_SECONDS);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const fallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const startCountdown = useCallback(() => {
     setCountdown(AUTO_RELOAD_SECONDS);
     if (countdownRef.current) clearInterval(countdownRef.current);
+    if (fallbackRef.current) clearTimeout(fallbackRef.current);
+
     countdownRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          window.location.reload();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setCountdown(prev => prev - 1);
     }, 1000);
+
+    // Fallback: force reload after 30.5s regardless of React state
+    fallbackRef.current = setTimeout(() => {
+      window.location.reload();
+    }, AUTO_RELOAD_SECONDS * 1000 + 500);
   }, []);
+
+  // Force reload when countdown reaches 0
+  useEffect(() => {
+    if (showBanner && countdown <= 0) {
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      window.location.reload();
+    }
+  }, [countdown, showBanner]);
 
   useEffect(() => {
     const show = () => {
@@ -43,19 +53,18 @@ export const SWUpdateBanner: React.FC = () => {
       window.removeEventListener('swUpdateAvailable', show);
       window.removeEventListener('appVersionChanged', show);
       if (countdownRef.current) clearInterval(countdownRef.current);
+      if (fallbackRef.current) clearTimeout(fallbackRef.current);
     };
   }, [showBanner, startCountdown]);
 
   const handleRefresh = () => {
     if (countdownRef.current) clearInterval(countdownRef.current);
+    if (fallbackRef.current) clearTimeout(fallbackRef.current);
     const reg = window.__swRegistration;
     if (reg?.waiting) {
       reg.waiting.postMessage('SKIP_WAITING');
     }
-    navigator.serviceWorker?.addEventListener('controllerchange', () => {
-      window.location.reload();
-    });
-    setTimeout(() => window.location.reload(), 2000);
+    window.location.reload();
   };
 
   if (!showBanner) return null;
@@ -66,7 +75,7 @@ export const SWUpdateBanner: React.FC = () => {
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-foreground">Dostępna nowa wersja aplikacji</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Automatyczne odświeżenie za {countdown}s
+            Automatyczne odświeżenie za {Math.max(countdown, 0)}s
           </p>
         </div>
         <Button size="sm" onClick={handleRefresh} className="shrink-0 gap-1.5">
