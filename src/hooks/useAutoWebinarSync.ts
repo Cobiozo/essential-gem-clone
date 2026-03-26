@@ -236,6 +236,7 @@ export function useAutoWebinarSync(
         }
 
         // Late join blocking (guest joined after allowed threshold)
+        // bypassLateBlock skips this so returning guests can rejoin
         if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration && !bypassLateBlock) {
           resetFlags();
           setIsTooLate(true);

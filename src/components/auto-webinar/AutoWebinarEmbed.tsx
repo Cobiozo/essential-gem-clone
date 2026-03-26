@@ -146,6 +146,12 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       setIsMuted(true);
       video.play().catch(console.warn);
       hasStartedRef.current = true;
+      // Save session to localStorage for rejoin after refresh
+      if (isGuest && guestEmail) {
+        const today = new Date().toISOString().slice(0, 10);
+        const sessionKey = `aw_session_${guestEmail}_${today}`;
+        localStorage.setItem(sessionKey, 'active');
+      }
       setHasStarted(true);
     };
 
