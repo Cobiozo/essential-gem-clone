@@ -264,6 +264,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       ]);
       const eventData = eventRes.data;
       setLinkedEvent(eventData as LinkedEvent | null);
+      setEditSlug(eventData?.slug || '');
       setInvitationClickCount(clicksRes.count || 0);
 
       // Auto-fix: if system is disabled but event is still active, deactivate it
