@@ -50,7 +50,7 @@ export const AutoWebinarGuestStats: React.FC = () => {
       // Get guest registrations for this event
       const { data: registrations, error: regError } = await supabase
         .from('guest_event_registrations')
-        .select('id, first_name, last_name, email, slot_time, created_at, invited_by')
+        .select('id, first_name, last_name, email, slot_time, created_at')
         .eq('event_id', config.event_id)
         .order('created_at', { ascending: false });
 
@@ -93,7 +93,7 @@ export const AutoWebinarGuestStats: React.FC = () => {
         });
       }
 
-      const result: GuestStat[] = (registrations || []).map(r => {
+      const result: GuestStat[] = (registrations || []).map((r: any) => {
         const view = viewsByRegId.get(r.id) || viewsByEmail.get(r.email);
         return {
           id: r.id,
@@ -102,7 +102,7 @@ export const AutoWebinarGuestStats: React.FC = () => {
           email: r.email,
           slot_time: r.slot_time,
           created_at: r.created_at,
-          invited_by: r.invited_by,
+          invited_by: null,
           joined: !!view,
           joined_at: view?.joined_at || null,
           left_at: view?.left_at || null,
