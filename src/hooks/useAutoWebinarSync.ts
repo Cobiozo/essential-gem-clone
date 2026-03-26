@@ -12,9 +12,13 @@ function parseTimeToSeconds(time: string): number {
 /**
  * Find the nearest slot from slot_hours list for current time.
  */
-function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, config: AutoWebinarConfig) {
+function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, config: AutoWebinarConfig, maxVideoDuration = 0) {
   const roomOpenSec = (config.room_open_minutes_before ?? 5) * 60;
   const linkExpirySec = (config.link_expiry_minutes ?? 10) * 60;
+  const roomCloseAfterEndSec = 60;
+  
+  // Window must cover full video duration + thank-you screen + close buffer
+  const effectiveWindowEnd = Math.max(linkExpirySec, maxVideoDuration + roomCloseAfterEndSec + 60);
   
   const sorted = [...slotHours]
     .map(t => ({ time: t, seconds: parseTimeToSeconds(t) }))
@@ -22,7 +26,7 @@ function findCurrentSlot(slotHours: string[], secondsPastMidnight: number, confi
 
   for (const slot of sorted) {
     const windowStart = slot.seconds - roomOpenSec;
-    const windowEnd = slot.seconds + linkExpirySec;
+    const windowEnd = slot.seconds + effectiveWindowEnd;
     if (secondsPastMidnight >= windowStart && secondsPastMidnight < windowEnd) {
       return slot;
     }
@@ -279,7 +283,8 @@ export function useAutoWebinarSync(
       }
 
       // LOGGED-IN USER — find current/next slot
-      const slot = findCurrentSlot(slotHours, secondsPastMidnight, config);
+      const maxDuration = Math.max(...activeVideos.map(v => v.duration_seconds || 0));
+      const slot = findCurrentSlot(slotHours, secondsPastMidnight, config, maxDuration);
       
       if (!slot) {
         resetFlags();
