@@ -47,6 +47,8 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const [logo2PickerOpen, setLogo2PickerOpen] = useState(false);
   const [invitationClickCount, setInvitationClickCount] = useState<number>(0);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoPreviewTitle, setVideoPreviewTitle] = useState('');
   const [editSlug, setEditSlug] = useState('');
   const [savingSlug, setSavingSlug] = useState(false);
   const [invitationBaseUrl, setInvitationBaseUrl] = useState('https://purelife.info.pl/e/');
@@ -1539,6 +1541,9 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                         <Button variant="ghost" size="sm" onClick={() => handleMoveVideo(video, 'down')} disabled={idx === videos.length - 1}>
                           <ArrowDown className="h-4 w-4" />
                         </Button>
+                        <Button variant="ghost" size="sm" onClick={() => { setVideoPreviewUrl(video.video_url); setVideoPreviewTitle(video.title); }} title="Podgląd wideo">
+                          <Eye className="h-4 w-4 text-blue-500" />
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => openEditVideo(video)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
@@ -1707,6 +1712,27 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
           <div className="px-4 pb-4">
             <AutoWebinarEmbed previewMode />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Video Preview Dialog */}
+      <Dialog open={!!videoPreviewUrl} onOpenChange={(open) => { if (!open) setVideoPreviewUrl(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Video className="h-5 w-5" />
+              Podgląd: {videoPreviewTitle}
+            </DialogTitle>
+          </DialogHeader>
+          {videoPreviewUrl && (
+            <video
+              src={videoPreviewUrl}
+              controls
+              autoPlay
+              className="w-full rounded-lg"
+              style={{ maxHeight: '70vh' }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
