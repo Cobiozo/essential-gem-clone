@@ -43,7 +43,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [showUnmuteOverlay, setShowUnmuteOverlay] = useState(true);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [hasExistingSession, setHasExistingSession] = useState(false);
+  // hasExistingSession is declared above (before useAutoWebinarSync) with localStorage init
   const sessionCheckDone = useRef(false);
 
   // Check if guest has an existing session (for rejoin after disconnect)
