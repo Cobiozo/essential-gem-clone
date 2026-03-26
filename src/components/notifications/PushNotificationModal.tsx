@@ -24,10 +24,9 @@ export const PushNotificationModal: React.FC = () => {
       // Don't show if push not supported or not enabled
       if (!isSupported || !pushConfig?.enabled) return false;
       
-      // Don't show if already subscribed
+      // Don't show if already subscribed or permission already granted/denied
       if (isSubscribed) return false;
-      
-      // Don't show if permission already denied
+      if (permission === 'granted') return false;
       if (permission === 'denied') return false;
       
       // Check dismissal timestamp

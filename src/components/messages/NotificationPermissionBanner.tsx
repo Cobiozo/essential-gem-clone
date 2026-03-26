@@ -31,7 +31,7 @@ export const NotificationPermissionBanner = () => {
   // - Użytkownik ma już aktywną subskrypcję
   // - Użytkownik odrzucił na później
   // - Uprawnienia zostały trwale zablokowane
-  if (!isSupported || !pushConfig?.enabled || isSubscribed || dismissed || permission === 'denied') {
+  if (!isSupported || !pushConfig?.enabled || isSubscribed || dismissed || permission === 'denied' || permission === 'granted') {
     return null;
   }
 
