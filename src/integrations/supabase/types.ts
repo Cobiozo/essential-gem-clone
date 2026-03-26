@@ -524,6 +524,7 @@ export type Database = {
       }
       auto_webinar_config: {
         Row: {
+          category: string
           chat_enabled: boolean
           countdown_label: string | null
           countdown_minutes_before: number | null
@@ -563,6 +564,7 @@ export type Database = {
           welcome_message: string | null
         }
         Insert: {
+          category?: string
           chat_enabled?: boolean
           countdown_label?: string | null
           countdown_minutes_before?: number | null
@@ -602,6 +604,7 @@ export type Database = {
           welcome_message?: string | null
         }
         Update: {
+          category?: string
           chat_enabled?: boolean
           countdown_label?: string | null
           countdown_minutes_before?: number | null

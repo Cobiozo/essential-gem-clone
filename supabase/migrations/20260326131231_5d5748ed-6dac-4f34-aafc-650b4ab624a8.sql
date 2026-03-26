@@ -1,0 +1,1 @@
+ALTER TABLE public.auto_webinar_config ADD COLUMN category text NOT NULL DEFAULT 'business_opportunity';

@@ -78,6 +78,7 @@ export interface EventRegistrationInfo {
   guest_status: string;
   registered_at: string;
   registration_attempts?: number;
+  event_category?: string;
 }
 
 export interface EventGroup {
@@ -85,6 +86,7 @@ export interface EventGroup {
   title: string;
   date: string;
   contacts: TeamContact[];
+  event_category?: string;
 }
 
 export interface TeamContactHistory {
