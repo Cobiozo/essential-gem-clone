@@ -396,6 +396,48 @@ serve(async (req) => {
     const zoomLink = event.zoom_link || event.location || '';
 
     // ==========================================
+    // 5.5 Reset stale reminder flags for recurring events
+    // If reminder_sent_at is older than 25h before current event start_time,
+    // the flag is from a previous occurrence and should be treated as not sent.
+    // ==========================================
+    const eventStartMs = new Date(event.start_time).getTime();
+    const resetThreshold = new Date(eventStartMs - 25 * 60 * 60 * 1000).toISOString();
+
+    // Reset stale guest flags
+    const { data: staleGuests, error: staleGuestsErr } = await supabase
+      .from("guest_event_registrations")
+      .update({ [config.guestFlagColumn]: false } as any)
+      .eq("event_id", event_id)
+      .eq("status", "registered")
+      .eq(config.guestFlagColumn, true)
+      .lt(config.guestFlagAtColumn, resetThreshold)
+      .select("id");
+
+    if (staleGuests && staleGuests.length > 0) {
+      console.log(`[bulk-reminders] Reset ${staleGuests.length} stale guest ${config.guestFlagColumn} flags (threshold: ${resetThreshold})`);
+    }
+    if (staleGuestsErr) {
+      console.error(`[bulk-reminders] Error resetting stale guest flags:`, staleGuestsErr);
+    }
+
+    // Reset stale user flags
+    const { data: staleUsers, error: staleUsersErr } = await supabase
+      .from("event_registrations")
+      .update({ [config.userFlagColumn]: false } as any)
+      .eq("event_id", event_id)
+      .eq("status", "registered")
+      .eq(config.userFlagColumn, true)
+      .lt(config.userFlagAtColumn, resetThreshold)
+      .select("id");
+
+    if (staleUsers && staleUsers.length > 0) {
+      console.log(`[bulk-reminders] Reset ${staleUsers.length} stale user ${config.userFlagColumn} flags (threshold: ${resetThreshold})`);
+    }
+    if (staleUsersErr) {
+      console.error(`[bulk-reminders] Error resetting stale user flags:`, staleUsersErr);
+    }
+
+    // ==========================================
     // 6a. Get GUEST registrations who haven't received this reminder
     // ==========================================
     const { data: guests, error: guestsError } = await supabase
