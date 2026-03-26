@@ -14,8 +14,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2, LayoutGrid, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, Eye, Mail, Clock, CheckCircle, XCircle, RefreshCw, Variable, Server, Zap, Monitor, Smartphone, Send, User, Search, Loader2, LayoutGrid, GripVertical, Shield } from 'lucide-react';
 import { SmtpConfigurationPanel } from './SmtpConfigurationPanel';
+import { DnsDiagnosticPanel } from './DnsDiagnosticPanel';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { EmailBlockInserter } from './EmailBlockInserter';
 import { EmailDndEditor } from './email-editor/EmailDndEditor';
@@ -679,10 +680,18 @@ export const EmailTemplatesManagement: React.FC = () => {
                 Zdarzenia
               </TabsTrigger>
               <TabsTrigger value="logs">Historia wysyłek</TabsTrigger>
+              <TabsTrigger value="dns" className="flex items-center gap-1">
+                <Shield className="w-4 h-4" />
+                DNS / Uwierzytelnianie
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="smtp">
               <SmtpConfigurationPanel />
+            </TabsContent>
+
+            <TabsContent value="dns">
+              <DnsDiagnosticPanel />
             </TabsContent>
 
             <TabsContent value="templates">
