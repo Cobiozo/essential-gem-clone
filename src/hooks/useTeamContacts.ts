@@ -531,10 +531,16 @@ export const useTeamContacts = () => {
           groupDate = reg.event_start_time;
         }
         
+        // Map category to proper display name
+        const categoryDisplayName = category === 'business_opportunity' ? 'Business Opportunity'
+          : category === 'health_conversation' ? 'Health Conversation'
+          : reg.event_title;
+        const displayTitle = isAutoWebinar ? categoryDisplayName : reg.event_title;
+
         if (!groups.has(groupKey)) {
           const groupData: EventGroup = {
             event_id: groupKey,
-            title: reg.event_title,
+            title: displayTitle,
             date: groupDate,
             contacts: [],
             event_category: category,
@@ -548,7 +554,7 @@ export const useTeamContacts = () => {
         if (!targetMap.has(groupKey)) {
           targetMap.set(groupKey, {
             event_id: groupKey,
-            title: reg.event_title,
+            title: displayTitle,
             date: groupDate,
             contacts: [],
             event_category: category,

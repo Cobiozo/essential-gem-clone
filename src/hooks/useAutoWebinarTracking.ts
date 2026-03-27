@@ -10,7 +10,8 @@ export function useAutoWebinarTracking(
   videoId: string | null,
   isPlaying: boolean,
   isGuest: boolean = false,
-  guestEmail: string | null = null
+  guestEmail: string | null = null,
+  guestRegistrationId: string | null = null
 ) {
   const viewId = useRef<string | null>(null);
   // Persist sessionId in localStorage so returning guests are recognized
@@ -30,23 +31,11 @@ export function useAutoWebinarTracking(
   const updateInterval = useRef<ReturnType<typeof setInterval>>();
 
   const createView = useCallback(async (vid: string) => {
+    // Prevent duplicate views in the same session
+    if (viewId.current) return;
+
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id || null;
-
-    // Look up guest_registration_id if we have an email
-    let guestRegistrationId: string | null = null;
-    if (guestEmail) {
-      const { data: regData } = await supabase
-        .from('guest_event_registrations')
-        .select('id')
-        .eq('email', guestEmail)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (regData) {
-        guestRegistrationId = regData.id;
-      }
-    }
 
     const { data, error } = await supabase
       .from('auto_webinar_views' as any)
@@ -56,7 +45,7 @@ export function useAutoWebinarTracking(
         session_id: sessionId.current,
         is_guest: isGuest || !userId,
         guest_email: guestEmail || null,
-        guest_registration_id: guestRegistrationId,
+        guest_registration_id: guestRegistrationId || null,
       })
       .select('id')
       .single();
@@ -65,7 +54,7 @@ export function useAutoWebinarTracking(
       viewId.current = (data as any).id;
       startTime.current = Date.now();
     }
-  }, [isGuest, guestEmail]);
+  }, [isGuest, guestEmail, guestRegistrationId]);
 
   const updateDuration = useCallback(async () => {
     if (!viewId.current || !startTime.current) return;
