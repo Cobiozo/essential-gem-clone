@@ -368,7 +368,7 @@ Deno.serve(async (req) => {
       },
     });
 
-    console.log(`[send-post-event-thank-you] Email sent to ${recipient_email} for event ${event_title}`);
+    console.log(`[send-post-event-thank-you] ${effectiveEmailType} email sent to ${recipient_email} for event ${event_title}`);
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
