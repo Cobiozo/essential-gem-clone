@@ -176,6 +176,42 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     toast({ title: 'Usunięto' });
   };
 
+  const handleStartEditFakeMessage = (msg: AutoWebinarFakeMessage) => {
+    setEditingFakeMessage(msg);
+    setFakeMessageForm({
+      appear_at_minute: msg.appear_at_minute,
+      author_name: msg.author_name,
+      content: msg.content,
+      phase: (msg.phase as 'welcome' | 'during' | 'ending') || 'during',
+    });
+  };
+
+  const handleSaveEditFakeMessage = async () => {
+    if (!config || !editingFakeMessage) return;
+    const { error } = await supabase
+      .from('auto_webinar_fake_messages')
+      .update({
+        appear_at_minute: fakeMessageForm.appear_at_minute,
+        author_name: fakeMessageForm.author_name,
+        content: fakeMessageForm.content,
+        phase: fakeMessageForm.phase,
+      })
+      .eq('id', editingFakeMessage.id);
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingFakeMessage(null);
+    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    loadFakeMessages(config.id);
+    toast({ title: 'Zapisano zmiany' });
+  };
+
+  const handleCancelEditFakeMessage = () => {
+    setEditingFakeMessage(null);
+    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+  };
+
   const handleLoadDefaultMessages = async () => {
     if (!config) return;
     const defaults = [
@@ -1293,10 +1329,21 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-2">
-                    <Button size="sm" className="w-full h-8" onClick={handleAddFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                  <div className="col-span-2 flex gap-1">
+                    {editingFakeMessage ? (
+                      <>
+                        <Button size="sm" className="flex-1 h-8" onClick={handleSaveEditFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8" onClick={handleCancelEditFakeMessage}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" className="w-full h-8" onClick={handleAddFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -1320,19 +1367,24 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                                   <TableHead className="w-16 text-xs">Min.</TableHead>
                                   <TableHead className="w-28 text-xs">Autor</TableHead>
                                   <TableHead className="text-xs">Treść</TableHead>
-                                  <TableHead className="w-12 text-xs"></TableHead>
+                                 <TableHead className="w-20 text-xs"></TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {phaseMessages.map((msg) => (
-                                  <TableRow key={msg.id}>
+                                  <TableRow key={msg.id} className={editingFakeMessage?.id === msg.id ? 'bg-muted/50' : ''}>
                                     <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
                                     <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
                                     <TableCell>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
-                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                      </Button>
+                                      <div className="flex gap-0.5">
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleStartEditFakeMessage(msg)}>
+                                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
+                                          <Trash2 className="h-3 w-3 text-destructive" />
+                                        </Button>
+                                      </div>
                                     </TableCell>
                                   </TableRow>
                                 ))}
