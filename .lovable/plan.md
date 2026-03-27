@@ -1,47 +1,46 @@
 
 
-## Problem: Obecności kumulowane i przypisywane do złych webinarów
+## Plan: Emaile po wydarzeniach — pełne nazwy webinarów, bez skrótów
 
-### Diagnoza
+### Kontekst
+W zatwierdzonym planie (który jeszcze nie został wdrożony) padły skróty "BO" i "HC" w opisie wiadomości email dla gości, którzy nie dołączyli do spotkania. Użytkownik wymaga, aby w treści emaili zawsze pojawiały się pełne nazwy wydarzeń (np. "Business Opportunity", "Health Conversation"), a nie skróty.
 
-Dane w bazie:
-- Email `tatanabacznosci@gmail.com` ma **10 rejestracji** na różne sloty i różne wydarzenia (BO + HC), wszystkie z tego samego dnia
-- Ma **7 rekordów widoku** w `auto_webinar_views`, wszystkie z `guest_registration_id = null`
-- Jeden widok trwa 2166 sekund (36m 6s) na filmie HC (`b80557fa`)
-- Fallback w `ContactEventInfoButton.tsx` (linie 106-124) dopasowuje widoki do rejestracji **wyłącznie po dacie** (`regDay === viewDay`)
-- Efekt: ten sam widok 36m 6s jest przypisywany do WSZYSTKICH rejestracji z tego dnia — niezależnie od wydarzenia (BO vs HC) i slotu
+### Co się zmienia w porównaniu z poprzednim planem
 
-### Łańcuch powiązań w bazie
+Jedyna zmiana dotyczy treści szablonu emaila "sorry you missed it" — zamiast wstawiania skrótu kategorii (BO/HC), email będzie używał pełnego tytułu wydarzenia (`event_title`), który jest już dostępny w danych przekazywanych do funkcji.
 
-```text
-guest_event_registrations.event_id  →  auto_webinar_config.event_id  →  auto_webinar_videos.config_id  →  auto_webinar_views.video_id
-```
+### Plan implementacji (3 zadania z poprzedniego planu + korekta)
 
-Rejestracja ma `event_id`. Widok ma `video_id`. Można je powiązać przez tabelę config.
+#### 1. Usunąć wysyłkę podziękowań dla zarejestrowanych użytkowników
+**Plik:** `supabase/functions/process-pending-notifications/index.ts`
+- Usunąć blok linii 888-951 (przetwarzanie `event_registrations` dla thank-you)
+- Partnerzy, specjaliści i klienci nie otrzymują emaili po spotkaniu
 
-### Plan naprawy
+#### 2. Dodać sprawdzanie obecności dla gości
+**Plik:** `supabase/functions/process-pending-notifications/index.ts`
+- W bloku przetwarzania `guest_event_registrations` (linie 953-997):
+  - Sprawdzić czy event ma konfigurację auto-webinaru (`auto_webinar_config`)
+  - Jeśli tak: szukać widoku w `auto_webinar_views` po emailu gościa + video z tego eventu
+  - Jeśli widok istnieje z `watch_duration_seconds > 0` → wysłać podziękowanie (typ `thank_you`)
+  - Jeśli brak widoku lub `watch_duration_seconds = 0` → wysłać email "przykro nam" (typ `missed_event`)
+  - Przekazać `email_type` i `event_title` do funkcji `send-post-event-thank-you`
 
-**Plik: `src/components/team-contacts/ContactEventInfoButton.tsx`**
+#### 3. Dodać szablon "przykro nam" z pełnym tytułem wydarzenia
+**Plik:** `supabase/functions/send-post-event-thank-you/index.ts`
+- Dodać parametr `email_type` (`thank_you` | `missed_event`)
+- Dodać nową funkcję `buildMissedEventHtml` z treścią:
+  - "Przykro nam, że nie udało Ci się dołączyć do spotkania **[pełny tytuł wydarzenia]**"
+  - "Wierzymy, że wszystko jest u Ciebie w porządku"
+  - "Aby uzyskać nowy termin spotkania **[pełny tytuł wydarzenia]**, skontaktuj się z [imię i nazwisko partnera, email, telefon]"
+  - Przycisk CTA: "Napisz do [imię partnera]" lub "Napisz do nas"
+- **Wszędzie w szablonach używany jest `eventTitle`** — pełny tytuł z bazy danych, bez żadnych skrótów
 
-Zmiana logiki fallback (linie 92-126):
+### Pliki do modyfikacji
+1. `supabase/functions/process-pending-notifications/index.ts`
+2. `supabase/functions/send-post-event-thank-you/index.ts`
 
-1. Pobrać mapowanie `video_id → event_id` z tabel `auto_webinar_videos` + `auto_webinar_config`:
-   - JOIN: `auto_webinar_videos.config_id = auto_webinar_config.id` → pobieramy `video_id` i `event_id`
-   - Tworzymy `Map<video_id, event_id>`
-
-2. Przy pobieraniu widoków po email (`emailViews`), dołączyć też `video_id` do selecta
-
-3. Zmienić dopasowanie z samego dnia na:
-   - **event_id musi się zgadzać** (widok.video_id → mapowanie → event_id === rejestracja.event_id)
-   - **slot_time musi się zgadzać** (porównanie godziny widoku z `slot_time` rejestracji, z tolerancją ±30 minut)
-   - Dopiero potem brać widok z największym `watch_duration_seconds`
-
-4. Każdy użyty widok oznaczyć jako "zajęty" (Set), aby ten sam widok nie był przypisany do wielu rejestracji
-
-### Efekt
-
-- Każda rejestracja na konkretny webinar pokaże TYLKO dane z tego webinaru
-- Widok HC nie będzie przypisany do rejestracji BO i odwrotnie
-- Widok z jednego slotu nie będzie przypisany do innego slotu
-- Nie narusza żadnej istniejącej funkcjonalności — zmiana dotyczy wyłącznie logiki fallback w jednym pliku
+### Co pozostaje bez zmian
+- Istniejący szablon `buildThankYouHtml` — bez zmian (już używa `eventTitle`)
+- `send-guest-thank-you-email` (WebRTC) — bez zmian
+- Frontend, komponenty, baza danych — bez zmian
 
