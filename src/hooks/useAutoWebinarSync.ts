@@ -209,10 +209,12 @@ export function useAutoWebinarSync(
         return;
       }
 
+      const tz = (config as any).timezone || DEFAULT_TIMEZONE;
       const now = new Date();
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
-      const currentSecond = now.getSeconds();
+      const tzNow = getNowInTimezone(tz);
+      const currentHour = tzNow.hours;
+      const currentMinute = tzNow.minutes;
+      const currentSecond = tzNow.seconds;
       const secondsPastMidnight = currentHour * 3600 + currentMinute * 60 + currentSecond;
 
       console.log('[AutoWebinarSync] calculate:', {
@@ -247,7 +249,7 @@ export function useAutoWebinarSync(
         const slotTimePart = extractTimeFromSlot(guestSlotTime);
         
         // If slot has a date and it's in the past → room closed
-        if (isSlotInPast(guestSlotTime)) {
+        if (isSlotInPast(guestSlotTime, tz)) {
           resetFlags();
           setIsRoomClosed(true);
           setCurrentVideo(null);
@@ -259,7 +261,7 @@ export function useAutoWebinarSync(
         }
         
         // If slot has a future date (not today) → show countdown
-        if (!isSlotToday(guestSlotTime)) {
+        if (!isSlotToday(guestSlotTime, tz)) {
           const slotDate = extractDateFromSlot(guestSlotTime)!;
           const slotDateTime = new Date(`${slotDate}T${slotTimePart}:00`);
           const msToSlot = slotDateTime.getTime() - now.getTime();
