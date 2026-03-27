@@ -667,6 +667,7 @@ export type Database = {
           content: string
           created_at: string | null
           id: string
+          phase: string
           sort_order: number | null
         }
         Insert: {
@@ -676,6 +677,7 @@ export type Database = {
           content: string
           created_at?: string | null
           id?: string
+          phase?: string
           sort_order?: number | null
         }
         Update: {
@@ -685,6 +687,7 @@ export type Database = {
           content?: string
           created_at?: string | null
           id?: string
+          phase?: string
           sort_order?: number | null
         }
         Relationships: [
