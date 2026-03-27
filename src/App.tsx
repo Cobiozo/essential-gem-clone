@@ -407,7 +407,9 @@ const AppContent = () => {
                 <Route path="/leader" element={<LeaderPanel />} />
                 <Route path="/omega-base" element={<OmegaBasePage />} />
                 <Route path="/landing-preview" element={<LeaderLandingPage />} />
-                <Route path="/auto-webinar" element={<AutoWebinarPage />} />
+                <Route path="/auto-webinar" element={<Navigate to="/events/webinars" replace />} />
+                <Route path="/auto-webinar/business" element={<AutoWebinarRoom category="business_opportunity" />} />
+                <Route path="/auto-webinar/health" element={<AutoWebinarRoom category="health_conversation" />} />
                 <Route path="/a-w/:slug" element={<AutoWebinarPublicPage />} />
                 <Route path="/skills-assessment" element={<SkillsAssessment />} />
                 <Route path="/moje-testy" element={<OmegaTests />} />

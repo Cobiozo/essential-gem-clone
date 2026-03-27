@@ -1,8 +1,8 @@
 import React from 'react';
-import { AutoWebinarRoom } from '@/components/auto-webinar/AutoWebinarRoom';
+import { Navigate } from 'react-router-dom';
 
 const AutoWebinarPage: React.FC = () => {
-  return <AutoWebinarRoom />;
+  return <Navigate to="/events/webinars" replace />;
 };
 
 export default AutoWebinarPage;
