@@ -332,9 +332,9 @@ const EventGuestRegistration: React.FC = () => {
         return;
       }
 
-      // Calculate slot_time for auto-webinars
-      const slotTimeValue = isAutoWebinar && autoWebinarConfig 
-        ? getNextSlot(autoWebinarConfig, slotParam)?.time ?? null
+      // Use pre-resolved slot (strict, no fallback)
+      const slotTimeValue = isAutoWebinar && resolvedSlot
+        ? resolvedSlot.time
         : null;
 
       // Use RPC for atomic registration with attempt counting
@@ -356,9 +356,8 @@ const EventGuestRegistration: React.FC = () => {
         return;
       }
 
-      // Call edge function to send confirmation email and add to contacts
       try {
-        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : null;
+        const nextSlot = resolvedSlot;
         const slotDiffMinutes = nextSlot ? (nextSlot.date.getTime() - Date.now()) / (1000 * 60) : null;
 
         await supabase.functions.invoke('send-webinar-confirmation', {
@@ -428,9 +427,15 @@ const EventGuestRegistration: React.FC = () => {
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
-  // Check if auto-webinar slot is expired (date-specific link in the past)
-  const resolvedSlot = isAutoWebinar && autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : undefined;
-  const isSlotExpired = isAutoWebinar && autoWebinarConfig && slotParam && resolvedSlot === null;
+  // Strict slot validation for auto-webinar links
+  const slotResolution: SlotResolution | undefined = isAutoWebinar && autoWebinarConfig
+    ? resolveRequestedSlot(autoWebinarConfig, slotParam)
+    : undefined;
+  const resolvedSlot = slotResolution?.status === 'valid'
+    ? { date: slotResolution.date!, time: slotResolution.time! }
+    : null;
+  const isSlotExpired = isAutoWebinar && autoWebinarConfig && slotParam && slotResolution?.status === 'expired';
+  const isSlotInvalid = isAutoWebinar && autoWebinarConfig && slotParam && slotResolution?.status === 'invalid';
 
   // Map auto-webinar category to display title
   const displayTitle = isAutoWebinar && autoWebinarCategory
