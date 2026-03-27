@@ -28,7 +28,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [hasExistingSession, setHasExistingSession] = useState(() => {
     if (isGuest && guestEmail) {
       const today = new Date().toISOString().slice(0, 10);
-      const sessionKey = `aw_session_${guestEmail}_${today}`;
+      const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
       return !!localStorage.getItem(sessionKey);
     }
     return false;
@@ -122,14 +122,14 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   }, [isGuest, guestEmail, config?.event_id]);
 
   // Analytics tracking
-  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId);
+  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId, category);
 
   // Invalidate session when room closes
   useEffect(() => {
     if (!isRoomClosed) return;
     if (isGuest && guestEmail) {
       const today = new Date().toISOString().slice(0, 10);
-      const sessionKey = `aw_session_${guestEmail}_${today}`;
+      const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
       localStorage.removeItem(sessionKey);
       console.log('[AutoWebinarEmbed] Room closed — session removed from localStorage');
     }
@@ -181,7 +181,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         // Save session to localStorage for rejoin after refresh
         if (isGuest && guestEmail) {
           const today = new Date().toISOString().slice(0, 10);
-          const sessionKey = `aw_session_${guestEmail}_${today}`;
+          const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
           localStorage.setItem(sessionKey, 'active');
         }
         setHasStarted(true);
@@ -195,7 +195,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           setNeedsUserInteraction(true);
           if (isGuest && guestEmail) {
             const today = new Date().toISOString().slice(0, 10);
-            const sessionKey = `aw_session_${guestEmail}_${today}`;
+            const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
             localStorage.setItem(sessionKey, 'active');
           }
           setHasStarted(true);
