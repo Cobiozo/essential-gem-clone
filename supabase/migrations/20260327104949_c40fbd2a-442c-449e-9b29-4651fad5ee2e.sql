@@ -1,0 +1,1 @@
+ALTER TABLE public.auto_webinar_config ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'Europe/Warsaw';

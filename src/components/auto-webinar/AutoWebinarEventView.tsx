@@ -103,16 +103,27 @@ export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> 
 
   const getSlotStatus = (dayIndex: number, time: string) => {
     if (dayIndex > 0) return 'future';
-    const now = new Date();
+    const tz = (config as any)?.timezone || 'Europe/Warsaw';
+    let currentMin: number;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hour: 'numeric', minute: 'numeric', hour12: false
+      }).formatToParts(new Date());
+      const get = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+      let h = get('hour');
+      if (h === 24) h = 0;
+      currentMin = h * 60 + get('minute');
+    } catch {
+      const now = new Date();
+      currentMin = now.getHours() * 60 + now.getMinutes();
+    }
     const [h, m] = time.split(':').map(Number);
     const slotStart = h * 60 + m;
-    // Find the next slot to determine when this slot's window ends
     const slotIdx = timeSlots.indexOf(time);
     const nextSlotTime = slotIdx >= 0 && slotIdx < timeSlots.length - 1 ? timeSlots[slotIdx + 1] : null;
     const slotEnd = nextSlotTime
       ? (() => { const [nh, nm] = nextSlotTime.split(':').map(Number); return nh * 60 + nm; })()
       : slotStart + (config?.interval_minutes || 60);
-    const currentMin = now.getHours() * 60 + now.getMinutes();
     if (currentMin >= slotStart && currentMin < slotStart + 2) return 'now';
     if (currentMin >= slotStart + 2 && currentMin < slotEnd) return 'ongoing';
     if (currentMin >= slotEnd) return 'past';
