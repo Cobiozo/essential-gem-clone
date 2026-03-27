@@ -1,57 +1,52 @@
 
-Plan: poprawa mobilnego auto-webinaru + naprawa zbyt wczesnego końca odtwarzania
 
-1. Uporządkować layout mobilny auto-webinaru
-- Przejrzeć `src/components/auto-webinar/AutoWebinarEmbed.tsx` i zmienić układ sekcji pod mobile:
-  - ciaśniejsze odstępy, mniejsze marginesy i lepsze skalowanie tekstów,
-  - bardziej czytelny nagłówek z logo i badge “NA ŻYWO”,
-  - lepsze pozycjonowanie licznika uczestników i fake chatu, żeby nie zasłaniały obrazu,
-  - poprawić ekrany: countdown, welcome, thank-you i room-closed pod małe ekrany.
-- Dostosować też `src/pages/AutoWebinarPublicPage.tsx`, żeby kontener mobilny miał lepsze paddingi i proporcje.
+# Plan: Poprawki kontaktów z auto-webinarów
 
-2. Zmienić kontrolki odtwarzacza na prostsze dla mobile
-- W `src/components/auto-webinar/AutoWebinarPlayerControls.tsx` usunąć cały suwak głośności.
-- Zostawić tylko fullscreen i ewentualnie prosty toggle mute/unmute, jeśli będzie nadal potrzebny.
-- Powiększyć hit area przycisków na telefonie i poprawić ich widoczność na ciemnym tle.
-- Dodać/utrzymać pełny ekran jako łatwo dostępny przycisk bez zasłaniania treści.
+## Zidentyfikowane problemy
 
-3. Start wideo z dźwiękiem
-- W `src/components/auto-webinar/AutoWebinarEmbed.tsx` usunąć obecną logikę startu “muted + overlay Włącz dźwięk”.
-- Przestawić start odtwarzania na próbę uruchomienia z dźwiękiem od razu.
-- Jeśli przeglądarka mobilna zablokuje autoplay z audio, zastosować bezpieczny fallback UX:
-  - nie uruchamiać od razu w ciszy z suwakiem,
-  - tylko pokazać prosty pełnoekranowy przycisk “Odtwórz z dźwiękiem”, który po tapnięciu uruchomi dźwięk.
-- Dzięki temu domyślny scenariusz będzie “od razu głos”, ale bez łamania ograniczeń iOS/Safari.
+1. **Nagłówek grupy pokazuje datę wydarzenia (09.03) zamiast daty rejestracji (27.03)** — Dla auto-webinarów wszystkie rejestracje mają ten sam `event_id`, więc `events.start_time` to data utworzenia wydarzenia, nie data slotu gościa. Nagłówek grupy powinien odzwierciedlać faktyczne daty rejestracji.
 
-4. Naprawić przedwczesne ucinanie wideo
-- Główna przyczyna jest w `src/hooks/useAutoWebinarSync.ts`: logika slotu i końca sesji nadal opiera się częściowo na oknie slotu, a nie wyłącznie na czasie konkretnego filmu przypisanego do slotu.
-- Zmienić logikę tak, aby dla gościa i zalogowanego użytkownika obowiązywała jedna zasada:
-  - od `sinceSlot = 0` do `sinceSlot < duration` → trwa odtwarzanie,
-  - od `sinceSlot >= duration` do `< duration + 60` → baner “Dziękujemy”,
-  - od `sinceSlot >= duration + 60` → webinar zamknięty i link nieważny.
-- `findCurrentSlot()` ma tylko wskazać aktywny slot, ale nie może kończyć webinaru wcześniej niż wynika to z `duration_seconds` przypisanego materiału.
-- Trzeba też uszczelnić przypadek graniczny dla filmu np. 18:03, żeby nie przechodził do thank-you przy 17:xx / 18:00 przez opóźnienie odświeżania lub błędne wyliczenie okna.
+2. **Usunięte kontakty kolidują z nowymi rejestracjami** — `fetchEventContactIds` w `useTeamContacts.ts` pobiera rejestracje po `team_contact_id` bez sprawdzania czy kontakt jest usunięty (`deleted_at`). Usunięty kontakt nadal "zajmuje" rejestrację i może blokować wyświetlanie nowych.
 
-5. Doprecyzować aktualizację timera i stanów końcowych
-- W `useAutoWebinarSync.ts` zwiększyć precyzję odświeżania podczas końcówki filmu i w oknie thank-you, tak aby przejście następowało dokładniej.
-- Upewnić się, że `currentVideo`, `startOffset`, `isVideoEnded` i `isRoomClosed` są ustawiane spójnie w każdej ścieżce:
-  - guest with slot,
-  - logged-in user,
-  - preview mode.
-- Zachować obecne kasowanie sesji z localStorage dopiero po `isRoomClosed`.
+3. **Popover (ContactEventInfoButton) pokazuje datę wydarzenia zamiast daty rejestracji** — `event_date` pochodzi z `events.start_time`, co dla auto-webinarów jest datą konfiguracji, nie datą sesji gościa.
 
-6. Zachować zgodność z obecną specyfikacją
-- Nie przywracać regulacji głośności.
-- Fullscreen ma być dostępny także na mobile.
-- Baner z podziękowaniem ma pojawić się dopiero po pełnym odtworzeniu materiału wideo i trwać 60 sekund.
-- Dopiero po tej minucie link ma zostać unieważniony i webinar zamknięty.
+## Rozwiązanie
 
-Sekcje do zmiany
-- `src/components/auto-webinar/AutoWebinarEmbed.tsx`
-- `src/components/auto-webinar/AutoWebinarPlayerControls.tsx`
-- `src/hooks/useAutoWebinarSync.ts`
-- `src/pages/AutoWebinarPublicPage.tsx`
+### Plik: `src/hooks/useTeamContacts.ts`
 
-Uwagi techniczne
-- “Autoplay z dźwiękiem od razu” nie jest w 100% gwarantowany na iPhone/Safari bez interakcji użytkownika. Dlatego wdrożenie powinno najpierw próbować startu z audio, a jeśli przeglądarka go zablokuje, pokazać pojedynczy przycisk startu z dźwiękiem zamiast obecnego workflow mute/unmute.
-- Najważniejsza poprawka biznesowa: koniec webinaru ma być liczony od realnego `duration_seconds` bieżącego filmu, nie od ogólnego okna slotu ani limitu link expiry.
+**A. Filtrować usunięte kontakty w `fetchEventContactIds`:**
+- Dodać JOIN z `team_contacts` aby wykluczyć kontakty z `deleted_at IS NOT NULL`
+- Alternatywnie: po pobraniu danych, odfiltrować rejestracje których `team_contact_id` nie istnieje w aktywnych `contacts`
+
+**B. Zmienić grupowanie auto-webinarów — grupuj po dacie rejestracji, nie po event_id:**
+- Dla kontaktów z auto-webinarów (`event_category = 'business_opportunity' | 'health_conversation'` z auto_webinar_config): użyć `registered_at` jako daty grupy zamiast `events.start_time`
+- Klucz grupy: zamiast samego `event_id`, użyć `event_id + data_rejestracji` (dzień), żeby rejestracje z różnych dni nie były w jednej grupie
+- W `buildEventGroups`: gdy kategoria to BO/HC, generować klucz grupy jako `${event_id}::${registered_at_date}` i ustawić `date` grupy na `registered_at`
+
+**C. Dodać `registered_at` do `EventRegistrationInfo`** (typ w `types.ts`) — już jest, ale nie jest używany w `buildEventGroups` do ustawiania daty grupy.
+
+### Plik: `src/components/team-contacts/ContactEventInfoButton.tsx`
+
+**D. Popover — pokazywać datę rejestracji (slot) zamiast `events.start_time`:**
+- Pobrać `registered_at` z `guest_event_registrations` (już jest w query — trzeba dodać do select)
+- Wyświetlać `registered_at` jako datę w popoverze zamiast `events.start_time`
+
+### Plik: `src/components/team-contacts/EventGroupedContacts.tsx`
+
+**E. Nagłówek grupy:**
+- Data grupy będzie teraz poprawna (z `registered_at`), więc nagłówek automatycznie pokaże właściwą datę
+
+### Plik: `supabase/functions/send-webinar-confirmation/index.ts`
+
+**F. Nowy kontakt nie może kolidować z usuniętym:**
+- Przy tworzeniu kontaktu auto-webinar (linia 298-337): system już zawsze tworzy nowy rekord (brak deduplikacji) — to jest OK
+- Ale `guest_event_registrations.team_contact_id` starego (usuniętego) kontaktu nadal istnieje — trzeba upewnić się, że update `team_contact_id` na nowej rejestracji nie jest blokowany przez starą
+
+## Podsumowanie zmian
+
+| Plik | Zmiana |
+|------|--------|
+| `useTeamContacts.ts` | Filtrować usunięte kontakty; grupować auto-webinary po dacie rejestracji |
+| `ContactEventInfoButton.tsx` | Pokazywać `registered_at` zamiast `events.start_time` |
+| `types.ts` | Ewentualne rozszerzenie `EventGroup` o flagę `isAutoWebinar` |
+
