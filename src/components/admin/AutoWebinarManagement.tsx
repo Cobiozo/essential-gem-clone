@@ -1329,10 +1329,21 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-2">
-                    <Button size="sm" className="w-full h-8" onClick={handleAddFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                  <div className="col-span-2 flex gap-1">
+                    {editingFakeMessage ? (
+                      <>
+                        <Button size="sm" className="flex-1 h-8" onClick={handleSaveEditFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8" onClick={handleCancelEditFakeMessage}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button size="sm" className="w-full h-8" onClick={handleAddFakeMessage} disabled={!fakeMessageForm.author_name || !fakeMessageForm.content}>
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
