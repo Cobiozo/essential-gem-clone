@@ -160,57 +160,80 @@ export const useLocalStorage = (): UseLocalStorageReturn => {
       const formData = new FormData();
       formData.append('folder', folder);
       formData.append('file', file);
-      
-      setUploadProgress(30);
-      
-      const response = await fetch('/upload', {
-        method: 'POST',
-        body: formData
+
+      // XMLHttpRequest z realnym progress tracking i 5-minutowym timeout
+      const result = await new Promise<{ success: boolean; url: string; fileName: string; fileSize: number; fileType: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const TIMEOUT_MS = 5 * 60 * 1000; // 5 minut
+
+        xhr.timeout = TIMEOUT_MS;
+
+        // Realny progress uploadu
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            // Mapujemy 0-100% uploadu na zakres 10-90% paska postępu
+            const percent = Math.round(10 + (event.loaded / event.total) * 80);
+            setUploadProgress(percent);
+            options?.onProgress?.(percent);
+          }
+        };
+
+        xhr.onload = () => {
+          const contentType = xhr.getResponseHeader('content-type') || '';
+          
+          if (!contentType.includes('application/json')) {
+            if (file.size > STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
+              reject(new Error('Serwer VPS niedostępny. Duże pliki (>2MB) wymagają połączenia z serwerem.'));
+            } else {
+              reject(new Error('Nie udało się przesłać pliku. Oba serwery niedostępne.'));
+            }
+            return;
+          }
+
+          let data: any;
+          try {
+            data = JSON.parse(xhr.responseText);
+          } catch {
+            reject(new Error('Nieprawidłowa odpowiedź serwera'));
+            return;
+          }
+
+          if (xhr.status < 200 || xhr.status >= 300 || !data.success) {
+            reject(new Error(data.error || `Upload failed with status ${xhr.status}`));
+            return;
+          }
+
+          setUploadProgress(95);
+          resolve({
+            success: true,
+            url: data.url,
+            fileName: data.fileName || file.name,
+            fileSize: data.fileSize || file.size,
+            fileType: data.fileType || file.type
+          });
+        };
+
+        xhr.onerror = () => {
+          reject(new Error('Błąd połączenia z serwerem VPS.'));
+        };
+
+        xhr.ontimeout = () => {
+          reject(new Error('Upload przekroczył limit czasu (5 minut). Spróbuj ponownie lub użyj mniejszego pliku.'));
+        };
+
+        xhr.open('POST', '/upload');
+        xhr.send(formData);
       });
-      
-      const contentType = response.headers.get('content-type') || '';
-      
-      if (!contentType.includes('application/json')) {
-        // VPS niedostępny
-        if (file.size > STORAGE_CONFIG.SUPABASE_MAX_SIZE_BYTES) {
-          // Dla dużych plików to błąd - nie możemy użyć Supabase
-          throw new Error('Serwer VPS niedostępny. Duże pliki (>2MB) wymagają połączenia z serwerem.');
-        }
-        // Dla małych plików już próbowaliśmy Supabase - zwróć błąd
-        throw new Error('Nie udało się przesłać pliku. Oba serwery niedostępne.');
-      }
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-        throw new Error(errorData.error || `Upload failed with status ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      setUploadProgress(80);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Upload failed');
-      }
-      
+
       setUploadProgress(100);
       setIsUploading(false);
       uploadLockRef.current = false;
-      
       options?.onProgress?.(100);
       
-      return {
-        success: true,
-        url: result.url,
-        fileName: result.fileName || file.name,
-        fileSize: result.fileSize || file.size,
-        fileType: result.fileType || file.type
-      };
+      return result;
     } catch (err) {
-      // Przy błędzie VPS - dla małych plików już próbowaliśmy Supabase
       let errorMsg = err instanceof Error ? err.message : 'Błąd uploadu pliku';
       
-      // Dodaj wskazówkę dla użytkownika
       if (errorMsg.includes('VPS niedostępny') || errorMsg.includes('serwery niedostępne')) {
         errorMsg += '\n\nSpróbuj ponownie za chwilę lub skontaktuj się z administratorem systemu.';
       }
