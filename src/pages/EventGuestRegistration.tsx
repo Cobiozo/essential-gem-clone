@@ -532,8 +532,8 @@ const EventGuestRegistration: React.FC = () => {
                     <Video className="h-4 w-4" />
                     <span>{labels.onlineWebinar}</span>
                   </div>
-                  {autoWebinarConfig && (() => {
-                     const slot = getNextSlot(autoWebinarConfig, slotParam);
+                  {resolvedSlot && (() => {
+                     const slot = resolvedSlot;
                      if (!slot) return null;
                     return (
                       <>
@@ -572,10 +572,10 @@ const EventGuestRegistration: React.FC = () => {
             <p className="text-sm text-muted-foreground text-center">
               {isAutoWebinar
                 ? (() => {
-                    if (autoWebinarConfig) {
-                       const slot = getNextSlot(autoWebinarConfig, slotParam);
-                      if (!slot) return labels.checkEmail;
+                    if (resolvedSlot) {
+                       const slot = resolvedSlot;
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
+                      const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
                       if (minutesToSlot <= 15) {
@@ -674,8 +674,8 @@ const EventGuestRegistration: React.FC = () => {
                       <p className="font-medium">{labels.onlineWebinar}</p>
                     </div>
                   </div>
-                  {autoWebinarConfig && (() => {
-                    const slot = getNextSlot(autoWebinarConfig, slotParam);
+                  {resolvedSlot && (() => {
+                    const slot = resolvedSlot;
                     if (!slot) return null;
                     return (
                       <>
