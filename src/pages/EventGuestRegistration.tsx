@@ -32,7 +32,7 @@ interface AutoWebinarVideoData {
   thumbnail_url: string | null;
 }
 
-const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } => {
+const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } | null => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
@@ -41,7 +41,20 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
   const slotHours = config.slot_hours || [];
   const useExplicit = slotHours.length > 0;
 
-  // If a preferred time is provided (from URL slot param), use it
+  // New format: YYYY-MM-DD_HH:MM (date-specific slot)
+  if (preferredTime && /^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$/.test(preferredTime)) {
+    const [datePart, timePart] = preferredTime.split('_');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [ph, pm] = timePart.split(':').map(Number);
+    const slotDate = new Date(year, month - 1, day, ph, pm, 0, 0);
+    // If the specific date+time is in the past, link expired
+    if (slotDate.getTime() < now.getTime()) {
+      return null;
+    }
+    return { date: slotDate, time: timePart };
+  }
+
+  // Legacy format: HH:MM (backward compatible — finds next future slot)
   if (preferredTime && /^\d{2}:\d{2}$/.test(preferredTime)) {
     const [ph, pm] = preferredTime.split(':').map(Number);
     const preferredMin = ph * 60 + pm;
@@ -308,7 +321,7 @@ const EventGuestRegistration: React.FC = () => {
 
       // Calculate slot_time for auto-webinars
       const slotTimeValue = isAutoWebinar && autoWebinarConfig 
-        ? getNextSlot(autoWebinarConfig, slotParam).time 
+        ? getNextSlot(autoWebinarConfig, slotParam)?.time ?? null
         : null;
 
       // Use RPC for atomic registration with attempt counting
@@ -351,7 +364,7 @@ const EventGuestRegistration: React.FC = () => {
             nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
             nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: dateLocale })} o godz. ${nextSlot.time}` : undefined,
             minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
-            roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/a-w/${event.slug}${nextSlot ? `?slot=${nextSlot.time}` : ''}${data.email ? `&ref=${btoa(data.email)}` : ''}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
+            roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/a-w/${event.slug}${nextSlot ? `?slot=${format(nextSlot.date, 'yyyy-MM-dd')}_${nextSlot.time}` : ''}${data.email ? `&ref=${btoa(data.email)}` : ''}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
             videoHostName: autoWebinarVideo?.host_name || undefined,
             videoCoverImageUrl: autoWebinarVideo?.cover_image_url || undefined,
             videoDescription: autoWebinarVideo?.description || undefined,
@@ -402,6 +415,10 @@ const EventGuestRegistration: React.FC = () => {
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
+  // Check if auto-webinar slot is expired (date-specific link in the past)
+  const resolvedSlot = isAutoWebinar && autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : undefined;
+  const isSlotExpired = isAutoWebinar && autoWebinarConfig && slotParam && resolvedSlot === null;
+
   // Map auto-webinar category to display title
   const displayTitle = isAutoWebinar && autoWebinarCategory
     ? (autoWebinarCategory === 'business_opportunity' ? 'Business Opportunity'
@@ -420,6 +437,24 @@ const EventGuestRegistration: React.FC = () => {
             <CardTitle className="text-xl">To wydarzenie nie jest już dostępne</CardTitle>
             <CardDescription>
               Rejestracja na to wydarzenie została zamknięta. Link stracił ważność.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Block registration for expired auto-webinar slots
+  if (isSlotExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle className="text-xl">Ten termin webinaru już się odbył</CardTitle>
+            <CardDescription>
+              Link do tego terminu stracił ważność. Poproś o nowy link z aktualnym terminem.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -481,6 +516,7 @@ const EventGuestRegistration: React.FC = () => {
                   </div>
                   {autoWebinarConfig && (() => {
                      const slot = getNextSlot(autoWebinarConfig, slotParam);
+                     if (!slot) return null;
                     return (
                       <>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -520,6 +556,7 @@ const EventGuestRegistration: React.FC = () => {
                 ? (() => {
                     if (autoWebinarConfig) {
                        const slot = getNextSlot(autoWebinarConfig, slotParam);
+                      if (!slot) return labels.checkEmail;
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
@@ -621,6 +658,7 @@ const EventGuestRegistration: React.FC = () => {
                   </div>
                   {autoWebinarConfig && (() => {
                     const slot = getNextSlot(autoWebinarConfig, slotParam);
+                    if (!slot) return null;
                     return (
                       <>
                         <div className="flex items-center gap-3">
