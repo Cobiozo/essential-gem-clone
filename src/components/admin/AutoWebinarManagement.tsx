@@ -157,13 +157,14 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       appear_at_minute: fakeMessageForm.appear_at_minute,
       author_name: fakeMessageForm.author_name,
       content: fakeMessageForm.content,
+      phase: fakeMessageForm.phase,
       sort_order: fakeMessages.length,
     });
     if (error) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '' });
+    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
     loadFakeMessages(config.id);
     toast({ title: 'Dodano wiadomość' });
   };
@@ -228,6 +229,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       appear_at_minute: d.m,
       author_name: d.a,
       content: d.c,
+      phase: d.m <= 3 ? 'welcome' : d.m >= 40 ? 'ending' : 'during',
       sort_order: i,
     }));
 
@@ -1252,7 +1254,19 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                 {/* Add message form */}
                 <div className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-2">
-                    <Label className="text-xs">Minuta</Label>
+                    <Label className="text-xs">Faza</Label>
+                    <select
+                      value={fakeMessageForm.phase}
+                      onChange={(e) => setFakeMessageForm(p => ({ ...p, phase: e.target.value as 'welcome' | 'during' | 'ending' }))}
+                      className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="welcome">Powitalne</option>
+                      <option value="during">W trakcie</option>
+                      <option value="ending">Na koniec</option>
+                    </select>
+                  </div>
+                  <div className="col-span-1">
+                    <Label className="text-xs">Min.</Label>
                     <Input
                       type="number"
                       value={fakeMessageForm.appear_at_minute}
@@ -1270,7 +1284,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-5">
+                  <div className="col-span-4">
                     <Label className="text-xs">Treść</Label>
                     <Input
                       value={fakeMessageForm.content}
@@ -1286,33 +1300,48 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                   </div>
                 </div>
 
-                {/* Messages table */}
+                {/* Messages grouped by phase */}
                 {fakeMessages.length > 0 && (
-                  <div className="max-h-64 overflow-y-auto border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-16 text-xs">Min.</TableHead>
-                          <TableHead className="w-28 text-xs">Autor</TableHead>
-                          <TableHead className="text-xs">Treść</TableHead>
-                          <TableHead className="w-12 text-xs"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {fakeMessages.map((msg) => (
-                          <TableRow key={msg.id}>
-                            <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
-                            <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
-                            <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
-                            <TableCell>
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
-                                <Trash2 className="h-3 w-3 text-destructive" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-3">
+                    {([
+                      { phase: 'welcome' as const, label: '🟢 Powitalne', color: 'text-green-600' },
+                      { phase: 'during' as const, label: '🔵 W trakcie', color: 'text-blue-600' },
+                      { phase: 'ending' as const, label: '🟠 Na koniec', color: 'text-orange-600' },
+                    ]).map(({ phase, label, color }) => {
+                      const phaseMessages = fakeMessages.filter(m => (m.phase || 'during') === phase);
+                      if (phaseMessages.length === 0) return null;
+                      return (
+                        <div key={phase}>
+                          <p className={`text-xs font-semibold mb-1 ${color}`}>{label} ({phaseMessages.length})</p>
+                          <div className="max-h-40 overflow-y-auto border rounded-lg">
+                            <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead className="w-16 text-xs">Min.</TableHead>
+                                  <TableHead className="w-28 text-xs">Autor</TableHead>
+                                  <TableHead className="text-xs">Treść</TableHead>
+                                  <TableHead className="w-12 text-xs"></TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {phaseMessages.map((msg) => (
+                                  <TableRow key={msg.id}>
+                                    <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
+                                    <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
+                                    <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
+                                    <TableCell>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
