@@ -129,7 +129,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     if (!isRoomClosed) return;
     if (isGuest && guestEmail) {
       const today = new Date().toISOString().slice(0, 10);
-      const sessionKey = `aw_session_${guestEmail}_${today}`;
+      const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
       localStorage.removeItem(sessionKey);
       console.log('[AutoWebinarEmbed] Room closed — session removed from localStorage');
     }
@@ -181,7 +181,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         // Save session to localStorage for rejoin after refresh
         if (isGuest && guestEmail) {
           const today = new Date().toISOString().slice(0, 10);
-          const sessionKey = `aw_session_${guestEmail}_${today}`;
+          const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
           localStorage.setItem(sessionKey, 'active');
         }
         setHasStarted(true);
@@ -195,7 +195,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
           setNeedsUserInteraction(true);
           if (isGuest && guestEmail) {
             const today = new Date().toISOString().slice(0, 10);
-            const sessionKey = `aw_session_${guestEmail}_${today}`;
+            const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
             localStorage.setItem(sessionKey, 'active');
           }
           setHasStarted(true);
