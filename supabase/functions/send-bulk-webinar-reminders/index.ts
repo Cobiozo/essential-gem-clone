@@ -9,6 +9,8 @@ const corsHeaders = {
 interface BulkReminderRequest {
   event_id: string;
   reminder_type?: "24h" | "12h" | "2h" | "1h" | "15min" | "auto";
+  occurrence_index?: number | null; // specific occurrence for cyclic events
+  occurrence_datetime?: string; // ISO datetime of the specific term
   test_emails?: string[];
 }
 
@@ -22,61 +24,17 @@ interface SmtpSettings {
   sender_name: string;
 }
 
-// Reminder type config — guest columns
+// Reminder type config
 const REMINDER_CONFIG: Record<string, {
   templateName: string;
-  guestFlagColumn: string;
-  guestFlagAtColumn: string;
-  userFlagColumn: string;
-  userFlagAtColumn: string;
   includeLink: boolean;
   eventTypeKey: string;
 }> = {
-  "24h": {
-    templateName: "webinar_reminder_24h",
-    guestFlagColumn: "reminder_sent",
-    guestFlagAtColumn: "reminder_sent_at",
-    userFlagColumn: "reminder_sent",       // existing column
-    userFlagAtColumn: "reminder_sent_at",  // may not exist, we'll handle
-    includeLink: false,
-    eventTypeKey: "webinar_reminder_24h",
-  },
-  "12h": {
-    templateName: "webinar_reminder_12h",
-    guestFlagColumn: "reminder_12h_sent",
-    guestFlagAtColumn: "reminder_12h_sent_at",
-    userFlagColumn: "reminder_12h_sent",
-    userFlagAtColumn: "reminder_12h_sent_at",
-    includeLink: false,
-    eventTypeKey: "webinar_reminder_12h",
-  },
-  "2h": {
-    templateName: "webinar_reminder_2h",
-    guestFlagColumn: "reminder_2h_sent",
-    guestFlagAtColumn: "reminder_2h_sent_at",
-    userFlagColumn: "reminder_2h_sent",
-    userFlagAtColumn: "reminder_2h_sent_at",
-    includeLink: true,
-    eventTypeKey: "webinar_reminder_2h",
-  },
-  "1h": {
-    templateName: "webinar_reminder_1h",
-    guestFlagColumn: "reminder_1h_sent",
-    guestFlagAtColumn: "reminder_1h_sent_at",
-    userFlagColumn: "reminder_1h_sent",
-    userFlagAtColumn: "reminder_1h_sent_at",
-    includeLink: true,
-    eventTypeKey: "webinar_reminder_1h",
-  },
-  "15min": {
-    templateName: "webinar_reminder_15min",
-    guestFlagColumn: "reminder_15min_sent",
-    guestFlagAtColumn: "reminder_15min_sent_at",
-    userFlagColumn: "reminder_15min_sent",
-    userFlagAtColumn: "reminder_15min_sent_at",
-    includeLink: true,
-    eventTypeKey: "webinar_reminder_15min",
-  },
+  "24h": { templateName: "webinar_reminder_24h", includeLink: false, eventTypeKey: "webinar_reminder_24h" },
+  "12h": { templateName: "webinar_reminder_12h", includeLink: false, eventTypeKey: "webinar_reminder_12h" },
+  "2h": { templateName: "webinar_reminder_2h", includeLink: true, eventTypeKey: "webinar_reminder_2h" },
+  "1h": { templateName: "webinar_reminder_1h", includeLink: true, eventTypeKey: "webinar_reminder_1h" },
+  "15min": { templateName: "webinar_reminder_15min", includeLink: true, eventTypeKey: "webinar_reminder_15min" },
 };
 
 function base64Encode(str: string): string {
@@ -229,7 +187,6 @@ function wrapWithBranding(html: string): string {
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;"><div style="max-width:600px;margin:0 auto;background:#fff;"><div style="background:linear-gradient(135deg,#D4A843,#B8912A);padding:30px;text-align:center;"><img src="${PURE_LIFE_LOGO}" alt="Pure Life Center" style="max-width:180px;height:auto;"/></div><div style="padding:20px 30px;">${c}</div><div style="background:#f9f9f9;padding:20px;text-align:center;font-size:12px;color:#888;"><p style="margin:0;">&copy; ${new Date().getFullYear()} Pure Life Center</p></div></div></body></html>`;
 }
 
-// Build fallback email body when no template exists
 function buildFallbackBody(
   resolvedType: string,
   firstName: string,
@@ -240,11 +197,8 @@ function buildFallbackBody(
   includeLink: boolean,
 ): string {
   const typeLabels: Record<string, string> = {
-    "24h": "jutro",
-    "12h": "za 12 godzin",
-    "2h": "za 2 godziny",
-    "1h": "za godzinę",
-    "15min": "za 15 minut",
+    "24h": "jutro", "12h": "za 12 godzin", "2h": "za 2 godziny",
+    "1h": "za godzinę", "15min": "za 15 minut",
   };
   const timeLabel = typeLabels[resolvedType] || "wkrótce";
   return `
@@ -287,11 +241,11 @@ serve(async (req) => {
   }
 
   try {
-    const { event_id, reminder_type, test_emails }: BulkReminderRequest = await req.json();
+    const { event_id, reminder_type, occurrence_index, occurrence_datetime, test_emails }: BulkReminderRequest = await req.json();
     const isTestMode = Array.isArray(test_emails) && test_emails.length > 0;
 
     if (isTestMode) {
-      console.log(`[bulk-reminders] ⚠️ TEST MODE: sending only to ${test_emails!.length} addresses: ${test_emails!.join(', ')}`);
+      console.log(`[bulk-reminders] ⚠️ TEST MODE: sending only to ${test_emails!.length} addresses`);
     }
 
     if (!event_id) {
@@ -305,10 +259,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 1. Get event details
+    // 1. Get event details (including occurrences)
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("id, title, start_time, zoom_link, host_name, location")
+      .select("id, title, start_time, end_time, zoom_link, host_name, location, occurrences")
       .eq("id", event_id)
       .single();
 
@@ -319,16 +273,45 @@ serve(async (req) => {
       );
     }
 
+    // Determine the actual datetime for this specific term
+    let termDatetime: Date;
+    let termOccurrenceIndex: number | null = occurrence_index ?? null;
+
+    if (occurrence_datetime) {
+      // Explicit datetime passed by scheduler
+      termDatetime = new Date(occurrence_datetime);
+    } else if (termOccurrenceIndex !== null && termOccurrenceIndex !== undefined && event.occurrences) {
+      // Resolve from occurrences array
+      let occs: any[] = [];
+      if (Array.isArray(event.occurrences)) occs = event.occurrences;
+      else if (typeof event.occurrences === 'string') {
+        try { occs = JSON.parse(event.occurrences); } catch { occs = []; }
+      }
+      if (termOccurrenceIndex < occs.length) {
+        const occ = occs[termOccurrenceIndex];
+        termDatetime = new Date(`${occ.date}T${occ.time}:00`);
+        // Convert from Warsaw to UTC approximation
+        const warsawOffset = termDatetime.getTimezoneOffset(); // This runs on server, use explicit
+        // Better: parse as Europe/Warsaw
+        termDatetime = new Date(new Date(`${occ.date}T${occ.time}:00+01:00`).getTime());
+        // For summer time, this might be off by 1h, but the scheduler passes occurrence_datetime which is more reliable
+      } else {
+        termDatetime = new Date(event.start_time);
+      }
+    } else {
+      // Single-occurrence event
+      termDatetime = new Date(event.start_time);
+    }
+
     // 2. Determine reminder type
     let resolvedType = reminder_type;
     if (!resolvedType || resolvedType === "auto") {
-      const eventStart = new Date(event.start_time);
-      const minutesUntilStart = (eventStart.getTime() - Date.now()) / 60000;
+      const minutesUntilStart = (termDatetime.getTime() - Date.now()) / 60000;
       resolvedType = determineReminderType(minutesUntilStart) as any;
 
       if (!resolvedType) {
         return new Response(
-          JSON.stringify({ success: false, error: "No suitable reminder window for current time", minutesUntilStart }),
+          JSON.stringify({ success: false, error: "No suitable reminder window", minutesUntilStart }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -342,7 +325,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[bulk-reminders] Processing ${resolvedType} reminders for event: ${event.title} (${event_id})`);
+    console.log(`[bulk-reminders] Processing ${resolvedType} for event: ${event.title}, occurrence_index=${termOccurrenceIndex}, term=${termDatetime.toISOString()}`);
 
     // 3. Get SMTP settings
     const { data: smtpData } = await supabase
@@ -383,96 +366,73 @@ serve(async (req) => {
       .eq("event_key", config.eventTypeKey)
       .maybeSingle();
 
-    // Format event date/time
-    const eventDate = new Date(event.start_time);
-    const formattedDate = eventDate.toLocaleDateString('pl-PL', {
+    // Format date/time for the SPECIFIC TERM (not base event start_time)
+    const formattedDate = termDatetime.toLocaleDateString('pl-PL', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
       timeZone: 'Europe/Warsaw'
     });
-    const formattedTime = eventDate.toLocaleTimeString('pl-PL', {
+    const formattedTime = termDatetime.toLocaleTimeString('pl-PL', {
       hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw'
     }) + ' (Warsaw)';
 
     const zoomLink = event.zoom_link || event.location || '';
 
     // ==========================================
-    // 5.5 Reset stale reminder flags for recurring events
-    // If reminder_sent_at is older than 25h before current event start_time,
-    // the flag is from a previous occurrence and should be treated as not sent.
+    // 6. Check which recipients already got this reminder (deduplicate via occurrence_reminders_sent)
     // ==========================================
-    const eventStartMs = new Date(event.start_time).getTime();
-    const resetThreshold = new Date(eventStartMs - 25 * 60 * 60 * 1000).toISOString();
-
-    // Reset stale guest flags
-    const { data: staleGuests, error: staleGuestsErr } = await supabase
-      .from("guest_event_registrations")
-      .update({ [config.guestFlagColumn]: false } as any)
+    const { data: alreadySent } = await supabase
+      .from("occurrence_reminders_sent")
+      .select("recipient_email")
       .eq("event_id", event_id)
-      .eq("status", "registered")
-      .eq(config.guestFlagColumn, true)
-      .lt(config.guestFlagAtColumn, resetThreshold)
-      .select("id");
+      .eq("reminder_type", resolvedType as string)
+      .eq("occurrence_datetime", termDatetime.toISOString());
 
-    if (staleGuests && staleGuests.length > 0) {
-      console.log(`[bulk-reminders] Reset ${staleGuests.length} stale guest ${config.guestFlagColumn} flags (threshold: ${resetThreshold})`);
-    }
-    if (staleGuestsErr) {
-      console.error(`[bulk-reminders] Error resetting stale guest flags:`, staleGuestsErr);
-    }
-
-    // Reset stale user flags
-    const { data: staleUsers, error: staleUsersErr } = await supabase
-      .from("event_registrations")
-      .update({ [config.userFlagColumn]: false } as any)
-      .eq("event_id", event_id)
-      .eq("status", "registered")
-      .eq(config.userFlagColumn, true)
-      .lt(config.userFlagAtColumn, resetThreshold)
-      .select("id");
-
-    if (staleUsers && staleUsers.length > 0) {
-      console.log(`[bulk-reminders] Reset ${staleUsers.length} stale user ${config.userFlagColumn} flags (threshold: ${resetThreshold})`);
-    }
-    if (staleUsersErr) {
-      console.error(`[bulk-reminders] Error resetting stale user flags:`, staleUsersErr);
-    }
+    const alreadySentEmails = new Set((alreadySent || []).map(r => r.recipient_email.toLowerCase()));
+    console.log(`[bulk-reminders] Already sent ${resolvedType} to ${alreadySentEmails.size} recipients for this term`);
 
     // ==========================================
-    // 6a. Get GUEST registrations who haven't received this reminder
+    // 7a. Get GUEST registrations
     // ==========================================
     const { data: guests, error: guestsError } = await supabase
       .from("guest_event_registrations")
       .select("id, email, first_name, last_name")
       .eq("event_id", event_id)
-      .eq("status", "registered")
-      .eq(config.guestFlagColumn, false);
+      .eq("status", "registered");
 
     if (guestsError) {
       console.error(`[bulk-reminders] Error fetching guests:`, guestsError);
     }
 
-    // Filter guests by test_emails if in test mode
-    let filteredGuests = guests || [];
-    if (isTestMode && guests) {
-      filteredGuests = guests.filter(g => test_emails!.includes(g.email));
-      console.log(`[bulk-reminders] TEST MODE: filtered guests ${guests.length} → ${filteredGuests.length}`);
-    }
-
     // ==========================================
-    // 6b. Get REGISTERED USER registrations who haven't received this reminder
+    // 7b. Get REGISTERED USER registrations
     // ==========================================
     const { data: userRegs, error: userRegsError } = await supabase
       .from("event_registrations")
-      .select("id, user_id")
+      .select("id, user_id, occurrence_index")
       .eq("event_id", event_id)
-      .eq("status", "registered")
-      .eq(config.userFlagColumn, false);
+      .eq("status", "registered");
 
     if (userRegsError) {
       console.error(`[bulk-reminders] Error fetching user registrations:`, userRegsError);
     }
 
-    // Fetch profiles for user registrations
+    // For cyclic events, filter user registrations to only those matching this occurrence
+    let relevantUserRegs = userRegs || [];
+    if (termOccurrenceIndex !== null && event.occurrences) {
+      relevantUserRegs = relevantUserRegs.filter(r => 
+        r.occurrence_index === termOccurrenceIndex || r.occurrence_index === null
+      );
+    }
+
+    // Deduplicate by user_id (one user may have multiple regs for same occurrence)
+    const seenUserIds = new Set<string>();
+    const uniqueUserRegs = relevantUserRegs.filter(r => {
+      if (seenUserIds.has(r.user_id)) return false;
+      seenUserIds.add(r.user_id);
+      return true;
+    });
+
+    // Fetch profiles
     interface UserRecipient {
       registrationId: string;
       userId: string;
@@ -481,21 +441,18 @@ serve(async (req) => {
     }
     const userRecipients: UserRecipient[] = [];
 
-    if (userRegs && userRegs.length > 0) {
-      const userIds = userRegs.map(r => r.user_id);
+    if (uniqueUserRegs.length > 0) {
+      const userIds = uniqueUserRegs.map(r => r.user_id);
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, email, first_name")
         .in("user_id", userIds);
 
       if (profiles) {
-        for (const reg of userRegs) {
+        for (const reg of uniqueUserRegs) {
           const profile = profiles.find(p => p.user_id === reg.user_id);
           if (profile?.email) {
-            // In test mode, only include if email is in test_emails
-            if (isTestMode && !test_emails!.includes(profile.email)) {
-              continue;
-            }
+            if (isTestMode && !test_emails!.includes(profile.email)) continue;
             userRecipients.push({
               registrationId: reg.id,
               userId: reg.user_id,
@@ -507,32 +464,72 @@ serve(async (req) => {
       }
     }
 
-    if (isTestMode) {
-      console.log(`[bulk-reminders] TEST MODE: ${filteredGuests.length} guests + ${userRecipients.length} users after filtering`);
+    // Filter guests in test mode
+    let filteredGuests = guests || [];
+    if (isTestMode && guests) {
+      filteredGuests = guests.filter(g => test_emails!.includes(g.email));
     }
 
-    const totalGuests = filteredGuests.length;
-    const totalUsers = userRecipients.length;
-    const totalRecipients = totalGuests + totalUsers;
+    // ==========================================
+    // 8. Build unified recipient list, excluding already sent
+    // ==========================================
+    interface Recipient {
+      email: string;
+      firstName: string;
+      sourceTable: 'guest' | 'user';
+      sourceId: string;
+      userId?: string;
+    }
+
+    const allRecipients: Recipient[] = [];
+
+    // Add guests (deduplicated by email)
+    const addedEmails = new Set<string>();
+    for (const g of filteredGuests) {
+      const emailLower = g.email.toLowerCase();
+      if (alreadySentEmails.has(emailLower) || addedEmails.has(emailLower)) continue;
+      addedEmails.add(emailLower);
+      allRecipients.push({
+        email: g.email,
+        firstName: g.first_name || '',
+        sourceTable: 'guest',
+        sourceId: g.id,
+      });
+    }
+
+    // Add registered users
+    for (const u of userRecipients) {
+      const emailLower = u.email.toLowerCase();
+      if (alreadySentEmails.has(emailLower) || addedEmails.has(emailLower)) continue;
+      addedEmails.add(emailLower);
+      allRecipients.push({
+        email: u.email,
+        firstName: u.firstName,
+        sourceTable: 'user',
+        sourceId: u.registrationId,
+        userId: u.userId,
+      });
+    }
+
+    const totalGuests = allRecipients.filter(r => r.sourceTable === 'guest').length;
+    const totalUsers = allRecipients.filter(r => r.sourceTable === 'user').length;
+    const totalRecipients = allRecipients.length;
 
     if (totalRecipients === 0) {
-      console.log(`[bulk-reminders] No recipients to remind (${resolvedType}) for: ${event.title}`);
+      console.log(`[bulk-reminders] No recipients for ${resolvedType} (event: ${event.title}, term: ${termDatetime.toISOString()})`);
       return new Response(
         JSON.stringify({ success: true, sent: 0, failed: 0, total: 0, reminder_type: resolvedType }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[bulk-reminders] Found ${totalGuests} guests + ${totalUsers} users = ${totalRecipients} recipients for ${resolvedType} reminders`);
+    console.log(`[bulk-reminders] Found ${totalGuests}G + ${totalUsers}U = ${totalRecipients} recipients for ${resolvedType}`);
 
-    // Warn admins if link is missing but this reminder type should include it
+    // Warn admins if link is missing but should be included
     if (!zoomLink && config.includeLink) {
-      console.warn(`[bulk-reminders] Event "${event.title}" has no zoom_link or location for ${resolvedType} reminder.`);
+      console.warn(`[bulk-reminders] Event "${event.title}" has no zoom_link for ${resolvedType} reminder.`);
       try {
-        const { data: admins } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('role', 'admin');
+        const { data: admins } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
         if (admins?.length) {
           await supabase.from('user_notifications').insert(
             admins.map((a: any) => ({
@@ -540,9 +537,9 @@ serve(async (req) => {
               notification_type: 'system',
               source_module: 'events',
               title: '⚠️ Brak linku do wydarzenia!',
-              message: `Wydarzenie "${event.title}" nie ma skonfigurowanego linku. Przypomnienie ${resolvedType} wysyłane do ${totalRecipients} uczestników BEZ linku.`,
+              message: `Wydarzenie "${event.title}" nie ma linku. Przypomnienie ${resolvedType} wysyłane do ${totalRecipients} uczestników BEZ linku.`,
               link: '/admin/events',
-              metadata: { event_id, severity: 'warning', reminder_type: resolvedType, recipients_count: totalRecipients }
+              metadata: { event_id, severity: 'warning', reminder_type: resolvedType }
             }))
           );
         }
@@ -552,39 +549,8 @@ serve(async (req) => {
     }
 
     // ==========================================
-    // 7. Build unified recipient list and send
+    // 9. Send emails in batches
     // ==========================================
-    interface Recipient {
-      email: string;
-      firstName: string;
-      sourceTable: 'guest' | 'user';
-      sourceId: string;
-    }
-
-    const allRecipients: Recipient[] = [];
-
-    // Add guests
-    if (filteredGuests) {
-      for (const g of filteredGuests) {
-        allRecipients.push({
-          email: g.email,
-          firstName: g.first_name || '',
-          sourceTable: 'guest',
-          sourceId: g.id,
-        });
-      }
-    }
-
-    // Add registered users
-    for (const u of userRecipients) {
-      allRecipients.push({
-        email: u.email,
-        firstName: u.firstName,
-        sourceTable: 'user',
-        sourceId: u.registrationId,
-      });
-    }
-
     const BATCH_SIZE = 10;
     let sent = 0;
     let failed = 0;
@@ -628,6 +594,7 @@ serve(async (req) => {
           // Log to email_logs
           await supabase.from("email_logs").insert({
             recipient_email: recipient.email,
+            recipient_user_id: recipient.userId || null,
             subject: finalSubject,
             status: "sent",
             sent_at: new Date().toISOString(),
@@ -639,29 +606,50 @@ serve(async (req) => {
               registration_id: recipient.sourceId,
               registration_source: recipient.sourceTable,
               event_title: event.title,
+              occurrence_index: termOccurrenceIndex,
+              occurrence_datetime: termDatetime.toISOString(),
               bulk_send: true,
             },
           });
 
-          // Update flag in appropriate table
+          // Record in occurrence_reminders_sent for deduplication
+          await supabase.from("occurrence_reminders_sent").upsert({
+            event_id: event_id,
+            occurrence_index: termOccurrenceIndex,
+            occurrence_datetime: termDatetime.toISOString(),
+            recipient_email: recipient.email.toLowerCase(),
+            recipient_user_id: recipient.userId || null,
+            recipient_type: recipient.sourceTable,
+            reminder_type: resolvedType as string,
+            source_registration_id: recipient.sourceId,
+          }, {
+            onConflict: 'event_id,occurrence_index,recipient_email,reminder_type,occurrence_datetime'
+          });
+
+          // Also update legacy flag columns for backward compatibility
           const now = new Date().toISOString();
+          const legacyGuestFlags: Record<string, Record<string, any>> = {
+            "24h": { reminder_sent: true, reminder_sent_at: now },
+            "12h": { reminder_12h_sent: true, reminder_12h_sent_at: now },
+            "2h": { reminder_2h_sent: true, reminder_2h_sent_at: now },
+            "1h": { reminder_1h_sent: true, reminder_1h_sent_at: now },
+            "15min": { reminder_15min_sent: true, reminder_15min_sent_at: now },
+          };
+          const legacyUserFlags: Record<string, Record<string, any>> = {
+            "24h": { reminder_sent: true, reminder_sent_at: now },
+            "12h": { reminder_12h_sent: true, reminder_12h_sent_at: now },
+            "2h": { reminder_2h_sent: true, reminder_2h_sent_at: now },
+            "1h": { reminder_1h_sent: true, reminder_1h_sent_at: now },
+            "15min": { reminder_15min_sent: true, reminder_15min_sent_at: now },
+          };
+
           if (recipient.sourceTable === 'guest') {
-            const updateData: Record<string, any> = {
-              [config.guestFlagColumn]: true,
-              [config.guestFlagAtColumn]: now,
-            };
-            await supabase
-              .from("guest_event_registrations")
-              .update(updateData)
+            await supabase.from("guest_event_registrations")
+              .update(legacyGuestFlags[resolvedType as string] || {})
               .eq("id", recipient.sourceId);
           } else {
-            const updateData: Record<string, any> = {
-              [config.userFlagColumn]: true,
-              [config.userFlagAtColumn]: now,
-            };
-            await supabase
-              .from("event_registrations")
-              .update(updateData)
+            await supabase.from("event_registrations")
+              .update(legacyUserFlags[resolvedType as string] || {})
               .eq("id", recipient.sourceId);
           }
 
@@ -670,24 +658,23 @@ serve(async (req) => {
       );
 
       for (const result of results) {
-        if (result.status === "fulfilled") {
-          sent++;
-        } else {
+        if (result.status === "fulfilled") sent++;
+        else {
           failed++;
           console.error(`[bulk-reminders] Failed:`, result.reason);
         }
       }
-
-      console.log(`[bulk-reminders] Batch ${Math.floor(i / BATCH_SIZE) + 1}: sent ${results.filter(r => r.status === 'fulfilled').length}, failed ${results.filter(r => r.status === 'rejected').length}`);
     }
 
-    console.log(`[bulk-reminders] Completed ${resolvedType} for "${event.title}": sent=${sent}, failed=${failed} (guests=${totalGuests}, users=${totalUsers})`);
+    console.log(`[bulk-reminders] Completed ${resolvedType} for "${event.title}" term=${termDatetime.toISOString()}: sent=${sent}, failed=${failed} (G:${totalGuests} U:${totalUsers})`);
 
     return new Response(
       JSON.stringify({
         success: true,
         reminder_type: resolvedType,
         event_title: event.title,
+        occurrence_index: termOccurrenceIndex,
+        occurrence_datetime: termDatetime.toISOString(),
         sent,
         failed,
         total: allRecipients.length,

@@ -2932,6 +2932,7 @@ export type Database = {
           invited_by_user_id: string | null
           last_name: string | null
           notes: string | null
+          occurrence_index: number | null
           phone: string | null
           registered_at: string | null
           registration_attempts: number
@@ -2965,6 +2966,7 @@ export type Database = {
           invited_by_user_id?: string | null
           last_name?: string | null
           notes?: string | null
+          occurrence_index?: number | null
           phone?: string | null
           registered_at?: string | null
           registration_attempts?: number
@@ -2998,6 +3000,7 @@ export type Database = {
           invited_by_user_id?: string | null
           last_name?: string | null
           notes?: string | null
+          occurrence_index?: number | null
           phone?: string | null
           registered_at?: string | null
           registration_attempts?: number
@@ -5030,6 +5033,56 @@ export type Database = {
             columns: ["event_type_id"]
             isOneToOne: false
             referencedRelation: "notification_event_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      occurrence_reminders_sent: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          occurrence_datetime: string
+          occurrence_index: number | null
+          recipient_email: string
+          recipient_type: string
+          recipient_user_id: string | null
+          reminder_type: string
+          sent_at: string
+          source_registration_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          occurrence_datetime: string
+          occurrence_index?: number | null
+          recipient_email: string
+          recipient_type?: string
+          recipient_user_id?: string | null
+          reminder_type: string
+          sent_at?: string
+          source_registration_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          occurrence_datetime?: string
+          occurrence_index?: number | null
+          recipient_email?: string
+          recipient_type?: string
+          recipient_user_id?: string | null
+          reminder_type?: string
+          sent_at?: string
+          source_registration_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "occurrence_reminders_sent_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]
