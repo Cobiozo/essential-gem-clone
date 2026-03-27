@@ -14,7 +14,7 @@ export const AutoWebinarPlayerControls: React.FC<AutoWebinarPlayerControlsProps>
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [visible, setVisible] = useState(true);
   const hideTimeout = useRef<ReturnType<typeof setTimeout>>();
-  const controlsRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLButtonElement>(null);
 
   const showControls = useCallback(() => {
     setVisible(true);
