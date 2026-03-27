@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video, Monitor, Users, MessageSquare } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, Radio, Settings, ArrowUp, ArrowDown, Link2, ExternalLink, Copy, Check, Power, Eye, Palette, FileText, Image, Upload, ImageIcon, X, Video, Monitor, Users, MessageSquare, AlertTriangle } from 'lucide-react';
 import type { AutoWebinarVideo, AutoWebinarConfig, AutoWebinarFakeMessage } from '@/types/autoWebinar';
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
@@ -588,6 +588,10 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const handleSaveVideo = async () => {
     if (!videoForm.title || !videoForm.video_url) {
       toast({ title: 'Błąd', description: 'Tytuł i URL wideo są wymagane', variant: 'destructive' });
+      return;
+    }
+    if (!videoForm.duration_seconds || videoForm.duration_seconds <= 0) {
+      toast({ title: 'Błąd', description: 'Czas trwania wideo jest wymagany. Wpisz ręcznie liczbę sekund jeśli nie został wykryty automatycznie.', variant: 'destructive' });
       return;
     }
 
@@ -1604,7 +1608,16 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                     </TableCell>
                     <TableCell className="font-medium">{video.title}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{video.host_name || '—'}</TableCell>
-                    <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
+                    <TableCell>
+                      {video.duration_seconds > 0 ? (
+                        formatDuration(video.duration_seconds)
+                      ) : (
+                        <span className="text-destructive font-medium flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          0:00 — wymaga poprawy
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={video.is_active ? 'default' : 'secondary'}
@@ -1675,7 +1688,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                   setVideoForm(prev => ({
                     ...prev,
                     video_url: url,
-                    duration_seconds: durationSeconds || prev.duration_seconds
+                    duration_seconds: durationSeconds ?? 0
                   }));
                 }}
                 currentMediaUrl={videoForm.video_url}
@@ -1683,21 +1696,28 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                 allowedTypes={['video']}
                 compact
               />
-              {videoForm.video_url && videoForm.duration_seconds > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Wykryty czas: {Math.floor(videoForm.duration_seconds / 60)}:{String(videoForm.duration_seconds % 60).padStart(2, '0')}
-                </p>
-              )}
-              {videoForm.video_url && videoForm.duration_seconds === 0 && (
+              {videoForm.video_url && (
                 <div className="mt-2">
-                  <Label className="text-xs">Czas trwania (sekundy) — nie wykryto automatycznie</Label>
+                  <Label className="text-xs">
+                    Czas trwania (sekundy) *
+                    {videoForm.duration_seconds > 0 && (
+                      <span className="text-muted-foreground ml-2">
+                        = {Math.floor(videoForm.duration_seconds / 60)}:{String(videoForm.duration_seconds % 60).padStart(2, '0')}
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     type="number"
-                    value={videoForm.duration_seconds}
+                    value={videoForm.duration_seconds || ''}
                     onChange={(e) => setVideoForm(prev => ({ ...prev, duration_seconds: parseInt(e.target.value) || 0 }))}
-                    placeholder="3600"
+                    placeholder="np. 1712 (= 28:32)"
                     className="h-8 text-xs"
                   />
+                  {videoForm.duration_seconds === 0 && (
+                    <p className="text-xs text-destructive mt-1">
+                      ⚠ Czas trwania jest wymagany — wpisz ręcznie jeśli nie wykryto automatycznie
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -1791,7 +1811,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
             </DialogDescription>
           </DialogHeader>
           <div className="px-4 pb-4">
-            <AutoWebinarEmbed previewMode />
+            <AutoWebinarEmbed previewMode category={category} />
           </div>
         </DialogContent>
       </Dialog>

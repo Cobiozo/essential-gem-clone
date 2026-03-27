@@ -168,9 +168,22 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     currentSrcRef.current = videoToPlay.video_url;
 
     const handleCanPlay = () => {
-      if (!hasStartedRef.current && startOffset > 0) {
+      if (!hasStartedRef.current && startOffset > 0 && !previewMode) {
         video.currentTime = startOffset;
       }
+      
+      if (previewMode) {
+        // In preview mode, always start muted to guarantee autoplay in dialogs
+        video.muted = true;
+        setIsMuted(true);
+        video.play().then(() => {
+          hasStartedRef.current = true;
+          setNeedsUserInteraction(false);
+          setHasStarted(true);
+        }).catch(console.warn);
+        return;
+      }
+      
       // Try to play with sound first
       video.muted = false;
       setIsMuted(false);

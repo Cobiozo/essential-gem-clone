@@ -2464,7 +2464,7 @@ const LessonForm = ({
       media_url: url,
       media_type: type,
       media_alt_text: altText || "",
-      video_duration_seconds: durationSeconds || prev.video_duration_seconds
+      video_duration_seconds: durationSeconds ?? 0
     }));
   };
 
