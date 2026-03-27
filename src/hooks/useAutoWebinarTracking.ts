@@ -15,6 +15,7 @@ export function useAutoWebinarTracking(
   category: string = 'business_opportunity'
 ) {
   const viewId = useRef<string | null>(null);
+  const creatingRef = useRef(false);
   // Persist sessionId in localStorage so returning guests are recognized
   const sessionId = useRef<string>('');
   if (!sessionId.current) {
