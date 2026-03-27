@@ -1,30 +1,31 @@
 
 
-# Fix: auto-webinary nie powinny wymagać `is_published`
+# Fix: Auto-webinar z 09.03 wyświetla się w "Moje spotkania"
 
 ## Problem
-Oba wydarzenia auto-webinarowe (BO i HC) mają `is_published = false` w bazie. Kod w `EventRegistrationBySlug.tsx` (linia 54) blokuje dostęp do każdego nieopublikowanego wydarzenia komunikatem "To wydarzenie nie jest już dostępne."
+Auto-webinary mają `end_time = 2035-12-31` (celowo — działają codziennie). Filtr w `MyMeetingsWidget` (linia 116-128) przepuszcza je zawsze, bo `endTime > now` jest zawsze prawdziwe. W efekcie "Szansa Biznesowa" (utworzona 09.03) pojawia się na stałe w widgecie.
 
-Flaga `is_published` ma sens dla zwykłych webinarów tworzonych przez admina, ale auto-webinary mają własny mechanizm kontroli dostępności: `auto_webinar_config.is_enabled`.
+Auto-webinary to nie klasyczne wydarzenia z jednym terminem — to codzienne sesje symulujące live. Nie powinny pojawiać się w "Moje spotkania" jak zwykłe webinary.
 
 ## Rozwiązanie
-Dla wydarzeń typu `auto_webinar` pomijać sprawdzanie `is_published` i zamiast tego sprawdzać `auto_webinar_config.is_enabled`.
+Wykluczyć wydarzenia typu `auto_webinar` z widgetu "Moje spotkania". Auto-webinary mają własne dedykowane pokoje i trasy (`/auto-webinar/business`, `/auto-webinar/health`) — nie potrzebują obecności w liście spotkań na dashboardzie.
 
-### Zmiany w pliku `src/pages/EventRegistrationBySlug.tsx`
-- Linia 54: zamiast bezwarunkowego blokowania nieopublikowanych wydarzeń, dodać wyjątek dla `event_type === 'auto_webinar'`
-- Dla auto-webinarów: pobrać `auto_webinar_config` po `event_id` i sprawdzić `is_enabled`
-- Jeśli `is_enabled = false` → blokada z komunikatem
-- Jeśli `is_enabled = true` (lub brak configa) → przepuścić dalej
+### Zmiana w `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+- W `userEvents` (linia 47-51): dodać filtr wykluczający `event_type === 'auto_webinar'`
 
-### Zmiany w pliku `src/pages/EventGuestRegistration.tsx`
-- Analogiczna logika: jeśli `event_type === 'auto_webinar'`, nie sprawdzać `is_published`, tylko `auto_webinar_config.is_enabled`
+```typescript
+const userEvents = useMemo(() => {
+  if (!sharedEvents) return [];
+  const expanded = expandEventsForCalendar(sharedEvents);
+  return expanded.filter(e => e.is_registered && e.event_type !== 'auto_webinar');
+}, [sharedEvents]);
+```
 
-### Migracja SQL
-- Ustawić `is_published = true` dla obu wydarzeń auto-webinarowych (BO i HC), żeby uniknąć problemów w innych miejscach kodu które mogą sprawdzać tę flagę
+### Zmiana w `src/components/dashboard/widgets/CalendarWidget.tsx`
+- Analogicznie wykluczyć auto-webinary z kalendarza, żeby nie pojawiały się jako wpisy z datą 09.03
 
 | Plik | Zmiana |
 |------|--------|
-| `EventRegistrationBySlug.tsx` | Dla auto_webinar: sprawdzać `is_enabled` zamiast `is_published` |
-| `EventGuestRegistration.tsx` | Analogiczna zmiana |
-| Migracja SQL | `UPDATE events SET is_published = true WHERE event_type = 'auto_webinar'` |
+| `MyMeetingsWidget.tsx` | Filtr `event_type !== 'auto_webinar'` w `userEvents` |
+| `CalendarWidget.tsx` | Filtr `event_type !== 'auto_webinar'` w `expandedEvents` |
 
