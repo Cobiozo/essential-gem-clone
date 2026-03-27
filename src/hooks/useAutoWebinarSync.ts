@@ -161,6 +161,7 @@ export function useAutoWebinarSync(
   const [isNoInvitation, setIsNoInvitation] = useState(false);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const [isRoomClosed, setIsRoomClosed] = useState(false);
+  const hasStartedPlayingRef = useRef(bypassLateBlock);
 
   useEffect(() => {
     if (!config?.is_enabled || videos.length === 0) {
