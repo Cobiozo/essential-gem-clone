@@ -107,8 +107,8 @@ export function useAutoWebinarTracking(
         // sendBeacon only supports POST, so we use the Supabase REST override header
         const headers = {
           'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           'Prefer': 'return=minimal',
           'X-HTTP-Method-Override': 'PATCH',
         };
