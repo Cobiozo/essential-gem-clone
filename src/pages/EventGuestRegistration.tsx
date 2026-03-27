@@ -32,7 +32,7 @@ interface AutoWebinarVideoData {
   thumbnail_url: string | null;
 }
 
-const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } => {
+const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } | null => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
@@ -41,7 +41,20 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
   const slotHours = config.slot_hours || [];
   const useExplicit = slotHours.length > 0;
 
-  // If a preferred time is provided (from URL slot param), use it
+  // New format: YYYY-MM-DD_HH:MM (date-specific slot)
+  if (preferredTime && /^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$/.test(preferredTime)) {
+    const [datePart, timePart] = preferredTime.split('_');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [ph, pm] = timePart.split(':').map(Number);
+    const slotDate = new Date(year, month - 1, day, ph, pm, 0, 0);
+    // If the specific date+time is in the past, link expired
+    if (slotDate.getTime() < now.getTime()) {
+      return null;
+    }
+    return { date: slotDate, time: timePart };
+  }
+
+  // Legacy format: HH:MM (backward compatible — finds next future slot)
   if (preferredTime && /^\d{2}:\d{2}$/.test(preferredTime)) {
     const [ph, pm] = preferredTime.split(':').map(Number);
     const preferredMin = ph * 60 + pm;

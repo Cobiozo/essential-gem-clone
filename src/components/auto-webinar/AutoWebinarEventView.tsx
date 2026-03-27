@@ -125,7 +125,7 @@ export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> 
     const baseUrl = 'https://purelife.info.pl';
     const params = new URLSearchParams();
     if (eqId) params.set('ref', eqId);
-    params.set('slot', selectedSlot.time);
+    params.set('slot', format(day.date, 'yyyy-MM-dd') + '_' + selectedSlot.time);
     if (inviteLang !== 'pl') params.set('lang', inviteLang);
     const inviteUrl = slug
       ? `${baseUrl}/e/${slug}?${params.toString()}`
