@@ -50,10 +50,26 @@ const EventRegistrationBySlug: React.FC = () => {
         return;
       }
 
-      // Block access to unpublished events
-      if (!event.is_published) {
+      // Block access to unpublished events (skip for auto_webinar — they use auto_webinar_config.is_enabled)
+      if (!event.is_published && event.event_type !== 'auto_webinar') {
         setError('To wydarzenie nie jest już dostępne.');
         return;
+      }
+
+      // For auto_webinar: check is_enabled in auto_webinar_config instead
+      if (event.event_type === 'auto_webinar') {
+        const { data: awConfig } = await supabase
+          .from('auto_webinar_config')
+          .select('is_enabled')
+          .eq('event_id', event.id)
+          .maybeSingle();
+
+        if (abortController.signal.aborted) return;
+
+        if (awConfig && !awConfig.is_enabled) {
+          setError('To wydarzenie nie jest już dostępne.');
+          return;
+        }
       }
 
       if (abortController.signal.aborted) return;
