@@ -348,7 +348,7 @@ export function useAutoWebinarSync(
 
         // Late join blocking (guest joined after allowed threshold)
         // bypassLateBlock skips this so returning guests can rejoin
-        if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration && !bypassLateBlock) {
+        if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration && !bypassLateBlock && !hasStartedPlayingRef.current) {
           resetFlags();
           setIsTooLate(true);
           setCurrentVideo(null);
@@ -360,6 +360,7 @@ export function useAutoWebinarSync(
         }
 
         // Playing (0 <= sinceSlot < duration)
+        hasStartedPlayingRef.current = true;
         resetFlags();
         setIsInActiveHours(true);
         setCurrentVideo(video);
@@ -545,6 +546,11 @@ export function useAutoWebinarSync(
 
     return () => clearInterval(intervalId);
   }, [videos, config, isGuest, guestSlotTime, previewMode, bypassLateBlock]);
+
+  // Reset ref when slot or config changes
+  useEffect(() => {
+    hasStartedPlayingRef.current = bypassLateBlock;
+  }, [guestSlotTime, config?.id, bypassLateBlock]);
 
   return { currentVideo, startOffset, isInActiveHours, secondsToNext, isTooLate, isLinkExpired, isNoInvitation, isVideoEnded, isRoomClosed };
 }
