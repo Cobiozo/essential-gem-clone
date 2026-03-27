@@ -1,0 +1,1 @@
+UPDATE events SET is_published = true WHERE event_type = 'auto_webinar';
