@@ -1,44 +1,68 @@
 
-Naprawię to jednym spójnym mechanizmem opartym wyłącznie o realny czas trwania konkretnego pliku wideo.
 
-1. Ustabilizuję źródło czasu trwania nagrania
-- W formularzu dodawania nagrań usunę błędny fallback:
-  `duration_seconds: durationSeconds || prev.duration_seconds`
-- Zastąpię go logiką, która nigdy nie dziedziczy czasu z poprzedniego filmu.
-- Jeśli metadane nowego pliku nie zostaną wykryte, zapis będzie miał `0`, a nie poprzednie `10:10`.
+## Diagnoza: Dlaczego upload MP4 do playlisty trwa tak długo
 
-2. Wymuszę poprawny czas przed zapisem
-- Przy dodawaniu/edycji nagrania zapis będzie możliwy tylko gdy:
-  - czas został poprawnie wykryty, albo
-  - admin wpisze go ręcznie.
-- Dzięki temu nie będzie już sytuacji, że dwa różne filmy dostają ten sam błędny czas.
+### Przebieg uploadu MP4 krok po kroku
 
-3. Podepnę cały webinar pod jedno źródło prawdy
-- Ekran końcowy „Dziękujemy za uczestnictwo” będzie wyświetlany wyłącznie na podstawie `currentVideo.duration_seconds`.
-- To już częściowo istnieje w `useAutoWebinarSync`, ale problemem są błędne dane w `duration_seconds`.
-- Po naprawie formularza i walidacji, moment końca webinaru automatycznie zacznie odpowiadać realnej długości każdego filmu, np. 28:32 dla jednego i innej wartości dla kolejnego.
+```text
+1. Użytkownik wybiera plik MP4 (np. 15MB)
+2. MediaUpload.tsx → uploadMedia() → useLocalStorage.uploadFile()
+3. Plik > 2MB → trafia na ścieżkę VPS (fetch('/upload'))
+4. fetch('/upload') → BRAK TIMEOUT — czeka do odpowiedzi serwera lub zerwania połączenia
+5. VPS server.js przetwarza upload bez streamingu — cały plik w pamięci
+6. Po zakończeniu uploadu → MediaUpload tworzy <video> element
+   i ładuje METADATA z przesłanego URL (pełne pobranie nagłówków wideo z VPS)
+7. Dopiero po załadowaniu metadata → wywołanie onMediaUploaded → formularz się aktualizuje
+```
 
-4. Poprawię podgląd admina
-- Podgląd webinaru dostanie właściwą kategorię (`category={category}`), żeby ładował właściwą playlistę.
-- W trybie preview dopilnuję, by odtwarzanie startowało stabilnie dla konkretnego filmu, bez szarego ekranu i bez mylącego zachowania.
+### Zidentyfikowane przyczyny wolnego uploadu
 
-5. Zadbam o już błędnie zapisane nagrania
-- W widoku playlisty dodam jasny sygnał dla nagrań z `duration_seconds = 0` lub podejrzanie błędnym czasem.
-- Dla już dodanych filmów poprawka będzie wymagała ponownego zapisania czasu dla tych konkretnych rekordów, bo obecnie mają zapisane złe dane.
+**1. Brak timeout na fetch('/upload')** (linia 166 useLocalStorage.ts)
+- `fetch('/upload', { method: 'POST', body: formData })` — zero timeout
+- Jeśli VPS odpowiada wolno (przeciążony, wolne IO), żądanie wisi bez limitu
+- Użytkownik nie wie, czy upload trwa czy się zawiesił
 
-Sekcje kodu do poprawy
-- `src/components/admin/AutoWebinarManagement.tsx`
-  - poprawa zapisu `duration_seconds`
-  - blokada zapisu bez poprawnego czasu
-  - przekazanie `category` do `AutoWebinarEmbed` w podglądzie
-- `src/components/auto-webinar/AutoWebinarEmbed.tsx`
-  - stabilizacja preview
-- opcjonalnie ten sam bug także w:
-  - `src/components/admin/TrainingManagement.tsx`
-  bo tam jest identyczny wzorzec `durationSeconds || prev.video_duration_seconds`
+**2. Sztuczny progress — brak realnego śledzenia postępu**
+- Progress skacze: 10% → 30% → (czekanie na odpowiedź) → 80% → 100%
+- `fetch()` API nie obsługuje `onUploadProgress` — nie da się śledzić realnego postępu wysyłania
+- Użytkownik widzi 30% przez kilkadziesiąt sekund bez żadnej zmiany
 
-Efekt końcowy
-- każde nagranie ma własny realny czas,
-- playlista pokazuje poprawne długości,
-- ekran podziękowania pojawia się dopiero po faktycznym końcu danego filmu,
-- preview działa na właściwej playliście i pokazuje poprawny materiał.
+**3. Detekcja metadanych wideo PO uploadzie — dodatkowe opóźnienie**
+- Po zakończeniu uploadu, `MediaUpload.tsx` (linia 142-153) tworzy `<video>` element i ładuje metadata z przesłanego URL
+- Przeglądarka musi pobrać nagłówki wideo z VPS (kolejne żądanie HTTP), co przy dużych plikach na wolnym serwerze trwa
+- Dopiero po `onloadedmetadata` formularz się aktualizuje — użytkownik czeka dwukrotnie
+
+**4. Folder 'training-media' — hardcoded dla WSZYSTKICH uplooadów**
+- `MediaUpload` zawsze uploaduje do folderu `training-media` (linia 126), niezależnie od kontekstu (akademia, webinar, wiedza)
+- To nie wpływa na prędkość, ale zaśmieca jeden folder
+
+### Plan naprawy (bez zmiany zasady upload)
+
+**Krok 1: Dodać AbortController z timeout 5 minut do fetch VPS**
+- W `useLocalStorage.ts` owinąć `fetch('/upload')` w `AbortController` z 5-minutowym limitem
+- Dzięki temu upload nie wisi w nieskończoność
+
+**Krok 2: Zamienić fetch na XMLHttpRequest dla realnego progress**
+- `XMLHttpRequest` obsługuje `upload.onprogress` — pokazuje realny % wysłanych bajtów
+- Użytkownik zobaczy płynny pasek postępu zamiast skoków 10→30→czekanie→80
+
+**Krok 3: Detekcja duration z pliku LOKALNEGO zamiast z URL po uploadzie**
+- W `MediaUpload.tsx` przed wywołaniem `uploadFile()`, stworzyć `<video>` element z `URL.createObjectURL(file)` 
+- Pobrać `duration` z pliku lokalnego (natychmiast, bez HTTP) 
+- Po uploadzie od razu wywołać `onMediaUploaded(url, type, alt, duration)` bez czekania na ponowne ładowanie z serwera
+- To eliminuje drugie oczekiwanie po uploadzie
+
+### Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| `src/hooks/useLocalStorage.ts` | Timeout 5min + XMLHttpRequest z realnym progress |
+| `src/components/MediaUpload.tsx` | Detekcja duration z lokalnego pliku przed uploadem |
+
+### Efekt
+- Upload tego samego pliku będzie trwał tyle samo (ograniczenie łącza), ale:
+  - pasek postępu będzie realny i płynny
+  - timeout zapobiegnie zawieszeniu
+  - brak dodatkowego oczekiwania po uploadzie na metadata
+  - użytkownik dostanie feedback natychmiast po zakończeniu transferu
+
