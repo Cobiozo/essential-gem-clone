@@ -277,6 +277,8 @@ Deno.serve(async (req) => {
     const { event_id, recipient_email, recipient_name, event_title, inviter_user_id, source_type, source_id, email_type } = await req.json();
 
     const effectiveEmailType = email_type || 'thank_you';
+
+    if (!event_id || !recipient_email || !recipient_name || !event_title) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -330,14 +332,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    const subject = `Dziękujemy za udział w wydarzeniu: ${event_title}`;
-    const htmlBody = buildThankYouHtml({
+    const templateParams = {
       recipientName: recipient_name,
       eventTitle: event_title,
       inviterName,
       inviterEmail,
       inviterPhone,
-    });
+    };
+
+    let subject: string;
+    let htmlBody: string;
+
+    if (effectiveEmailType === 'missed_event') {
+      subject = `Szkoda, że Cię nie było na spotkaniu: ${event_title}`;
+      htmlBody = buildMissedEventHtml(templateParams);
+    } else {
+      subject = `Dziękujemy za udział w wydarzeniu: ${event_title}`;
+      htmlBody = buildThankYouHtml(templateParams);
+    }
 
     await sendSmtpEmail(smtpSettings, recipient_email, subject, htmlBody);
 
@@ -348,7 +360,7 @@ Deno.serve(async (req) => {
       status: "sent",
       sent_at: new Date().toISOString(),
       metadata: {
-        type: 'post_event_thank_you',
+        type: effectiveEmailType === 'missed_event' ? 'post_event_missed' : 'post_event_thank_you',
         event_id,
         inviter_user_id,
         source_type,
