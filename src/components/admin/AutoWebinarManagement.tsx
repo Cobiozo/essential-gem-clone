@@ -1367,19 +1367,24 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                                   <TableHead className="w-16 text-xs">Min.</TableHead>
                                   <TableHead className="w-28 text-xs">Autor</TableHead>
                                   <TableHead className="text-xs">Treść</TableHead>
-                                  <TableHead className="w-12 text-xs"></TableHead>
+                                 <TableHead className="w-20 text-xs"></TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
                                 {phaseMessages.map((msg) => (
-                                  <TableRow key={msg.id}>
+                                  <TableRow key={msg.id} className={editingFakeMessage?.id === msg.id ? 'bg-muted/50' : ''}>
                                     <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
                                     <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
                                     <TableCell>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
-                                        <Trash2 className="h-3 w-3 text-destructive" />
-                                      </Button>
+                                      <div className="flex gap-0.5">
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleStartEditFakeMessage(msg)}>
+                                          <Pencil className="h-3 w-3 text-muted-foreground" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteFakeMessage(msg.id)}>
+                                          <Trash2 className="h-3 w-3 text-destructive" />
+                                        </Button>
+                                      </div>
                                     </TableCell>
                                   </TableRow>
                                 ))}
