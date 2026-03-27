@@ -472,7 +472,7 @@ const EventGuestRegistration: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <h3 className="font-semibold">{event.title}</h3>
+              <h3 className="font-semibold">{displayTitle}</h3>
               {isAutoWebinar ? (
                 <>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -599,7 +599,7 @@ const EventGuestRegistration: React.FC = () => {
                 {labels.webinarBadge}
               </Badge>
             </div>
-            <CardTitle className="text-2xl">{event.title}</CardTitle>
+            <CardTitle className="text-2xl">{displayTitle}</CardTitle>
             {event.description && (
               <CardDescription 
                 className="text-base"
