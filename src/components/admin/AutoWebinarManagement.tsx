@@ -590,6 +590,10 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       toast({ title: 'Błąd', description: 'Tytuł i URL wideo są wymagane', variant: 'destructive' });
       return;
     }
+    if (!videoForm.duration_seconds || videoForm.duration_seconds <= 0) {
+      toast({ title: 'Błąd', description: 'Czas trwania wideo jest wymagany. Wpisz ręcznie liczbę sekund jeśli nie został wykryty automatycznie.', variant: 'destructive' });
+      return;
+    }
 
     if (editingVideo) {
       const { error } = await supabase
@@ -1604,7 +1608,16 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                     </TableCell>
                     <TableCell className="font-medium">{video.title}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{video.host_name || '—'}</TableCell>
-                    <TableCell>{formatDuration(video.duration_seconds)}</TableCell>
+                    <TableCell>
+                      {video.duration_seconds > 0 ? (
+                        formatDuration(video.duration_seconds)
+                      ) : (
+                        <span className="text-destructive font-medium flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          0:00 — wymaga poprawy
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={video.is_active ? 'default' : 'secondary'}
@@ -1675,7 +1688,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                   setVideoForm(prev => ({
                     ...prev,
                     video_url: url,
-                    duration_seconds: durationSeconds || prev.duration_seconds
+                    duration_seconds: durationSeconds ?? 0
                   }));
                 }}
                 currentMediaUrl={videoForm.video_url}
@@ -1791,7 +1804,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
             </DialogDescription>
           </DialogHeader>
           <div className="px-4 pb-4">
-            <AutoWebinarEmbed previewMode />
+            <AutoWebinarEmbed previewMode category={category} />
           </div>
         </DialogContent>
       </Dialog>
