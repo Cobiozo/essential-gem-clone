@@ -480,6 +480,24 @@ const EventGuestRegistration: React.FC = () => {
     );
   }
 
+  // Block registration for invalid auto-webinar slot format
+  if (isSlotInvalid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle className="text-xl">Nieprawidłowy link</CardTitle>
+            <CardDescription>
+              Ten link do webinaru jest nieprawidłowy lub niekompletny. Poproś o nowy link z aktualnym terminem.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
   if (existingUserBlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
