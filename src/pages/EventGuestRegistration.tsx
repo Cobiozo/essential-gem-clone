@@ -211,6 +211,7 @@ const EventGuestRegistration: React.FC = () => {
   const [existingUserBlocked, setExistingUserBlocked] = useState(false);
   const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
   const [autoWebinarVideo, setAutoWebinarVideo] = useState<AutoWebinarVideoData | null>(null);
+  const [autoWebinarCategory, setAutoWebinarCategory] = useState<string | null>(null);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -263,10 +264,13 @@ const EventGuestRegistration: React.FC = () => {
     const fetchConfig = async () => {
       const { data } = await supabase
         .from('auto_webinar_config')
-        .select('start_hour, end_hour, interval_minutes, slot_hours')
+        .select('start_hour, end_hour, interval_minutes, slot_hours, category')
         .eq('event_id', event.id)
         .maybeSingle();
-      if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+      if (data) {
+        setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+        setAutoWebinarCategory((data as any).category || null);
+      }
 
       // Fetch first active video for display data
       const { data: videoData } = await supabase
@@ -390,12 +394,38 @@ const EventGuestRegistration: React.FC = () => {
   if (!event) return null;
 
   const isAutoWebinar = event.event_type === 'auto_webinar';
+  const isUnpublished = !event.is_published;
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   const isPast = !isAutoWebinar && new Date() > endDate;
   const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
+
+  // Map auto-webinar category to display title
+  const displayTitle = isAutoWebinar && autoWebinarCategory
+    ? (autoWebinarCategory === 'business_opportunity' ? 'Business Opportunity'
+       : autoWebinarCategory === 'health_conversation' ? 'Health Conversation'
+       : event.title)
+    : event.title;
+
+  // Block registration for unpublished events
+  if (isUnpublished) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle className="text-xl">To wydarzenie nie jest już dostępne</CardTitle>
+            <CardDescription>
+              Rejestracja na to wydarzenie została zamknięta. Link stracił ważność.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (existingUserBlocked) {
     return (
@@ -442,7 +472,7 @@ const EventGuestRegistration: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-              <h3 className="font-semibold">{event.title}</h3>
+              <h3 className="font-semibold">{displayTitle}</h3>
               {isAutoWebinar ? (
                 <>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -569,7 +599,7 @@ const EventGuestRegistration: React.FC = () => {
                 {labels.webinarBadge}
               </Badge>
             </div>
-            <CardTitle className="text-2xl">{event.title}</CardTitle>
+            <CardTitle className="text-2xl">{displayTitle}</CardTitle>
             {event.description && (
               <CardDescription 
                 className="text-base"
