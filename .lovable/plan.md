@@ -1,59 +1,40 @@
 
 
-# Plan: Poprawki danych rejestracji i nazewnictwa auto-webinarów
+# Plan: Mobile fullscreen fix + chat bubble notifications
 
-## Zidentyfikowane problemy
+## Problems identified
 
-### 1. Katarzyna Snopek — "Nie dołączył" mimo że oglądała
-**Przyczyna**: Hook `useAutoWebinarTracking` (linia 39-45) szuka `guest_registration_id` po samym emailu (`eq('email', guestEmail)`), sortując po `created_at DESC` i biorąc `limit(1)`. Katarzyna zarejestrowała się 27.03 (registration `bf5f6b7b`), ale **nie obejrzała jeszcze tego webinaru**. Wcześniejsze widoki (spod tego samego emaila) są podpięte do **starszych** rejestracji (np. `5da28865`, `16606553`). Popover w `ContactEventInfoButton` szuka views po `guest_registration_id` = `bf5f6b7b` i nic nie znajduje → "Nie dołączył".
+1. **Fullscreen doesn't work on mobile** — iOS Safari doesn't support `Element.requestFullscreen()` on a div container. Only `video.webkitEnterFullscreen()` works on iOS. The current code only tries `container.requestFullscreen()`.
 
-Dodatkowo: za każdym odtwarzaniem tworzonych jest wiele rekordów `auto_webinar_views` (5-10 na sesję) bo hook tworzy nowy rekord za każdym razem gdy `isPlaying` się zmieni.
+2. **No chat bubble when chat is collapsed** — When chat is closed, new messages appear silently. Users have no idea someone wrote something until they open the chat panel.
 
-### 2. Nazwa "Szansa Biznesowa" zamiast "Business Opportunity"
-**Przyczyna**: W tabeli `events` tytuł to dosłownie `"Szansa Biznesowa"`. Nagłówek grupy bierze ten tytuł z `events.title`. To jest kwestia danych w DB — trzeba zmienić tytuł wydarzenia, ale też dodać mapowanie w UI na wypadek gdyby ktoś zmienił tytuł z powrotem.
+## Changes
 
-## Rozwiązanie
+### 1. Fix fullscreen for mobile (`AutoWebinarPlayerControls.tsx`)
 
-### A. Naprawić powiązanie tracking → rejestracja (kluczowa poprawka)
+- Pass `videoRef` to the fullscreen logic (already passed as prop).
+- In `toggleFullscreen()`, detect iOS/Safari and use `videoRef.current.webkitEnterFullscreen()` as fallback when `container.requestFullscreen()` fails.
+- Also listen for `webkitfullscreenchange` event for iOS state tracking.
+- Increase button z-index to ensure it's tappable on mobile.
 
-**Plik: `src/hooks/useAutoWebinarTracking.ts`**
-- Dodać parametr `guestRegistrationId: string | null` do hooka (zamiast szukać w DB po emailu)
-- Usunąć lookup po emailu z `createView()` — bezpośrednio użyć przekazanego ID
-- Dodać deduplikację: nie tworzyć nowego widoku jeśli `viewId.current` już istnieje (zapobiegnie wielokrotnym rekordom)
+### 2. Chat bubble notifications (`AutoWebinarFakeChat.tsx`)
 
-**Plik: `src/components/auto-webinar/AutoWebinarEmbed.tsx`**
-- Przed wywołaniem `useAutoWebinarTracking`, pobrać `guest_registration_id` z bazy na podstawie emaila **I** `event_id` (z configu)
-- Przekazać ten ID do hooka
+- Track `lastSeenCount` — the message count when the user last had the chat open.
+- When chat is closed and `messages.length > lastSeenCount`, show a floating bubble with the latest message's author and content.
+- Bubble appears with a slide-in animation, auto-disappears after 3 seconds.
+- Position: bottom-right, above the chat toggle button.
+- On tap: opens the chat panel.
+- Multiple messages arriving rapidly: show only the latest one, reset the 3s timer.
 
-**Plik: `src/pages/AutoWebinarPublicPage.tsx`**
-- Bez zmian (email jest wystarczający do przekazania)
+### 3. Mobile UX polish (`AutoWebinarEmbed.tsx`)
 
-### B. Zmienić tytuł wydarzenia w UI
+- Ensure the video container uses `relative` positioning with proper z-index layering so fullscreen button and chat bubble don't conflict.
+- On mobile, position chat toggle button higher to avoid overlap with player controls bar.
 
-**Plik: `src/hooks/useTeamContacts.ts`** i/lub **`src/components/team-contacts/EventGroupedContacts.tsx`**
-- Dodać mapowanie kategorii na wyświetlaną nazwę:
-  - `business_opportunity` → "Business Opportunity"  
-  - `health_conversation` → "Health Conversation"
-- Użyć nazwy kategorii zamiast `events.title` w nagłówku grupy dla auto-webinarów
-- Alternatywnie: zmienić tytuł w bazie danych (ale to mniej trwałe rozwiązanie)
+## Files to modify
 
-### C. ContactEventInfoButton — poprawić powiązanie views z rejestracją
-
-**Plik: `src/components/team-contacts/ContactEventInfoButton.tsx`**
-- Popover już poprawnie szuka views po `guest_registration_id` (linia 72-75)
-- Problem jest u źródła — tracking nie linkuje views do właściwej rejestracji
-- Po poprawce A, dane same się naprawią dla nowych sesji
-
-## Podsumowanie zmian
-
-| Plik | Zmiana |
+| File | Change |
 |------|--------|
-| `useAutoWebinarTracking.ts` | Przyjmować `guestRegistrationId` zamiast szukać po emailu; deduplikacja tworzenia widoków |
-| `AutoWebinarEmbed.tsx` | Pobrać registration ID na podstawie emaila + event_id z configu; przekazać do hooka |
-| `useTeamContacts.ts` | Mapować nazwy kategorii: BO → "Business Opportunity", HC → "Health Conversation" |
-| `EventGroupedContacts.tsx` | Użyć zmapowanej nazwy kategorii jako tytułu grupy dla auto-webinarów |
-
-## Uwagi
-- Istniejące dane w `auto_webinar_views` z błędnymi `guest_registration_id` nie zostaną automatycznie naprawione — dotyczy to tylko nowych sesji
-- Można opcjonalnie uruchomić migrację SQL, która naprawi istniejące powiązania
+| `AutoWebinarPlayerControls.tsx` | iOS fullscreen fallback via `webkitEnterFullscreen` |
+| `AutoWebinarFakeChat.tsx` | Add floating bubble notification for new messages when chat is collapsed |
 
