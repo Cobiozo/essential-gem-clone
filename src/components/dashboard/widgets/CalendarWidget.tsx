@@ -102,7 +102,7 @@ ${labels.signUp}: ${inviteUrl}
 
   // Expand multi-occurrence events for calendar display
   const expandedEvents = useMemo(() => {
-    return expandEventsForCalendar(events);
+    return expandEventsForCalendar(events).filter(e => e.event_type !== 'auto_webinar');
   }, [events]);
 
   // Filter events based on active legend filter
