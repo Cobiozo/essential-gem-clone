@@ -94,7 +94,7 @@ export function useAutoWebinarTracking(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId, isPlaying]);
 
-  // Handle page unload
+  // Handle page unload — use sendBeacon with proper Supabase headers
   useEffect(() => {
     const handleUnload = () => {
       if (viewId.current && startTime.current) {
@@ -103,11 +103,27 @@ export function useAutoWebinarTracking(
           watch_duration_seconds: seconds,
           left_at: new Date().toISOString(),
         });
-        // Use sendBeacon for reliable delivery on page close
-        navigator.sendBeacon?.(
-          `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/auto_webinar_views?id=eq.${viewId.current}`,
-          new Blob([payload], { type: 'application/json' })
-        );
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/auto_webinar_views?id=eq.${viewId.current}`;
+        // sendBeacon only supports POST, so we use the Supabase REST override header
+        const headers = {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=minimal',
+          'X-HTTP-Method-Override': 'PATCH',
+        };
+        const blob = new Blob([payload], { type: 'application/json' });
+        // Try fetch keepalive first (supports PATCH), fallback to sendBeacon
+        try {
+          fetch(url, {
+            method: 'PATCH',
+            headers,
+            body: payload,
+            keepalive: true,
+          });
+        } catch {
+          navigator.sendBeacon?.(url, blob);
+        }
       }
     };
     window.addEventListener('beforeunload', handleUnload);
