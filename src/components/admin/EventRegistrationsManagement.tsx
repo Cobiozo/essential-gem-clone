@@ -150,6 +150,7 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [followUpSearchQuery, setFollowUpSearchQuery] = useState('');
   const [guestSearchQuery, setGuestSearchQuery] = useState('');
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
+  const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
   const selectedEvent = useMemo(() =>
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
