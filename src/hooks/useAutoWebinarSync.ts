@@ -216,13 +216,14 @@ export function useAutoWebinarSync(
           return;
         }
 
-        // Too early (before room opens)
+        // Too early (before room opens) — show single countdown to slot start
         if (sinceSlot < -roomOpenSec) {
           resetFlags();
+          setIsInActiveHours(true);
           setCurrentVideo(null);
-          setIsInActiveHours(false);
-          setSecondsToNext(guestSlotSec - roomOpenSec - secondsPastMidnight);
-          updateInterval(10000);
+          setStartOffset(-1);
+          setSecondsToNext(guestSlotSec - secondsPastMidnight);
+          updateInterval(guestSlotSec - secondsPastMidnight <= 300 ? 1000 : 10000);
           return;
         }
 
