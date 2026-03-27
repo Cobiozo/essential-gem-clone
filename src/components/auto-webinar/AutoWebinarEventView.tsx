@@ -160,23 +160,8 @@ ${labels.signUp}: ${inviteUrl}`.trim();
   const title = config.invitation_title || config.room_title || 'Webinar';
   const description = config.invitation_description || config.room_subtitle || '';
 
-  const [activeDay, setActiveDay] = useState(0);
 
-  // Group time slots by period
-  const groupedSlots = useMemo(() => {
-    const groups: { label: string; icon: string; slots: string[] }[] = [
-      { label: 'Rano', icon: '🌅', slots: [] },
-      { label: 'Południe', icon: '☀️', slots: [] },
-      { label: 'Wieczór', icon: '🌙', slots: [] },
-    ];
-    timeSlots.forEach(time => {
-      const h = parseInt(time.split(':')[0]);
-      if (h < 12) groups[0].slots.push(time);
-      else if (h < 18) groups[1].slots.push(time);
-      else groups[2].slots.push(time);
-    });
-    return groups.filter(g => g.slots.length > 0);
-  }, [timeSlots]);
+
 
   return (
     <div className="max-w-3xl mx-auto space-y-3">
