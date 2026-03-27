@@ -85,6 +85,22 @@ export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> 
     return slots;
   }, [config]);
 
+  // Group time slots by period
+  const groupedSlots = useMemo(() => {
+    const groups: { label: string; icon: string; slots: string[] }[] = [
+      { label: 'Rano', icon: '🌅', slots: [] },
+      { label: 'Południe', icon: '☀️', slots: [] },
+      { label: 'Wieczór', icon: '🌙', slots: [] },
+    ];
+    timeSlots.forEach(time => {
+      const h = parseInt(time.split(':')[0]);
+      if (h < 12) groups[0].slots.push(time);
+      else if (h < 18) groups[1].slots.push(time);
+      else groups[2].slots.push(time);
+    });
+    return groups.filter(g => g.slots.length > 0);
+  }, [timeSlots]);
+
   const getSlotStatus = (dayIndex: number, time: string) => {
     if (dayIndex > 0) return 'future';
     const now = new Date();
