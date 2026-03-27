@@ -122,7 +122,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   }, [isGuest, guestEmail, config?.event_id]);
 
   // Analytics tracking
-  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId);
+  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId, category);
 
   // Invalidate session when room closes
   useEffect(() => {

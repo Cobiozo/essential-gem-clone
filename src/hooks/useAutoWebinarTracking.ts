@@ -11,7 +11,8 @@ export function useAutoWebinarTracking(
   isPlaying: boolean,
   isGuest: boolean = false,
   guestEmail: string | null = null,
-  guestRegistrationId: string | null = null
+  guestRegistrationId: string | null = null,
+  category: string = 'business_opportunity'
 ) {
   const viewId = useRef<string | null>(null);
   // Persist sessionId in localStorage so returning guests are recognized
