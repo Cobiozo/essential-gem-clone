@@ -576,7 +576,6 @@ const EventGuestRegistration: React.FC = () => {
                        const slot = resolvedSlot;
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
-                      const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
                       if (minutesToSlot <= 15) {
                         return labels.checkEmail;
