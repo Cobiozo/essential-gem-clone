@@ -558,6 +558,7 @@ export type Database = {
           show_participant_count: boolean
           slot_hours: string[] | null
           start_hour: number
+          timezone: string
           updated_at: string
           visible_to_clients: boolean | null
           visible_to_partners: boolean | null
@@ -599,6 +600,7 @@ export type Database = {
           show_participant_count?: boolean
           slot_hours?: string[] | null
           start_hour?: number
+          timezone?: string
           updated_at?: string
           visible_to_clients?: boolean | null
           visible_to_partners?: boolean | null
@@ -640,6 +642,7 @@ export type Database = {
           show_participant_count?: boolean
           slot_hours?: string[] | null
           start_hour?: number
+          timezone?: string
           updated_at?: string
           visible_to_clients?: boolean | null
           visible_to_partners?: boolean | null

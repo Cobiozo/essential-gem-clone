@@ -2,6 +2,37 @@ import { useState, useEffect } from 'react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 
 /**
+ * Get current time components in a specific timezone using Intl API.
+ */
+function getNowInTimezone(tz: string): { hours: number; minutes: number; seconds: number; dateStr: string } {
+  const now = new Date();
+  try {
+    const timeParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: false
+    }).formatToParts(now);
+    const dateParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(now); // "YYYY-MM-DD" format
+
+    const get = (type: string) => parseInt(timeParts.find(p => p.type === type)?.value || '0');
+    let hours = get('hour');
+    if (hours === 24) hours = 0; // Intl may return 24 for midnight
+
+    return { hours, minutes: get('minute'), seconds: get('second'), dateStr: dateParts };
+  } catch {
+    // Fallback to local time if timezone is invalid
+    return {
+      hours: now.getHours(),
+      minutes: now.getMinutes(),
+      seconds: now.getSeconds(),
+      dateStr: now.toISOString().slice(0, 10),
+    };
+  }
+}
+
+const DEFAULT_TIMEZONE = 'Europe/Warsaw';
+
+/**
  * Parse "HH:MM" to seconds past midnight
  */
 function parseTimeToSeconds(time: string): number {
@@ -15,9 +46,9 @@ function parseTimeToSeconds(time: string): number {
  */
 function extractTimeFromSlot(slot: string): string {
   if (slot.includes('_')) {
-    return slot.split('_')[1]; // "2026-03-27_11:30" → "11:30"
+    return slot.split('_')[1];
   }
-  return slot; // "11:30" → "11:30"
+  return slot;
 }
 
 /**
@@ -25,29 +56,29 @@ function extractTimeFromSlot(slot: string): string {
  */
 function extractDateFromSlot(slot: string): string | null {
   if (slot.includes('_')) {
-    return slot.split('_')[0]; // "2026-03-27_11:30" → "2026-03-27"
+    return slot.split('_')[0];
   }
   return null;
 }
 
 /**
- * Check if a dated slot belongs to today. Legacy (time-only) slots always return true.
+ * Check if a dated slot belongs to today in the given timezone.
  */
-function isSlotToday(slot: string): boolean {
+function isSlotToday(slot: string, tz: string): boolean {
   const date = extractDateFromSlot(slot);
-  if (!date) return true; // legacy format — assume today
-  const today = new Date().toISOString().slice(0, 10);
-  return date === today;
+  if (!date) return true;
+  const { dateStr } = getNowInTimezone(tz);
+  return date === dateStr;
 }
 
 /**
- * Check if a dated slot is in the past (before today).
+ * Check if a dated slot is in the past (before today in the given timezone).
  */
-function isSlotInPast(slot: string): boolean {
+function isSlotInPast(slot: string, tz: string): boolean {
   const date = extractDateFromSlot(slot);
   if (!date) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return date < today;
+  const { dateStr } = getNowInTimezone(tz);
+  return date < dateStr;
 }
 
 /**

@@ -58,6 +58,7 @@ export interface AutoWebinarConfig {
   fake_participants_max: number;
   // Fake chat
   fake_chat_enabled: boolean;
+  timezone: string;
   created_at: string;
   updated_at: string;
 }
