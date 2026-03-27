@@ -25,7 +25,11 @@ interface GuestStat {
   watch_duration_seconds: number | null;
 }
 
-export const AutoWebinarGuestStats: React.FC = () => {
+interface AutoWebinarGuestStatsProps {
+  category: 'business_opportunity' | 'health_conversation';
+}
+
+export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ category }) => {
   const { toast } = useToast();
   const [stats, setStats] = useState<GuestStat[]>([]);
   const [loading, setLoading] = useState(true);

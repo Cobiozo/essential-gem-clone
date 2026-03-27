@@ -16,6 +16,16 @@ export function useAutoWebinarTracking(
 ) {
   const viewId = useRef<string | null>(null);
   const creatingRef = useRef(false);
+  // Use refs for guest data to avoid stale closures
+  const guestEmailRef = useRef(guestEmail);
+  const guestRegistrationIdRef = useRef(guestRegistrationId);
+  const isGuestRef = useRef(isGuest);
+
+  // Keep refs in sync
+  guestEmailRef.current = guestEmail;
+  guestRegistrationIdRef.current = guestRegistrationId;
+  isGuestRef.current = isGuest;
+
   // Persist sessionId in localStorage so returning guests are recognized
   const sessionId = useRef<string>('');
   if (!sessionId.current) {
@@ -37,28 +47,60 @@ export function useAutoWebinarTracking(
     if (viewId.current || creatingRef.current) return;
     creatingRef.current = true;
 
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData?.user?.id || null;
+    try {
+      // Skip getUser() for guests — they have no auth session
+      let userId: string | null = null;
+      if (!isGuestRef.current) {
+        const { data: userData } = await supabase.auth.getUser();
+        userId = userData?.user?.id || null;
+      }
 
-    const { data, error } = await supabase
-      .from('auto_webinar_views' as any)
-      .insert({
-        video_id: vid,
-        user_id: userId,
-        session_id: sessionId.current,
-        is_guest: isGuest || !userId,
-        guest_email: guestEmail || null,
-        guest_registration_id: guestRegistrationId || null,
-      })
-      .select('id')
-      .single();
+      const { data, error } = await supabase
+        .from('auto_webinar_views' as any)
+        .insert({
+          video_id: vid,
+          user_id: userId,
+          session_id: sessionId.current,
+          is_guest: isGuestRef.current || !userId,
+          guest_email: guestEmailRef.current || null,
+          guest_registration_id: guestRegistrationIdRef.current || null,
+        })
+        .select('id')
+        .single();
 
-    if (!error && data) {
-      viewId.current = (data as any).id;
-      startTime.current = Date.now();
+      if (!error && data) {
+        viewId.current = (data as any).id;
+        startTime.current = Date.now();
+        console.log('[AutoWebinarTracking] View created:', viewId.current, {
+          isGuest: isGuestRef.current,
+          guestEmail: guestEmailRef.current,
+          guestRegistrationId: guestRegistrationIdRef.current,
+        });
+      } else if (error) {
+        console.error('[AutoWebinarTracking] Failed to create view:', error);
+      }
+    } catch (err) {
+      console.error('[AutoWebinarTracking] Exception in createView:', err);
+    } finally {
+      creatingRef.current = false;
     }
-    creatingRef.current = false;
-  }, [isGuest, guestEmail, guestRegistrationId]);
+  }, []);
+
+  // Update view with guestRegistrationId when it resolves after view creation
+  useEffect(() => {
+    if (guestRegistrationId && viewId.current) {
+      console.log('[AutoWebinarTracking] Updating view with guestRegistrationId:', guestRegistrationId);
+      supabase
+        .from('auto_webinar_views' as any)
+        .update({ guest_registration_id: guestRegistrationId })
+        .eq('id', viewId.current)
+        .then(({ error }) => {
+          if (error) {
+            console.error('[AutoWebinarTracking] Failed to update guest_registration_id:', error);
+          }
+        });
+    }
+  }, [guestRegistrationId]);
 
   const updateDuration = useCallback(async () => {
     if (!viewId.current || !startTime.current) return;

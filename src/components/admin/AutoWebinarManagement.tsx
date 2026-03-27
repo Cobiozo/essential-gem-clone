@@ -1547,7 +1547,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       </Card>
 
       {/* Guest Stats */}
-      <AutoWebinarGuestStats />
+      <AutoWebinarGuestStats category={category} />
 
       {/* Videos list */}
       <Card>
