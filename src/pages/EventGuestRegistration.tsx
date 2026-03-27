@@ -364,7 +364,7 @@ const EventGuestRegistration: React.FC = () => {
             nextSlotTime: nextSlot ? nextSlot.date.toISOString() : undefined,
             nextSlotTimeFormatted: nextSlot ? `${format(nextSlot.date, 'EEEE, d MMMM', { locale: dateLocale })} o godz. ${nextSlot.time}` : undefined,
             minutesToNextSlot: slotDiffMinutes !== null ? Math.round(slotDiffMinutes) : undefined,
-            roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/a-w/${event.slug}${nextSlot ? `?slot=${nextSlot.time}` : ''}${data.email ? `&ref=${btoa(data.email)}` : ''}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
+            roomLink: isAutoWebinar && event?.slug ? `https://purelife.info.pl/a-w/${event.slug}${nextSlot ? `?slot=${format(nextSlot.date, 'yyyy-MM-dd')}_${nextSlot.time}` : ''}${data.email ? `&ref=${btoa(data.email)}` : ''}` : (isAutoWebinar ? `https://purelife.info.pl/auto-webinar` : undefined),
             videoHostName: autoWebinarVideo?.host_name || undefined,
             videoCoverImageUrl: autoWebinarVideo?.cover_image_url || undefined,
             videoDescription: autoWebinarVideo?.description || undefined,
@@ -516,6 +516,7 @@ const EventGuestRegistration: React.FC = () => {
                   </div>
                   {autoWebinarConfig && (() => {
                      const slot = getNextSlot(autoWebinarConfig, slotParam);
+                     if (!slot) return null;
                     return (
                       <>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -555,6 +556,7 @@ const EventGuestRegistration: React.FC = () => {
                 ? (() => {
                     if (autoWebinarConfig) {
                        const slot = getNextSlot(autoWebinarConfig, slotParam);
+                      if (!slot) return labels.checkEmail;
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
@@ -656,6 +658,7 @@ const EventGuestRegistration: React.FC = () => {
                   </div>
                   {autoWebinarConfig && (() => {
                     const slot = getNextSlot(autoWebinarConfig, slotParam);
+                    if (!slot) return null;
                     return (
                       <>
                         <div className="flex items-center gap-3">
