@@ -10,6 +10,47 @@ function parseTimeToSeconds(time: string): number {
 }
 
 /**
+ * Extract time portion from slot string.
+ * Handles both "HH:MM" and "YYYY-MM-DD_HH:MM" formats.
+ */
+function extractTimeFromSlot(slot: string): string {
+  if (slot.includes('_')) {
+    return slot.split('_')[1]; // "2026-03-27_11:30" → "11:30"
+  }
+  return slot; // "11:30" → "11:30"
+}
+
+/**
+ * Extract date portion from slot string, or null if legacy format.
+ */
+function extractDateFromSlot(slot: string): string | null {
+  if (slot.includes('_')) {
+    return slot.split('_')[0]; // "2026-03-27_11:30" → "2026-03-27"
+  }
+  return null;
+}
+
+/**
+ * Check if a dated slot belongs to today. Legacy (time-only) slots always return true.
+ */
+function isSlotToday(slot: string): boolean {
+  const date = extractDateFromSlot(slot);
+  if (!date) return true; // legacy format — assume today
+  const today = new Date().toISOString().slice(0, 10);
+  return date === today;
+}
+
+/**
+ * Check if a dated slot is in the past (before today).
+ */
+function isSlotInPast(slot: string): boolean {
+  const date = extractDateFromSlot(slot);
+  if (!date) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return date < today;
+}
+
+/**
  * Find the nearest slot from slot_hours list for current time.
  * Window extends to cover full video duration + thank-you + buffer.
  */
@@ -171,17 +212,49 @@ export function useAutoWebinarSync(
 
       // GUEST with slot parameter — strict validation
       if (isGuest && guestSlotTime) {
-        const guestSlotSec = parseTimeToSeconds(guestSlotTime);
+        // Handle both "HH:MM" and "YYYY-MM-DD_HH:MM" formats
+        const slotTimePart = extractTimeFromSlot(guestSlotTime);
+        
+        // If slot has a date and it's in the past → room closed
+        if (isSlotInPast(guestSlotTime)) {
+          resetFlags();
+          setIsRoomClosed(true);
+          setCurrentVideo(null);
+          setIsInActiveHours(false);
+          setStartOffset(-1);
+          setSecondsToNext(0);
+          updateInterval(10000);
+          return;
+        }
+        
+        // If slot has a future date (not today) → show countdown
+        if (!isSlotToday(guestSlotTime)) {
+          const slotDate = extractDateFromSlot(guestSlotTime)!;
+          const slotDateTime = new Date(`${slotDate}T${slotTimePart}:00`);
+          const msToSlot = slotDateTime.getTime() - now.getTime();
+          const secToSlot = Math.max(0, Math.floor(msToSlot / 1000));
+          resetFlags();
+          setIsInActiveHours(false);
+          setCurrentVideo(null);
+          setStartOffset(-1);
+          setSecondsToNext(secToSlot);
+          updateInterval(secToSlot <= 300 ? 1000 : 10000);
+          return;
+        }
+        
+        // Slot is for today — use time portion for calculations
+        const guestSlotSec = parseTimeToSeconds(slotTimePart);
         const sinceSlot = secondsPastMidnight - guestSlotSec;
 
-        // Select video based on slot index
-        const slotIndex = slotHours.indexOf(guestSlotTime);
+        // Select video based on slot index (match by time portion)
+        const slotIndex = slotHours.indexOf(slotTimePart);
         const videoIndex = (slotIndex >= 0 ? slotIndex : 0) % activeVideos.length;
         const video = activeVideos[videoIndex];
         const duration = video.duration_seconds;
 
         console.log('[AutoWebinarSync] guest slot calc:', {
           guestSlotTime,
+          slotTimePart,
           guestSlotSec,
           sinceSlot,
           duration,
