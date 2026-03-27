@@ -1,44 +1,53 @@
 
 
-# Fix: "Spotkanie jest w trakcie" pojawia się podczas oglądania
+# Podział wiadomości czatu fikcyjnego na fazy: Powitalne / W trakcie / Na koniec
 
-## Problem
-Użytkownik ogląda auto-webinar, ale po ~5 minutach od startu slotu (gdy `sinceSlot > lateJoinMaxSec`) interwałowa rekalkualcja w `useAutoWebinarSync` ponownie sprawdza warunek spóźnienia i ustawia `isTooLate = true`, wyrzucając widza z odtwarzania.
+## Obecny stan
+Wiadomości fikcyjne mają pole `appear_at_minute` i `sort_order`, ale brak kolumny określającej fazę. W admin UI jest jedna płaska lista. Domyślne wiadomości już mają logiczny podział w kodzie (komentarze "Początkowe", "Środkowe", "Końcowe"), ale nie jest on widoczny w UI ani w bazie.
 
-Warunek na linii 350:
-```typescript
-if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration && !bypassLateBlock)
+## Plan
+
+### 1. Migracja SQL
+Dodać kolumnę `phase` do `auto_webinar_fake_messages`:
+```sql
+ALTER TABLE auto_webinar_fake_messages 
+ADD COLUMN phase TEXT NOT NULL DEFAULT 'during' 
+CHECK (phase IN ('welcome', 'during', 'ending'));
 ```
+Aktualizacja istniejących wiadomości na podstawie `appear_at_minute`:
+- 0–3 min → `welcome`
+- 4–39 min → `during`  
+- 40+ min → `ending`
 
-`bypassLateBlock` jest `true` tylko gdy istnieje sesja w localStorage (powracający gość). Ale nowy gość, który przyszedł na czas i ogląda — ma `bypassLateBlock = false`. Po 5 minutach odtwarzania rekalkualcja go wyrzuca.
+### 2. Aktualizacja typów
+- `AutoWebinarFakeMessage` — dodać `phase: 'welcome' | 'during' | 'ending'`
+- `supabase/types.ts` — automatycznie po migracji
 
-## Rozwiązanie
-Dodać wewnętrzny ref `hasStartedPlaying` w hooku `useAutoWebinarSync`. Gdy video zostanie raz uruchomione (faza `playing` z `sinceSlot >= 0`), ref ustawiany na `true`. Późniejsze sprawdzenie late-join jest pomijane, jeśli `hasStartedPlaying` jest `true`.
+### 3. Admin UI (`AutoWebinarManagement.tsx`)
+- W formularzu dodawania wiadomości: zamienić pole "Minuta" na dwa pola — **select fazy** (`Powitalne` / `W trakcie` / `Na koniec`) + **minuta**
+- Wyświetlać wiadomości pogrupowane w 3 sekcjach z nagłówkami:
+  - 🟢 **Powitalne** (welcome) — pojawiają się na początku
+  - 🔵 **W trakcie** (during) — w środku spotkania
+  - 🟠 **Na koniec** (ending) — pod koniec nagrania
+- Każda sekcja ma swój licznik wiadomości
+- "Załaduj domyślne" — ustawić odpowiednie `phase` w domyślnych wiadomościach
 
-### Zmiana w `src/hooks/useAutoWebinarSync.ts`
+### 4. Hook `useAutoWebinarFakeChat.ts`
+- Pobrać `phase` z bazy (już jest `select('*')`)
+- Logika wyświetlania bez zmian — `appear_at_minute` nadal steruje momentem pojawienia się
+- `phase` służy wyłącznie do organizacji w admin UI
 
-1. Dodać `useRef` — `hasStartedPlayingRef` (inicjalnie `bypassLateBlock`)
-2. Przed late-join check: jeśli `hasStartedPlayingRef.current === true` → pomiń blokadę
-3. Gdy video gra (playing, sinceSlot >= 0) → ustawić `hasStartedPlayingRef.current = true`
-4. Resetować ref gdy zmienia się `guestSlotTime` lub `config`
+### 5. Domyślne wiadomości
+Zaktualizować `handleLoadDefaultMessages`:
+- min 0–3: `phase: 'welcome'`
+- min 5–35: `phase: 'during'`
+- min 40+: `phase: 'ending'`
 
-```typescript
-// W hooku, obok innych stanów:
-const hasStartedPlayingRef = useRef(bypassLateBlock);
-
-// W calculateExplicitSlots, linia ~350:
-if (sinceSlot > lateJoinMaxSec && duration > 0 && sinceSlot < duration 
-    && !bypassLateBlock && !hasStartedPlayingRef.current) {
-  // ... isTooLate
-}
-
-// W sekcji "Playing" (~361):
-hasStartedPlayingRef.current = true;
-```
-
-Analogiczna zmiana dla sekcji zalogowanych użytkowników (linie ~420+), choć tam late-join check nie istnieje — wystarczy upewnić się, że `findCurrentSlot` nie traci aktywnego okna.
-
+## Pliki do zmiany
 | Plik | Zmiana |
 |------|--------|
-| `useAutoWebinarSync.ts` | Ref `hasStartedPlayingRef` — pomija late-join check po rozpoczęciu odtwarzania |
+| Migracja SQL | Kolumna `phase` + backfill |
+| `src/types/autoWebinar.ts` | Pole `phase` w typie |
+| `src/integrations/supabase/types.ts` | Automatycznie |
+| `src/components/admin/AutoWebinarManagement.tsx` | Grupowane UI z 3 sekcjami, select fazy w formularzu |
 
