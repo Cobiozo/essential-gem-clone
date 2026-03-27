@@ -52,10 +52,10 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
     const fetchRegistrations = async () => {
       setLoading(true);
 
-      // 1. Fetch registrations
+      // 1. Fetch registrations for this contact
       const { data } = await supabase
         .from('guest_event_registrations')
-        .select('id, status, registered_at, events(title, start_time)')
+        .select('id, status, registered_at, email, events(title, start_time)')
         .eq('team_contact_id', contact.id)
         .neq('status', 'cancelled');
 
@@ -64,7 +64,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         return;
       }
 
-      // 2. Get registration IDs and fetch matching views
+      // 2. Get registration IDs and fetch matching views by guest_registration_id
       const regIds = data.map((r: any) => r.id);
       let viewsMap = new Map<string, ViewStats>();
 
@@ -77,7 +77,6 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         if (views) {
           for (const v of views) {
             if (v.guest_registration_id) {
-              // Keep longest watch per registration
               const existing = viewsMap.get(v.guest_registration_id);
               if (!existing || (v.watch_duration_seconds || 0) > (existing.watch_duration_seconds || 0)) {
                 viewsMap.set(v.guest_registration_id, {
@@ -85,6 +84,42 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                   watch_duration_seconds: v.watch_duration_seconds,
                 });
               }
+            }
+          }
+        }
+      }
+
+      // 3. For registrations without views via guest_registration_id,
+      //    try fallback matching by email + event date
+      const contactEmail = contact.email?.trim().toLowerCase();
+      const regsWithoutViews = data.filter((r: any) => !viewsMap.has(r.id));
+      
+      if (contactEmail && regsWithoutViews.length > 0) {
+        const { data: emailViews } = await supabase
+          .from('auto_webinar_views')
+          .select('guest_email, joined_at, watch_duration_seconds, created_at')
+          .eq('guest_email', contactEmail)
+          .is('guest_registration_id', null)
+          .order('watch_duration_seconds', { ascending: false });
+
+        if (emailViews && emailViews.length > 0) {
+          for (const reg of regsWithoutViews) {
+            const regDate = (reg as any).registered_at || (reg as any).events?.start_time;
+            if (!regDate) continue;
+            
+            const regDay = new Date(regDate).toISOString().slice(0, 10);
+            
+            // Find the best matching view for this registration date
+            const matchingView = emailViews.find(v => {
+              const viewDay = new Date(v.created_at).toISOString().slice(0, 10);
+              return viewDay === regDay;
+            });
+
+            if (matchingView) {
+              viewsMap.set((reg as any).id, {
+                joined_at: matchingView.joined_at,
+                watch_duration_seconds: matchingView.watch_duration_seconds,
+              });
             }
           }
         }
@@ -101,7 +136,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
       setLoading(false);
     };
     fetchRegistrations();
-  }, [contact.id]);
+  }, [contact.id, contact.email]);
 
   const hasRegistrations = registrations.length > 0;
 

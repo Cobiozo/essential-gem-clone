@@ -100,7 +100,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const effectiveIsPlaying = isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome;
   const effectiveVideoId = currentVideo?.id || null;
 
-  // Resolve guest_registration_id from email + event_id for accurate tracking
+  // Resolve guest_registration_id from email + event_id + slot_time for accurate tracking
   const [guestRegistrationId, setGuestRegistrationId] = useState<string | null>(null);
   useEffect(() => {
     if (!isGuest || !guestEmail || !config?.event_id) {
@@ -108,18 +108,33 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       return;
     }
     const resolve = async () => {
-      const { data } = await supabase
+      const normalizedEmail = guestEmail.trim().toLowerCase();
+      let query = supabase
         .from('guest_event_registrations')
         .select('id')
-        .eq('email', guestEmail)
+        .eq('email', normalizedEmail)
         .eq('event_id', config.event_id)
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      setGuestRegistrationId(data?.id || null);
+        .limit(1);
+
+      // If we have a slot_time, filter by it for precision
+      if (guestSlotTime) {
+        query = query.eq('slot_time', guestSlotTime);
+      }
+
+      const { data } = await query.maybeSingle();
+
+      if (data?.id) {
+        console.log('[AutoWebinarEmbed] Resolved guestRegistrationId:', data.id);
+        setGuestRegistrationId(data.id);
+      } else {
+        console.log('[AutoWebinarEmbed] Could not resolve guestRegistrationId for', normalizedEmail);
+        setGuestRegistrationId(null);
+      }
     };
     resolve();
-  }, [isGuest, guestEmail, config?.event_id]);
+  }, [isGuest, guestEmail, config?.event_id, guestSlotTime]);
 
   // Analytics tracking
   useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId, category);
