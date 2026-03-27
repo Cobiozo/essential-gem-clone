@@ -159,6 +159,24 @@ ${labels.signUp}: ${inviteUrl}`.trim();
   const title = config.invitation_title || config.room_title || 'Webinar';
   const description = config.invitation_description || config.room_subtitle || '';
 
+  const [activeDay, setActiveDay] = useState(0);
+
+  // Group time slots by period
+  const groupedSlots = useMemo(() => {
+    const groups: { label: string; icon: string; slots: string[] }[] = [
+      { label: 'Rano', icon: '🌅', slots: [] },
+      { label: 'Południe', icon: '☀️', slots: [] },
+      { label: 'Wieczór', icon: '🌙', slots: [] },
+    ];
+    timeSlots.forEach(time => {
+      const h = parseInt(time.split(':')[0]);
+      if (h < 12) groups[0].slots.push(time);
+      else if (h < 18) groups[1].slots.push(time);
+      else groups[2].slots.push(time);
+    });
+    return groups.filter(g => g.slots.length > 0);
+  }, [timeSlots]);
+
   return (
     <div className="max-w-3xl mx-auto space-y-3">
       <Card className="overflow-hidden border-0 shadow-lg">
@@ -191,26 +209,42 @@ ${labels.signUp}: ${inviteUrl}`.trim();
             </div>
           </div>
 
-          {/* 3-column day grid */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* Day tabs */}
+          <div className="flex gap-1.5">
             {days.map((day) => (
-              <div key={day.index} className="space-y-1">
-                <div className={`text-xs font-semibold text-center py-1.5 rounded-lg ${
-                  day.isToday
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-muted/50 text-muted-foreground'
-                }`}>
-                  {day.label}
+              <button
+                key={day.index}
+                onClick={() => setActiveDay(day.index)}
+                className={`flex-1 text-center py-2 px-1 rounded-lg text-xs font-semibold transition-all ${
+                  activeDay === day.index
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : day.isToday
+                      ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                {day.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Time slots grid grouped by period */}
+          <div className="space-y-3">
+            {groupedSlots.map((group) => (
+              <div key={group.label}>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-sm">{group.icon}</span>
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">{group.label}</span>
+                  <span className="text-[10px] text-muted-foreground/60">({group.slots.length})</span>
                 </div>
-                <div className="space-y-0.5">
-                  {timeSlots.map((time) => {
-                    const status = getSlotStatus(day.index, time);
-                    const selected = isSelected(day.index, time);
+                <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5">
+                  {group.slots.map((time) => {
+                    const status = getSlotStatus(activeDay, time);
+                    const selected = isSelected(activeDay, time);
                     const isPast = status === 'past';
                     const isNow = status === 'now';
                     const isOngoing = status === 'ongoing';
                     const isLive = isNow || isOngoing;
-
                     const isUnavailable = isPast || isLive;
 
                     return (
@@ -218,31 +252,24 @@ ${labels.signUp}: ${inviteUrl}`.trim();
                         key={time}
                         disabled={isUnavailable}
                         onClick={() => !isUnavailable && setSelectedSlot(
-                          selected ? null : { dayIndex: day.index, time }
+                          selected ? null : { dayIndex: activeDay, time }
                         )}
-                        className={`w-full flex items-center justify-between gap-1 rounded-md px-2 py-1 text-xs font-mono transition-colors ${
+                        className={`relative rounded-lg px-1 py-2 text-sm font-mono font-medium transition-all text-center ${
                           selected
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-primary text-primary-foreground shadow-md ring-2 ring-primary/30'
                             : isLive
-                              ? 'bg-primary/10 border border-primary/30 text-foreground cursor-not-allowed'
+                              ? 'bg-destructive/10 border border-destructive/30 text-foreground cursor-not-allowed'
                               : isPast
-                                ? 'text-muted-foreground/50 line-through cursor-not-allowed'
-                                : 'hover:bg-muted/60 text-foreground'
+                                ? 'text-muted-foreground/40 line-through cursor-not-allowed bg-muted/20'
+                                : 'bg-muted/40 hover:bg-primary/10 hover:text-primary text-foreground border border-transparent hover:border-primary/20'
                         }`}
                       >
-                        {isOngoing && (
-                          <span className="text-[9px] font-sans font-semibold text-destructive">TRWA</span>
-                        )}
-                        {isNow && <span className="w-0" />}
-                        {!isLive && !isPast && <span className="w-0" />}
-                        <span>{time}</span>
-                        {isLive ? (
-                          <span className="flex items-center gap-0.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse" />
-                            <span className="text-[9px] font-sans font-semibold text-destructive">LIVE</span>
+                        {time}
+                        {isLive && (
+                          <span className="absolute -top-1 -right-1 flex items-center gap-0.5 bg-destructive text-white text-[8px] font-sans font-bold px-1 py-0.5 rounded-full leading-none">
+                            <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                            LIVE
                           </span>
-                        ) : (
-                          <span className="w-0" />
                         )}
                       </button>
                     );
@@ -254,7 +281,7 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 
           {/* Copy button with language select */}
           {selectedSlot && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 pt-1">
               <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
               <Button
                 variant="action"
