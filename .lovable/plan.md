@@ -1,41 +1,57 @@
 
 
-# Fix: Jedno odliczanie do startu webinaru
+# Fix: Wygasanie linków auto-webinarów i powiązanie slotów z datą
 
 ## Problem
-W `useAutoWebinarSync.ts` (linia 220-227) gdy gość wchodzi wcześniej niż `room_open_minutes_before`:
-- **Pierwszy countdown**: odlicza do momentu otwarcia pokoju (`guestSlotSec - roomOpenSec - secondsPastMidnight`)
-- **Drugi countdown**: po otwarciu pokoju, odlicza do startu slotu (`Math.abs(sinceSlot)`)
 
-To tworzy dwa oddzielne etapy odliczania. Użytkownik chce **jednego** ciągłego odliczania do startu nagrania.
+1. **Linki nigdy nie wygasają** — `getNextSlot()` zawsze znajduje przyszły slot (jeśli 10:00 minęło, przesuwa na jutro). Brak blokady rejestracji na przeszłe sloty auto-webinarów.
+
+2. **Parametr `slot=HH:MM` nie zawiera daty** — ten sam link działa wielokrotnie, na różne dni. Link na "dziś 10:00" po minięciu tej godziny pokazuje rejestrację na "jutro 10:00".
 
 ## Rozwiązanie
 
-### Plik: `src/hooks/useAutoWebinarSync.ts`
+### A. Dodać datę do parametru `slot` (format: `YYYY-MM-DD_HH:MM`)
 
-**Zmiana w bloku "Too early" (linie 219-227):**
-- Zamiast odliczać do otwarcia pokoju, odliczać do startu slotu: `guestSlotSec - secondsPastMidnight`
-- Ustawić `isInActiveHours = true` (aby UI wyglądał tak samo jak w fazie "room open")
-- Usunąć rozróżnienie na dwa etapy — jeden ciągły countdown od wejścia do startu
+**Plik: `src/components/auto-webinar/AutoWebinarEventView.tsx`**
+- Zmienić `params.set('slot', selectedSlot.time)` na `params.set('slot', format(day.date, 'yyyy-MM-dd') + '_' + selectedSlot.time)`
+- Link zaproszenia będzie zawierał konkretną datę: `/e/slug?ref=XYZ&slot=2026-03-28_10:00`
 
-**Zmiana w bloku "Room open" (linie 229-237):**
-- Bez zmian logicznych — ten blok obsłuży ostatnie sekundy tak jak teraz
+**Plik: `src/pages/EventGuestRegistration.tsx` — linia 354 (roomLink w emailu)**
+- Zmienić `?slot=${nextSlot.time}` na `?slot=${format(nextSlot.date, 'yyyy-MM-dd')}_${nextSlot.time}`
 
-### Plik: `src/components/auto-webinar/AutoWebinarEmbed.tsx`
+### B. Walidacja daty w `getNextSlot` i blokada przeszłych slotów
 
-**Zmiana w wyświetlaniu licznika uczestników (linia 550):**
-- Zamiast warunku `isInActiveHours`, użyć warunku `secondsToNext <= 300` (5 minut przed startem)
-- Dzięki temu licznik uczestników pojawi się płynnie 5 minut przed startem, bez zmiany ekranu
+**Plik: `src/pages/EventGuestRegistration.tsx` — funkcja `getNextSlot`**
+- Rozpoznać nowy format `YYYY-MM-DD_HH:MM` w `preferredTime`
+- Jeśli podana data+czas jest w przeszłości → zwrócić `null` (zamiast przesuwać na jutro)
+- Zachować wsteczną kompatybilność ze starym formatem `HH:MM` (stare linki nadal działają — przesuwają na najbliższy przyszły slot)
+- Zmienić typ zwracany na `{ date: Date; time: string } | null`
 
-### Efekt końcowy
-- Gość wchodzi np. 15 min przed → widzi jeden countdown do startu
-- 5 min przed startem → pojawia się licznik oczekujących (na tym samym ekranie)
-- Start slotu → nagranie rusza
+**Plik: `src/pages/EventGuestRegistration.tsx` — blokada rejestracji**
+- Gdy `getNextSlot` zwraca `null` (slot z datą jest przeszły) → wyświetlić komunikat: "Ten termin webinaru już się odbył. Poproś o nowy link z aktualnym terminem."
+- Dotyczy zarówno wyświetlania formularza, jak i procesu submit
 
-### Pliki do modyfikacji
+### C. Przekazywanie `slot` przez slug resolver
+
+**Plik: `src/pages/EventRegistrationBySlug.tsx`**
+- Bez zmian — `slot` jest już przekazywany jako parametr. Nowy format `YYYY-MM-DD_HH:MM` przejdzie transparentnie.
+
+### D. Przekazywanie `slot` do strony watch (auto-webinar room)
+
+**Plik: `src/pages/EventRegistrationBySlug.tsx`** — blok auto_webinar bez ref
+- Bez zmian — `slot` przekazywany dalej do `/a-w/:slug`
+
+## Efekt końcowy
+
+- Partner kopiuje zaproszenie na "sobota 28 marca, 10:00" → link: `/e/slug?ref=XYZ&slot=2026-03-28_10:00`
+- Gość klika w sobotę o 9:50 → formularz rejestracji na "28 marca 10:00" ✅
+- Gość klika w niedzielę → "Ten termin już się odbył" ❌
+- Stare linki z `slot=10:00` (bez daty) → nadal działają, pokazują najbliższy przyszły slot
+
+## Pliki do modyfikacji
 
 | Plik | Zmiana |
 |------|--------|
-| `useAutoWebinarSync.ts` | "Too early" odlicza do slotu, nie do otwarcia pokoju; ustawia `isInActiveHours=true` |
-| `AutoWebinarEmbed.tsx` | Licznik uczestników pojawia się przy `secondsToNext <= 300` |
+| `EventGuestRegistration.tsx` | `getNextSlot` rozpoznaje datę, zwraca `null` dla przeszłych; blokada UI |
+| `AutoWebinarEventView.tsx` | Dodać datę do parametru `slot` w linku zaproszenia |
 
