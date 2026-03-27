@@ -38,10 +38,23 @@ const EventRegistrationBySlug: React.FC = () => {
       // 1. Resolve slug → event id + event_type
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .select('id, event_type')
+        .select('id, event_type, is_published')
         .eq('slug', slug)
         .eq('is_active', true)
         .maybeSingle();
+
+      if (abortController.signal.aborted) return;
+
+      if (eventError || !event) {
+        setError('Nie znaleziono wydarzenia.');
+        return;
+      }
+
+      // Block access to unpublished events
+      if (!event.is_published) {
+        setError('To wydarzenie nie jest już dostępne.');
+        return;
+      }
 
       if (abortController.signal.aborted) return;
 

@@ -211,6 +211,7 @@ const EventGuestRegistration: React.FC = () => {
   const [existingUserBlocked, setExistingUserBlocked] = useState(false);
   const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
   const [autoWebinarVideo, setAutoWebinarVideo] = useState<AutoWebinarVideoData | null>(null);
+  const [autoWebinarCategory, setAutoWebinarCategory] = useState<string | null>(null);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
