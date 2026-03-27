@@ -176,6 +176,42 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     toast({ title: 'Usunięto' });
   };
 
+  const handleStartEditFakeMessage = (msg: AutoWebinarFakeMessage) => {
+    setEditingFakeMessage(msg);
+    setFakeMessageForm({
+      appear_at_minute: msg.appear_at_minute,
+      author_name: msg.author_name,
+      content: msg.content,
+      phase: (msg.phase as 'welcome' | 'during' | 'ending') || 'during',
+    });
+  };
+
+  const handleSaveEditFakeMessage = async () => {
+    if (!config || !editingFakeMessage) return;
+    const { error } = await supabase
+      .from('auto_webinar_fake_messages')
+      .update({
+        appear_at_minute: fakeMessageForm.appear_at_minute,
+        author_name: fakeMessageForm.author_name,
+        content: fakeMessageForm.content,
+        phase: fakeMessageForm.phase,
+      })
+      .eq('id', editingFakeMessage.id);
+    if (error) {
+      toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setEditingFakeMessage(null);
+    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    loadFakeMessages(config.id);
+    toast({ title: 'Zapisano zmiany' });
+  };
+
+  const handleCancelEditFakeMessage = () => {
+    setEditingFakeMessage(null);
+    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+  };
+
   const handleLoadDefaultMessages = async () => {
     if (!config) return;
     const defaults = [
