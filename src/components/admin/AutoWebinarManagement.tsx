@@ -1696,21 +1696,28 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                 allowedTypes={['video']}
                 compact
               />
-              {videoForm.video_url && videoForm.duration_seconds > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Wykryty czas: {Math.floor(videoForm.duration_seconds / 60)}:{String(videoForm.duration_seconds % 60).padStart(2, '0')}
-                </p>
-              )}
-              {videoForm.video_url && videoForm.duration_seconds === 0 && (
+              {videoForm.video_url && (
                 <div className="mt-2">
-                  <Label className="text-xs">Czas trwania (sekundy) — nie wykryto automatycznie</Label>
+                  <Label className="text-xs">
+                    Czas trwania (sekundy) *
+                    {videoForm.duration_seconds > 0 && (
+                      <span className="text-muted-foreground ml-2">
+                        = {Math.floor(videoForm.duration_seconds / 60)}:{String(videoForm.duration_seconds % 60).padStart(2, '0')}
+                      </span>
+                    )}
+                  </Label>
                   <Input
                     type="number"
-                    value={videoForm.duration_seconds}
+                    value={videoForm.duration_seconds || ''}
                     onChange={(e) => setVideoForm(prev => ({ ...prev, duration_seconds: parseInt(e.target.value) || 0 }))}
-                    placeholder="3600"
+                    placeholder="np. 1712 (= 28:32)"
                     className="h-8 text-xs"
                   />
+                  {videoForm.duration_seconds === 0 && (
+                    <p className="text-xs text-destructive mt-1">
+                      ⚠ Czas trwania jest wymagany — wpisz ręcznie jeśli nie wykryto automatycznie
+                    </p>
+                  )}
                 </div>
               )}
             </div>
