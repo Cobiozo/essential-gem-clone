@@ -53,32 +53,7 @@ export function useAutoWebinarVideos(configId?: string | null) {
   const retryCount = useRef(0);
 
   const fetchVideos = useCallback(async () => {
-    if (configId === undefined) {
-      // No filter — legacy behavior
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('auto_webinar_videos')
-          .select('*')
-          .order('sort_order', { ascending: true });
-        if (fetchError) throw fetchError;
-        setVideos((data as AutoWebinarVideo[]) || []);
-        setError(null);
-        retryCount.current = 0;
-      } catch (err: any) {
-        console.error('[AutoWebinar] Videos fetch error:', err);
-        if (retryCount.current < MAX_RETRIES) {
-          retryCount.current++;
-          const delay = RETRY_BASE_DELAY * Math.pow(2, retryCount.current - 1);
-          setTimeout(fetchVideos, delay);
-          return;
-        }
-        setError(err.message || 'Nie udało się załadować filmów');
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
+    // Wait until configId is known (not undefined/null)
     if (!configId) {
       setVideos([]);
       setLoading(false);

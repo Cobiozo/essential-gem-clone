@@ -153,6 +153,7 @@ export function useAutoWebinarSync(
   bypassLateBlock = false
 ): AutoWebinarSyncResult {
   const [currentVideo, setCurrentVideo] = useState<AutoWebinarVideo | null>(null);
+  const prevVideoIdRef = useRef<string | null>(null);
   const [startOffset, setStartOffset] = useState(0);
   const [isInActiveHours, setIsInActiveHours] = useState(false);
   const [secondsToNext, setSecondsToNext] = useState(0);
