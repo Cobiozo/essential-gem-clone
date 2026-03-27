@@ -55,7 +55,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
       // 1. Fetch registrations for this contact
       const { data } = await supabase
         .from('guest_event_registrations')
-        .select('id, status, registered_at, email, events(title, start_time)')
+        .select('id, status, registered_at, email, event_id, slot_time, events(title, start_time)')
         .eq('team_contact_id', contact.id)
         .neq('status', 'cancelled');
 
@@ -90,32 +90,64 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
       }
 
       // 3. For registrations without views via guest_registration_id,
-      //    try fallback matching by email + event date
+      //    try fallback matching by email + event_id (via video mapping) + slot_time
       const contactEmail = contact.email?.trim().toLowerCase();
       const regsWithoutViews = data.filter((r: any) => !viewsMap.has(r.id));
       
       if (contactEmail && regsWithoutViews.length > 0) {
+        // 3a. Build video_id → event_id mapping
+        const { data: videoConfigs } = await supabase
+          .from('auto_webinar_videos')
+          .select('id, config_id, auto_webinar_config!inner(event_id)')
+          .eq('is_active', true);
+
+        const videoToEventMap = new Map<string, string>();
+        if (videoConfigs) {
+          for (const vc of videoConfigs) {
+            const eventId = (vc as any).auto_webinar_config?.event_id;
+            if (eventId) {
+              videoToEventMap.set(vc.id, eventId);
+            }
+          }
+        }
+
+        // 3b. Fetch unlinked views by email, including video_id
         const { data: emailViews } = await supabase
           .from('auto_webinar_views')
-          .select('guest_email, joined_at, watch_duration_seconds, created_at')
+          .select('id, video_id, guest_email, joined_at, watch_duration_seconds, created_at')
           .eq('guest_email', contactEmail)
           .is('guest_registration_id', null)
           .order('watch_duration_seconds', { ascending: false });
 
         if (emailViews && emailViews.length > 0) {
+          const usedViewIds = new Set<string>();
+
           for (const reg of regsWithoutViews) {
-            const regDate = (reg as any).registered_at || (reg as any).events?.start_time;
-            if (!regDate) continue;
-            
-            const regDay = new Date(regDate).toISOString().slice(0, 10);
-            
-            // Find the best matching view for this registration date
+            const regEventId = (reg as any).event_id;
+            const regSlotTime = (reg as any).slot_time;
+            if (!regEventId) continue;
+
+            // Find the best matching view:
+            // 1) video must belong to the same event
+            // 2) if slot_time exists, view created_at must be within ±30 min
+            // 3) not already used by another registration
+            // 4) pick the one with longest watch_duration
             const matchingView = emailViews.find(v => {
-              const viewDay = new Date(v.created_at).toISOString().slice(0, 10);
-              return viewDay === regDay;
+              if (usedViewIds.has(v.id)) return false;
+              const viewEventId = videoToEventMap.get(v.video_id);
+              if (viewEventId !== regEventId) return false;
+
+              if (regSlotTime && v.created_at) {
+                const slotMs = new Date(regSlotTime).getTime();
+                const viewMs = new Date(v.created_at).getTime();
+                if (Math.abs(viewMs - slotMs) > 30 * 60 * 1000) return false;
+              }
+
+              return true;
             });
 
             if (matchingView) {
+              usedViewIds.add(matchingView.id);
               viewsMap.set((reg as any).id, {
                 joined_at: matchingView.joined_at,
                 watch_duration_seconds: matchingView.watch_duration_seconds,
