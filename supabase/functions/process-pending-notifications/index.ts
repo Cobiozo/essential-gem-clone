@@ -336,10 +336,10 @@ serve(async (req) => {
       console.log("[CRON] No training assignments without notification found");
     }
 
-    // 5. Process webinar guest reminders via bulk function — all windows
-    // Delegate to send-bulk-webinar-reminders for each event in each reminder window
+    // 5. Process webinar/training reminders via bulk function — all windows
+    // NOW: expand occurrences for cyclic events so each term gets its own reminders
     if (!results.stoppedEarly) {
-      console.log("[CRON] Step 5: Processing webinar guest reminders (bulk) for all windows...");
+      console.log("[CRON] Step 5: Processing webinar reminders (per-occurrence) for all windows...");
 
       const now = new Date();
 
@@ -357,61 +357,122 @@ serve(async (req) => {
         { type: "15min", minMinutes: 5, maxMinutes: 25, resultKey: "webinarReminders15min" },
       ];
 
-      for (const window of reminderWindows) {
-        if (isTimeoutApproaching()) {
-          results.stoppedEarly = true;
-          break;
+      // Fetch ALL active webinar/team_training events (we'll check times per-term)
+      const maxWindowMinutes = 25 * 60; // 25h = max window
+      const fetchFrom = new Date(now.getTime() + 5 * 60 * 1000).toISOString(); // at least 5min in future
+      const fetchTo = new Date(now.getTime() + maxWindowMinutes * 60 * 1000).toISOString();
+
+      const { data: allEvents, error: eventsErr } = await supabase
+        .from("events")
+        .select("id, title, start_time, end_time, occurrences")
+        .eq("is_active", true)
+        .in("event_type", ["webinar", "team_training"]);
+
+      if (eventsErr) {
+        console.error("[CRON] Error fetching events for reminders:", eventsErr);
+      } else if (allEvents && allEvents.length > 0) {
+        // For each event, expand to a list of {event_id, title, occurrence_index, occurrence_datetime}
+        interface TermInstance {
+          event_id: string;
+          title: string;
+          occurrence_index: number | null;
+          occurrence_datetime: Date;
         }
 
-        const fromTime = new Date(now.getTime() + window.minMinutes * 60 * 1000).toISOString();
-        const toTime = new Date(now.getTime() + window.maxMinutes * 60 * 1000).toISOString();
+        const allTerms: TermInstance[] = [];
 
-        const { data: webinars, error: wErr } = await supabase
-          .from("events")
-          .select("id, title")
-          .gte("start_time", fromTime)
-          .lte("start_time", toTime)
-          .eq("is_active", true)
-          .in("event_type", ["webinar", "team_training"]);
+        for (const evt of allEvents) {
+          let occs: any[] | null = null;
+          if (evt.occurrences) {
+            if (Array.isArray(evt.occurrences)) occs = evt.occurrences;
+            else if (typeof evt.occurrences === 'string') {
+              try { occs = JSON.parse(evt.occurrences); } catch { occs = null; }
+            }
+          }
 
-        if (wErr) {
-          console.error(`[CRON] Error fetching webinars for ${window.type}:`, wErr);
-          continue;
+          if (occs && occs.length > 0) {
+            // Cyclic event: expand each occurrence
+            for (let i = 0; i < occs.length; i++) {
+              const occ = occs[i];
+              if (!occ.date || !occ.time) continue;
+              // Parse as Europe/Warsaw (approximate: use +01:00 for CET, +02:00 for CEST)
+              // We'll try both and pick the one that makes sense
+              const dateStr = `${occ.date}T${occ.time}:00`;
+              // Simple heuristic: months Apr-Oct = CEST (+02:00), else CET (+01:00)
+              const month = parseInt(occ.date.split('-')[1], 10);
+              const offset = (month >= 4 && month <= 10) ? '+02:00' : '+01:00';
+              const dt = new Date(dateStr + offset);
+              allTerms.push({ event_id: evt.id, title: evt.title, occurrence_index: i, occurrence_datetime: dt });
+            }
+          } else {
+            // Single-occurrence event
+            allTerms.push({
+              event_id: evt.id,
+              title: evt.title,
+              occurrence_index: null,
+              occurrence_datetime: new Date(evt.start_time),
+            });
+          }
         }
 
-        if (!webinars || webinars.length === 0) {
-          console.log(`[CRON] No webinars in ${window.type} window`);
-          continue;
-        }
+        console.log(`[CRON] Expanded ${allEvents.length} events into ${allTerms.length} term instances`);
 
-        for (const webinar of webinars) {
+        // For each reminder window, find matching terms
+        for (const window of reminderWindows) {
           if (isTimeoutApproaching()) {
             results.stoppedEarly = true;
             break;
           }
 
-          console.log(`[CRON] Invoking bulk reminders (${window.type}) for: ${webinar.title}`);
-          try {
-            const { data: bulkResult, error: bulkError } = await supabase.functions.invoke(
-              "send-bulk-webinar-reminders",
-              { body: { event_id: webinar.id, reminder_type: window.type } }
-            );
+          const fromMs = now.getTime() + window.minMinutes * 60 * 1000;
+          const toMs = now.getTime() + window.maxMinutes * 60 * 1000;
 
-            if (bulkError) {
-              console.error(`[CRON] Bulk ${window.type} failed for ${webinar.title}:`, bulkError);
-              results[window.resultKey].failed++;
-            } else {
-              const res = bulkResult as any;
-              results[window.resultKey].processed += res?.total || 0;
-              results[window.resultKey].success += res?.sent || 0;
-              results[window.resultKey].failed += res?.failed || 0;
-              results[window.resultKey].guests += res?.guests || 0;
-              results[window.resultKey].users += res?.users || 0;
-              console.log(`[CRON] Bulk ${window.type} for "${webinar.title}": sent=${res?.sent} (G:${res?.guests || 0} U:${res?.users || 0}), failed=${res?.failed}`);
+          const matchingTerms = allTerms.filter(t => {
+            const ms = t.occurrence_datetime.getTime();
+            return ms >= fromMs && ms <= toMs;
+          });
+
+          if (matchingTerms.length === 0) {
+            console.log(`[CRON] No terms in ${window.type} window`);
+            continue;
+          }
+
+          for (const term of matchingTerms) {
+            if (isTimeoutApproaching()) {
+              results.stoppedEarly = true;
+              break;
             }
-          } catch (err) {
-            console.error(`[CRON] Exception invoking bulk ${window.type}:`, err);
-            results[window.resultKey].failed++;
+
+            console.log(`[CRON] Invoking bulk reminders (${window.type}) for: ${term.title} [occ=${term.occurrence_index}, dt=${term.occurrence_datetime.toISOString()}]`);
+            try {
+              const { data: bulkResult, error: bulkError } = await supabase.functions.invoke(
+                "send-bulk-webinar-reminders",
+                {
+                  body: {
+                    event_id: term.event_id,
+                    reminder_type: window.type,
+                    occurrence_index: term.occurrence_index,
+                    occurrence_datetime: term.occurrence_datetime.toISOString(),
+                  }
+                }
+              );
+
+              if (bulkError) {
+                console.error(`[CRON] Bulk ${window.type} failed for ${term.title}:`, bulkError);
+                results[window.resultKey].failed++;
+              } else {
+                const res = bulkResult as any;
+                results[window.resultKey].processed += res?.total || 0;
+                results[window.resultKey].success += res?.sent || 0;
+                results[window.resultKey].failed += res?.failed || 0;
+                results[window.resultKey].guests += res?.guests || 0;
+                results[window.resultKey].users += res?.users || 0;
+                console.log(`[CRON] Bulk ${window.type} for "${term.title}" occ=${term.occurrence_index}: sent=${res?.sent} (G:${res?.guests || 0} U:${res?.users || 0}), failed=${res?.failed}`);
+              }
+            } catch (err) {
+              console.error(`[CRON] Exception invoking bulk ${window.type}:`, err);
+              results[window.resultKey].failed++;
+            }
           }
         }
       }
