@@ -1,40 +1,44 @@
 
 
-# Plan: Mobile fullscreen fix + chat bubble notifications
+# Plan: Blokowanie rejestracji na przeszłe wydarzenia
 
-## Problems identified
+## Problem
+1. **Regularne webinary/szkolenia**: `isPast` już blokuje rejestrację po `end_time`, ale nie sprawdza `is_published` — niepublikowane wydarzenia nadal pozwalają na rejestrację
+2. **Auto-webinary**: `isPast` jest zawsze `false` (linia 395: `!isAutoWebinar && ...`). Funkcja `getNextSlot` zawsze znajduje przyszły slot (przenosi na jutro), więc link nigdy nie wygasa. Jeśli auto-webinar zostanie wyłączony (`is_published = false`), formularz nadal się wyświetla
+3. **Tytuł na stronie rejestracji**: "Szansa Biznesowa" zamiast "Business Opportunity" — nie zastosowano mapowania kategorii
 
-1. **Fullscreen doesn't work on mobile** — iOS Safari doesn't support `Element.requestFullscreen()` on a div container. Only `video.webkitEnterFullscreen()` works on iOS. The current code only tries `container.requestFullscreen()`.
+## Rozwiązanie
 
-2. **No chat bubble when chat is collapsed** — When chat is closed, new messages appear silently. Users have no idea someone wrote something until they open the chat panel.
+### Plik: `src/pages/EventGuestRegistration.tsx`
 
-## Changes
+**A. Dodać sprawdzenie `is_published` dla wszystkich wydarzeń:**
+- Po pobraniu eventu, jeśli `is_published === false`, wyświetlić komunikat "Rejestracja jest zamknięta" (tak jak `isPast`)
 
-### 1. Fix fullscreen for mobile (`AutoWebinarPlayerControls.tsx`)
+**B. Dla auto-webinarów — sprawdzić czy kategoria jest aktywna:**
+- Po pobraniu `auto_webinar_config`, sprawdzić czy config istnieje i czy event jest opublikowany
+- Jeśli nie → blokada rejestracji z komunikatem "To wydarzenie nie jest już dostępne"
 
-- Pass `videoRef` to the fullscreen logic (already passed as prop).
-- In `toggleFullscreen()`, detect iOS/Safari and use `videoRef.current.webkitEnterFullscreen()` as fallback when `container.requestFullscreen()` fails.
-- Also listen for `webkitfullscreenchange` event for iOS state tracking.
-- Increase button z-index to ensure it's tappable on mobile.
+**C. Mapowanie tytułu auto-webinara:**
+- Jeśli `event_type === 'auto_webinar'`, pobrać `event_category` z `auto_webinar_config` i wyświetlić:
+  - `business_opportunity` → "Business Opportunity"
+  - `health_conversation` → "Health Conversation"
+- Używać tego jako tytułu zamiast `event.title`
 
-### 2. Chat bubble notifications (`AutoWebinarFakeChat.tsx`)
+### Plik: `src/pages/EventRegistrationBySlug.tsx`
 
-- Track `lastSeenCount` — the message count when the user last had the chat open.
-- When chat is closed and `messages.length > lastSeenCount`, show a floating bubble with the latest message's author and content.
-- Bubble appears with a slide-in animation, auto-disappears after 3 seconds.
-- Position: bottom-right, above the chat toggle button.
-- On tap: opens the chat panel.
-- Multiple messages arriving rapidly: show only the latest one, reset the 3s timer.
+**D. Dodać sprawdzenie `is_published` przy rozwiązywaniu sluga:**
+- Rozszerzyć query o `.eq('is_published', true)` lub sprawdzić po pobraniu i wyświetlić błąd "Wydarzenie nie jest dostępne"
 
-### 3. Mobile UX polish (`AutoWebinarEmbed.tsx`)
+### Plik: `src/pages/EventGuestRegistration.tsx` — dodatkowa walidacja
 
-- Ensure the video container uses `relative` positioning with proper z-index layering so fullscreen button and chat bubble don't conflict.
-- On mobile, position chat toggle button higher to avoid overlap with player controls bar.
+**E. Dla regularnych wydarzeń sprawdzić `end_time` + cutoff:**
+- Obecna logika `isPast` i `isAfterCutoff` już to robi — upewnić się że działa poprawnie
+- Dodać `is_published` do warunku blokady
 
-## Files to modify
+## Pliki do modyfikacji
 
-| File | Change |
+| Plik | Zmiana |
 |------|--------|
-| `AutoWebinarPlayerControls.tsx` | iOS fullscreen fallback via `webkitEnterFullscreen` |
-| `AutoWebinarFakeChat.tsx` | Add floating bubble notification for new messages when chat is collapsed |
+| `EventGuestRegistration.tsx` | Blokada niepublikowanych; mapowanie tytułu auto-webinara; pobranie `event_category` |
+| `EventRegistrationBySlug.tsx` | Dodać sprawdzenie `is_published` w query |
 
