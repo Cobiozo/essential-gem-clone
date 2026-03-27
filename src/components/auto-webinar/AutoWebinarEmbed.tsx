@@ -100,8 +100,29 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const effectiveIsPlaying = isInActiveHours && !!currentVideo && startOffset >= 0 && !showWelcome;
   const effectiveVideoId = currentVideo?.id || null;
 
+  // Resolve guest_registration_id from email + event_id for accurate tracking
+  const [guestRegistrationId, setGuestRegistrationId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isGuest || !guestEmail || !config?.event_id) {
+      setGuestRegistrationId(null);
+      return;
+    }
+    const resolve = async () => {
+      const { data } = await supabase
+        .from('guest_event_registrations')
+        .select('id')
+        .eq('email', guestEmail)
+        .eq('event_id', config.event_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setGuestRegistrationId(data?.id || null);
+    };
+    resolve();
+  }, [isGuest, guestEmail, config?.event_id]);
+
   // Analytics tracking
-  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail);
+  useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId);
 
   // Invalidate session when room closes
   useEffect(() => {
