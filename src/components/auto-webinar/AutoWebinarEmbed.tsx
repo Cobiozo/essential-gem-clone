@@ -28,7 +28,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   const [hasExistingSession, setHasExistingSession] = useState(() => {
     if (isGuest && guestEmail) {
       const today = new Date().toISOString().slice(0, 10);
-      const sessionKey = `aw_session_${guestEmail}_${today}`;
+      const sessionKey = `aw_session_${category}_${guestEmail}_${today}`;
       return !!localStorage.getItem(sessionKey);
     }
     return false;

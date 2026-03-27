@@ -105,9 +105,13 @@ export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> 
     if (dayIndex > 0) return 'future';
     const now = new Date();
     const [h, m] = time.split(':').map(Number);
-    const intervalMin = config?.interval_minutes || 60;
     const slotStart = h * 60 + m;
-    const slotEnd = slotStart + intervalMin;
+    // Find the next slot to determine when this slot's window ends
+    const slotIdx = timeSlots.indexOf(time);
+    const nextSlotTime = slotIdx >= 0 && slotIdx < timeSlots.length - 1 ? timeSlots[slotIdx + 1] : null;
+    const slotEnd = nextSlotTime
+      ? (() => { const [nh, nm] = nextSlotTime.split(':').map(Number); return nh * 60 + nm; })()
+      : slotStart + (config?.interval_minutes || 60);
     const currentMin = now.getHours() * 60 + now.getMinutes();
     if (currentMin >= slotStart && currentMin < slotStart + 2) return 'now';
     if (currentMin >= slotStart + 2 && currentMin < slotEnd) return 'ongoing';
