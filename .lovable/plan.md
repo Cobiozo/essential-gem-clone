@@ -1,60 +1,39 @@
 
-## Plan: link auto-webinaru ma być przypisany do jednego konkretnego terminu i po czasie ma wygasać bez fallbacku
 
-### Co jest teraz nie tak
-W obecnym kodzie jedna funkcja (`getNextSlot`) miesza 2 różne zadania:
-1. rozpoznanie konkretnego terminu z linku,
-2. szukanie „najbliższego następnego slotu”.
+# Fix: podwójny LIVE badge + analiza niezależności BO/HC
 
-Przez to link do 10:30 nie jest traktowany jako „10:30 albo nic”, tylko w niektórych ścieżkach może zostać przepięty na 11:00. To jest dokładnie zachowanie, którego nie chcesz.
+## Problem 1: Dwa sloty jednocześnie oznaczone jako LIVE
 
-### Co zmienię
-1. Rozdzielę logikę na 2 osobne ścieżki w `src/pages/EventGuestRegistration.tsx`:
-   - `resolveRequestedSlot(...)` — tylko do walidacji slotu z linku, bez żadnego przesuwania na kolejny termin
-   - `getNextAvailableSlot(...)` — tylko do ogólnego wyliczania przyszłych terminów tam, gdzie naprawdę ma to sens
+`getSlotStatus()` w `AutoWebinarEventView.tsx` używa `interval_minutes` (domyślnie 60 min) jako okna trwania slotu. Przy slotach 10:00, 10:30, 11:00 — o 10:35 zarówno 10:00 (okno do 11:00) jak i 10:30 (okno do 11:30) wchodzą w zakres LIVE.
 
-2. Dla auto-webinaru z parametrem `slot` w linku:
-   - link będzie działał wyłącznie dla dokładnie tego terminu `YYYY-MM-DD_HH:MM`
-   - jeśli termin minął → natychmiast komunikat „link stracił ważność”
-   - jeśli termin nie istnieje w konfiguracji danego BO/HC → natychmiast komunikat „link nieprawidłowy”
-   - żadnego przełączania na 11:00, jutro, kolejny slot itp.
+### Rozwiązanie
+Zmienić logikę `getSlotStatus` tak, aby okno slotu kończyło się przy starcie następnego slotu (a nie po stałym `interval_minutes`):
+- Dla slotu 10:00, gdy następny to 10:30 → okno 10:00–10:30
+- Dla slotu 10:30, gdy następny to 11:00 → okno 10:30–11:00
+- Dla ostatniego slotu dnia → użyć `interval_minutes` jako fallback
 
-3. Zaostrzę regułę dla starych linków:
-   - stare `slot=HH:MM` nie będą już przekierowywane na kolejny dzień/godzinę
-   - dla flow zaproszeń auto-webinarowych będą traktowane jako nieważne / niekompletne
-   - to wymusi zasadę: każdy dzień i każda godzina mają własny, jednorazowo interpretowany link
+**Plik: `src/components/auto-webinar/AutoWebinarEventView.tsx`**
+- Zmienić `getSlotStatus` aby przyjmował listę wszystkich slotów i wyznaczał koniec okna na podstawie następnego slotu w kolejce
 
-4. Zmienię submit formularza w `EventGuestRegistration.tsx`:
-   - zapis do `guest_event_registrations.slot_time`
-   - treść maila
-   - ekran sukcesu  
-   będą korzystać wyłącznie z już zwalidowanego, konkretnego slotu z linku, a nie z ponownego liczenia „następnego dostępnego”
+## Problem 2: Czy BO i HC mogą działać jednocześnie o tej samej godzinie?
 
-5. Dodam dodatkową blokadę wcześniej w `src/pages/EventRegistrationBySlug.tsx`:
-   - dla auto-webinarów z `slot` sprawdzę, czy termin z linku jest jeszcze ważny
-   - jeśli nie, użytkownik dostanie od razu ekran o wygaśnięciu linku zamiast wejścia na formularz rejestracji
+**Odpowiedź: TAK, architektura jest niezależna.** Każda kategoria ma:
+- Osobny wiersz w `auto_webinar_config` (filtr `category`)
+- Osobną playlistę wideo (powiązaną przez `config_id`)
+- Osobną instancję `useAutoWebinarSync` w swoim pokoju
+- Osobne trasy (`/auto-webinar/business` vs `/auto-webinar/health`)
+- Goście rejestrują się na konkretne wydarzenie (slug) → trafiają do właściwego pokoju
 
-### Czego nie ruszam
-- zwykłe webinary tworzone przez admina — bez zmian
-- niezależność BO i HC — bez zmian, zostaje pełna separacja
-- przypisanie kontaktu do partnera zapraszającego — zostaje, `invited_by` nadal ma działać jak teraz
+**Jedno drobne ryzyko** — klucz sesji localStorage: `aw_session_${email}_${date}` nie zawiera kategorii. Jeśli ten sam gość ogląda BO i HC tego samego dnia, sesje mogą się nadpisywać. Naprawię to dodając kategorię do klucza.
 
-### Efekt po wdrożeniu
-- link do `2026-03-27_10:30` przed 10:30 → działa tylko dla 10:30
-- ten sam link po 10:30 → nieważny
-- ten sam link nie pokaże już 11:00 ani jutra
-- błędny slot albo slot spoza konfiguracji wydarzenia → nieważny
-- partner nadal będzie poprawnie przypisany do rejestracji
+### Drobna poprawka
+**Plik: `src/components/auto-webinar/AutoWebinarEmbed.tsx`**
+- Zmienić klucz sesji na `aw_session_${category}_${email}_${date}`
 
-### Pliki do modyfikacji
-- `src/pages/EventGuestRegistration.tsx`
-- `src/pages/EventRegistrationBySlug.tsx`
+## Pliki do modyfikacji
 
-### Techniczne doprecyzowanie
-Zamiast jednego helpera zwracającego „jakiś sensowny slot”, wprowadzę ścisły model:
-- `missing` — brak slotu
-- `invalid` — zły format albo termin nie należy do konfiguracji wydarzenia
-- `expired` — termin z linku już minął
-- `valid` — dokładnie ten termin wolno pokazać i zapisać
+| Plik | Zmiana |
+|------|--------|
+| `AutoWebinarEventView.tsx` | `getSlotStatus` — okno slotu kończy się przy następnym slocie, nie po stałym interwale |
+| `AutoWebinarEmbed.tsx` | Klucz sesji localStorage z kategorią |
 
-Dzięki temu flow rejestracji przestanie mieć jakikolwiek fallback do kolejnej godziny. Link będzie miał status binarny: aktywny albo martwy.
