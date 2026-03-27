@@ -227,7 +227,7 @@ export function useAutoWebinarSync(
       });
 
       if (useExplicitSlots) {
-        calculateExplicitSlots(now, secondsPastMidnight, activeVideos, slotHours);
+        calculateExplicitSlots(now, secondsPastMidnight, activeVideos, slotHours, tz);
       } else {
         calculateLegacy(now, secondsPastMidnight, activeVideos);
       }
@@ -237,7 +237,8 @@ export function useAutoWebinarSync(
       now: Date,
       secondsPastMidnight: number,
       activeVideos: AutoWebinarVideo[],
-      slotHours: string[]
+      slotHours: string[],
+      tz: string
     ) => {
       const roomOpenSec = (config.room_open_minutes_before ?? 5) * 60;
       const countdownSec = (config.countdown_minutes_before ?? 2) * 60;
