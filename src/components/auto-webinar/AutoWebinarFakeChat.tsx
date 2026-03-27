@@ -23,6 +23,39 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
+  // Bubble notification state
+  const [bubble, setBubble] = useState<{ author: string; content: string } | null>(null);
+  const lastSeenCountRef = useRef(0);
+  const bubbleTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Update lastSeenCount when chat is open
+  useEffect(() => {
+    if (isOpen) {
+      lastSeenCountRef.current = messages.length;
+      setBubble(null);
+      clearTimeout(bubbleTimerRef.current);
+    }
+  }, [isOpen, messages.length]);
+
+  // Show bubble when chat is closed and new messages arrive
+  useEffect(() => {
+    if (isOpen) return;
+    if (messages.length > lastSeenCountRef.current && messages.length > 0) {
+      const latest = messages[messages.length - 1];
+      if (latest.isFake) {
+        setBubble({ author: latest.author_name, content: latest.content });
+        clearTimeout(bubbleTimerRef.current);
+        bubbleTimerRef.current = setTimeout(() => setBubble(null), 3000);
+      }
+      lastSeenCountRef.current = messages.length;
+    }
+  }, [messages.length, isOpen, messages]);
+
+  // Cleanup timer
+  useEffect(() => {
+    return () => clearTimeout(bubbleTimerRef.current);
+  }, []);
+
   // Auto-scroll when new messages appear
   useEffect(() => {
     if (messages.length > prevCountRef.current && scrollRef.current) {
@@ -59,8 +92,21 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
     return colors[Math.abs(hash) % colors.length];
   };
 
+  const unreadCount = messages.length - lastSeenCountRef.current;
+
   return (
     <>
+      {/* Floating bubble notification */}
+      {!isOpen && bubble && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="absolute bottom-16 right-4 z-20 max-w-[260px] bg-background/95 backdrop-blur-md border border-border rounded-xl px-3 py-2 shadow-lg animate-fade-in cursor-pointer text-left"
+        >
+          <p className="text-xs font-semibold text-foreground truncate">{bubble.author}</p>
+          <p className="text-xs text-muted-foreground line-clamp-2">{bubble.content}</p>
+        </button>
+      )}
+
       {/* Chat toggle button */}
       {!isOpen && (
         <button
