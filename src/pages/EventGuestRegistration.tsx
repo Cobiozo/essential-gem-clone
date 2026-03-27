@@ -394,12 +394,38 @@ const EventGuestRegistration: React.FC = () => {
   if (!event) return null;
 
   const isAutoWebinar = event.event_type === 'auto_webinar';
+  const isUnpublished = !event.is_published;
   const startDate = new Date(event.start_time);
   const endDate = new Date(event.end_time);
   const isPast = !isAutoWebinar && new Date() > endDate;
   const registrationCutoff = new Date(startDate.getTime() + 15 * 60 * 1000);
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
+
+  // Map auto-webinar category to display title
+  const displayTitle = isAutoWebinar && autoWebinarCategory
+    ? (autoWebinarCategory === 'business_opportunity' ? 'Business Opportunity'
+       : autoWebinarCategory === 'health_conversation' ? 'Health Conversation'
+       : event.title)
+    : event.title;
+
+  // Block registration for unpublished events
+  if (isUnpublished) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle className="text-xl">To wydarzenie nie jest już dostępne</CardTitle>
+            <CardDescription>
+              Rejestracja na to wydarzenie została zamknięta. Link stracił ważność.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   if (existingUserBlocked) {
     return (
