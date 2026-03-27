@@ -122,6 +122,35 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
 
     try {
+      // Dla wideo: wykryj duration z LOKALNEGO pliku PRZED uploadem
+      let localDuration = 0;
+      if (mediaType === 'video') {
+        try {
+          localDuration = await new Promise<number>((resolve, reject) => {
+            const videoEl = document.createElement('video');
+            videoEl.preload = 'metadata';
+            const objectUrl = URL.createObjectURL(file);
+            videoEl.src = objectUrl;
+            videoEl.onloadedmetadata = () => {
+              const dur = Math.floor(videoEl.duration);
+              URL.revokeObjectURL(objectUrl);
+              resolve(dur);
+            };
+            videoEl.onerror = () => {
+              URL.revokeObjectURL(objectUrl);
+              resolve(0);
+            };
+            // Timeout 5s na detekcję metadanych
+            setTimeout(() => {
+              URL.revokeObjectURL(objectUrl);
+              resolve(0);
+            }, 5000);
+          });
+        } catch {
+          localDuration = 0;
+        }
+      }
+
       const result = await uploadFile(file, {
         folder: 'training-media',
         onProgress: (percent) => {
@@ -137,31 +166,14 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         other: 'Plik'
       };
 
-      // For video files, detect duration before calling onMediaUploaded
-      if (mediaType === 'video') {
-        const videoElement = document.createElement('video');
-        videoElement.preload = 'metadata';
-        videoElement.src = result.url;
-        
-        videoElement.onloadedmetadata = () => {
-          const durationSeconds = Math.floor(videoElement.duration);
-          onMediaUploaded(result.url, mediaType, altText, durationSeconds);
-          toast({
-            title: "Sukces",
-            description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)}, czas: ${Math.floor(durationSeconds / 60)}:${String(durationSeconds % 60).padStart(2, '0')})`,
-          });
-        };
-        
-        videoElement.onerror = () => {
-          // Fallback if we can't get duration
-          onMediaUploaded(result.url, mediaType, altText, 0);
-          toast({
-            title: "Sukces",
-            description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
-          });
-        };
+      if (mediaType === 'video' && localDuration > 0) {
+        onMediaUploaded(result.url, mediaType, altText, localDuration);
+        toast({
+          title: "Sukces",
+          description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)}, czas: ${Math.floor(localDuration / 60)}:${String(localDuration % 60).padStart(2, '0')})`,
+        });
       } else {
-        onMediaUploaded(result.url, mediaType, altText, 0);
+        onMediaUploaded(result.url, mediaType, altText, localDuration);
         toast({
           title: "Sukces",
           description: `${typeNames[mediaType]} zostało przesłane. (${formatFileSize(file.size)})`,
