@@ -274,9 +274,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { event_id, recipient_email, recipient_name, event_title, inviter_user_id, source_type, source_id } = await req.json();
+    const { event_id, recipient_email, recipient_name, event_title, inviter_user_id, source_type, source_id, email_type } = await req.json();
 
-    if (!event_id || !recipient_email || !recipient_name || !event_title) {
+    const effectiveEmailType = email_type || 'thank_you';
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
