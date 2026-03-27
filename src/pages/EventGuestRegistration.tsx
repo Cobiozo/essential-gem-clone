@@ -32,7 +32,58 @@ interface AutoWebinarVideoData {
   thumbnail_url: string | null;
 }
 
-const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | null): { date: Date; time: string } | null => {
+type SlotStatus = 'missing' | 'invalid' | 'expired' | 'valid';
+
+interface SlotResolution {
+  status: SlotStatus;
+  date?: Date;
+  time?: string;
+}
+
+/**
+ * Strictly validates a slot from a link parameter.
+ * No fallback to next hour/day — the link is either valid for that exact slot or dead.
+ */
+const resolveRequestedSlot = (config: AutoWebinarSlotConfig, slotParam: string | null): SlotResolution => {
+  if (!slotParam) return { status: 'missing' };
+
+  const slotHours = config.slot_hours || [];
+  const useExplicit = slotHours.length > 0;
+
+  // New format: YYYY-MM-DD_HH:MM (date-specific slot)
+  if (/^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$/.test(slotParam)) {
+    const [datePart, timePart] = slotParam.split('_');
+    const [year, month, day] = datePart.split('-').map(Number);
+    const [ph, pm] = timePart.split(':').map(Number);
+
+    // Validate that this time exists in the config
+    const isValidTime = useExplicit
+      ? slotHours.includes(timePart)
+      : (ph >= config.start_hour && ph < config.end_hour);
+
+    if (!isValidTime) return { status: 'invalid' };
+
+    const slotDate = new Date(year, month - 1, day, ph, pm, 0, 0);
+    const now = new Date();
+
+    if (slotDate.getTime() < now.getTime()) return { status: 'expired' };
+
+    return { status: 'valid', date: slotDate, time: timePart };
+  }
+
+  // Legacy HH:MM format — treat as invalid for invitation flows (no rollover)
+  if (/^\d{2}:\d{2}$/.test(slotParam)) {
+    return { status: 'invalid' };
+  }
+
+  return { status: 'invalid' };
+};
+
+/**
+ * Used only for general scheduling display (NOT for link validation).
+ * Finds the next available slot from now.
+ */
+const getNextAvailableSlot = (config: AutoWebinarSlotConfig): { date: Date; time: string } | null => {
   const now = new Date();
   const currentHour = now.getHours();
   const currentMin = now.getMinutes();
@@ -41,42 +92,7 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
   const slotHours = config.slot_hours || [];
   const useExplicit = slotHours.length > 0;
 
-  // New format: YYYY-MM-DD_HH:MM (date-specific slot)
-  if (preferredTime && /^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$/.test(preferredTime)) {
-    const [datePart, timePart] = preferredTime.split('_');
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [ph, pm] = timePart.split(':').map(Number);
-    const slotDate = new Date(year, month - 1, day, ph, pm, 0, 0);
-    // If the specific date+time is in the past, link expired
-    if (slotDate.getTime() < now.getTime()) {
-      return null;
-    }
-    return { date: slotDate, time: timePart };
-  }
-
-  // Legacy format: HH:MM (backward compatible — finds next future slot)
-  if (preferredTime && /^\d{2}:\d{2}$/.test(preferredTime)) {
-    const [ph, pm] = preferredTime.split(':').map(Number);
-    const preferredMin = ph * 60 + pm;
-    const isValid = useExplicit
-      ? slotHours.includes(preferredTime)
-      : (ph >= config.start_hour && ph < config.end_hour && preferredMin % config.interval_minutes === (config.start_hour * 60) % config.interval_minutes);
-    
-    if (isValid) {
-      const slotDate = new Date(now);
-      if (preferredMin > totalMinutes) {
-        slotDate.setHours(ph, pm, 0, 0);
-      } else {
-        const tomorrow = addDays(now, 1);
-        tomorrow.setHours(ph, pm, 0, 0);
-        return { date: tomorrow, time: preferredTime };
-      }
-      return { date: slotDate, time: preferredTime };
-    }
-  }
-
   if (useExplicit) {
-    // Find next slot from explicit list
     const sorted = [...slotHours].sort();
     for (const slot of sorted) {
       const [h, m] = slot.split(':').map(Number);
@@ -87,7 +103,6 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
         return { date: slotDate, time: slot };
       }
     }
-    // No future slot today — return first slot tomorrow
     const firstSlot = sorted[0];
     const [fh, fm] = firstSlot.split(':').map(Number);
     const tomorrow = addDays(now, 1);
@@ -95,7 +110,6 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
     return { date: tomorrow, time: firstSlot };
   }
 
-  // Legacy: generate slots from interval
   const interval = config.interval_minutes;
   for (let h = config.start_hour; h < config.end_hour; h++) {
     for (let m = 0; m < 60; m += interval) {
@@ -108,7 +122,6 @@ const getNextSlot = (config: AutoWebinarSlotConfig, preferredTime?: string | nul
     }
   }
 
-  // No future slot today — return first slot tomorrow
   const tomorrow = addDays(now, 1);
   tomorrow.setHours(config.start_hour, 0, 0, 0);
   return { date: tomorrow, time: format(tomorrow, 'HH:mm') };
@@ -319,9 +332,9 @@ const EventGuestRegistration: React.FC = () => {
         return;
       }
 
-      // Calculate slot_time for auto-webinars
-      const slotTimeValue = isAutoWebinar && autoWebinarConfig 
-        ? getNextSlot(autoWebinarConfig, slotParam)?.time ?? null
+      // Use pre-resolved slot (strict, no fallback)
+      const slotTimeValue = isAutoWebinar && resolvedSlot
+        ? resolvedSlot.time
         : null;
 
       // Use RPC for atomic registration with attempt counting
@@ -343,9 +356,8 @@ const EventGuestRegistration: React.FC = () => {
         return;
       }
 
-      // Call edge function to send confirmation email and add to contacts
       try {
-        const nextSlot = autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : null;
+        const nextSlot = resolvedSlot;
         const slotDiffMinutes = nextSlot ? (nextSlot.date.getTime() - Date.now()) / (1000 * 60) : null;
 
         await supabase.functions.invoke('send-webinar-confirmation', {
@@ -415,9 +427,15 @@ const EventGuestRegistration: React.FC = () => {
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
-  // Check if auto-webinar slot is expired (date-specific link in the past)
-  const resolvedSlot = isAutoWebinar && autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : undefined;
-  const isSlotExpired = isAutoWebinar && autoWebinarConfig && slotParam && resolvedSlot === null;
+  // Strict slot validation for auto-webinar links
+  const slotResolution: SlotResolution | undefined = isAutoWebinar && autoWebinarConfig
+    ? resolveRequestedSlot(autoWebinarConfig, slotParam)
+    : undefined;
+  const resolvedSlot = slotResolution?.status === 'valid'
+    ? { date: slotResolution.date!, time: slotResolution.time! }
+    : null;
+  const isSlotExpired = isAutoWebinar && autoWebinarConfig && slotParam && slotResolution?.status === 'expired';
+  const isSlotInvalid = isAutoWebinar && autoWebinarConfig && slotParam && slotResolution?.status === 'invalid';
 
   // Map auto-webinar category to display title
   const displayTitle = isAutoWebinar && autoWebinarCategory
@@ -455,6 +473,24 @@ const EventGuestRegistration: React.FC = () => {
             <CardTitle className="text-xl">Ten termin webinaru już się odbył</CardTitle>
             <CardDescription>
               Link do tego terminu stracił ważność. Poproś o nowy link z aktualnym terminem.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Block registration for invalid auto-webinar slot format
+  if (isSlotInvalid) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle className="text-xl">Nieprawidłowy link</CardTitle>
+            <CardDescription>
+              Ten link do webinaru jest nieprawidłowy lub niekompletny. Poproś o nowy link z aktualnym terminem.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -514,8 +550,8 @@ const EventGuestRegistration: React.FC = () => {
                     <Video className="h-4 w-4" />
                     <span>{labels.onlineWebinar}</span>
                   </div>
-                  {autoWebinarConfig && (() => {
-                     const slot = getNextSlot(autoWebinarConfig, slotParam);
+                  {resolvedSlot && (() => {
+                     const slot = resolvedSlot;
                      if (!slot) return null;
                     return (
                       <>
@@ -554,9 +590,8 @@ const EventGuestRegistration: React.FC = () => {
             <p className="text-sm text-muted-foreground text-center">
               {isAutoWebinar
                 ? (() => {
-                    if (autoWebinarConfig) {
-                       const slot = getNextSlot(autoWebinarConfig, slotParam);
-                      if (!slot) return labels.checkEmail;
+                    if (resolvedSlot) {
+                       const slot = resolvedSlot;
                       const slotDate = new Date(`${slot.date.toISOString().split('T')[0]}T${slot.time}:00`);
                       const minutesToSlot = (slotDate.getTime() - Date.now()) / (1000 * 60);
                       
@@ -656,8 +691,8 @@ const EventGuestRegistration: React.FC = () => {
                       <p className="font-medium">{labels.onlineWebinar}</p>
                     </div>
                   </div>
-                  {autoWebinarConfig && (() => {
-                    const slot = getNextSlot(autoWebinarConfig, slotParam);
+                  {resolvedSlot && (() => {
+                    const slot = resolvedSlot;
                     if (!slot) return null;
                     return (
                       <>

@@ -63,23 +63,46 @@ const EventRegistrationBySlug: React.FC = () => {
         return;
       }
 
-      // 2. For auto_webinar without ref param → redirect to public watch page
+      // 2. For auto_webinar — validate slot early before reaching registration
       const ref = searchParams.get('ref');
       const slot = searchParams.get('slot');
       const lang = searchParams.get('lang');
 
-      if (event.event_type === 'auto_webinar' && !ref) {
-        resolvedRef.current = true;
-        const watchParams = new URLSearchParams();
-        if (slot) watchParams.set('slot', slot);
-        const paramStr = watchParams.toString();
-        const target = `/a-w/${slug}${paramStr ? `?${paramStr}` : ''}`;
-        if (isInAppWebView()) {
-          window.location.replace(target);
-        } else {
-          navigate(target, { replace: true });
+      if (event.event_type === 'auto_webinar') {
+        // If slot param uses date-specific format, validate it hasn't expired
+        if (slot && /^\d{4}-\d{2}-\d{2}_\d{2}:\d{2}$/.test(slot)) {
+          const [datePart, timePart] = slot.split('_');
+          const [year, month, day] = datePart.split('-').map(Number);
+          const [ph, pm] = timePart.split(':').map(Number);
+          const slotDate = new Date(year, month - 1, day, ph, pm, 0, 0);
+          if (slotDate.getTime() < Date.now()) {
+            resolvedRef.current = true;
+            setError('Ten termin webinaru już się odbył. Poproś o nowy link z aktualnym terminem.');
+            return;
+          }
         }
-        return;
+
+        // Legacy HH:MM format without date — treat as invalid
+        if (slot && /^\d{2}:\d{2}$/.test(slot) && ref) {
+          resolvedRef.current = true;
+          setError('Ten link jest nieprawidłowy lub niekompletny. Poproś o nowy link z aktualnym terminem.');
+          return;
+        }
+
+        // No ref param → redirect to public watch page
+        if (!ref) {
+          resolvedRef.current = true;
+          const watchParams = new URLSearchParams();
+          if (slot) watchParams.set('slot', slot);
+          const paramStr = watchParams.toString();
+          const target = `/a-w/${slug}${paramStr ? `?${paramStr}` : ''}`;
+          if (isInAppWebView()) {
+            window.location.replace(target);
+          } else {
+            navigate(target, { replace: true });
+          }
+          return;
+        }
       }
 
       const redirectParams = new URLSearchParams();
