@@ -407,8 +407,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                       className="absolute inset-0 flex items-center justify-center bg-black/50 cursor-pointer transition-opacity hover:bg-black/60 z-10"
                     >
                       <div className="flex items-center gap-2 bg-white/90 text-black rounded-full px-5 py-2.5 sm:px-6 sm:py-3 shadow-lg font-medium text-sm sm:text-base">
-                        <Play className="h-5 w-5 fill-current" />
-                        Odtwórz z dźwiękiem
+                        <Volume2 className="h-5 w-5" />
+                        Włącz dźwięk
                       </div>
                     </button>
                   )}
