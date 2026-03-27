@@ -42,6 +42,7 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
       const { data: config } = await supabase
         .from('auto_webinar_config')
         .select('event_id')
+        .eq('category', category)
         .limit(1)
         .maybeSingle();
 
