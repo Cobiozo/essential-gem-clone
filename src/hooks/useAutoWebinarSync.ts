@@ -10,6 +10,47 @@ function parseTimeToSeconds(time: string): number {
 }
 
 /**
+ * Extract time portion from slot string.
+ * Handles both "HH:MM" and "YYYY-MM-DD_HH:MM" formats.
+ */
+function extractTimeFromSlot(slot: string): string {
+  if (slot.includes('_')) {
+    return slot.split('_')[1]; // "2026-03-27_11:30" → "11:30"
+  }
+  return slot; // "11:30" → "11:30"
+}
+
+/**
+ * Extract date portion from slot string, or null if legacy format.
+ */
+function extractDateFromSlot(slot: string): string | null {
+  if (slot.includes('_')) {
+    return slot.split('_')[0]; // "2026-03-27_11:30" → "2026-03-27"
+  }
+  return null;
+}
+
+/**
+ * Check if a dated slot belongs to today. Legacy (time-only) slots always return true.
+ */
+function isSlotToday(slot: string): boolean {
+  const date = extractDateFromSlot(slot);
+  if (!date) return true; // legacy format — assume today
+  const today = new Date().toISOString().slice(0, 10);
+  return date === today;
+}
+
+/**
+ * Check if a dated slot is in the past (before today).
+ */
+function isSlotInPast(slot: string): boolean {
+  const date = extractDateFromSlot(slot);
+  if (!date) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return date < today;
+}
+
+/**
  * Find the nearest slot from slot_hours list for current time.
  * Window extends to cover full video duration + thank-you + buffer.
  */
