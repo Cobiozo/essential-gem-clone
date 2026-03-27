@@ -321,7 +321,7 @@ const EventGuestRegistration: React.FC = () => {
 
       // Calculate slot_time for auto-webinars
       const slotTimeValue = isAutoWebinar && autoWebinarConfig 
-        ? getNextSlot(autoWebinarConfig, slotParam).time 
+        ? getNextSlot(autoWebinarConfig, slotParam)?.time ?? null
         : null;
 
       // Use RPC for atomic registration with attempt counting
