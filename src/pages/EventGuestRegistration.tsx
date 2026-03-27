@@ -444,8 +444,8 @@ const EventGuestRegistration: React.FC = () => {
        : event.title)
     : event.title;
 
-  // Block registration for unpublished events
-  if (isUnpublished) {
+  // Block registration for unpublished events (auto_webinar uses config.is_enabled instead)
+  if (isUnpublished && !isAutoWebinar) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
