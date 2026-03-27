@@ -1084,53 +1084,119 @@ export const EventRegistrationsManagement: React.FC = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {groupedRegistrations.map((registration) => (
-                          <TableRow key={registration.user_id}>
-                            <TableCell className="font-medium">
-                              {registration.profiles.first_name} {registration.profiles.last_name}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {registration.profiles.email}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={getRoleBadgeVariant(registration.profiles.role)}>
-                                {getRoleLabel(registration.profiles.role)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {registration.activeCount > 0 ? (
-                                <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Zapisany
-                                </Badge>
-                              ) : (
-                                <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-500/20">
-                                  <XCircle className="h-3 w-3 mr-1" />
-                                  Anulowany
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1 text-sm">
-                                <Calendar className="h-3 w-3 text-muted-foreground" />
-                                {registration.occurrenceCount > 1 ? (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {registration.occurrenceCount} {registration.occurrenceCount >= 5 ? 'terminów' : registration.occurrenceCount >= 2 ? 'terminy' : 'termin'}
+                        {groupedRegistrations.map((registration) => {
+                          const hasMultiple = registration.occurrenceCount > 1;
+                          const isExpanded = expandedUsers.has(registration.user_id);
+                          
+                          // Check for potential duplicates (same occurrence_index appearing multiple times)
+                          const occurrenceIndexes = registration.allRegistrations.map(r => r.occurrence_index);
+                          const uniqueIndexes = new Set(occurrenceIndexes);
+                          const hasDuplicates = occurrenceIndexes.length > uniqueIndexes.size;
+                          
+                          return (
+                            <React.Fragment key={registration.user_id}>
+                              <TableRow 
+                                className={hasMultiple ? 'cursor-pointer hover:bg-muted/50' : ''}
+                                onClick={() => {
+                                  if (hasMultiple) {
+                                    setExpandedUsers(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(registration.user_id)) next.delete(registration.user_id);
+                                      else next.add(registration.user_id);
+                                      return next;
+                                    });
+                                  }
+                                }}
+                              >
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    {hasMultiple && (
+                                      isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                    )}
+                                    {registration.profiles.first_name} {registration.profiles.last_name}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  {registration.profiles.email}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant={getRoleBadgeVariant(registration.profiles.role)}>
+                                    {getRoleLabel(registration.profiles.role)}
                                   </Badge>
-                                ) : (
-                                  getOccurrenceDate(
-                                    registration.events.occurrences,
-                                    registration.occurrence_index,
-                                    registration.events.start_time
-                                  )
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-sm">
-                              {format(new Date(registration.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                                </TableCell>
+                                <TableCell>
+                                  {registration.activeCount > 0 ? (
+                                    <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Zapisany
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-500/20">
+                                      <XCircle className="h-3 w-3 mr-1" />
+                                      Anulowany
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1 text-sm">
+                                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                                    {hasMultiple ? (
+                                      <div className="flex items-center gap-1">
+                                        <Badge variant="secondary" className="text-xs">
+                                          {registration.occurrenceCount} {registration.occurrenceCount >= 5 ? 'terminów' : registration.occurrenceCount >= 2 ? 'terminy' : 'termin'}
+                                        </Badge>
+                                        {hasDuplicates && (
+                                          <Badge variant="outline" className="text-xs text-amber-600 border-amber-400">
+                                            <AlertTriangle className="h-3 w-3 mr-0.5" />
+                                            duplikaty
+                                          </Badge>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      getOccurrenceDate(
+                                        registration.events.occurrences,
+                                        registration.occurrence_index,
+                                        registration.events.start_time
+                                      )
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {format(new Date(registration.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                                </TableCell>
+                              </TableRow>
+                              
+                              {/* Expanded occurrence details */}
+                              {hasMultiple && isExpanded && registration.allRegistrations.map((subReg, idx) => (
+                                <TableRow key={subReg.id} className="bg-muted/30">
+                                  <TableCell className="pl-10 text-sm text-muted-foreground" colSpan={2}>
+                                    <span className="text-xs font-mono">
+                                      Rejestracja #{idx + 1} (occ_index: {subReg.occurrence_index ?? 'brak'})
+                                    </span>
+                                  </TableCell>
+                                  <TableCell />
+                                  <TableCell>
+                                    {subReg.status === 'registered' ? (
+                                      <Badge variant="outline" className="text-xs text-green-600">aktywna</Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-xs text-red-500">anulowana</Badge>
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-sm">
+                                    {getOccurrenceDate(
+                                      subReg.events.occurrences,
+                                      subReg.occurrence_index,
+                                      subReg.events.start_time
+                                    )}
+                                  </TableCell>
+                                  <TableCell className="text-muted-foreground text-xs">
+                                    {format(new Date(subReg.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
