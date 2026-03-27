@@ -69,6 +69,7 @@ export interface AutoWebinarFakeMessage {
   appear_at_minute: number;
   author_name: string;
   content: string;
+  phase: 'welcome' | 'during' | 'ending';
   sort_order: number;
   created_at: string;
 }
