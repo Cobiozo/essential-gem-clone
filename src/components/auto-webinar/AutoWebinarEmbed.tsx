@@ -547,7 +547,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-10 sm:py-16 px-4">
             <AutoWebinarCountdown secondsToNext={secondsToNext} label={countdownLabel} />
-            {config?.fake_participants_enabled && isInActiveHours && (
+            {config?.fake_participants_enabled && secondsToNext > 0 && secondsToNext <= 300 && (
               <div className="mt-3 sm:mt-4">
                 <AutoWebinarParticipantCount
                   min={config.fake_participants_min || 45}
