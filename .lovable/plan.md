@@ -1,56 +1,64 @@
 
-Problem nie wynika z tego, że BO i HC korzystają z tych samych danych. One są rozdzielone poprawnie przez `category` i mają osobne `auto_webinar_config` oraz osobne `event_id`. Błąd jest w publicznym odtwarzaczu, który źle interpretuje nowy format slotu.
 
-Co znalazłem
-- Rejestracja i generator linków używają nowego formatu slotu: `YYYY-MM-DD_HH:MM`.
-- `EventRegistrationBySlug.tsx` i `EventGuestRegistration.tsx` już ten format rozumieją.
-- Ale `useAutoWebinarSync.ts` nadal traktuje `guestSlotTime` jak samo `HH:MM`.
-- W efekcie dla linku typu `2026-03-27_11:30` funkcja `parseTimeToSeconds()` dostaje zły string, wylicza błędny czas i player wpada w stan `isRoomClosed`, dlatego widzisz komunikat „Spotkanie już się odbyło”.
+# Analiza: strefy czasowe w auto-webinarach
 
-Dowód w kodzie
-- `AutoWebinarPublicPage.tsx` przekazuje do playera całe `searchParams.get('slot')`
-- `useAutoWebinarSync.ts` robi:
-  - `const guestSlotSec = parseTimeToSeconds(guestSlotTime);`
-  - a `parseTimeToSeconds()` oczekuje tylko `HH:MM`
-- Dla HC konfiguracja ma slot `11:30`, dla BO inne sloty; oba eventy są aktywne i rozdzielone, więc problem jest wspólny dla parsera slotu, nie dla danych wydarzeń.
+## Obecny stan
 
-Plan naprawy
-1. Ujednolicić parsowanie slotu w `useAutoWebinarSync.ts`
-- dodać parser obsługujący oba formaty:
-  - `HH:MM`
-  - `YYYY-MM-DD_HH:MM`
-- dla linków gościa wyliczać czas względem pełnej daty i godziny, nie względem „sekund od północy”.
+System auto-webinarów **nie ma żadnej obsługi stref czasowych**. Każda operacja czasowa używa `new Date()` (czas lokalny przeglądarki):
 
-2. Poprawić logikę wygasania dla linków gościa
-- liczyć:
-  - czas do startu,
-  - czas od startu,
-  - zakończenie filmu,
-  - ekran podziękowania,
-  - zamknięcie pokoju
-  na podstawie pełnego `Date`, a nie samej godziny.
-- to naprawi zarówno bieżący slot 11:30, jak i wszystkie kolejne dni.
+- `useAutoWebinarSync.ts` → `now.getHours()`, `now.getMinutes()` — czas lokalny
+- `AutoWebinarEventView.tsx` → `getSlotStatus()` porównuje `now.getHours() * 60 + now.getMinutes()` z godzinami slotów
+- `isSlotToday()` / `isSlotInPast()` → `new Date().toISOString().slice(0,10)` — data UTC, nie lokalna
+- Tabela `auto_webinar_config` nie ma kolumny `timezone`
 
-3. Zachować zgodność wsteczną
-- stare linki `?slot=11:30` nadal mogą być obsłużone jako legacy albo zablokowane zgodnie z obecną polityką,
-- ale nowy flow publiczny ma działać poprawnie dla datowanych linków.
+### Konsekwencje
 
-4. Sprawdzić mapowanie slot → video
-- obecnie wybór filmu opiera się o `slotHours.indexOf(...)`
-- trzeba porównywać z samą częścią czasu (`11:30`), gdy link zawiera datę (`2026-03-27_11:30`), żeby wybierał właściwe wideo dla BO i HC.
+Sloty są zdefiniowane jako np. `["09:00", "11:30", "18:00"]` i oznaczają czas polski (CET). Ale:
 
-5. Uporządkować komunikaty końcowe
-- upewnić się, że:
-  - przed startem jest countdown,
-  - w trakcie jest player,
-  - po filmie jest ekran „Dziękujemy”,
-  - dopiero po zamknięciu pokoju jest „Spotkanie już się odbyło”.
+1. **Gość w Nowym Jorku** widzi slot "11:30" i myśli, że to 11:30 jego czasu. Rejestruje się, dostaje link `?slot=2026-03-27_11:30`. Player porównuje z jego lokalnym 11:30 EST — wyświetla wideo. Ale w Polsce jest wtedy 17:30, a slot "11:30 CET" dawno minął. Gość ogląda "live" w zupełnie innym czasie niż inni.
+2. **`isSlotToday()`** używa `toISOString().slice(0,10)` co daje datę UTC, nie lokalną — o 23:30 CET (22:30 UTC) system myśli, że jest ten sam dzień, ale o 01:00 CET (00:00 UTC) następnego dnia system widzi już jutrzejszą datę, więc slot z dzisiejszej daty jest uznawany za "w przeszłości".
 
-Pliki do zmiany
-- `src/hooks/useAutoWebinarSync.ts` — główna naprawa parsera i kalkulacji czasu
-- opcjonalnie lekki cleanup w `src/components/auto-webinar/AutoWebinarEmbed.tsx` tylko jeśli trzeba uprościć warunki renderowania po poprawce sync hooka
+### Pytanie kluczowe
 
-Efekt po wdrożeniu
-- linki BO i HC z `?slot=2026-03-27_11:30` przestaną być od razu uznawane za zakończone,
-- oba auto-webinary pozostaną oddzielne,
-- status pokoju będzie liczony poprawnie dla konkretnej daty i godziny z linku.
+Czy to jest realny problem? Auto-webinary są skierowane głównie do polskiego rynku. Jeśli goście są wyłącznie w strefie CET, obecne działanie jest poprawne — `new Date()` zwraca czas CET.
+
+## Proponowane rozwiązanie
+
+Dodać pole `timezone` do `auto_webinar_config` (domyślnie `Europe/Warsaw`) i przeliczać wszystkie czasy na tę strefę, niezależnie od przeglądarki gościa.
+
+### 1. Migracja SQL
+- `ALTER TABLE auto_webinar_config ADD COLUMN timezone TEXT NOT NULL DEFAULT 'Europe/Warsaw'`
+
+### 2. Helper: czas w strefie konfiguracji
+Nowa funkcja `getNowInTimezone(tz)` zwracająca aktualną godzinę/minutę/sekundę w podanej strefie:
+```typescript
+function getNowInTimezone(tz: string) {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    hour: 'numeric', minute: 'numeric', second: 'numeric',
+    hour12: false
+  }).formatToParts(now);
+  // extract h, m, s → secondsPastMidnight
+}
+```
+
+### 3. Zmiany w `useAutoWebinarSync.ts`
+- Przekazać `config.timezone` (fallback `Europe/Warsaw`)
+- Zastąpić `now.getHours()` / `now.getMinutes()` wynikiem `getNowInTimezone(tz)`
+- Naprawić `isSlotToday()` i `isSlotInPast()` — porównywać z datą w strefie konfiguracji, nie UTC
+
+### 4. Zmiany w `AutoWebinarEventView.tsx`
+- `getSlotStatus()` — użyć czasu w strefie konfiguracji zamiast `new Date().getHours()`
+- Wyświetlić informację o strefie czasowej przy slotach (np. "11:30 CET")
+
+### 5. Aktualizacja typu TypeScript
+- Dodać `timezone` do typu `AutoWebinarConfig`
+
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | Dodanie kolumny `timezone` |
+| `src/hooks/useAutoWebinarSync.ts` | Przeliczanie czasu na strefę z configu |
+| `src/components/auto-webinar/AutoWebinarEventView.tsx` | Status slotów wg strefy; label CET |
+| `src/types/autoWebinar.ts` | Pole `timezone` w typie |
+
