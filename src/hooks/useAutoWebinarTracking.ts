@@ -15,6 +15,7 @@ export function useAutoWebinarTracking(
   category: string = 'business_opportunity'
 ) {
   const viewId = useRef<string | null>(null);
+  const creatingRef = useRef(false);
   // Persist sessionId in localStorage so returning guests are recognized
   const sessionId = useRef<string>('');
   if (!sessionId.current) {
@@ -32,8 +33,9 @@ export function useAutoWebinarTracking(
   const updateInterval = useRef<ReturnType<typeof setInterval>>();
 
   const createView = useCallback(async (vid: string) => {
-    // Prevent duplicate views in the same session
-    if (viewId.current) return;
+    // Prevent duplicate views in the same session (mutex for concurrent calls)
+    if (viewId.current || creatingRef.current) return;
+    creatingRef.current = true;
 
     const { data: userData } = await supabase.auth.getUser();
     const userId = userData?.user?.id || null;
@@ -55,6 +57,7 @@ export function useAutoWebinarTracking(
       viewId.current = (data as any).id;
       startTime.current = Date.now();
     }
+    creatingRef.current = false;
   }, [isGuest, guestEmail, guestRegistrationId]);
 
   const updateDuration = useCallback(async () => {
