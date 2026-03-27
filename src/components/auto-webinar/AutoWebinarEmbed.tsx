@@ -151,13 +151,19 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   // Video playback — try to start with sound
   const hasStartedRef = useRef(false);
   const currentSrcRef = useRef<string | null>(null);
+  const startOffsetRef = useRef(startOffset);
+
+  // Keep ref in sync without triggering playback effect
+  useEffect(() => {
+    startOffsetRef.current = startOffset;
+  }, [startOffset]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
     const videoToPlay = currentVideo;
-    if (!videoToPlay || startOffset < 0 || (!previewMode && showWelcome)) return;
+    if (!videoToPlay || startOffsetRef.current < 0 || (!previewMode && showWelcome)) return;
 
     // Only reload if source actually changed
     if (currentSrcRef.current === videoToPlay.video_url && hasStartedRef.current) {
@@ -168,8 +174,9 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     currentSrcRef.current = videoToPlay.video_url;
 
     const handleCanPlay = () => {
-      if (!hasStartedRef.current && startOffset > 0 && !previewMode) {
-        video.currentTime = startOffset;
+      const offset = startOffsetRef.current;
+      if (!hasStartedRef.current && offset > 0 && !previewMode) {
+        video.currentTime = offset;
       }
       
       if (previewMode) {
@@ -223,7 +230,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     return () => {
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, [currentVideo, startOffset, showWelcome, previewMode, videos]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentVideo?.video_url, showWelcome, previewMode]);
 
   useEffect(() => {
     hasStartedRef.current = false;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { AutoWebinarVideo, AutoWebinarConfig } from '@/types/autoWebinar';
 
 /**
@@ -152,7 +152,8 @@ export function useAutoWebinarSync(
   previewMode = false,
   bypassLateBlock = false
 ): AutoWebinarSyncResult {
-  const [currentVideo, setCurrentVideo] = useState<AutoWebinarVideo | null>(null);
+  const [currentVideo, setCurrentVideoRaw] = useState<AutoWebinarVideo | null>(null);
+  const prevVideoIdRef = useRef<string | null>(null);
   const [startOffset, setStartOffset] = useState(0);
   const [isInActiveHours, setIsInActiveHours] = useState(false);
   const [secondsToNext, setSecondsToNext] = useState(0);
@@ -162,6 +163,15 @@ export function useAutoWebinarSync(
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const [isRoomClosed, setIsRoomClosed] = useState(false);
   const hasStartedPlayingRef = useRef(bypassLateBlock);
+
+  // Stable setter: only triggers re-render when video ID actually changes
+  const setCurrentVideo = useCallback((video: AutoWebinarVideo | null) => {
+    const newId = video?.id ?? null;
+    if (newId !== prevVideoIdRef.current) {
+      prevVideoIdRef.current = newId;
+      setCurrentVideoRaw(video);
+    }
+  }, []);
 
   useEffect(() => {
     if (!config?.is_enabled || videos.length === 0) {
