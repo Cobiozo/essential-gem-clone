@@ -264,10 +264,13 @@ const EventGuestRegistration: React.FC = () => {
     const fetchConfig = async () => {
       const { data } = await supabase
         .from('auto_webinar_config')
-        .select('start_hour, end_hour, interval_minutes, slot_hours')
+        .select('start_hour, end_hour, interval_minutes, slot_hours, category')
         .eq('event_id', event.id)
         .maybeSingle();
-      if (data) setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+      if (data) {
+        setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+        setAutoWebinarCategory((data as any).category || null);
+      }
 
       // Fetch first active video for display data
       const { data: videoData } = await supabase
