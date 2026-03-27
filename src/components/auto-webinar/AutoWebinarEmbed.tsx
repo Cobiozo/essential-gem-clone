@@ -308,12 +308,20 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
               <p className="text-xs sm:text-sm text-muted-foreground truncate">{roomSubtitle}</p>
             </div>
           </div>
-          {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
-            <Badge variant="destructive" className="animate-pulse gap-1 sm:gap-1.5 text-xs shrink-0">
-              <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-background" />
-              NA ŻYWO
-            </Badge>
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {config?.fake_participants_enabled && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
+              <AutoWebinarParticipantCount
+                min={config.fake_participants_min || 45}
+                max={config.fake_participants_max || 120}
+              />
+            )}
+            {showLiveBadge && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
+              <Badge variant="destructive" className="animate-pulse gap-1 sm:gap-1.5 text-xs shrink-0">
+                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-background" />
+                NA ŻYWO
+              </Badge>
+            )}
+          </div>
         </div>
       )}
 
@@ -339,15 +347,6 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
         <Card className="overflow-hidden border-0 shadow-lg">
           <CardContent className="p-0">
             <div ref={containerRef} className="relative aspect-video" style={{ backgroundColor: bgColor }}>
-              {/* Participant count */}
-              {config?.fake_participants_enabled && (
-                <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-10">
-                  <AutoWebinarParticipantCount
-                    min={config.fake_participants_min || 45}
-                    max={config.fake_participants_max || 120}
-                  />
-                </div>
-              )}
               {/* Video error state */}
               {videoError ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white gap-3 px-4">

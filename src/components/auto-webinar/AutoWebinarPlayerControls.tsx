@@ -109,20 +109,16 @@ export const AutoWebinarPlayerControls: React.FC<AutoWebinarPlayerControlsProps>
   };
 
   return (
-    <div
+    <button
       ref={controlsRef}
+      onClick={toggleFullscreen}
       className={cn(
-        'absolute bottom-0 left-0 right-0 flex items-center justify-end px-3 py-2 bg-black/60 backdrop-blur-sm transition-opacity duration-300 z-30',
+        'absolute bottom-2 left-2 z-30 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full bg-black/50 backdrop-blur-sm text-white hover:bg-black/70 transition-all duration-300',
         visible ? 'opacity-100' : 'opacity-0 pointer-events-none'
       )}
+      aria-label={isFullscreen ? 'Zamknij pełny ekran' : 'Pełny ekran'}
     >
-      <button
-        onClick={toggleFullscreen}
-        className="text-white hover:text-white/80 transition-colors p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
-        aria-label={isFullscreen ? 'Zamknij pełny ekran' : 'Pełny ekran'}
-      >
-        {isFullscreen ? <Minimize className="h-6 w-6" /> : <Maximize className="h-6 w-6" />}
-      </button>
-    </div>
+      {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+    </button>
   );
 };
