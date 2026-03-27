@@ -36,6 +36,7 @@ export const AutoWebinarEventView: React.FC<{ category?: AutoWebinarCategory }> 
   const [copied, setCopied] = useState(false);
   const { language } = useLanguage();
   const [inviteLang, setInviteLang] = useState(language);
+  const [activeDay, setActiveDay] = useState(0);
 
   React.useEffect(() => {
     if (!config?.event_id) { setLoadingEvent(false); return; }
