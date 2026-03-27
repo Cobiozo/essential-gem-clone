@@ -135,6 +135,7 @@ const ChangeTempPassword = lazyWithRetry(() => import("./pages/ChangeTempPasswor
 const OmegaBasePage = lazyWithRetry(() => import("./pages/OmegaBasePage"));
 const LeaderLandingPage = lazyWithRetry(() => import("./pages/LeaderLandingPage"));
 const AutoWebinarPage = lazyWithRetry(() => import("./pages/AutoWebinarPage"));
+const AutoWebinarRoom = lazyWithRetry(() => import("./components/auto-webinar/AutoWebinarRoom"));
 const AutoWebinarPublicPage = lazyWithRetry(() => import("./pages/AutoWebinarPublicPage"));
 const SkillsAssessment = lazyWithRetry(() => import("./pages/SkillsAssessment"));
 const OmegaTests = lazyWithRetry(() => import("./pages/OmegaTests"));
@@ -407,7 +408,9 @@ const AppContent = () => {
                 <Route path="/leader" element={<LeaderPanel />} />
                 <Route path="/omega-base" element={<OmegaBasePage />} />
                 <Route path="/landing-preview" element={<LeaderLandingPage />} />
-                <Route path="/auto-webinar" element={<AutoWebinarPage />} />
+                <Route path="/auto-webinar" element={<Navigate to="/events/webinars" replace />} />
+                <Route path="/auto-webinar/business" element={<AutoWebinarRoom category="business_opportunity" />} />
+                <Route path="/auto-webinar/health" element={<AutoWebinarRoom category="health_conversation" />} />
                 <Route path="/a-w/:slug" element={<AutoWebinarPublicPage />} />
                 <Route path="/skills-assessment" element={<SkillsAssessment />} />
                 <Route path="/moje-testy" element={<OmegaTests />} />
