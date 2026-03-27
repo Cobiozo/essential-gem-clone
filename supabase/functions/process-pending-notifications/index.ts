@@ -885,72 +885,10 @@ serve(async (req) => {
         for (const event of endedEvents) {
           if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
 
-          // Process registered users (event_registrations)
-          const { data: regs } = await supabase
-            .from("event_registrations")
-            .select("id, user_id, thank_you_sent")
-            .eq("event_id", event.id)
-            .eq("status", "registered")
-            .or("thank_you_sent.eq.false,thank_you_sent.is.null");
+          // NOTE: Registered users (partners, specialists, clients) do NOT receive post-event thank-you emails.
+          // Only invited guests receive emails, conditional on attendance.
 
-          if (regs && regs.length > 0) {
-            for (const reg of regs) {
-              if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
-
-              // Get user profile
-              const { data: profile } = await supabase
-                .from("profiles")
-                .select("email, first_name, last_name, upline_eq_id")
-                .eq("user_id", reg.user_id)
-                .single();
-
-              if (!profile?.email) continue;
-
-              // Find inviter (upline)
-              let inviterUserId: string | null = null;
-              if (profile.upline_eq_id) {
-                const { data: inviterProfile } = await supabase
-                  .from("profiles")
-                  .select("user_id")
-                  .eq("eq_id", profile.upline_eq_id)
-                  .single();
-                inviterUserId = inviterProfile?.user_id || null;
-              }
-
-              results.postEventThankYou.processed++;
-              if (results.postEventThankYou.processed > 1) await delay(200);
-
-              try {
-                const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
-                  body: {
-                    event_id: event.id,
-                    recipient_email: profile.email,
-                    recipient_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-                    event_title: event.title,
-                    inviter_user_id: inviterUserId || event.host_user_id || event.created_by,
-                    source_type: 'event_registration',
-                    source_id: reg.id,
-                  },
-                });
-
-                if (sendErr) {
-                  console.error(`[CRON] Post-event thank you failed for ${profile.email}:`, sendErr);
-                  results.postEventThankYou.failed++;
-                } else {
-                  results.postEventThankYou.success++;
-                  await supabase.from("event_registrations").update({
-                    thank_you_sent: true,
-                    thank_you_sent_at: new Date().toISOString(),
-                  }).eq("id", reg.id);
-                }
-              } catch (err) {
-                console.error("[CRON] Exception post-event thank you:", err);
-                results.postEventThankYou.failed++;
-              }
-            }
-          }
-
-          // Process guest registrations
+          // Process guest registrations with attendance check
           const { data: guestRegs } = await supabase
             .from("guest_event_registrations")
             .select("id, email, first_name, last_name, invited_by_user_id, thank_you_sent")
@@ -959,9 +897,50 @@ serve(async (req) => {
             .or("thank_you_sent.eq.false,thank_you_sent.is.null");
 
           if (guestRegs && guestRegs.length > 0) {
+            // Check if this event has an auto-webinar config to determine attendance
+            const { data: awConfig } = await supabase
+              .from("auto_webinar_config")
+              .select("id")
+              .eq("event_id", event.id)
+              .maybeSingle();
+
+            // Get video IDs for this event's auto-webinar (if any)
+            let eventVideoIds: string[] = [];
+            if (awConfig) {
+              const { data: videos } = await supabase
+                .from("auto_webinar_videos")
+                .select("id")
+                .eq("config_id", awConfig.id)
+                .eq("is_active", true);
+              if (videos) {
+                eventVideoIds = videos.map(v => v.id);
+              }
+            }
+
             for (const guest of guestRegs) {
               if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
               if (!guest.email) continue;
+
+              // Determine email type based on attendance
+              let emailType = 'thank_you'; // default for non-auto-webinar events
+
+              if (awConfig && eventVideoIds.length > 0) {
+                // Check if guest has a view record for this event's videos
+                const { data: views } = await supabase
+                  .from("auto_webinar_views")
+                  .select("watch_duration_seconds")
+                  .eq("guest_email", guest.email)
+                  .in("video_id", eventVideoIds)
+                  .order("watch_duration_seconds", { ascending: false })
+                  .limit(1);
+
+                const bestView = views && views.length > 0 ? views[0] : null;
+                if (bestView && bestView.watch_duration_seconds && bestView.watch_duration_seconds > 0) {
+                  emailType = 'thank_you';
+                } else {
+                  emailType = 'missed_event';
+                }
+              }
 
               results.postEventThankYou.processed++;
               if (results.postEventThankYou.processed > 1) await delay(200);
@@ -976,11 +955,12 @@ serve(async (req) => {
                     inviter_user_id: guest.invited_by_user_id || event.host_user_id || event.created_by,
                     source_type: 'guest_event_registration',
                     source_id: guest.id,
+                    email_type: emailType,
                   },
                 });
 
                 if (sendErr) {
-                  console.error(`[CRON] Guest post-event thank you failed for ${guest.email}:`, sendErr);
+                  console.error(`[CRON] Guest post-event ${emailType} failed for ${guest.email}:`, sendErr);
                   results.postEventThankYou.failed++;
                 } else {
                   results.postEventThankYou.success++;
@@ -990,7 +970,7 @@ serve(async (req) => {
                   }).eq("id", guest.id);
                 }
               } catch (err) {
-                console.error("[CRON] Exception guest post-event thank you:", err);
+                console.error("[CRON] Exception guest post-event email:", err);
                 results.postEventThankYou.failed++;
               }
             }
