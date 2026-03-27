@@ -1,52 +1,59 @@
 
 
-# Plan: Poprawki kontaktów z auto-webinarów
+# Plan: Poprawki danych rejestracji i nazewnictwa auto-webinarów
 
 ## Zidentyfikowane problemy
 
-1. **Nagłówek grupy pokazuje datę wydarzenia (09.03) zamiast daty rejestracji (27.03)** — Dla auto-webinarów wszystkie rejestracje mają ten sam `event_id`, więc `events.start_time` to data utworzenia wydarzenia, nie data slotu gościa. Nagłówek grupy powinien odzwierciedlać faktyczne daty rejestracji.
+### 1. Katarzyna Snopek — "Nie dołączył" mimo że oglądała
+**Przyczyna**: Hook `useAutoWebinarTracking` (linia 39-45) szuka `guest_registration_id` po samym emailu (`eq('email', guestEmail)`), sortując po `created_at DESC` i biorąc `limit(1)`. Katarzyna zarejestrowała się 27.03 (registration `bf5f6b7b`), ale **nie obejrzała jeszcze tego webinaru**. Wcześniejsze widoki (spod tego samego emaila) są podpięte do **starszych** rejestracji (np. `5da28865`, `16606553`). Popover w `ContactEventInfoButton` szuka views po `guest_registration_id` = `bf5f6b7b` i nic nie znajduje → "Nie dołączył".
 
-2. **Usunięte kontakty kolidują z nowymi rejestracjami** — `fetchEventContactIds` w `useTeamContacts.ts` pobiera rejestracje po `team_contact_id` bez sprawdzania czy kontakt jest usunięty (`deleted_at`). Usunięty kontakt nadal "zajmuje" rejestrację i może blokować wyświetlanie nowych.
+Dodatkowo: za każdym odtwarzaniem tworzonych jest wiele rekordów `auto_webinar_views` (5-10 na sesję) bo hook tworzy nowy rekord za każdym razem gdy `isPlaying` się zmieni.
 
-3. **Popover (ContactEventInfoButton) pokazuje datę wydarzenia zamiast daty rejestracji** — `event_date` pochodzi z `events.start_time`, co dla auto-webinarów jest datą konfiguracji, nie datą sesji gościa.
+### 2. Nazwa "Szansa Biznesowa" zamiast "Business Opportunity"
+**Przyczyna**: W tabeli `events` tytuł to dosłownie `"Szansa Biznesowa"`. Nagłówek grupy bierze ten tytuł z `events.title`. To jest kwestia danych w DB — trzeba zmienić tytuł wydarzenia, ale też dodać mapowanie w UI na wypadek gdyby ktoś zmienił tytuł z powrotem.
 
 ## Rozwiązanie
 
-### Plik: `src/hooks/useTeamContacts.ts`
+### A. Naprawić powiązanie tracking → rejestracja (kluczowa poprawka)
 
-**A. Filtrować usunięte kontakty w `fetchEventContactIds`:**
-- Dodać JOIN z `team_contacts` aby wykluczyć kontakty z `deleted_at IS NOT NULL`
-- Alternatywnie: po pobraniu danych, odfiltrować rejestracje których `team_contact_id` nie istnieje w aktywnych `contacts`
+**Plik: `src/hooks/useAutoWebinarTracking.ts`**
+- Dodać parametr `guestRegistrationId: string | null` do hooka (zamiast szukać w DB po emailu)
+- Usunąć lookup po emailu z `createView()` — bezpośrednio użyć przekazanego ID
+- Dodać deduplikację: nie tworzyć nowego widoku jeśli `viewId.current` już istnieje (zapobiegnie wielokrotnym rekordom)
 
-**B. Zmienić grupowanie auto-webinarów — grupuj po dacie rejestracji, nie po event_id:**
-- Dla kontaktów z auto-webinarów (`event_category = 'business_opportunity' | 'health_conversation'` z auto_webinar_config): użyć `registered_at` jako daty grupy zamiast `events.start_time`
-- Klucz grupy: zamiast samego `event_id`, użyć `event_id + data_rejestracji` (dzień), żeby rejestracje z różnych dni nie były w jednej grupie
-- W `buildEventGroups`: gdy kategoria to BO/HC, generować klucz grupy jako `${event_id}::${registered_at_date}` i ustawić `date` grupy na `registered_at`
+**Plik: `src/components/auto-webinar/AutoWebinarEmbed.tsx`**
+- Przed wywołaniem `useAutoWebinarTracking`, pobrać `guest_registration_id` z bazy na podstawie emaila **I** `event_id` (z configu)
+- Przekazać ten ID do hooka
 
-**C. Dodać `registered_at` do `EventRegistrationInfo`** (typ w `types.ts`) — już jest, ale nie jest używany w `buildEventGroups` do ustawiania daty grupy.
+**Plik: `src/pages/AutoWebinarPublicPage.tsx`**
+- Bez zmian (email jest wystarczający do przekazania)
 
-### Plik: `src/components/team-contacts/ContactEventInfoButton.tsx`
+### B. Zmienić tytuł wydarzenia w UI
 
-**D. Popover — pokazywać datę rejestracji (slot) zamiast `events.start_time`:**
-- Pobrać `registered_at` z `guest_event_registrations` (już jest w query — trzeba dodać do select)
-- Wyświetlać `registered_at` jako datę w popoverze zamiast `events.start_time`
+**Plik: `src/hooks/useTeamContacts.ts`** i/lub **`src/components/team-contacts/EventGroupedContacts.tsx`**
+- Dodać mapowanie kategorii na wyświetlaną nazwę:
+  - `business_opportunity` → "Business Opportunity"  
+  - `health_conversation` → "Health Conversation"
+- Użyć nazwy kategorii zamiast `events.title` w nagłówku grupy dla auto-webinarów
+- Alternatywnie: zmienić tytuł w bazie danych (ale to mniej trwałe rozwiązanie)
 
-### Plik: `src/components/team-contacts/EventGroupedContacts.tsx`
+### C. ContactEventInfoButton — poprawić powiązanie views z rejestracją
 
-**E. Nagłówek grupy:**
-- Data grupy będzie teraz poprawna (z `registered_at`), więc nagłówek automatycznie pokaże właściwą datę
-
-### Plik: `supabase/functions/send-webinar-confirmation/index.ts`
-
-**F. Nowy kontakt nie może kolidować z usuniętym:**
-- Przy tworzeniu kontaktu auto-webinar (linia 298-337): system już zawsze tworzy nowy rekord (brak deduplikacji) — to jest OK
-- Ale `guest_event_registrations.team_contact_id` starego (usuniętego) kontaktu nadal istnieje — trzeba upewnić się, że update `team_contact_id` na nowej rejestracji nie jest blokowany przez starą
+**Plik: `src/components/team-contacts/ContactEventInfoButton.tsx`**
+- Popover już poprawnie szuka views po `guest_registration_id` (linia 72-75)
+- Problem jest u źródła — tracking nie linkuje views do właściwej rejestracji
+- Po poprawce A, dane same się naprawią dla nowych sesji
 
 ## Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `useTeamContacts.ts` | Filtrować usunięte kontakty; grupować auto-webinary po dacie rejestracji |
-| `ContactEventInfoButton.tsx` | Pokazywać `registered_at` zamiast `events.start_time` |
-| `types.ts` | Ewentualne rozszerzenie `EventGroup` o flagę `isAutoWebinar` |
+| `useAutoWebinarTracking.ts` | Przyjmować `guestRegistrationId` zamiast szukać po emailu; deduplikacja tworzenia widoków |
+| `AutoWebinarEmbed.tsx` | Pobrać registration ID na podstawie emaila + event_id z configu; przekazać do hooka |
+| `useTeamContacts.ts` | Mapować nazwy kategorii: BO → "Business Opportunity", HC → "Health Conversation" |
+| `EventGroupedContacts.tsx` | Użyć zmapowanej nazwy kategorii jako tytułu grupy dla auto-webinarów |
+
+## Uwagi
+- Istniejące dane w `auto_webinar_views` z błędnymi `guest_registration_id` nie zostaną automatycznie naprawione — dotyczy to tylko nowych sesji
+- Można opcjonalnie uruchomić migrację SQL, która naprawi istniejące powiązania
 
