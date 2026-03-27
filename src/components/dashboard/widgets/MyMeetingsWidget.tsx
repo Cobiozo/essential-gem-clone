@@ -47,7 +47,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const userEvents = useMemo(() => {
     if (!sharedEvents) return [];
     const expanded = expandEventsForCalendar(sharedEvents);
-    return expanded.filter(e => e.is_registered);
+    return expanded.filter(e => e.is_registered && e.event_type !== 'auto_webinar');
   }, [sharedEvents]);
 
   const toggleExpand = (key: string) => {
