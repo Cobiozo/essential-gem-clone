@@ -55,7 +55,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
       // 1. Fetch registrations
       const { data } = await supabase
         .from('guest_event_registrations')
-        .select('id, status, events(title, start_time)')
+        .select('id, status, registered_at, events(title, start_time)')
         .eq('team_contact_id', contact.id)
         .neq('status', 'cancelled');
 
@@ -94,7 +94,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         id: r.id,
         status: r.status,
         event_title: r.events?.title || '-',
-        event_date: r.events?.start_time || '',
+        event_date: r.registered_at || r.events?.start_time || '',
         view_stats: viewsMap.get(r.id) || null,
       }));
       setRegistrations(mapped);

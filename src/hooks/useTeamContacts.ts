@@ -414,9 +414,10 @@ export const useTeamContacts = () => {
     try {
       const { data, error } = await supabase
         .from('guest_event_registrations')
-        .select('team_contact_id, event_id, first_name, email, status, registered_at, registration_attempts, events(title, start_time)')
+        .select('team_contact_id, event_id, first_name, email, status, registered_at, registration_attempts, events(title, start_time), team_contacts!inner(id, deleted_at)')
         .eq('invited_by_user_id', user.id)
-        .not('team_contact_id', 'is', null);
+        .not('team_contact_id', 'is', null)
+        .is('team_contacts.deleted_at', null);
       
       if (error) throw error;
 
@@ -515,31 +516,45 @@ export const useTeamContacts = () => {
 
       for (const reg of registrations) {
         const category = reg.event_category || 'general';
+        const isAutoWebinar = category === 'business_opportunity' || category === 'health_conversation';
         
-        if (!groups.has(reg.event_id)) {
+        // For auto-webinars: group by event_id + registration date (day)
+        // For regular events: group by event_id only
+        let groupKey: string;
+        let groupDate: string;
+        if (isAutoWebinar && reg.registered_at) {
+          const regDay = reg.registered_at.substring(0, 10); // YYYY-MM-DD
+          groupKey = `${reg.event_id}::${regDay}`;
+          groupDate = reg.registered_at;
+        } else {
+          groupKey = reg.event_id;
+          groupDate = reg.event_start_time;
+        }
+        
+        if (!groups.has(groupKey)) {
           const groupData: EventGroup = {
-            event_id: reg.event_id,
+            event_id: groupKey,
             title: reg.event_title,
-            date: reg.event_start_time,
+            date: groupDate,
             contacts: [],
             event_category: category,
           };
-          groups.set(reg.event_id, groupData);
+          groups.set(groupKey, groupData);
         }
-        groups.get(reg.event_id)!.contacts.push(contact);
+        groups.get(groupKey)!.contacts.push(contact);
 
         // Add to category-specific map
         const targetMap = category === 'health_conversation' ? groupsHC : category === 'business_opportunity' ? groupsBO : groupsGeneral;
-        if (!targetMap.has(reg.event_id)) {
-          targetMap.set(reg.event_id, {
-            event_id: reg.event_id,
+        if (!targetMap.has(groupKey)) {
+          targetMap.set(groupKey, {
+            event_id: groupKey,
             title: reg.event_title,
-            date: reg.event_start_time,
+            date: groupDate,
             contacts: [],
             event_category: category,
           });
         }
-        targetMap.get(reg.event_id)!.contacts.push(contact);
+        targetMap.get(groupKey)!.contacts.push(contact);
       }
 
       // Per-contact event count — simply count registrations for each contact ID
