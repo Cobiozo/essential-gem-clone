@@ -25,7 +25,11 @@ interface GuestStat {
   watch_duration_seconds: number | null;
 }
 
-export const AutoWebinarGuestStats: React.FC = () => {
+interface AutoWebinarGuestStatsProps {
+  category: 'business_opportunity' | 'health_conversation';
+}
+
+export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ category }) => {
   const { toast } = useToast();
   const [stats, setStats] = useState<GuestStat[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +42,7 @@ export const AutoWebinarGuestStats: React.FC = () => {
       const { data: config } = await supabase
         .from('auto_webinar_config')
         .select('event_id')
+        .eq('category', category)
         .limit(1)
         .maybeSingle();
 
