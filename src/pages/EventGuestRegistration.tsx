@@ -415,6 +415,10 @@ const EventGuestRegistration: React.FC = () => {
   const isAfterCutoff = !isAutoWebinar && new Date() > registrationCutoff && !isPast;
   const cutoffTimeStr = format(registrationCutoff, 'HH:mm');
 
+  // Check if auto-webinar slot is expired (date-specific link in the past)
+  const resolvedSlot = isAutoWebinar && autoWebinarConfig ? getNextSlot(autoWebinarConfig, slotParam) : undefined;
+  const isSlotExpired = isAutoWebinar && autoWebinarConfig && slotParam && resolvedSlot === null;
+
   // Map auto-webinar category to display title
   const displayTitle = isAutoWebinar && autoWebinarCategory
     ? (autoWebinarCategory === 'business_opportunity' ? 'Business Opportunity'
@@ -433,6 +437,24 @@ const EventGuestRegistration: React.FC = () => {
             <CardTitle className="text-xl">To wydarzenie nie jest już dostępne</CardTitle>
             <CardDescription>
               Rejestracja na to wydarzenie została zamknięta. Link stracił ważność.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
+
+  // Block registration for expired auto-webinar slots
+  if (isSlotExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <img src={pureLifeLogo} alt="Pure Life" className="h-12 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
+            <CardTitle className="text-xl">Ten termin webinaru już się odbył</CardTitle>
+            <CardDescription>
+              Link do tego terminu stracił ważność. Poproś o nowy link z aktualnym terminem.
             </CardDescription>
           </CardHeader>
         </Card>
