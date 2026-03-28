@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="5">
+  <title>PureLife — Aktualizacja systemu</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #0a0f0a 0%, #1a2e1a 50%, #0d1a0d 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #e0e8e0;
+      padding: 24px;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 480px;
+      width: 100%;
+    }
+
+    .logo {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #4ade80;
+      margin-bottom: 48px;
+    }
+
+    .logo span {
+      color: #86efac;
+      font-weight: 300;
+    }
+
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 3px solid rgba(74, 222, 128, 0.15);
+      border-top-color: #4ade80;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 32px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #f0fdf4;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: 1rem;
+      color: #a7c4a7;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: #6b8f6b;
+      margin-top: 40px;
+    }
+
+    .pulse-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: #4ade80;
+      border-radius: 50%;
+      margin-right: 8px;
+      animation: pulse 1.5s ease-in-out infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; transform: scale(0.8); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">PURE<span>LIFE</span></div>
+    <div class="spinner"></div>
+    <h1>Trwa aktualizacja systemu</h1>
+    <p>Wdrażamy nową wersję aplikacji.<br>Strona będzie dostępna za chwilę.</p>
+    <p class="hint">
+      <span class="pulse-dot"></span>Strona odświeży się automatycznie
+    </p>
+  </div>
+</body>
+</html>
