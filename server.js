@@ -41,6 +41,92 @@ const PRODUCTION_DOMAIN = process.env.PRODUCTION_DOMAIN || 'https://purelife.inf
 let isShuttingDown = false;
 const activeConnections = new Set();
 
+// ========================================
+// MAINTENANCE MODE — AUTO-DETECTION
+// ========================================
+
+let isMaintenanceMode = false;
+let lastDistSnapshot = { totalSize: 0, mtimeMax: 0 };
+let stableCount = 0; // consecutive identical readings
+const MAINTENANCE_HTML = path.join(__dirname, 'maintenance.html');
+const DIST_DIR = path.join(__dirname, 'dist');
+const DIST_ASSETS_DIR = path.join(__dirname, 'dist', 'assets');
+
+function getDistSnapshot() {
+  try {
+    const indexExists = fs.existsSync(path.join(DIST_DIR, 'index.html'));
+    if (!indexExists) {
+      return { totalSize: -1, mtimeMax: 0, missing: true };
+    }
+
+    if (!fs.existsSync(DIST_ASSETS_DIR)) {
+      return { totalSize: 0, mtimeMax: 0, missing: false };
+    }
+
+    let totalSize = 0;
+    let mtimeMax = 0;
+
+    const files = fs.readdirSync(DIST_ASSETS_DIR);
+    for (const file of files) {
+      try {
+        const stat = fs.statSync(path.join(DIST_ASSETS_DIR, file));
+        if (stat.isFile()) {
+          totalSize += stat.size;
+          const mt = stat.mtimeMs;
+          if (mt > mtimeMax) mtimeMax = mt;
+        }
+      } catch {
+        // file disappeared mid-scan — still copying
+        return { totalSize: -1, mtimeMax: 0, missing: true };
+      }
+    }
+
+    return { totalSize, mtimeMax, missing: false };
+  } catch {
+    return { totalSize: -1, mtimeMax: 0, missing: true };
+  }
+}
+
+function checkDistStability() {
+  const current = getDistSnapshot();
+
+  if (current.missing) {
+    if (!isMaintenanceMode) {
+      isMaintenanceMode = true;
+      stableCount = 0;
+      console.log(`🔧 [Maintenance] ON — dist/index.html missing or unreadable`);
+    }
+    lastDistSnapshot = current;
+    return;
+  }
+
+  const changed = current.totalSize !== lastDistSnapshot.totalSize ||
+                  current.mtimeMax !== lastDistSnapshot.mtimeMax;
+
+  if (changed) {
+    if (!isMaintenanceMode) {
+      console.log(`🔧 [Maintenance] ON — dist/ files changed (size: ${lastDistSnapshot.totalSize} → ${current.totalSize})`);
+    }
+    isMaintenanceMode = true;
+    stableCount = 0;
+    lastDistSnapshot = current;
+  } else {
+    stableCount++;
+    if (isMaintenanceMode && stableCount >= 2) {
+      isMaintenanceMode = false;
+      stableCount = 0;
+      console.log(`✅ [Maintenance] OFF — dist/ stable (size: ${current.totalSize}, 2 consecutive checks OK)`);
+    }
+  }
+}
+
+// Take initial snapshot (don't trigger maintenance on server start)
+lastDistSnapshot = getDistSnapshot();
+stableCount = 2; // treat startup as stable
+
+// Check every 3 seconds
+setInterval(checkDistStability, 3000);
+
 // Upload configuration
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB
@@ -155,6 +241,20 @@ app.use((req, res, next) => {
     res.setHeader('Connection', 'close');
   }
   next();
+});
+
+// Maintenance mode middleware — serve static page during deploys
+app.use((req, res, next) => {
+  if (!isMaintenanceMode) return next();
+
+  // Allow API/health endpoints through
+  const bypassPaths = ['/health', '/upload', '/list-files', '/api/'];
+  if (bypassPaths.some(p => req.path.startsWith(p))) return next();
+
+  res.status(503);
+  res.setHeader('Retry-After', '5');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(MAINTENANCE_HTML);
 });
 
 // ========================================
@@ -506,7 +606,12 @@ app.get('*', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+
+  const indexPath = path.join(__dirname, 'dist', 'index.html');
+  if (!fs.existsSync(indexPath)) {
+    return res.status(503).sendFile(MAINTENANCE_HTML);
+  }
+  res.sendFile(indexPath);
 });
 
 // Error handling
