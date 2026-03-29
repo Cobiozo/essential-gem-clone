@@ -1,58 +1,55 @@
 
 
-## Plan: Rozwijane dane kontaktu + wiadomości z fikcyjnego czatu
+## Plan: Nie zaliczaj starych rejestracji do nowych terminów w wydarzeniach cyklicznych
 
 ### Problem
-1. Kliknięcie w kontakt na liście nie rozwija żadnych szczegółów
-2. Wiadomości pisane przez gości na fikcyjnym czacie nie są nigdzie zapisywane (żyją tylko w React state) — nie ma jak je później wyświetlić
+Gdy admin edytuje zakończone wydarzenie i dodaje nowe terminy (occurrences), użytkownicy którzy byli zapisani na stare terminy automatycznie pojawiają się jako zapisani na nowe. Dzieje się tak z dwóch powodów:
+
+1. **Legacy null registration** — stare rejestracje mają `occurrence_index = null`. Logika w `expandEventsForCalendar` (linia 167) przypisuje taką rejestrację do najbliższego przyszłego terminu, traktując ją jako "aktywną".
+
+2. **Event-level `is_registered`** — w `useEvents.ts` linia 133: `is_registered: registeredEventIds.has(event.id)` — jeśli user ma JAKĄKOLWIEK rejestrację na event_id (nawet na stary, zakończony termin), cały event dostaje `is_registered = true`.
 
 ### Rozwiązanie
 
-#### 1. Nowa tabela: `auto_webinar_guest_messages`
-Migracja SQL tworząca tabelę do persystencji wiadomości gości:
-```sql
-create table public.auto_webinar_guest_messages (
-  id uuid primary key default gen_random_uuid(),
-  guest_registration_id uuid references guest_event_registrations(id) on delete cascade,
-  guest_email text not null,
-  guest_name text,
-  config_id uuid references auto_webinar_config(id) on delete cascade,
-  video_id uuid references auto_webinar_videos(id) on delete set null,
-  content text not null,
-  sent_at_second integer not null,  -- sekunda nagrania w momencie wysłania
-  created_at timestamptz default now()
-);
-alter table auto_webinar_guest_messages enable row level security;
--- Goście mogą wstawiać
-create policy "guests_insert" on auto_webinar_guest_messages for insert with check (true);
--- Zalogowani użytkownicy mogą czytać (partnerzy widzą wiadomości swoich gości)
-create policy "authenticated_select" on auto_webinar_guest_messages for select to authenticated using (true);
+#### 1. `src/hooks/useOccurrences.ts` — wyłącz legacy match dla multi-occurrence
+Zmiana w `expandEventsForCalendar`: usunąć logikę `legacyMatch`. Rejestracja z `occurrence_index = null` NIE powinna automatycznie zaliczać użytkownika do żadnego przyszłego terminu. Jeśli event stał się multi-occurrence, użytkownik musi się zapisać na każdy termin osobno.
+
+```typescript
+// BEFORE (line 167):
+const legacyMatch = !hasSpecificRegistration && hasLegacyNullRegistration && occ.index === nextActiveIndex;
+const isRegisteredForOccurrence = specificMatch || legacyMatch;
+
+// AFTER:
+const isRegisteredForOccurrence = specificMatch;
 ```
 
-#### 2. Persystencja wiadomości gości — `AutoWebinarFakeChat.tsx`
-- Przekazać nowe propsy: `guestRegistrationId`, `guestEmail`, `guestName`, `videoId`
-- W `sendMessage` (lub nowej funkcji) po dodaniu do state, INSERT do `auto_webinar_guest_messages` z `sent_at_second = Math.floor(startOffset)`
-- Fire-and-forget (nie blokuje UI czatu)
+#### 2. `src/hooks/useEvents.ts` — `is_registered` per-occurrence aware
+Zmiana na linii 133: dla eventów z occurrences, `is_registered` powinno być `false` na poziomie eventu (bo `expandEventsForCalendar` ustawi to per-occurrence). Tylko dla eventów BEZ occurrences zostawiamy obecną logikę.
 
-#### 3. Propagacja propsów — `AutoWebinarEmbed.tsx`
-- Przekazać do `AutoWebinarFakeChat` dodatkowe propsy z kontekstu rejestracji gościa (już dostępne w komponencie)
+```typescript
+// BEFORE:
+is_registered: registeredEventIds.has(event.id),
 
-#### 4. Rozwijane dane kontaktu — `EventGroupedContacts.tsx`
-Po kliknięciu w wiersz kontaktu, rozwijają się pełne dane:
-- **Dane osobowe**: email, telefon, notatki, data rejestracji, status
-- **Dane oglądania**: czas dołączenia, czas oglądania (z istniejącego popovera, ale inline)
-- **Wiadomości z czatu**: lista wiadomości gościa z minutą nagrania
+// AFTER:
+is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
+```
 
-Techniczne szczegóły:
-- Dodać stan `expandedContactId` (string | null)
-- Kliknięcie w wiersz kontaktu toggle'uje rozwinięcie
-- Przy rozwinięciu fetch z `auto_webinar_guest_messages` po `guest_registration_id` lub `guest_email + config_id`
-- Wyświetlenie listy: `💬 [12:34] "treść wiadomości"` (minuta:sekunda nagrania)
+To zapewni że `expandEventsForCalendar` jest jedynym źródłem prawdy o rejestracji dla multi-occurrence events.
 
-#### 5. Pliki do modyfikacji
-1. **Migracja SQL** — nowa tabela `auto_webinar_guest_messages`
-2. **`src/components/auto-webinar/AutoWebinarFakeChat.tsx`** — zapis wiadomości do DB
-3. **`src/hooks/useAutoWebinarFakeChat.ts`** — dodanie logiki INSERT
-4. **`src/components/auto-webinar/AutoWebinarEmbed.tsx`** — przekazanie propsów rejestracji
-5. **`src/components/team-contacts/EventGroupedContacts.tsx`** — rozwijane szczegóły kontaktu z wiadomościami czatu
+#### 3. `src/hooks/usePublicEvents.ts` — analogiczna zmiana
+Linia 102 — ta sama poprawka co w `useEvents.ts`:
+```typescript
+is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
+```
+
+### Efekt
+- Stare rejestracje (occurrence_index = null) NIE będą przenoszone na nowe terminy
+- Każdy nowy termin wymaga osobnego kliknięcia "Zapisz się"
+- Edytowane zakończone wydarzenia z nowymi terminami traktowane jak nowe — nikt nie jest automatycznie zapisany
+- Widget "Moje spotkania" pokaże tylko terminy na które user faktycznie się zapisał
+
+### Pliki do modyfikacji
+1. `src/hooks/useOccurrences.ts` — usunięcie legacy null match
+2. `src/hooks/useEvents.ts` — is_registered aware of multi-occurrence
+3. `src/hooks/usePublicEvents.ts` — analogicznie
 
