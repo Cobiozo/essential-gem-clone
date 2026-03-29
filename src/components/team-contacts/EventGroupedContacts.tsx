@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import type { TeamContact, TeamContactHistory, EventGroup, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { ContactExpandedDetails } from './ContactExpandedDetails';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +41,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   onMoveToOwnList,
 }) => {
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const [duplicateConfirm, setDuplicateConfirm] = useState<string | null>(null);
@@ -135,80 +137,97 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                         const attempts = thisEventReg?.registration_attempts;
 
                         return (
-                          <div key={contact.id} className="flex items-center justify-between py-3 gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-foreground">
-                                  {contact.first_name} {contact.last_name}
-                                </span>
-                                {(contact as any).moved_to_own_list && (
-                                  <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1">
-                                    <CheckCheck className="w-3 h-3" />
-                                    W mojej liście kontaktów
-                                  </Badge>
-                                )}
-                                {dupCount && dupCount > 1 && (
-                                  <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 gap-1">
-                                    <RefreshCw className="w-3 h-3" />
-                                    Zapisany na {dupCount} wydarzeń
-                                  </Badge>
-                                )}
-                                {attempts && attempts > 1 && (
-                                  <Badge variant="destructive" className="text-xs gap-1">
-                                    🔄 Ponowna próba ×{attempts}
-                                  </Badge>
-                                )}
+                          <div key={contact.id}>
+                            <div
+                              className="flex items-center justify-between py-3 gap-4 cursor-pointer hover:bg-muted/30 transition-colors px-1 rounded"
+                              onClick={() => setExpandedContactId(prev => prev === contact.id ? null : contact.id)}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-foreground">
+                                    {contact.first_name} {contact.last_name}
+                                  </span>
+                                  {expandedContactId === contact.id ? (
+                                    <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                                  ) : (
+                                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                                  )}
+                                  {(contact as any).moved_to_own_list && (
+                                    <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1">
+                                      <CheckCheck className="w-3 h-3" />
+                                      W mojej liście kontaktów
+                                    </Badge>
+                                  )}
+                                  {dupCount && dupCount > 1 && (
+                                    <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 gap-1">
+                                      <RefreshCw className="w-3 h-3" />
+                                      Zapisany na {dupCount} wydarzeń
+                                    </Badge>
+                                  )}
+                                  {attempts && attempts > 1 && (
+                                    <Badge variant="destructive" className="text-xs gap-1">
+                                      🔄 Ponowna próba ×{attempts}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
+                                  {contact.email && <span>{contact.email}</span>}
+                                  {contact.phone_number && <span>{contact.phone_number}</span>}
+                                  {regDate && (
+                                    <span className="text-xs">📅 Zarejestrowano: {regDate}</span>
+                                  )}
+                                </div>
                               </div>
-                              <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-                                {contact.email && <span>{contact.email}</span>}
-                                {contact.phone_number && <span>{contact.phone_number}</span>}
-                                {regDate && (
-                                  <span className="text-xs">📅 Zarejestrowano: {regDate}</span>
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                {onMoveToOwnList && !(contact as any).moved_to_own_list && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={async () => {
+                                      const result = await onMoveToOwnList(contact.id);
+                                      if (result === 'duplicate') {
+                                        setDuplicateConfirm(contact.id);
+                                      }
+                                    }}
+                                    title="Przenieś do Mojej listy"
+                                  >
+                                    <UserPlus className="w-4 h-4 text-primary" />
+                                  </Button>
                                 )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {onMoveToOwnList && !(contact as any).moved_to_own_list && (
+                                <ContactEventInfoButton contact={contact} />
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  onClick={async () => {
-                                    const result = await onMoveToOwnList(contact.id);
-                                    if (result === 'duplicate') {
-                                      setDuplicateConfirm(contact.id);
-                                    }
-                                  }}
-                                  title="Przenieś do Mojej listy"
+                                  onClick={() => setHistoryContact(contact)}
+                                  title="Historia"
                                 >
-                                  <UserPlus className="w-4 h-4 text-primary" />
+                                  <History className="w-4 h-4" />
                                 </Button>
-                              )}
-                              <ContactEventInfoButton contact={contact} />
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setHistoryContact(contact)}
-                                title="Historia"
-                              >
-                                <History className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => onEdit(contact)}
-                                title="Edytuj"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setDeleteConfirm(contact.id)}
-                                title="Usuń"
-                              >
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => onEdit(contact)}
+                                  title="Edytuj"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setDeleteConfirm(contact.id)}
+                                  title="Usuń"
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
                             </div>
+                            {/* Expanded details */}
+                            {expandedContactId === contact.id && (
+                              <ContactExpandedDetails
+                                contact={contact}
+                                registrationInfo={thisEventReg}
+                              />
+                            )}
                           </div>
                         );
                       })}
