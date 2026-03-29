@@ -700,6 +700,64 @@ export type Database = {
           },
         ]
       }
+      auto_webinar_guest_messages: {
+        Row: {
+          config_id: string | null
+          content: string
+          created_at: string | null
+          guest_email: string
+          guest_name: string | null
+          guest_registration_id: string | null
+          id: string
+          sent_at_second: number
+          video_id: string | null
+        }
+        Insert: {
+          config_id?: string | null
+          content: string
+          created_at?: string | null
+          guest_email: string
+          guest_name?: string | null
+          guest_registration_id?: string | null
+          id?: string
+          sent_at_second: number
+          video_id?: string | null
+        }
+        Update: {
+          config_id?: string | null
+          content?: string
+          created_at?: string | null
+          guest_email?: string
+          guest_name?: string | null
+          guest_registration_id?: string | null
+          id?: string
+          sent_at_second?: number
+          video_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auto_webinar_guest_messages_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "auto_webinar_config"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_webinar_guest_messages_guest_registration_id_fkey"
+            columns: ["guest_registration_id"]
+            isOneToOne: false
+            referencedRelation: "guest_event_registrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auto_webinar_guest_messages_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "auto_webinar_videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auto_webinar_invitation_clicks: {
         Row: {
           clicked_at: string | null

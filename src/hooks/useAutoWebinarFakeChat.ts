@@ -10,7 +10,20 @@ export interface ChatMessage {
   isFake: boolean;
 }
 
-export function useAutoWebinarFakeChat(configId: string | null, startOffset: number, isPlaying: boolean) {
+export interface GuestChatContext {
+  guestRegistrationId: string | null;
+  guestEmail: string | null;
+  guestName: string | null;
+  configId: string | null;
+  videoId: string | null;
+}
+
+export function useAutoWebinarFakeChat(
+  configId: string | null,
+  startOffset: number,
+  isPlaying: boolean,
+  guestContext?: GuestChatContext
+) {
   const [fakeMessages, setFakeMessages] = useState<AutoWebinarFakeMessage[]>([]);
   const [visibleMessages, setVisibleMessages] = useState<ChatMessage[]>([]);
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([]);
@@ -76,6 +89,24 @@ export function useAutoWebinarFakeChat(configId: string | null, startOffset: num
       isFake: false,
     };
     setUserMessages(prev => [...prev, msg]);
+
+    // Persist to DB (fire-and-forget)
+    if (guestContext?.guestEmail) {
+      supabase
+        .from('auto_webinar_guest_messages' as any)
+        .insert({
+          guest_registration_id: guestContext.guestRegistrationId || null,
+          guest_email: guestContext.guestEmail,
+          guest_name: guestContext.guestName || authorName,
+          config_id: guestContext.configId || configId,
+          video_id: guestContext.videoId || null,
+          content,
+          sent_at_second: Math.floor(startOffset),
+        })
+        .then(({ error }) => {
+          if (error) console.warn('[FakeChat] Failed to persist message:', error.message);
+        });
+    }
   };
 
   return { messages: allMessages, sendMessage };

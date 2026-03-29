@@ -3,23 +3,42 @@ import { MessageSquare, X, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { useAutoWebinarFakeChat } from '@/hooks/useAutoWebinarFakeChat';
+import { useAutoWebinarFakeChat, type GuestChatContext } from '@/hooks/useAutoWebinarFakeChat';
 import { cn } from '@/lib/utils';
 
 interface AutoWebinarFakeChatProps {
   configId: string | null;
   startOffset: number;
   isPlaying: boolean;
+  guestRegistrationId?: string | null;
+  guestEmail?: string | null;
+  guestName?: string | null;
+  videoId?: string | null;
 }
 
 export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
   configId,
   startOffset,
   isPlaying,
+  guestRegistrationId,
+  guestEmail,
+  guestName,
+  videoId,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const { messages, sendMessage } = useAutoWebinarFakeChat(configId, startOffset, isPlaying);
+
+  const guestContext: GuestChatContext | undefined = guestEmail
+    ? {
+        guestRegistrationId: guestRegistrationId || null,
+        guestEmail,
+        guestName: guestName || null,
+        configId,
+        videoId: videoId || null,
+      }
+    : undefined;
+
+  const { messages, sendMessage } = useAutoWebinarFakeChat(configId, startOffset, isPlaying, guestContext);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
@@ -67,7 +86,7 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
   const handleSend = () => {
     const text = inputValue.trim();
     if (!text) return;
-    sendMessage(text);
+    sendMessage(text, guestName || 'Ty');
     setInputValue('');
   };
 
@@ -91,8 +110,6 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
     }
     return colors[Math.abs(hash) % colors.length];
   };
-
-  const unreadCount = messages.length - lastSeenCountRef.current;
 
   return (
     <>
