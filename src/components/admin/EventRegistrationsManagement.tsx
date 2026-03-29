@@ -153,6 +153,15 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [guestSearchQuery, setGuestSearchQuery] = useState('');
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  
+  // Reset registration state
+  const [resetGlobalDialogOpen, setResetGlobalDialogOpen] = useState(false);
+  const [resetUserDialogOpen, setResetUserDialogOpen] = useState(false);
+  const [resetUserTarget, setResetUserTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [resetRoleDialogOpen, setResetRoleDialogOpen] = useState(false);
+  const [resetRoleTarget, setResetRoleTarget] = useState<string>('');
+  const [isResetting, setIsResetting] = useState(false);
+
   const selectedEvent = useMemo(() =>
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
