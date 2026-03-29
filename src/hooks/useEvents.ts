@@ -59,13 +59,19 @@ export const useEvents = () => {
           .eq('user_id', user.id)
           .eq('status', 'registered');
 
-        // Create a Set for simple event_id check AND a Map for occurrence-specific check
-        const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
+        // Build registeredEventIds only from STABLE registrations:
+        // - Single events: occurrence_index is null (no occurrence tracking)
+        // - Multi-occurrence: must have occurrence_date + occurrence_time
+        // Legacy index-only registrations are EXCLUDED
+        const stableRegistrations = (registrations || []).filter(r => {
+          if (r.occurrence_index === null) return true; // single event
+          return r.occurrence_date && r.occurrence_time; // multi-occurrence with snapshot
+        });
+        const registeredEventIds = new Set(stableRegistrations.map(r => r.event_id));
+        
         // Map: "event_id:date:time" -> true for stable occurrence matching
-        // Only entries WITH occurrence_date+time are used for multi-occurrence events
-        // Entries without date/time use "event_id:null" for single events
         const registrationMap = new Map<string, boolean>(
-          (registrations || []).map(r => {
+          stableRegistrations.map(r => {
             const key = r.occurrence_date && r.occurrence_time
               ? `${r.event_id}:${r.occurrence_date}:${r.occurrence_time}`
               : `${r.event_id}:null`;
