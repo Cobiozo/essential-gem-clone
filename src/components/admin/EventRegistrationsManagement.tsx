@@ -710,10 +710,206 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
+  // === RESET HANDLERS ===
+  const activeUserRegistrationCount = useMemo(() =>
+    registrations.filter(r => r.status === 'registered').length,
+    [registrations]
+  );
+
+  const activeGuestRegistrationCount = useMemo(() =>
+    guestRegistrations.filter(r => r.status === 'registered').length,
+    [guestRegistrations]
+  );
+
+  const activeCountForRole = (role: string) =>
+    registrations.filter(r => r.status === 'registered' && r.profiles.role === role).length;
+
+  const activeCountForUser = (userId: string) =>
+    registrations.filter(r => r.status === 'registered' && r.user_id === userId).length;
+
+  const refreshRegistrations = () => {
+    // Trigger re-fetch by toggling event ID
+    const id = selectedEventId;
+    setSelectedEventId('');
+    setTimeout(() => setSelectedEventId(id), 50);
+  };
+
+  const handleResetGlobal = async () => {
+    if (!selectedEventId) return;
+    setIsResetting(true);
+    try {
+      // Cancel user registrations
+      const { error: userError } = await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('status', 'registered');
+
+      if (userError) throw userError;
+
+      // Cancel guest registrations
+      const { error: guestError } = await supabase
+        .from('guest_event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('status', 'registered');
+
+      if (guestError) throw guestError;
+
+      const total = activeUserRegistrationCount + activeGuestRegistrationCount;
+      toast({ title: 'Zapisy zresetowane', description: `Anulowano ${total} zapisów (użytkownicy + goście).` });
+      setResetGlobalDialogOpen(false);
+      refreshRegistrations();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się zresetować zapisów', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetUser = async () => {
+    if (!selectedEventId || !resetUserTarget) return;
+    setIsResetting(true);
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('user_id', resetUserTarget.userId)
+        .eq('status', 'registered');
+
+      if (error) throw error;
+
+      const count = activeCountForUser(resetUserTarget.userId);
+      toast({ title: 'Zapisy anulowane', description: `Anulowano ${count} zapisów użytkownika ${resetUserTarget.name}.` });
+      setResetUserDialogOpen(false);
+      setResetUserTarget(null);
+      refreshRegistrations();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się anulować zapisów', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetRole = async () => {
+    if (!selectedEventId || !resetRoleTarget) return;
+    setIsResetting(true);
+    try {
+      // Get user IDs with specified role
+      const userIdsForRole = registrations
+        .filter(r => r.status === 'registered' && r.profiles.role === resetRoleTarget)
+        .map(r => r.user_id);
+
+      const uniqueIds = [...new Set(userIdsForRole)];
+      if (uniqueIds.length === 0) {
+        toast({ title: 'Brak zapisów', description: `Nie znaleziono aktywnych zapisów dla roli "${getRoleLabel(resetRoleTarget)}".` });
+        setResetRoleDialogOpen(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('status', 'registered')
+        .in('user_id', uniqueIds);
+
+      if (error) throw error;
+
+      const count = activeCountForRole(resetRoleTarget);
+      toast({ title: 'Zapisy anulowane', description: `Anulowano ${count} zapisów dla roli "${getRoleLabel(resetRoleTarget)}".` });
+      setResetRoleDialogOpen(false);
+      setResetRoleTarget('');
+      refreshRegistrations();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się anulować zapisów', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <>
     <div className="space-y-6">
 
+      {/* Reset Global Dialog */}
+      <AlertDialog open={resetGlobalDialogOpen} onOpenChange={setResetGlobalDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-5 w-5" />
+              Resetuj wszystkie zapisy
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Ta operacja anuluje <strong>{activeUserRegistrationCount}</strong> zapisów użytkowników 
+              i <strong>{activeGuestRegistrationCount}</strong> zapisów gości na wydarzenie 
+              „<strong>{selectedEvent?.title}</strong>".
+              <br /><br />
+              Tej operacji nie można cofnąć. Użytkownicy będą musieli zapisać się ponownie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetGlobal}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Resetuj {activeUserRegistrationCount + activeGuestRegistrationCount} zapisów
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset User Dialog */}
+      <AlertDialog open={resetUserDialogOpen} onOpenChange={(open) => { setResetUserDialogOpen(open); if (!open) setResetUserTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Anuluj zapisy użytkownika</AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno chcesz anulować <strong>{resetUserTarget ? activeCountForUser(resetUserTarget.userId) : 0}</strong> aktywnych 
+              zapisów użytkownika <strong>{resetUserTarget?.name}</strong> na to wydarzenie?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetUser}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Potwierdź anulowanie
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Role Dialog */}
+      <AlertDialog open={resetRoleDialogOpen} onOpenChange={(open) => { setResetRoleDialogOpen(open); if (!open) setResetRoleTarget(''); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resetuj zapisy dla roli</AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno chcesz anulować <strong>{activeCountForRole(resetRoleTarget)}</strong> aktywnych 
+              zapisów użytkowników z rolą <strong>„{getRoleLabel(resetRoleTarget)}"</strong> na to wydarzenie?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetRole}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Resetuj {activeCountForRole(resetRoleTarget)} zapisów
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Follow-up Email Dialog */}
       <Dialog open={followUpDialogOpen} onOpenChange={setFollowUpDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
