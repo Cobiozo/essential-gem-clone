@@ -620,11 +620,11 @@ ${labels.signUp}: ${inviteUrl}
   };
 
   // Count registered occurrences ONLY for future dates (not past)
-  const futureOccurrenceIndices = new Set(futureOccurrences.map(occ => occ.index));
+  const futureOccurrenceKeys = new Set(futureOccurrences.map(occ => `${occ.date}:${occ.time}`));
   
   const futureRegisteredCount = isMultiOccurrence 
     ? [...registeredOccurrences].filter(
-        occIndex => occIndex !== null && futureOccurrenceIndices.has(occIndex)
+        key => futureOccurrenceKeys.has(key)
       ).length
     : 0;
 
@@ -801,7 +801,7 @@ ${labels.signUp}: ${inviteUrl}
                       <PastOccurrenceRow
                         key={occurrence.index}
                         occurrence={occurrence}
-                        wasRegistered={registeredOccurrences.has(occurrence.index)}
+                        wasRegistered={registeredOccurrences.has(`${occurrence.date}:${occurrence.time}`)}
                         dateLocale={dateLocale}
                         eventTimezone={event.timezone || DEFAULT_EVENT_TIMEZONE}
                       />
@@ -810,7 +810,7 @@ ${labels.signUp}: ${inviteUrl}
                         key={occurrence.index}
                         event={event}
                         occurrence={occurrence}
-                        isRegistered={registeredOccurrences.has(occurrence.index)}
+                        isRegistered={registeredOccurrences.has(`${occurrence.date}:${occurrence.time}`)}
                         onRegisterChange={handleOccurrenceRegister}
                         dateLocale={dateLocale}
                         eventTimezone={event.timezone || DEFAULT_EVENT_TIMEZONE}
