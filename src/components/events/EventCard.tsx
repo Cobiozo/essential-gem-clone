@@ -105,7 +105,7 @@ export const EventCard: React.FC<EventCardProps> = ({
     setRegistering(true);
     try {
       if (isRegistered) {
-        // Cancel registration - UPDATE status to cancelled with occurrence_index
+        // Cancel registration - use occurrence_date + occurrence_time for stable matching
         let query = supabase
           .from('event_registrations')
           .update({ 
@@ -115,10 +115,10 @@ export const EventCard: React.FC<EventCardProps> = ({
           .eq('event_id', event.id)
           .eq('user_id', user.id);
         
-        if (occurrenceIndex !== undefined) {
-          query = query.eq('occurrence_index', occurrenceIndex);
+        if (occurrenceDate && occurrenceTime) {
+          query = query.eq('occurrence_date', occurrenceDate).eq('occurrence_time', occurrenceTime);
         } else {
-          query = query.is('occurrence_index', null);
+          query = query.is('occurrence_date', null).is('occurrence_time', null);
         }
         
         const { error } = await query;
@@ -140,17 +140,17 @@ export const EventCard: React.FC<EventCardProps> = ({
           console.error('[EventCard] Google Calendar sync (delete) failed:', syncErr);
         }
       } else {
-        // Check if there's an existing registration (cancelled) with occurrence_index
+        // Check if there's an existing registration (cancelled) with date/time match
         let checkQuery = supabase
           .from('event_registrations')
           .select('id, status')
           .eq('event_id', event.id)
           .eq('user_id', user.id);
         
-        if (occurrenceIndex !== undefined) {
-          checkQuery = checkQuery.eq('occurrence_index', occurrenceIndex);
+        if (occurrenceDate && occurrenceTime) {
+          checkQuery = checkQuery.eq('occurrence_date', occurrenceDate).eq('occurrence_time', occurrenceTime);
         } else {
-          checkQuery = checkQuery.is('occurrence_index', null);
+          checkQuery = checkQuery.is('occurrence_date', null).is('occurrence_time', null);
         }
         
         const { data: existingReg } = await checkQuery.maybeSingle();
