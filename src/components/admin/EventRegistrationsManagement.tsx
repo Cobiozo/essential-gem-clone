@@ -1324,6 +1324,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                           <TableHead>Status</TableHead>
                           <TableHead>Terminy</TableHead>
                           <TableHead>Data zapisu</TableHead>
+                          <TableHead>Akcje</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
