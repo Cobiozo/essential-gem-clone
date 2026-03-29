@@ -1408,6 +1408,26 @@ export const EventRegistrationsManagement: React.FC = () => {
                                 <TableCell className="text-muted-foreground text-sm">
                                   {format(new Date(registration.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
                                 </TableCell>
+                                <TableCell>
+                                  {registration.activeCount > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setResetUserTarget({
+                                          userId: registration.user_id,
+                                          name: `${registration.profiles.first_name || ''} ${registration.profiles.last_name || ''}`.trim(),
+                                        });
+                                        setResetUserDialogOpen(true);
+                                      }}
+                                      title="Anuluj zapisy tego użytkownika"
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                  )}
+                                </TableCell>
                               </TableRow>
                               
                               {/* Expanded occurrence details */}
