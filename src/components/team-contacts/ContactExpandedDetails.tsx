@@ -35,7 +35,7 @@ export const ContactExpandedDetails: React.FC<ContactExpandedDetailsProps> = ({
         .order('sent_at_second', { ascending: true })
         .limit(50);
 
-      setChatMessages((data as GuestMessage[]) || []);
+      setChatMessages((data as unknown as GuestMessage[]) || []);
       setLoadingMessages(false);
     };
 
