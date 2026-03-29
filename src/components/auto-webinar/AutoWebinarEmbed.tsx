@@ -436,12 +436,16 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                     />
                   )}
 
-                  {/* Fake chat */}
+                   {/* Fake chat */}
                   {config?.fake_chat_enabled && hasStarted && !needsUserInteraction && (
                     <AutoWebinarFakeChat
                       configId={config?.id || null}
                       startOffset={startOffset}
                       isPlaying={effectiveIsPlaying}
+                      guestRegistrationId={guestRegistrationId}
+                      guestEmail={guestEmail}
+                      guestName={null}
+                      videoId={currentVideo?.id || null}
                     />
                   )}
                 </>
