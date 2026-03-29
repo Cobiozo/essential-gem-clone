@@ -580,6 +580,18 @@ ${labels.signUp}: ${inviteUrl}
                                           </Button>
                                         </>
                                       )}
+                                      {isGroupType && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-6 px-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 touch-action-manipulation"
+                                          onClick={() => handleUnregisterGroupEvent(event)}
+                                          disabled={unregisteringEventId === `${event.id}-${(event as any)._occurrence_index ?? 'single'}`}
+                                          title="Wypisz się"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </Button>
+                                      )}
                                       {getActionButton(event)}
                                     </div>
                                   </div>
