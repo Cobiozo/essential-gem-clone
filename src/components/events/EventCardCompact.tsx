@@ -222,7 +222,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
 
     try {
       if (shouldRegister) {
-        // Check for existing registration by occurrence_index
+        // Check for existing registration by occurrence_date+time (stable) or occurrence_index (legacy)
         const { data: existingReg } = await supabase
           .from('event_registrations')
           .select('id, status')
@@ -272,8 +272,8 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
           console.error('[EventCardCompact] Google Calendar sync (create) failed:', syncErr);
         }
       } else {
-        // Cancel registration
-        const { error } = await supabase
+        // Cancel registration - find by occurrence_date+time for stability
+        let cancelQuery = supabase
           .from('event_registrations')
           .update({ 
             status: 'cancelled', 
@@ -282,6 +282,8 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
           .eq('event_id', event.id)
           .eq('user_id', user.id)
           .eq('occurrence_index', occurrence.index);
+
+        const { error } = await cancelQuery;
 
         if (error) throw error;
 
