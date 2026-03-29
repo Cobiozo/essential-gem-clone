@@ -87,8 +87,10 @@ export const EventCard: React.FC<EventCardProps> = ({
   // Duration in minutes
   const durationMinutes = event.duration_minutes || differenceInMinutes(endDate, startDate);
 
-  // Get occurrence index for multi-occurrence events
+  // Get occurrence info for multi-occurrence events
   const occurrenceIndex = (event as any)._occurrence_index as number | undefined;
+  const occurrenceDate = (event as any)._occurrence_date as string | undefined;
+  const occurrenceTime = (event as any)._occurrence_time as string | undefined;
 
   const handleRegister = async () => {
     if (!user) {
@@ -154,20 +156,21 @@ export const EventCard: React.FC<EventCardProps> = ({
         const { data: existingReg } = await checkQuery.maybeSingle();
 
         if (existingReg) {
-          // UPDATE existing registration to 'registered'
+          // UPDATE existing registration to 'registered' with date/time snapshot
           const { error } = await supabase
             .from('event_registrations')
             .update({ 
               status: 'registered',
               cancelled_at: null,
-              registered_at: new Date().toISOString()
-            })
+              registered_at: new Date().toISOString(),
+              ...(occurrenceDate ? { occurrence_date: occurrenceDate, occurrence_time: occurrenceTime } : {}),
+            } as any)
             .eq('id', existingReg.id);
 
           if (error) throw error;
           console.log('[EventCard] Re-activated existing registration for occurrence:', occurrenceIndex);
         } else {
-          // INSERT new registration with occurrence_index
+          // INSERT new registration with occurrence_index + date/time snapshot
           const { error } = await supabase
             .from('event_registrations')
             .insert({
@@ -175,7 +178,9 @@ export const EventCard: React.FC<EventCardProps> = ({
               user_id: user.id,
               status: 'registered',
               occurrence_index: occurrenceIndex ?? null,
-            });
+              occurrence_date: occurrenceDate ?? null,
+              occurrence_time: occurrenceTime ?? null,
+            } as any);
 
           if (error) throw error;
           console.log('[EventCard] Created new registration for occurrence:', occurrenceIndex);

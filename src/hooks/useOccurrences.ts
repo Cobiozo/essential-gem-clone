@@ -171,8 +171,10 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
           is_registered: isRegisteredForOccurrence,
           // Add occurrence tracking
           _occurrence_index: occ.index,
+          _occurrence_date: occ.date,
+          _occurrence_time: occ.time,
           _is_multi_occurrence: true,
-        } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean });
+        } as EventWithRegistration & { _occurrence_index: number; _occurrence_date: string; _occurrence_time: string; _is_multi_occurrence: boolean });
       });
     } else {
       // Single occurrence: keep as-is (registration check uses null occurrence_index)
