@@ -1,39 +1,59 @@
 
 
-## Diagnoza: „Szkolenie Techniczne" w widżecie Moje spotkania
+## Plan: Reset rejestracji + twarde zabezpieczenie widżetu
 
-### Co znalazłem
+### Co zrobimy
 
-**„Szkolenie Techniczne" to NIE jest wydarzenie cykliczne** — nie ma tablicy `occurrences`. Jest to zwykłe, jednorazowe wydarzenie (`team_training`) zaplanowane na 31.03.2026 18:00–19:00 UTC.
+**Krok 1: Reset bazy danych**
+- Migracja SQL: `UPDATE event_registrations SET status = 'cancelled', cancelled_at = NOW()` dla WSZYSTKICH aktywnych rejestracji na wydarzenia grupowe (webinar, team_training, meeting_public, auto_webinar)
+- Rejestracje na spotkania indywidualne (meeting_private, tripartite_meeting, partner_consultation) zostają nietknięte — te są tworzone przez system rezerwacji i są poprawne
+- Po resecie: 0 aktywnych zapisów na wydarzenia grupowe — każdy użytkownik musi się zapisać od nowa
 
-**W bazie jest 25 aktywnych rejestracji** na to wydarzenie — wszystkie z `occurrence_index: null`, `occurrence_date: null`, `occurrence_time: null`. Są to poprawne rejestracje na wydarzenie jednorazowe. Kod logicznie je uznaje za aktywne (bo nie mają indeksu — nie są „legacy").
+**Krok 2: Domknięcie logiki rejestracji w `useEvents.ts`**
+- `registerForEvent`: zmiana wyszukiwania istniejącej rejestracji z `occurrence_index` na `occurrence_date + occurrence_time` (dla multi-occurrence)
+- `cancelRegistration`: analogicznie — anulowanie po `occurrence_date + occurrence_time` zamiast `occurrence_index`
+- Dzięki temu nawet jeśli admin zmieni kolejność terminów, stare zapisy nie "ożyją"
 
-### Dlaczego widżet to pokazuje
+**Krok 3: Domknięcie logiki w `EventCard.tsx`**
+- Ujednolicenie z już poprawionym `EventCardCompact.tsx` — wyszukiwanie/re-aktywacja po dacie+godzinie zamiast indeksu
 
-Widżet „Moje spotkania" działa poprawnie:
-1. `fetchEvents()` → buduje `registeredEventIds` z rejestracji gdzie `occurrence_index IS NULL` → trafia tu „Szkolenie Techniczne"
-2. `expandEventsForCalendar()` → dla wydarzenia bez occurrences ustawia `is_registered: true` na bazie `registrationMap`
-3. `MyMeetingsWidget` → filtruje `e.is_registered === true` → wyświetla
+**Krok 4: Weryfikacja widżetu**
+- `MyMeetingsWidget` już filtruje po `is_registered === true`
+- `expandEventsForCalendar` już używa `registrationMap` opartej na `date:time`
+- `fetchEvents` w `useEvents.ts` już buduje `registrationMap` ze stabilnych snapshotów
+- Po resecie bazy i domknięciu ścieżek zapisu — widżet pokaże TYLKO to, na co użytkownik jawnie się zapisał
 
-### Kluczowe pytanie
-
-**Skoro w bazie jest aktywna rejestracja Twojego konta na „Szkolenie Techniczne", to czy:**
-- Ktoś (admin/lider) mógł Cię zarejestrować hurtowo?
-- Zarejestrowałeś się i zapomniałeś?
-- Chcesz po prostu się wypisać z tego wydarzenia?
-
-**To nie jest błąd kodu** — system poprawnie wyświetla wydarzenia, na które istnieje aktywna rejestracja w bazie danych. Problem leży w danych (rejestracja istnieje, choć nie powinna).
-
-### Proponowane rozwiązanie
-
-1. **Jeśli rejestracja jest błędna** — mogę anulować ją w bazie (punktowo, tylko Twoje konto)
-2. **Jeśli ktoś rejestruje hurtowo** — mogę sprawdzić, czy istnieje taki mechanizm i go zabezpieczyć
-3. **Jeśli chcesz opcję „Wypisz się" w widżecie** — mogę dodać przycisk anulowania rejestracji bezpośrednio w widżecie „Moje spotkania" dla wydarzeń grupowych (teraz jest tylko Badge „Zapisany/a" bez przycisku wypisania)
+### Wpływ na użytkowników
+- Wszyscy użytkownicy stracą zapisy na wydarzenia grupowe i muszą się zapisać ponownie
+- Spotkania indywidualne (prywatne, trójstronne, konsultacje) pozostaną bez zmian
+- Od tego momentu system będzie odporny na dryft indeksów
 
 ### Szczegóły techniczne
-- Event ID: `b3b1c7f8-b8e3-4d9d-8932-b42bd57f634f`
-- Typ: `team_training` (jednorazowe, bez `occurrences`)
-- 25 aktywnych rejestracji, wszystkie z `occurrence_index: null`
-- Poprzednie poprawki (cleanup legacy indeksów) nie dotyczą tego przypadku — tu nie ma indeksów do wyczyszczenia
-- Kod w `useEvents.ts`, `useOccurrences.ts` i `MyMeetingsWidget.tsx` działa zgodnie z logiką
+
+Migracja SQL:
+```sql
+UPDATE event_registrations 
+SET status = 'cancelled', cancelled_at = NOW()
+WHERE status = 'registered'
+  AND event_id IN (
+    SELECT id FROM events 
+    WHERE event_type IN ('webinar', 'team_training', 'meeting_public', 'auto_webinar')
+  );
+```
+
+Refaktor `registerForEvent` — zmiana klucza wyszukiwania z:
+```typescript
+query.eq('occurrence_index', occurrenceIndex)
+```
+na:
+```typescript
+query.eq('occurrence_date', occDate).eq('occurrence_time', occTime)
+```
+
+Analogiczna zmiana w `cancelRegistration` i `EventCard.tsx`.
+
+### Pliki do zmiany
+- `src/hooks/useEvents.ts` — registerForEvent, cancelRegistration
+- `src/components/events/EventCard.tsx` — logika rejestracji
+- Migracja SQL — reset rejestracji grupowych
 
