@@ -164,8 +164,7 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
         const registrationKey = `${event.id}:${occ.index}`;
         const specificMatch = registrationMap?.get(registrationKey) ?? false;
         // Legacy null registration: only apply to the nearest future occurrence
-        const legacyMatch = !hasSpecificRegistration && hasLegacyNullRegistration && occ.index === nextActiveIndex;
-        const isRegisteredForOccurrence = specificMatch || legacyMatch;
+        const isRegisteredForOccurrence = specificMatch;
         
         result.push({
           ...event,

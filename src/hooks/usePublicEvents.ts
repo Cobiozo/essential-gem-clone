@@ -99,7 +99,7 @@ export const usePublicEvents = (eventType: PublicEventType) => {
           
           const eventsWithRegistration = filteredEvents.map(event => ({
             ...event,
-            is_registered: registeredEventIds.has(event.id),
+            is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
             registration_count: countMap.get(event.id) || 0,
             registered_occurrences: registrationsByEvent.get(event.id) || new Set<number | null>(),
           }));
