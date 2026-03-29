@@ -127,20 +127,20 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
             const regSlotTime = (reg as any).slot_time;
             if (!regEventId) continue;
 
-            // Find the best matching view:
-            // 1) video must belong to the same event
-            // 2) if slot_time exists, view created_at must be within ±30 min
-            // 3) not already used by another registration
-            // 4) pick the one with longest watch_duration
+            // Skip future slots — no view data possible yet
+            if (regSlotTime && new Date(regSlotTime).getTime() > Date.now()) continue;
+
             const matchingView = emailViews.find(v => {
               if (usedViewIds.has(v.id)) return false;
               const viewEventId = videoToEventMap.get(v.video_id);
               if (viewEventId !== regEventId) return false;
 
+              // When slot_time exists, require view to be within slot window
               if (regSlotTime && v.created_at) {
                 const slotMs = new Date(regSlotTime).getTime();
                 const viewMs = new Date(v.created_at).getTime();
-                if (Math.abs(viewMs - slotMs) > 30 * 60 * 1000) return false;
+                // View must be between 5 min before slot and 90 min after
+                if (viewMs < slotMs - 5 * 60 * 1000 || viewMs > slotMs + 90 * 60 * 1000) return false;
               }
 
               return true;
