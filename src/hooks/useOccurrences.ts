@@ -160,11 +160,11 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
       const nextActiveIndex = futureOccurrences[0]?.index ?? null;
       
       futureOccurrences.forEach(occ => {
-        // Check if user is registered for THIS specific occurrence
-        const registrationKey = `${event.id}:${occ.index}`;
-        const specificMatch = registrationMap?.get(registrationKey) ?? false;
-        // Legacy null registration: only apply to the nearest future occurrence
-        const isRegisteredForOccurrence = specificMatch;
+        // Check if user is registered for THIS specific occurrence using date+time key
+        // This ensures that if admin changes the occurrences array, old registrations
+        // won't drift to new dates - only exact date+time matches count
+        const registrationKey = `${event.id}:${occ.date}:${occ.time}`;
+        const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? false;
         
         result.push({
           ...event,
