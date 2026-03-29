@@ -1230,7 +1230,43 @@ export const EventRegistrationsManagement: React.FC = () => {
                   )}
                 </TabsList>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {/* Reset buttons */}
+                  {activeTab === 'users' && userStats.active > 0 && (
+                    <>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                            <ShieldAlert className="h-4 w-4 mr-2" />
+                            Resetuj zapisy
+                            <ChevronDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setResetGlobalDialogOpen(true)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Wszystkie zapisy ({activeUserRegistrationCount + activeGuestRegistrationCount})
+                          </DropdownMenuItem>
+                          {['client', 'partner', 'specjalista', 'admin'].map(role => {
+                            const count = activeCountForRole(role);
+                            if (count === 0) return null;
+                            return (
+                              <DropdownMenuItem
+                                key={role}
+                                onClick={() => { setResetRoleTarget(role); setResetRoleDialogOpen(true); }}
+                              >
+                                <Users className="h-4 w-4 mr-2" />
+                                Rola: {getRoleLabel(role)} ({count})
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
                   <Button
                     onClick={() => setFollowUpDialogOpen(true)}
                     variant="default"
