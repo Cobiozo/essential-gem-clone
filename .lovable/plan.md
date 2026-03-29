@@ -1,44 +1,28 @@
 
 
-## Plan: Panel admina — resetowanie zapisów na wydarzenia
+## Plan: Poprawka favicon dla Safari i wszystkich przeglądarek
 
-### Co zostanie dodane
+### Problem
+1. W `index.html` brak tagu `<link rel="icon">` — Safari nie znajduje faviconu automatycznie
+2. Plik `public/favicon.ico` to prawdopodobnie domyślna ikonka Lovable (serduszko), nie logo Pure Life
 
-W panelu `EventRegistrationsManagement` (zakładka "Rejestracje na wydarzenia") dodamy trzy opcje resetowania:
+### Rozwiązanie
 
-1. **Reset globalny** — anuluje WSZYSTKIE aktywne zapisy na wybrane wydarzenie (wszyscy użytkownicy + goście)
-2. **Reset dla wybranego użytkownika** — anuluje zapisy konkretnego użytkownika na wybrane wydarzenie (przycisk przy każdym wierszu)
-3. **Reset dla roli** — anuluje zapisy wszystkich użytkowników z daną rolą (client/partner/specjalista) na wybrane wydarzenie
+**Krok 1**: Użyć istniejącego logo kropli (plik `src/assets/pure-life-droplet-new.png`) jako favicon — skopiować go do `public/favicon.png`
 
-### Interfejs
+**Krok 2**: Usunąć stary `public/favicon.ico` (serduszko)
 
-- **Przycisk globalny**: "Resetuj wszystkie zapisy" z potwierdzeniem w dialogu (ile rekordów zostanie anulowanych)
-- **Przycisk per-użytkownik**: Ikona X przy każdym wierszu rejestracji ze statusem "registered"
-- **Filtr po roli**: Dropdown "Resetuj zapisy dla roli..." z opcjami (client, partner, specjalista, admin)
-- Każda akcja wymaga potwierdzenia w dialogu z liczbą dotkniętych rekordów
-
-### Logika
-
-Wszystkie operacje wykonują UPDATE na `event_registrations`:
-```sql
-SET status = 'cancelled', cancelled_at = NOW()
-WHERE event_id = :eventId AND status = 'registered'
-  -- + opcjonalnie: AND user_id = :userId
-  -- + opcjonalnie: AND user_id IN (SELECT user_id FROM profiles WHERE role = :role)
+**Krok 3**: Dodać w `index.html` (w sekcji `<head>`, przed apple-touch-icon):
+```html
+<link rel="icon" type="image/png" href="/favicon.png" />
 ```
 
-Dla gości analogicznie na `guest_event_registrations`.
-
-Po resecie — automatyczne odświeżenie listy rejestracji.
+### Efekt
+- Safari, Chrome, Firefox i inne przeglądarki pokażą złotą kroplę Pure Life zamiast serduszka
+- Apple-touch-icon (ikona na ekranie głównym iOS) jest już poprawnie ustawiony na `pwa-192.png`
 
 ### Pliki do zmiany
-
-- `src/components/admin/EventRegistrationsManagement.tsx` — dodanie przycisków, dialogów potwierdzenia i handlerów resetowania
-
-### Szczegóły techniczne
-
-- Operacje korzystają z istniejącego klienta Supabase (RLS pozwala adminowi na update)
-- Toast z informacją ile zapisów zostało anulowanych
-- Przycisk globalny i per-rola umieszczone obok istniejącego przycisku "Wyślij follow-up"
-- Przycisk per-użytkownik w kolumnie "Akcje" tabeli rejestracji
+- `index.html` — dodanie tagu `<link rel="icon">`
+- `public/favicon.ico` — usunięcie
+- `public/favicon.png` — nowy plik (kopia droplet logo)
 
