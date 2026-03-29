@@ -150,53 +150,6 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const firstDay = groupedByDay[0]?.day ?? null;
   const effectiveExpandedDay = expandedDay ?? firstDay;
 
-  // Handle unregister from group event
-  const handleUnregisterGroupEvent = async (event: EventWithRegistration) => {
-    if (!user) return;
-    const confirmed = window.confirm('Czy na pewno chcesz wypisać się z tego wydarzenia?');
-    if (!confirmed) return;
-
-    const eventKey = `${event.id}-${(event as any)._occurrence_index ?? 'single'}`;
-    setUnregisteringEventId(eventKey);
-
-    try {
-      const occurrenceDate = (event as any)._occurrence_date as string | undefined;
-      const occurrenceTime = (event as any)._occurrence_time as string | undefined;
-
-      let query = supabase
-        .from('event_registrations')
-        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-        .eq('event_id', event.id)
-        .eq('user_id', user.id);
-
-      if (occurrenceDate && occurrenceTime) {
-        query = query.eq('occurrence_date', occurrenceDate).eq('occurrence_time', occurrenceTime);
-      } else {
-        query = query.is('occurrence_date', null).is('occurrence_time', null);
-      }
-
-      const { error } = await query;
-      if (error) throw error;
-
-      toast({
-        title: 'Wypisano',
-        description: `Wypisano z "${event.title}"`,
-      });
-
-      window.dispatchEvent(new CustomEvent('eventRegistrationChange', {
-        detail: { eventId: event.id, action: 'cancel' }
-      }));
-    } catch (error: any) {
-      toast({
-        title: 'Błąd',
-        description: error.message || 'Nie udało się wypisać',
-        variant: 'destructive',
-      });
-    } finally {
-      setUnregisteringEventId(null);
-    }
-  };
-
   // Handle invitation copy
   const handleCopyInvitation = (event: EventWithRegistration) => {
     const lang = inviteLangs[event.id] || 'pl';
@@ -579,18 +532,6 @@ ${labels.signUp}: ${inviteUrl}
                                             {tf('events.invite', 'Zaproś')}
                                           </Button>
                                         </>
-                                      )}
-                                      {isGroupType && (
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-6 px-1.5 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 touch-action-manipulation"
-                                          onClick={() => handleUnregisterGroupEvent(event)}
-                                          disabled={unregisteringEventId === `${event.id}-${(event as any)._occurrence_index ?? 'single'}`}
-                                          title="Wypisz się"
-                                        >
-                                          <X className="h-3 w-3" />
-                                        </Button>
                                       )}
                                       {getActionButton(event)}
                                     </div>
