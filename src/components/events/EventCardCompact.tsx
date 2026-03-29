@@ -223,13 +223,13 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
     try {
       if (shouldRegister) {
         // Check for existing registration by stable occurrence_date+time
-        const { data: existingReg } = await supabase
+        const { data: existingReg } = await (supabase
           .from('event_registrations')
           .select('id, status')
           .eq('event_id', event.id)
-          .eq('user_id', user.id)
-          .eq('occurrence_date' as any, occurrence.date)
-          .eq('occurrence_time' as any, occurrence.time)
+          .eq('user_id', user.id) as any)
+          .eq('occurrence_date', occurrence.date)
+          .eq('occurrence_time', occurrence.time)
           .maybeSingle();
 
         if (existingReg) {

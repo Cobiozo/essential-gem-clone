@@ -76,11 +76,14 @@ export const usePublicEvents = (eventType: PublicEventType) => {
             if (!registrationsByEvent.has(r.event_id)) {
               registrationsByEvent.set(r.event_id, new Set());
             }
-            // Use date+time as stable key; fallback to index-based for legacy
-            const key = r.occurrence_date && r.occurrence_time
-              ? `${r.occurrence_date}:${r.occurrence_time}`
-              : r.occurrence_index !== null ? `idx:${r.occurrence_index}` : 'null';
-            registrationsByEvent.get(r.event_id)!.add(key);
+            // Use date+time as stable key; ignore legacy index-only registrations
+            if (r.occurrence_date && r.occurrence_time) {
+              registrationsByEvent.get(r.event_id)!.add(`${r.occurrence_date}:${r.occurrence_time}`);
+            } else if (r.occurrence_index === null || r.occurrence_index === undefined) {
+              // Single event registration (no occurrence)
+              registrationsByEvent.get(r.event_id)!.add('null');
+            }
+            // Legacy index-only registrations are silently skipped
           });
           
           const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
