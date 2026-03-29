@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { warsawLocalToUtc } from "../_shared/timezone-utils.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -395,13 +396,8 @@ serve(async (req) => {
             for (let i = 0; i < occs.length; i++) {
               const occ = occs[i];
               if (!occ.date || !occ.time) continue;
-              // Parse as Europe/Warsaw (approximate: use +01:00 for CET, +02:00 for CEST)
-              // We'll try both and pick the one that makes sense
-              const dateStr = `${occ.date}T${occ.time}:00`;
-              // Simple heuristic: months Apr-Oct = CEST (+02:00), else CET (+01:00)
-              const month = parseInt(occ.date.split('-')[1], 10);
-              const offset = (month >= 4 && month <= 10) ? '+02:00' : '+01:00';
-              const dt = new Date(dateStr + offset);
+              // DST-aware: parse Warsaw local time to correct UTC
+              const dt = warsawLocalToUtc(occ.date, occ.time);
               allTerms.push({ event_id: evt.id, title: evt.title, occurrence_index: i, occurrence_datetime: dt });
             }
           } else {
