@@ -152,12 +152,7 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
       // Multi-occurrence: expand each future occurrence as separate entry
       const futureOccurrences = getFutureOccurrences(event);
       
-      // Check if user has any specific (per-index) registrations for this event
-      const hasSpecificRegistration = registrationMap
-        ? Array.from(registrationMap.keys()).some(k => k.startsWith(`${event.id}:`) && !k.endsWith(':null'))
-        : false;
-      const hasLegacyNullRegistration = registrationMap?.get(`${event.id}:null`) ?? false;
-      const nextActiveIndex = futureOccurrences[0]?.index ?? null;
+      
       
       futureOccurrences.forEach(occ => {
         // Check if user is registered for THIS specific occurrence using date+time key
