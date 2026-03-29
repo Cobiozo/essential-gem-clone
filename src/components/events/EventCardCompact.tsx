@@ -266,7 +266,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         // Sync with Google Calendar
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'create', occurrence_index: occurrenceIndex }
+            body: { user_id: user.id, event_id: event.id, action: 'create', occurrence_index: occurrence.index }
           });
         } catch (syncErr) {
           console.error('[EventCardCompact] Google Calendar sync (create) failed:', syncErr);
@@ -298,7 +298,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         // Sync with Google Calendar
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'delete', occurrence_index: occurrenceIndex }
+            body: { user_id: user.id, event_id: event.id, action: 'delete', occurrence_index: occurrence.index }
           });
         } catch (syncErr) {
           console.error('[EventCardCompact] Google Calendar sync (delete) failed:', syncErr);
