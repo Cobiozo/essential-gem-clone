@@ -601,7 +601,7 @@ export const useEvents = () => {
       // cancelled registrations don't appear in "Moje spotkania"
       const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select('event_id, occurrence_index, status')
+        .select('event_id, occurrence_index, occurrence_date, occurrence_time, status')
         .eq('user_id', user.id)
         .eq('status', 'registered');
 
