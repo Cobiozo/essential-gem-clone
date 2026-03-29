@@ -1,59 +1,44 @@
 
 
-## Plan: Reset rejestracji + twarde zabezpieczenie widżetu
+## Plan: Panel admina — resetowanie zapisów na wydarzenia
 
-### Co zrobimy
+### Co zostanie dodane
 
-**Krok 1: Reset bazy danych**
-- Migracja SQL: `UPDATE event_registrations SET status = 'cancelled', cancelled_at = NOW()` dla WSZYSTKICH aktywnych rejestracji na wydarzenia grupowe (webinar, team_training, meeting_public, auto_webinar)
-- Rejestracje na spotkania indywidualne (meeting_private, tripartite_meeting, partner_consultation) zostają nietknięte — te są tworzone przez system rezerwacji i są poprawne
-- Po resecie: 0 aktywnych zapisów na wydarzenia grupowe — każdy użytkownik musi się zapisać od nowa
+W panelu `EventRegistrationsManagement` (zakładka "Rejestracje na wydarzenia") dodamy trzy opcje resetowania:
 
-**Krok 2: Domknięcie logiki rejestracji w `useEvents.ts`**
-- `registerForEvent`: zmiana wyszukiwania istniejącej rejestracji z `occurrence_index` na `occurrence_date + occurrence_time` (dla multi-occurrence)
-- `cancelRegistration`: analogicznie — anulowanie po `occurrence_date + occurrence_time` zamiast `occurrence_index`
-- Dzięki temu nawet jeśli admin zmieni kolejność terminów, stare zapisy nie "ożyją"
+1. **Reset globalny** — anuluje WSZYSTKIE aktywne zapisy na wybrane wydarzenie (wszyscy użytkownicy + goście)
+2. **Reset dla wybranego użytkownika** — anuluje zapisy konkretnego użytkownika na wybrane wydarzenie (przycisk przy każdym wierszu)
+3. **Reset dla roli** — anuluje zapisy wszystkich użytkowników z daną rolą (client/partner/specjalista) na wybrane wydarzenie
 
-**Krok 3: Domknięcie logiki w `EventCard.tsx`**
-- Ujednolicenie z już poprawionym `EventCardCompact.tsx` — wyszukiwanie/re-aktywacja po dacie+godzinie zamiast indeksu
+### Interfejs
 
-**Krok 4: Weryfikacja widżetu**
-- `MyMeetingsWidget` już filtruje po `is_registered === true`
-- `expandEventsForCalendar` już używa `registrationMap` opartej na `date:time`
-- `fetchEvents` w `useEvents.ts` już buduje `registrationMap` ze stabilnych snapshotów
-- Po resecie bazy i domknięciu ścieżek zapisu — widżet pokaże TYLKO to, na co użytkownik jawnie się zapisał
+- **Przycisk globalny**: "Resetuj wszystkie zapisy" z potwierdzeniem w dialogu (ile rekordów zostanie anulowanych)
+- **Przycisk per-użytkownik**: Ikona X przy każdym wierszu rejestracji ze statusem "registered"
+- **Filtr po roli**: Dropdown "Resetuj zapisy dla roli..." z opcjami (client, partner, specjalista, admin)
+- Każda akcja wymaga potwierdzenia w dialogu z liczbą dotkniętych rekordów
 
-### Wpływ na użytkowników
-- Wszyscy użytkownicy stracą zapisy na wydarzenia grupowe i muszą się zapisać ponownie
-- Spotkania indywidualne (prywatne, trójstronne, konsultacje) pozostaną bez zmian
-- Od tego momentu system będzie odporny na dryft indeksów
+### Logika
+
+Wszystkie operacje wykonują UPDATE na `event_registrations`:
+```sql
+SET status = 'cancelled', cancelled_at = NOW()
+WHERE event_id = :eventId AND status = 'registered'
+  -- + opcjonalnie: AND user_id = :userId
+  -- + opcjonalnie: AND user_id IN (SELECT user_id FROM profiles WHERE role = :role)
+```
+
+Dla gości analogicznie na `guest_event_registrations`.
+
+Po resecie — automatyczne odświeżenie listy rejestracji.
+
+### Pliki do zmiany
+
+- `src/components/admin/EventRegistrationsManagement.tsx` — dodanie przycisków, dialogów potwierdzenia i handlerów resetowania
 
 ### Szczegóły techniczne
 
-Migracja SQL:
-```sql
-UPDATE event_registrations 
-SET status = 'cancelled', cancelled_at = NOW()
-WHERE status = 'registered'
-  AND event_id IN (
-    SELECT id FROM events 
-    WHERE event_type IN ('webinar', 'team_training', 'meeting_public', 'auto_webinar')
-  );
-```
-
-Refaktor `registerForEvent` — zmiana klucza wyszukiwania z:
-```typescript
-query.eq('occurrence_index', occurrenceIndex)
-```
-na:
-```typescript
-query.eq('occurrence_date', occDate).eq('occurrence_time', occTime)
-```
-
-Analogiczna zmiana w `cancelRegistration` i `EventCard.tsx`.
-
-### Pliki do zmiany
-- `src/hooks/useEvents.ts` — registerForEvent, cancelRegistration
-- `src/components/events/EventCard.tsx` — logika rejestracji
-- Migracja SQL — reset rejestracji grupowych
+- Operacje korzystają z istniejącego klienta Supabase (RLS pozwala adminowi na update)
+- Toast z informacją ile zapisów zostało anulowanych
+- Przycisk globalny i per-rola umieszczone obok istniejącego przycisku "Wyślij follow-up"
+- Przycisk per-użytkownik w kolumnie "Akcje" tabeli rejestracji
 
