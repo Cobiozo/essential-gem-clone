@@ -289,12 +289,8 @@ serve(async (req) => {
       }
       if (termOccurrenceIndex < occs.length) {
         const occ = occs[termOccurrenceIndex];
-        termDatetime = new Date(`${occ.date}T${occ.time}:00`);
-        // Convert from Warsaw to UTC approximation
-        const warsawOffset = termDatetime.getTimezoneOffset(); // This runs on server, use explicit
-        // Better: parse as Europe/Warsaw
-        termDatetime = new Date(new Date(`${occ.date}T${occ.time}:00+01:00`).getTime());
-        // For summer time, this might be off by 1h, but the scheduler passes occurrence_datetime which is more reliable
+        // DST-aware: parse Warsaw local time to correct UTC
+        termDatetime = warsawLocalToUtc(occ.date, occ.time);
       } else {
         termDatetime = new Date(event.start_time);
       }
