@@ -130,7 +130,7 @@ export const useEvents = () => {
         
         const eventsWithRegistration = parsedEvents.map(event => ({
           ...event,
-          is_registered: registeredEventIds.has(event.id),
+          is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
           host_profile: hostProfileMap.get(event.host_user_id) || null,
           participant_profile: participantProfileMap.get(event.id) || null,
         }));
