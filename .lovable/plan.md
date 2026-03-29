@@ -1,71 +1,76 @@
 
-Krótka odpowiedź: nie, jeszcze nie w pełni wstecznie.
+Znalazłem nowy trop: poprzednia diagnoza była tylko częściowo trafna.
 
-Potwierdziłem, że problem nadal istnieje z dwóch powodów:
-1. W bazie dalej są stare aktywne rejestracje legacy bez snapshotu terminu:
-   - `status = 'registered'`
-   - `occurrence_index is not null`
-   - `occurrence_date/time is null`
-   Obecnie takich rekordów jest 74.
-2. Ostatnia poprawka nie czyści tych danych wstecznych — dodała głównie deduplikację i indeks unikalny, ale nie wyłączyła starych błędnych zapisów z logiki widoku.
+Co potwierdziłem
+1. Poprzedni cleanup zadziałał:
+- aktywne legacy rejestracje bez `occurrence_date/occurrence_time` są już wyczyszczone
+- w bazie jest teraz `0` takich rekordów
 
-Dodatkowo znalazłem nadal niespójne miejsca w kodzie:
-- `src/hooks/usePublicEvents.ts` nadal ma fallback do `idx:${occurrence_index}`
-- `src/components/events/EventCardCompact.tsx` nadal wyszukuje / anuluje po `occurrence_index`
-- `src/hooks/useEvents.ts` nadal buduje `registeredEventIds` ze wszystkich aktywnych rejestracji, więc część starych wpisów może dalej oznaczać wydarzenie jako zapisane na poziomie całego eventu
+2. Problem nadal może występować, ale już z innego powodu:
+- w bazie nadal istnieje dużo aktywnych rejestracji ze snapshotem daty/godziny dla wydarzeń cyklicznych
+- to oznacza, że widżet pokazuje nie „duchy bez daty”, tylko realne aktywne wiersze `event_registrations`
 
-Co trzeba wdrożyć teraz
-1. Naprawa wsteczna danych
-- Wykonać cleanup danych istniejących już w bazie:
-  - wszystkie aktywne rejestracje z `occurrence_index != null` i bez `occurrence_date/time` wyłączyć z aktywnej logiki
-  - jeśli nie da się ich jednoznacznie przypisać do konkretnego terminu, oznaczyć je jako `cancelled`
-- To jest kluczowe, bo bez tego stare błędne wpisy dalej będą wpływać na widżet.
+3. Najbardziej podejrzane miejsce w kodzie nadal nie zostało domknięte:
+- `src/hooks/useEvents.ts` w `registerForEvent(...)` nadal szuka istniejącej rejestracji po `occurrence_index`
+- `src/components/events/EventCard.tsx` nadal robi re-aktywację po `occurrence_index`
+- po zmianie kolejności terminów przez admina taki kod może „ożywiać” stary zapis dla nowego terminu pod tym samym indeksem
 
-2. Zaostrzenie odczytu rejestracji
-- W `useEvents.ts` traktować jako aktywne tylko:
-  - single event: rekord bez occurrence snapshotu i bez `occurrence_index`
-  - recurring event: rekord wyłącznie z kompletem `occurrence_date + occurrence_time`
-- Usunąć sytuację, w której sam `event_id` wystarcza do uznania, że użytkownik jest zapisany.
+To dobrze tłumaczy sytuację:
+- rekord ma już snapshot daty/godziny
+- więc nie wpada do ostatniego cleanupu
+- ale mógł zostać utworzony lub nadpisany wcześniej błędną logiką indeksową
 
-3. Usunięcie fallbacków indeksowych
-- Usunąć fallback `idx:${occurrence_index}` z `usePublicEvents.ts`
-- W `EventCardCompact.tsx` rejestracja, wznowienie i anulowanie mają działać po:
+Plan naprawy
+1. Domknąć wszystkie ścieżki zapisu/anulowania
+- w `src/hooks/useEvents.ts` usunąć wyszukiwanie istniejących rejestracji po `occurrence_index`
+- dla wydarzeń cyklicznych operować wyłącznie po:
   - `event_id`
   - `user_id`
   - `occurrence_date`
   - `occurrence_time`
-- `occurrence_index` może pozostać tylko pomocniczo, ale nie może decydować o dopasowaniu.
+- `occurrence_index` zostawić najwyżej jako informację pomocniczą, ale nie jako klucz logiki
 
-4. Ujednolicenie widoku „Moje spotkania”
-- `MyMeetingsWidget` zostawić jako widok oparty wyłącznie na już oczyszczonych danych z `useEvents`
-- Dzięki temu widżet pokaże tylko te terminy, na które użytkownik naprawdę kliknął „Zapisz się”.
+2. Naprawić drugi stary komponent
+- w `src/components/events/EventCard.tsx` zrobić to samo
+- dziś ten komponent nadal może tworzyć lub reaktywować błędne wpisy po indeksie
+- to trzeba ujednolicić z już poprawionym `EventCardCompact.tsx`
 
-5. Weryfikacja na realnych przypadkach
-- Sprawdzić szczególnie wydarzenia, gdzie w bazie widać najwięcej legacy wpisów:
-  - `O!Mega Chill`
-  - `Pure Calling`
-  - `Network Marketing Mastery`
-  - `Start nowego partnera`
-- Po cleanupie te terminy mają zniknąć z „Moje spotkania” dla osób, które nie zapisały się na aktualne wystąpienia.
+3. Ustabilizować źródło danych widżetu „Moje spotkania”
+- zamiast polegać wyłącznie na szerokim `events` + `expandEventsForCalendar(...)`, oprzeć widżet na wyniku `getUserEvents()`
+- dzięki temu widżet będzie renderował tylko to, co wynika z aktywnych rejestracji użytkownika, a nie z globalnej listy wydarzeń i mapy pomocniczej w `window`
+
+4. Dodać diagnostykę dla konkretnego użytkownika
+- przed kolejnym cleanupem sprawdzić dokładnie, jakie aktywne snapshoty ma konto użytkownika, który zgłasza problem
+- porównać:
+  - co jest w `event_registrations`
+  - co pokazuje widżet
+  - które ścieżki w UI mogły te wpisy utworzyć
+- to pozwoli odróżnić:
+  - błąd renderowania
+  - od faktycznie błędnych aktywnych zapisów w bazie
+
+5. Wykonać tylko precyzyjny cleanup danych
+- nie robić kolejnego szerokiego `UPDATE ... SET status='cancelled'` dla wszystkich snapshotów
+- zamiast tego anulować wyłącznie rekordy potwierdzone jako błędne dla konkretnych użytkowników / konkretnych terminów
+- obecnie pozostałe rekordy wyglądają jak „prawdziwe aktywne wpisy”, więc masowe czyszczenie byłoby ryzykowne
 
 Efekt po wdrożeniu
-- Poprawka będzie działała także wstecznie, bo usunie wpływ starych błędnych rekordów.
-- Jeśli użytkownik nie zapisał się na konkretny termin, ten termin nie pojawi się w widżecie.
-- Edycja wydarzenia przez admina nie przeniesie dawnych zapisów na nowe daty.
+- nowe błędne zapisy nie będą już powstawać przez logikę opartą o indeks
+- widżet przestanie zależeć od pośredniej globalnej mapy jako głównego źródła prawdy
+- da się bezpiecznie usunąć tylko te terminy, które faktycznie są błędne na koncie zgłaszającego użytkownika
 
 Techniczne szczegóły
-- Potwierdzone w bazie: 74 aktywne legacy rejestracje bez `occurrence_date/time`
-- Potwierdzone w kodzie:
-  - `usePublicEvents.ts` ma jeszcze fallback indeksowy
-  - `EventCardCompact.tsx` nadal operuje po `occurrence_index`
-  - ostatnia migracja `20260329112144_444cdc8a-16cf-45de-96c5-0c0d9f96f6bc.sql` tylko:
-    - deduplikuje
-    - tworzy stabilny indeks unikalny
-    - ale nie robi cleanupu historycznych błędnych wpisów
+- potwierdzone: `0` aktywnych legacy rejestracji bez snapshotu
+- nadal problematyczne pliki:
+  - `src/hooks/useEvents.ts`
+  - `src/components/events/EventCard.tsx`
+  - `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+- już poprawione wcześniej, ale niewystarczające:
+  - `src/hooks/usePublicEvents.ts`
+  - `src/components/events/EventCardCompact.tsx`
 
 Zakres następnej implementacji
-- `src/hooks/useEvents.ts`
-- `src/hooks/usePublicEvents.ts`
-- `src/components/events/EventCardCompact.tsx`
-- opcjonalnie przegląd `EventCard.tsx` pod tę samą zasadę
-- operacja danych w Supabase czyszcząca stare aktywne rejestracje legacy
+1. Refaktor `registerForEvent` i `cancelRegistration` w `useEvents.ts`
+2. Refaktor starego `EventCard.tsx`
+3. Przełączenie `MyMeetingsWidget` na twardsze źródło danych użytkownika
+4. Audyt konkretnego konta i dopiero potem punktowy cleanup błędnych snapshotów
