@@ -1,55 +1,58 @@
 
+Cel: naprawić źródło problemu, a nie tylko sam widżet. Teraz system wiąże zapis z `event_id + occurrence_index`, więc po edycji wydarzenia cyklicznego stare zapisy mogą wskazywać na nowe terminy, jeśli admin zmieni listę `occurrences`.
 
-## Plan: Nie zaliczaj starych rejestracji do nowych terminów w wydarzeniach cyklicznych
+Plan wdrożenia
 
-### Problem
-Gdy admin edytuje zakończone wydarzenie i dodaje nowe terminy (occurrences), użytkownicy którzy byli zapisani na stare terminy automatycznie pojawiają się jako zapisani na nowe. Dzieje się tak z dwóch powodów:
+1. Ustalić trwały identyfikator konkretnego terminu
+- Dodać do logiki wydarzeń pojęcie niezmiennego klucza terminu, np. `occurrence_key` albo snapshot `occurrence_date + occurrence_time`.
+- Przy zapisie na termin zapamiętywać ten konkretny termin w rejestracji, zamiast polegać wyłącznie na indeksie w tablicy.
 
-1. **Legacy null registration** — stare rejestracje mają `occurrence_index = null`. Logika w `expandEventsForCalendar` (linia 167) przypisuje taką rejestrację do najbliższego przyszłego terminu, traktując ją jako "aktywną".
+2. Naprawić dopasowanie rejestracji do terminu
+- W `useOccurrences.ts`, `useEvents.ts`, `usePublicEvents.ts` i widżecie `MyMeetingsWidget` dopasowywać zapis tylko wtedy, gdy termin z rejestracji dokładnie odpowiada aktualnemu terminowi.
+- Jeśli rejestracja ma tylko stary `occurrence_index`, ale nie da się jej bezpiecznie potwierdzić po dacie/godzinie, nie pokazywać jej jako aktywnego zapisu na nowy termin.
 
-2. **Event-level `is_registered`** — w `useEvents.ts` linia 133: `is_registered: registeredEventIds.has(event.id)` — jeśli user ma JAKĄKOLWIEK rejestrację na event_id (nawet na stary, zakończony termin), cały event dostaje `is_registered = true`.
+3. Zabezpieczyć „Moje spotkania”
+- Widżet ma pokazywać wyłącznie:
+  - spotkania indywidualne, gdzie użytkownik jest hostem, albo
+  - wydarzenia/terminy, dla których istnieje potwierdzony zapis na konkretny termin.
+- Usunąć wszelkie fallbacki typu „mam jakiś zapis na event, więc pokaż termin”.
 
-### Rozwiązanie
+4. Zabezpieczyć edycję zakończonych wydarzeń cyklicznych
+- W formularzach admina dla wydarzeń z `occurrences` dodać zasadę:
+  - jeśli wydarzenie jest zakończone i admin dodaje nowe terminy, system traktuje je jak nowe wystąpienia, bez dziedziczenia starych zapisów.
+- Technicznie: stare rejestracje nie mogą zostać automatycznie skojarzone z nowo zapisanymi terminami po edycji listy `occurrences`.
 
-#### 1. `src/hooks/useOccurrences.ts` — wyłącz legacy match dla multi-occurrence
-Zmiana w `expandEventsForCalendar`: usunąć logikę `legacyMatch`. Rejestracja z `occurrence_index = null` NIE powinna automatycznie zaliczać użytkownika do żadnego przyszłego terminu. Jeśli event stał się multi-occurrence, użytkownik musi się zapisać na każdy termin osobno.
+5. Dodać migrację zgodności wstecznej
+- Uzupełnić istniejące `event_registrations` o dane potrzebne do stabilnego mapowania konkretnego terminu tam, gdzie jest to możliwe.
+- Dla starych wpisów, których nie da się pewnie przypisać do aktualnego terminu, zachować historię, ale nie pokazywać ich w „Moje spotkania” jako aktywnego zapisu na nowy termin.
 
-```typescript
-// BEFORE (line 167):
-const legacyMatch = !hasSpecificRegistration && hasLegacyNullRegistration && occ.index === nextActiveIndex;
-const isRegisteredForOccurrence = specificMatch || legacyMatch;
+6. Zweryfikować miejsca zależne od rejestracji
+- Sprawdzić i dostosować:
+  - `MyMeetingsWidget.tsx`
+  - `UpcomingMeetings.tsx`
+  - `useEvents.ts`
+  - `usePublicEvents.ts`
+  - `useOccurrences.ts`
+  - komponenty zapisu/anulowania (`EventCard`, `EventCardCompact`)
+- Cel: wszędzie obowiązuje ta sama zasada „zapis jest zawsze na konkretny termin”.
 
-// AFTER:
-const isRegisteredForOccurrence = specificMatch;
-```
+Techniczne uwagi
+- Obecna poprawka usunęła część problemu (`legacy null`), ale nie rozwiązała głównej wady modelu danych: `occurrence_index` nie jest stabilnym identyfikatorem po edycji `occurrences`.
+- Dlatego sama zmiana w filtrze widżetu nie wystarczy.
+- Najbezpieczniejsza poprawka to odejście od samego `occurrence_index` na rzecz trwałego identyfikatora lub snapshotu terminu.
 
-#### 2. `src/hooks/useEvents.ts` — `is_registered` per-occurrence aware
-Zmiana na linii 133: dla eventów z occurrences, `is_registered` powinno być `false` na poziomie eventu (bo `expandEventsForCalendar` ustawi to per-occurrence). Tylko dla eventów BEZ occurrences zostawiamy obecną logikę.
+Efekt po wdrożeniu
+- Nowe terminy nie pojawią się w „Moje spotkania”, dopóki użytkownik nie kliknie „zapisz się” na ten konkretny termin.
+- Edycja zakończonego wydarzenia i dodanie nowych dat nie przeniesie starych zapisów na nowe terminy.
+- Widżet będzie pokazywał tylko realnie zapisane terminy.
 
-```typescript
-// BEFORE:
-is_registered: registeredEventIds.has(event.id),
-
-// AFTER:
-is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
-```
-
-To zapewni że `expandEventsForCalendar` jest jedynym źródłem prawdy o rejestracji dla multi-occurrence events.
-
-#### 3. `src/hooks/usePublicEvents.ts` — analogiczna zmiana
-Linia 102 — ta sama poprawka co w `useEvents.ts`:
-```typescript
-is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
-```
-
-### Efekt
-- Stare rejestracje (occurrence_index = null) NIE będą przenoszone na nowe terminy
-- Każdy nowy termin wymaga osobnego kliknięcia "Zapisz się"
-- Edytowane zakończone wydarzenia z nowymi terminami traktowane jak nowe — nikt nie jest automatycznie zapisany
-- Widget "Moje spotkania" pokaże tylko terminy na które user faktycznie się zapisał
-
-### Pliki do modyfikacji
-1. `src/hooks/useOccurrences.ts` — usunięcie legacy null match
-2. `src/hooks/useEvents.ts` — is_registered aware of multi-occurrence
-3. `src/hooks/usePublicEvents.ts` — analogicznie
-
+Zakres plików do zmian
+- `src/hooks/useOccurrences.ts`
+- `src/hooks/useEvents.ts`
+- `src/hooks/usePublicEvents.ts`
+- `src/components/dashboard/widgets/MyMeetingsWidget.tsx`
+- `src/components/events/UpcomingMeetings.tsx`
+- `src/components/events/EventCard.tsx`
+- `src/components/events/EventCardCompact.tsx`
+- formularze/admin dla edycji wydarzeń cyklicznych
+- migracja Supabase dla stabilnego identyfikatora terminu w `event_registrations`
