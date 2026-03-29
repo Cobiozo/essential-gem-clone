@@ -274,16 +274,16 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         }
       } else {
         // Cancel registration - find by stable occurrence_date+time
-        let cancelQuery = supabase
+        const cancelQuery = (supabase
           .from('event_registrations')
           .update({ 
             status: 'cancelled', 
             cancelled_at: new Date().toISOString() 
           })
           .eq('event_id', event.id)
-          .eq('user_id', user.id)
-          .eq('occurrence_date' as any, occurrence.date)
-          .eq('occurrence_time' as any, occurrence.time);
+          .eq('user_id', user.id) as any)
+          .eq('occurrence_date', occurrence.date)
+          .eq('occurrence_time', occurrence.time);
 
         const { error } = await cancelQuery;
 
