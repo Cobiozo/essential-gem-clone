@@ -155,7 +155,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const [registering, setRegistering] = useState(false);
   const [inviteLang, setInviteLang] = useState(language);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
-  const [registeredOccurrences, setRegisteredOccurrences] = useState<Set<number | null>>(
+  const [registeredOccurrences, setRegisteredOccurrences] = useState<Set<string>>(
     event.registered_occurrences || new Set()
   );
   const cardRef = useRef<HTMLDivElement>(null);

@@ -66,7 +66,7 @@ export interface AvailableSlot {
 export interface EventWithRegistration extends Event {
   is_registered?: boolean;
   registration_count?: number;
-  registered_occurrences?: Set<number | null>;
+  registered_occurrences?: Set<string>;
   host_profile?: {
     first_name: string | null;
     last_name: string | null;

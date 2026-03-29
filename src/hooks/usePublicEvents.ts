@@ -105,7 +105,7 @@ export const usePublicEvents = (eventType: PublicEventType) => {
             ...event,
             is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
             registration_count: countMap.get(event.id) || 0,
-            registered_occurrences: registrationsByEvent.get(event.id) || new Set<number | null>(),
+            registered_occurrences: registrationsByEvent.get(event.id) || new Set<string>(),
           }));
 
           setEvents(eventsWithRegistration);
@@ -115,7 +115,7 @@ export const usePublicEvents = (eventType: PublicEventType) => {
       } else {
         setEvents(filteredEvents.map(e => ({
           ...e,
-          registered_occurrences: new Set<number | null>(),
+          registered_occurrences: new Set<string>(),
         })));
       }
     } catch (error) {
