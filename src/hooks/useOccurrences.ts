@@ -151,9 +151,8 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
     if (isMultiOccurrenceEvent(event)) {
       // Multi-occurrence: expand each future occurrence as separate entry
       const futureOccurrences = getFutureOccurrences(event);
-      
 
-
+      futureOccurrences.forEach(occ => {
         // Check if user is registered for THIS specific occurrence using date+time key
         // This ensures that if admin changes the occurrences array, old registrations
         // won't drift to new dates - only exact date+time matches count
