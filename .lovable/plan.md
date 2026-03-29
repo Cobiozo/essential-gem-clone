@@ -1,65 +1,56 @@
 
 
-## Plan: Automatyczny tryb konserwacji podczas wdrażania dist/
+## Plan: Naprawić dopasowanie statystyk oglądania per rejestracja
 
 ### Problem
-Podczas kopiowania nowego folderu `dist/` na serwer produkcyjny, pliki JS/CSS są chwilowo niekompletne lub niedostępne — użytkownicy widzą białą stronę lub błędy.
+Widok "Rejestracje na wydarzenia" w popoverze kontaktu błędnie pokazuje dane oglądania z jednego slotu przy innym slocie tego samego wydarzenia. Przykład ze screenshota: rejestracja na slot 23:09 (który jeszcze się nie odbył) wyświetla "Dołączył 21:30 • Oglądał 36m 6s" — to dane z wcześniejszego slotu.
+
+### Przyczyna
+W fallbackowym dopasowaniu (krok 3 w `ContactEventInfoButton.tsx`), okno czasowe ±30 minut jest za szerokie, a logika nie sprawdza czy slot w ogóle już się odbył. Ponadto, gdy `slot_time` istnieje, widok z innego slotu tego samego eventu może być błędnie przypisany.
 
 ### Rozwiązanie
-Dwa pliki: statyczna strona `maintenance.html` + logika detekcji w `server.js` która automatycznie przełącza na tryb konserwacji gdy wykryje niestabilność plików w `dist/`.
+**Plik:** `src/components/team-contacts/ContactEventInfoButton.tsx`
 
-### 1. Utworzyć `maintenance.html` (nowy plik w katalogu głównym)
-- Samodzielna strona HTML (zero zewnętrznych zależności — inline CSS)
-- Styl zgodny z brandingiem PureLife (zielony motyw, logo tekstowe)
-- Treść: "Trwa aktualizacja systemu", "Strona będzie dostępna za chwilę"
-- Auto-odświeżanie co 5 sekund (`<meta http-equiv="refresh" content="5">`)
-- Animacja ładowania (spinner CSS)
+Trzy zmiany w logice fallbackowego dopasowania (linie 125-157):
 
-### 2. Zmodyfikować `server.js` — detekcja niestabilności dist/
+1. **Nie przypisuj widoków do przyszłych slotów** — jeśli `slot_time` jest w przyszłości (> now), pomiń rejestrację w fallbacku
+2. **Wymagaj dopasowania slot_time** — gdy rejestracja ma `slot_time`, widok musi mieć `created_at` po `slot_time` (gość dołącza po rozpoczęciu, nie przed) i w oknie do +60 minut (czas trwania typowego webinaru)
+3. **Zmień kierunek okna czasowego** — zamiast ±30 min, użyj okna: `view.created_at >= slot_time - 5min` AND `view.created_at <= slot_time + 90min` (gość może dołączyć kilka minut przed lub w trakcie)
 
-**Nowa sekcja po konfiguracji serwera (po linii 42):**
+Zmieniony fragment logiki:
+```typescript
+for (const reg of regsWithoutViews) {
+  const regEventId = (reg as any).event_id;
+  const regSlotTime = (reg as any).slot_time;
+  if (!regEventId) continue;
 
-Stan maintenance:
-```
-let isMaintenanceMode = false;
-let lastDistCheck = { totalSize: 0, mtimeMax: 0 };
-```
+  // Skip future slots — no view data possible
+  if (regSlotTime && new Date(regSlotTime).getTime() > Date.now()) continue;
 
-**Funkcja `checkDistStability()`** — wywoływana co 3 sekundy (setInterval):
-1. Sprawdza czy `dist/index.html` istnieje — jeśli nie → maintenance ON
-2. Skanuje pliki w `dist/assets/` — zbiera sumaryczny rozmiar i najnowszy mtime
-3. Porównuje z poprzednim odczytem:
-   - Jeśli rozmiar lub mtime się zmieniły → maintenance ON (trwa kopiowanie)
-   - Jeśli 2 kolejne odczyty identyczne → maintenance OFF (kopiowanie zakończone)
-4. Loguje zmiany stanu do konsoli
+  const matchingView = emailViews.find(v => {
+    if (usedViewIds.has(v.id)) return false;
+    const viewEventId = videoToEventMap.get(v.video_id);
+    if (viewEventId !== regEventId) return false;
 
-**Middleware maintenance (przed routami, po linii 158):**
-- Sprawdza `isMaintenanceMode`
-- Dla żądań API (`/health`, `/upload`, `/list-files`) — przepuszcza
-- Dla pozostałych — serwuje `maintenance.html` z kodem 503
+    // When slot_time exists, require view to be within slot window
+    if (regSlotTime && v.created_at) {
+      const slotMs = new Date(regSlotTime).getTime();
+      const viewMs = new Date(v.created_at).getTime();
+      // View must be between 5 min before slot and 90 min after
+      if (viewMs < slotMs - 5 * 60 * 1000 || viewMs > slotMs + 90 * 60 * 1000) return false;
+    }
 
-**SPA fallback (linia 505-510):**
-- Dodaje sprawdzenie: jeśli `dist/index.html` nie istnieje → serwuj `maintenance.html`
-
-### 3. Logika stabilności — szczegóły
-
-```text
-Cykl sprawdzania (co 3s):
-  ┌─ Odczyt: totalSize + mtimeMax plików w dist/assets/
-  │
-  ├─ Zmiana wykryta? → maintenance = true, zapisz snapshot
-  │
-  └─ Brak zmian (2x z rzędu)? → maintenance = false
+    return true;
+  });
+  // ... rest unchanged
+}
 ```
 
-Tolerancja: wymaga **2 stabilnych odczytów** (6 sekund bez zmian) zanim wyłączy tryb konserwacji — zapobiega przedwczesnemu przełączeniu gdy kopiowanie trwa partiami.
+### Efekt
+- Przyszłe sloty (jak 23:09 w przykładzie) pokażą "Nie dołączył" zamiast fałszywych danych
+- Każda rejestracja na różne sloty tego samego eventu będzie miała indywidualne dopasowanie widoku
+- Widoki z wcześniejszych slotów nie będą przypisywane do późniejszych
 
 ### Pliki do modyfikacji
-1. **`maintenance.html`** — nowy plik, statyczna strona konserwacji
-2. **`server.js`** — dodanie detekcji + middleware maintenance
-
-### Co pozostaje bez zmian
-- Folder `dist/` i build process
-- Wszystkie istniejące endpointy (upload, health, PWA, video streaming)
-- Graceful shutdown
+1. `src/components/team-contacts/ContactEventInfoButton.tsx` — poprawka logiki fallback matching
 
