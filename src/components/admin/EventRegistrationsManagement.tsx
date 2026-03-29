@@ -14,7 +14,9 @@ import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw, Send, Paperclip, X, FileText, Search, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Loader2, Download, Users, CheckCircle, XCircle, Calendar, UserPlus, Mail, Clock, RefreshCw, Send, Paperclip, X, FileText, Search, ChevronDown, ChevronRight, AlertTriangle, Trash2, ShieldAlert } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -151,6 +153,15 @@ export const EventRegistrationsManagement: React.FC = () => {
   const [guestSearchQuery, setGuestSearchQuery] = useState('');
   const [showUnassignedOnly, setShowUnassignedOnly] = useState(false);
   const [expandedUsers, setExpandedUsers] = useState<Set<string>>(new Set());
+  
+  // Reset registration state
+  const [resetGlobalDialogOpen, setResetGlobalDialogOpen] = useState(false);
+  const [resetUserDialogOpen, setResetUserDialogOpen] = useState(false);
+  const [resetUserTarget, setResetUserTarget] = useState<{ userId: string; name: string } | null>(null);
+  const [resetRoleDialogOpen, setResetRoleDialogOpen] = useState(false);
+  const [resetRoleTarget, setResetRoleTarget] = useState<string>('');
+  const [isResetting, setIsResetting] = useState(false);
+
   const selectedEvent = useMemo(() =>
     events.find(e => e.id === selectedEventId), 
     [events, selectedEventId]
@@ -699,10 +710,206 @@ export const EventRegistrationsManagement: React.FC = () => {
     }
   };
 
+  // === RESET HANDLERS ===
+  const activeUserRegistrationCount = useMemo(() =>
+    registrations.filter(r => r.status === 'registered').length,
+    [registrations]
+  );
+
+  const activeGuestRegistrationCount = useMemo(() =>
+    guestRegistrations.filter(r => r.status === 'registered').length,
+    [guestRegistrations]
+  );
+
+  const activeCountForRole = (role: string) =>
+    registrations.filter(r => r.status === 'registered' && r.profiles.role === role).length;
+
+  const activeCountForUser = (userId: string) =>
+    registrations.filter(r => r.status === 'registered' && r.user_id === userId).length;
+
+  const refreshRegistrations = () => {
+    // Trigger re-fetch by toggling event ID
+    const id = selectedEventId;
+    setSelectedEventId('');
+    setTimeout(() => setSelectedEventId(id), 50);
+  };
+
+  const handleResetGlobal = async () => {
+    if (!selectedEventId) return;
+    setIsResetting(true);
+    try {
+      // Cancel user registrations
+      const { error: userError } = await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('status', 'registered');
+
+      if (userError) throw userError;
+
+      // Cancel guest registrations
+      const { error: guestError } = await supabase
+        .from('guest_event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('status', 'registered');
+
+      if (guestError) throw guestError;
+
+      const total = activeUserRegistrationCount + activeGuestRegistrationCount;
+      toast({ title: 'Zapisy zresetowane', description: `Anulowano ${total} zapisów (użytkownicy + goście).` });
+      setResetGlobalDialogOpen(false);
+      refreshRegistrations();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się zresetować zapisów', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetUser = async () => {
+    if (!selectedEventId || !resetUserTarget) return;
+    setIsResetting(true);
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('user_id', resetUserTarget.userId)
+        .eq('status', 'registered');
+
+      if (error) throw error;
+
+      const count = activeCountForUser(resetUserTarget.userId);
+      toast({ title: 'Zapisy anulowane', description: `Anulowano ${count} zapisów użytkownika ${resetUserTarget.name}.` });
+      setResetUserDialogOpen(false);
+      setResetUserTarget(null);
+      refreshRegistrations();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się anulować zapisów', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleResetRole = async () => {
+    if (!selectedEventId || !resetRoleTarget) return;
+    setIsResetting(true);
+    try {
+      // Get user IDs with specified role
+      const userIdsForRole = registrations
+        .filter(r => r.status === 'registered' && r.profiles.role === resetRoleTarget)
+        .map(r => r.user_id);
+
+      const uniqueIds = [...new Set(userIdsForRole)];
+      if (uniqueIds.length === 0) {
+        toast({ title: 'Brak zapisów', description: `Nie znaleziono aktywnych zapisów dla roli "${getRoleLabel(resetRoleTarget)}".` });
+        setResetRoleDialogOpen(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .eq('event_id', selectedEventId)
+        .eq('status', 'registered')
+        .in('user_id', uniqueIds);
+
+      if (error) throw error;
+
+      const count = activeCountForRole(resetRoleTarget);
+      toast({ title: 'Zapisy anulowane', description: `Anulowano ${count} zapisów dla roli "${getRoleLabel(resetRoleTarget)}".` });
+      setResetRoleDialogOpen(false);
+      setResetRoleTarget('');
+      refreshRegistrations();
+    } catch (error: any) {
+      toast({ title: 'Błąd', description: error.message || 'Nie udało się anulować zapisów', variant: 'destructive' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <>
     <div className="space-y-6">
 
+      {/* Reset Global Dialog */}
+      <AlertDialog open={resetGlobalDialogOpen} onOpenChange={setResetGlobalDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <ShieldAlert className="h-5 w-5" />
+              Resetuj wszystkie zapisy
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Ta operacja anuluje <strong>{activeUserRegistrationCount}</strong> zapisów użytkowników 
+              i <strong>{activeGuestRegistrationCount}</strong> zapisów gości na wydarzenie 
+              „<strong>{selectedEvent?.title}</strong>".
+              <br /><br />
+              Tej operacji nie można cofnąć. Użytkownicy będą musieli zapisać się ponownie.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetGlobal}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Resetuj {activeUserRegistrationCount + activeGuestRegistrationCount} zapisów
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset User Dialog */}
+      <AlertDialog open={resetUserDialogOpen} onOpenChange={(open) => { setResetUserDialogOpen(open); if (!open) setResetUserTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Anuluj zapisy użytkownika</AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno chcesz anulować <strong>{resetUserTarget ? activeCountForUser(resetUserTarget.userId) : 0}</strong> aktywnych 
+              zapisów użytkownika <strong>{resetUserTarget?.name}</strong> na to wydarzenie?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetUser}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
+              Potwierdź anulowanie
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Role Dialog */}
+      <AlertDialog open={resetRoleDialogOpen} onOpenChange={(open) => { setResetRoleDialogOpen(open); if (!open) setResetRoleTarget(''); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resetuj zapisy dla roli</AlertDialogTitle>
+            <AlertDialogDescription>
+              Czy na pewno chcesz anulować <strong>{activeCountForRole(resetRoleTarget)}</strong> aktywnych 
+              zapisów użytkowników z rolą <strong>„{getRoleLabel(resetRoleTarget)}"</strong> na to wydarzenie?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isResetting}>Anuluj</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetRole}
+              disabled={isResetting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isResetting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Resetuj {activeCountForRole(resetRoleTarget)} zapisów
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {/* Follow-up Email Dialog */}
       <Dialog open={followUpDialogOpen} onOpenChange={setFollowUpDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
@@ -1023,7 +1230,43 @@ export const EventRegistrationsManagement: React.FC = () => {
                   )}
                 </TabsList>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {/* Reset buttons */}
+                  {activeTab === 'users' && userStats.active > 0 && (
+                    <>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                            <ShieldAlert className="h-4 w-4 mr-2" />
+                            Resetuj zapisy
+                            <ChevronDown className="h-3 w-3 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setResetGlobalDialogOpen(true)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Wszystkie zapisy ({activeUserRegistrationCount + activeGuestRegistrationCount})
+                          </DropdownMenuItem>
+                          {['client', 'partner', 'specjalista', 'admin'].map(role => {
+                            const count = activeCountForRole(role);
+                            if (count === 0) return null;
+                            return (
+                              <DropdownMenuItem
+                                key={role}
+                                onClick={() => { setResetRoleTarget(role); setResetRoleDialogOpen(true); }}
+                              >
+                                <Users className="h-4 w-4 mr-2" />
+                                Rola: {getRoleLabel(role)} ({count})
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
                   <Button
                     onClick={() => setFollowUpDialogOpen(true)}
                     variant="default"
@@ -1081,6 +1324,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                           <TableHead>Status</TableHead>
                           <TableHead>Terminy</TableHead>
                           <TableHead>Data zapisu</TableHead>
+                          <TableHead>Akcje</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1163,6 +1407,26 @@ export const EventRegistrationsManagement: React.FC = () => {
                                 </TableCell>
                                 <TableCell className="text-muted-foreground text-sm">
                                   {format(new Date(registration.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                                </TableCell>
+                                <TableCell>
+                                  {registration.activeCount > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7 text-destructive hover:bg-destructive/10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setResetUserTarget({
+                                          userId: registration.user_id,
+                                          name: `${registration.profiles.first_name || ''} ${registration.profiles.last_name || ''}`.trim(),
+                                        });
+                                        setResetUserDialogOpen(true);
+                                      }}
+                                      title="Anuluj zapisy tego użytkownika"
+                                    >
+                                      <XCircle className="h-4 w-4" />
+                                    </Button>
+                                  )}
                                 </TableCell>
                               </TableRow>
                               
