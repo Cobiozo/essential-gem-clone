@@ -372,17 +372,36 @@ export const useEvents = () => {
 
       if (existingReg) {
         // Update existing registration to 'registered'
+        // Also fetch occurrence date/time for snapshot
+        let occDate: string | null = null;
+        let occTime: string | null = null;
+        if (occurrenceIndex !== undefined) {
+          const { data: eventData } = await supabase
+            .from('events')
+            .select('occurrences')
+            .eq('id', eventId)
+            .single();
+          if (eventData?.occurrences && Array.isArray(eventData.occurrences)) {
+            const occ = (eventData.occurrences as any[])[occurrenceIndex];
+            if (occ) {
+              occDate = occ.date || null;
+              occTime = occ.time || null;
+            }
+          }
+        }
+        
         const { error } = await supabase
           .from('event_registrations')
           .update({ 
             status: 'registered',
             cancelled_at: null,
-            registered_at: new Date().toISOString()
-          })
+            registered_at: new Date().toISOString(),
+            ...(occDate ? { occurrence_date: occDate, occurrence_time: occTime } : {}),
+          } as any)
           .eq('id', existingReg.id);
 
         if (error) throw error;
-        console.log('[useEvents] Re-activated existing registration for occurrence:', occurrenceIndex);
+        console.log('[useEvents] Re-activated existing registration for occurrence:', occurrenceIndex, occDate, occTime);
       } else {
         // Insert new registration with occurrence_index + date/time snapshot
         // Look up occurrence date/time from the event if occurrenceIndex is provided
