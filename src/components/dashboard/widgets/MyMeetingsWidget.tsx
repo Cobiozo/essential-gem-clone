@@ -39,7 +39,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [expandedTypes, setExpandedTypes] = useState<Record<string, boolean>>({});
   const [cancellingEventId, setCancellingEventId] = useState<string | null>(null);
-  const [unregisteringEventId, setUnregisteringEventId] = useState<string | null>(null);
+  
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [inviteLangs, setInviteLangs] = useState<Record<string, string>>({});
 
