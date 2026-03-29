@@ -55,18 +55,22 @@ export const useEvents = () => {
       if (user) {
         const { data: registrations } = await supabase
           .from('event_registrations')
-          .select('event_id, occurrence_index')
+          .select('event_id, occurrence_index, occurrence_date, occurrence_time')
           .eq('user_id', user.id)
           .eq('status', 'registered');
 
         // Create a Set for simple event_id check AND a Map for occurrence-specific check
         const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
-        // Map: "event_id:occurrence_index" -> true (for per-occurrence registration tracking)
+        // Map: "event_id:date:time" -> true for stable occurrence matching
+        // Only entries WITH occurrence_date+time are used for multi-occurrence events
+        // Entries without date/time use "event_id:null" for single events
         const registrationMap = new Map<string, boolean>(
-          (registrations || []).map(r => [
-            `${r.event_id}:${r.occurrence_index ?? 'null'}`,
-            true
-          ])
+          (registrations || []).map(r => {
+            const key = r.occurrence_date && r.occurrence_time
+              ? `${r.event_id}:${r.occurrence_date}:${r.occurrence_time}`
+              : `${r.event_id}:null`;
+            return [key, true];
+          })
         );
         // Store in global for expandEventsForCalendar to use
         (window as any).__eventRegistrationMap = registrationMap;
@@ -368,19 +372,57 @@ export const useEvents = () => {
 
       if (existingReg) {
         // Update existing registration to 'registered'
+        // Also fetch occurrence date/time for snapshot
+        let occDate: string | null = null;
+        let occTime: string | null = null;
+        if (occurrenceIndex !== undefined) {
+          const { data: eventData } = await supabase
+            .from('events')
+            .select('occurrences')
+            .eq('id', eventId)
+            .single();
+          if (eventData?.occurrences && Array.isArray(eventData.occurrences)) {
+            const occ = (eventData.occurrences as any[])[occurrenceIndex];
+            if (occ) {
+              occDate = occ.date || null;
+              occTime = occ.time || null;
+            }
+          }
+        }
+        
         const { error } = await supabase
           .from('event_registrations')
           .update({ 
             status: 'registered',
             cancelled_at: null,
-            registered_at: new Date().toISOString()
-          })
+            registered_at: new Date().toISOString(),
+            ...(occDate ? { occurrence_date: occDate, occurrence_time: occTime } : {}),
+          } as any)
           .eq('id', existingReg.id);
 
         if (error) throw error;
-        console.log('[useEvents] Re-activated existing registration for occurrence:', occurrenceIndex);
+        console.log('[useEvents] Re-activated existing registration for occurrence:', occurrenceIndex, occDate, occTime);
       } else {
-        // Insert new registration with occurrence_index
+        // Insert new registration with occurrence_index + date/time snapshot
+        // Look up occurrence date/time from the event if occurrenceIndex is provided
+        let occDate: string | null = null;
+        let occTime: string | null = null;
+        if (occurrenceIndex !== undefined) {
+          // Fetch the event's occurrences to get the date/time for this index
+          const { data: eventData } = await supabase
+            .from('events')
+            .select('occurrences')
+            .eq('id', eventId)
+            .single();
+          if (eventData?.occurrences && Array.isArray(eventData.occurrences)) {
+            const occ = (eventData.occurrences as any[])[occurrenceIndex];
+            if (occ) {
+              occDate = occ.date || null;
+              occTime = occ.time || null;
+            }
+          }
+        }
+
         const { error } = await supabase
           .from('event_registrations')
           .insert({
@@ -388,10 +430,12 @@ export const useEvents = () => {
             user_id: user.id,
             status: 'registered',
             occurrence_index: occurrenceIndex ?? null,
-          });
+            occurrence_date: occDate,
+            occurrence_time: occTime,
+          } as any);
 
         if (error) throw error;
-        console.log('[useEvents] Created new registration for occurrence:', occurrenceIndex);
+        console.log('[useEvents] Created new registration for occurrence:', occurrenceIndex, occDate, occTime);
       }
 
       toast({

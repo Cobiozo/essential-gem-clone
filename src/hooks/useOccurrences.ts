@@ -151,20 +151,13 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
     if (isMultiOccurrenceEvent(event)) {
       // Multi-occurrence: expand each future occurrence as separate entry
       const futureOccurrences = getFutureOccurrences(event);
-      
-      // Check if user has any specific (per-index) registrations for this event
-      const hasSpecificRegistration = registrationMap
-        ? Array.from(registrationMap.keys()).some(k => k.startsWith(`${event.id}:`) && !k.endsWith(':null'))
-        : false;
-      const hasLegacyNullRegistration = registrationMap?.get(`${event.id}:null`) ?? false;
-      const nextActiveIndex = futureOccurrences[0]?.index ?? null;
-      
+
       futureOccurrences.forEach(occ => {
-        // Check if user is registered for THIS specific occurrence
-        const registrationKey = `${event.id}:${occ.index}`;
-        const specificMatch = registrationMap?.get(registrationKey) ?? false;
-        // Legacy null registration: only apply to the nearest future occurrence
-        const isRegisteredForOccurrence = specificMatch;
+        // Check if user is registered for THIS specific occurrence using date+time key
+        // This ensures that if admin changes the occurrences array, old registrations
+        // won't drift to new dates - only exact date+time matches count
+        const registrationKey = `${event.id}:${occ.date}:${occ.time}`;
+        const isRegisteredForOccurrence = registrationMap?.get(registrationKey) ?? false;
         
         result.push({
           ...event,
@@ -176,8 +169,10 @@ export const expandEventsForCalendar = (events: EventWithRegistration[]): EventW
           is_registered: isRegisteredForOccurrence,
           // Add occurrence tracking
           _occurrence_index: occ.index,
+          _occurrence_date: occ.date,
+          _occurrence_time: occ.time,
           _is_multi_occurrence: true,
-        } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean });
+        } as EventWithRegistration & { _occurrence_index: number; _occurrence_date: string; _occurrence_time: string; _is_multi_occurrence: boolean });
       });
     } else {
       // Single occurrence: keep as-is (registration check uses null occurrence_index)

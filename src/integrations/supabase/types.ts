@@ -2587,7 +2587,9 @@ export type Database = {
           cancelled_at: string | null
           event_id: string
           id: string
+          occurrence_date: string | null
           occurrence_index: number | null
+          occurrence_time: string | null
           registered_at: string | null
           reminder_12h_sent: boolean | null
           reminder_12h_sent_at: string | null
@@ -2608,7 +2610,9 @@ export type Database = {
           cancelled_at?: string | null
           event_id: string
           id?: string
+          occurrence_date?: string | null
           occurrence_index?: number | null
+          occurrence_time?: string | null
           registered_at?: string | null
           reminder_12h_sent?: boolean | null
           reminder_12h_sent_at?: string | null
@@ -2629,7 +2633,9 @@ export type Database = {
           cancelled_at?: string | null
           event_id?: string
           id?: string
+          occurrence_date?: string | null
           occurrence_index?: number | null
+          occurrence_time?: string | null
           registered_at?: string | null
           reminder_12h_sent?: boolean | null
           reminder_12h_sent_at?: string | null

@@ -65,18 +65,22 @@ export const usePublicEvents = (eventType: PublicEventType) => {
         if (eventIds.length > 0) {
           const { data: registrations } = await supabase
             .from('event_registrations')
-            .select('event_id, occurrence_index')
+            .select('event_id, occurrence_index, occurrence_date, occurrence_time')
             .eq('user_id', user.id)
             .eq('status', 'registered')
             .in('event_id', eventIds);
 
-          // Create map: event_id -> Set<occurrence_index>
-          const registrationsByEvent = new Map<string, Set<number | null>>();
+          // Create map: event_id -> Set of "date:time" keys (stable occurrence matching)
+          const registrationsByEvent = new Map<string, Set<string>>();
           registrations?.forEach(r => {
             if (!registrationsByEvent.has(r.event_id)) {
               registrationsByEvent.set(r.event_id, new Set());
             }
-            registrationsByEvent.get(r.event_id)!.add(r.occurrence_index);
+            // Use date+time as stable key; fallback to index-based for legacy
+            const key = r.occurrence_date && r.occurrence_time
+              ? `${r.occurrence_date}:${r.occurrence_time}`
+              : r.occurrence_index !== null ? `idx:${r.occurrence_index}` : 'null';
+            registrationsByEvent.get(r.event_id)!.add(key);
           });
           
           const registeredEventIds = new Set(registrations?.map(r => r.event_id) || []);
@@ -101,7 +105,7 @@ export const usePublicEvents = (eventType: PublicEventType) => {
             ...event,
             is_registered: isMultiOccurrenceEvent(event) ? false : registeredEventIds.has(event.id),
             registration_count: countMap.get(event.id) || 0,
-            registered_occurrences: registrationsByEvent.get(event.id) || new Set<number | null>(),
+            registered_occurrences: registrationsByEvent.get(event.id) || new Set<string>(),
           }));
 
           setEvents(eventsWithRegistration);
@@ -111,7 +115,7 @@ export const usePublicEvents = (eventType: PublicEventType) => {
       } else {
         setEvents(filteredEvents.map(e => ({
           ...e,
-          registered_occurrences: new Set<number | null>(),
+          registered_occurrences: new Set<string>(),
         })));
       }
     } catch (error) {

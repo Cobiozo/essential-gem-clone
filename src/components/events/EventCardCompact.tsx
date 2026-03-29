@@ -83,7 +83,7 @@ const OccurrenceRow: React.FC<{
   event: EventWithRegistration;
   occurrence: ExpandedOccurrence;
   isRegistered: boolean;
-  onRegisterChange: (occurrenceIndex: number, register: boolean) => Promise<void>;
+  onRegisterChange: (occurrence: ExpandedOccurrence, register: boolean) => Promise<void>;
   dateLocale: Locale;
   eventTimezone: string;
 }> = ({ event, occurrence, isRegistered, onRegisterChange, dateLocale, eventTimezone }) => {
@@ -93,7 +93,7 @@ const OccurrenceRow: React.FC<{
   const handleClick = async () => {
     setLoading(true);
     try {
-      await onRegisterChange(occurrence.index, !isRegistered);
+      await onRegisterChange(occurrence, !isRegistered);
     } finally {
       setLoading(false);
     }
@@ -155,7 +155,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const [registering, setRegistering] = useState(false);
   const [inviteLang, setInviteLang] = useState(language);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);
-  const [registeredOccurrences, setRegisteredOccurrences] = useState<Set<number | null>>(
+  const [registeredOccurrences, setRegisteredOccurrences] = useState<Set<string>>(
     event.registered_occurrences || new Set()
   );
   const cardRef = useRef<HTMLDivElement>(null);
@@ -208,7 +208,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
     'Ten webinar odbywa się na zewnętrznej platformie. Zapisz się tutaj, aby otrzymać przypomnienie w kalendarzu, a następnie użyj przycisku poniżej, aby zarejestrować się na platformie docelowej.';
 
   // Handle occurrence-specific registration
-  const handleOccurrenceRegister = async (occurrenceIndex: number, shouldRegister: boolean) => {
+  const handleOccurrenceRegister = async (occurrence: ExpandedOccurrence, shouldRegister: boolean) => {
     if (!user) {
       toast({
         title: t('toast.error'),
@@ -218,15 +218,17 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
       return;
     }
 
+    const occurrenceKey = `${occurrence.date}:${occurrence.time}`;
+
     try {
       if (shouldRegister) {
-        // Check for existing registration
+        // Check for existing registration by occurrence_index
         const { data: existingReg } = await supabase
           .from('event_registrations')
           .select('id, status')
           .eq('event_id', event.id)
           .eq('user_id', user.id)
-          .eq('occurrence_index', occurrenceIndex)
+          .eq('occurrence_index', occurrence.index)
           .maybeSingle();
 
         if (existingReg) {
@@ -235,8 +237,10 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
             .update({ 
               status: 'registered',
               cancelled_at: null,
-              registered_at: new Date().toISOString()
-            })
+              registered_at: new Date().toISOString(),
+              occurrence_date: occurrence.date,
+              occurrence_time: occurrence.time,
+            } as any)
             .eq('id', existingReg.id);
           if (error) throw error;
         } else {
@@ -246,12 +250,14 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
               event_id: event.id,
               user_id: user.id,
               status: 'registered',
-              occurrence_index: occurrenceIndex,
-            });
+              occurrence_index: occurrence.index,
+              occurrence_date: occurrence.date,
+              occurrence_time: occurrence.time,
+            } as any);
           if (error) throw error;
         }
 
-        setRegisteredOccurrences(prev => new Set([...prev, occurrenceIndex]));
+        setRegisteredOccurrences(prev => new Set([...prev, occurrenceKey]));
         toast({
           title: t('toast.success'),
           description: t('events.registrationSuccess'),
@@ -260,7 +266,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         // Sync with Google Calendar
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'create', occurrence_index: occurrenceIndex }
+            body: { user_id: user.id, event_id: event.id, action: 'create', occurrence_index: occurrence.index }
           });
         } catch (syncErr) {
           console.error('[EventCardCompact] Google Calendar sync (create) failed:', syncErr);
@@ -275,13 +281,13 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
           })
           .eq('event_id', event.id)
           .eq('user_id', user.id)
-          .eq('occurrence_index', occurrenceIndex);
+          .eq('occurrence_index', occurrence.index);
 
         if (error) throw error;
 
         setRegisteredOccurrences(prev => {
           const newSet = new Set(prev);
-          newSet.delete(occurrenceIndex);
+          newSet.delete(occurrenceKey);
           return newSet;
         });
         toast({
@@ -292,7 +298,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
         // Sync with Google Calendar
         try {
           await supabase.functions.invoke('sync-google-calendar', {
-            body: { user_id: user.id, event_id: event.id, action: 'delete', occurrence_index: occurrenceIndex }
+            body: { user_id: user.id, event_id: event.id, action: 'delete', occurrence_index: occurrence.index }
           });
         } catch (syncErr) {
           console.error('[EventCardCompact] Google Calendar sync (delete) failed:', syncErr);
@@ -614,11 +620,11 @@ ${labels.signUp}: ${inviteUrl}
   };
 
   // Count registered occurrences ONLY for future dates (not past)
-  const futureOccurrenceIndices = new Set(futureOccurrences.map(occ => occ.index));
+  const futureOccurrenceKeys = new Set(futureOccurrences.map(occ => `${occ.date}:${occ.time}`));
   
   const futureRegisteredCount = isMultiOccurrence 
     ? [...registeredOccurrences].filter(
-        occIndex => occIndex !== null && futureOccurrenceIndices.has(occIndex)
+        key => futureOccurrenceKeys.has(key)
       ).length
     : 0;
 
@@ -795,7 +801,7 @@ ${labels.signUp}: ${inviteUrl}
                       <PastOccurrenceRow
                         key={occurrence.index}
                         occurrence={occurrence}
-                        wasRegistered={registeredOccurrences.has(occurrence.index)}
+                        wasRegistered={registeredOccurrences.has(`${occurrence.date}:${occurrence.time}`)}
                         dateLocale={dateLocale}
                         eventTimezone={event.timezone || DEFAULT_EVENT_TIMEZONE}
                       />
@@ -804,7 +810,7 @@ ${labels.signUp}: ${inviteUrl}
                         key={occurrence.index}
                         event={event}
                         occurrence={occurrence}
-                        isRegistered={registeredOccurrences.has(occurrence.index)}
+                        isRegistered={registeredOccurrences.has(`${occurrence.date}:${occurrence.time}`)}
                         onRegisterChange={handleOccurrenceRegister}
                         dateLocale={dateLocale}
                         eventTimezone={event.timezone || DEFAULT_EVENT_TIMEZONE}
