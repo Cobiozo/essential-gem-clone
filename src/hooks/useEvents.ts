@@ -601,7 +601,7 @@ export const useEvents = () => {
       // cancelled registrations don't appear in "Moje spotkania"
       const { data: registrations, error: regError } = await supabase
         .from('event_registrations')
-        .select('event_id, occurrence_index, status')
+        .select('event_id, occurrence_index, occurrence_date, occurrence_time, status')
         .eq('user_id', user.id)
         .eq('status', 'registered');
 
@@ -686,17 +686,12 @@ export const useEvents = () => {
       }
 
       // Step 5: Expand multi-occurrence events based on user's registrations
+      // CRITICAL: For multi-occurrence events, only show occurrences where the user
+      // has a registration with BOTH occurrence_date AND occurrence_time set.
+      // This prevents old/drifted index-only registrations from showing wrong dates.
       const expandedEvents: EventWithRegistration[] = [];
       const eventMap = new Map((events || []).map(e => [e.id, e]));
-      const seenEventTimes = new Set<string>(); // Deduplikacja po event_id + start_time
-
-      // Build a map of event_id -> has specific occurrence registrations (with status='registered')
-      const eventHasSpecificOccurrences = new Map<string, boolean>();
-      activeRegistrations.forEach(reg => {
-        if (reg.occurrence_index !== null && reg.occurrence_index !== undefined) {
-          eventHasSpecificOccurrences.set(reg.event_id, true);
-        }
-      });
+      const seenEventTimes = new Set<string>();
 
       activeRegistrations.forEach(reg => {
         const event = eventMap.get(reg.event_id);
@@ -711,24 +706,26 @@ export const useEvents = () => {
           participant_profile: participantProfiles.get(event.id) || null,
         };
 
-        // For multi-occurrence events with null occurrence_index,
-        // skip if there are ANY registrations with specific occurrence_index (they take precedence)
-        if (isMultiOccurrenceEvent(baseEvent) && 
-            reg.occurrence_index === null && 
-            eventHasSpecificOccurrences.get(reg.event_id)) {
-          console.log(`📅 Skipping legacy registration for ${baseEvent.title} - has specific occurrence registrations`);
-          return;
-        }
-
         let startTimeForDedupe: string;
         let eventToPush: EventWithRegistration;
 
-        // Check if this is a multi-occurrence event with specific occurrence_index
-        if (isMultiOccurrenceEvent(baseEvent) && reg.occurrence_index !== null && reg.occurrence_index !== undefined) {
-          const allOccurrences = getAllOccurrences(baseEvent);
-          const occurrence = allOccurrences.find(o => o.index === reg.occurrence_index);
+        if (isMultiOccurrenceEvent(baseEvent)) {
+          // Multi-occurrence: REQUIRE stable occurrence_date + occurrence_time
+          if (!reg.occurrence_date || !reg.occurrence_time) {
+            console.log(`📅 Skipping unstable registration for "${baseEvent.title}" - missing occurrence_date/time`);
+            return;
+          }
           
-          if (!occurrence) return;
+          // Find matching occurrence by date+time (NOT by index)
+          const allOccurrences = getAllOccurrences(baseEvent);
+          const occurrence = allOccurrences.find(
+            o => o.date === reg.occurrence_date && o.time === reg.occurrence_time
+          );
+          
+          if (!occurrence) {
+            console.log(`📅 Skipping registration for "${baseEvent.title}" - occurrence ${reg.occurrence_date} ${reg.occurrence_time} no longer exists`);
+            return;
+          }
           
           startTimeForDedupe = occurrence.start_datetime.toISOString();
           eventToPush = {
@@ -737,15 +734,16 @@ export const useEvents = () => {
             end_time: occurrence.end_datetime.toISOString(),
             duration_minutes: occurrence.duration_minutes,
             _occurrence_index: occurrence.index,
+            _occurrence_date: occurrence.date,
+            _occurrence_time: occurrence.time,
             _is_multi_occurrence: true,
-          } as EventWithRegistration & { _occurrence_index: number; _is_multi_occurrence: boolean };
+          } as EventWithRegistration & { _occurrence_index: number; _occurrence_date: string; _occurrence_time: string; _is_multi_occurrence: boolean };
         } else {
-          // Single occurrence or legacy registration without occurrence_index
+          // Single occurrence event
           startTimeForDedupe = new Date(baseEvent.start_time).toISOString();
           eventToPush = baseEvent;
         }
 
-        // Deduplikacja: klucz = event_id + start_time (zapobiega duplikatom legacy + nowe rejestracje)
         const dedupeKey = `${reg.event_id}:${startTimeForDedupe}`;
         if (!seenEventTimes.has(dedupeKey)) {
           expandedEvents.push(eventToPush);
