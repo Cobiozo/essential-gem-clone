@@ -1,107 +1,57 @@
 
 
-## WOW podgląd testymoniali + system komentarzy z gwiazdkami
+## Naprawa dodawania opinii + zatwierdzanie przez admina
 
-### Cel
-1. Podgląd testymonialu ma być wizualnie atrakcyjny i przykuwający uwagę (efekt "wow")
-2. Admin może włączyć komentowanie per testymonial — użytkownicy oceniają gwiazdkami (1-5) i piszą opinię
-3. Komentarze wyświetlane z imieniem, nazwiskiem i avatarem
+### Problem 1: Błąd PostgREST join
+Zapytanie `select('*, profiles:user_id(...)')` nie działa, bo PostgREST nie potrafi rozwiązać relacji między `testimonial_comments.user_id` → `auth.users` ← `profiles.user_id` (obie tabele wskazują na `auth.users`, brak bezpośredniego FK między nimi).
 
-### Zmiany
+### Problem 2: Brak moderacji opinii
+Opinie powinny wymagać zatwierdzenia przez admina przed wyświetleniem.
 
-**1. Migracja bazy — tabela `testimonial_comments` + kolumna `allow_comments`**
+### Rozwiązanie
+
+**1. Migracja bazy danych**
+- Dodać kolumnę `status text DEFAULT 'pending'` do `testimonial_comments` (wartości: `pending`, `approved`, `rejected`)
+- Zaktualizować politykę SELECT: zwykli użytkownicy widzą tylko `approved`, admin widzi wszystkie
+- Dodać politykę UPDATE dla admina (zmiana statusu)
+
 ```sql
-ALTER TABLE public.healthy_knowledge 
-  ADD COLUMN allow_comments boolean DEFAULT false;
+ALTER TABLE testimonial_comments ADD COLUMN status text DEFAULT 'pending';
 
-CREATE TABLE public.testimonial_comments (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  knowledge_id uuid REFERENCES healthy_knowledge(id) ON DELETE CASCADE NOT NULL,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  rating integer NOT NULL CHECK (rating >= 1 AND rating <= 5),
-  comment text NOT NULL,
-  created_at timestamptz DEFAULT now(),
-  UNIQUE(knowledge_id, user_id) -- jeden komentarz per user per testymonial
-);
-
-ALTER TABLE testimonial_comments ENABLE ROW LEVEL SECURITY;
--- Wszyscy zalogowani mogą czytać
-CREATE POLICY "Anyone can read comments" ON testimonial_comments FOR SELECT TO authenticated USING (true);
--- User może dodać/edytować swój komentarz
-CREATE POLICY "Users can insert own" ON testimonial_comments FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Users can update own" ON testimonial_comments FOR UPDATE TO authenticated USING (user_id = auth.uid());
--- Admin może usuwać
-CREATE POLICY "Admin can delete" ON testimonial_comments FOR DELETE TO authenticated USING (public.has_role(auth.uid(), 'admin'));
+-- Update SELECT: users see approved + own pending; admins see all
+DROP POLICY "Anyone can read comments" ON testimonial_comments;
+CREATE POLICY "Read approved or own" ON testimonial_comments
+  FOR SELECT TO authenticated
+  USING (status = 'approved' OR user_id = auth.uid() OR has_role(auth.uid(), 'admin'));
 ```
 
-**2. Typy — `src/types/healthyKnowledge.ts`**
-- Dodać `allow_comments: boolean` do interfejsu `HealthyKnowledge`
-- Dodać interfejs `TestimonialComment` (id, knowledge_id, user_id, rating, comment, created_at, profiles?: {first_name, last_name, avatar_url})
+**2. Funkcja SQL do pobierania komentarzy z profilami**
+Zamiast niezdanego joina PostgREST, stworzyć funkcję `SECURITY DEFINER`:
 
-**3. Admin — `HealthyKnowledgeManagement.tsx`**
-- Przy kategorii "Testymoniale": dodać Switch "Zezwól na komentarze i oceny"
-
-**4. Podgląd WOW — `src/pages/HealthyKnowledge.tsx`**
-Kompletna przebudowa dialogu testymoniali:
-
-- **Fullscreen-like overlay** z ciemnym tłem i delikatnym gradient glow
-- **Duża karuzela** z płynnym przejściem, strzałkami po bokach, wskaźnikiem kropek na dole
-- **Sekcja tekstowa** pod karuzelą: tytuł z golden accent, opis z ładną typografią
-- **Średnia ocena** wyświetlana jako złote gwiazdki z liczbą opinii
-- **Sekcja komentarzy**: lista istniejących opinii (avatar + imię + gwiazdki + tekst + data) + formularz dodania własnej (gwiazdki do kliknięcia + textarea)
-- Animacje: fade-in, scale-in przy otwarciu
-
-Układ podglądu:
-```text
-┌─────────────────────────────────┐
-│  [X]                            │
-│  ┌───────────────────────────┐  │
-│  │                           │  │
-│  │    CAROUSEL (duży)        │  │
-│  │    ← zdjęcie →            │  │
-│  │                           │  │
-│  └───────────────────────────┘  │
-│  ●●○●● (dots)    1/6           │
-│                                 │
-│  ★★★★☆  4.2 (12 opinii)       │
-│                                 │
-│  Tytuł testymonialu             │
-│  Opis treści...                 │
-│                                 │
-│  ─── Opinie ───                 │
-│  [avatar] Jan K. ★★★★★         │
-│  "Świetne efekty po 3 mies..." │
-│                                 │
-│  [avatar] Anna M. ★★★★☆       │
-│  "Polecam każdemu..."           │
-│                                 │
-│  ─── Dodaj swoją opinię ───    │
-│  ★★★★★ (klikalne)              │
-│  [textarea]                     │
-│  [Wyślij opinię]                │
-└─────────────────────────────────┘
+```sql
+CREATE FUNCTION get_testimonial_comments(p_knowledge_id uuid)
+RETURNS TABLE(...) AS $$
+  SELECT tc.*, p.first_name, p.last_name, p.avatar_url
+  FROM testimonial_comments tc
+  LEFT JOIN profiles p ON p.user_id = tc.user_id
+  WHERE tc.knowledge_id = p_knowledge_id
+  AND (tc.status = 'approved' OR tc.user_id = auth.uid() OR has_role(auth.uid(), 'admin'))
+  ORDER BY tc.created_at DESC
+$$;
 ```
 
-### Szczegóły techniczne
+**3. Frontend — `TestimonialPreviewDialog.tsx`**
+- Zamienić `supabase.from('testimonial_comments').select(...)` na `supabase.rpc('get_testimonial_comments', { p_knowledge_id: ... })`
+- Wyświetlać badge "Oczekuje" przy własnej niezatwierdzonej opinii
 
-Komentarze fetch z JOIN na profiles:
-```tsx
-const { data } = await supabase
-  .from('testimonial_comments')
-  .select('*, profiles:user_id(first_name, last_name, avatar_url)')
-  .eq('knowledge_id', materialId)
-  .order('created_at', { ascending: false });
-```
+**4. Admin — panel zatwierdzania opinii**
+- W `HealthyKnowledgeManagement.tsx` dodać sekcję/zakładkę "Opinie do zatwierdzenia"
+- Lista pending opinii z przyciskami Zatwierdź / Odrzuć
+- Wywołanie `supabase.from('testimonial_comments').update({ status: 'approved' })`
 
-Złote gwiazdki (klikalne przy dodawaniu):
-```tsx
-{[1,2,3,4,5].map(star => (
-  <Star key={star} 
-    className={cn("w-5 h-5 cursor-pointer transition-colors", 
-      star <= rating ? "fill-yellow-400 text-yellow-400" : "text-muted")}
-    onClick={() => setRating(star)} />
-))}
-```
-
-Zmiana dotyczy 3 plików + 1 migracja SQL.
+### Pliki do modyfikacji
+- 1 migracja SQL (kolumna `status`, RLS, funkcja RPC)
+- `src/components/testimonials/TestimonialPreviewDialog.tsx` — zmiana fetch na RPC
+- `src/components/admin/HealthyKnowledgeManagement.tsx` — panel moderacji opinii
+- `src/types/healthyKnowledge.ts` — dodanie `status` do interfejsu
 
