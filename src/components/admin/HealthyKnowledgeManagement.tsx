@@ -17,8 +17,10 @@ import { toast } from 'sonner';
 import { 
   Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, 
   Loader2, FileText, Play, Image, Music, Type, Share2, 
-  Star, StarOff, MoreHorizontal, RefreshCw, BarChart3
+  Star, StarOff, MoreHorizontal, RefreshCw, BarChart3,
+  MessageSquare, Check, XCircle
 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import HkStatisticsPanel from './HkStatisticsPanel';
 import { cn } from '@/lib/utils';
