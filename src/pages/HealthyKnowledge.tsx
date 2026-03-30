@@ -86,23 +86,26 @@ const HealthyKnowledgePage: React.FC = () => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
     translatedMaterials.forEach(m => {
-      if (m.category) cats.add(m.category);
+      if (m.category && m.category !== 'Testymoniale') cats.add(m.category);
     });
     return Array.from(cats).sort();
   }, [translatedMaterials]);
 
   const filteredMaterials = useMemo(() => {
     return translatedMaterials.filter(m => {
+      const isTestimonial = m.category === 'Testymoniale';
+      if (activeTab === 'testimonials' && !isTestimonial) return false;
+      if (activeTab === 'materials' && isTestimonial) return false;
       const matchesSearch = !searchTerm || 
         m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = !selectedCategory || m.category === selectedCategory;
+      const matchesCategory = activeTab === 'testimonials' || !selectedCategory || m.category === selectedCategory;
       const matchesLanguage = contentLanguage === 'all' || 
         !(m as any).language_code || 
         (m as any).language_code === contentLanguage;
       return matchesSearch && matchesCategory && matchesLanguage;
     });
-  }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage]);
+  }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage, activeTab]);
 
   const canShare = isPartner || isAdmin;
 
