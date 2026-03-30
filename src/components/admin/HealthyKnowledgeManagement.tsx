@@ -766,6 +766,8 @@ const HealthyKnowledgeManagement: React.FC = () => {
                   <TableRow>
                     <TableHead>Materiał</TableHead>
                     <TableHead>Typ</TableHead>
+                    <TableHead>Kategoria</TableHead>
+                    <TableHead>Widoczność</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Akcje</TableHead>
                   </TableRow>
@@ -777,51 +779,127 @@ const HealthyKnowledgeManagement: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-border/50">
                             {material.thumbnail_url ? (
-                              <img src={material.thumbnail_url} alt={material.title} className="w-full h-full object-cover" />
+                              <>
+                                <img src={material.thumbnail_url} alt={material.title} className="w-full h-full object-cover" />
+                                {material.content_type === 'video' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                    <Play className="w-4 h-4 text-white fill-white" />
+                                  </div>
+                                )}
+                                {material.content_type === 'audio' && (
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                    <Music className="w-4 h-4 text-white" />
+                                  </div>
+                                )}
+                              </>
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-muted">
-                                <ContentTypeIcon type={material.content_type} className="w-4 h-4 text-muted-foreground" />
+                              <div className={cn(
+                                "w-full h-full flex items-center justify-center",
+                                material.content_type === 'video' && "bg-blue-500/10 text-blue-500",
+                                material.content_type === 'audio' && "bg-purple-500/10 text-purple-500",
+                                material.content_type === 'document' && "bg-orange-500/10 text-orange-500",
+                                material.content_type === 'image' && "bg-green-500/10 text-green-500",
+                                material.content_type === 'text' && "bg-gray-500/10 text-gray-500",
+                              )}>
+                                <ContentTypeIcon type={material.content_type} className="w-5 h-5" />
                               </div>
                             )}
                           </div>
                           <div>
-                            <p className="font-medium text-sm">{material.title}</p>
-                            {material.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">{material.description}</p>
-                            )}
+                            <p className="font-medium">{material.title}</p>
+                            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                              {material.description || 'Brak opisu'}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {CONTENT_TYPE_LABELS[material.content_type as ContentType]}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline">
+                            {CONTENT_TYPE_LABELS[material.content_type as ContentType]}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {getLanguageLabel(material.language_code || 'pl')}
+                          </Badge>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={material.is_active ? "default" : "secondary"} className="text-xs">
-                          {material.is_active ? 'Aktywny' : 'Ukryty'}
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          {material.category || '-'}
+                          <Badge className="bg-pink-500/10 text-pink-600 border-pink-500/20 text-xs ml-1">
+                            Testymonial
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {material.visible_to_admin && (
+                            <Badge className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs">
+                              <Star className="w-3 h-3 mr-1" />
+                              Admin
+                            </Badge>
+                          )}
+                          {material.visible_to_everyone && <Badge variant="secondary" className="text-xs">Wszyscy</Badge>}
+                          {material.visible_to_partner && <Badge variant="secondary" className="text-xs">Partner</Badge>}
+                          {material.visible_to_client && <Badge variant="secondary" className="text-xs">Klient</Badge>}
+                          {material.visible_to_specjalista && <Badge variant="secondary" className="text-xs">Specjalista</Badge>}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={material.is_active ? "default" : "secondary"}>
+                            {material.is_active ? 'Aktywny' : 'Ukryty'}
+                          </Badge>
+                          {material.is_featured && (
+                            <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                          )}
+                          {material.allow_external_share && (
+                            <Share2 className="w-4 h-4 text-blue-500" />
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(material)}>
-                              <Edit2 className="w-4 h-4 mr-2" /> Edytuj
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleToggleActive(material)}>
-                              {material.is_active ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
-                              {material.is_active ? 'Ukryj' : 'Aktywuj'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDelete(material)} className="text-destructive">
-                              <Trash2 className="w-4 h-4 mr-2" /> Usuń
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleToggleFeatured(material)}
+                            title={material.is_featured ? 'Usuń z wyróżnionych' : 'Wyróżnij'}
+                          >
+                            {material.is_featured ? (
+                              <StarOff className="w-4 h-4" />
+                            ) : (
+                              <Star className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleToggleActive(material)}
+                            title={material.is_active ? 'Ukryj' : 'Aktywuj'}
+                          >
+                            {material.is_active ? (
+                              <EyeOff className="w-4 h-4" />
+                            ) : (
+                              <Eye className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleEdit(material)}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleDelete(material)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
