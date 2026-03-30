@@ -39,6 +39,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   const [submitting, setSubmitting] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [existingComment, setExistingComment] = useState<TestimonialComment | null>(null);
+  const [hasAnyComment, setHasAnyComment] = useState(false);
 
   const allImages = material
     ? [material.media_url, ...(material.gallery_urls || [])].filter(Boolean) as string[]
