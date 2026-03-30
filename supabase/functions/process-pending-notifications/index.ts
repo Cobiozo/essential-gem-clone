@@ -351,11 +351,11 @@ serve(async (req) => {
         maxMinutes: number;
         resultKey: 'webinarReminders24h' | 'webinarReminders12h' | 'webinarReminders2h' | 'webinarReminders1h' | 'webinarReminders15min';
       }> = [
-        { type: "24h", minMinutes: 23 * 60, maxMinutes: 25 * 60, resultKey: "webinarReminders24h" },
-        { type: "12h", minMinutes: 11 * 60, maxMinutes: 13 * 60, resultKey: "webinarReminders12h" },
-        { type: "2h", minMinutes: 105, maxMinutes: 135, resultKey: "webinarReminders2h" },
-        { type: "1h", minMinutes: 45, maxMinutes: 75, resultKey: "webinarReminders1h" },
-        { type: "15min", minMinutes: 5, maxMinutes: 25, resultKey: "webinarReminders15min" },
+        { type: "24h", minMinutes: 1420, maxMinutes: 1460, resultKey: "webinarReminders24h" },
+        { type: "12h", minMinutes: 700, maxMinutes: 740, resultKey: "webinarReminders12h" },
+        { type: "2h", minMinutes: 110, maxMinutes: 130, resultKey: "webinarReminders2h" },
+        { type: "1h", minMinutes: 50, maxMinutes: 70, resultKey: "webinarReminders1h" },
+        { type: "15min", minMinutes: 10, maxMinutes: 20, resultKey: "webinarReminders15min" },
       ];
 
       // Fetch ALL active webinar/team_training events (we'll check times per-term)
