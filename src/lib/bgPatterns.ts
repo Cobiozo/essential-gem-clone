@@ -170,12 +170,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'paper',
     label: 'Papier',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#p)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
