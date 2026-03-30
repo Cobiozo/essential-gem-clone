@@ -565,7 +565,7 @@ serve(async (req) => {
     // ==========================================
     // 9. Send emails in batches
     // ==========================================
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 25;
     let sent = 0;
     let failed = 0;
 
