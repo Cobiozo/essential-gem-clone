@@ -243,12 +243,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'wood',
     label: 'Drewno',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.02 0.2' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#w)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
