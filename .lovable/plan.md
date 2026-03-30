@@ -1,91 +1,43 @@
 
 
-## Analiza: Potencjalne problemy w rejestracji i powiadomieniach
+## Redesign PWA Install Banner — styl jak na screenshocie (EQApp)
 
-Po dokładnym przeglądzie kodu zidentyfikowałem **1 krytyczny** i **2 pomniejsze** problemy.
+Na screenie widać dwa elementy:
+1. **Górny dialog** (natywny Chrome install prompt) — tego nie kontrolujemy wizualnie, to przeglądarka go wyświetla po wywołaniu `beforeinstallprompt.prompt()`. Już to obsługujemy.
+2. **Dolny baner** — elegancki, przypięty do dołu ekranu, z ikoną aplikacji, tekstem i przyciskami "Zainstaluj" / "X".
 
----
-
-### Problem 1 (KRYTYCZNY): Reminder system filtruje po `occurrence_index` zamiast `occurrence_date`/`occurrence_time`
-
-**Plik:** `supabase/functions/send-bulk-webinar-reminders/index.ts` (linie 406-430)
-
-Zapytanie do `event_registrations` pobiera tylko `id, user_id, occurrence_index` — **nie pobiera `occurrence_date` ani `occurrence_time`**. Filtrowanie odbywa się po `occurrence_index`:
-
-```text
-relevantUserRegs = relevantUserRegs.filter(r => 
-  r.occurrence_index === termOccurrenceIndex || r.occurrence_index === null
-);
-```
-
-Po migracji nowe rejestracje mają poprawne `occurrence_date`/`occurrence_time`, ale `occurrence_index` może być niedokładny (np. po edycji terminów przez admina). W efekcie:
-- Użytkownik zarejestrowany na termin `2026-04-06 20:00` z `occurrence_index=0` nie dostanie przypomnienia, jeśli scheduler wyśle request z `occurrence_index=1` (bo admin dodał nowy termin wcześniej).
-
-**Naprawa:** Zmienić filtrowanie w `send-bulk-webinar-reminders` na `occurrence_date` + `occurrence_time` zamiast `occurrence_index`.
+Aktualny baner jest przypięty do **góry** strony i wygląda jak alert. Zmienimy go na profesjonalny **dolny baner** wzorowany na screenie.
 
 ---
 
-### Problem 2 (MNIEJSZY): InviteToEventDialog nie obsługuje wydarzeń cyklicznych
+### Zmiany
 
-**Plik:** `src/components/team-contacts/InviteToEventDialog.tsx`
+**Plik: `src/components/pwa/PWAInstallBanner.tsx`** — przeprojektowanie całego komponentu:
 
-Dialog zaproszenia używa `register_event_guest` (tabela `guest_event_registrations`) — ta tabela nie ma pola `occurrence_date`/`occurrence_time`. Nie stanowi to bezpośredniego błędu, bo goście są identyfikowani inaczej, ale:
+- **Pozycja**: `fixed bottom-0 left-0 right-0` zamiast `fixed top-2` — baner na dole ekranu, pełna szerokość
+- **Layout**: Poziomy pasek z:
+  - Ikona aplikacji (logo Pure Life, `pwa-192.png`) po lewej — zaokrąglony kwadrat
+  - Tekst: "Zainstaluj Pure Life Center" + podpis "Szybszy dostęp i powiadomienia push"
+  - Przycisk "Zainstaluj" (primary, zielony) po prawej
+  - Przycisk X (zamknij) obok
+- **Styl**: Biały/jasny tło, delikatny cień do góry (`shadow-[0_-2px_10px_rgba(0,0,0,0.1)]`), border-top
+- **Uproszczona logika**: Jeden uniwersalny wygląd banera dla wszystkich platform — klik "Zainstaluj" wywołuje `promptInstall()` (jeśli `canInstall`), a na iOS/Safari otwiera `/install` z instrukcjami
+- **Mobile**: Na mobilnych pełna szerokość z `safe-area-inset-bottom` padding
+- **Desktop**: Baner na dole, max-width ograniczone, wycentrowane lub dopasowane do layoutu
 
-- `fetchInvitedEvents` sprawdza tylko po `event_id` — dla wydarzenia cyklicznego po zaproszeniu na jeden termin, wszystkie terminy pokazują "Zaproszenie wysłane"
-- Brak wyboru konkretnego terminu cyklicznego — gość jest zapraszany na "wydarzenie", nie na konkretną datę
-
-To nie jest bloker, ale warto mieć świadomość ograniczenia.
-
----
-
-### Problem 3 (MNIEJSZY): `send-webinar-confirmation` — brak eventTime w partner_invite
-
-**Plik:** `src/components/team-contacts/InviteToEventDialog.tsx` (linia 137-152)
-
-Przy zaproszeniu partnera wysyłany jest `eventTime` obliczony z `formatEventDateTime(event.start_time)`. Dla wydarzeń cyklicznych `start_time` wskazuje na pierwszy termin, a nie na faktyczny termin zaproszenia. Nie powoduje to awarii, ale e-mail potwierdzający może zawierać złą datę/godzinę.
-
----
-
-### Plan naprawy
-
-**Jedyna zmiana kodu:**
-
-1. **`supabase/functions/send-bulk-webinar-reminders/index.ts`** — zmienić SELECT na `id, user_id, occurrence_index, occurrence_date, occurrence_time` i filtrować po `occurrence_date`/`occurrence_time` zamiast `occurrence_index` dla wydarzeń z wieloma terminami. Logika:
-   - Jeśli event ma occurrences, wyliczyć datę/czas dla `termOccurrenceIndex` i filtrować rejestracje po `occurrence_date = occ.date AND occurrence_time = occ.time`
-   - Zachować fallback na `occurrence_index` dla starych rekordów bez daty
-   - Dla single-occurrence → bez filtrowania (jak teraz)
-
-Problemy 2 i 3 dotyczą `InviteToEventDialog` i są ograniczeniami UX — nie powodują błędów funkcjonalnych. Mogą być naprawione osobno.
+Szczegółowe instrukcje platform (Safari share, Chrome menu, Edge itp.) pozostaną na stronie `/install`. Baner będzie prosty i czysty — jedno CTA.
 
 ### Szczegóły techniczne
 
-Zmiana w `send-bulk-webinar-reminders/index.ts` (~15 linii):
-
-```typescript
-// Linia 408: dodać pola do SELECT
-.select("id, user_id, occurrence_index, occurrence_date, occurrence_time")
-
-// Linie 419-430: zamienić filtrowanie
-if (termOccurrenceIndex !== null && event.occurrences) {
-  let occCount = Array.isArray(event.occurrences) ? event.occurrences.length : 0;
-  
-  if (occCount > 1) {
-    // Resolve date/time for this occurrence
-    const occs = Array.isArray(event.occurrences) ? event.occurrences : [];
-    const targetOcc = occs[termOccurrenceIndex];
-    if (targetOcc) {
-      const targetDate = targetOcc.date;
-      const targetTime = targetOcc.time;
-      relevantUserRegs = relevantUserRegs.filter(r =>
-        // Match by stable date+time snapshot
-        (r.occurrence_date === targetDate && r.occurrence_time === targetTime) ||
-        // Fallback: legacy index-only match
-        (r.occurrence_date === null && r.occurrence_index === termOccurrenceIndex) ||
-        // No occurrence info = single event registration
-        r.occurrence_index === null
-      );
-    }
-  }
-}
+```text
+┌─────────────────────────────────────────────────────┐
+│  [logo]  Zainstaluj Pure Life Center        [X]     │
+│          Szybszy dostęp i powiadomienia   [Zainstaluj]│
+└─────────────────────────────────────────────────────┘
 ```
+
+- Logo: `/pwa-192.png` — 40x40px, rounded-xl
+- Gdy `canInstall` = true → przycisk wywołuje natywny prompt
+- Gdy `canInstall` = false (iOS/Safari/Firefox) → przycisk linkuje do `/install`
+- Zachowujemy dismiss logic (14 dni), `resetPWAInstallBanner` event, warunki ukrycia
 
