@@ -73,10 +73,18 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           setExistingComment(mine);
           setMyRating(mine.rating);
           setMyComment(mine.comment);
+          setHasAnyComment(true);
         } else {
           setExistingComment(null);
           setMyRating(0);
           setMyComment('');
+          // Check if user has a pending comment (not returned by RPC)
+          const { count } = await supabase
+            .from('testimonial_comments')
+            .select('id', { count: 'exact', head: true })
+            .eq('knowledge_id', material.id)
+            .eq('user_id', user.id);
+          setHasAnyComment((count || 0) > 0);
         }
       }
     } catch (e) {
