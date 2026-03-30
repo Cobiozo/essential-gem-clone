@@ -69,6 +69,10 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [otpCodes, setOtpCodes] = useState<HkOtpCode[]>([]);
   const [loadingCodes, setLoadingCodes] = useState(false);
 
+  // Moderation state
+  const [pendingComments, setPendingComments] = useState<TestimonialComment[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+
   useEffect(() => {
     fetchMaterials();
   }, []);
