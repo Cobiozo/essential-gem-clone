@@ -300,11 +300,17 @@ const HealthyKnowledgePage: React.FC = () => {
         ) : filteredMaterials.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <Heart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              {activeTab === 'testimonials' ? (
+                <Star className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              ) : (
+                <Heart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              )}
               <p className="text-muted-foreground">
-                {searchTerm || selectedCategory 
-                  ? tf('hk.noResults', 'Nie znaleziono materiałów spełniających kryteria')
-                  : tf('hk.noMaterials', 'Brak dostępnych materiałów')}
+                {activeTab === 'testimonials'
+                  ? tf('hk.noTestimonials', 'Brak testymoniali')
+                  : searchTerm || selectedCategory 
+                    ? tf('hk.noResults', 'Nie znaleziono materiałów spełniających kryteria')
+                    : tf('hk.noMaterials', 'Brak dostępnych materiałów')}
               </p>
             </CardContent>
           </Card>
