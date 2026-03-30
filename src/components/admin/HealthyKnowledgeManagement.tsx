@@ -77,6 +77,33 @@ const HealthyKnowledgeManagement: React.FC = () => {
     fetchMaterials();
   }, []);
 
+  const fetchPendingComments = async () => {
+    setLoadingPending(true);
+    try {
+      const { data, error } = await supabase.rpc('get_pending_testimonial_comments');
+      if (error) throw error;
+      setPendingComments((data || []) as unknown as TestimonialComment[]);
+    } catch (e) {
+      console.error('Error fetching pending comments:', e);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  const handleModerateComment = async (commentId: string, newStatus: 'approved' | 'rejected') => {
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .update({ status: newStatus })
+        .eq('id', commentId);
+      if (error) throw error;
+      toast.success(newStatus === 'approved' ? 'Opinia zatwierdzona' : 'Opinia odrzucona');
+      fetchPendingComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd moderacji');
+    }
+  };
+
   const fetchMaterials = async () => {
     try {
       setLoading(true);
