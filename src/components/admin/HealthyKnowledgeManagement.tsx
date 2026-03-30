@@ -750,7 +750,87 @@ const HealthyKnowledgeManagement: React.FC = () => {
           )}
         </TabsContent>
 
-        <TabsContent value="moderation" className="space-y-4">
+        <TabsContent value="testimonials" className="space-y-4">
+          {/* Testimonial materials list */}
+          {testimonialMaterials.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center">
+                <Heart className="w-10 h-10 mx-auto text-muted-foreground/50 mb-3" />
+                <p className="text-muted-foreground text-sm">Brak testymoniali. Dodaj materiał z kategorią "Testymoniale".</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Materiał</TableHead>
+                    <TableHead>Typ</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Akcje</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {testimonialMaterials.map((material) => (
+                    <TableRow key={material.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="relative w-14 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-border/50">
+                            {material.thumbnail_url ? (
+                              <img src={material.thumbnail_url} alt={material.title} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-muted">
+                                <ContentTypeIcon type={material.content_type} className="w-4 h-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{material.title}</p>
+                            {material.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">{material.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs">
+                          {CONTENT_TYPE_LABELS[material.content_type as ContentType]}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={material.is_active ? "default" : "secondary"} className="text-xs">
+                          {material.is_active ? 'Aktywny' : 'Ukryty'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(material)}>
+                              <Edit2 className="w-4 h-4 mr-2" /> Edytuj
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleActive(material)}>
+                              {material.is_active ? <EyeOff className="w-4 h-4 mr-2" /> : <Eye className="w-4 h-4 mr-2" />}
+                              {material.is_active ? 'Ukryj' : 'Aktywuj'}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(material)} className="text-destructive">
+                              <Trash2 className="w-4 h-4 mr-2" /> Usuń
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
+
+          {/* Moderation section */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Moderacja opinii</CardTitle>
