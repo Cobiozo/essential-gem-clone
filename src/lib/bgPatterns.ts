@@ -155,12 +155,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'noise',
     label: 'Szum',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='1200' height='1200' filter='url(#n)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -168,12 +170,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'paper',
     label: 'Papier',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#p)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -181,12 +185,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'linen',
     label: 'Len',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='l'><feTurbulence type='turbulence' baseFrequency='0.65 0.1' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#l)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -207,12 +213,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'canvas',
     label: 'Płótno',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='c'><feTurbulence type='turbulence' baseFrequency='0.4 0.15' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#c)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -220,12 +228,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'leather',
     label: 'Skóra',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='le'><feTurbulence type='turbulence' baseFrequency='0.3' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#le)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -233,12 +243,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'wood',
     label: 'Drewno',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.02 0.2' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#w)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -246,12 +258,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'concrete',
     label: 'Beton',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='co'><feTurbulence type='fractalNoise' baseFrequency='0.15' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#co)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -259,12 +273,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'marble',
     label: 'Marmur',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.01' numOctaves='8' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#m)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
@@ -272,12 +288,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'sand',
     label: 'Piasek',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='s'><feTurbulence type='turbulence' baseFrequency='0.5' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#s)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
