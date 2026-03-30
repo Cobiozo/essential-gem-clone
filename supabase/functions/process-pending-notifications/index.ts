@@ -127,10 +127,10 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
           );
-          const from15 = new Date(now + 5 * 60 * 1000).toISOString();
-          const to15 = new Date(now + 25 * 60 * 1000).toISOString();
-          const from1h = new Date(now + 45 * 60 * 1000).toISOString();
-          const to1h = new Date(now + 75 * 60 * 1000).toISOString();
+          const from15 = new Date(now + 10 * 60 * 1000).toISOString();
+          const to15 = new Date(now + 20 * 60 * 1000).toISOString();
+          const from1h = new Date(now + 50 * 60 * 1000).toISOString();
+          const to1h = new Date(now + 70 * 60 * 1000).toISOString();
 
           const { data: criticalEvents } = await supabaseCheck
             .from("events")
