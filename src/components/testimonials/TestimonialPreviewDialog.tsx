@@ -251,9 +251,14 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                     const lastName = c.last_name || '';
                     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
                     const displayName = `${firstName} ${lastName.charAt(0) || ''}.`.trim();
+                    const isPending = c.status === 'pending';
+                    const isOwn = user && c.user_id === user.id;
 
                     return (
-                      <div key={c.id} className="flex gap-3 p-3 rounded-lg border border-border/50 bg-muted/40">
+                      <div key={c.id} className={cn(
+                        "flex gap-3 p-3 rounded-lg border bg-muted/40",
+                        isPending ? "border-yellow-500/30 bg-yellow-500/5" : "border-border/50"
+                      )}>
                         <Avatar className="w-9 h-9 shrink-0">
                           <AvatarImage src={c.avatar_url || undefined} />
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -276,6 +281,11 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                                 />
                               ))}
                             </div>
+                            {isPending && isOwn && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-yellow-500/10 text-yellow-600 border border-yellow-500/20">
+                                {tf('hk.pendingApproval', 'Oczekuje na zatwierdzenie')}
+                              </span>
+                            )}
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pl })}
                             </span>
