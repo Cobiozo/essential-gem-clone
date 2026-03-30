@@ -433,41 +433,48 @@ serve(async (req) => {
             continue;
           }
 
-          for (const term of matchingTerms) {
+          // Process matching terms in parallel chunks of 3
+          const TERM_CHUNK_SIZE = 3;
+          for (let ti = 0; ti < matchingTerms.length; ti += TERM_CHUNK_SIZE) {
             if (isTimeoutApproaching()) {
               results.stoppedEarly = true;
               break;
             }
 
-            console.log(`[CRON] Invoking bulk reminders (${window.type}) for: ${term.title} [occ=${term.occurrence_index}, dt=${term.occurrence_datetime.toISOString()}]`);
-            try {
-              const { data: bulkResult, error: bulkError } = await supabase.functions.invoke(
-                "send-bulk-webinar-reminders",
-                {
-                  body: {
-                    event_id: term.event_id,
-                    reminder_type: window.type,
-                    occurrence_index: term.occurrence_index,
-                    occurrence_datetime: term.occurrence_datetime.toISOString(),
-                  }
-                }
-              );
+            const termChunk = matchingTerms.slice(ti, ti + TERM_CHUNK_SIZE);
+            console.log(`[CRON] Invoking bulk reminders (${window.type}) for ${termChunk.length} terms in parallel`);
 
-              if (bulkError) {
-                console.error(`[CRON] Bulk ${window.type} failed for ${term.title}:`, bulkError);
-                results[window.resultKey].failed++;
-              } else {
-                const res = bulkResult as any;
+            const chunkResults = await Promise.allSettled(
+              termChunk.map(async (term) => {
+                console.log(`[CRON]   → ${term.title} [occ=${term.occurrence_index}, dt=${term.occurrence_datetime.toISOString()}]`);
+                const { data: bulkResult, error: bulkError } = await supabase.functions.invoke(
+                  "send-bulk-webinar-reminders",
+                  {
+                    body: {
+                      event_id: term.event_id,
+                      reminder_type: window.type,
+                      occurrence_index: term.occurrence_index,
+                      occurrence_datetime: term.occurrence_datetime.toISOString(),
+                    }
+                  }
+                );
+                if (bulkError) throw bulkError;
+                return bulkResult;
+              })
+            );
+
+            for (const cr of chunkResults) {
+              if (cr.status === 'fulfilled') {
+                const res = cr.value as any;
                 results[window.resultKey].processed += res?.total || 0;
                 results[window.resultKey].success += res?.sent || 0;
                 results[window.resultKey].failed += res?.failed || 0;
                 results[window.resultKey].guests += res?.guests || 0;
                 results[window.resultKey].users += res?.users || 0;
-                console.log(`[CRON] Bulk ${window.type} for "${term.title}" occ=${term.occurrence_index}: sent=${res?.sent} (G:${res?.guests || 0} U:${res?.users || 0}), failed=${res?.failed}`);
+              } else {
+                console.error(`[CRON] Bulk ${window.type} failed:`, cr.reason);
+                results[window.resultKey].failed++;
               }
-            } catch (err) {
-              console.error(`[CRON] Exception invoking bulk ${window.type}:`, err);
-              results[window.resultKey].failed++;
             }
           }
         }
