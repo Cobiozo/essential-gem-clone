@@ -1,22 +1,42 @@
 
 
-## Ukrycie oczekujących opinii z podglądu publicznego
+## Testymoniale jako osobna grupa w panelu admina
 
-### Problem
-Obecnie autor widzi swoją niezatwierdzoną opinię w podglądzie testymonialu (z badge "Oczekuje na zatwierdzenie"). Użytkownik chce, żeby opinii w ogóle nie było widać, dopóki admin jej nie zatwierdzi.
+### Obecny stan
+- Zakładka "Materiały" zawiera wszystkie materiały, w tym testymoniale
+- Zakładka "Opinie" jest osobna i pokazuje tylko pending komentarze
+- Użytkownik chce, by testymoniale tworzyły osobną grupę razem z opiniami
 
-### Zmiany
+### Zmiany w `src/components/admin/HealthyKnowledgeManagement.tsx`
 
-**1. `src/components/testimonials/TestimonialPreviewDialog.tsx`**
-- Zmienić filtrowanie komentarzy — wyświetlać TYLKO komentarze ze statusem `approved`
-- Po wysłaniu opinii pokazać komunikat "Twoja opinia została wysłana i oczekuje na zatwierdzenie przez administratora" zamiast wyświetlania pending komentarza
-- Ukryć formularz dodawania opinii jeśli użytkownik już ma jakikolwiek komentarz (pending/approved) — sprawdzać `existingComment` niezależnie od statusu
-- Usunąć badge "Oczekuje na zatwierdzenie" i logikę `isPending`
+**1. Nowa zakładka "Testymoniale"** — zastępuje osobną zakładkę "Opinie"
+- Dodać TabsTrigger `"testimonials"` z liczbą testymoniali
+- Wewnątrz: dwie sekcje:
+  - **Lista materiałów-testymoniali** (filtrowanych z `materials` po `category === 'Testymoniale'`) — ta sama tabela co w "Materiały", ale tylko testymoniale
+  - **Moderacja opinii** (przeniesiona z obecnej zakładki "moderation") — pending komentarze z przyciskami Zatwierdź/Odrzuć
 
-**2. SQL RPC `get_testimonial_comments`** — ograniczyć do `approved` only
-- Usunąć warunek `tc.user_id = auth.uid()` — nie zwracać pending nawet autorowi
-- Zostawić warunek admin (potrzebny w panelu admina przez osobną funkcję `get_pending_testimonial_comments`)
-- Nowa wersja: `WHERE tc.knowledge_id = p_knowledge_id AND tc.status = 'approved'`
+**2. Zakładka "Materiały"** — filtrować, by NIE pokazywać testymoniali
+- `filteredMaterials` w TabsContent "materials" → dodać `.filter(m => m.category !== 'Testymoniale')`
 
-Zmiana dotyczy 1 pliku + 1 migracja SQL.
+**3. Usunąć osobną zakładkę "Opinie"** — przenieść jej zawartość do nowej zakładki "Testymoniale"
+
+**4. Tab onValueChange** — przy przełączeniu na "testimonials" wywołać `fetchPendingComments()`
+
+### Struktura nowej zakładki "Testymoniale"
+
+```text
+┌─────────────────────────────────────────────┐
+│ Testymoniale (N)                            │
+├─────────────────────────────────────────────┤
+│ [Tabela materiałów z kategorią Testymoniale]│
+│  - ta sama tabela co w Materiały            │
+├─────────────────────────────────────────────┤
+│ Moderacja opinii                            │
+│  - lista pending komentarzy                 │
+│  - przyciski Zatwierdź / Odrzuć             │
+└─────────────────────────────────────────────┘
+```
+
+### Pliki do modyfikacji
+- `src/components/admin/HealthyKnowledgeManagement.tsx` — jedyny plik
 
