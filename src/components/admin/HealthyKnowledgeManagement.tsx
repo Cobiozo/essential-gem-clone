@@ -147,6 +147,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
 
   const filteredMaterials = useMemo(() => {
     return materials.filter(m => {
+      if (m.category === 'Testymoniale') return false;
       const matchesSearch = m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.category?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -154,6 +155,10 @@ const HealthyKnowledgeManagement: React.FC = () => {
       return matchesSearch && matchesLanguage;
     });
   }, [materials, searchTerm, filterLanguage]);
+
+  const testimonialMaterials = useMemo(() => {
+    return materials.filter(m => m.category === 'Testymoniale');
+  }, [materials]);
 
   const generateSlug = (title: string): string => {
     return title
