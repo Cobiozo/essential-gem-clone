@@ -605,67 +605,58 @@ serve(async (req) => {
           // Send email
           await sendSmtpEmail(smtpSettings, recipient.email, finalSubject, wrapWithBranding(finalBody));
 
-          // Log to email_logs
-          await supabase.from("email_logs").insert({
-            recipient_email: recipient.email,
-            recipient_user_id: recipient.userId || null,
-            subject: finalSubject,
-            status: "sent",
-            sent_at: new Date().toISOString(),
-            template_id: template?.id || null,
-            event_type_id: eventType?.id || null,
-            metadata: {
-              type: config.eventTypeKey,
+          // Parallel DB writes: log + dedup + legacy flags
+          const now = new Date().toISOString();
+          const legacyFlags: Record<string, Record<string, any>> = {
+            "24h": { reminder_sent: true, reminder_sent_at: now },
+            "12h": { reminder_12h_sent: true, reminder_12h_sent_at: now },
+            "2h": { reminder_2h_sent: true, reminder_2h_sent_at: now },
+            "1h": { reminder_1h_sent: true, reminder_1h_sent_at: now },
+            "15min": { reminder_15min_sent: true, reminder_15min_sent_at: now },
+          };
+
+          const legacyUpdatePromise = recipient.sourceTable === 'guest'
+            ? supabase.from("guest_event_registrations")
+                .update(legacyFlags[resolvedType as string] || {})
+                .eq("id", recipient.sourceId)
+            : supabase.from("event_registrations")
+                .update(legacyFlags[resolvedType as string] || {})
+                .eq("id", recipient.sourceId);
+
+          await Promise.all([
+            supabase.from("email_logs").insert({
+              recipient_email: recipient.email,
+              recipient_user_id: recipient.userId || null,
+              subject: finalSubject,
+              status: "sent",
+              sent_at: now,
+              template_id: template?.id || null,
+              event_type_id: eventType?.id || null,
+              metadata: {
+                type: config.eventTypeKey,
+                event_id: event_id,
+                registration_id: recipient.sourceId,
+                registration_source: recipient.sourceTable,
+                event_title: event.title,
+                occurrence_index: termOccurrenceIndex,
+                occurrence_datetime: termDatetime.toISOString(),
+                bulk_send: true,
+              },
+            }),
+            supabase.from("occurrence_reminders_sent").upsert({
               event_id: event_id,
-              registration_id: recipient.sourceId,
-              registration_source: recipient.sourceTable,
-              event_title: event.title,
               occurrence_index: termOccurrenceIndex,
               occurrence_datetime: termDatetime.toISOString(),
-              bulk_send: true,
-            },
-          });
-
-          // Record in occurrence_reminders_sent for deduplication
-          await supabase.from("occurrence_reminders_sent").upsert({
-            event_id: event_id,
-            occurrence_index: termOccurrenceIndex,
-            occurrence_datetime: termDatetime.toISOString(),
-            recipient_email: recipient.email.toLowerCase(),
-            recipient_user_id: recipient.userId || null,
-            recipient_type: recipient.sourceTable,
-            reminder_type: resolvedType as string,
-            source_registration_id: recipient.sourceId,
-          }, {
-            onConflict: 'event_id,occurrence_index,recipient_email,reminder_type,occurrence_datetime'
-          });
-
-          // Also update legacy flag columns for backward compatibility
-          const now = new Date().toISOString();
-          const legacyGuestFlags: Record<string, Record<string, any>> = {
-            "24h": { reminder_sent: true, reminder_sent_at: now },
-            "12h": { reminder_12h_sent: true, reminder_12h_sent_at: now },
-            "2h": { reminder_2h_sent: true, reminder_2h_sent_at: now },
-            "1h": { reminder_1h_sent: true, reminder_1h_sent_at: now },
-            "15min": { reminder_15min_sent: true, reminder_15min_sent_at: now },
-          };
-          const legacyUserFlags: Record<string, Record<string, any>> = {
-            "24h": { reminder_sent: true, reminder_sent_at: now },
-            "12h": { reminder_12h_sent: true, reminder_12h_sent_at: now },
-            "2h": { reminder_2h_sent: true, reminder_2h_sent_at: now },
-            "1h": { reminder_1h_sent: true, reminder_1h_sent_at: now },
-            "15min": { reminder_15min_sent: true, reminder_15min_sent_at: now },
-          };
-
-          if (recipient.sourceTable === 'guest') {
-            await supabase.from("guest_event_registrations")
-              .update(legacyGuestFlags[resolvedType as string] || {})
-              .eq("id", recipient.sourceId);
-          } else {
-            await supabase.from("event_registrations")
-              .update(legacyUserFlags[resolvedType as string] || {})
-              .eq("id", recipient.sourceId);
-          }
+              recipient_email: recipient.email.toLowerCase(),
+              recipient_user_id: recipient.userId || null,
+              recipient_type: recipient.sourceTable,
+              reminder_type: resolvedType as string,
+              source_registration_id: recipient.sourceId,
+            }, {
+              onConflict: 'event_id,occurrence_index,recipient_email,reminder_type,occurrence_datetime'
+            }),
+            legacyUpdatePromise,
+          ]);
 
           return recipient.email;
         })
