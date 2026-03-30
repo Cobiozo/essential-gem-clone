@@ -1,193 +1,189 @@
 
 
-## Audyt powiadomień — użytkownicy i zaproszeni goście
+# AUDYT SYSTEMU POWIADOMIEŃ EMAIL — RAPORT KOŃCOWY
 
-### Architektura systemu
+## ARCHITEKTURA SYSTEMU
 
-Trzy niezależne systemy wysyłki:
+System składa się z 3 niezależnych procesów CRON + 6 funkcji Edge (workerów) + 2 tabel deduplikacji + logowania do `email_logs`.
 
-1. **`process-pending-notifications`** — CRON co 5 min (pg_cron), orchestrator obsługujący: welcome emails, training notifications/reminders, webinar reminders (via `send-bulk-webinar-reminders`), retries, push reminders, contact reminders, post-event thank you
-2. **`send-bulk-webinar-reminders`** — worker wywoływany przez orchestrator, obsługuje webinary i szkolenia zespołowe
-3. **`send-meeting-reminders`** — osobny CRON co 15 min, obsługuje spotkania indywidualne (private, tripartite, partner_consultation)
-
----
-
-### 1. OKNA CZASOWE — SPÓJNOŚĆ
-
-Wszystkie 3 systemy używają tych samych okien:
-| Typ | Min–Max (min) | Szerokość | Zgodne? |
-|-----|-------------|-----------|---------|
-| 24h | 1420–1460 | 40 min | OK |
-| 12h | 700–740 | 40 min | OK |
-| 2h | 110–130 | 20 min | OK |
-| 1h | 50–70 | 20 min | OK |
-| 15min | 10–20 | 10 min | OK |
-
-**Wynik: Okna są ujednolicone.** Poprzedni problem z szerszymi oknami w meetings został naprawiony.
-
----
-
-### 2. CRON INTERWAŁY vs OKNA — RYZYKO POMINIĘCIA
-
-| System | Interwał CRON | Najwęższe okno |
-|--------|-------------|---------------|
-| `process-pending-notifications` | 5 min | 10 min (15min window) |
-| `send-meeting-reminders` | **15 min** | **10 min (15min window)** |
-
-**PROBLEM KRYTYCZNY #1**: `send-meeting-reminders` z CRON co 15 minut vs okno 15min o szerokości 10 minut (10–20 min). Przy interwale 15 min istnieje ryzyko, że CRON uruchomi się np. w minucie 9 (za wcześnie) i następny raz w minucie 24 (za późno) — pomijając całe okno. Przy 5-minutowym interwale to okno jest zawsze trafiane (co najmniej 2 razy). **Spotkania indywidualne mogą nie otrzymać przypomnienia 15-minutowego.**
-
-**Rekomendacja**: Zmienić CRON `send-meeting-reminders` z `*/15` na `*/5` minut.
-
----
-
-### 3. PROSPECT (TRIPARTITE) — BRAK LINKU W 1h REMINDERZE
-
-W `send-meeting-reminders` linia 477:
-```typescript
-zoom_link: (reminderType === '2h' || reminderType === '15min') ? meeting.zoom_link : undefined,
+```text
+┌─────────────────────────────────────────────────────────────┐
+│                    pg_cron (co 5 min)                       │
+├──────────────────────────────┬──────────────────────────────┤
+│  process-pending-            │  send-meeting-reminders      │
+│  notifications               │  (osobny cron */5)           │
+│  (orchestrator)              │                              │
+├──────────────────────────────┤  Obsługuje:                  │
+│  Wywołuje:                   │  • meeting_private           │
+│  • send-welcome-email        │  • tripartite_meeting        │
+│  • send-training-notification│  • partner_consultation      │
+│  • send-training-reminder    │                              │
+│  • retry-failed-email        │  Wywołuje:                   │
+│  • send-bulk-webinar-        │  • send-prospect-meeting-    │
+│    reminders (worker)        │    email                     │
+│  • send-push-notification    │  • send-push-notification    │
+│  • send-notification-email   │                              │
+│  • send-post-event-thank-you │                              │
+└──────────────────────────────┴──────────────────────────────┘
 ```
 
-**PROBLEM #2**: Prospect w spotkaniu trójstronnym **nie otrzymuje zoom_link przy przypomnieniu 1h**. Linia przekazuje link tylko dla `2h` i `15min`. Tymczasem dla gości (guest tokens) link jest dołączany od `2h`:
-```typescript
-const includeLink = reminderType === '2h' || reminderType === '1h' || reminderType === '15min';
-```
+## CRON JOBY (zweryfikowane w bazie)
 
-**Niespójność**: Goście WebRTC dostają link od 2h/1h/15min. Prospect dostaje link tylko przy 2h i 15min. **Prospect nie otrzyma linku w 1h reminderze.**
+| Job | Schedule | Status |
+|-----|----------|--------|
+| `process-pending-notifications` | `*/5 * * * *` | OK |
+| `send-meeting-reminders-every-5min` | `*/5 * * * *` | OK (zmieniony z */15) |
+| `cleanup-stale-meeting-participants` | `0 * * * *` | OK |
+| `cleanup-old-meeting-chat` | `0 3 * * *` | OK |
 
-Rekomendacja: Zmienić warunek na `(reminderType === '2h' || reminderType === '1h' || reminderType === '15min')`.
+Oba crony powiadomień działają co 5 min — **spójne i bezpieczne**.
 
----
+## OKNA CZASOWE — PEŁNA SPÓJNOŚĆ
 
-### 4. PROSPECT — BRAK SZABLONU HTML DLA 1h
+| Typ | Min–Max (min) | Szerokość | Orchestrator | Bulk Webinar | Meetings |
+|-----|-------------|-----------|-------------|-------------|----------|
+| 24h | 1420–1460 | 40 min | OK | OK | OK |
+| 12h | 700–740 | 40 min | OK | OK | OK |
+| 2h | 110–130 | 20 min | OK | OK | OK |
+| 1h | 50–70 | 20 min | OK | OK | OK |
+| 15min | 10–20 | 10 min | OK | OK | OK |
 
-W `send-prospect-meeting-email` → `buildProspectEmailHtml()` — brak case `'1h'` w switch/case. Jeśli prospect otrzyma reminder 1h, treść emaila będzie **pusta** (domyślny pusty `content`).
+**Wynik: Wszystkie okna są ujednolicone we wszystkich 3 systemach.** Przy cronie co 5 min, każde okno jest trafiane minimum 2 razy (najwęższe 10min / 5min = 2x).
 
-**PROBLEM #3**: Brak szablonu HTML dla przypomnienia 1h w wiadomościach do prospektów. Również brak mapowania `'1h'` w `subjectMap` — subject będzie generycznym fallbackiem.
+## DEDUPLIKACJA — POPRAWNA
 
-Rekomendacja: Dodać case `'1h'` w `buildProspectEmailHtml()` oraz wpis w `subjectMap`.
+| System | Tabela | Klucz unikalny |
+|--------|--------|----------------|
+| Webinary/szkolenia (goście+users) | `occurrence_reminders_sent` | event_id + occ_index + email + type + occ_datetime |
+| Meetings (zarejestrowani) | `meeting_reminders_sent` | event_id + user_id + reminder_type |
+| Meetings (prospects) | `meeting_reminders_sent` | event_id + prospect_email + `prospect_{type}` |
+| Meetings (goście WebRTC) | `meeting_reminders_sent` | event_id + prospect_email + `guest_{type}` |
+| Push reminders | `event_push_reminders_sent` | event_id + user_id + reminder_minutes (z resetem 25h) |
 
----
+**Brak ryzyka duplikatów we wszystkich systemach.**
 
-### 5. DEDUPLIKACJA — POPRAWNA
+## KTO CO DOSTAJE — KOMPLETNA MATRYCA
 
-| System | Tabela | Klucz | Wynik |
-|--------|--------|-------|-------|
-| Webinary (goście+users) | `occurrence_reminders_sent` | event_id + occ_index + email + type + occ_datetime | OK |
-| Meetings (zarejestrowani) | `meeting_reminders_sent` | event_id + user_id + reminder_type | OK |
-| Meetings (prospects) | `meeting_reminders_sent` | event_id + prospect_email + `prospect_{type}` | OK |
-| Meetings (goście WebRTC) | `meeting_reminders_sent` | event_id + prospect_email + `guest_{type}` | OK |
-| Push reminders | `event_push_reminders_sent` | event_id + user_id + reminder_minutes + stale reset (25h) | OK |
+### Webinary / Szkolenia zespołowe (`send-bulk-webinar-reminders`)
 
-**Brak ryzyka duplikatów.**
+| Odbiorca | 24h | 12h | 2h | 1h | 15min | Kanały |
+|----------|-----|-----|-----|-----|-------|--------|
+| Zarejestrowani użytkownicy | email | email | email+link | email+link | email+link | Email |
+| Zaproszeni goście (guest_event_registrations) | email | email | email+link | email+link | email+link | Email |
 
----
+- Goście filtrowanie po `occurrence_index` w wydarzeniach cyklicznych — **poprawne**
+- Użytkownicy filtrowanie po `occurrence_date` + `occurrence_time` (stabilne) — **poprawne**
+- Fallback: brak szablonu → generowany HTML z brandingiem Pure Life
+- Admini powiadamiani o brakujących linkach
 
-### 6. TIMEOUT PROTECTION
+### Spotkania indywidualne (`send-meeting-reminders`)
+
+| Odbiorca | 24h | 12h | 2h | 1h | 15min | Kanały |
+|----------|-----|-----|-----|-----|-------|--------|
+| Zarejestrowani użytkownicy | email | email | email+zoom | email+zoom | email+zoom | Email + Push + In-app |
+| Prospect (tripartite) | email | email | email+zoom | email+zoom | email+zoom | Email |
+| Gość WebRTC (meeting_guest_tokens) | email | email | email+room_link | email+room_link | email+room_link | Email |
+
+- Prospect zoom_link dostępny od 2h (w tym 1h) — **poprawione i sprawne**
+- Prospect ma pełne szablony HTML dla wszystkich 6 typów (booking, 24h, 12h, 2h, 1h, 15min) — **sprawne**
+
+### Inne powiadomienia (orchestrator)
+
+| Typ | Wyzwalacz | Kanały |
+|-----|-----------|--------|
+| Welcome email | Nowy użytkownik bez welcome | Email |
+| Training assignment | Nowe przypisanie modułu | Email + Push |
+| Training reminder | Nieaktywność w szkoleniu | Email + Push |
+| Contact reminder | reminder_date <= now() | In-app + Push + Email |
+| Post-event thank you | Zakończenie wydarzenia (2h okno) | Email |
+| Post-event missed | Gość nieobecny na auto-webinarze | Email |
+| Retry failed | Nieudane emaile (max 3 próby) | Email |
+| Push reminders | Konfigurowane per-event | Push |
+
+## TIMEOUT PROTECTION
 
 | Funkcja | Mechanizm | Limit |
 |---------|-----------|-------|
-| `process-pending-notifications` | `isTimeoutApproaching()` | 55s z 60s |
-| `send-meeting-reminders` | `isTimeoutApproaching()` | 50s z 60s |
-| `send-bulk-webinar-reminders` | Brak | — |
+| `process-pending-notifications` | `isTimeoutApproaching()` | 55s / 60s |
+| `send-meeting-reminders` | `isTimeoutApproaching()` | 50s / 60s |
+| `send-bulk-webinar-reminders` | BATCH_SIZE=25 + Promise.allSettled | Implicite |
 
-**Obserwacja**: `send-bulk-webinar-reminders` nie ma timeout protection, ale stosuje batching (BATCH_SIZE=25 z `Promise.allSettled`), co jest wystarczająco szybkie.
+## BATCHING
 
----
+| Funkcja | Mechanizm | Rozmiar |
+|---------|-----------|---------|
+| Orchestrator | Termy w paczkach po 3 równolegle | 3 |
+| Bulk webinar | Promise.allSettled na odbiorcach | 25 |
+| Meetings | Sekwencyjnie | 1 (OK — max 2-3 uczestników) |
 
-### 7. LINK DELIVERY — KTO CO DOSTAJE
+## DST (CZAS LETNI/ZIMOWY)
 
-| Typ | 24h | 12h | 2h | 1h | 15min |
-|-----|-----|-----|-----|-----|-------|
-| Webinar users (zoom) | — | — | zoom | zoom | zoom |
-| Webinar guests (zoom) | — | — | zoom | zoom | zoom |
-| Meeting users (zoom) | — | — | zoom | zoom | zoom |
-| Meeting guests WebRTC | — | — | room_link | room_link | room_link |
-| Meeting prospect (zoom) | — | — | zoom | **BRAK** | zoom |
+- Orchestrator + Bulk webinar: `warsawLocalToUtc()` z `_shared/timezone-utils.ts` — **poprawne**
+- Meeting reminders: operuje na UTC `start_time`, formatuje wyświetlanie z `timeZone: 'Europe/Warsaw'` — **poprawne**
 
-**Problem #2 powtórzony**: Prospect w 1h nie dostaje linku.
+## LOGOWANIE
 
----
+- Wszystkie emaile logowane do `email_logs` ze statusem `sent`
+- Cron jobs logowane do `cron_job_logs` (running → completed/failed)
+- `cron_settings` przechowuje `last_run_at` / `next_run_at`
 
-### 8. WIELOKANAŁOWOŚĆ — EMAIL + PUSH + IN-APP
-
-| System | Email | Push | In-app |
-|--------|-------|------|--------|
-| Webinar reminders (users) | tak | — | — |
-| Webinar reminders (guests) | tak | — | — |
-| Meeting reminders (users) | tak | tak | tak |
-| Meeting reminders (prospects) | tak | — | — |
-| Meeting reminders (guests WebRTC) | tak | — | — |
-| Push reminders (events) | — | tak | — |
-| Contact reminders | — | tak | tak + email |
-| Welcome emails | tak | — | — |
-| Training notifications | tak | tak | — |
-| Post-event thank you | tak | — | — |
-
-**Obserwacja**: Webinar reminders nie generują in-app powiadomień ani push — użytkownicy polegają wyłącznie na emailach. Spotkania indywidualne mają pełny zestaw (email + push + in-app).
+**Ostatnie 24h: 113 emaili sent, 187 cykli CRON completed, 0 failed** — system działa sprawnie.
 
 ---
 
-### 9. WEBINAR GUEST FILTERING — BRAK FILTRA OCCURRENCE DLA GOŚCI
+## ZNALEZIONY PROBLEM — BŁĄD W BAZIE
 
-W `send-bulk-webinar-reminders` linie 393-397:
-```typescript
-const { data: guests } = await supabase
-  .from("guest_event_registrations")
-  .select("id, email, first_name, last_name")
-  .eq("event_id", event_id)
-  .eq("status", "registered");
+W logach Edge Function widoczny jest **powtarzający się błąd**:
+
+```
+[CRON] Error fetching training reminders: {
+  code: "42702",
+  details: "It could refer to either a PL/pgSQL variable or a table column.",
+  message: 'column reference "module_id" is ambiguous'
+}
 ```
 
-**PROBLEM #4**: Goście webinarowi **nie są filtrowani po occurrence_index**. W wydarzeniu cyklicznym (np. 3 terminy) gość zapisany na termin 1 **otrzyma przypomnienie także o terminie 2 i 3** — jeśli się na nie nie zapisywał.
+**Przyczyna**: Funkcja `get_training_reminders_due()` zawiera subquery:
+```sql
+SELECT COUNT(*) FROM training_lessons WHERE module_id = ta.module_id
+```
+Kolumna `module_id` istnieje zarówno w `training_lessons` jak i `training_assignments` (alias `ta`). PostgreSQL nie może jednoznacznie rozwiązać referencji w zagnieżdżonym zapytaniu.
 
-Porównanie z użytkownikami (linie 416-439) — tam filtrowanie po `occurrence_date`/`occurrence_time` jest poprawne.
+**Wpływ**: Przypomnienia o szkoleniach (`training_reminders`) nigdy nie są wysyłane — każdy cykl CRON loguje ten błąd i pomija krok.
 
-Rekomendacja: Dodać filtrowanie gości po occurrence (jeśli tabela `guest_event_registrations` ma kolumnę occurrence_index/date).
+**Naprawa**: Wymaga migracji — pełna kwalifikacja kolumny w subquery:
+```sql
+WHERE training_lessons.module_id = ta.module_id
+```
 
----
+## NISKI PRIORYTET — CRITICAL EVENT BYPASS
 
-### 10. POST-EVENT EMAILS — ANALIZA
-
-- Wysyłane tylko do gości (nie do users/partners/specialists) — **poprawne**
-- Bazuje na `auto_webinar_views.watch_duration_seconds > 0` — **poprawne**
-- Deduplikacja via `thank_you_sent` flag — **poprawne**
-- Okno 2h po zakończeniu — **poprawne**
-
----
-
-### 11. CRITICAL EVENT BYPASS — ANALIZA
-
-Orchestrator sprawdza krytyczne okna 1h/15min przed pominięciem cyklu (linie 125-155). Filtruje po `start_time` z tabeli `events`.
-
-**PROBLEM #5**: Filtr nie uwzględnia `occurrence_datetime` wydarzeń cyklicznych. Jeśli `start_time` (bazowy) jest daleko w przeszłości, ale termin cykliczny jest za 15 min, sprawdzenie krytyczności go nie złapie, bo porównuje `start_time`, nie rozwinięte occurrences.
-
-Rekomendacja: Rozszerzyć critical event check o parsowanie occurrences lub dodać dedykowane zapytanie.
+Orchestrator sprawdza krytyczne okna 1h/15min przed pominięciem cyklu (linie 125-155) — ale filtruje po `start_time` z tabeli `events`, nie uwzględniając `occurrences` wydarzeń cyklicznych. W praktyce z `interval_minutes=5` i cronen co 5 min, cykl nigdy nie jest pomijany (interval zawsze minął), więc to nie powoduje problemów. Ale logicznie jest to słaby punkt.
 
 ---
 
-### PODSUMOWANIE ZNALEZIONYCH PROBLEMÓW
+## PODSUMOWANIE
 
-| # | Priorytet | Problem | Wpływ |
-|---|-----------|---------|-------|
-| 1 | **KRYTYCZNY** | CRON spotkań co 15 min vs okno 15min (10 min szerokości) | Spotkania indywidualne mogą nie otrzymać reminder 15min |
-| 2 | **WYSOKI** | Prospect nie dostaje zoom_link w 1h reminderze | Prospect bez linku na godzinę przed spotkaniem |
-| 3 | **WYSOKI** | Brak szablonu HTML i subjectu dla prospect 1h | Pusty email dla prospect przy 1h |
-| 4 | **ŚREDNI** | Goście webinarowi nie filtrowani po occurrence | Goście mogą dostać remindery o terminach, na które się nie zapisali |
-| 5 | **NISKI** | Critical event bypass nie uwzględnia occurrences cyklicznych | Teoretycznie pominięty cykl — w praktyce mało prawdopodobne z 5min interwałem |
+| Element | Status |
+|---------|--------|
+| Okna czasowe | **SPRAWNE** — ujednolicone we wszystkich systemach |
+| CRON interwały | **SPRAWNE** — oba co 5 min |
+| Deduplikacja | **SPRAWNE** — brak duplikatów |
+| Filtrowanie occurrence (goście) | **SPRAWNE** — po occurrence_index |
+| Filtrowanie occurrence (users) | **SPRAWNE** — po occurrence_date/time |
+| Prospect zoom_link (1h) | **SPRAWNE** — naprawione |
+| Prospect szablon HTML (1h) | **SPRAWNE** — dodany |
+| Prospect subject (1h) | **SPRAWNE** — dodany |
+| DST / timezone | **SPRAWNE** — warsawLocalToUtc |
+| Timeout protection | **SPRAWNE** — we wszystkich krytycznych funkcjach |
+| Batching | **SPRAWNE** — 25 równolegle dla webinarów |
+| Logowanie emaili | **SPRAWNE** — email_logs kompletne |
+| Post-event emails | **SPRAWNE** — goście: thank_you / missed_event |
+| Push reminders | **SPRAWNE** — konfigurowane per-event |
+| **Training reminders** | **NIESPRAWNE** — błąd `module_id is ambiguous` |
+| Critical event bypass | **SŁABY PUNKT** — nie uwzględnia occurrences (niski wpływ) |
 
-### BEZ PROBLEMÓW
-- Deduplikacja — solidna we wszystkich systemach
-- DST — poprawnie obsłużone (`warsawLocalToUtc`)
-- Timeout protection — obecne w orchestratorze i meetings
-- Batching webinarów — wydajne (25 równolegle, 3 termy naraz)
-- Logowanie emaili — kompletne w `email_logs`
-- Meeting users — pełny zestaw (email + push + in-app)
+### Rekomendacja
 
-### REKOMENDOWANE POPRAWKI
-
-1. **Zmienić CRON spotkań z `*/15` na `*/5`** — eliminuje ryzyko pominięcia okna 15min
-2. **Dodać zoom_link do prospect 1h** — zmiana jednej linii w `send-meeting-reminders`
-3. **Dodać case '1h' i subject mapping** w `send-prospect-meeting-email`
-4. **Dodać filtrowanie gości po occurrence** w `send-bulk-webinar-reminders`
-5. (Opcjonalnie) Rozszerzyć critical event bypass o occurrences
+Jedyny wymagany fix to naprawa funkcji `get_training_reminders_due()` — migracja SQL z pełną kwalifikacją kolumny `module_id`. Reszta systemu jest sprawna i działa bezbłędnie.
 
