@@ -125,7 +125,10 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           comment: myComment.trim(),
         });
       if (error) throw error;
-      toast.success(tf('hk.commentSentForApproval', 'Opinia wysłana do zatwierdzenia!'));
+      toast.success(tf('hk.commentSentForApproval', 'Twoja opinia została wysłana i oczekuje na zatwierdzenie przez administratora'));
+      setHasAnyComment(true);
+      setMyRating(0);
+      setMyComment('');
       fetchComments();
     } catch (e: any) {
       console.error('Comment error:', e);
