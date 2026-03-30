@@ -40,7 +40,7 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
       }
     : undefined;
 
-  const { messages, sendMessage } = useAutoWebinarFakeChat(configId, startOffset, isPlaying, guestContext);
+  const { messages, sendMessage } = useAutoWebinarFakeChat(configId, startOffset, isPlaying, guestContext, slotTime);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
