@@ -1,78 +1,79 @@
 
 
-## Diagnoza: Zmiana czasu CET → CEST powoduje błąd godziny w powiadomieniach
+## Diagnoza: Dlaczego 12h reminder nie został wysłany
 
 ### Problem
 
-Jutro (30 marca 2026) zegary przesuwają się z CET (UTC+1) na CEST (UTC+2). Wydarzenie jest o **20:00 czasu warszawskiego**, ale powiadomienia mówią **21:00**.
+Powiadomienie 12h przed TEAM MEETING (20:00 dzisiaj) **nie dotarło**, mimo że DST jest już poprawnie obsługiwane. Przyczyna jest inna.
 
-### Przyczyna — hardcoded offset `+01:00` zamiast DST-aware parsowania
+### Przyczyna: rozbieżność `occurrence_index`
 
-W **dwóch edge functions** czas z pola `occurrences` (np. `date: "2026-03-30", time: "20:00"`) jest parsowany z błędnym offsetem:
+1. Wydarzenie TEAM MEETING kiedyś miało wiele terminów — użytkownicy zapisali się na **termin nr 3** (`occurrence_index = 3`)
+2. Później ktoś edytował wydarzenie i zostawił **tylko 1 termin** (`[{date: "2026-03-30", time: "20:00"}]`) — ma on `occurrence_index = 0`
+3. Rejestracje nadal wskazują na `occurrence_index = 3`
+4. Kod filtruje: `registration.occurrence_index === termOccurrenceIndex` → `3 === 0` → **false**
+5. Wynik: zero odbiorców, zero e-maili
 
-**1. `send-bulk-webinar-reminders/index.ts` (linia 296):**
-```javascript
-// BŁĄD: zawsze +01:00 (CET), ignoruje czas letni
-termDatetime = new Date(`${occ.date}T${occ.time}:00+01:00`);
+Powiadomienie 24h wczoraj zadziałało tylko dlatego, że było wysłane **przed edycją wydarzenia** (stara struktura miała termin na indexie 3).
+
+### Okna czasowe przypomnień (obecna konfiguracja)
+
+| Typ | Okno (min przed) | Opis |
+|-----|---|---|
+| 24h | 23h–25h | Dzień przed |
+| 12h | 11h–13h | Pół dnia przed |
+| 2h | 1h45m–2h15m | Krótko przed |
+| 1h | 45m–1h15m | Godzinę przed |
+| 15min | 5m–25m | Tuż przed |
+
+### Rozwiązanie — 2 naprawy
+
+**Naprawa 1 (natychmiastowa): Poprawić rejestracje w bazie**
+
+Zmienić `occurrence_index` z 3 na 0 dla wszystkich aktywnych rejestracji na to wydarzenie:
+```sql
+UPDATE event_registrations 
+SET occurrence_index = 0 
+WHERE event_id = 'e3363eaf-...' 
+AND status = 'registered' 
+AND occurrence_index = 3;
 ```
-Dla 30 marca: `20:00+01:00` = 19:00 UTC. Ale poprawnie powinno być `20:00+02:00` = 18:00 UTC.
-Gdy 19:00 UTC jest formatowane z `timeZone: 'Europe/Warsaw'` (CEST), wychodzi **21:00** zamiast 20:00.
 
-**2. `process-pending-notifications/index.ts` (linia 401-404):**
-```javascript
-// BŁĄD: heurystyka miesiącowa — marzec (3) < 4, więc używa +01:00
-const month = parseInt(occ.date.split('-')[1], 10);
-const offset = (month >= 4 && month <= 10) ? '+02:00' : '+01:00';
-```
-Marzec = 3, więc wybiera CET (+01:00), mimo że 30 marca to już CEST. Ta sama heurystyka zawodzi też w październiku (miesiąc 10 = CEST, ale pod koniec października wraca CET).
+**Naprawa 2 (systemowa): Zabezpieczyć kod przed tym problemem**
 
-### Frontend jest OK
-Frontend (`useOccurrences.ts`) używa `fromZonedTime(localDateTime, 'Europe/Warsaw')` z biblioteki `date-fns-tz`, która poprawnie obsługuje DST. Problem dotyczy tylko edge functions na serwerze.
+W `send-bulk-webinar-reminders/index.ts` zmienić logikę filtrowania, żeby:
+- Jeśli wydarzenie ma **dokładnie 1 occurrence**, wysyłać do WSZYSTKICH zapisanych użytkowników bez filtrowania po `occurrence_index`
+- Dzięki temu edycja harmonogramu nie „popsuje" przypomnień
 
-### Rozwiązanie
-
-Zastąpić hardcoded offsety prawidłowym DST-aware parsowaniem. Deno obsługuje `Intl.DateTimeFormat` z `timeZone`, więc możemy obliczyć prawidłowy offset dla dowolnej daty:
-
-**Nowa funkcja pomocnicza** (do `_shared/` lub inline):
+Zmiana w pliku `supabase/functions/send-bulk-webinar-reminders/index.ts` (linie 416-422):
 ```typescript
-function warsawToUtc(dateStr: string, timeStr: string): Date {
-  // Tworzymy datę i sprawdzamy jaki offset ma Warsaw w tym dniu
-  // Używamy Intl do uzyskania prawidłowego offsetu
-  const naive = new Date(`${dateStr}T${timeStr}:00Z`);
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Warsaw',
-    hour: 'numeric', minute: 'numeric', hour12: false,
-    year: 'numeric', month: '2-digit', day: '2-digit'
-  });
-  const parts = formatter.formatToParts(naive);
-  // Odczytujemy jaki czas Warsaw pokazuje dla tego UTC
-  // i obliczamy różnicę, żeby ustalić offset
-  const wHour = +parts.find(p => p.type === 'hour')!.value;
-  const wMin = +parts.find(p => p.type === 'minute')!.value;
-  const uHour = naive.getUTCHours();
-  const uMin = naive.getUTCMinutes();
-  let offsetMinutes = (wHour * 60 + wMin) - (uHour * 60 + uMin);
-  if (offsetMinutes < -720) offsetMinutes += 1440;
-  if (offsetMinutes > 720) offsetMinutes -= 1440;
-  // offsetMinutes = +60 (CET) lub +120 (CEST)
-  // Chcemy: dateStr+timeStr w Warsaw = UTC - offset
-  return new Date(`${dateStr}T${timeStr}:00Z`);
-  // Corrected: subtract offset to get UTC
-  // new Date(Date.UTC(y, m, d, h, min) - offsetMinutes * 60000)
+// Jeśli wydarzenie ma tylko 1 occurrence, nie filtruj po indeksie
+let relevantUserRegs = userRegs || [];
+if (termOccurrenceIndex !== null && event.occurrences) {
+  let occCount = 0;
+  if (Array.isArray(event.occurrences)) occCount = event.occurrences.length;
+  
+  if (occCount > 1) {
+    // Multi-occurrence: filtruj ściśle po indeksie
+    relevantUserRegs = relevantUserRegs.filter(r => 
+      r.occurrence_index === termOccurrenceIndex || r.occurrence_index === null
+    );
+  }
+  // Single occurrence: bierz wszystkich zapisanych (bez filtrowania)
 }
 ```
 
-Zastosujemy prostsze podejście — parsowanie przez `Temporal` API (dostępne w Deno) lub iteracyjne obliczenie offsetu via `Intl`.
+### Dodatkowe usprawnienie: automatyczna aktualizacja indeksów przy edycji wydarzenia
+
+W frontendzie (hook edycji wydarzeń) dodać logikę: gdy liczba occurrences się zmniejsza, automatycznie zaktualizować `occurrence_index` w rejestracji, żeby odpowiadał nowemu harmonogramowi (lub ustawić na 0 jeśli zostaje jeden termin).
 
 ### Pliki do zmiany
 
-1. **`supabase/functions/_shared/timezone-utils.ts`** — nowa funkcja `warsawLocalToUtc(date, time)` z poprawną obsługą DST
-2. **`supabase/functions/send-bulk-webinar-reminders/index.ts`** — zamiana hardcoded `+01:00` na `warsawLocalToUtc()`
-3. **`supabase/functions/process-pending-notifications/index.ts`** — zamiana heurystyki miesiącowej na `warsawLocalToUtc()`
+1. **Migracja SQL** — natychmiastowa naprawa `occurrence_index` dla TEAM MEETING
+2. **`supabase/functions/send-bulk-webinar-reminders/index.ts`** — tolerancja na single-occurrence
+3. Opcjonalnie: hook edycji wydarzeń we frontendzie — auto-korekta indeksów
 
-### Wpływ
+### Po naprawie
 
-- Jutrzejsze wydarzenie o 20:00 będzie poprawnie wyświetlane jako 20:00 w powiadomieniach
-- Okna przypomnienia (24h, 12h, 2h, 1h, 15min) będą prawidłowo obliczane
-- Żadnych zmian w frontendzie — tam `date-fns-tz` już działa poprawnie
+Po poprawie indeksów, kolejne powiadomienia (2h, 1h, 15min) powinny zadziałać poprawnie dla dzisiejszego wydarzenia.
 
