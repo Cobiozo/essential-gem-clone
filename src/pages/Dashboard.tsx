@@ -135,10 +135,6 @@ const Dashboard: React.FC = () => {
             <InfoLinksWidget />
           </Suspense>
           
-          {/* Healthy Knowledge Widget */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <HealthyKnowledgeWidget />
-          </Suspense>
           
         </div>
       </div>
