@@ -273,10 +273,10 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Piasek',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='s'><feTurbulence type='turbulence' baseFrequency='0.5' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(#s)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='s'><feTurbulence type='turbulence' baseFrequency='0.5' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#s)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
-        backgroundSize: '200px 200px',
+        backgroundSize: 'cover',
         opacity: op,
       };
     },
