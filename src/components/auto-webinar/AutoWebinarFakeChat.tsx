@@ -25,6 +25,7 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
   guestEmail,
   guestName,
   videoId,
+  slotTime,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
