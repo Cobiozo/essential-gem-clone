@@ -414,11 +414,19 @@ serve(async (req) => {
     }
 
     // For cyclic events, filter user registrations to only those matching this occurrence
+    // If event has exactly 1 occurrence, skip index filtering (handles index drift after edits)
     let relevantUserRegs = userRegs || [];
     if (termOccurrenceIndex !== null && event.occurrences) {
-      relevantUserRegs = relevantUserRegs.filter(r => 
-        r.occurrence_index === termOccurrenceIndex || r.occurrence_index === null
-      );
+      let occCount = 0;
+      if (Array.isArray(event.occurrences)) occCount = event.occurrences.length;
+      
+      if (occCount > 1) {
+        // Multi-occurrence: strict index filtering
+        relevantUserRegs = relevantUserRegs.filter(r => 
+          r.occurrence_index === termOccurrenceIndex || r.occurrence_index === null
+        );
+      }
+      // Single occurrence: take all registered users (no index filtering)
     }
 
     // Deduplicate by user_id (one user may have multiple regs for same occurrence)
