@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from '@/components/ui/carousel';
-import { Star, X, Send, Loader2, MessageSquare, Clock } from 'lucide-react';
+import { Star, X, Send, Loader2, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -39,6 +39,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   const [submitting, setSubmitting] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
   const [existingComment, setExistingComment] = useState<TestimonialComment | null>(null);
+  const [hasAnyComment, setHasAnyComment] = useState(false);
 
   const allImages = material
     ? [material.media_url, ...(material.gallery_urls || [])].filter(Boolean) as string[]
@@ -72,10 +73,18 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           setExistingComment(mine);
           setMyRating(mine.rating);
           setMyComment(mine.comment);
+          setHasAnyComment(true);
         } else {
           setExistingComment(null);
           setMyRating(0);
           setMyComment('');
+          // Check if user has a pending comment (not returned by RPC)
+          const { count } = await supabase
+            .from('testimonial_comments')
+            .select('id', { count: 'exact', head: true })
+            .eq('knowledge_id', material.id)
+            .eq('user_id', user.id);
+          setHasAnyComment((count || 0) > 0);
         }
       }
     } catch (e) {
@@ -116,7 +125,10 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           comment: myComment.trim(),
         });
       if (error) throw error;
-      toast.success(tf('hk.commentSentForApproval', 'Opinia wysłana do zatwierdzenia!'));
+      toast.success(tf('hk.commentSentForApproval', 'Twoja opinia została wysłana i oczekuje na zatwierdzenie przez administratora'));
+      setHasAnyComment(true);
+      setMyRating(0);
+      setMyComment('');
       fetchComments();
     } catch (e: any) {
       console.error('Comment error:', e);
@@ -245,17 +257,9 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                     const lastName = c.last_name || '';
                     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
                     const displayName = `${firstName} ${lastName.charAt(0) || ''}.`.trim();
-                    const isPending = c.status === 'pending';
-                    const isOwn = user && c.user_id === user.id;
-
-                    // Non-owners don't see pending (RPC handles this, but just in case)
-                    if (isPending && !isOwn) return null;
 
                     return (
-                      <div key={c.id} className={cn(
-                        "flex gap-3 p-3 rounded-lg border border-border/50",
-                        isPending ? "bg-yellow-500/5 border-yellow-500/20" : "bg-muted/40"
-                      )}>
+                      <div key={c.id} className="flex gap-3 p-3 rounded-lg border border-border/50 bg-muted/40">
                         <Avatar className="w-9 h-9 shrink-0">
                           <AvatarImage src={c.avatar_url || undefined} />
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -278,12 +282,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                                 />
                               ))}
                             </div>
-                            {isPending && isOwn && (
-                              <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-600 gap-1">
-                                <Clock className="w-3 h-3" />
-                                {tf('hk.pendingApproval', 'Oczekuje na zatwierdzenie')}
-                              </Badge>
-                            )}
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pl })}
                             </span>
@@ -298,7 +296,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                 </div>
               )}
 
-              {user && !existingComment && (
+              {user && !hasAnyComment && (
                 <div className="space-y-3 pt-2 border-t border-border/50">
                   <p className="text-sm font-medium text-muted-foreground">
                     {tf('hk.addYourOpinion', 'Dodaj swoją opinię')}
