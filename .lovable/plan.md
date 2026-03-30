@@ -1,21 +1,26 @@
 
 
-## Usunięcie szarego overlay przy edycji sekcji w podglądzie szablonu
+## Naprawa widocznego kafelkowania tekstur materiałowych
 
 ### Problem
-Gdy klikasz "edytuj" na sekcji w podglądzie szablonu (`TemplatePreviewPage.tsx`), otwiera się boczny panel (`Sheet`) z domyślnym overlay `bg-black/80`, który zasłania i szarzy cały podgląd strony. Nie widać jak zmiany wpływają na wygląd.
+Tekstury materiałowe (marmur, beton, drewno, skóra, piasek, szum, papier, len, płótno) mają małe wymiary SVG (200-300px) i takie same `backgroundSize`, co powoduje widoczne powtarzanie kwadratów zamiast jednolitej płaszczyzny.
 
 ### Rozwiązanie
-Zmienić Sheet w `TemplatePreviewPage.tsx` tak, aby nie blokował interakcji z podglądem i nie wyświetlał ciemnego overlay:
+**Plik: `src/lib/bgPatterns.ts`** — dla 9 tekstur SVG-owych (noise, paper, linen, canvas, leather, wood, concrete, marble, sand):
 
-**Plik: `src/pages/TemplatePreviewPage.tsx`**
-- Dodać `modal={false}` do komponentu `<Sheet>` — wyłącza overlay i blokowanie tła
-- Usunąć domyślny przycisk zamknięcia (X) z SheetContent (jest już własny "Zamknij" na dole)
-- Opcjonalnie: dodać lekki cień zamiast overlay, by panel był wizualnie oddzielony
+1. Zwiększyć wymiary SVG z 200-300px do **1200x1200px** — wystarczająco duże, by wypełnić sekcję bez widocznych powtórzeń
+2. Ustawić `backgroundSize: 'cover'` zamiast stałych wartości — SVG rozciągnie się na całą sekcję jako jedna płaszczyzna
 
-**Plik: `src/components/ui/sheet.tsx`**
-- Dodać opcjonalną prop `hideOverlay` do `SheetContent`
-- Gdy `hideOverlay=true`, nie renderować `<SheetOverlay />`
+Przykład zmiany (każda tekstura analogicznie):
+```typescript
+// PRZED:
+const svg = `<svg ... width='200' height='200'>...<rect width='200' height='200' .../></svg>`;
+return { backgroundImage: `url(...)`, backgroundSize: '200px 200px', opacity: op };
 
-Efekt: boczny panel edycji otworzy się po prawej stronie, ale podgląd strony pozostanie w pełni widoczny z naturalnymi kolorami. Zmiany w edytorze będą natychmiast widoczne na podglądzie.
+// PO:
+const svg = `<svg ... width='1200' height='1200'>...<rect width='1200' height='1200' .../></svg>`;
+return { backgroundImage: `url(...)`, backgroundSize: 'cover', opacity: op };
+```
+
+Dotyczy 9 tekstur materiałowych w jednym pliku. Wzory geometryczne (dots, grid, chevrons itd.) pozostają bez zmian — one z natury mają się powtarzać.
 
