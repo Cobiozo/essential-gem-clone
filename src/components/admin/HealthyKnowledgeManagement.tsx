@@ -1577,6 +1577,53 @@ const HealthyKnowledgeManagement: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Comment Dialog */}
+      <Dialog open={editCommentDialogOpen} onOpenChange={setEditCommentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edytuj opinię</DialogTitle>
+            <DialogDescription>Zmień treść lub ocenę opinii</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Ocena</Label>
+              <RatingElement value={editCommentRating} readonly={false} onChange={(v) => setEditCommentRating(v)} />
+            </div>
+            <div>
+              <Label>Treść opinii</Label>
+              <Textarea
+                value={editCommentText}
+                onChange={(e) => setEditCommentText(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCommentDialogOpen(false)}>Anuluj</Button>
+            <Button onClick={handleSaveEditedComment} disabled={savingComment}>
+              {savingComment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Zapisz
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Comment Confirmation */}
+      <AlertDialog open={!!deleteCommentId} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usunąć opinię?</AlertDialogTitle>
+            <AlertDialogDescription>Ta operacja jest nieodwracalna. Opinia zostanie trwale usunięta z bazy danych.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteComment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Usuń trwale
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
