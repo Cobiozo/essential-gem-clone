@@ -18,8 +18,10 @@ import {
   Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, 
   Loader2, FileText, Play, Image, Music, Type, Share2, 
   Star, StarOff, MoreHorizontal, RefreshCw, BarChart3,
-  MessageSquare, Check, XCircle
+  MessageSquare, Check, XCircle, Pause, RotateCcw, Pencil
 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { RatingElement } from '@/components/elements/RatingElement';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import HkStatisticsPanel from './HkStatisticsPanel';
@@ -70,23 +72,33 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [loadingCodes, setLoadingCodes] = useState(false);
 
   // Moderation state
-  const [pendingComments, setPendingComments] = useState<TestimonialComment[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
+  const [allComments, setAllComments] = useState<TestimonialComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  
+  // Edit comment dialog state
+  const [editCommentDialogOpen, setEditCommentDialogOpen] = useState(false);
+  const [editingComment, setEditingComment] = useState<TestimonialComment | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [editCommentRating, setEditCommentRating] = useState(5);
+  const [savingComment, setSavingComment] = useState(false);
+  
+  // Delete comment confirmation
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMaterials();
   }, []);
 
-  const fetchPendingComments = async () => {
-    setLoadingPending(true);
+  const fetchAllComments = async () => {
+    setLoadingComments(true);
     try {
-      const { data, error } = await supabase.rpc('get_pending_testimonial_comments');
+      const { data, error } = await supabase.rpc('get_all_testimonial_comments');
       if (error) throw error;
-      setPendingComments((data || []) as unknown as TestimonialComment[]);
+      setAllComments((data || []) as unknown as TestimonialComment[]);
     } catch (e) {
-      console.error('Error fetching pending comments:', e);
+      console.error('Error fetching comments:', e);
     } finally {
-      setLoadingPending(false);
+      setLoadingComments(false);
     }
   };
 
@@ -98,9 +110,66 @@ const HealthyKnowledgeManagement: React.FC = () => {
         .eq('id', commentId);
       if (error) throw error;
       toast.success(newStatus === 'approved' ? 'Opinia zatwierdzona' : 'Opinia odrzucona');
-      fetchPendingComments();
+      fetchAllComments();
     } catch (e: any) {
       toast.error(e.message || 'Błąd moderacji');
+    }
+  };
+
+  const handleEditComment = (comment: TestimonialComment) => {
+    setEditingComment(comment);
+    setEditCommentText(comment.comment);
+    setEditCommentRating(comment.rating);
+    setEditCommentDialogOpen(true);
+  };
+
+  const handleSaveEditedComment = async () => {
+    if (!editingComment) return;
+    setSavingComment(true);
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .update({ comment: editCommentText, rating: editCommentRating })
+        .eq('id', editingComment.id);
+      if (error) throw error;
+      toast.success('Opinia zaktualizowana');
+      setEditCommentDialogOpen(false);
+      fetchAllComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zapisu');
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  const handleSuspendComment = async (comment: TestimonialComment) => {
+    const newStatus = comment.status === 'suspended' ? 'approved' : 'suspended';
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .update({ status: newStatus })
+        .eq('id', comment.id);
+      if (error) throw error;
+      toast.success(newStatus === 'suspended' ? 'Opinia zawieszona' : 'Opinia przywrócona');
+      fetchAllComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zmiany statusu');
+    }
+  };
+
+  const handleDeleteComment = async () => {
+    if (!deleteCommentId) return;
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .delete()
+        .eq('id', deleteCommentId);
+      if (error) throw error;
+      toast.success('Opinia trwale usunięta');
+      setDeleteCommentId(null);
+      fetchAllComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd usuwania');
     }
   };
 
@@ -375,7 +444,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
 
       <Tabs defaultValue="materials" onValueChange={(v) => {
         if (v === 'codes') fetchOtpCodes();
-        if (v === 'testimonials') fetchPendingComments();
+        if (v === 'testimonials') fetchAllComments();
       }}>
         <TabsList>
           <TabsTrigger value="materials">Materiały ({filteredMaterials.length})</TabsTrigger>
@@ -912,27 +981,32 @@ const HealthyKnowledgeManagement: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Moderacja opinii</CardTitle>
-              <CardDescription>Zatwierdź lub odrzuć opinie użytkowników do testymoniali</CardDescription>
+              <CardDescription>Zarządzaj wszystkimi opiniami — edytuj, zawieszaj lub usuwaj</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingPending ? (
+              {loadingComments ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : pendingComments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Brak opinii do moderacji</p>
+              ) : allComments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Brak opinii</p>
               ) : (
                 <div className="space-y-3">
-                  {pendingComments.map((c) => {
+                  {allComments.map((c) => {
                     const firstName = c.first_name || '';
                     const lastName = c.last_name || '';
                     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
                     const isPending = c.status === 'pending';
+                    const isSuspended = c.status === 'suspended';
+                    const isApproved = c.status === 'approved';
+                    const isRejected = c.status === 'rejected';
                     return (
                       <div key={c.id} className={cn(
                         "flex gap-3 p-4 rounded-lg border",
                         isPending ? "border-yellow-500/30 bg-yellow-500/5" : 
-                        c.status === 'approved' ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"
+                        isApproved ? "border-green-500/30 bg-green-500/5" : 
+                        isSuspended ? "border-orange-500/30 bg-orange-500/5" :
+                        "border-red-500/30 bg-red-500/5"
                       )}>
                         <Avatar className="w-10 h-10 shrink-0">
                           <AvatarImage src={c.avatar_url || undefined} />
@@ -946,24 +1020,42 @@ const HealthyKnowledgeManagement: React.FC = () => {
                                 <Star key={star} className={cn("w-3.5 h-3.5", star <= c.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/20")} />
                               ))}
                             </div>
-                            <Badge variant={isPending ? "outline" : c.status === 'approved' ? "default" : "destructive"} className="text-[10px]">
-                              {isPending ? 'Oczekuje' : c.status === 'approved' ? 'Zatwierdzona' : 'Odrzucona'}
+                            <Badge variant={isPending ? "outline" : isApproved ? "default" : "destructive"} className="text-[10px]">
+                              {isPending ? 'Oczekuje' : isApproved ? 'Zatwierdzona' : isSuspended ? 'Zawieszona' : 'Odrzucona'}
                             </Badge>
                           </div>
                           {c.knowledge_title && (
                             <p className="text-xs text-muted-foreground mb-1">Testymonial: <strong>{c.knowledge_title}</strong></p>
                           )}
                           <p className="text-sm text-muted-foreground">"{c.comment}"</p>
-                          {isPending && (
-                            <div className="flex gap-2 mt-2">
-                              <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-600 hover:bg-green-500/10" onClick={() => handleModerateComment(c.id, 'approved')}>
-                                <Check className="w-3 h-3 mr-1" /> Zatwierdź
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            {/* Pending: approve/reject */}
+                            {isPending && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-600 hover:bg-green-500/10" onClick={() => handleModerateComment(c.id, 'approved')}>
+                                  <Check className="w-3 h-3 mr-1" /> Zatwierdź
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => handleModerateComment(c.id, 'rejected')}>
+                                  <XCircle className="w-3 h-3 mr-1" /> Odrzuć
+                                </Button>
+                              </>
+                            )}
+                            {/* Edit */}
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleEditComment(c)}>
+                              <Pencil className="w-3 h-3 mr-1" /> Edytuj
+                            </Button>
+                            {/* Suspend / Restore */}
+                            {(isApproved || isSuspended) && (
+                              <Button size="sm" variant="outline" className={cn("h-7 text-xs", isSuspended ? "border-green-500/50 text-green-600 hover:bg-green-500/10" : "border-orange-500/50 text-orange-600 hover:bg-orange-500/10")} onClick={() => handleSuspendComment(c)}>
+                                {isSuspended ? <RotateCcw className="w-3 h-3 mr-1" /> : <Pause className="w-3 h-3 mr-1" />}
+                                {isSuspended ? 'Przywróć' : 'Zawieś'}
                               </Button>
-                              <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => handleModerateComment(c.id, 'rejected')}>
-                                <XCircle className="w-3 h-3 mr-1" /> Odrzuć
-                              </Button>
-                            </div>
-                          )}
+                            )}
+                            {/* Delete */}
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => setDeleteCommentId(c.id)}>
+                              <Trash2 className="w-3 h-3 mr-1" /> Usuń
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1485,6 +1577,53 @@ const HealthyKnowledgeManagement: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Comment Dialog */}
+      <Dialog open={editCommentDialogOpen} onOpenChange={setEditCommentDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edytuj opinię</DialogTitle>
+            <DialogDescription>Zmień treść lub ocenę opinii</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Ocena</Label>
+              <RatingElement value={editCommentRating} readonly={false} onChange={(v) => setEditCommentRating(v)} />
+            </div>
+            <div>
+              <Label>Treść opinii</Label>
+              <Textarea
+                value={editCommentText}
+                onChange={(e) => setEditCommentText(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditCommentDialogOpen(false)}>Anuluj</Button>
+            <Button onClick={handleSaveEditedComment} disabled={savingComment}>
+              {savingComment && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Zapisz
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Comment Confirmation */}
+      <AlertDialog open={!!deleteCommentId} onOpenChange={(open) => !open && setDeleteCommentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usunąć opinię?</AlertDialogTitle>
+            <AlertDialogDescription>Ta operacja jest nieodwracalna. Opinia zostanie trwale usunięta z bazy danych.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteComment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Usuń trwale
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
