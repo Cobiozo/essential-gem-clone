@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { ImageUploadInput } from '@/components/partner-page/ImageUploadInput';
+import { BgPatternPicker } from './BgPatternPicker';
 
 interface Props {
   config: Record<string, any>;
@@ -132,6 +133,14 @@ export const HeroSectionEditor: React.FC<Props> = ({ config, onChange }) => {
         <Label>Przezroczystość tła (0-1)</Label>
         <Input type="number" step="0.1" min="0" max="1" value={config.overlay_opacity ?? 0.3} onChange={e => update('overlay_opacity', parseFloat(e.target.value))} />
       </div>
+      <BgPatternPicker
+        pattern={config.bg_pattern || 'none'}
+        opacity={config.bg_pattern_opacity ?? 0.08}
+        color={config.bg_pattern_color || ''}
+        onPatternChange={v => update('bg_pattern', v)}
+        onOpacityChange={v => update('bg_pattern_opacity', v)}
+        onColorChange={v => update('bg_pattern_color', v)}
+      />
 
       {/* Stats */}
       <fieldset className="border rounded-lg p-4 space-y-3">

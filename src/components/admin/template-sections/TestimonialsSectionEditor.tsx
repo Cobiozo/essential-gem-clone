@@ -10,6 +10,7 @@ import { ColorInput } from '@/components/ui/color-input';
 import { Slider } from '@/components/ui/slider';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { BgPatternPicker } from './BgPatternPicker';
 
 interface Props {
   config: Record<string, any>;
@@ -124,6 +125,14 @@ export const TestimonialsSectionEditor: React.FC<Props> = ({ config, onChange })
       <Button variant="outline" size="sm" onClick={() => update('cards', [...cards, { name: '', label: '', before_label: 'PRZED:', before: '', after_label: 'PO:', after: '', description: '', image: '' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj kartę
       </Button>
+      <BgPatternPicker
+        pattern={config.bg_pattern || 'none'}
+        opacity={config.bg_pattern_opacity ?? 0.08}
+        color={config.bg_pattern_color || ''}
+        onPatternChange={v => update('bg_pattern', v)}
+        onOpacityChange={v => update('bg_pattern_opacity', v)}
+        onColorChange={v => update('bg_pattern_color', v)}
+      />
 
       <fieldset className="border rounded-lg p-4 space-y-3">
         <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
