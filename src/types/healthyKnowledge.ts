@@ -110,7 +110,7 @@ export interface TestimonialComment {
   user_id: string;
   rating: number;
   comment: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
   created_at: string;
   first_name: string | null;
   last_name: string | null;

@@ -18,8 +18,10 @@ import {
   Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, 
   Loader2, FileText, Play, Image, Music, Type, Share2, 
   Star, StarOff, MoreHorizontal, RefreshCw, BarChart3,
-  MessageSquare, Check, XCircle
+  MessageSquare, Check, XCircle, Pause, RotateCcw, Pencil
 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { RatingElement } from '@/components/elements/RatingElement';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import HkStatisticsPanel from './HkStatisticsPanel';
