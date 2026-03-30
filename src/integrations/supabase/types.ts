@@ -710,6 +710,7 @@ export type Database = {
           guest_registration_id: string | null
           id: string
           sent_at_second: number
+          slot_time: string | null
           video_id: string | null
         }
         Insert: {
@@ -721,6 +722,7 @@ export type Database = {
           guest_registration_id?: string | null
           id?: string
           sent_at_second: number
+          slot_time?: string | null
           video_id?: string | null
         }
         Update: {
@@ -732,6 +734,7 @@ export type Database = {
           guest_registration_id?: string | null
           id?: string
           sent_at_second?: number
+          slot_time?: string | null
           video_id?: string | null
         }
         Relationships: [

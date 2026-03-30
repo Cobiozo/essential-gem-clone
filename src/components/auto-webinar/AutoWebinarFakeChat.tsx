@@ -14,6 +14,7 @@ interface AutoWebinarFakeChatProps {
   guestEmail?: string | null;
   guestName?: string | null;
   videoId?: string | null;
+  slotTime?: string | null;
 }
 
 export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
@@ -24,6 +25,7 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
   guestEmail,
   guestName,
   videoId,
+  slotTime,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
@@ -38,7 +40,7 @@ export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
       }
     : undefined;
 
-  const { messages, sendMessage } = useAutoWebinarFakeChat(configId, startOffset, isPlaying, guestContext);
+  const { messages, sendMessage } = useAutoWebinarFakeChat(configId, startOffset, isPlaying, guestContext, slotTime);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
