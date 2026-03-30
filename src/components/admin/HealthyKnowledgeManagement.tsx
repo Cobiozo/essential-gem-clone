@@ -368,10 +368,17 @@ const HealthyKnowledgeManagement: React.FC = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="materials" onValueChange={(v) => v === 'codes' && fetchOtpCodes()}>
+      <Tabs defaultValue="materials" onValueChange={(v) => {
+        if (v === 'codes') fetchOtpCodes();
+        if (v === 'moderation') fetchPendingComments();
+      }}>
         <TabsList>
           <TabsTrigger value="materials">Materiały ({materials.length})</TabsTrigger>
           <TabsTrigger value="codes">Kody OTP</TabsTrigger>
+          <TabsTrigger value="moderation">
+            <MessageSquare className="w-4 h-4 mr-1" />
+            Opinie
+          </TabsTrigger>
           <TabsTrigger value="statistics">
             <BarChart3 className="w-4 h-4 mr-1" />
             Statystyki
