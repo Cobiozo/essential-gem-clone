@@ -444,7 +444,7 @@ const HealthyKnowledgeManagement: React.FC = () => {
 
       <Tabs defaultValue="materials" onValueChange={(v) => {
         if (v === 'codes') fetchOtpCodes();
-        if (v === 'testimonials') fetchPendingComments();
+        if (v === 'testimonials') fetchAllComments();
       }}>
         <TabsList>
           <TabsTrigger value="materials">Materiały ({filteredMaterials.length})</TabsTrigger>
