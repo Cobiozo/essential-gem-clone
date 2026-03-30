@@ -8743,6 +8743,22 @@ export type Database = {
           team_custom_name: string
         }[]
       }
+      get_all_testimonial_comments: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          comment: string
+          created_at: string
+          first_name: string
+          id: string
+          knowledge_id: string
+          knowledge_title: string
+          last_name: string
+          rating: number
+          status: string
+          user_id: string
+        }[]
+      }
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
