@@ -1,42 +1,35 @@
 
 
-## Testymoniale jako osobna grupa w panelu admina
+## Dwie zmiany
 
-### Obecny stan
-- Zakładka "Materiały" zawiera wszystkie materiały, w tym testymoniale
-- Zakładka "Opinie" jest osobna i pokazuje tylko pending komentarze
-- Użytkownik chce, by testymoniale tworzyły osobną grupę razem z opiniami
+### 1. Autor widzi swoją pending opinię w podglądzie publicznym
 
-### Zmiany w `src/components/admin/HealthyKnowledgeManagement.tsx`
+**Problem**: Obecnie RPC `get_testimonial_comments` zwraca TYLKO approved. Autor nie widzi swojej oczekującej opinii.
 
-**1. Nowa zakładka "Testymoniale"** — zastępuje osobną zakładkę "Opinie"
-- Dodać TabsTrigger `"testimonials"` z liczbą testymoniali
-- Wewnątrz: dwie sekcje:
-  - **Lista materiałów-testymoniali** (filtrowanych z `materials` po `category === 'Testymoniale'`) — ta sama tabela co w "Materiały", ale tylko testymoniale
-  - **Moderacja opinii** (przeniesiona z obecnej zakładki "moderation") — pending komentarze z przyciskami Zatwierdź/Odrzuć
+**Rozwiązanie**: Zmienić RPC `get_testimonial_comments` — dodać warunek `OR tc.user_id = auth.uid()` tak by autor widział swoją opinię (niezależnie od statusu), a reszta użytkowników widzi tylko approved.
 
-**2. Zakładka "Materiały"** — filtrować, by NIE pokazywać testymoniali
-- `filteredMaterials` w TabsContent "materials" → dodać `.filter(m => m.category !== 'Testymoniale')`
-
-**3. Usunąć osobną zakładkę "Opinie"** — przenieść jej zawartość do nowej zakładki "Testymoniale"
-
-**4. Tab onValueChange** — przy przełączeniu na "testimonials" wywołać `fetchPendingComments()`
-
-### Struktura nowej zakładki "Testymoniale"
-
-```text
-┌─────────────────────────────────────────────┐
-│ Testymoniale (N)                            │
-├─────────────────────────────────────────────┤
-│ [Tabela materiałów z kategorią Testymoniale]│
-│  - ta sama tabela co w Materiały            │
-├─────────────────────────────────────────────┤
-│ Moderacja opinii                            │
-│  - lista pending komentarzy                 │
-│  - przyciski Zatwierdź / Odrzuć             │
-└─────────────────────────────────────────────┘
+**SQL migration**:
+```sql
+CREATE OR REPLACE FUNCTION public.get_testimonial_comments(p_knowledge_id uuid)
+...
+WHERE tc.knowledge_id = p_knowledge_id
+  AND (tc.status = 'approved' OR tc.user_id = auth.uid())
+ORDER BY tc.created_at DESC;
 ```
 
+**Frontend (`TestimonialPreviewDialog.tsx`)**:
+- Dodać badge "Oczekuje na zatwierdzenie" przy własnym pending komentarzu autora
+- Usunąć dodatkowe zapytanie `supabase.from('testimonial_comments').select(count)` — teraz RPC zwraca pending komentarz autora, więc `hasAnyComment` można ustawić na podstawie danych z RPC
+- Średnia ocen i licznik opinii liczone tylko z approved (filtr `c.status === 'approved'`)
+
+### 2. Tabela testymoniali w panelu admina — pełny format jak "Materiały"
+
+**Problem**: Zakładka "Testymoniale" pokazuje uproszczoną tabelę (brak kolumn Kategoria, Widoczność, ikon akcji).
+
+**Rozwiązanie** (`HealthyKnowledgeManagement.tsx`): Zamienić uproszczoną tabelę testymoniali (linie ~763-830) na pełną tabelę identyczną z zakładką "Materiały" — z kolumnami: Materiał (thumbnail + opis), Typ + język, Kategoria, Widoczność (badge'e ról), Status (aktywny/ukryty + featured + share), Akcje (przyciski: featured, hide/show, edit, delete).
+
 ### Pliki do modyfikacji
-- `src/components/admin/HealthyKnowledgeManagement.tsx` — jedyny plik
+- **SQL migration** — update `get_testimonial_comments` RPC
+- `src/components/testimonials/TestimonialPreviewDialog.tsx` — pending badge + cleanup
+- `src/components/admin/HealthyKnowledgeManagement.tsx` — pełna tabela testymoniali
 
