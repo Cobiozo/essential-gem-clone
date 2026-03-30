@@ -390,11 +390,25 @@ serve(async (req) => {
     // ==========================================
     // 7a. Get GUEST registrations
     // ==========================================
-    const { data: guests, error: guestsError } = await supabase
+    let guestQuery = supabase
       .from("guest_event_registrations")
-      .select("id, email, first_name, last_name")
+      .select("id, email, first_name, last_name, occurrence_index")
       .eq("event_id", event_id)
       .eq("status", "registered");
+
+    const { data: allGuests, error: guestsError } = await guestQuery;
+
+    // For cyclic events, filter guests by occurrence_index (same logic as users)
+    let guests = allGuests || [];
+    if (termOccurrenceIndex !== null && event.occurrences) {
+      const occs = Array.isArray(event.occurrences) ? event.occurrences : [];
+      if (occs.length > 1) {
+        guests = guests.filter(g =>
+          g.occurrence_index === termOccurrenceIndex ||
+          g.occurrence_index === null // legacy: no occurrence info = all occurrences
+        );
+      }
+    }
 
     if (guestsError) {
       console.error(`[bulk-reminders] Error fetching guests:`, guestsError);

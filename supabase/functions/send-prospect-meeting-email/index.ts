@@ -308,6 +308,7 @@ serve(async (req) => {
       booking: `📅 Zaplanowano spotkanie na ${meeting_date} o ${meeting_time}`,
       '24h': `⏰ Przypomnienie: spotkanie jutro o ${meeting_time}`,
       '12h': `🔔 Spotkanie dziś o ${meeting_time}`,
+      '1h': `⏳ Spotkanie za godzinę — o ${meeting_time}`,
       '2h': `🎯 Spotkanie za 2 godziny — dołącz o ${meeting_time}`,
       '15min': `⚡ Spotkanie za 15 minut — dołącz teraz!`,
     };
