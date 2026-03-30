@@ -398,10 +398,10 @@ serve(async (req) => {
       let reminderType: '24h' | '12h' | '2h' | '1h' | '15min';
       let templateName: string;
       
-      if (hoursUntil >= 23 && hoursUntil <= 25) {
+      if (minutesUntil >= 1420 && minutesUntil <= 1460) {
         reminderType = '24h';
         templateName = 'meeting_reminder_24h';
-      } else if (hoursUntil >= 11 && hoursUntil <= 13) {
+      } else if (minutesUntil >= 700 && minutesUntil <= 740) {
         reminderType = '12h';
         templateName = 'meeting_reminder_12h';
       } else if (minutesUntil >= 110 && minutesUntil <= 130) {
