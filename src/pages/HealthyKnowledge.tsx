@@ -13,14 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Star, ChevronLeft, ChevronRight } from 'lucide-react';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from '@/components/ui/carousel';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
