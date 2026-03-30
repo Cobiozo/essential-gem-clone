@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
+import { TestimonialPreviewDialog } from '@/components/testimonials/TestimonialPreviewDialog';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 import { useContentTypeLabels } from '@/types/healthyKnowledge';
