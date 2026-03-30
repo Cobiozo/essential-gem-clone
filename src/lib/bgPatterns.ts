@@ -182,10 +182,10 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Len',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='l'><feTurbulence type='turbulence' baseFrequency='0.65 0.1' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(#l)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='l'><feTurbulence type='turbulence' baseFrequency='0.65 0.1' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#l)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
-        backgroundSize: '200px 200px',
+        backgroundSize: 'cover',
         opacity: op,
       };
     },
