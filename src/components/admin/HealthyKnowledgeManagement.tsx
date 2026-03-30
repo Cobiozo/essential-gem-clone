@@ -981,27 +981,32 @@ const HealthyKnowledgeManagement: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Moderacja opinii</CardTitle>
-              <CardDescription>Zatwierdź lub odrzuć opinie użytkowników do testymoniali</CardDescription>
+              <CardDescription>Zarządzaj wszystkimi opiniami — edytuj, zawieszaj lub usuwaj</CardDescription>
             </CardHeader>
             <CardContent>
-              {loadingPending ? (
+              {loadingComments ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : pendingComments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">Brak opinii do moderacji</p>
+              ) : allComments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Brak opinii</p>
               ) : (
                 <div className="space-y-3">
-                  {pendingComments.map((c) => {
+                  {allComments.map((c) => {
                     const firstName = c.first_name || '';
                     const lastName = c.last_name || '';
                     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
                     const isPending = c.status === 'pending';
+                    const isSuspended = c.status === 'suspended';
+                    const isApproved = c.status === 'approved';
+                    const isRejected = c.status === 'rejected';
                     return (
                       <div key={c.id} className={cn(
                         "flex gap-3 p-4 rounded-lg border",
                         isPending ? "border-yellow-500/30 bg-yellow-500/5" : 
-                        c.status === 'approved' ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"
+                        isApproved ? "border-green-500/30 bg-green-500/5" : 
+                        isSuspended ? "border-orange-500/30 bg-orange-500/5" :
+                        "border-red-500/30 bg-red-500/5"
                       )}>
                         <Avatar className="w-10 h-10 shrink-0">
                           <AvatarImage src={c.avatar_url || undefined} />
@@ -1015,24 +1020,42 @@ const HealthyKnowledgeManagement: React.FC = () => {
                                 <Star key={star} className={cn("w-3.5 h-3.5", star <= c.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/20")} />
                               ))}
                             </div>
-                            <Badge variant={isPending ? "outline" : c.status === 'approved' ? "default" : "destructive"} className="text-[10px]">
-                              {isPending ? 'Oczekuje' : c.status === 'approved' ? 'Zatwierdzona' : 'Odrzucona'}
+                            <Badge variant={isPending ? "outline" : isApproved ? "default" : "destructive"} className="text-[10px]">
+                              {isPending ? 'Oczekuje' : isApproved ? 'Zatwierdzona' : isSuspended ? 'Zawieszona' : 'Odrzucona'}
                             </Badge>
                           </div>
                           {c.knowledge_title && (
                             <p className="text-xs text-muted-foreground mb-1">Testymonial: <strong>{c.knowledge_title}</strong></p>
                           )}
                           <p className="text-sm text-muted-foreground">"{c.comment}"</p>
-                          {isPending && (
-                            <div className="flex gap-2 mt-2">
-                              <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-600 hover:bg-green-500/10" onClick={() => handleModerateComment(c.id, 'approved')}>
-                                <Check className="w-3 h-3 mr-1" /> Zatwierdź
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            {/* Pending: approve/reject */}
+                            {isPending && (
+                              <>
+                                <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-600 hover:bg-green-500/10" onClick={() => handleModerateComment(c.id, 'approved')}>
+                                  <Check className="w-3 h-3 mr-1" /> Zatwierdź
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => handleModerateComment(c.id, 'rejected')}>
+                                  <XCircle className="w-3 h-3 mr-1" /> Odrzuć
+                                </Button>
+                              </>
+                            )}
+                            {/* Edit */}
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleEditComment(c)}>
+                              <Pencil className="w-3 h-3 mr-1" /> Edytuj
+                            </Button>
+                            {/* Suspend / Restore */}
+                            {(isApproved || isSuspended) && (
+                              <Button size="sm" variant="outline" className={cn("h-7 text-xs", isSuspended ? "border-green-500/50 text-green-600 hover:bg-green-500/10" : "border-orange-500/50 text-orange-600 hover:bg-orange-500/10")} onClick={() => handleSuspendComment(c)}>
+                                {isSuspended ? <RotateCcw className="w-3 h-3 mr-1" /> : <Pause className="w-3 h-3 mr-1" />}
+                                {isSuspended ? 'Przywróć' : 'Zawieś'}
                               </Button>
-                              <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => handleModerateComment(c.id, 'rejected')}>
-                                <XCircle className="w-3 h-3 mr-1" /> Odrzuć
-                              </Button>
-                            </div>
-                          )}
+                            )}
+                            {/* Delete */}
+                            <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => setDeleteCommentId(c.id)}>
+                              <Trash2 className="w-3 h-3 mr-1" /> Usuń
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     );
