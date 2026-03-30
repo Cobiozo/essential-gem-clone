@@ -174,11 +174,11 @@ async function sendSmtpEmail(
 }
 
 function determineReminderType(minutesUntilStart: number): string | null {
-  if (minutesUntilStart <= 25 && minutesUntilStart >= 5) return "15min";
-  if (minutesUntilStart <= 75 && minutesUntilStart >= 45) return "1h";
-  if (minutesUntilStart <= 135 && minutesUntilStart >= 105) return "2h";
-  if (minutesUntilStart <= 13 * 60 && minutesUntilStart >= 11 * 60) return "12h";
-  if (minutesUntilStart <= 25 * 60 && minutesUntilStart >= 23 * 60) return "24h";
+  if (minutesUntilStart <= 20 && minutesUntilStart >= 10) return "15min";
+  if (minutesUntilStart <= 70 && minutesUntilStart >= 50) return "1h";
+  if (minutesUntilStart <= 130 && minutesUntilStart >= 110) return "2h";
+  if (minutesUntilStart <= 740 && minutesUntilStart >= 700) return "12h";
+  if (minutesUntilStart <= 1460 && minutesUntilStart >= 1420) return "24h";
   return null;
 }
 
