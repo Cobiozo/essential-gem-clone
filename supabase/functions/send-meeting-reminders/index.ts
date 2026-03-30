@@ -281,14 +281,19 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const MAX_EXECUTION_TIME_MS = 50000;
+    const executionStart = Date.now();
+    const isTimeoutApproaching = () => (Date.now() - executionStart) > MAX_EXECUTION_TIME_MS;
+
     const now = new Date();
     
-    // Define time windows for all 5 reminder types
-    const reminder24hStart = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-    const reminder24hEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000);
+    // Define time windows (in minutes) — unified with process-pending-notifications
+    // 24h = 1420–1460 min, 12h = 700–740 min, 2h = 110–130, 1h = 50–70, 15min = 10–20
+    const reminder24hStart = new Date(now.getTime() + 1420 * 60 * 1000);
+    const reminder24hEnd = new Date(now.getTime() + 1460 * 60 * 1000);
     
-    const reminder12hStart = new Date(now.getTime() + 11 * 60 * 60 * 1000);
-    const reminder12hEnd = new Date(now.getTime() + 13 * 60 * 60 * 1000);
+    const reminder12hStart = new Date(now.getTime() + 700 * 60 * 1000);
+    const reminder12hEnd = new Date(now.getTime() + 740 * 60 * 1000);
     
     const reminder2hStart = new Date(now.getTime() + 110 * 60 * 1000);
     const reminder2hEnd = new Date(now.getTime() + 130 * 60 * 1000);
@@ -385,18 +390,22 @@ serve(async (req) => {
     const errors: string[] = [];
 
     for (const meeting of meetings) {
+      if (isTimeoutApproaching()) {
+        console.warn('[send-meeting-reminders] Timeout approaching, stopping processing');
+        break;
+      }
+
       const meetingStart = new Date(meeting.start_time);
       const minutesUntil = (meetingStart.getTime() - now.getTime()) / (1000 * 60);
-      const hoursUntil = minutesUntil / 60;
       
       // Determine reminder type — same 5 windows for everyone
       let reminderType: '24h' | '12h' | '2h' | '1h' | '15min';
       let templateName: string;
       
-      if (hoursUntil >= 23 && hoursUntil <= 25) {
+      if (minutesUntil >= 1420 && minutesUntil <= 1460) {
         reminderType = '24h';
         templateName = 'meeting_reminder_24h';
-      } else if (hoursUntil >= 11 && hoursUntil <= 13) {
+      } else if (minutesUntil >= 700 && minutesUntil <= 740) {
         reminderType = '12h';
         templateName = 'meeting_reminder_12h';
       } else if (minutesUntil >= 110 && minutesUntil <= 130) {
