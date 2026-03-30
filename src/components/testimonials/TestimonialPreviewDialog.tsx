@@ -254,17 +254,9 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                     const lastName = c.last_name || '';
                     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
                     const displayName = `${firstName} ${lastName.charAt(0) || ''}.`.trim();
-                    const isPending = c.status === 'pending';
-                    const isOwn = user && c.user_id === user.id;
-
-                    // Non-owners don't see pending (RPC handles this, but just in case)
-                    if (isPending && !isOwn) return null;
 
                     return (
-                      <div key={c.id} className={cn(
-                        "flex gap-3 p-3 rounded-lg border border-border/50",
-                        isPending ? "bg-yellow-500/5 border-yellow-500/20" : "bg-muted/40"
-                      )}>
+                      <div key={c.id} className="flex gap-3 p-3 rounded-lg border border-border/50 bg-muted/40">
                         <Avatar className="w-9 h-9 shrink-0">
                           <AvatarImage src={c.avatar_url || undefined} />
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
@@ -287,12 +279,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                                 />
                               ))}
                             </div>
-                            {isPending && isOwn && (
-                              <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-600 gap-1">
-                                <Clock className="w-3 h-3" />
-                                {tf('hk.pendingApproval', 'Oczekuje na zatwierdzenie')}
-                              </Badge>
-                            )}
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pl })}
                             </span>
