@@ -17,7 +17,7 @@ const CalendarWidget = lazy(() => import('@/components/dashboard/widgets/Calenda
 const MyMeetingsWidget = lazy(() => import('@/components/dashboard/widgets/MyMeetingsWidget'));
 const DashboardFooterSection = lazy(() => import('@/components/dashboard/widgets/DashboardFooterSection'));
 const CombinedOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/CombinedOtpCodesWidget'));
-const HealthyKnowledgeWidget = lazy(() => import('@/components/dashboard/widgets/HealthyKnowledgeWidget'));
+
 
 const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour'));
 const PushNotificationModal = lazy(() => import('@/components/notifications/PushNotificationModal'));
@@ -135,10 +135,6 @@ const Dashboard: React.FC = () => {
             <InfoLinksWidget />
           </Suspense>
           
-          {/* Healthy Knowledge Widget */}
-          <Suspense fallback={<WidgetSkeleton />}>
-            <HealthyKnowledgeWidget />
-          </Suspense>
           
         </div>
       </div>
