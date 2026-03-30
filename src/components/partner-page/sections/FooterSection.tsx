@@ -1,6 +1,7 @@
 import React from 'react';
 import { Facebook, Instagram, Youtube, Linkedin, Mail, Phone, MapPin, MessageCircle, Send } from 'lucide-react';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { getPatternStyle } from '@/lib/bgPatterns';
 
 interface Props {
   config: Record<string, any>;
@@ -38,10 +39,13 @@ export const FooterSection: React.FC<Props> = ({ config }) => {
 
   return (
     <footer
-      className="py-12"
+      className="relative py-12 overflow-hidden"
       style={{ backgroundColor: bg_color || '#0a1628', color: text_color || '#ffffff' }}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      {config.bg_pattern && config.bg_pattern !== 'none' && (
+        <div className="absolute inset-0 pointer-events-none z-0" style={getPatternStyle(config.bg_pattern, config.bg_pattern_opacity, config.bg_pattern_color, bg_color)} />
+      )}
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
         <div className="grid md:grid-cols-3 gap-8">
           {/* Company info */}
           <div className="space-y-3">

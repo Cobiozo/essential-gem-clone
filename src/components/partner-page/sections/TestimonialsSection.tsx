@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { getPatternStyle } from '@/lib/bgPatterns';
 
 interface Props {
   config: Record<string, any>;
@@ -55,8 +56,11 @@ export const TestimonialsSection: React.FC<Props> = ({ config }) => {
   }, [auto_scroll, auto_scroll_interval, scroll]);
 
   return (
-    <section className="py-16 sm:py-20 bg-muted/30">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+    <section className="relative py-16 sm:py-20 bg-muted/30 overflow-hidden">
+      {config.bg_pattern && config.bg_pattern !== 'none' && (
+        <div className="absolute inset-0 pointer-events-none z-0" style={getPatternStyle(config.bg_pattern, config.bg_pattern_opacity, config.bg_pattern_color)} />
+      )}
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
         {heading && (
           <h2 className="text-2xl sm:text-3xl font-bold text-center text-foreground mb-2" style={{ whiteSpace: 'pre-line' }}>
             {heading}

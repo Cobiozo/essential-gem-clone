@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowRight, Check } from 'lucide-react';
 import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { getPatternStyle } from '@/lib/bgPatterns';
 
 interface Props {
   config: Record<string, any>;
@@ -32,6 +33,9 @@ export const TextImageSection: React.FC<Props> = ({ config }) => {
           />
           <div className="absolute inset-0 bg-gradient-to-r from-white/90 to-white/60" />
         </>
+      )}
+      {config.bg_pattern && config.bg_pattern !== 'none' && (
+        <div className="absolute inset-0 pointer-events-none z-[1]" style={getPatternStyle(config.bg_pattern, config.bg_pattern_opacity, config.bg_pattern_color, bg_color)} />
       )}
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6">
