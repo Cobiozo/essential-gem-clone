@@ -247,10 +247,10 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Beton',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='250' height='250'><filter id='co'><feTurbulence type='fractalNoise' baseFrequency='0.15' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='250' height='250' filter='url(#co)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='co'><feTurbulence type='fractalNoise' baseFrequency='0.15' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#co)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
-        backgroundSize: '250px 250px',
+        backgroundSize: 'cover',
         opacity: op,
       };
     },
