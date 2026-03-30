@@ -22,11 +22,13 @@ export function useAutoWebinarFakeChat(
   configId: string | null,
   startOffset: number,
   isPlaying: boolean,
-  guestContext?: GuestChatContext
+  guestContext?: GuestChatContext,
+  slotTime?: string | null
 ) {
   const [fakeMessages, setFakeMessages] = useState<AutoWebinarFakeMessage[]>([]);
   const [visibleMessages, setVisibleMessages] = useState<ChatMessage[]>([]);
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([]);
+  const [realtimeGuestMessages, setRealtimeGuestMessages] = useState<ChatMessage[]>([]);
   const shownIdsRef = useRef<Set<string>>(new Set());
 
   // Fetch fake messages
@@ -44,7 +46,71 @@ export function useAutoWebinarFakeChat(
     fetchMessages();
   }, [configId]);
 
-  // Update visible messages based on startOffset
+  // Fetch existing guest messages for this slot + subscribe to realtime
+  useEffect(() => {
+    if (!configId || !slotTime) return;
+
+    const myEmail = guestContext?.guestEmail || null;
+
+    // Fetch existing guest messages for this slot
+    const fetchExisting = async () => {
+      const { data } = await supabase
+        .from('auto_webinar_guest_messages' as any)
+        .select('id, guest_name, content, created_at, guest_email')
+        .eq('config_id', configId)
+        .eq('slot_time', slotTime)
+        .order('created_at', { ascending: true });
+
+      if (data && data.length > 0) {
+        const msgs: ChatMessage[] = (data as any[])
+          .filter((row: any) => row.guest_email !== myEmail)
+          .map((row: any) => ({
+            id: `guest-${row.id}`,
+            author_name: row.guest_name || 'Uczestnik',
+            content: row.content,
+            timestamp: new Date(row.created_at),
+            isFake: false,
+          }));
+        setRealtimeGuestMessages(msgs);
+      }
+    };
+    fetchExisting();
+
+    // Subscribe to new guest messages via Realtime
+    const channel = supabase
+      .channel(`guest-chat-${configId}-${slotTime}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'auto_webinar_guest_messages',
+          filter: `config_id=eq.${configId}`,
+        },
+        (payload: any) => {
+          const row = payload.new;
+          // Only show messages from this slot and from other guests
+          if (row.slot_time !== slotTime) return;
+          if (row.guest_email === myEmail) return;
+
+          const msg: ChatMessage = {
+            id: `guest-${row.id}`,
+            author_name: row.guest_name || 'Uczestnik',
+            content: row.content,
+            timestamp: new Date(row.created_at),
+            isFake: false,
+          };
+          setRealtimeGuestMessages(prev => [...prev, msg]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [configId, slotTime, guestContext?.guestEmail]);
+
+  // Update visible messages based on startOffset (fake messages only)
   useEffect(() => {
     if (!isPlaying || startOffset < 0) return;
 
@@ -74,9 +140,10 @@ export function useAutoWebinarFakeChat(
     shownIdsRef.current.clear();
     setVisibleMessages([]);
     setUserMessages([]);
+    setRealtimeGuestMessages([]);
   }, [configId]);
 
-  const allMessages = [...visibleMessages, ...userMessages].sort(
+  const allMessages = [...visibleMessages, ...realtimeGuestMessages, ...userMessages].sort(
     (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
   );
 
@@ -102,6 +169,7 @@ export function useAutoWebinarFakeChat(
           video_id: guestContext.videoId || null,
           content,
           sent_at_second: Math.floor(startOffset),
+          slot_time: slotTime || null,
         })
         .then(({ error }) => {
           if (error) console.warn('[FakeChat] Failed to persist message:', error.message);

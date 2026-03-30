@@ -14,6 +14,7 @@ interface AutoWebinarFakeChatProps {
   guestEmail?: string | null;
   guestName?: string | null;
   videoId?: string | null;
+  slotTime?: string | null;
 }
 
 export const AutoWebinarFakeChat: React.FC<AutoWebinarFakeChatProps> = ({
