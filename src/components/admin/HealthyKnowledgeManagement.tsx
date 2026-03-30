@@ -1061,6 +1061,27 @@ const HealthyKnowledgeManagement: React.FC = () => {
                 </p>
               </div>
 
+              {/* Comments toggle for Testymoniale */}
+              {editingMaterial.category === 'Testymoniale' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-base font-semibold">Komentarze i oceny</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Pozwól użytkownikom oceniać gwiazdkami i pisać opinie
+                      </p>
+                    </div>
+                    <Switch
+                      checked={editingMaterial.allow_comments || false}
+                      onCheckedChange={(v) => setEditingMaterial({
+                        ...editingMaterial,
+                        allow_comments: v,
+                      })}
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* External Share Settings */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

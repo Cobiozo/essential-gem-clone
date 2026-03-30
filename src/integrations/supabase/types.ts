@@ -3112,6 +3112,7 @@ export type Database = {
       }
       healthy_knowledge: {
         Row: {
+          allow_comments: boolean | null
           allow_external_share: boolean | null
           category: string | null
           content_type: string
@@ -3145,6 +3146,7 @@ export type Database = {
           visible_to_specjalista: boolean | null
         }
         Insert: {
+          allow_comments?: boolean | null
           allow_external_share?: boolean | null
           category?: string | null
           content_type?: string
@@ -3178,6 +3180,7 @@ export type Database = {
           visible_to_specjalista?: boolean | null
         }
         Update: {
+          allow_comments?: boolean | null
           allow_external_share?: boolean | null
           category?: string | null
           content_type?: string
@@ -7640,6 +7643,41 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "team_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      testimonial_comments: {
+        Row: {
+          comment: string
+          created_at: string | null
+          id: string
+          knowledge_id: string
+          rating: number
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string | null
+          id?: string
+          knowledge_id: string
+          rating: number
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string | null
+          id?: string
+          knowledge_id?: string
+          rating?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "testimonial_comments_knowledge_id_fkey"
+            columns: ["knowledge_id"]
+            isOneToOne: false
+            referencedRelation: "healthy_knowledge"
             referencedColumns: ["id"]
           },
         ]

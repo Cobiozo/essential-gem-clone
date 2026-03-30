@@ -31,6 +31,7 @@ export interface HealthyKnowledge {
   is_active: boolean;
   is_featured: boolean;
   gallery_urls: string[];
+  allow_comments: boolean;
   view_count: number;
   language_code: string | null;
   created_at: string;
@@ -100,6 +101,20 @@ export function useContentTypeLabels(): Record<ContentType, string> {
     document: tf('hk.type.document', 'Dokument'),
     image: tf('hk.type.image', 'Obraz'),
     text: tf('hk.type.text', 'Tekst')
+  };
+}
+
+export interface TestimonialComment {
+  id: string;
+  knowledge_id: string;
+  user_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
   };
 }
 

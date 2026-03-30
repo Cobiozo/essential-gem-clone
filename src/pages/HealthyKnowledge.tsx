@@ -13,18 +13,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Star, ChevronLeft, ChevronRight } from 'lucide-react';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from '@/components/ui/carousel';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
 import { HealthyKnowledge, DEFAULT_SHARE_MESSAGE_TEMPLATE } from '@/types/healthyKnowledge';
+import { TestimonialPreviewDialog } from '@/components/testimonials/TestimonialPreviewDialog';
 import { SecureMedia } from '@/components/SecureMedia';
 import { useHealthyKnowledgeTranslations } from '@/hooks/useHealthyKnowledgeTranslations';
 import { useContentTypeLabels } from '@/types/healthyKnowledge';
@@ -549,12 +543,16 @@ const HealthyKnowledgePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog — compact for testimonials, standard for others */}
-      <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className={cn(
-          "max-h-[90vh] overflow-y-auto",
-          previewMaterial?.category === 'Testymoniale' ? "max-w-lg" : "max-w-4xl"
-        )}>
+      {/* Testimonial WOW Preview */}
+      <TestimonialPreviewDialog
+        material={previewMaterial?.category === 'Testymoniale' ? previewMaterial : null}
+        open={previewDialogOpen && previewMaterial?.category === 'Testymoniale'}
+        onOpenChange={setPreviewDialogOpen}
+      />
+
+      {/* Standard Preview Dialog (non-testimonials) */}
+      <Dialog open={previewDialogOpen && previewMaterial?.category !== 'Testymoniale'} onOpenChange={setPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-base">{previewMaterial?.title}</DialogTitle>
             {previewMaterial?.description && (
@@ -564,48 +562,12 @@ const HealthyKnowledgePage: React.FC = () => {
           
           {previewMaterial && (
             <div className="space-y-3">
-              {/* Testimonial carousel */}
-              {previewMaterial.category === 'Testymoniale' ? (() => {
-                const allImages = [previewMaterial.media_url, ...(previewMaterial.gallery_urls || [])].filter(Boolean) as string[];
-                if (allImages.length === 0) return null;
-                return (
-                  <div className="relative">
-                    <Carousel opts={{ loop: true }} className="w-full">
-                      <CarouselContent>
-                        {allImages.map((url, i) => (
-                          <CarouselItem key={i}>
-                            <img 
-                              src={url} 
-                              alt={`${previewMaterial.title} ${i + 1}`}
-                              className="w-full rounded-lg object-contain max-h-[50vh] bg-muted"
-                            />
-                          </CarouselItem>
-                        ))}
-                      </CarouselContent>
-                      {allImages.length > 1 && (
-                        <>
-                          <CarouselPrevious className="left-2" />
-                          <CarouselNext className="right-2" />
-                        </>
-                      )}
-                    </Carousel>
-                    {allImages.length > 1 && (
-                      <p className="text-xs text-center text-muted-foreground mt-1">
-                        {allImages.length} {tf('hk.photos', 'zdjęć')}
-                      </p>
-                    )}
-                  </div>
-                );
-              })() : (
-                <>
-                  {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
-                    <SecureMedia
-                      mediaUrl={previewMaterial.media_url}
-                      mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
-                      className="w-full rounded-lg"
-                    />
-                  )}
-                </>
+              {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
+                <SecureMedia
+                  mediaUrl={previewMaterial.media_url}
+                  mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
+                  className="w-full rounded-lg"
+                />
               )}
               
               {previewMaterial.content_type === 'text' && previewMaterial.text_content && (
@@ -624,23 +586,21 @@ const HealthyKnowledgePage: React.FC = () => {
                 </Button>
               )}
               
-              {previewMaterial.category !== 'Testymoniale' && (
-                <div className="flex items-center flex-wrap gap-4 text-sm text-muted-foreground pt-2 border-t">
-                  {previewMaterial.category && (
-                    <Badge variant="outline">{previewMaterial.category}</Badge>
-                  )}
-                  {previewMaterial.duration_seconds && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {Math.floor(previewMaterial.duration_seconds / 60)} min
-                    </span>
-                  )}
+              <div className="flex items-center flex-wrap gap-4 text-sm text-muted-foreground pt-2 border-t">
+                {previewMaterial.category && (
+                  <Badge variant="outline">{previewMaterial.category}</Badge>
+                )}
+                {previewMaterial.duration_seconds && (
                   <span className="flex items-center gap-1">
-                    <Eye className="w-3 h-3" />
-                    {previewMaterial.view_count} {tf('hk.views', 'wyświetleń')}
+                    <Clock className="w-3 h-3" />
+                    {Math.floor(previewMaterial.duration_seconds / 60)} min
                   </span>
-                </div>
-              )}
+                )}
+                <span className="flex items-center gap-1">
+                  <Eye className="w-3 h-3" />
+                  {previewMaterial.view_count} {tf('hk.views', 'wyświetleń')}
+                </span>
+              </div>
             </div>
           )}
         </DialogContent>
