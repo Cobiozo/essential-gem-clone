@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext, type CarouselApi } from '@/components/ui/carousel';
-import { Star, X, Send, Loader2, MessageSquare } from 'lucide-react';
+import { Star, X, Send, Loader2, MessageSquare, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -31,7 +32,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   const [current, setCurrent] = useState(0);
   const [count, setCount] = useState(0);
 
-  // Comments state
   const [comments, setComments] = useState<TestimonialComment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [myRating, setMyRating] = useState(0);
@@ -44,8 +44,9 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
     ? [material.media_url, ...(material.gallery_urls || [])].filter(Boolean) as string[]
     : [];
 
-  const avgRating = comments.length > 0
-    ? comments.reduce((sum, c) => sum + c.rating, 0) / comments.length
+  const approvedComments = comments.filter(c => c.status === 'approved');
+  const avgRating = approvedComments.length > 0
+    ? approvedComments.reduce((sum, c) => sum + c.rating, 0) / approvedComments.length
     : 0;
 
   useEffect(() => {
@@ -60,15 +61,11 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
     setLoadingComments(true);
     try {
       const { data, error } = await supabase
-        .from('testimonial_comments')
-        .select('*, profiles:user_id(first_name, last_name, avatar_url)')
-        .eq('knowledge_id', material.id)
-        .order('created_at', { ascending: false });
+        .rpc('get_testimonial_comments', { p_knowledge_id: material.id });
       if (error) throw error;
       const typedData = (data || []) as unknown as TestimonialComment[];
       setComments(typedData);
 
-      // Check if user already commented
       if (user) {
         const mine = typedData.find(c => c.user_id === user.id);
         if (mine) {
@@ -102,24 +99,24 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
     setSubmitting(true);
     try {
       if (existingComment) {
-        const { error } = await supabase
+        // User can't update own anymore (admin-only UPDATE policy)
+        // So we delete and re-insert
+        const { error: delError } = await supabase
           .from('testimonial_comments')
-          .update({ rating: myRating, comment: myComment.trim() })
+          .delete()
           .eq('id', existingComment.id);
-        if (error) throw error;
-        toast.success(tf('hk.commentUpdated', 'Opinia zaktualizowana'));
-      } else {
-        const { error } = await supabase
-          .from('testimonial_comments')
-          .insert({
-            knowledge_id: material.id,
-            user_id: user.id,
-            rating: myRating,
-            comment: myComment.trim(),
-          });
-        if (error) throw error;
-        toast.success(tf('hk.commentAdded', 'Opinia dodana!'));
+        if (delError) throw delError;
       }
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .insert({
+          knowledge_id: material.id,
+          user_id: user.id,
+          rating: myRating,
+          comment: myComment.trim(),
+        });
+      if (error) throw error;
+      toast.success(tf('hk.commentSentForApproval', 'Opinia wysłana do zatwierdzenia!'));
       fetchComments();
     } catch (e: any) {
       console.error('Comment error:', e);
@@ -139,7 +136,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
       >
         <DialogTitle className="sr-only">{material.title}</DialogTitle>
 
-        {/* Close button */}
         <button
           onClick={() => onOpenChange(false)}
           className="absolute right-3 top-3 z-50 rounded-full bg-black/60 backdrop-blur-sm p-1.5 text-white hover:bg-black/80 transition-colors"
@@ -147,7 +143,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           <X className="w-4 h-4" />
         </button>
 
-        {/* Carousel */}
         {allImages.length > 0 && (
           <div className="relative bg-black/5">
             <Carousel opts={{ loop: true }} setApi={setApi} className="w-full">
@@ -172,7 +167,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
               )}
             </Carousel>
 
-            {/* Dots + counter */}
             {allImages.length > 1 && (
               <div className="flex items-center justify-center gap-3 py-3">
                 <div className="flex gap-1.5">
@@ -197,10 +191,8 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
           </div>
         )}
 
-        {/* Content */}
         <div className="px-6 pb-6 pt-2 space-y-4 max-h-[45vh] overflow-y-auto">
-          {/* Average rating */}
-          {material.allow_comments && comments.length > 0 && (
+          {material.allow_comments && approvedComments.length > 0 && (
             <div className="flex items-center gap-2">
               <div className="flex">
                 {[1, 2, 3, 4, 5].map(star => (
@@ -217,12 +209,11 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
               </div>
               <span className="text-sm font-semibold">{avgRating.toFixed(1)}</span>
               <span className="text-xs text-muted-foreground">
-                ({comments.length} {comments.length === 1 ? tf('hk.opinion', 'opinia') : tf('hk.opinions', 'opinii')})
+                ({approvedComments.length} {approvedComments.length === 1 ? tf('hk.opinion', 'opinia') : tf('hk.opinions', 'opinii')})
               </span>
             </div>
           )}
 
-          {/* Title & description */}
           <div>
             <h2 className="text-xl font-bold bg-gradient-to-r from-yellow-500 to-amber-600 bg-clip-text text-transparent">
               {material.title}
@@ -234,7 +225,6 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
             )}
           </div>
 
-          {/* Text content */}
           {material.content_type === 'text' && material.text_content && (
             <div
               className="prose prose-sm dark:prose-invert max-w-none p-4 bg-muted/50 rounded-lg"
@@ -242,10 +232,8 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
             />
           )}
 
-          {/* Comments section */}
           {material.allow_comments && (
             <div className="space-y-4 pt-2">
-              {/* Existing comments */}
               {comments.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
@@ -253,14 +241,23 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                     {tf('hk.opinionsSection', 'Opinie')}
                   </div>
                   {comments.map((c) => {
-                    const firstName = c.profiles?.first_name || '';
-                    const lastName = c.profiles?.last_name || '';
+                    const firstName = c.first_name || '';
+                    const lastName = c.last_name || '';
                     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
                     const displayName = `${firstName} ${lastName.charAt(0) || ''}.`.trim();
+                    const isPending = c.status === 'pending';
+                    const isOwn = user && c.user_id === user.id;
+
+                    // Non-owners don't see pending (RPC handles this, but just in case)
+                    if (isPending && !isOwn) return null;
+
                     return (
-                      <div key={c.id} className="flex gap-3 p-3 rounded-lg bg-muted/40 border border-border/50">
+                      <div key={c.id} className={cn(
+                        "flex gap-3 p-3 rounded-lg border border-border/50",
+                        isPending ? "bg-yellow-500/5 border-yellow-500/20" : "bg-muted/40"
+                      )}>
                         <Avatar className="w-9 h-9 shrink-0">
-                          <AvatarImage src={c.profiles?.avatar_url || undefined} />
+                          <AvatarImage src={c.avatar_url || undefined} />
                           <AvatarFallback className="text-xs bg-primary/10 text-primary">
                             {initials}
                           </AvatarFallback>
@@ -281,6 +278,12 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                                 />
                               ))}
                             </div>
+                            {isPending && isOwn && (
+                              <Badge variant="outline" className="text-[10px] border-yellow-500/30 text-yellow-600 gap-1">
+                                <Clock className="w-3 h-3" />
+                                {tf('hk.pendingApproval', 'Oczekuje na zatwierdzenie')}
+                              </Badge>
+                            )}
                             <span className="text-[10px] text-muted-foreground">
                               {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pl })}
                             </span>
@@ -295,16 +298,12 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                 </div>
               )}
 
-              {/* Add/Edit comment form */}
-              {user && (
+              {user && !existingComment && (
                 <div className="space-y-3 pt-2 border-t border-border/50">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {existingComment
-                      ? tf('hk.editYourOpinion', 'Edytuj swoją opinię')
-                      : tf('hk.addYourOpinion', 'Dodaj swoją opinię')}
+                    {tf('hk.addYourOpinion', 'Dodaj swoją opinię')}
                   </p>
 
-                  {/* Star rating input */}
                   <div className="flex gap-1">
                     {[1, 2, 3, 4, 5].map(star => (
                       <button
@@ -346,9 +345,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                     ) : (
                       <Send className="w-4 h-4 mr-2" />
                     )}
-                    {existingComment
-                      ? tf('hk.updateOpinion', 'Zaktualizuj opinię')
-                      : tf('hk.sendOpinion', 'Wyślij opinię')}
+                    {tf('hk.sendOpinion', 'Wyślij opinię')}
                   </Button>
                 </div>
               )}

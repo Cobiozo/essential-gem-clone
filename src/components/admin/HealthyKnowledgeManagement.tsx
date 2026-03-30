@@ -17,8 +17,10 @@ import { toast } from 'sonner';
 import { 
   Heart, Plus, Search, Edit2, Trash2, Eye, EyeOff, 
   Loader2, FileText, Play, Image, Music, Type, Share2, 
-  Star, StarOff, MoreHorizontal, RefreshCw, BarChart3
+  Star, StarOff, MoreHorizontal, RefreshCw, BarChart3,
+  MessageSquare, Check, XCircle
 } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import HkStatisticsPanel from './HkStatisticsPanel';
 import { cn } from '@/lib/utils';
@@ -26,6 +28,7 @@ import { MediaUpload } from '@/components/MediaUpload';
 import { 
   HealthyKnowledge, 
   HkOtpCode,
+  TestimonialComment,
   HEALTHY_KNOWLEDGE_CATEGORIES, 
   CONTENT_TYPE_LABELS, 
   DEFAULT_SHARE_MESSAGE_TEMPLATE,
@@ -66,9 +69,40 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [otpCodes, setOtpCodes] = useState<HkOtpCode[]>([]);
   const [loadingCodes, setLoadingCodes] = useState(false);
 
+  // Moderation state
+  const [pendingComments, setPendingComments] = useState<TestimonialComment[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+
   useEffect(() => {
     fetchMaterials();
   }, []);
+
+  const fetchPendingComments = async () => {
+    setLoadingPending(true);
+    try {
+      const { data, error } = await supabase.rpc('get_pending_testimonial_comments');
+      if (error) throw error;
+      setPendingComments((data || []) as unknown as TestimonialComment[]);
+    } catch (e) {
+      console.error('Error fetching pending comments:', e);
+    } finally {
+      setLoadingPending(false);
+    }
+  };
+
+  const handleModerateComment = async (commentId: string, newStatus: 'approved' | 'rejected') => {
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .update({ status: newStatus })
+        .eq('id', commentId);
+      if (error) throw error;
+      toast.success(newStatus === 'approved' ? 'Opinia zatwierdzona' : 'Opinia odrzucona');
+      fetchPendingComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd moderacji');
+    }
+  };
 
   const fetchMaterials = async () => {
     try {
@@ -334,10 +368,17 @@ const HealthyKnowledgeManagement: React.FC = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="materials" onValueChange={(v) => v === 'codes' && fetchOtpCodes()}>
+      <Tabs defaultValue="materials" onValueChange={(v) => {
+        if (v === 'codes') fetchOtpCodes();
+        if (v === 'moderation') fetchPendingComments();
+      }}>
         <TabsList>
           <TabsTrigger value="materials">Materiały ({materials.length})</TabsTrigger>
           <TabsTrigger value="codes">Kody OTP</TabsTrigger>
+          <TabsTrigger value="moderation">
+            <MessageSquare className="w-4 h-4 mr-1" />
+            Opinie
+          </TabsTrigger>
           <TabsTrigger value="statistics">
             <BarChart3 className="w-4 h-4 mr-1" />
             Statystyki
@@ -702,6 +743,72 @@ const HealthyKnowledgeManagement: React.FC = () => {
               </Table>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="moderation" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Moderacja opinii</CardTitle>
+              <CardDescription>Zatwierdź lub odrzuć opinie użytkowników do testymoniali</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingPending ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : pendingComments.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">Brak opinii do moderacji</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingComments.map((c) => {
+                    const firstName = c.first_name || '';
+                    const lastName = c.last_name || '';
+                    const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase() || '?';
+                    const isPending = c.status === 'pending';
+                    return (
+                      <div key={c.id} className={cn(
+                        "flex gap-3 p-4 rounded-lg border",
+                        isPending ? "border-yellow-500/30 bg-yellow-500/5" : 
+                        c.status === 'approved' ? "border-green-500/30 bg-green-500/5" : "border-red-500/30 bg-red-500/5"
+                      )}>
+                        <Avatar className="w-10 h-10 shrink-0">
+                          <AvatarImage src={c.avatar_url || undefined} />
+                          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-sm font-medium">{firstName} {lastName}</span>
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <Star key={star} className={cn("w-3.5 h-3.5", star <= c.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground/20")} />
+                              ))}
+                            </div>
+                            <Badge variant={isPending ? "outline" : c.status === 'approved' ? "default" : "destructive"} className="text-[10px]">
+                              {isPending ? 'Oczekuje' : c.status === 'approved' ? 'Zatwierdzona' : 'Odrzucona'}
+                            </Badge>
+                          </div>
+                          {c.knowledge_title && (
+                            <p className="text-xs text-muted-foreground mb-1">Testymonial: <strong>{c.knowledge_title}</strong></p>
+                          )}
+                          <p className="text-sm text-muted-foreground">"{c.comment}"</p>
+                          {isPending && (
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" variant="outline" className="h-7 text-xs border-green-500/50 text-green-600 hover:bg-green-500/10" onClick={() => handleModerateComment(c.id, 'approved')}>
+                                <Check className="w-3 h-3 mr-1" /> Zatwierdź
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-7 text-xs border-red-500/50 text-red-600 hover:bg-red-500/10" onClick={() => handleModerateComment(c.id, 'rejected')}>
+                                <XCircle className="w-3 h-3 mr-1" /> Odrzuć
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="statistics" className="space-y-4">
