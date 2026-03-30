@@ -228,12 +228,14 @@ export const BG_PATTERNS: BgPattern[] = [
     value: 'leather',
     label: 'Skóra',
     category: 'material',
-    getCss: (op) => {
+    getCss: (op, col) => {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='1200'><filter id='le'><feTurbulence type='turbulence' baseFrequency='0.3' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='1200' filter='url(#le)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: 'cover',
         opacity: op,
+        backgroundColor: col,
+        backgroundBlendMode: 'multiply' as const,
       };
     },
   },
