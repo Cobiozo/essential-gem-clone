@@ -156,7 +156,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Szum',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/></filter><rect width='200' height='200' filter='url(#n)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '200px 200px',
@@ -169,7 +169,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Papier',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(%23p)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(#p)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '300px 300px',
@@ -182,7 +182,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Len',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='l'><feTurbulence type='turbulence' baseFrequency='0.65 0.1' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(%23l)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='l'><feTurbulence type='turbulence' baseFrequency='0.65 0.1' numOctaves='3' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(#l)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '200px 200px',
@@ -208,7 +208,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Płótno',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='c'><feTurbulence type='turbulence' baseFrequency='0.4 0.15' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(%23c)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='c'><feTurbulence type='turbulence' baseFrequency='0.4 0.15' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(#c)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '200px 200px',
@@ -221,7 +221,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Skóra',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='le'><feTurbulence type='turbulence' baseFrequency='0.3' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(%23le)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='le'><feTurbulence type='turbulence' baseFrequency='0.3' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(#le)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '200px 200px',
@@ -234,7 +234,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Drewno',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.02 0.2' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(%23w)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.02 0.2' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(#w)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '300px 300px',
@@ -247,7 +247,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Beton',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='250' height='250'><filter id='co'><feTurbulence type='fractalNoise' baseFrequency='0.15' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='250' height='250' filter='url(%23co)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='250' height='250'><filter id='co'><feTurbulence type='fractalNoise' baseFrequency='0.15' numOctaves='6' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='250' height='250' filter='url(#co)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '250px 250px',
@@ -260,7 +260,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Marmur',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.01' numOctaves='8' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(%23m)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.01' numOctaves='8' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(#m)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '300px 300px',
@@ -273,7 +273,7 @@ export const BG_PATTERNS: BgPattern[] = [
     label: 'Piasek',
     category: 'material',
     getCss: (op) => {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='s'><feTurbulence type='turbulence' baseFrequency='0.5' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(%23s)'/></svg>`;
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='s'><feTurbulence type='turbulence' baseFrequency='0.5' numOctaves='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(#s)'/></svg>`;
       return {
         backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
         backgroundSize: '200px 200px',
