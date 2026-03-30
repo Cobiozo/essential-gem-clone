@@ -359,8 +359,8 @@ serve(async (req) => {
       ];
 
       // Fetch ALL active webinar/team_training events (we'll check times per-term)
-      const maxWindowMinutes = 25 * 60; // 25h = max window
-      const fetchFrom = new Date(now.getTime() + 5 * 60 * 1000).toISOString(); // at least 5min in future
+      const maxWindowMinutes = 1460; // 24h20m = max window
+      const fetchFrom = new Date(now.getTime() + 10 * 60 * 1000).toISOString(); // at least 10min in future
       const fetchTo = new Date(now.getTime() + maxWindowMinutes * 60 * 1000).toISOString();
 
       const { data: allEvents, error: eventsErr } = await supabase
