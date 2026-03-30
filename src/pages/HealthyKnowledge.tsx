@@ -270,7 +270,7 @@ const HealthyKnowledgePage: React.FC = () => {
             />
           </div>
           <ContentLanguageSelector value={contentLanguage} onValueChange={setContentLanguage} />
-          {categories.length > 0 && (
+          {activeTab === 'materials' && categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={selectedCategory === null ? "default" : "outline"}
