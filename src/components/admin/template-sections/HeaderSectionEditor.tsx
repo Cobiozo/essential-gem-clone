@@ -257,6 +257,8 @@ export const HeaderSectionEditor: React.FC<Props> = ({ config, onChange }) => {
               <Label className="text-xs">Avatar partnera</Label>
               <ImageUploadInput value={config.partner_badge?.avatar_url || ''} onChange={v => updatePartnerBadge('avatar_url', v)} compact />
             </div>
+            <ColorInput label="Kolor tła kafelka" value={config.partner_badge?.bg_color || ''} onChange={v => updatePartnerBadge('bg_color', v)} />
+            <ColorInput label="Kolor tekstu kafelka" value={config.partner_badge?.text_color || ''} onChange={v => updatePartnerBadge('text_color', v)} />
           </div>
         )}
       </fieldset>

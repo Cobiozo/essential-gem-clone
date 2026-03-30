@@ -195,16 +195,16 @@ export const HeaderSection: React.FC<Props> = ({ config, partnerName, disableSti
 
           {/* Partner badge - hidden on mobile (shown in Hero) */}
           {show_partner_badge && config.partner_badge && (config.partner_badge.text || config.partner_badge.subtitle) ? (
-            <div className="hidden md:flex items-center gap-3 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-2xl max-w-fit shadow-sm">
+            <div className="hidden md:flex items-center gap-3 backdrop-blur-sm px-4 py-2 rounded-2xl max-w-fit shadow-sm" style={{ backgroundColor: config.partner_badge.bg_color || 'rgba(255,255,255,0.9)' }}>
               {config.partner_badge.avatar_url && (
                 <img src={config.partner_badge.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover shadow-sm flex-shrink-0" />
               )}
               <div>
                 {config.partner_badge.text && (
-                  <p className="text-[10px] text-muted-foreground font-medium leading-tight" style={{ whiteSpace: 'pre-line' }}>{config.partner_badge.text}</p>
+                  <p className="text-[10px] font-medium leading-tight" style={{ whiteSpace: 'pre-line', color: config.partner_badge.text_color || undefined }}>{config.partner_badge.text}</p>
                 )}
                 {config.partner_badge.subtitle && (
-                  <p className="text-xs font-semibold text-foreground leading-tight" style={{ whiteSpace: 'pre-line' }}>{config.partner_badge.subtitle}</p>
+                  <p className="text-xs font-semibold leading-tight" style={{ whiteSpace: 'pre-line', color: config.partner_badge.text_color || undefined }}>{config.partner_badge.subtitle}</p>
                 )}
               </div>
             </div>
