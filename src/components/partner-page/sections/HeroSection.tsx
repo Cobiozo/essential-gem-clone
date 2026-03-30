@@ -149,16 +149,16 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen, formKeys, o
                 <p className="text-sm sm:text-base leading-relaxed max-w-lg whitespace-pre-line" style={ts ? { color: tc, opacity: 0.8 } : { color: 'rgba(255,255,255,0.8)' }}>{description}</p>
               )}
               {config.partner_badge && (config.partner_badge.text || config.partner_badge.subtitle) && (
-                <div className="flex items-center gap-2 sm:gap-3 bg-white/90 backdrop-blur-sm px-3 py-2 sm:px-4 sm:py-3 rounded-2xl max-w-fit shadow-lg">
+                <div className="flex items-center gap-2 sm:gap-3 backdrop-blur-sm px-3 py-2 sm:px-4 sm:py-3 rounded-2xl max-w-fit shadow-lg" style={{ backgroundColor: config.partner_badge.bg_color || 'rgba(255,255,255,0.9)' }}>
                   {config.partner_badge.avatar_url && (
                     <img src={config.partner_badge.avatar_url} alt="" className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shadow-sm flex-shrink-0" />
                   )}
                   <div>
                     {config.partner_badge.text && (
-                      <p className="text-xs text-gray-500 font-medium">{config.partner_badge.text}</p>
+                      <p className="text-xs font-medium" style={{ color: config.partner_badge.text_color || '#6b7280' }}>{config.partner_badge.text}</p>
                     )}
                     {config.partner_badge.subtitle && (
-                      <p className="text-sm font-semibold text-gray-900">{config.partner_badge.subtitle}</p>
+                      <p className="text-sm font-semibold" style={{ color: config.partner_badge.text_color || '#111827' }}>{config.partner_badge.subtitle}</p>
                     )}
                   </div>
                 </div>
