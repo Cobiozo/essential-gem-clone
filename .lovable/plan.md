@@ -1,52 +1,95 @@
 
 
-## Pełna moderacja opinii — edycja, zawieszenie, usunięcie
+## Audyt systemu przypomnień — okna czasowe i paczkowanie
 
-### Co się zmieni
+### Architektura (3 funkcje Edge)
 
-Sekcja „Moderacja opinii" w zakładce Testymoniale będzie wyświetlać **wszystkie opinie** (nie tylko oczekujące) z pełnym zestawem akcji dla admina:
+1. **`process-pending-notifications`** — CRON orchestrator (co 5 min), wywołuje `send-bulk-webinar-reminders` dla webinarów/szkoleń i `send-meeting-reminders` jest oddzielną funkcją
+2. **`send-bulk-webinar-reminders`** — obsługuje webinary i szkolenia zespołowe (z rozwijaniem occurrences)
+3. **`send-meeting-reminders`** — obsługuje spotkania indywidualne (meeting_private, tripartite, partner_consultation)
 
-1. **Edycja** — dialog z polami: treść opinii, ocena (gwiazdki). Admin może poprawić tekst.
-2. **Zawieszenie** — nowy status `suspended` (opinia ukryta publicznie, ale nie usunięta). Zawieszoną opinię można przywrócić.
-3. **Usunięcie** — trwałe usunięcie opinii z bazy danych.
+---
 
-### Zmiany techniczne
+### Okna czasowe — spójność
 
-#### 1. Nowa RPC lub zmiana istniejącej (`get_pending_testimonial_comments`)
-- Zmienić RPC `get_pending_testimonial_comments` tak, by zwracała **wszystkie** opinie (nie tylko `pending`), albo stworzyć nową RPC `get_all_testimonial_comments`.
-- SQL migration: dodać wartość `suspended` do dozwolonych statusów w kolumnie `status` tabeli `testimonial_comments` (CHECK constraint lub enum).
+| Typ | process-pending (min) | send-bulk-webinar (min) | send-meeting (min/h) | Zgodne? |
+|-----|----------------------|------------------------|---------------------|---------|
+| 24h | 1420–1460 | 1420–1460 | 23h–25h (1380–1500) | **NIEZGODNE** — meetings ma szersze okno |
+| 12h | 700–740 | 700–740 | 11h–13h (660–780) | **NIEZGODNE** — meetings ma szersze okno |
+| 2h | 110–130 | 110–130 | 110–130 | OK |
+| 1h | 50–70 | 50–70 | 50–70 | OK |
+| 15min | 10–20 | 10–20 | 10–20 | OK |
 
-#### 2. `src/components/admin/HealthyKnowledgeManagement.tsx`
-- Zmienić `fetchPendingComments` na pobieranie wszystkich opinii.
-- Dodać stan i dialog do edycji opinii (treść + ocena).
-- Dodać przyciski akcji dla **każdej** opinii (nie tylko pending):
-  - ✏️ **Edytuj** — otwiera dialog edycji
-  - ⏸️ **Zawieś / Przywróć** — toggle `suspended` ↔ `approved`
-  - 🗑️ **Usuń** — z potwierdzeniem, DELETE z bazy
-- Nowe handlery: `handleEditComment`, `handleSuspendComment`, `handleDeleteComment`.
+**Problem 1**: `send-meeting-reminders` używa `hoursUntil >= 23 && <= 25` (=1380–1500 min) i `hoursUntil >= 11 && <= 13` (=660–780 min) zamiast ścisłych okien minutowych. To daje okna 2h szerokie zamiast 40 min. Przy cronie co 5 minut to nie powoduje duplikatów (bo jest dedup), ale jest niespójne z resztą systemu.
 
-#### 3. `src/types/healthyKnowledge.ts`
-- Rozszerzyć typ `TestimonialComment.status` o `'suspended'`.
+**Problem 2**: `send-meeting-reminders` **nie jest wywoływany przez CRON orchestratora** (`process-pending-notifications`). Musi mieć osobny cron job. Sprawdzić czy istnieje w `cron.job`.
 
-#### 4. Widoczność publiczna
-- Upewnić się, że RPC `get_testimonial_comments` (publiczna) filtruje `status = 'approved'` — opinie `suspended` i `rejected` pozostają ukryte.
+---
 
-#### 5. SQL migration
-```sql
--- Dodanie statusu 'suspended' do testimonial_comments
-ALTER TABLE testimonial_comments 
-  DROP CONSTRAINT IF EXISTS testimonial_comments_status_check;
-ALTER TABLE testimonial_comments 
-  ADD CONSTRAINT testimonial_comments_status_check 
-  CHECK (status IN ('pending', 'approved', 'rejected', 'suspended'));
+### Paczkowanie (batching)
 
--- Nowa/zmieniona RPC zwracająca wszystkie opinie dla admina
-CREATE OR REPLACE FUNCTION get_all_testimonial_comments()
-RETURNS TABLE(...) AS $$ ... WHERE 1=1 ORDER BY created_at DESC $$ ;
-```
+| Funkcja | Mechanizm | Rozmiar paczki | Delay |
+|---------|-----------|---------------|-------|
+| `send-bulk-webinar-reminders` | `Promise.allSettled` na paczce odbiorców | 25 równolegle | Brak (wszystkie naraz) |
+| `process-pending-notifications` | terminy w paczkach po 3 równolegle | 3 termy | Brak między paczkami |
+| `send-meeting-reminders` | Sekwencyjnie (for loop) | 1 po 1 | Brak |
 
-### Pliki do modyfikacji
-1. **SQL migration** — nowy status `suspended`, nowa RPC
-2. **`src/types/healthyKnowledge.ts`** — dodać `'suspended'` do typu
-3. **`src/components/admin/HealthyKnowledgeManagement.tsx`** — przebudowa sekcji moderacji z pełnymi akcjami i dialogiem edycji
+**Obserwacja**: Bulk webinar sender (BATCH_SIZE=25) jest wydajny. Meeting reminders są sekwencyjne — ok dla spotkań indywidualnych (mało uczestników).
+
+---
+
+### Deduplikacja
+
+| System | Tabela | Klucz |
+|--------|--------|-------|
+| Webinary/szkolenia | `occurrence_reminders_sent` | event_id + occurrence_index + recipient_email + reminder_type + occurrence_datetime |
+| Spotkania (zarejestrowani) | `meeting_reminders_sent` | event_id + user_id + reminder_type |
+| Spotkania (prospekty) | `meeting_reminders_sent` | event_id + prospect_email + `prospect_{type}` |
+| Spotkania (goście) | `meeting_reminders_sent` | event_id + prospect_email + `guest_{type}` |
+
+Deduplikacja wygląda poprawnie — brak ryzyka duplikatów.
+
+---
+
+### DST (czas letni/zimowy)
+
+- `process-pending-notifications` i `send-bulk-webinar-reminders` — prawidłowo używają `warsawLocalToUtc` z `_shared/timezone-utils.ts`
+- `send-meeting-reminders` — nie importuje `warsawLocalToUtc`, ale operuje na `start_time` (które jest w UTC w bazie), formatując wyświetlanie przez `toLocaleDateString('pl-PL', {timeZone: 'Europe/Warsaw'})` — OK
+
+---
+
+### Logowanie emaili
+
+Oba systemy logują do `email_logs` ze statusem `sent`. Bulk webinar dodatkowo aktualizuje legacy flagi w `guest_event_registrations` i `event_registrations`.
+
+---
+
+### Timeout safety
+
+- `process-pending-notifications`: Ma `MAX_EXECUTION_TIME_MS = 55000` z `isTimeoutApproaching()` — OK
+- `send-meeting-reminders`: **Brak ochrony przed timeout** — przy dużej liczbie spotkań może przekroczyć 60s limit Edge Function
+- `send-bulk-webinar-reminders`: Brak, ale paczki po 25 z Promise.allSettled są szybkie
+
+---
+
+### Critical event bypass
+
+`process-pending-notifications` sprawdza przed pominięciem cyklu, czy są wydarzenia w oknach 1h/15min (linie 125–155). To dotyczy **tylko webinarów** — events z dowolnym `event_type`. Spotkania indywidualne mają osobny cron, więc to nie dotyczy ich.
+
+---
+
+### Podsumowanie znalezionych problemów
+
+1. **Niespójne okna 24h/12h** w `send-meeting-reminders` (2h szerokie vs 40min w reszcie systemu) — do ujednolicenia
+2. **Brak timeout protection** w `send-meeting-reminders`
+3. **Brak paczkowania** w `send-meeting-reminders` (sekwencyjne wysyłki) — mniejszy priorytet bo spotkania mają 2–3 uczestników
+4. Potrzebna weryfikacja osobnego cron joba dla `send-meeting-reminders`
+
+### Bez problemów
+
+- Deduplikacja: poprawna w obu systemach
+- DST: poprawnie obsłużone
+- Paczkowanie webinarów: BATCH_SIZE=25, termy po 3 — wydajne
+- Logowanie: kompletne
+- Link delivery w oknach 2h/1h/15min: poprawne (guest meeting link + zoom link)
 
