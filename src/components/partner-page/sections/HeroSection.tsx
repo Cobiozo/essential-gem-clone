@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { ArrowRight, Play } from 'lucide-react';
 import { getImageShapeClasses, stripShapeHash } from '@/lib/imageShapeUtils';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { getPatternStyle } from '@/lib/bgPatterns';
 
 interface StatItem {
   icon?: string;
@@ -102,6 +103,9 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen, formKeys, o
             className="absolute inset-0 bg-cover bg-center"
             style={{ backgroundImage: `url(${bg_image_url})`, opacity: overlay_opacity ?? 0.3 }}
           />
+        )}
+        {config.bg_pattern && config.bg_pattern !== 'none' && (
+          <div className="absolute inset-0 pointer-events-none z-[1]" style={getPatternStyle(config.bg_pattern, config.bg_pattern_opacity, config.bg_pattern_color, bg_color)} />
         )}
 
         {/* Full-bleed hero image — right half */}
@@ -263,6 +267,9 @@ export const HeroSection: React.FC<Props> = ({ config, onSurveyOpen, formKeys, o
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/70" />
+      {config.bg_pattern && config.bg_pattern !== 'none' && (
+        <div className="absolute inset-0 pointer-events-none z-[1]" style={getPatternStyle(config.bg_pattern, config.bg_pattern_opacity, config.bg_pattern_color, bg_color)} />
+      )}
 
       <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 text-center py-16">
         {headline && (

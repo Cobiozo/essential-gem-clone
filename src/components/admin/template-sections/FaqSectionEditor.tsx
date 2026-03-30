@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Trash2 } from 'lucide-react';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { InnerElementsList } from './InnerElementsList';
+import { BgPatternPicker } from './BgPatternPicker';
 
 interface Props {
   config: Record<string, any>;
@@ -49,6 +50,14 @@ export const FaqSectionEditor: React.FC<Props> = ({ config, onChange }) => {
       <Button variant="outline" size="sm" onClick={() => update('items', [...items, { question: '', answer: '' }])}>
         <Plus className="w-4 h-4 mr-1" /> Dodaj pytanie
       </Button>
+      <BgPatternPicker
+        pattern={config.bg_pattern || 'none'}
+        opacity={config.bg_pattern_opacity ?? 0.08}
+        color={config.bg_pattern_color || ''}
+        onPatternChange={v => update('bg_pattern', v)}
+        onOpacityChange={v => update('bg_pattern_opacity', v)}
+        onColorChange={v => update('bg_pattern_color', v)}
+      />
 
       <fieldset className="border rounded-lg p-4 space-y-3">
         <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>

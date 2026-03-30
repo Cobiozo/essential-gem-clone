@@ -2,6 +2,7 @@ import React from 'react';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Plus } from 'lucide-react';
 import { InnerElementRenderer } from '@/components/admin/template-sections/InnerElementRenderer';
+import { getPatternStyle } from '@/lib/bgPatterns';
 
 interface Props {
   config: Record<string, any>;
@@ -14,8 +15,11 @@ export const FaqSection: React.FC<Props> = ({ config }) => {
   const ta = text_align as React.CSSProperties['textAlign'] || undefined;
 
   return (
-    <section className="py-16 sm:py-20" style={{ backgroundColor: bg_color || undefined }}>
-      <div className="max-w-3xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
+    <section className="relative py-16 sm:py-20 overflow-hidden" style={{ backgroundColor: bg_color || undefined }}>
+      {config.bg_pattern && config.bg_pattern !== 'none' && (
+        <div className="absolute inset-0 pointer-events-none z-0" style={getPatternStyle(config.bg_pattern, config.bg_pattern_opacity, config.bg_pattern_color, bg_color)} />
+      )}
+      <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6" style={{ textAlign: ta }}>
         {heading && <h2 className="text-2xl sm:text-3xl font-bold text-center mb-10" style={{ ...ts, whiteSpace: 'pre-line' }}>{heading}</h2>}
 
         <div className="space-y-3">

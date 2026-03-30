@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ColorInput } from '@/components/ui/color-input';
 import { EditableFieldToggle } from './EditableFieldToggle';
 import { InnerElementsList } from './InnerElementsList';
+import { BgPatternPicker } from './BgPatternPicker';
 
 interface Props {
   config: Record<string, any>;
@@ -49,6 +50,14 @@ export const CtaBannerEditor: React.FC<Props> = ({ config, onChange }) => {
         </div>
       </div>
       <ColorInput label="Kolor tła" value={config.bg_color || '#0f172a'} onChange={v => update('bg_color', v)} />
+      <BgPatternPicker
+        pattern={config.bg_pattern || 'none'}
+        opacity={config.bg_pattern_opacity ?? 0.08}
+        color={config.bg_pattern_color || ''}
+        onPatternChange={v => update('bg_pattern', v)}
+        onOpacityChange={v => update('bg_pattern_opacity', v)}
+        onColorChange={v => update('bg_pattern_color', v)}
+      />
 
       <fieldset className="border rounded-lg p-4 space-y-3">
         <legend className="text-sm font-semibold px-2">Dodatkowe elementy</legend>
