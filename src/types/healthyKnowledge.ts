@@ -104,6 +104,20 @@ export function useContentTypeLabels(): Record<ContentType, string> {
   };
 }
 
+export interface TestimonialComment {
+  id: string;
+  knowledge_id: string;
+  user_id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
 export const DEFAULT_SHARE_MESSAGE_TEMPLATE = `Cześć!
 
 Mam dla Ciebie ciekawy materiał:
