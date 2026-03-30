@@ -293,7 +293,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                 </div>
               )}
 
-              {user && !existingComment && (
+              {user && !hasAnyComment && (
                 <div className="space-y-3 pt-2 border-t border-border/50">
                   <p className="text-sm font-medium text-muted-foreground">
                     {tf('hk.addYourOpinion', 'Dodaj swoją opinię')}
