@@ -390,9 +390,13 @@ serve(async (req) => {
     const errors: string[] = [];
 
     for (const meeting of meetings) {
+      if (isTimeoutApproaching()) {
+        console.warn('[send-meeting-reminders] Timeout approaching, stopping processing');
+        break;
+      }
+
       const meetingStart = new Date(meeting.start_time);
       const minutesUntil = (meetingStart.getTime() - now.getTime()) / (1000 * 60);
-      const hoursUntil = minutesUntil / 60;
       
       // Determine reminder type — same 5 windows for everyone
       let reminderType: '24h' | '12h' | '2h' | '1h' | '15min';
