@@ -1,26 +1,44 @@
 
 
-## Naprawa widocznego kafelkowania tekstur materiałowych
+## Naprawa: kolor wzoru nie działa dla tekstur materiałowych
 
 ### Problem
-Tekstury materiałowe (marmur, beton, drewno, skóra, piasek, szum, papier, len, płótno) mają małe wymiary SVG (200-300px) i takie same `backgroundSize`, co powoduje widoczne powtarzanie kwadratów zamiast jednolitej płaszczyzny.
+Tekstury materiałowe (płótno, marmur, beton, drewno, skóra, szum, papier, len, piasek) ignorują parametr `col` (kolor) — ich `getCss` przyjmuje tylko `(op)`, nie `(op, col)`. SVG feTurbulence generuje własne kolory, więc zmiana koloru wzoru nie ma żadnego efektu.
 
 ### Rozwiązanie
-**Plik: `src/lib/bgPatterns.ts`** — dla 9 tekstur SVG-owych (noise, paper, linen, canvas, leather, wood, concrete, marble, sand):
+**Plik: `src/lib/bgPatterns.ts`** — dla 8 tekstur SVG (noise, paper, linen, canvas, leather, wood, concrete, marble, sand):
 
-1. Zwiększyć wymiary SVG z 200-300px do **1200x1200px** — wystarczająco duże, by wypełnić sekcję bez widocznych powtórzeń
-2. Ustawić `backgroundSize: 'cover'` zamiast stałych wartości — SVG rozciągnie się na całą sekcję jako jedna płaszczyzna
+1. Zmienić sygnaturę `getCss` z `(op)` na `(op, col)`
+2. Dodać `backgroundColor: col` oraz `backgroundBlendMode: 'multiply'` do zwracanego obiektu CSS
 
-Przykład zmiany (każda tekstura analogicznie):
+Dzięki temu kolor użytkownika będzie nakładany na teksturę jako tint przez CSS blend mode — bez zmian w SVG.
+
 ```typescript
+// Przykład (każda tekstura analogicznie):
 // PRZED:
-const svg = `<svg ... width='200' height='200'>...<rect width='200' height='200' .../></svg>`;
-return { backgroundImage: `url(...)`, backgroundSize: '200px 200px', opacity: op };
+getCss: (op) => {
+  const svg = `...`;
+  return {
+    backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+    backgroundSize: 'cover',
+    opacity: op,
+  };
+},
 
 // PO:
-const svg = `<svg ... width='1200' height='1200'>...<rect width='1200' height='1200' .../></svg>`;
-return { backgroundImage: `url(...)`, backgroundSize: 'cover', opacity: op };
+getCss: (op, col) => {
+  const svg = `...`;
+  return {
+    backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")`,
+    backgroundSize: 'cover',
+    opacity: op,
+    backgroundColor: col,
+    backgroundBlendMode: 'multiply',
+  };
+},
 ```
 
-Dotyczy 9 tekstur materiałowych w jednym pliku. Wzory geometryczne (dots, grid, chevrons itd.) pozostają bez zmian — one z natury mają się powtarzać.
+Uwaga: `fabric` (Materiał) już używa `col` poprawnie (CSS linear-gradient), więc nie wymaga zmian.
+
+Zmiana dotyczy jednego pliku, 9 tekstur.
 
