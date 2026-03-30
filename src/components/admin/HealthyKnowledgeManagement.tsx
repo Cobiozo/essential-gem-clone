@@ -28,6 +28,7 @@ import { MediaUpload } from '@/components/MediaUpload';
 import { 
   HealthyKnowledge, 
   HkOtpCode,
+  TestimonialComment,
   HEALTHY_KNOWLEDGE_CATEGORIES, 
   CONTENT_TYPE_LABELS, 
   DEFAULT_SHARE_MESSAGE_TEMPLATE,
