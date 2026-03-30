@@ -405,7 +405,7 @@ serve(async (req) => {
     // ==========================================
     const { data: userRegs, error: userRegsError } = await supabase
       .from("event_registrations")
-      .select("id, user_id, occurrence_index")
+      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
@@ -414,17 +414,26 @@ serve(async (req) => {
     }
 
     // For cyclic events, filter user registrations to only those matching this occurrence
-    // If event has exactly 1 occurrence, skip index filtering (handles index drift after edits)
+    // Uses stable date/time snapshot instead of potentially drifted occurrence_index
     let relevantUserRegs = userRegs || [];
     if (termOccurrenceIndex !== null && event.occurrences) {
-      let occCount = 0;
-      if (Array.isArray(event.occurrences)) occCount = event.occurrences.length;
+      const occs = Array.isArray(event.occurrences) ? event.occurrences : [];
       
-      if (occCount > 1) {
-        // Multi-occurrence: strict index filtering
-        relevantUserRegs = relevantUserRegs.filter(r => 
-          r.occurrence_index === termOccurrenceIndex || r.occurrence_index === null
-        );
+      if (occs.length > 1) {
+        // Multi-occurrence: filter by stable date+time, fallback to index for legacy rows
+        const targetOcc = occs[termOccurrenceIndex];
+        if (targetOcc) {
+          const targetDate = targetOcc.date;
+          const targetTime = targetOcc.time;
+          relevantUserRegs = relevantUserRegs.filter(r =>
+            // Match by stable date+time snapshot
+            (r.occurrence_date === targetDate && r.occurrence_time === targetTime) ||
+            // Fallback: legacy index-only match (no date stored)
+            (r.occurrence_date === null && r.occurrence_index === termOccurrenceIndex) ||
+            // No occurrence info = single event registration (legacy)
+            r.occurrence_index === null
+          );
+        }
       }
       // Single occurrence: take all registered users (no index filtering)
     }
