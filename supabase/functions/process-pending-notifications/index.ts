@@ -127,10 +127,10 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
           );
-          const from15 = new Date(now + 5 * 60 * 1000).toISOString();
-          const to15 = new Date(now + 25 * 60 * 1000).toISOString();
-          const from1h = new Date(now + 45 * 60 * 1000).toISOString();
-          const to1h = new Date(now + 75 * 60 * 1000).toISOString();
+          const from15 = new Date(now + 10 * 60 * 1000).toISOString();
+          const to15 = new Date(now + 20 * 60 * 1000).toISOString();
+          const from1h = new Date(now + 50 * 60 * 1000).toISOString();
+          const to1h = new Date(now + 70 * 60 * 1000).toISOString();
 
           const { data: criticalEvents } = await supabaseCheck
             .from("events")
@@ -351,16 +351,16 @@ serve(async (req) => {
         maxMinutes: number;
         resultKey: 'webinarReminders24h' | 'webinarReminders12h' | 'webinarReminders2h' | 'webinarReminders1h' | 'webinarReminders15min';
       }> = [
-        { type: "24h", minMinutes: 23 * 60, maxMinutes: 25 * 60, resultKey: "webinarReminders24h" },
-        { type: "12h", minMinutes: 11 * 60, maxMinutes: 13 * 60, resultKey: "webinarReminders12h" },
-        { type: "2h", minMinutes: 105, maxMinutes: 135, resultKey: "webinarReminders2h" },
-        { type: "1h", minMinutes: 45, maxMinutes: 75, resultKey: "webinarReminders1h" },
-        { type: "15min", minMinutes: 5, maxMinutes: 25, resultKey: "webinarReminders15min" },
+        { type: "24h", minMinutes: 1420, maxMinutes: 1460, resultKey: "webinarReminders24h" },
+        { type: "12h", minMinutes: 700, maxMinutes: 740, resultKey: "webinarReminders12h" },
+        { type: "2h", minMinutes: 110, maxMinutes: 130, resultKey: "webinarReminders2h" },
+        { type: "1h", minMinutes: 50, maxMinutes: 70, resultKey: "webinarReminders1h" },
+        { type: "15min", minMinutes: 10, maxMinutes: 20, resultKey: "webinarReminders15min" },
       ];
 
       // Fetch ALL active webinar/team_training events (we'll check times per-term)
-      const maxWindowMinutes = 25 * 60; // 25h = max window
-      const fetchFrom = new Date(now.getTime() + 5 * 60 * 1000).toISOString(); // at least 5min in future
+      const maxWindowMinutes = 1460; // 24h20m = max window
+      const fetchFrom = new Date(now.getTime() + 10 * 60 * 1000).toISOString(); // at least 10min in future
       const fetchTo = new Date(now.getTime() + maxWindowMinutes * 60 * 1000).toISOString();
 
       const { data: allEvents, error: eventsErr } = await supabase
@@ -433,41 +433,48 @@ serve(async (req) => {
             continue;
           }
 
-          for (const term of matchingTerms) {
+          // Process matching terms in parallel chunks of 3
+          const TERM_CHUNK_SIZE = 3;
+          for (let ti = 0; ti < matchingTerms.length; ti += TERM_CHUNK_SIZE) {
             if (isTimeoutApproaching()) {
               results.stoppedEarly = true;
               break;
             }
 
-            console.log(`[CRON] Invoking bulk reminders (${window.type}) for: ${term.title} [occ=${term.occurrence_index}, dt=${term.occurrence_datetime.toISOString()}]`);
-            try {
-              const { data: bulkResult, error: bulkError } = await supabase.functions.invoke(
-                "send-bulk-webinar-reminders",
-                {
-                  body: {
-                    event_id: term.event_id,
-                    reminder_type: window.type,
-                    occurrence_index: term.occurrence_index,
-                    occurrence_datetime: term.occurrence_datetime.toISOString(),
-                  }
-                }
-              );
+            const termChunk = matchingTerms.slice(ti, ti + TERM_CHUNK_SIZE);
+            console.log(`[CRON] Invoking bulk reminders (${window.type}) for ${termChunk.length} terms in parallel`);
 
-              if (bulkError) {
-                console.error(`[CRON] Bulk ${window.type} failed for ${term.title}:`, bulkError);
-                results[window.resultKey].failed++;
-              } else {
-                const res = bulkResult as any;
+            const chunkResults = await Promise.allSettled(
+              termChunk.map(async (term) => {
+                console.log(`[CRON]   → ${term.title} [occ=${term.occurrence_index}, dt=${term.occurrence_datetime.toISOString()}]`);
+                const { data: bulkResult, error: bulkError } = await supabase.functions.invoke(
+                  "send-bulk-webinar-reminders",
+                  {
+                    body: {
+                      event_id: term.event_id,
+                      reminder_type: window.type,
+                      occurrence_index: term.occurrence_index,
+                      occurrence_datetime: term.occurrence_datetime.toISOString(),
+                    }
+                  }
+                );
+                if (bulkError) throw bulkError;
+                return bulkResult;
+              })
+            );
+
+            for (const cr of chunkResults) {
+              if (cr.status === 'fulfilled') {
+                const res = cr.value as any;
                 results[window.resultKey].processed += res?.total || 0;
                 results[window.resultKey].success += res?.sent || 0;
                 results[window.resultKey].failed += res?.failed || 0;
                 results[window.resultKey].guests += res?.guests || 0;
                 results[window.resultKey].users += res?.users || 0;
-                console.log(`[CRON] Bulk ${window.type} for "${term.title}" occ=${term.occurrence_index}: sent=${res?.sent} (G:${res?.guests || 0} U:${res?.users || 0}), failed=${res?.failed}`);
+              } else {
+                console.error(`[CRON] Bulk ${window.type} failed:`, cr.reason);
+                results[window.resultKey].failed++;
               }
-            } catch (err) {
-              console.error(`[CRON] Exception invoking bulk ${window.type}:`, err);
-              results[window.resultKey].failed++;
             }
           }
         }
