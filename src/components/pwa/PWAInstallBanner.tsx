@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
-import { useLocation } from 'react-router-dom';
-import { Download, X, Share, PlusSquare, MoreVertical, Menu, LayoutGrid } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Download, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const DISMISS_KEY = 'pwa_install_banner_dismissed';
 const DISMISS_DAYS = 14;
 
 export function PWAInstallBanner() {
   const { user } = useAuth();
-  const { canInstall, isInstalled, isIOS, isAndroid, isSafari, isChrome, isEdge, isFirefox, isOpera, isSamsungBrowser, promptInstall } = usePWAInstall();
+  const { canInstall, isInstalled, promptInstall } = usePWAInstall();
   const location = useLocation();
+  const navigate = useNavigate();
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
@@ -41,9 +41,11 @@ export function PWAInstallBanner() {
   };
 
   const handleInstall = async () => {
-    const accepted = await promptInstall();
-    if (accepted) {
-      setDismissed(true);
+    if (canInstall) {
+      const accepted = await promptInstall();
+      if (accepted) setDismissed(true);
+    } else {
+      navigate('/install');
     }
   };
 
@@ -54,204 +56,50 @@ export function PWAInstallBanner() {
   const publicPaths = ['/infolink/', '/events/register/', '/install'];
   if (publicPaths.some(p => location.pathname.startsWith(p))) return null;
 
-  const renderContent = () => {
-    // 1. iOS Safari
-    if (isIOS) {
-      return (
-        <div className="space-y-1.5">
-          <p className="text-muted-foreground text-xs">
-            Dodaj aplikację do ekranu głównego:
-          </p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Share className="h-3.5 w-3.5 text-primary" />
-              Udostępnij
-            </span>
-            <span>→</span>
-            <span className="flex items-center gap-1">
-              <PlusSquare className="h-3.5 w-3.5 text-primary" />
-              Do ekranu głównego
-            </span>
-          </div>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-        </div>
-      );
-    }
-
-    // 2. Android Samsung Internet
-    if (isAndroid && isSamsungBrowser) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Otwórz menu <Menu className="inline h-3.5 w-3.5" /> na dolnym pasku i wybierz „Dodaj stronę do" → „Ekran startowy".
-          </p>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-          <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-            Nie teraz
-          </Button>
-        </div>
-      );
-    }
-
-    // 3. Android Chrome (no native prompt)
-    if (isAndroid && isChrome && !canInstall) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Otwórz menu <MoreVertical className="inline h-3.5 w-3.5" /> i wybierz „Zainstaluj aplikację".
-          </p>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-          <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-            Nie teraz
-          </Button>
-        </div>
-      );
-    }
-
-    // 4. Edge desktop (canInstall or not)
-    if (isEdge && !isAndroid) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Kliknij ikonę <span className="inline-flex items-center gap-0.5 font-bold text-foreground"><LayoutGrid className="inline h-3.5 w-3.5" />+</span> w pasku adresu, aby zainstalować.
-          </p>
-          <div className="flex gap-2">
-            {canInstall && (
-              <Button size="sm" onClick={handleInstall} className="h-8 text-xs">
-                <Download className="h-3.5 w-3.5 mr-1" />
-                Zainstaluj
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-              Nie teraz
-            </Button>
-          </div>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-        </div>
-      );
-    }
-
-    // 5. Chrome desktop (no canInstall)
-    if (isChrome && !isAndroid && !canInstall) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Kliknij ikonę instalacji <Download className="inline h-3.5 w-3.5" /> w pasku adresu, obok gwiazdki.
-          </p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-              Nie teraz
-            </Button>
-          </div>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-        </div>
-      );
-    }
-
-    // 6. Opera desktop (no canInstall)
-    if (isOpera && !isAndroid && !canInstall) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Otwórz menu i wybierz „Zainstaluj aplikację".
-          </p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-              Nie teraz
-            </Button>
-          </div>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-        </div>
-      );
-    }
-
-    // 7. Generic canInstall fallback (Chrome/Opera desktop with prompt)
-    if (canInstall) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Kliknij ikonę instalacji w pasku adresu lub użyj przycisku poniżej.
-          </p>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleInstall} className="h-8 text-xs">
-              <Download className="h-3.5 w-3.5 mr-1" />
-              Zainstaluj
-            </Button>
-            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-              Nie teraz
-            </Button>
-          </div>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-        </div>
-      );
-    }
-
-    // 8. Safari macOS
-    if (isSafari && !isIOS) {
-      return (
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs">
-            Kliknij ikonę <Share className="inline h-3.5 w-3.5" /> Udostępnij, a następnie „Dodaj do Docka".
-          </p>
-          <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-              Nie teraz
-            </Button>
-          </div>
-          <a href="/install" className="text-xs text-primary underline">Instrukcje dla innych przeglądarek</a>
-        </div>
-      );
-    }
-
-    // 9. Fallback: Firefox, etc.
-    return (
-      <div className="space-y-2">
-        <p className="text-muted-foreground text-xs">
-          Zainstaluj aplikację na swoim urządzeniu dla szybszego dostępu.
-        </p>
-        <div className="flex gap-2">
-          <Button size="sm" asChild className="h-8 text-xs">
-            <a href="/install">
-              <Download className="h-3.5 w-3.5 mr-1" />
-              Zobacz instrukcję
-            </a>
-          </Button>
-          <Button size="sm" variant="ghost" onClick={handleDismiss} className="h-8 text-xs text-muted-foreground">
-            Nie teraz
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
   return (
-      <div className={`fixed top-2 z-50 animate-in slide-in-from-top-4 duration-300 ${(isIOS || isAndroid) ? 'left-4 right-4 mx-auto max-w-md' : 'right-[280px] max-w-sm'}`}>
-        <Alert className="border-primary/30 bg-background shadow-lg relative">
+    <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-4 duration-300">
+      <div
+        className="bg-background border-t border-border shadow-[0_-2px_10px_rgba(0,0,0,0.08)]"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="mx-auto max-w-lg px-4 py-3 flex items-center gap-3">
+          {/* App icon */}
+          <img
+            src="/pwa-192.png"
+            alt="Pure Life Center"
+            className="h-10 w-10 rounded-xl flex-shrink-0"
+          />
+
+          {/* Text */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground leading-tight">
+              Zainstaluj Pure Life Center
+            </p>
+            <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+              Szybszy dostęp i powiadomienia push
+            </p>
+          </div>
+
+          {/* Install button */}
+          <Button
+            size="sm"
+            onClick={handleInstall}
+            className="h-9 px-4 text-xs font-medium flex-shrink-0"
+          >
+            <Download className="h-3.5 w-3.5 mr-1.5" />
+            Zainstaluj
+          </Button>
+
+          {/* Close button */}
           <button
             onClick={handleDismiss}
-            className="absolute top-2 right-2 p-1 rounded-full hover:bg-muted transition-colors"
+            className="p-1.5 rounded-full hover:bg-muted transition-colors flex-shrink-0"
             aria-label="Zamknij"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
-
-          <div className="flex items-start gap-3 pr-6">
-            <div className="flex-shrink-0 mt-0.5">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Download className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <AlertDescription className="text-sm">
-                <p className="font-semibold text-foreground mb-1">
-                  Zainstaluj Pure Life Center
-                </p>
-                {renderContent()}
-              </AlertDescription>
-            </div>
-          </div>
-        </Alert>
+        </div>
       </div>
+    </div>
   );
 }
