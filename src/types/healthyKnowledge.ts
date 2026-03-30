@@ -110,12 +110,12 @@ export interface TestimonialComment {
   user_id: string;
   rating: number;
   comment: string;
+  status: 'pending' | 'approved' | 'rejected';
   created_at: string;
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-  };
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  knowledge_title?: string;
 }
 
 export const DEFAULT_SHARE_MESSAGE_TEMPLATE = `Cześć!

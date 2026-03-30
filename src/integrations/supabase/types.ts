@@ -7654,6 +7654,7 @@ export type Database = {
           id: string
           knowledge_id: string
           rating: number
+          status: string | null
           user_id: string
         }
         Insert: {
@@ -7662,6 +7663,7 @@ export type Database = {
           id?: string
           knowledge_id: string
           rating: number
+          status?: string | null
           user_id: string
         }
         Update: {
@@ -7670,6 +7672,7 @@ export type Database = {
           id?: string
           knowledge_id?: string
           rating?: number
+          status?: string | null
           user_id?: string
         }
         Relationships: [
@@ -8793,6 +8796,22 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_pending_testimonial_comments: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          comment: string
+          created_at: string
+          first_name: string
+          id: string
+          knowledge_id: string
+          knowledge_title: string
+          last_name: string
+          rating: number
+          status: string
+          user_id: string
+        }[]
+      }
       get_reflink_validity_days: { Args: never; Returns: number }
       get_reflink_with_creator: {
         Args: { reflink_code_param: string }
@@ -8829,6 +8848,21 @@ export type Database = {
           leader_user_id: string
           resource_id: string
           team_custom_name: string
+        }[]
+      }
+      get_testimonial_comments: {
+        Args: { p_knowledge_id: string }
+        Returns: {
+          avatar_url: string
+          comment: string
+          created_at: string
+          first_name: string
+          id: string
+          knowledge_id: string
+          last_name: string
+          rating: number
+          status: string
+          user_id: string
         }[]
       }
       get_ticker_live_activity: {
