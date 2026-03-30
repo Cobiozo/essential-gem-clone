@@ -31,6 +31,7 @@ export interface HealthyKnowledge {
   is_active: boolean;
   is_featured: boolean;
   gallery_urls: string[];
+  allow_comments: boolean;
   view_count: number;
   language_code: string | null;
   created_at: string;
