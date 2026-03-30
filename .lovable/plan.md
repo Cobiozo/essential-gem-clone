@@ -1,37 +1,22 @@
 
 
-## Naprawa wzorów/tekstur tła — podwójne kodowanie SVG
+## Dodanie koloru tła kafelka partnera w nagłówku
 
 ### Problem
-W `src/lib/bgPatterns.ts` tekstury materiałowe (noise, paper, linen, leather, wood, concrete, canvas, marble, sand) mają błąd podwójnego kodowania URL:
+Kafelek partnera w nagłówku ma hardcoded `bg-white/90` zarówno w `HeaderSection.tsx`, jak i w `HeroSection.tsx`. Brak pola w edytorze do zmiany tego koloru.
 
-```typescript
-// filter='url(%23n)' — %23 to już zakodowany #
-// Potem encodeURIComponent(svg) zamienia %23 na %2523 → filtr SVG nie działa
-const svg = `...<rect filter='url(%23n)'/>...`;
-return { backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")` };
-```
+### Zmiany
 
-Efekt: filtry `feTurbulence` nie działają, widać szary prostokąt zamiast tekstury. Dotyczy to zarówno podglądu w edytorze, jak i renderowania na stronie.
+**1. `src/components/admin/template-sections/HeaderSectionEditor.tsx`**
+- W sekcji "Kafelek partnera w nagłówku" (linie 246-260), dodać pola:
+  - `ColorInput` dla `partner_badge.bg_color` (kolor tła kafelka)
+  - `ColorInput` dla `partner_badge.text_color` (kolor tekstu kafelka)
 
-### Naprawa
+**2. `src/components/partner-page/sections/HeaderSection.tsx`**
+- Linia 198: zamienić hardcoded `bg-white/90` na dynamiczny styl `backgroundColor` z `config.partner_badge.bg_color` (fallback `rgba(255,255,255,0.9)`)
+- Dodać `color` ze `config.partner_badge.text_color` do tekstu wewnątrz kafelka
 
-**Plik: `src/lib/bgPatterns.ts`** — w każdej teksturze materiałowej (9 wzorów):
-- Zamienić `%23` na `#` w referencjach filtrów SVG (np. `filter='url(#n)'`)
-- Zachować `encodeURIComponent(svg)` — to poprawnie zakoduje `#` do `%23` raz
-
-Dotyczy wzorów: `noise`, `paper`, `linen`, `canvas`, `leather`, `wood`, `concrete`, `marble`, `sand`.
-
-Przykład zmiany (każdy wzór analogicznie):
-```typescript
-// PRZED (podwójne kodowanie):
-const svg = `<svg ...><filter id='n'>...</filter><rect ... filter='url(%23n)'/></svg>`;
-return { backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")` };
-
-// PO (poprawne):
-const svg = `<svg ...><filter id='n'>...</filter><rect ... filter='url(#n)'/></svg>`;
-return { backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(svg)}")` };
-```
-
-Zmiana dotyczy 9 linii w jednym pliku — zamiana `url(%23...)` na `url(#...)` w każdym z 9 wzorów materiałowych.
+**3. `src/components/partner-page/sections/HeroSection.tsx`**
+- Linia 152 i 292: analogiczna zmiana — zamienić `bg-white/90` na dynamiczny `backgroundColor` z `config.partner_badge.bg_color`
+- Ustawić kolor tekstu z `config.partner_badge.text_color` zamiast hardcoded `text-gray-500`/`text-gray-900`
 
