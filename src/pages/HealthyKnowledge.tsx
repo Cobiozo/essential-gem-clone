@@ -244,11 +244,20 @@ const HealthyKnowledgePage: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold">{tf('hk.title', 'Zdrowa Wiedza')}</h1>
               <p className="text-muted-foreground text-sm">
-                {tf('hk.subtitle', 'Materiały edukacyjne o zdrowiu i wellness')}
+                {activeTab === 'testimonials'
+                  ? tf('hk.testimonialsSubtitle', 'Opinie i efekty kuracji produktami Eqology')
+                  : tf('hk.subtitle', 'Materiały edukacyjne o zdrowiu i wellness')}
               </p>
             </div>
           </div>
         </div>
+
+        <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'materials' | 'testimonials'); setSelectedCategory(null); }}>
+          <TabsList>
+            <TabsTrigger value="materials">{tf('hk.tabMaterials', 'Materiały')}</TabsTrigger>
+            <TabsTrigger value="testimonials">{tf('hk.tabTestimonials', 'Testymoniale')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
