@@ -909,6 +909,76 @@ const HealthyKnowledgeManagement: React.FC = () => {
                   </div>
                 )}
 
+                {/* Gallery for Testimonials */}
+                {editingMaterial.category === 'Testymoniale' && (
+                  <div className="space-y-2">
+                    <Label>Galeria zdjęć (dodatkowe)</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={async (e) => {
+                        const files = e.target.files;
+                        if (!files || files.length === 0 || !editingMaterial) return;
+                        
+                        const newUrls: string[] = [];
+                        for (const file of Array.from(files)) {
+                          if (!file.type.startsWith('image/')) continue;
+                          try {
+                            const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                            const fileName = `gallery/${Date.now()}-${Math.random().toString(36).slice(2, 6)}-${sanitizedFileName}`;
+                            const { data, error } = await supabase.storage
+                              .from('healthy-knowledge')
+                              .upload(fileName, file, { cacheControl: '3600' });
+                            if (error) throw error;
+                            const { data: { publicUrl } } = supabase.storage
+                              .from('healthy-knowledge')
+                              .getPublicUrl(data.path);
+                            newUrls.push(publicUrl);
+                          } catch (err: any) {
+                            console.error('Gallery upload error:', err);
+                            toast.error(`Błąd uploadu: ${err.message}`);
+                          }
+                        }
+                        
+                        if (newUrls.length > 0) {
+                          setEditingMaterial({
+                            ...editingMaterial,
+                            gallery_urls: [...(editingMaterial.gallery_urls || []), ...newUrls],
+                          });
+                          toast.success(`Dodano ${newUrls.length} zdjęć do galerii`);
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    {(editingMaterial.gallery_urls || []).length > 0 && (
+                      <div className="grid grid-cols-4 gap-2 mt-2">
+                        {(editingMaterial.gallery_urls || []).map((url, i) => (
+                          <div key={i} className="relative group">
+                            <img src={url} alt={`Gallery ${i+1}`} className="w-full aspect-square object-cover rounded border" />
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              type="button"
+                              onClick={() => {
+                                const updated = [...(editingMaterial.gallery_urls || [])];
+                                updated.splice(i, 1);
+                                setEditingMaterial({ ...editingMaterial, gallery_urls: updated });
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Główne zdjęcie to plik multimedialny powyżej. Tu dodaj dodatkowe zdjęcia do galerii.
+                    </p>
+                  </div>
+                )}
+
                 {/* Text Content */}
                 {editingMaterial.content_type === 'text' && (
                   <div>

@@ -549,24 +549,63 @@ const HealthyKnowledgePage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Preview Dialog */}
+      {/* Preview Dialog — compact for testimonials, standard for others */}
       <Dialog open={previewDialogOpen} onOpenChange={setPreviewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className={cn(
+          "max-h-[90vh] overflow-y-auto",
+          previewMaterial?.category === 'Testymoniale' ? "max-w-lg" : "max-w-4xl"
+        )}>
           <DialogHeader>
-            <DialogTitle>{previewMaterial?.title}</DialogTitle>
+            <DialogTitle className="text-base">{previewMaterial?.title}</DialogTitle>
             {previewMaterial?.description && (
-              <DialogDescription>{previewMaterial.description}</DialogDescription>
+              <DialogDescription className="text-sm">{previewMaterial.description}</DialogDescription>
             )}
           </DialogHeader>
           
           {previewMaterial && (
-            <div className="space-y-4">
-              {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
-                <SecureMedia
-                  mediaUrl={previewMaterial.media_url}
-                  mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
-                  className="w-full rounded-lg"
-                />
+            <div className="space-y-3">
+              {/* Testimonial carousel */}
+              {previewMaterial.category === 'Testymoniale' ? (() => {
+                const allImages = [previewMaterial.media_url, ...(previewMaterial.gallery_urls || [])].filter(Boolean) as string[];
+                if (allImages.length === 0) return null;
+                return (
+                  <div className="relative">
+                    <Carousel opts={{ loop: true }} className="w-full">
+                      <CarouselContent>
+                        {allImages.map((url, i) => (
+                          <CarouselItem key={i}>
+                            <img 
+                              src={url} 
+                              alt={`${previewMaterial.title} ${i + 1}`}
+                              className="w-full rounded-lg object-contain max-h-[50vh] bg-muted"
+                            />
+                          </CarouselItem>
+                        ))}
+                      </CarouselContent>
+                      {allImages.length > 1 && (
+                        <>
+                          <CarouselPrevious className="left-2" />
+                          <CarouselNext className="right-2" />
+                        </>
+                      )}
+                    </Carousel>
+                    {allImages.length > 1 && (
+                      <p className="text-xs text-center text-muted-foreground mt-1">
+                        {allImages.length} {tf('hk.photos', 'zdjęć')}
+                      </p>
+                    )}
+                  </div>
+                );
+              })() : (
+                <>
+                  {previewMaterial.media_url && previewMaterial.content_type !== 'text' && (
+                    <SecureMedia
+                      mediaUrl={previewMaterial.media_url}
+                      mediaType={previewMaterial.content_type as 'video' | 'audio' | 'image' | 'document'}
+                      className="w-full rounded-lg"
+                    />
+                  )}
+                </>
               )}
               
               {previewMaterial.content_type === 'text' && previewMaterial.text_content && (
@@ -585,21 +624,23 @@ const HealthyKnowledgePage: React.FC = () => {
                 </Button>
               )}
               
-              <div className="flex items-center flex-wrap gap-4 text-sm text-muted-foreground pt-2 border-t">
-                {previewMaterial.category && (
-                  <Badge variant="outline">{previewMaterial.category}</Badge>
-                )}
-                {previewMaterial.duration_seconds && (
+              {previewMaterial.category !== 'Testymoniale' && (
+                <div className="flex items-center flex-wrap gap-4 text-sm text-muted-foreground pt-2 border-t">
+                  {previewMaterial.category && (
+                    <Badge variant="outline">{previewMaterial.category}</Badge>
+                  )}
+                  {previewMaterial.duration_seconds && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {Math.floor(previewMaterial.duration_seconds / 60)} min
+                    </span>
+                  )}
                   <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {Math.floor(previewMaterial.duration_seconds / 60)} min
+                    <Eye className="w-3 h-3" />
+                    {previewMaterial.view_count} {tf('hk.views', 'wyświetleń')}
                   </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Eye className="w-3 h-3" />
-                  {previewMaterial.view_count} {tf('hk.views', 'wyświetleń')}
-                </span>
-              </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>

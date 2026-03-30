@@ -3121,6 +3121,7 @@ export type Database = {
           duration_seconds: number | null
           file_name: string | null
           file_size: number | null
+          gallery_urls: string[] | null
           id: string
           is_active: boolean | null
           is_featured: boolean | null
@@ -3153,6 +3154,7 @@ export type Database = {
           duration_seconds?: number | null
           file_name?: string | null
           file_size?: number | null
+          gallery_urls?: string[] | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null
@@ -3185,6 +3187,7 @@ export type Database = {
           duration_seconds?: number | null
           file_name?: string | null
           file_size?: number | null
+          gallery_urls?: string[] | null
           id?: string
           is_active?: boolean | null
           is_featured?: boolean | null

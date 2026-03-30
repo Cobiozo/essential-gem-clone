@@ -1,0 +1,1 @@
+ALTER TABLE public.healthy_knowledge ADD COLUMN gallery_urls text[] DEFAULT '{}';
