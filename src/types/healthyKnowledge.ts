@@ -75,6 +75,7 @@ export const HEALTHY_KNOWLEDGE_CATEGORIES = [
   'Produkty EQ',
   'Webinary archiwalne',
   'Materiały eksperckie',
+  'Testymoniale',
   'Inne'
 ] as const;
 

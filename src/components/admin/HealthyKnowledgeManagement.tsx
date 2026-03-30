@@ -459,7 +459,14 @@ const HealthyKnowledgeManagement: React.FC = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            {material.category || '-'}
+                            <div className="flex items-center gap-1">
+                              {material.category || '-'}
+                              {material.category === 'Testymoniale' && (
+                                <Badge className="bg-pink-500/10 text-pink-600 border-pink-500/20 text-xs ml-1">
+                                  Testymonial
+                                </Badge>
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-wrap gap-1">

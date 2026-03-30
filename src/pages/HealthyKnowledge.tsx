@@ -11,8 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2 } from 'lucide-react';
+import { Heart, Search, Play, FileText, Image, Music, Type, Share2, Eye, Clock, Copy, Loader2, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { copyToClipboard, copyAfterAsync } from '@/lib/clipboardUtils';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
@@ -42,6 +43,7 @@ const HealthyKnowledgePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'materials' | 'testimonials'>('materials');
   const [contentLanguage, setContentLanguage] = useState<string>(language);
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -84,23 +86,26 @@ const HealthyKnowledgePage: React.FC = () => {
   const categories = useMemo(() => {
     const cats = new Set<string>();
     translatedMaterials.forEach(m => {
-      if (m.category) cats.add(m.category);
+      if (m.category && m.category !== 'Testymoniale') cats.add(m.category);
     });
     return Array.from(cats).sort();
   }, [translatedMaterials]);
 
   const filteredMaterials = useMemo(() => {
     return translatedMaterials.filter(m => {
+      const isTestimonial = m.category === 'Testymoniale';
+      if (activeTab === 'testimonials' && !isTestimonial) return false;
+      if (activeTab === 'materials' && isTestimonial) return false;
       const matchesSearch = !searchTerm || 
         m.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         m.description?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = !selectedCategory || m.category === selectedCategory;
+      const matchesCategory = activeTab === 'testimonials' || !selectedCategory || m.category === selectedCategory;
       const matchesLanguage = contentLanguage === 'all' || 
         !(m as any).language_code || 
         (m as any).language_code === contentLanguage;
       return matchesSearch && matchesCategory && matchesLanguage;
     });
-  }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage]);
+  }, [translatedMaterials, searchTerm, selectedCategory, contentLanguage, activeTab]);
 
   const canShare = isPartner || isAdmin;
 
@@ -239,11 +244,20 @@ const HealthyKnowledgePage: React.FC = () => {
             <div>
               <h1 className="text-2xl font-bold">{tf('hk.title', 'Zdrowa Wiedza')}</h1>
               <p className="text-muted-foreground text-sm">
-                {tf('hk.subtitle', 'Materiały edukacyjne o zdrowiu i wellness')}
+                {activeTab === 'testimonials'
+                  ? tf('hk.testimonialsSubtitle', 'Opinie i efekty kuracji produktami Eqology')
+                  : tf('hk.subtitle', 'Materiały edukacyjne o zdrowiu i wellness')}
               </p>
             </div>
           </div>
         </div>
+
+        <Tabs value={activeTab} onValueChange={v => { setActiveTab(v as 'materials' | 'testimonials'); setSelectedCategory(null); }}>
+          <TabsList>
+            <TabsTrigger value="materials">{tf('hk.tabMaterials', 'Materiały')}</TabsTrigger>
+            <TabsTrigger value="testimonials">{tf('hk.tabTestimonials', 'Testymoniale')}</TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1 max-w-md">
@@ -256,7 +270,7 @@ const HealthyKnowledgePage: React.FC = () => {
             />
           </div>
           <ContentLanguageSelector value={contentLanguage} onValueChange={setContentLanguage} />
-          {categories.length > 0 && (
+          {activeTab === 'materials' && categories.length > 0 && (
             <div className="flex flex-wrap gap-2">
               <Button
                 variant={selectedCategory === null ? "default" : "outline"}
@@ -286,11 +300,17 @@ const HealthyKnowledgePage: React.FC = () => {
         ) : filteredMaterials.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
-              <Heart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              {activeTab === 'testimonials' ? (
+                <Star className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              ) : (
+                <Heart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
+              )}
               <p className="text-muted-foreground">
-                {searchTerm || selectedCategory 
-                  ? tf('hk.noResults', 'Nie znaleziono materiałów spełniających kryteria')
-                  : tf('hk.noMaterials', 'Brak dostępnych materiałów')}
+                {activeTab === 'testimonials'
+                  ? tf('hk.noTestimonials', 'Brak testymoniali')
+                  : searchTerm || selectedCategory 
+                    ? tf('hk.noResults', 'Nie znaleziono materiałów spełniających kryteria')
+                    : tf('hk.noMaterials', 'Brak dostępnych materiałów')}
               </p>
             </CardContent>
           </Card>
