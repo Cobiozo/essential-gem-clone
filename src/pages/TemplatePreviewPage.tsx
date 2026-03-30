@@ -284,8 +284,8 @@ const TemplatePreviewPage: React.FC = () => {
       </div>
 
       {/* Side editor sheet */}
-      <Sheet open={editingIndex !== null} onOpenChange={(open) => { if (!open) setEditingIndex(null); }}>
-        <SheetContent className="w-[420px] sm:w-[480px] p-0 flex flex-col">
+      <Sheet open={editingIndex !== null} onOpenChange={(open) => { if (!open) setEditingIndex(null); }} modal={false}>
+        <SheetContent className="w-[420px] sm:w-[480px] p-0 flex flex-col shadow-2xl" hideOverlay hideCloseButton>
           <SheetHeader className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between">
               <SheetTitle className="text-base">
