@@ -201,6 +201,24 @@ function buildProspectEmailHtml(
         </p>`;
       break;
 
+    case '1h':
+      content = `
+        <h2 style="color: #1a365d;">⏳ Spotkanie za godzinę!</h2>
+        <p>Cześć${prospectFirstName ? ` ${prospectFirstName}` : ''},</p>
+        <p>Twoje spotkanie rozpocznie się o <strong>${meetingTime}</strong> — już za godzinę!</p>
+        <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 16px; margin: 16px 0; border-radius: 4px;">
+          <p style="margin: 4px 0;"><strong>📅 Data:</strong> ${meetingDate}</p>
+          <p style="margin: 4px 0;"><strong>🕐 Godzina:</strong> ${meetingTime}</p>
+        </div>
+        ${zoomLink ? `
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${zoomLink}" style="background-color: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">
+            🚀 Dołącz do spotkania
+          </a>
+        </div>
+        <p style="color: #666; font-size: 13px;">Link: <a href="${zoomLink}">${zoomLink}</a></p>` : ''}`;
+      break;
+
     case '2h':
       content = `
         <h2 style="color: #1a365d;">🎯 Spotkanie za 2 godziny — Twój link</h2>
@@ -290,6 +308,7 @@ serve(async (req) => {
       booking: `📅 Zaplanowano spotkanie na ${meeting_date} o ${meeting_time}`,
       '24h': `⏰ Przypomnienie: spotkanie jutro o ${meeting_time}`,
       '12h': `🔔 Spotkanie dziś o ${meeting_time}`,
+      '1h': `⏳ Spotkanie za godzinę — o ${meeting_time}`,
       '2h': `🎯 Spotkanie za 2 godziny — dołącz o ${meeting_time}`,
       '15min': `⚡ Spotkanie za 15 minut — dołącz teraz!`,
     };

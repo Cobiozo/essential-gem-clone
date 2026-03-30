@@ -474,7 +474,7 @@ serve(async (req) => {
                   meeting_date: dateStr,
                   meeting_time: timeStr,
                   reminder_type: reminderType,
-                  zoom_link: (reminderType === '2h' || reminderType === '15min') ? meeting.zoom_link : undefined,
+                  zoom_link: (reminderType === '2h' || reminderType === '1h' || reminderType === '15min') ? meeting.zoom_link : undefined,
                 },
               });
               console.log(`[send-meeting-reminders] Prospect ${reminderType} reminder sent to ${prospectEmail}`);
