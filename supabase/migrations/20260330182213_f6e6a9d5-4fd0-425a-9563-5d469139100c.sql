@@ -1,0 +1,1 @@
+UPDATE public.cron_settings SET interval_minutes = 5 WHERE job_name = 'process-pending-notifications';
