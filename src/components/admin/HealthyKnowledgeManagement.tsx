@@ -72,23 +72,33 @@ const HealthyKnowledgeManagement: React.FC = () => {
   const [loadingCodes, setLoadingCodes] = useState(false);
 
   // Moderation state
-  const [pendingComments, setPendingComments] = useState<TestimonialComment[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
+  const [allComments, setAllComments] = useState<TestimonialComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
+  
+  // Edit comment dialog state
+  const [editCommentDialogOpen, setEditCommentDialogOpen] = useState(false);
+  const [editingComment, setEditingComment] = useState<TestimonialComment | null>(null);
+  const [editCommentText, setEditCommentText] = useState('');
+  const [editCommentRating, setEditCommentRating] = useState(5);
+  const [savingComment, setSavingComment] = useState(false);
+  
+  // Delete comment confirmation
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchMaterials();
   }, []);
 
-  const fetchPendingComments = async () => {
-    setLoadingPending(true);
+  const fetchAllComments = async () => {
+    setLoadingComments(true);
     try {
-      const { data, error } = await supabase.rpc('get_pending_testimonial_comments');
+      const { data, error } = await supabase.rpc('get_all_testimonial_comments');
       if (error) throw error;
-      setPendingComments((data || []) as unknown as TestimonialComment[]);
+      setAllComments((data || []) as unknown as TestimonialComment[]);
     } catch (e) {
-      console.error('Error fetching pending comments:', e);
+      console.error('Error fetching comments:', e);
     } finally {
-      setLoadingPending(false);
+      setLoadingComments(false);
     }
   };
 
@@ -100,9 +110,66 @@ const HealthyKnowledgeManagement: React.FC = () => {
         .eq('id', commentId);
       if (error) throw error;
       toast.success(newStatus === 'approved' ? 'Opinia zatwierdzona' : 'Opinia odrzucona');
-      fetchPendingComments();
+      fetchAllComments();
     } catch (e: any) {
       toast.error(e.message || 'Błąd moderacji');
+    }
+  };
+
+  const handleEditComment = (comment: TestimonialComment) => {
+    setEditingComment(comment);
+    setEditCommentText(comment.comment);
+    setEditCommentRating(comment.rating);
+    setEditCommentDialogOpen(true);
+  };
+
+  const handleSaveEditedComment = async () => {
+    if (!editingComment) return;
+    setSavingComment(true);
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .update({ comment: editCommentText, rating: editCommentRating })
+        .eq('id', editingComment.id);
+      if (error) throw error;
+      toast.success('Opinia zaktualizowana');
+      setEditCommentDialogOpen(false);
+      fetchAllComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zapisu');
+    } finally {
+      setSavingComment(false);
+    }
+  };
+
+  const handleSuspendComment = async (comment: TestimonialComment) => {
+    const newStatus = comment.status === 'suspended' ? 'approved' : 'suspended';
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .update({ status: newStatus })
+        .eq('id', comment.id);
+      if (error) throw error;
+      toast.success(newStatus === 'suspended' ? 'Opinia zawieszona' : 'Opinia przywrócona');
+      fetchAllComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd zmiany statusu');
+    }
+  };
+
+  const handleDeleteComment = async () => {
+    if (!deleteCommentId) return;
+    try {
+      const { error } = await supabase
+        .from('testimonial_comments')
+        .delete()
+        .eq('id', deleteCommentId);
+      if (error) throw error;
+      toast.success('Opinia trwale usunięta');
+      setDeleteCommentId(null);
+      fetchAllComments();
+    } catch (e: any) {
+      toast.error(e.message || 'Błąd usuwania');
     }
   };
 
