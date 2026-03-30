@@ -43,6 +43,7 @@ const HealthyKnowledgePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'materials' | 'testimonials'>('materials');
   const [contentLanguage, setContentLanguage] = useState<string>(language);
   
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
