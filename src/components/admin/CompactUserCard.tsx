@@ -277,6 +277,26 @@ export const CompactUserCard: React.FC<CompactUserCardProps> = ({
                     Zablokowany
                   </Badge>
                 )}
+                {!userProfile.is_active && !blockInfo && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onToggleStatus(userProfile.user_id, userProfile.is_active)}
+                          className="h-5 text-xs px-2 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
+                        >
+                          <Power className="w-3 h-3 mr-0.5" />
+                          Odblokuj
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Odblokuj konto użytkownika (reset blokady za brak aktywności)</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 {blockInfo && (
                   <span className="text-xs text-muted-foreground">
                     przez {blockInfo.blocked_by_first_name} {blockInfo.blocked_by_last_name},{' '}
