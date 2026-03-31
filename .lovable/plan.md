@@ -1,20 +1,22 @@
 
 
-# Naprawa ucinania długich wiadomości w pasku informacyjnym
+# Naprawa: przyciski edycji komunikatów nie widoczne
 
 ## Problem
-W `TickerItem.tsx` linia 69: gdy `allowWrap = true` (tryb rotate/static), tekst dostaje klasy `truncate max-w-[75vw]` — co obcina długie wiadomości wielokropkiem. Dodatkowo kontener `RotatingContent` ma `overflow-hidden` i `min-h-[24px]` co ogranicza wysokość.
+W `NewsTickerManagement.tsx` linia 1142, kontener przycisków (`Switch`, `Pencil`, `Trash2`) nie ma klasy `shrink-0`. Przy długim tekście komunikatu, flexbox ściska przyciski do zera i znikają poza ekran.
 
 ## Rozwiązanie
 
-### Plik: `src/components/news-ticker/TickerItem.tsx`
-**Linia 69** — usunąć `truncate max-w-[75vw]` gdy `allowWrap`, zastąpić klasami pozwalającymi na zawijanie:
+### Plik: `src/components/admin/NewsTickerManagement.tsx`
+
+**Linia 1142** — dodać `shrink-0` do kontenera przycisków:
 ```tsx
-<span className={cn(!isScroll && allowWrap ? "whitespace-normal break-words" : (!isScroll ? "truncate" : ""))}>{item.content}</span>
+// Było:
+<div className="flex items-center gap-2">
+
+// Będzie:
+<div className="flex items-center gap-2 shrink-0">
 ```
 
-### Plik: `src/components/news-ticker/NewsTicker.tsx`
-**RotatingContent** (linia ~78-90) — usunąć `min-h-[24px]` i zmienić na `min-h-fit`, aby kontener rozszerzał się dla wieloliniowego tekstu. Zmienić `overflow-hidden` na brak overflow (lub `overflow-visible`).
-
-Outer wrapper (linia 50): zmienić `max-w-full overflow-hidden` na `max-w-full` bez `overflow-hidden` w trybie rotate/static, aby tekst nie był ucinany.
+Jedna zmiana, jedna linia. Klasa `shrink-0` zapobiega kompresji kontenera przycisków przez flexbox.
 
