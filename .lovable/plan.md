@@ -1,51 +1,35 @@
 
 
-# Zmiana layoutu kafelków komunikatów na układ pionowy
+# Dodanie widoczności i dat do dialogu edycji komunikatu
 
 ## Problem
-Obecnie komunikat wyświetla się w układzie poziomym: tekst po lewej (ucięty `truncate`), przyciski po prawej. Użytkownik chce pełny widok kafelka: treść widoczna w całości, pod nią dane (badge, role), a na dole przyciski edycji.
+Dialog edycji komunikatu (`Edytuj komunikat`) nie ma sekcji widoczności (role/użytkownik), ani pól daty rozpoczęcia/zakończenia. Te opcje istnieją tylko w dialogu dodawania. Przez to nie można zmienić komu komunikat jest wyświetlany ani ustawić dat ważności po utworzeniu.
 
 ## Rozwiązanie
 
-### Plik: `src/components/admin/NewsTickerManagement.tsx` (linie 1104-1156)
+### Plik: `src/components/admin/NewsTickerManagement.tsx`
 
-Zmiana layoutu z `flex items-start justify-between` (poziomy) na układ pionowy:
+Do dialogu edycji (linie 1204-1260, przed `DialogFooter`) dodać:
 
+1. **Sekcja widoczności** — checkboxy ról (Klienci, Partnerzy, Specjaliści) identyczne jak w dialogu dodawania:
 ```tsx
-<Card key={item.id} className={!item.is_active ? 'opacity-50' : ''}>
-  <CardContent className="py-4 space-y-3">
-    {/* 1. Badge'e na górze */}
-    <div className="flex items-center gap-2 flex-wrap">
-      {item.is_important && <Badge variant="destructive">Ważny</Badge>}
-      {!item.is_active && <Badge variant="secondary">Nieaktywny</Badge>}
-      <Badge variant="outline">Priorytet: {item.priority}</Badge>
-      {/* ... pozostałe badge'e */}
-    </div>
-
-    {/* 2. Pełna treść komunikatu - bez truncate */}
-    <p className="text-sm font-medium whitespace-pre-wrap break-words">
-      {item.content}
-    </p>
-
-    {/* 3. Role widoczności */}
-    <div className="flex gap-2 text-xs text-muted-foreground">
-      {item.visible_to_clients && <span>Klienci</span>}
-      {item.visible_to_partners && <span>Partnerzy</span>}
-      {item.visible_to_specjalista && <span>Specjaliści</span>}
-    </div>
-
-    {/* 4. Przyciski na dole */}
-    <div className="flex items-center gap-2 pt-2 border-t border-border/40">
-      <Switch checked={item.is_active} ... />
-      <Button variant="ghost" size="icon"><Pencil /></Button>
-      <Button variant="ghost" size="icon"><Trash2 /></Button>
-    </div>
-  </CardContent>
-</Card>
+<div className="space-y-3 p-4 border rounded-lg">
+  <Label>Widoczność dla</Label>
+  <div className="flex gap-4 pt-2">
+    <Checkbox checked={editingItem.visible_to_clients} ... /> Klienci
+    <Checkbox checked={editingItem.visible_to_partners} ... /> Partnerzy  
+    <Checkbox checked={editingItem.visible_to_specjalista} ... /> Specjaliści
+  </div>
+</div>
 ```
 
-Kluczowe zmiany:
-- Usunięcie `truncate` z treści — tekst wyświetla się w pełni z `whitespace-pre-wrap break-words`
-- Zamiana layoutu z poziomego na pionowy (`space-y-3`)
-- Przyciski przeniesione na dół karty, oddzielone cienką linią (`border-t`)
+2. **Daty ważności** — pola start_date i end_date:
+```tsx
+<div className="grid grid-cols-2 gap-4">
+  <div><Label>Data od</Label><Input type="date" value={editingItem.start_date} /></div>
+  <div><Label>Data do</Label><Input type="date" value={editingItem.end_date} /></div>
+</div>
+```
+
+Funkcja `updateItem` już zapisuje te pola do bazy — wystarczy dodać UI do dialogu.
 
