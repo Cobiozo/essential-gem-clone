@@ -178,15 +178,6 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 
   if (!config?.is_enabled) return null;
 
-  // Per-category role visibility check
-  if (!isAdmin) {
-    const hasAccess =
-      (isPartner && config.visible_to_partners) ||
-      (isSpecjalista && config.visible_to_specjalista) ||
-      (isClient && config.visible_to_clients);
-    if (!hasAccess) return null;
-  }
-
   const hasLiveSlot = timeSlots.some(t => {
     const s = getSlotStatus(0, t);
     return s === 'now' || s === 'ongoing';
@@ -294,6 +285,8 @@ const WebinarInviteWidget: React.FC = () => {
   const { isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
   const [openCategory, setOpenCategory] = useState<AutoWebinarCategory | null>(null);
   const [masterVisible, setMasterVisible] = useState<boolean | null>(null);
+  const { config: boConfig, loading: boLoading } = useAutoWebinarConfig('business_opportunity');
+  const { config: hcConfig, loading: hcLoading } = useAutoWebinarConfig('health_conversation');
 
   useEffect(() => {
     const fetchVisibility = async () => {
@@ -315,6 +308,19 @@ const WebinarInviteWidget: React.FC = () => {
   }, [isAdmin, isPartner, isSpecjalista, isClient]);
 
   if (masterVisible !== true) return null;
+  if (boLoading || hcLoading) return null;
+
+  const canSee = (cfg: typeof boConfig) => {
+    if (!cfg?.is_enabled) return false;
+    if (isAdmin) return true;
+    return (isPartner && cfg.visible_to_partners) ||
+           (isSpecjalista && cfg.visible_to_specjalista) ||
+           (isClient && cfg.visible_to_clients);
+  };
+
+  const showBO = canSee(boConfig);
+  const showHC = canSee(hcConfig);
+  if (!showBO && !showHC) return null;
 
   const handleOpenChange = (category: AutoWebinarCategory) => (open: boolean) => {
     setOpenCategory(open ? category : null);
@@ -332,8 +338,8 @@ const WebinarInviteWidget: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <CategoryColumn category="business_opportunity" isOpen={openCategory === 'business_opportunity'} onOpenChange={handleOpenChange('business_opportunity')} />
-          <CategoryColumn category="health_conversation" isOpen={openCategory === 'health_conversation'} onOpenChange={handleOpenChange('health_conversation')} />
+          {showBO && <CategoryColumn category="business_opportunity" isOpen={openCategory === 'business_opportunity'} onOpenChange={handleOpenChange('business_opportunity')} />}
+          {showHC && <CategoryColumn category="health_conversation" isOpen={openCategory === 'health_conversation'} onOpenChange={handleOpenChange('health_conversation')} />}
         </div>
       </CardContent>
     </Card>
