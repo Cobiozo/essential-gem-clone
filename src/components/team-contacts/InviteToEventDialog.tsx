@@ -84,7 +84,10 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         .order('start_time', { ascending: true });
 
       if (error) throw error;
-      setEvents(data || []);
+      setEvents((data || []).map((e: any) => ({
+        ...e,
+        occurrences: Array.isArray(e.occurrences) ? e.occurrences as EventOccurrence[] : null,
+      })));
     } catch (error) {
       console.error('Error fetching events:', error);
     } finally {
