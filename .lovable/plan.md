@@ -1,46 +1,36 @@
 
 
-# Naprawa widoku kontaktów prywatnych na mobile
+# Naprawa widoku kontaktów prywatnych na mobile — pozostałe problemy
 
-## Problem
-Na ekranie 390px komponenty `EventGroupedContacts` i `TeamContactAccordion` mają fatalny layout:
-- Nazwa kontaktu, email, telefon i data rejestracji wyświetlane w jednym wierszu — tekst się łamie chaotycznie
-- Przyciski akcji (5 ikon) wyświetlane obok treści zamiast pod nią — brak miejsca
-- Nagłówek wydarzenia (tytuł + badge gości) ściska się na wąskim ekranie
-- Badge'e ("W mojej liście", "Zapisany na X wydarzeń") nie mieszczą się
+## Problemy widoczne na screenshocie (390px)
 
-## Rozwiązanie
+### 1. Sub-taby prywatne — za długi tekst w przyciskach
+Przyciski jak "Z zaproszeń na Business Opportunity" czy "Z zaproszeń na Health Conversation" są za długie na 390px. Mimo `flex-wrap` każdy przycisk zajmuje pełną szerokość i tekst jest zbyt długi.
 
-### 1. `EventGroupedContacts.tsx` — główny problem ze screenshota
+**Rozwiązanie:** Skrócić tekst na mobile — użyć `<span className="hidden sm:inline">` / `<span className="sm:hidden">` pattern:
+- "Moja lista kontaktów" → "Moja lista"
+- "Z zaproszeń na Business Opportunity" → "BO"  
+- "Z zaproszeń na Health Conversation" → "HC"
+- "Z zaproszeń na webinary ogólne" → "Webinary"
+- "Z Mojej Strony Partnera" → "Strona"
+- "Usunięte" → bez zmian (krótkie)
 
-**Nagłówek wydarzenia (linie 103-120):**
-- Zmienić na `flex flex-col sm:flex-row` — na mobile tytuł i badge gości w stosie pionowym
+### 2. Header — przyciski akcji (Filtry, Eksport, Dodaj kontakt)
+Na mobile 4 przyciski + view toggle próbują zmieścić się w jednym rzędzie. `flex-wrap` pomaga ale wygląda chaotycznie.
 
-**Wiersz kontaktu (linie 141-223):**
-- Zmienić layout na `flex flex-col` na mobile zamiast `flex items-center justify-between`
-- Nazwa + badge'e w górnym wierszu
-- Email/telefon/data w osobnym wierszu z `truncate` i `overflow-hidden`
-- Przyciski akcji przeniesione do osobnego rzędu pod danymi z wcięciem `pl-0 sm:pl-0`
+**Rozwiązanie:** 
+- Na mobile ukryć tekst w przyciskach "Filtry" i "Eksport" — zostawić tylko ikony
+- "Dodaj kontakt" skrócić do ikony `+` na mobile
+- Użyć `<span className="hidden sm:inline ml-2">` dla etykiet
 
-**Dane kontaktowe (linie 173-179):**
-- Zmienić z `flex items-center gap-3` na `flex flex-col sm:flex-row` — na mobile jedno pod drugim
-- Dodać `truncate` na email
+### 3. Tytuł kardy "Kontakty prywatne" + opis
+Na 390px tytuł i opis zajmują za dużo miejsca obok przycisków.
 
-### 2. `TeamContactAccordion.tsx` — audyt potwierdza OK
+**Rozwiązanie:** Zmienić `flex items-center justify-between` na `flex flex-col sm:flex-row` w CardHeader — na mobile stos pionowy.
 
-Ten komponent już ma poprawki mobile (`flex flex-col`, `pl-[52px]`, `truncate`, `max-w-[160px]`). Drobne usprawnienia:
-- Sprawdzić czy `max-w-[160px]` na nazwisku nie jest za małe — zwiększyć do `max-w-[200px]`
+## Plik do edycji
 
-### 3. `TeamContactsTab.tsx` — nawigacja sub-tabów
-
-Przyciski sub-tabów ("Z zaproszeń na BO", "Z zaproszeń na HC", etc.) na mobile mogą się ściskać:
-- Upewnić się że kontener ma `flex-wrap` i `gap-2` (sprawdzić obecny stan)
-
-## Podsumowanie zmian
-
-| Plik | Zmiana |
-|------|--------|
-| `EventGroupedContacts.tsx` | Przebudowa layoutu kontaktu i nagłówka na mobile-first (flex-col → sm:flex-row) |
-| `TeamContactAccordion.tsx` | Drobna korekta max-w na nazwisku |
-| `TeamContactsTab.tsx` | Weryfikacja flex-wrap na sub-nawigacji (jeśli brakuje) |
+`src/components/team-contacts/TeamContactsTab.tsx`:
+- Linie 274-328: Header z tytułem i przyciskami → mobile-first layout
+- Linie 341-395: Sub-taby → skrócone etykiety na mobile
 
