@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import SessionTimer from '@/components/SessionTimer';
