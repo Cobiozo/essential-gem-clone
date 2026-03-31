@@ -69,7 +69,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-2 sm:gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-4 lg:px-6">
       {/* Left side - Sidebar trigger and title */}
       <div className="flex items-center gap-4">
         <SidebarTrigger className="-ml-1" />
