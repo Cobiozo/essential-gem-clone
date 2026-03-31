@@ -403,10 +403,11 @@ serve(async (req) => {
     if (termOccurrenceIndex !== null && event.occurrences) {
       const occs = Array.isArray(event.occurrences) ? event.occurrences : [];
       if (occs.length > 1) {
+        const beforeCount = guests.length;
         guests = guests.filter(g =>
-          g.occurrence_index === termOccurrenceIndex ||
-          g.occurrence_index === null // legacy: no occurrence info = all occurrences
+          g.occurrence_index === termOccurrenceIndex
         );
+        console.log(`[bulk-reminders] Guest filtering for occurrence ${termOccurrenceIndex}: ${beforeCount} total → ${guests.length} matched, ${beforeCount - guests.length} filtered out`);
       }
     }
 
