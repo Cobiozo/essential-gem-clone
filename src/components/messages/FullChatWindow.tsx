@@ -109,9 +109,19 @@ export const FullChatWindow = ({
               🔒 Zamknięta
             </span>
           )}
-          <Button variant="ghost" size="icon">
-            <Search className="h-4 w-4" />
-          </Button>
+          {/* Conversation actions menu */}
+          {directMember && onDeleteConversation && onArchiveConversation && onBlockUser && onUnblockUser && (
+            <ConversationActions
+              otherUserId={directMember.userId}
+              otherUserName={`${directMember.firstName} ${directMember.lastName}`}
+              isArchived={isConversationArchived}
+              isBlocked={isConversationBlocked}
+              onDelete={onDeleteConversation}
+              onArchive={onArchiveConversation}
+              onBlock={onBlockUser}
+              onUnblock={onUnblockUser}
+            />
+          )}
         </div>
       </header>
 
