@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<AutoWebinarCategory, string> = {
 
 const CategoryColumn: React.FC<{ category: AutoWebinarCategory; isOpen: boolean; onOpenChange: (open: boolean) => void }> = ({ category, isOpen, onOpenChange }) => {
   const { config, loading: configLoading } = useAutoWebinarConfig(category);
-  const { profile } = useAuth();
+  const { profile, isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const isMobile = useIsMobile();
