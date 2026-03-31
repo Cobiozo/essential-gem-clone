@@ -15,6 +15,10 @@ interface FullChatWindowProps {
   loading: boolean;
   onSend: (content: string, messageType?: string, attachmentUrl?: string, attachmentName?: string) => Promise<boolean>;
   onBack: () => void;
+  // Admin conversation props
+  isAdmin?: boolean;
+  adminConversationStatus?: string | null;
+  onCloseConversation?: () => void;
 }
 
 export const FullChatWindow = ({
