@@ -62,11 +62,19 @@ const MessagesPage = () => {
   // Handle ?user= URL parameter for notification deep-linking
   useEffect(() => {
     const userId = searchParams.get('user');
-    if (userId && teamMembers.length > 0) {
+    if (!userId || !user) return;
+    
+    const adminConv = adminConversations.find(c => c.userId === userId);
+    if (adminConv) {
+      handleAdminSelectUser(userId);
+    } else if (teamMembers.length > 0) {
       handleSelectDirectMember(userId);
-      setSearchParams({}, { replace: true });
+    } else {
+      selectDirectMember(userId);
+      setMobileView('chat');
     }
-  }, [searchParams, teamMembers]);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, user, teamMembers, adminConversations]);
 
   // Fetch conversation status when direct user changes
   useEffect(() => {
@@ -180,26 +188,23 @@ const MessagesPage = () => {
   // Build selected direct member - for admin, might not be in teamMembers
   const effectiveDirectMember = useMemo(() => {
     if (!selectedDirectUserId) return null;
-    // First check standard sources
     if (selectedDirectMember) return selectedDirectMember;
-    // For admin: check admin conversations for profile info
-    if (isAdmin) {
-      const conv = adminConversations.find(c => c.userId === selectedDirectUserId);
-      if (conv) {
-        return {
-          userId: conv.userId,
-          firstName: conv.firstName,
-          lastName: conv.lastName,
-          role: conv.role,
-          eqId: null,
-          avatarUrl: conv.avatarUrl,
-          isUpline: false,
-          level: 0,
-        };
-      }
+    // Check admin conversations for profile info (works for both admin and user side)
+    const conv = adminConversations.find(c => c.userId === selectedDirectUserId);
+    if (conv) {
+      return {
+        userId: conv.userId,
+        firstName: conv.firstName,
+        lastName: conv.lastName,
+        role: conv.role,
+        eqId: null,
+        avatarUrl: conv.avatarUrl,
+        isUpline: false,
+        level: 0,
+      };
     }
     return null;
-  }, [selectedDirectUserId, selectedDirectMember, isAdmin, adminConversations]);
+  }, [selectedDirectUserId, selectedDirectMember, adminConversations]);
 
   return (
     <div className="h-screen flex flex-col bg-background">
