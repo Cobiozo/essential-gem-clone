@@ -177,6 +177,14 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
                 {tf('nav.toolPanel', 'Panel narzędziowy')}
               </DropdownMenuItem>
             </CacheManagementDialog>
+            {/* Mobile-only: items hidden from topbar */}
+            <div className="sm:hidden">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}>
+                <HelpCircle className="mr-2 h-4 w-4" />
+                {tf('nav.tutorial', 'Samouczek')}
+              </DropdownMenuItem>
+            </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
