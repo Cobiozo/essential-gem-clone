@@ -172,6 +172,12 @@ type RegistrationFormData = {
   email_consent: boolean;
 };
 
+interface EventOccurrenceData {
+  date: string;
+  time: string;
+  duration_minutes: number;
+}
+
 interface EventData {
   id: string;
   title: string;
@@ -187,6 +193,7 @@ interface EventData {
   is_published: boolean;
   event_type: string | null;
   slug: string | null;
+  occurrences: EventOccurrenceData[] | null;
 }
 
 // UUID validation helper
@@ -238,6 +245,7 @@ const EventGuestRegistration: React.FC = () => {
   const [autoWebinarConfig, setAutoWebinarConfig] = useState<AutoWebinarSlotConfig | null>(null);
   const [autoWebinarVideo, setAutoWebinarVideo] = useState<AutoWebinarVideoData | null>(null);
   const [autoWebinarCategory, setAutoWebinarCategory] = useState<string | null>(null);
+  const [selectedOccurrenceIndex, setSelectedOccurrenceIndex] = useState<number | null>(null);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -262,7 +270,7 @@ const EventGuestRegistration: React.FC = () => {
         console.log('Fetching event with ID:', eventId);
         const { data, error } = await supabase
           .from('events')
-          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type, slug')
+          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type, slug, occurrences')
           .eq('id', eventId)
           .eq('is_active', true)
           .single();
@@ -272,7 +280,10 @@ const EventGuestRegistration: React.FC = () => {
           throw error;
         }
         console.log('Event fetched successfully:', data?.title);
-        setEvent(data);
+        setEvent({
+          ...data,
+          occurrences: Array.isArray(data.occurrences) ? data.occurrences as unknown as EventOccurrenceData[] : null,
+        });
       } catch (err: any) {
         console.error('Error fetching event:', err?.message || err);
         setError(`${labels.notFound} (${err?.code || 'unknown'})`);
@@ -337,6 +348,18 @@ const EventGuestRegistration: React.FC = () => {
         ? resolvedSlot.time
         : null;
 
+      // Determine occurrence date/time for standard multi-occurrence events
+      const occs = event?.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+      const isMultiOccurrence = !isAutoWebinar && occs.length > 1;
+      const selectedOcc = isMultiOccurrence && selectedOccurrenceIndex !== null ? occs[selectedOccurrenceIndex] : null;
+      const occurrenceDate = selectedOcc ? selectedOcc.date : null;
+      const occurrenceTime = selectedOcc ? selectedOcc.time : null;
+
+      // For single-occurrence standard events, use the first occurrence if available
+      const singleOcc = !isMultiOccurrence && occs.length === 1 ? occs[0] : null;
+      const finalOccDate = occurrenceDate || (singleOcc ? singleOcc.date : null);
+      const finalOccTime = occurrenceTime || (singleOcc ? singleOcc.time : null);
+
       // Use RPC for atomic registration with attempt counting
       const { data: rpcResult, error: rpcError } = await supabase.rpc('register_event_guest', {
         p_event_id: eventId,
@@ -347,13 +370,24 @@ const EventGuestRegistration: React.FC = () => {
         p_invited_by: invitedBy || null,
         p_source: 'webinar_form',
         p_slot_time: slotTimeValue,
-      });
+        p_occurrence_date: finalOccDate,
+        p_occurrence_time: finalOccTime,
+      } as any);
 
       if (rpcError) throw rpcError;
 
       if ((rpcResult as any)?.status === 'already_registered') {
         setAlreadyRegistered(true);
         return;
+      }
+
+      // Determine the correct eventDate for confirmation email
+      let confirmationEventDate = event?.start_time;
+      if (selectedOcc) {
+        // Use the specific occurrence date/time for the email
+        confirmationEventDate = `${selectedOcc.date}T${selectedOcc.time}:00`;
+      } else if (singleOcc) {
+        confirmationEventDate = `${singleOcc.date}T${singleOcc.time}:00`;
       }
 
       try {
@@ -369,7 +403,8 @@ const EventGuestRegistration: React.FC = () => {
             phone: data.phone,
             invitedByUserId: invitedBy,
             eventTitle: event?.title,
-            eventDate: event?.start_time,
+            eventDate: confirmationEventDate,
+            eventTime: occurrenceTime || undefined,
             eventHost: autoWebinarVideo?.host_name || event?.host_name,
             // Auto-webinar specific
             isAutoWebinar,
@@ -711,25 +746,64 @@ const EventGuestRegistration: React.FC = () => {
                     );
                   })()}
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">{format(startDate, 'PPPP', { locale: dateLocale })}</p>
+              ) : (() => {
+                const occs = event.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+                const futureOccs = occs.map((occ, idx) => {
+                  const occDate = new Date(`${occ.date}T${occ.time}:00`);
+                  return { ...occ, idx, dateObj: occDate, isPast: occDate < new Date() };
+                }).filter(o => !o.isPast);
+
+                if (futureOccs.length > 1) {
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-foreground mb-2">Wybierz termin:</p>
+                      {futureOccs.map((occ) => (
+                        <button
+                          key={occ.idx}
+                          type="button"
+                          onClick={() => setSelectedOccurrenceIndex(occ.idx)}
+                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                            selectedOccurrenceIndex === occ.idx
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Calendar className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium">{format(occ.dateObj, 'PPPP', { locale: dateLocale })}</p>
+                              <p className="text-sm text-muted-foreground">{occ.time} • {occ.duration_minutes} min</p>
+                            </div>
+                            {selectedOccurrenceIndex === occ.idx && (
+                              <Check className="h-5 w-5 text-primary ml-auto" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">
-                        {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
-                        {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
-                      </p>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">{format(startDate, 'PPPP', { locale: dateLocale })}</p>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">
+                          {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+                          {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
               {/* Show host from video data for auto-webinar, or from event */}
               {(isAutoWebinar && autoWebinarVideo?.host_name) ? (
                 <div className="flex items-center gap-3">
@@ -900,7 +974,7 @@ const EventGuestRegistration: React.FC = () => {
                         </div>
                       )}
 
-                      <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+                      <Button type="submit" className="w-full" size="lg" disabled={submitting || (event.occurrences && Array.isArray(event.occurrences) && event.occurrences.filter((o: any) => new Date(`${o.date}T${o.time}:00`) > new Date()).length > 1 && selectedOccurrenceIndex === null)}>
                         {submitting ? (
                           <>
                              <LoadingSpinner className="mr-2 h-4 w-4" />

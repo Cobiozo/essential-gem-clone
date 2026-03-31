@@ -15,6 +15,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { TeamContact } from './types';
 
+interface EventOccurrence {
+  date: string;
+  time: string;
+  duration_minutes: number;
+}
+
 interface UpcomingEvent {
   id: string;
   title: string;
@@ -23,6 +29,7 @@ interface UpcomingEvent {
   event_type: string;
   host_name: string | null;
   image_url: string | null;
+  occurrences: EventOccurrence[] | null;
 }
 
 interface InviterProfile {
@@ -54,6 +61,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const [altEmailEventId, setAltEmailEventId] = useState<string | null>(null);
   const [altEmailValue, setAltEmailValue] = useState('');
   const [sendingAltEmail, setSendingAltEmail] = useState(false);
+  const [selectedOccurrences, setSelectedOccurrences] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!open || !user) return;
@@ -69,14 +77,17 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, start_time, end_time, event_type, host_name, image_url')
+        .select('id, title, start_time, end_time, event_type, host_name, image_url, occurrences')
         .eq('is_active', true)
         .eq('allow_invites', true)
         .gt('start_time', new Date().toISOString())
         .order('start_time', { ascending: true });
 
       if (error) throw error;
-      setEvents(data || []);
+      setEvents((data || []).map((e: any) => ({
+        ...e,
+        occurrences: Array.isArray(e.occurrences) ? e.occurrences as EventOccurrence[] : null,
+      })));
     } catch (error) {
       console.error('Error fetching events:', error);
     } finally {
@@ -130,9 +141,12 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     };
   };
 
-  const sendConfirmationEmail = async (event: UpcomingEvent, email: string, firstName: string, lastName: string, phoneNumber: string) => {
+  const sendConfirmationEmail = async (event: UpcomingEvent, email: string, firstName: string, lastName: string, phoneNumber: string, occDate?: string | null, occTime?: string | null) => {
     if (!user || !inviterProfile) return;
-    const { formattedTime } = formatEventDateTime(event.start_time);
+    
+    // Use occurrence date/time if available, otherwise fall back to event start_time
+    const eventDateToUse = occDate && occTime ? `${occDate}T${occTime}:00` : event.start_time;
+    const { formattedTime } = formatEventDateTime(eventDateToUse);
 
     await supabase.functions.invoke('send-webinar-confirmation', {
       body: {
@@ -142,8 +156,8 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         phoneNumber,
         eventId: event.id,
         eventTitle: event.title,
-        eventDate: event.start_time,
-        eventTime: formattedTime,
+        eventDate: eventDateToUse,
+        eventTime: occTime || formattedTime,
         eventHost: event.host_name || 'Zespół Pure Life',
         imageUrl: event.image_url || '',
         invitedByUserId: user.id,
@@ -172,6 +186,17 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const handleInvite = async (event: UpcomingEvent) => {
     if (!user || !contact.email || !inviterProfile) return;
 
+    // Determine occurrence data
+    const occs = event.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+    const futureOccs = occs.filter(o => new Date(`${o.date}T${o.time}:00`) > new Date());
+    const selectedIdx = selectedOccurrences[event.id];
+    const selectedOcc = futureOccs.length > 1 && selectedIdx !== undefined ? occs[selectedIdx] : (futureOccs.length === 1 ? futureOccs[0] : null);
+
+    if (futureOccs.length > 1 && selectedIdx === undefined) {
+      // User needs to select a term first
+      return;
+    }
+
     setSending(event.id);
     try {
       const { error: rpcError } = await supabase.rpc('register_event_guest', {
@@ -183,11 +208,13 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         p_invited_by: user.id,
         p_source: 'partner_invite',
         p_slot_time: null,
-      });
+        p_occurrence_date: selectedOcc?.date || null,
+        p_occurrence_time: selectedOcc?.time || null,
+      } as any);
 
       if (rpcError) throw rpcError;
 
-      await sendConfirmationEmail(event, contact.email, contact.first_name, contact.last_name || '', contact.phone_number || '');
+      await sendConfirmationEmail(event, contact.email, contact.first_name, contact.last_name || '', contact.phone_number || '', selectedOcc?.date, selectedOcc?.time);
 
       await logToHistory('event_invite', {
         event_title: event.title,
@@ -340,6 +367,11 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
             {events.map((event) => {
               const { formattedDate, formattedTime } = formatEventDateTime(event.start_time);
               const alreadyInvited = invitedEventIds.has(event.id);
+              const occs = event.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+              const futureOccs = occs.filter(o => new Date(`${o.date}T${o.time}:00`) > new Date());
+              const isMultiOcc = futureOccs.length > 1;
+              const selectedOccIdx = selectedOccurrences[event.id];
+              const needsOccSelection = isMultiOcc && selectedOccIdx === undefined;
 
               return (
                 <div
@@ -352,15 +384,17 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
                         <span className="font-medium text-foreground">{event.title}</span>
                         {getEventTypeBadge(event.event_type)}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        📅 {formattedDate} • {formattedTime}
-                      </p>
+                      {!isMultiOcc && (
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          📅 {formattedDate} • {formattedTime}
+                        </p>
+                      )}
                     </div>
                     {!alreadyInvited && (
                       <Button
                         size="sm"
                         onClick={() => handleInvite(event)}
-                        disabled={sending === event.id || !contact.email}
+                        disabled={sending === event.id || !contact.email || needsOccSelection}
                       >
                         {sending === event.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -371,6 +405,32 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
                       </Button>
                     )}
                   </div>
+
+                  {/* Occurrence picker for multi-occurrence events */}
+                  {isMultiOcc && !alreadyInvited && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-muted-foreground">Wybierz termin:</p>
+                      {futureOccs.map((occ) => {
+                        const occIdx = occs.indexOf(occ);
+                        const occDate = new Date(`${occ.date}T${occ.time}:00`);
+                        const isSelected = selectedOccIdx === occIdx;
+                        return (
+                          <button
+                            key={occIdx}
+                            type="button"
+                            onClick={() => setSelectedOccurrences(prev => ({ ...prev, [event.id]: occIdx }))}
+                            className={`w-full text-left px-3 py-1.5 rounded text-sm border transition-colors ${
+                              isSelected
+                                ? 'border-primary bg-primary/10 text-foreground'
+                                : 'border-border hover:bg-muted/50 text-muted-foreground'
+                            }`}
+                          >
+                            📅 {occDate.toLocaleDateString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric' })} • {occ.time}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {alreadyInvited && (
                     <div className="mt-2 space-y-2">

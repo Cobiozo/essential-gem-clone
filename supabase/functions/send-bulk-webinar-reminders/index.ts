@@ -392,22 +392,30 @@ serve(async (req) => {
     // ==========================================
     let guestQuery = supabase
       .from("guest_event_registrations")
-      .select("id, email, first_name, last_name, occurrence_index")
+      .select("id, email, first_name, last_name, occurrence_index, occurrence_date, occurrence_time")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
     const { data: allGuests, error: guestsError } = await guestQuery;
 
-    // For cyclic events, filter guests by occurrence_index (same logic as users)
+    // For cyclic events, filter guests by occurrence_date/occurrence_time (stable snapshots)
     let guests = allGuests || [];
     if (termOccurrenceIndex !== null && event.occurrences) {
       const occs = Array.isArray(event.occurrences) ? event.occurrences : [];
       if (occs.length > 1) {
-        const beforeCount = guests.length;
-        guests = guests.filter(g =>
-          g.occurrence_index === termOccurrenceIndex
-        );
-        console.log(`[bulk-reminders] Guest filtering for occurrence ${termOccurrenceIndex}: ${beforeCount} total → ${guests.length} matched, ${beforeCount - guests.length} filtered out`);
+        const targetOcc = occs[termOccurrenceIndex];
+        if (targetOcc) {
+          const targetDate = targetOcc.date;
+          const targetTime = targetOcc.time;
+          const beforeCount = guests.length;
+          guests = guests.filter((g: any) =>
+            // Match by stable date+time snapshot (preferred)
+            (g.occurrence_date === targetDate && g.occurrence_time === targetTime) ||
+            // Fallback: legacy index-only match (no date stored)
+            (g.occurrence_date === null && g.occurrence_index === termOccurrenceIndex)
+          );
+          console.log(`[bulk-reminders] Guest filtering for occurrence ${termOccurrenceIndex} (${targetDate} ${targetTime}): ${beforeCount} total → ${guests.length} matched, ${beforeCount - guests.length} filtered out`);
+        }
       }
     }
 
