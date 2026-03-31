@@ -974,7 +974,7 @@ const EventGuestRegistration: React.FC = () => {
                         </div>
                       )}
 
-                      <Button type="submit" className="w-full" size="lg" disabled={submitting}>
+                      <Button type="submit" className="w-full" size="lg" disabled={submitting || (event.occurrences && Array.isArray(event.occurrences) && event.occurrences.filter((o: any) => new Date(`${o.date}T${o.time}:00`) > new Date()).length > 1 && selectedOccurrenceIndex === null)}>
                         {submitting ? (
                           <>
                              <LoadingSpinner className="mr-2 h-4 w-4" />
