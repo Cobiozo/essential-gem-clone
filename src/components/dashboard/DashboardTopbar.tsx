@@ -126,7 +126,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         {/* User dropdown */}
         <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-tour="user-avatar">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full flex-shrink-0" data-tour="user-avatar">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={avatarUrl} alt={fullName} />
                 <AvatarFallback className="bg-primary/10 text-primary text-sm">
