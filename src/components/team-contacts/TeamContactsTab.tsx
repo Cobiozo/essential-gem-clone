@@ -271,17 +271,17 @@ export const TeamContactsTab: React.FC = () => {
         <TabsContent value="private">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UserPlus className="w-5 h-5" />
                     Kontakty prywatne
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">
                     Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   {/* View Toggle */}
                   <div className="flex border rounded-md overflow-hidden">
                     <Button
@@ -308,21 +308,23 @@ export const TeamContactsTab: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowFilters(!showFilters)}
+                    title="Filtry"
                   >
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filtry
+                    <Filter className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Filtry</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowExport(true)}
+                    title="Eksport"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Eksport
+                    <Download className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Eksport</span>
                   </Button>
-                  <Button size="sm" onClick={() => setShowForm(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Dodaj kontakt
+                  <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
+                    <Plus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Dodaj kontakt</span>
                   </Button>
                 </div>
               </div>
@@ -338,47 +340,52 @@ export const TeamContactsTab: React.FC = () => {
                 </div>
               )}
               {/* Sub-tabs for private contacts */}
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap">
                 <Button
                   variant={privateSubTab === 'own' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('own')}
                 >
-                  Moja lista kontaktów
-                  <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
+                  <span className="sm:hidden">Moja lista</span>
+                  <span className="hidden sm:inline">Moja lista kontaktów</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{ownContacts.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'events-bo' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('events-bo')}
                 >
-                  Z zaproszeń na Business Opportunity
-                  <Badge variant="secondary" className="ml-2">{eventContactsBO.length}</Badge>
+                  <span className="sm:hidden">BO</span>
+                  <span className="hidden sm:inline">Z zaproszeń na Business Opportunity</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsBO.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'events-hc' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('events-hc')}
                 >
-                  Z zaproszeń na Health Conversation
-                  <Badge variant="secondary" className="ml-2">{eventContactsHC.length}</Badge>
+                  <span className="sm:hidden">HC</span>
+                  <span className="hidden sm:inline">Z zaproszeń na Health Conversation</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsHC.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'events-general' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('events-general')}
                 >
-                  Z zaproszeń na webinary ogólne
-                  <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                  <span className="sm:hidden">Webinary</span>
+                  <span className="hidden sm:inline">Z zaproszeń na webinary ogólne</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsGeneral.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('partner-page')}
                 >
-                  Z Mojej Strony Partnera
+                  <span className="sm:hidden">Strona</span>
+                  <span className="hidden sm:inline">Z Mojej Strony Partnera</span>
                   {partnerPageContacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
+                    <Badge variant="secondary" className="ml-1.5 sm:ml-2">{partnerPageContacts.length}</Badge>
                   )}
                 </Button>
                 <Button
@@ -389,7 +396,7 @@ export const TeamContactsTab: React.FC = () => {
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
                   Usunięte
                   {deletedContacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">{deletedContacts.length}</Badge>
+                    <Badge variant="secondary" className="ml-1.5 sm:ml-2">{deletedContacts.length}</Badge>
                   )}
                 </Button>
               </div>
