@@ -15,6 +15,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { TeamContact } from './types';
 
+interface EventOccurrence {
+  date: string;
+  time: string;
+  duration_minutes: number;
+}
+
 interface UpcomingEvent {
   id: string;
   title: string;
@@ -23,6 +29,7 @@ interface UpcomingEvent {
   event_type: string;
   host_name: string | null;
   image_url: string | null;
+  occurrences: EventOccurrence[] | null;
 }
 
 interface InviterProfile {
