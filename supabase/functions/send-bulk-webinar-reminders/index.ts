@@ -403,10 +403,11 @@ serve(async (req) => {
     if (termOccurrenceIndex !== null && event.occurrences) {
       const occs = Array.isArray(event.occurrences) ? event.occurrences : [];
       if (occs.length > 1) {
+        const beforeCount = guests.length;
         guests = guests.filter(g =>
-          g.occurrence_index === termOccurrenceIndex ||
-          g.occurrence_index === null // legacy: no occurrence info = all occurrences
+          g.occurrence_index === termOccurrenceIndex
         );
+        console.log(`[bulk-reminders] Guest filtering for occurrence ${termOccurrenceIndex}: ${beforeCount} total → ${guests.length} matched, ${beforeCount - guests.length} filtered out`);
       }
     }
 
@@ -439,14 +440,14 @@ serve(async (req) => {
         if (targetOcc) {
           const targetDate = targetOcc.date;
           const targetTime = targetOcc.time;
+          const beforeUserCount = relevantUserRegs.length;
           relevantUserRegs = relevantUserRegs.filter(r =>
             // Match by stable date+time snapshot
             (r.occurrence_date === targetDate && r.occurrence_time === targetTime) ||
             // Fallback: legacy index-only match (no date stored)
-            (r.occurrence_date === null && r.occurrence_index === termOccurrenceIndex) ||
-            // No occurrence info = single event registration (legacy)
-            r.occurrence_index === null
+            (r.occurrence_date === null && r.occurrence_index === termOccurrenceIndex)
           );
+          console.log(`[bulk-reminders] User reg filtering for occurrence ${termOccurrenceIndex} (${targetDate} ${targetTime}): ${beforeUserCount} total → ${relevantUserRegs.length} matched, ${beforeUserCount - relevantUserRegs.length} filtered out`);
         }
       }
       // Single occurrence: take all registered users (no index filtering)
