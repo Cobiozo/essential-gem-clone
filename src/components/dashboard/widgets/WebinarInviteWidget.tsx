@@ -258,7 +258,7 @@ ${labels.signUp}: ${inviteUrl}`.trim();
         {/* Actions */}
         {selectedSlot && (
           <div className="flex items-center gap-2 pt-1">
-            <InvitationLanguageSelect value={inviteLang} onChange={setInviteLang} />
+            <InvitationLanguageSelect value={inviteLang} onValueChange={setInviteLang} />
             <Button
               size="sm"
               variant="default"
