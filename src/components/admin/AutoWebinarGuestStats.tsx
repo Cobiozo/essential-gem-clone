@@ -576,15 +576,23 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Ładowanie...</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Ładowanie...</TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Brak zarejestrowanych gości</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Brak zarejestrowanych gości</TableCell>
                   </TableRow>
                 ) : (
                   filtered.map(g => (
                     <TableRow key={g.id} className={g.status === 'cancelled' ? 'opacity-50' : ''}>
+                      <TableCell>
+                        {g.status !== 'cancelled' && (
+                          <Checkbox
+                            checked={selectedIds.has(g.id)}
+                            onCheckedChange={() => toggleSelectOne(g.id)}
+                          />
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{g.first_name} {g.last_name || ''}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{g.email}</TableCell>
                       <TableCell className="text-sm">
