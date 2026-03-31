@@ -269,7 +269,7 @@ const EventGuestRegistration: React.FC = () => {
         console.log('Fetching event with ID:', eventId);
         const { data, error } = await supabase
           .from('events')
-          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type, slug')
+          .select('id, title, description, start_time, end_time, image_url, host_name, zoom_link, location, duration_minutes, is_active, is_published, event_type, slug, occurrences')
           .eq('id', eventId)
           .eq('is_active', true)
           .single();
