@@ -172,6 +172,12 @@ type RegistrationFormData = {
   email_consent: boolean;
 };
 
+interface EventOccurrenceData {
+  date: string;
+  time: string;
+  duration_minutes: number;
+}
+
 interface EventData {
   id: string;
   title: string;
@@ -187,6 +193,7 @@ interface EventData {
   is_published: boolean;
   event_type: string | null;
   slug: string | null;
+  occurrences: EventOccurrenceData[] | null;
 }
 
 // UUID validation helper
