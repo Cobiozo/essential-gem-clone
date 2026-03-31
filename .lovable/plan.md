@@ -1,27 +1,62 @@
 
 
-# Bulk selection and deletion for auto-webinar guest list
+# Widżet "Zaproś na Webinar" — Dashboard
 
-## Changes to `src/components/admin/AutoWebinarGuestStats.tsx`
+## Cel
+Nowy widżet full-width na dashboardzie, tuż pod WelcomeWidget, umożliwiający partnerom szybkie pozyskanie terminu auto-webinaru i wysłanie zaproszenia do gościa. Dwie kolumny: Business Opportunity i Health Conversation.
 
-### New state
-- `selectedIds: Set<string>` — tracks checked guest IDs
-- `showBulkDeleteDialog: boolean` — controls bulk delete confirmation
+## Lokalizacja
+Poniżej `<WelcomeWidget />`, powyżej siatki 3-kolumnowej. Full-width z ikoną LIVE i pulsującą czerwoną kropką.
 
-### UI additions
+## Wygląd i zachowanie
 
-1. **Checkbox column** — new first column in table header with "select all" checkbox (toggles all visible filtered guests), and per-row checkboxes
-2. **Bulk action bar** — appears above table when `selectedIds.size > 0`, showing count of selected items and a "Usuń zaznaczonych" (Delete selected) button with Trash2 icon
-3. **Bulk delete dialog** — AlertDialog confirming deletion of N selected guests
+```text
+┌──────────────────────────────────────────────────────────┐
+│ 🔴 LIVE  Zaproś gościa na webinar                       │
+├────────────────────────────┬─────────────────────────────┤
+│ ▼ Business Opportunity     │ ▼ Health Conversation       │
+│   (kliknij aby rozwinąć)   │   (kliknij aby rozwinąć)   │
+│                            │                             │
+│  Dziś | Jutro | Pojutrze   │  Dziś | Jutro | Pojutrze   │
+│  09:00  10:00  11:00 ...   │  09:00  10:00  11:00 ...   │
+│  [wybierz slot]            │  [wybierz slot]             │
+│                            │                             │
+│  🇵🇱 [📋 Kopiuj zaproszenie] │  🇵🇱 [📋 Kopiuj zaproszenie] │
+│       [📤 Udostępnij]      │       [📤 Udostępnij]       │
+└────────────────────────────┴─────────────────────────────┘
+```
 
-### Logic
-- `handleBulkDelete()` — loops through `selectedIds`, updates each to `status: 'cancelled'` via single Supabase `.in('id', [...selectedIds])` update call, then refreshes and clears selection
-- "Select all" checkbox selects/deselects only currently filtered non-cancelled guests
-- Selection clears when filters change (via useEffect on filtered)
-- ColSpan values updated from 8 to 9 for empty/loading states
+- Obie kolumny domyślnie zwinięte (Collapsible) — kliknięcie rozwija sloty
+- Na mobile: jedna kolumna (stack)
+- Sloty pobierane z `auto_webinar_config` per kategoria (reuse `useAutoWebinarConfig`)
+- Slot LIVE → pulsująca czerwona kropka + badge "LIVE", niedostępny do zaproszenia
+- Slot przeszły → wyszarzony, przekreślony
+- Po wybraniu slotu: przycisk "Kopiuj zaproszenie" + wybór języka (flagi)
+- Na mobile: przycisk "Udostępnij" → `navigator.share()` (SMS, WhatsApp, Messenger itd.)
+- Na desktop: przycisk kopiuje tekst zaproszenia do schowka
+- Widżet widoczny tylko dla partnerów, specjalistów i adminów (nie klientów)
+- Jeśli obie kategorie wyłączone (`is_enabled=false`), widżet się nie renderuje
 
-### File changes
-| File | Change |
+## Pliki do zmiany
+
+| Plik | Zmiana |
 |------|--------|
-| `src/components/admin/AutoWebinarGuestStats.tsx` | Add selection state, checkbox column, bulk action bar, bulk delete dialog |
+| `src/components/dashboard/widgets/WebinarInviteWidget.tsx` | **NOWY** — pełna logika widżetu z dwoma kolumnami BO/HC, sloty, kopiowanie, udostępnianie |
+| `src/pages/Dashboard.tsx` | Dodanie lazy importu + `<Suspense>` pod WelcomeWidget |
+
+## Szczegóły techniczne
+
+### `WebinarInviteWidget.tsx`
+- Używa `useAutoWebinarConfig('business_opportunity')` i `useAutoWebinarConfig('health_conversation')`
+- Pobiera `linkedEvent` (slug) per config via `config.event_id`
+- Logika slotów: reuse z `AutoWebinarEventView` (slot_hours, getSlotStatus, grouped by period)
+- Kopiowanie: `copyToClipboard()` + `getInvitationLabels()` + `getDateLocale()`
+- Udostępnianie (mobile): `navigator.share({ title, text, url })` z wykryciem `isMobileDevice()`
+- Widoczność: `useAuth()` → `isPartner || isAdmin || profile?.role === 'specjalista'`
+- Collapsible per kategoria z `Collapsible` z shadcn lub prosty `useState<boolean>`
+- Ikona LIVE w nagłówku z `Radio` + pulsująca kropka CSS `animate-pulse`
+
+### `Dashboard.tsx`
+- `const WebinarInviteWidget = lazy(() => import(...))`
+- Wstawiony między `<WelcomeWidget />` a `<div className="grid ...">` z `<Suspense fallback={<WidgetSkeleton />}>`
 
