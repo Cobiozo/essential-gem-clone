@@ -27,6 +27,10 @@ interface MessagesSidebarProps {
   selectedMembers?: Set<string>;
   onToggleSelection?: (userId: string) => void;
   onCreateGroupChat?: () => void;
+  // Admin conversation props
+  isAdmin?: boolean;
+  adminConversations?: AdminConversationUser[];
+  onAdminSelectUser?: (userId: string) => void;
 }
 
 export const MessagesSidebar = ({
