@@ -287,23 +287,28 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 
 const WebinarInviteWidget: React.FC = () => {
   const { isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
+  const [openCategory, setOpenCategory] = useState<AutoWebinarCategory | null>(null);
 
-  // Only for partners, specjalista, admins
   if (isClient && !isAdmin && !isPartner && !isSpecjalista) return null;
+
+  const handleOpenChange = (category: AutoWebinarCategory) => (open: boolean) => {
+    setOpenCategory(open ? category : null);
+  };
 
   return (
     <Card className="col-span-full border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
       <CardContent className="p-4 space-y-2">
-        {/* Header */}
-        <div className="flex items-center gap-2">
-          <Radio className="h-4 w-4 text-red-500" />
-          <h2 className="text-sm font-bold text-foreground">Zaproś gościa na webinar</h2>
+        <div className="flex flex-col items-center gap-1 py-1">
+          <div className="flex items-center gap-2">
+            <Radio className="h-5 w-5 text-red-500" />
+            <h2 className="text-base font-bold text-foreground">Zaproś Swojego Gościa na Live Webinar</h2>
+          </div>
+          <p className="text-xs text-muted-foreground">kliknij, wybierz webinar, dobierz termin i skopiuj zaproszenie</p>
         </div>
 
-        {/* Two columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <CategoryColumn category="business_opportunity" />
-          <CategoryColumn category="health_conversation" />
+          <CategoryColumn category="business_opportunity" isOpen={openCategory === 'business_opportunity'} onOpenChange={handleOpenChange('business_opportunity')} />
+          <CategoryColumn category="health_conversation" isOpen={openCategory === 'health_conversation'} onOpenChange={handleOpenChange('health_conversation')} />
         </div>
       </CardContent>
     </Card>
