@@ -61,6 +61,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const [altEmailEventId, setAltEmailEventId] = useState<string | null>(null);
   const [altEmailValue, setAltEmailValue] = useState('');
   const [sendingAltEmail, setSendingAltEmail] = useState(false);
+  const [selectedOccurrences, setSelectedOccurrences] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!open || !user) return;
