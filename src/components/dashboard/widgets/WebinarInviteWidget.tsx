@@ -293,8 +293,28 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 const WebinarInviteWidget: React.FC = () => {
   const { isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
   const [openCategory, setOpenCategory] = useState<AutoWebinarCategory | null>(null);
+  const [masterVisible, setMasterVisible] = useState<boolean | null>(null);
 
-  if (isClient && !isAdmin && !isPartner && !isSpecjalista) return null;
+  useEffect(() => {
+    const fetchVisibility = async () => {
+      const { data } = await supabase
+        .from('feature_visibility')
+        .select('visible_to_admin, visible_to_partner, visible_to_specjalista, visible_to_client')
+        .eq('feature_key', 'dashboard.webinar_invite')
+        .single();
+      if (!data) { setMasterVisible(true); return; }
+      const visible =
+        (isAdmin && data.visible_to_admin) ||
+        (isPartner && data.visible_to_partner) ||
+        (isSpecjalista && data.visible_to_specjalista) ||
+        (isClient && data.visible_to_client) ||
+        false;
+      setMasterVisible(visible);
+    };
+    fetchVisibility();
+  }, [isAdmin, isPartner, isSpecjalista, isClient]);
+
+  if (masterVisible === false) return null;
 
   const handleOpenChange = (category: AutoWebinarCategory) => (open: boolean) => {
     setOpenCategory(open ? category : null);
