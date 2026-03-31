@@ -64,7 +64,16 @@ export const MessagesSidebar = ({
   isAdmin = false,
   adminConversations = [],
   onAdminSelectUser,
+  onDeleteConversation,
+  onArchiveConversation,
+  onBlockUser,
+  onUnblockUser,
+  isConversationArchived,
+  isConversationBlocked,
+  archivedConversations = [],
+  archivedTeamMembers = [],
 }: MessagesSidebarProps) => {
+  const [showArchive, setShowArchive] = useState(false);
   // Separate outgoing (can send) and incoming (can receive) channels
   const outgoingChannels = channels.filter(c => c.canSend);
   const incomingChannels = channels.filter(c => c.canReceive);
