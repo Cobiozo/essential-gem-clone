@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { ArrowLeft, Search } from 'lucide-react';
+import { ArrowLeft, Search, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -15,6 +15,10 @@ interface FullChatWindowProps {
   loading: boolean;
   onSend: (content: string, messageType?: string, attachmentUrl?: string, attachmentName?: string) => Promise<boolean>;
   onBack: () => void;
+  // Admin conversation props
+  isAdmin?: boolean;
+  adminConversationStatus?: string | null;
+  onCloseConversation?: () => void;
 }
 
 export const FullChatWindow = ({
@@ -24,6 +28,9 @@ export const FullChatWindow = ({
   loading,
   onSend,
   onBack,
+  isAdmin = false,
+  adminConversationStatus,
+  onCloseConversation,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   
@@ -32,7 +39,9 @@ export const FullChatWindow = ({
     ? `${directMember.firstName} ${directMember.lastName}`
     : channel?.name || '';
   
-  const canSend = directMember ? true : channel?.canSend;
+  const canSend = adminConversationStatus === 'closed' 
+    ? false 
+    : directMember ? true : channel?.canSend;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -68,9 +77,28 @@ export const FullChatWindow = ({
           
           <h3 className="font-semibold text-foreground">{displayName}</h3>
         </div>
-        <Button variant="ghost" size="icon">
-          <Search className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Admin close conversation button */}
+          {isAdmin && directMember && adminConversationStatus === 'open' && onCloseConversation && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onCloseConversation}
+              className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1.5"
+            >
+              <XCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Zakończ konwersację</span>
+            </Button>
+          )}
+          {isAdmin && directMember && adminConversationStatus === 'closed' && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+              🔒 Zamknięta
+            </span>
+          )}
+          <Button variant="ghost" size="icon">
+            <Search className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       {/* Messages area */}
@@ -118,6 +146,12 @@ export const FullChatWindow = ({
       {/* Message input */}
       {canSend ? (
         <MessageInput onSend={onSend} />
+      ) : adminConversationStatus === 'closed' ? (
+        <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
+          <p className="text-sm text-muted-foreground">
+            🔒 Konwersacja została zamknięta przez administratora
+          </p>
+        </div>
       ) : (
         <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
           <p className="text-sm text-muted-foreground">

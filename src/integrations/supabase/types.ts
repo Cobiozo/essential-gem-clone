@@ -71,6 +71,33 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_conversations: {
+        Row: {
+          admin_user_id: string
+          closed_at: string | null
+          created_at: string | null
+          id: string
+          status: string
+          target_user_id: string
+        }
+        Insert: {
+          admin_user_id: string
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          target_user_id: string
+        }
+        Update: {
+          admin_user_id?: string
+          closed_at?: string | null
+          created_at?: string | null
+          id?: string
+          status?: string
+          target_user_id?: string
+        }
+        Relationships: []
+      }
       admin_media_library: {
         Row: {
           created_at: string | null

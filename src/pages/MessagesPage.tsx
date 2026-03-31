@@ -4,6 +4,7 @@ import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
+import { useAdminConversations } from '@/hooks/useAdminConversations';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { MessagesSidebar } from '@/components/messages/MessagesSidebar';
 import { FullChatWindow } from '@/components/messages/FullChatWindow';
@@ -25,8 +26,21 @@ const MessagesPage = () => {
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
   const [showGroupDialog, setShowGroupDialog] = useState(false);
 
+  // Admin conversation status for current chat
+  const [currentConvStatus, setCurrentConvStatus] = useState<string | null>(null);
+
   // Browser notifications
   const { permission, showNotification } = useBrowserNotifications();
+
+  // Admin conversations
+  const {
+    conversations: adminConversations,
+    isAdmin,
+    openConversation,
+    closeConversation,
+    getConversationStatus,
+    refetch: refetchAdminConv,
+  } = useAdminConversations();
 
   const {
     channels,
@@ -45,9 +59,6 @@ const MessagesPage = () => {
     createGroupChat,
   } = useUnifiedChat({ enableRealtime: true });
 
-  // REMOVED: Duplicate subscription - useUnifiedChat already handles realtime messages
-  // Browser notifications are handled via user_notifications table and service worker
-
   // Handle ?user= URL parameter for notification deep-linking
   useEffect(() => {
     const userId = searchParams.get('user');
@@ -56,6 +67,15 @@ const MessagesPage = () => {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, teamMembers]);
+
+  // Fetch conversation status when direct user changes
+  useEffect(() => {
+    if (selectedDirectUserId) {
+      getConversationStatus(selectedDirectUserId).then(setCurrentConvStatus);
+    } else {
+      setCurrentConvStatus(null);
+    }
+  }, [selectedDirectUserId, getConversationStatus]);
 
   const handleSelectChannel = (channelId: string) => {
     selectChannel(channelId);
@@ -67,6 +87,28 @@ const MessagesPage = () => {
     setMobileView('chat');
   };
 
+  // Admin: select user from search or conversation list
+  const handleAdminSelectUser = async (userId: string) => {
+    if (isAdmin) {
+      await openConversation(userId);
+    }
+    // For admin, we need to fetch the profile to create a TeamMemberChannel-like object
+    // selectDirectMember handles fetching messages
+    selectDirectMember(userId);
+    setMobileView('chat');
+    // Refresh conversation status
+    const status = await getConversationStatus(userId);
+    setCurrentConvStatus(status);
+  };
+
+  const handleCloseConversation = async () => {
+    if (!selectedDirectUserId || !isAdmin) return;
+    const success = await closeConversation(selectedDirectUserId);
+    if (success) {
+      setCurrentConvStatus('closed');
+    }
+  };
+
   const handleSendMessage = async (
     content: string,
     messageType: string = 'text',
@@ -74,6 +116,13 @@ const MessagesPage = () => {
     attachmentName?: string
   ): Promise<boolean> => {
     if (selectedDirectUserId) {
+      // For admin: ensure conversation is open before sending
+      if (isAdmin) {
+        await openConversation(selectedDirectUserId);
+        // Refresh status after opening
+        const status = await getConversationStatus(selectedDirectUserId);
+        setCurrentConvStatus(status);
+      }
       return sendDirectMessage(selectedDirectUserId, content, messageType, attachmentUrl, attachmentName);
     }
     return sendMessage(content);
@@ -95,7 +144,6 @@ const MessagesPage = () => {
   // Toggle selection mode
   const handleToggleSelectionMode = () => {
     if (selectionMode) {
-      // Exiting selection mode - clear selections
       setSelectedMembers(new Set());
     }
     setSelectionMode(!selectionMode);
@@ -129,14 +177,29 @@ const MessagesPage = () => {
       .map(m => `${m.firstName} ${m.lastName}`.trim());
   }, [teamMembers, selectedMembers]);
 
-  // Determine current chat context
-  const currentChatName = selectedDirectMember 
-    ? `${selectedDirectMember.firstName} ${selectedDirectMember.lastName}`
-    : selectedChannel?.name;
-  
-  const canSendInCurrentChat = selectedDirectMember 
-    ? true  // Direct messages always sendable
-    : selectedChannel?.canSend;
+  // Build selected direct member - for admin, might not be in teamMembers
+  const effectiveDirectMember = useMemo(() => {
+    if (!selectedDirectUserId) return null;
+    // First check standard sources
+    if (selectedDirectMember) return selectedDirectMember;
+    // For admin: check admin conversations for profile info
+    if (isAdmin) {
+      const conv = adminConversations.find(c => c.userId === selectedDirectUserId);
+      if (conv) {
+        return {
+          userId: conv.userId,
+          firstName: conv.firstName,
+          lastName: conv.lastName,
+          role: conv.role,
+          eqId: null,
+          avatarUrl: conv.avatarUrl,
+          isUpline: false,
+          level: 0,
+        };
+      }
+    }
+    return null;
+  }, [selectedDirectUserId, selectedDirectMember, isAdmin, adminConversations]);
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -179,6 +242,10 @@ const MessagesPage = () => {
           selectedMembers={selectedMembers}
           onToggleSelection={handleToggleSelection}
           onCreateGroupChat={() => setShowGroupDialog(true)}
+          // Admin conversation props
+          isAdmin={isAdmin}
+          adminConversations={adminConversations}
+          onAdminSelectUser={handleAdminSelectUser}
           className={cn(
             'w-80 border-r border-border shrink-0',
             'max-md:absolute max-md:inset-0 max-md:w-full max-md:z-10 max-md:bg-background',
@@ -191,14 +258,17 @@ const MessagesPage = () => {
           'flex-1 flex flex-col min-w-0',
           mobileView !== 'chat' && 'max-md:hidden'
         )}>
-          {(selectedChannel || selectedDirectMember) ? (
+          {(selectedChannel || effectiveDirectMember) ? (
             <FullChatWindow
               channel={selectedChannel}
-              directMember={selectedDirectMember}
+              directMember={effectiveDirectMember}
               messages={messages}
               loading={loading}
               onSend={handleSendMessage}
               onBack={() => setMobileView('list')}
+              isAdmin={isAdmin}
+              adminConversationStatus={currentConvStatus}
+              onCloseConversation={handleCloseConversation}
             />
           ) : (
             <EmptyState />

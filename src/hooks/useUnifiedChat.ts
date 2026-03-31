@@ -64,6 +64,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const [teamMembers, setTeamMembers] = useState<TeamMemberChannel[]>([]);
   const [upline, setUpline] = useState<TeamMemberChannel | null>(null);
   const [canBroadcast, setCanBroadcast] = useState(false);
+  const [adhocDirectMember, setAdhocDirectMember] = useState<TeamMemberChannel | null>(null);
 
   const enableRealtime = options?.enableRealtime ?? false;
   const currentRole = userRole?.role?.toLowerCase() || 'client';
@@ -376,12 +377,45 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     }
   }, [user, profile, currentRole]);
 
-  // Select direct message user
-  const selectDirectMember = useCallback((userId: string) => {
+  // Select direct message user (works for any user, not just team members)
+  const selectDirectMember = useCallback(async (userId: string) => {
     setSelectedChannelId(null);
     setSelectedDirectUserId(userId);
+    
+    // Check if user is in team members or upline
+    const inTeam = teamMembers.find(m => m.userId === userId);
+    const isUplineUser = upline?.userId === userId;
+    
+    if (!inTeam && !isUplineUser) {
+      // Fetch profile for unknown user (admin selecting any user)
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name, role, eq_id, avatar_url')
+          .eq('user_id', userId)
+          .single();
+        
+        if (profileData) {
+          setAdhocDirectMember({
+            userId: profileData.user_id,
+            firstName: profileData.first_name || '',
+            lastName: profileData.last_name || '',
+            role: profileData.role || 'client',
+            eqId: profileData.eq_id,
+            avatarUrl: profileData.avatar_url,
+            isUpline: false,
+            level: 0,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching profile for direct member:', err);
+      }
+    } else {
+      setAdhocDirectMember(null);
+    }
+    
     fetchDirectMessages(userId);
-  }, [fetchDirectMessages]);
+  }, [fetchDirectMessages, teamMembers, upline]);
 
   // Generate virtual channels based on user role
   const channels = useMemo((): UnifiedChannel[] => {
@@ -981,8 +1015,11 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const selectedDirectMember = useMemo(() => {
     if (!selectedDirectUserId) return null;
     if (upline?.userId === selectedDirectUserId) return upline;
-    return teamMembers.find(m => m.userId === selectedDirectUserId) || null;
-  }, [selectedDirectUserId, upline, teamMembers]);
+    const found = teamMembers.find(m => m.userId === selectedDirectUserId);
+    if (found) return found;
+    // Return adhoc member (fetched for admin conversations)
+    return adhocDirectMember;
+  }, [selectedDirectUserId, upline, teamMembers, adhocDirectMember]);
 
   return {
     channels,
