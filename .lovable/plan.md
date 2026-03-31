@@ -1,35 +1,15 @@
 
 
-# Dodanie widoczności i dat do dialogu edycji komunikatu
+# Naprawa błędu: `Cannot read properties of null (reading 'visible_to_clients')`
 
 ## Problem
-Dialog edycji komunikatu (`Edytuj komunikat`) nie ma sekcji widoczności (role/użytkownik), ani pól daty rozpoczęcia/zakończenia. Te opcje istnieją tylko w dialogu dodawania. Przez to nie można zmienić komu komunikat jest wyświetlany ani ustawić dat ważności po utworzeniu.
+Nowo dodana sekcja widoczności i dat w dialogu edycji odwołuje się do `editingItem.visible_to_clients` bez sprawdzenia czy `editingItem` nie jest `null`. Gdy dialog jest zamknięty, `editingItem` jest `null` i aplikacja się crashuje.
 
 ## Rozwiązanie
 
 ### Plik: `src/components/admin/NewsTickerManagement.tsx`
 
-Do dialogu edycji (linie 1204-1260, przed `DialogFooter`) dodać:
+Owinąć sekcję widoczności i dat (linie ~1263-1310) w warunek `{editingItem && (...)}`  — albo dodać optional chaining (`editingItem?.visible_to_clients`) do każdego odwołania.
 
-1. **Sekcja widoczności** — checkboxy ról (Klienci, Partnerzy, Specjaliści) identyczne jak w dialogu dodawania:
-```tsx
-<div className="space-y-3 p-4 border rounded-lg">
-  <Label>Widoczność dla</Label>
-  <div className="flex gap-4 pt-2">
-    <Checkbox checked={editingItem.visible_to_clients} ... /> Klienci
-    <Checkbox checked={editingItem.visible_to_partners} ... /> Partnerzy  
-    <Checkbox checked={editingItem.visible_to_specjalista} ... /> Specjaliści
-  </div>
-</div>
-```
-
-2. **Daty ważności** — pola start_date i end_date:
-```tsx
-<div className="grid grid-cols-2 gap-4">
-  <div><Label>Data od</Label><Input type="date" value={editingItem.start_date} /></div>
-  <div><Label>Data do</Label><Input type="date" value={editingItem.end_date} /></div>
-</div>
-```
-
-Funkcja `updateItem` już zapisuje te pola do bazy — wystarczy dodać UI do dialogu.
+Najprostsze podejście: cały blok widoczności i dat już jest wewnątrz `DialogContent`, który powinien renderować się tylko gdy `editingItem` istnieje. Trzeba sprawdzić czy dialog renderuje się warunkowo i dodać guard `editingItem &&` do sekcji widoczności/dat.
 
