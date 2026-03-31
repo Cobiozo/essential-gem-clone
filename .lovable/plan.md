@@ -1,36 +1,43 @@
 
 
-# Naprawa widoku kontaktów prywatnych na mobile — pozostałe problemy
+# Naprawa paska górnego (topbar) na mobile (390px)
 
-## Problemy widoczne na screenshocie (390px)
+## Problem
+Na ekranie 390px pasek górny jest przepełniony — 7+ ikon/przycisków ściska się w jednym rzędzie obok logo. Elementy nachodzą na siebie, tekst "Akademia" z sidebaru się wycina. Sidebar w trybie `collapsible="icon"` ukrywa napisy "Strona główna" i "Wyloguj się".
 
-### 1. Sub-taby prywatne — za długi tekst w przyciskach
-Przyciski jak "Z zaproszeń na Business Opportunity" czy "Z zaproszeń na Health Conversation" są za długie na 390px. Mimo `flex-wrap` każdy przycisk zajmuje pełną szerokość i tekst jest zbyt długi.
+## Rozwiązanie
 
-**Rozwiązanie:** Skrócić tekst na mobile — użyć `<span className="hidden sm:inline">` / `<span className="sm:hidden">` pattern:
-- "Moja lista kontaktów" → "Moja lista"
-- "Z zaproszeń na Business Opportunity" → "BO"  
-- "Z zaproszeń na Health Conversation" → "HC"
-- "Z zaproszeń na webinary ogólne" → "Webinary"
-- "Z Mojej Strony Partnera" → "Strona"
-- "Usunięte" → bez zmian (krótkie)
+### 1. `DashboardTopbar.tsx` — ukrycie zbędnych ikon na mobile
 
-### 2. Header — przyciski akcji (Filtry, Eksport, Dodaj kontakt)
-Na mobile 4 przyciski + view toggle próbują zmieścić się w jednym rzędzie. `flex-wrap` pomaga ale wygląda chaotycznie.
+Na ekranach < 640px (sm breakpoint) ukryć mniej istotne przyciski:
+- **LanguageSelector** — `hidden sm:block` (rzadko zmieniane)
+- **ThemeSelector** — `hidden sm:block` (rzadko zmieniane)  
+- **HelpCircle (tutorial)** — `hidden sm:block`
+- **LayoutGrid (classic view)** — `hidden sm:block` (admin only, rzadko używane)
 
-**Rozwiązanie:** 
-- Na mobile ukryć tekst w przyciskach "Filtry" i "Eksport" — zostawić tylko ikony
-- "Dodaj kontakt" skrócić do ikony `+` na mobile
-- Użyć `<span className="hidden sm:inline ml-2">` dla etykiet
+Na mobile zostanie: SidebarTrigger + NotificationBell + SessionTimer + Avatar (dropdown).
 
-### 3. Tytuł kardy "Kontakty prywatne" + opis
-Na 390px tytuł i opis zajmują za dużo miejsca obok przycisków.
+Przeniesione elementy (Language, Theme, Tutorial) dodać do **dropdown menu usera** — tak żeby były dostępne z poziomu avatara na mobile.
 
-**Rozwiązanie:** Zmienić `flex items-center justify-between` na `flex flex-col sm:flex-row` w CardHeader — na mobile stos pionowy.
+### 2. `DashboardTopbar.tsx` — dropdown menu rozszerzony o mobile items
+
+Dodać do DropdownMenuContent:
+- Pozycja "Strona główna" → `navigate('/dashboard')` (widoczna zawsze)
+- Separator
+- Na mobile: Language selector, Theme selector, Tutorial — widoczne tylko `sm:hidden`
+
+### 3. Dropdown menu — dodanie "Strona główna"
+
+Dodać `DropdownMenuItem` z ikoną `Home` i tekstem "Strona główna" / `t('nav.home')` na górze menu (po profilu), linkujący do `/dashboard`.
 
 ## Plik do edycji
 
-`src/components/team-contacts/TeamContactsTab.tsx`:
-- Linie 274-328: Header z tytułem i przyciskami → mobile-first layout
-- Linie 341-395: Sub-taby → skrócone etykiety na mobile
+**`src/components/dashboard/DashboardTopbar.tsx`:**
+- Linie 84-127: Owinąć LanguageSelector, ThemeSelector, HelpCircle, LayoutGrid w `div` z `hidden sm:flex`
+- Linie 140-185: Rozszerzyć dropdown o "Strona główna" + mobilne warianty Language/Theme/Tutorial
+
+## Efekt
+
+Na 390px topbar: logo + sidebar trigger + bell + avatar = 4 elementy (czytelne)
+Reszta dostępna z dropdown menu avatara
 
