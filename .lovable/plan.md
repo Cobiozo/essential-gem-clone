@@ -1,41 +1,30 @@
 
 
-# Widoczność widżetu "Zaproś na Live Webinar" — zarządzanie przez admina
+# Naprawa widżetu "Zaproś na Webinar" — widoczny mimo wyłączenia
 
-## Obecny stan
-- `auto_webinar_config` ma kolumny `visible_to_partners`, `visible_to_clients`, `visible_to_specjalista` — ale **nigdy nie są używane** (ani w admin UI, ani w widżecie)
-- Widżet jest hardcoded: ukryty tylko dla `client` (linia 288)
-- Admin nie ma żadnego UI do zarządzania widocznością widżetu ani per-kategoria
+## Problem
+1. **Fallback `true` gdy brak danych** (linia 305): jeśli wiersz `dashboard.webinar_invite` nie istnieje w `feature_visibility` lub RLS blokuje odczyt, widżet domyślnie się pokazuje (`setMasterVisible(true)`).
+2. **Renderowanie podczas ładowania** (linia 317): `masterVisible` startuje jako `null`, a warunek `if (masterVisible === false)` przepuszcza `null` — widżet renderuje się zanim dane się załadują.
+3. **Pusta karta zawsze widoczna**: nawet gdy obie kategorie (BO/HC) zwrócą `null`, zewnętrzna karta z nagłówkiem "Zaproś Swojego Gościa" nadal się renderuje.
 
-## Plan
+## Rozwiązanie
 
-### 1. Dodać widżetowy master toggle do `feature_visibility`
-Migration SQL: INSERT wiersz `feature_key = 'webinar-invite-widget'` w tabeli `feature_visibility` z domyślnymi wartościami `visible_to_admin = true`, `visible_to_partner = true`, `visible_to_specjalista = true`, `visible_to_client = false`.
+### Plik: `src/components/dashboard/widgets/WebinarInviteWidget.tsx`
 
-### 2. Admin UI — role visibility toggles w `AutoWebinarManagement.tsx`
-Pod sekcją "System włączony" dodać 3 przełączniki:
-- "Widoczny dla Partnerów" → `visible_to_partners`
-- "Widoczny dla Specjalistów" → `visible_to_specjalista`  
-- "Widoczny dla Klientów" → `visible_to_clients`
+**Zmiana 1 — domyślnie ukryty gdy brak danych:**
+```tsx
+// Linia 305: zmienić fallback z true na false
+if (!data) { setMasterVisible(false); return; }
+```
 
-Zapis do `auto_webinar_config` via `handleUpdateConfig`.
+**Zmiana 2 — nie renderować podczas ładowania:**
+```tsx
+// Linia 317: blokować też null (loading state)
+if (masterVisible !== true) return null;
+```
 
-### 3. Widżet — sprawdzanie widoczności (`WebinarInviteWidget.tsx`)
-
-**Master toggle**: Pobrać `feature_visibility` z `feature_key = 'webinar-invite-widget'` i sprawdzić `visible_to_*` dla aktualnej roli. Jeśli false → cały widżet ukryty.
-
-**Per-kategoria**: `CategoryColumn` już pobiera `config` — dodać sprawdzenie `config.visible_to_partners` / `visible_to_specjalista` / `visible_to_clients` w zależności od roli użytkownika. Jeśli rola nie ma dostępu → `return null`.
-
-**Logika**: Jeśli obie kategorie zwrócą `null` (bo rola nie ma dostępu do żadnej), widżet i tak się nie pokaże (pusta karta). Ale master toggle pozwala wyłączyć cały widżet niezależnie od per-category ustawień.
-
-### 4. Admin CMS — master toggle
-W zakładce "Wydarzenia i narzędzia" (gdzie jest `feature_visibility`) admin będzie mógł sterować globalnym włącznikiem widżetu. Per-category widoczność ról będzie w konfiguracji każdej kategorii auto-webinaru.
-
-## Pliki do edycji
-
-| Plik | Zmiana |
-|------|--------|
-| Migration SQL | INSERT `webinar-invite-widget` do `feature_visibility` |
-| `src/components/admin/AutoWebinarManagement.tsx` | 3 switche widoczności ról pod toggle "System włączony" |
-| `src/components/dashboard/widgets/WebinarInviteWidget.tsx` | Sprawdzanie `feature_visibility` + per-category `visible_to_*` |
+Te dwie zmiany gwarantują, że:
+- Widżet nie mignie na ekranie podczas ładowania
+- Jeśli wiersz w bazie nie istnieje lub jest wyłączony, widżet się nie pokaże
+- Admin ma pełną kontrolę przez `feature_visibility`
 
