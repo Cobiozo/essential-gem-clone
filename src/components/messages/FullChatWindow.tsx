@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
+import { ConversationActions } from './ConversationActions';
 
 interface FullChatWindowProps {
   channel: UnifiedChannel | null;
@@ -19,6 +20,13 @@ interface FullChatWindowProps {
   isAdmin?: boolean;
   adminConversationStatus?: string | null;
   onCloseConversation?: () => void;
+  // Conversation settings
+  onDeleteConversation?: (userId: string) => void;
+  onArchiveConversation?: (userId: string) => void;
+  onBlockUser?: (userId: string) => void;
+  onUnblockUser?: (userId: string) => void;
+  isConversationArchived?: boolean;
+  isConversationBlocked?: boolean;
 }
 
 export const FullChatWindow = ({
