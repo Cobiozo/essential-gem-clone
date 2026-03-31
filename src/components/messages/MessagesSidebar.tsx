@@ -1,13 +1,16 @@
-import { Search } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Archive } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { UnifiedChannel, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import type { AdminConversationUser } from '@/hooks/useAdminConversations';
 import { ChannelListItem } from './ChannelListItem';
 import { TeamMembersSection } from './TeamMembersSection';
 import { AdminUserSearch } from './AdminUserSearch';
+import { ConversationActions } from './ConversationActions';
 
 interface MessagesSidebarProps {
   channels: UnifiedChannel[];
