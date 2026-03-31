@@ -1,34 +1,32 @@
 
 
-# Changes to WebinarInviteWidget
+# Center BO and HC category triggers
 
-## 1. Header — centered, new text
-Replace the current left-aligned header with:
-- **Main title** (centered, larger/bold): `Zaproś Swojego Gościa na Live Webinar`
-- **Subtitle** (centered, small, muted): `kliknij, wybierz webinar, dobierz termin i skopiuj zaproszenie`
-- Keep the Radio icon + LIVE indicator
+## Change
 
-## 2. Accordion behavior — only one open at a time
-Currently each `CategoryColumn` manages its own `isOpen` state independently. Change to:
-- Lift state up: add `openCategory: AutoWebinarCategory | null` state in `WebinarInviteWidget`
-- Pass `isOpen` and `onToggle` props to each `CategoryColumn`
-- When one opens, the other closes automatically
+In `src/components/dashboard/widgets/WebinarInviteWidget.tsx`, update the `CollapsibleTrigger` layout from `justify-between` with left-aligned content to centered content.
 
-## File: `src/components/dashboard/widgets/WebinarInviteWidget.tsx`
-
-### Header change (lines 298-302)
+**Line 188** — Change the trigger to center its content:
 ```tsx
-<div className="flex flex-col items-center gap-1 py-1">
-  <div className="flex items-center gap-2">
-    <Radio className="h-5 w-5 text-red-500" />
-    <h2 className="text-base font-bold text-foreground">Zaproś Swojego Gościa na Live Webinar</h2>
-  </div>
-  <p className="text-xs text-muted-foreground">kliknij, wybierz webinar, dobierz termin i skopiuj zaproszenie</p>
+<CollapsibleTrigger className="flex items-center justify-center w-full p-3 rounded-lg hover:bg-accent/50 transition-colors">
+```
+
+**Lines 189-201** — Restructure the inner content to be centered with the chevron inline (not pushed to the right):
+```tsx
+<div className="flex items-center gap-2">
+  {hasLiveSlot && (
+    <span className="relative flex h-2.5 w-2.5">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+    </span>
+  )}
+  <span className="font-semibold text-sm">{CATEGORY_LABELS[category]}</span>
+  {hasLiveSlot && (
+    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">LIVE</Badge>
+  )}
+  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
 </div>
 ```
 
-### Accordion logic
-- Add `openCategory` state + handler in `WebinarInviteWidget`
-- Remove internal `isOpen` state from `CategoryColumn`, accept `isOpen` + `onOpenChange` as props
-- `onOpenChange` toggles: if opening this category → set it; if closing → set null
+Single file edit: `src/components/dashboard/widgets/WebinarInviteWidget.tsx`
 
