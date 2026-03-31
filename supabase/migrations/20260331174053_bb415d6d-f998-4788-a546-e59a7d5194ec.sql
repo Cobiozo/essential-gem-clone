@@ -1,0 +1,2 @@
+INSERT INTO public.feature_visibility (feature_key, feature_name, feature_category, description, position, visible_to_admin, visible_to_partner, visible_to_specjalista, visible_to_client, is_system)
+VALUES ('dashboard.webinar_invite', 'Widżet zaproszenia na webinar', 'dashboard', 'Widżet "Zaproś swojego gościa na Live Webinar" na dashboardzie', 34, true, true, true, false, false);

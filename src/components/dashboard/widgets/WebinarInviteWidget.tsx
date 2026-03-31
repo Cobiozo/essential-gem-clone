@@ -35,7 +35,7 @@ const CATEGORY_LABELS: Record<AutoWebinarCategory, string> = {
 
 const CategoryColumn: React.FC<{ category: AutoWebinarCategory; isOpen: boolean; onOpenChange: (open: boolean) => void }> = ({ category, isOpen, onOpenChange }) => {
   const { config, loading: configLoading } = useAutoWebinarConfig(category);
-  const { profile } = useAuth();
+  const { profile, isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
   const { toast } = useToast();
   const { language } = useLanguage();
   const isMobile = useIsMobile();
@@ -178,6 +178,15 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 
   if (!config?.is_enabled) return null;
 
+  // Per-category role visibility check
+  if (!isAdmin) {
+    const hasAccess =
+      (isPartner && config.visible_to_partners) ||
+      (isSpecjalista && config.visible_to_specjalista) ||
+      (isClient && config.visible_to_clients);
+    if (!hasAccess) return null;
+  }
+
   const hasLiveSlot = timeSlots.some(t => {
     const s = getSlotStatus(0, t);
     return s === 'now' || s === 'ongoing';
@@ -284,8 +293,28 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 const WebinarInviteWidget: React.FC = () => {
   const { isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
   const [openCategory, setOpenCategory] = useState<AutoWebinarCategory | null>(null);
+  const [masterVisible, setMasterVisible] = useState<boolean | null>(null);
 
-  if (isClient && !isAdmin && !isPartner && !isSpecjalista) return null;
+  useEffect(() => {
+    const fetchVisibility = async () => {
+      const { data } = await supabase
+        .from('feature_visibility')
+        .select('visible_to_admin, visible_to_partner, visible_to_specjalista, visible_to_client')
+        .eq('feature_key', 'dashboard.webinar_invite')
+        .single();
+      if (!data) { setMasterVisible(true); return; }
+      const visible =
+        (isAdmin && data.visible_to_admin) ||
+        (isPartner && data.visible_to_partner) ||
+        (isSpecjalista && data.visible_to_specjalista) ||
+        (isClient && data.visible_to_client) ||
+        false;
+      setMasterVisible(visible);
+    };
+    fetchVisibility();
+  }, [isAdmin, isPartner, isSpecjalista, isClient]);
+
+  if (masterVisible === false) return null;
 
   const handleOpenChange = (category: AutoWebinarCategory) => (open: boolean) => {
     setOpenCategory(open ? category : null);
