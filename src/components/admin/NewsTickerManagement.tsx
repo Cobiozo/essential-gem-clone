@@ -1295,7 +1295,7 @@ export const NewsTickerManagement: React.FC = () => {
                     <div className="space-y-2">
                       <Label>Data od</Label>
                       <Input
-                        type="date"
+                        type="datetime-local"
                         value={editingItem.start_date || ''}
                         onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value || null })}
                       />
