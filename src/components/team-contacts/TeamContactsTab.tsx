@@ -346,48 +346,43 @@ export const TeamContactsTab: React.FC = () => {
                   size="sm"
                   onClick={() => setPrivateSubTab('own')}
                 >
-                  <span className="sm:hidden">Moja lista</span>
-                  <span className="hidden sm:inline">Moja lista kontaktów</span>
-                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{ownContacts.length}</Badge>
-                </Button>
-                <Button
-                  variant={privateSubTab === 'events-bo' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPrivateSubTab('events-bo')}
-                >
-                  <span className="sm:hidden">BO</span>
-                  <span className="hidden sm:inline">Z zaproszeń na Business Opportunity</span>
-                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsBO.length}</Badge>
-                </Button>
-                <Button
-                  variant={privateSubTab === 'events-hc' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPrivateSubTab('events-hc')}
-                >
-                  <span className="sm:hidden">HC</span>
-                  <span className="hidden sm:inline">Z zaproszeń na Health Conversation</span>
-                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsHC.length}</Badge>
-                </Button>
-                <Button
-                  variant={privateSubTab === 'events-general' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPrivateSubTab('events-general')}
-                >
-                  <span className="sm:hidden">Webinary</span>
-                  <span className="hidden sm:inline">Z zaproszeń na webinary ogólne</span>
-                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsGeneral.length}</Badge>
-                </Button>
-                <Button
-                  variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPrivateSubTab('partner-page')}
-                >
-                  <span className="sm:hidden">Strona</span>
-                  <span className="hidden sm:inline">Z Mojej Strony Partnera</span>
-                  {partnerPageContacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-1.5 sm:ml-2">{partnerPageContacts.length}</Badge>
-                  )}
-                </Button>
+                   Moja lista kontaktów
+                   <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
+                 </Button>
+                 <Button
+                   variant={privateSubTab === 'events-bo' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('events-bo')}
+                 >
+                   Z zaproszeń na Business Opportunity
+                   <Badge variant="secondary" className="ml-2">{eventContactsBO.length}</Badge>
+                 </Button>
+                 <Button
+                   variant={privateSubTab === 'events-hc' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('events-hc')}
+                 >
+                   Z zaproszeń na Health Conversation
+                   <Badge variant="secondary" className="ml-2">{eventContactsHC.length}</Badge>
+                 </Button>
+                 <Button
+                   variant={privateSubTab === 'events-general' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('events-general')}
+                 >
+                   Z zaproszeń na webinary ogólne
+                   <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                 </Button>
+                 <Button
+                   variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('partner-page')}
+                 >
+                   Z Mojej Strony Partnera
+                   {partnerPageContacts.length > 0 && (
+                     <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
+                   )}
+                 </Button>
                 <Button
                   variant={privateSubTab === 'deleted' ? 'default' : 'outline'}
                   size="sm"
