@@ -139,50 +139,60 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                         return (
                           <div key={contact.id}>
                             <div
-                              className="flex items-center justify-between py-3 gap-4 cursor-pointer hover:bg-muted/30 transition-colors px-1 rounded"
+                              className="flex flex-col py-3 gap-2 cursor-pointer hover:bg-muted/30 transition-colors px-1 rounded"
                               onClick={() => setExpandedContactId(prev => prev === contact.id ? null : contact.id)}
                             >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium text-foreground">
-                                    {contact.first_name} {contact.last_name}
-                                  </span>
-                                  {expandedContactId === contact.id ? (
-                                    <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
-                                  ) : (
-                                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                                  )}
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-medium text-foreground truncate max-w-[200px] sm:max-w-none">
+                                      {contact.first_name} {contact.last_name}
+                                    </span>
+                                    {expandedContactId === contact.id ? (
+                                      <ChevronUp className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                    ) : (
+                                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                    )}
+                                  </div>
+                                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm text-muted-foreground mt-0.5">
+                                    {contact.email && <span className="truncate">{contact.email}</span>}
+                                    {contact.phone_number && <span className="whitespace-nowrap">{contact.phone_number}</span>}
+                                    {regDate && (
+                                      <span className="text-xs whitespace-nowrap">📅 {regDate}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {/* Chevron for mobile tap hint - visible only on sm+ where actions are inline */}
+                              </div>
+                              {/* Badges row */}
+                              {((contact as any).moved_to_own_list || (dupCount && dupCount > 1) || (attempts && attempts > 1)) && (
+                                <div className="flex items-center gap-1.5 flex-wrap">
                                   {(contact as any).moved_to_own_list && (
-                                    <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1">
+                                    <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1 whitespace-nowrap">
                                       <CheckCheck className="w-3 h-3" />
-                                      W mojej liście kontaktów
+                                      W mojej liście
                                     </Badge>
                                   )}
                                   {dupCount && dupCount > 1 && (
-                                    <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 gap-1">
+                                    <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400 dark:border-amber-700 gap-1 whitespace-nowrap">
                                       <RefreshCw className="w-3 h-3" />
-                                      Zapisany na {dupCount} wydarzeń
+                                      {dupCount} wydarzeń
                                     </Badge>
                                   )}
                                   {attempts && attempts > 1 && (
-                                    <Badge variant="destructive" className="text-xs gap-1">
-                                      🔄 Ponowna próba ×{attempts}
+                                    <Badge variant="destructive" className="text-xs gap-1 whitespace-nowrap">
+                                      🔄 ×{attempts}
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
-                                  {contact.email && <span>{contact.email}</span>}
-                                  {contact.phone_number && <span>{contact.phone_number}</span>}
-                                  {regDate && (
-                                    <span className="text-xs">📅 Zarejestrowano: {regDate}</span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              )}
+                              {/* Action buttons row */}
+                              <div className="flex items-center gap-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
                                 {onMoveToOwnList && !(contact as any).moved_to_own_list && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="h-8 w-8"
                                     onClick={async () => {
                                       const result = await onMoveToOwnList(contact.id);
                                       if (result === 'duplicate') {
@@ -198,6 +208,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-8 w-8"
                                   onClick={() => setHistoryContact(contact)}
                                   title="Historia"
                                 >
@@ -206,6 +217,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-8 w-8"
                                   onClick={() => onEdit(contact)}
                                   title="Edytuj"
                                 >
@@ -214,6 +226,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  className="h-8 w-8"
                                   onClick={() => setDeleteConfirm(contact.id)}
                                   title="Usuń"
                                 >

@@ -193,7 +193,7 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold text-foreground truncate max-w-[160px] sm:max-w-none">
+                      <h3 className="font-semibold text-foreground truncate max-w-[200px] sm:max-w-none">
                         {contact.first_name} {contact.last_name}
                       </h3>
                       {contactType !== 'private' && getRoleBadge(contact.role)}
