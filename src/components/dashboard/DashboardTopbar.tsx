@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import SessionTimer from '@/components/SessionTimer';
@@ -82,19 +82,6 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2 ml-auto">
-        {/* Classic view toggle - only for admins */}
-        {isAdmin && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSwitchToClassic}
-            className="h-9 w-9"
-            title={t('dashboard.switchToClassic')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-        )}
-
         {/* Session Timer */}
         {sessionTimer && (
           <SessionTimer
@@ -107,23 +94,32 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         {/* Notifications */}
         <NotificationBell />
 
-        {/* Language */}
-        <LanguageSelector />
-
-        {/* Tutorial help button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
-          className="h-9 w-9"
-          title={tf('nav.tutorial', 'Samouczek')}
-          data-tour="tutorial-button"
-        >
-          <HelpCircle className="h-4 w-4" />
-        </Button>
-
-        {/* Theme */}
-        <ThemeSelector />
+        {/* Desktop-only actions */}
+        <div className="hidden sm:flex items-center gap-1">
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSwitchToClassic}
+              className="h-9 w-9"
+              title={t('dashboard.switchToClassic')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          )}
+          <LanguageSelector />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
+            className="h-9 w-9"
+            title={tf('nav.tutorial', 'Samouczek')}
+            data-tour="tutorial-button"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </Button>
+          <ThemeSelector />
+        </div>
 
         {/* User dropdown */}
         <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
@@ -145,6 +141,10 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               </div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+              <Home className="mr-2 h-4 w-4" />
+              {tf('nav.home', 'Strona główna')}
+            </DropdownMenuItem>
             <DropdownMenuItem 
               data-tour="user-menu-account"
               onClick={() => navigate('/my-account?tab=profile')}
@@ -177,6 +177,14 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
                 {tf('nav.toolPanel', 'Panel narzędziowy')}
               </DropdownMenuItem>
             </CacheManagementDialog>
+            {/* Mobile-only: items hidden from topbar */}
+            <div className="sm:hidden">
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}>
+                <HelpCircle className="mr-2 h-4 w-4" />
+                {tf('nav.tutorial', 'Samouczek')}
+              </DropdownMenuItem>
+            </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
