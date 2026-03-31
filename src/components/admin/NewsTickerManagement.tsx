@@ -1139,7 +1139,7 @@ export const NewsTickerManagement: React.FC = () => {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <Switch
                           checked={item.is_active}
                           onCheckedChange={() => toggleItemActive(item)}
