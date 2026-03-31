@@ -530,11 +530,39 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
             </div>
           )}
 
+          {/* Bulk Action Bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/40">
+              <Checkbox checked={allSelectableSelected} onCheckedChange={toggleSelectAll} />
+              <span className="text-sm font-medium">
+                Zaznaczono: {selectedIds.size}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowBulkDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Usuń zaznaczonych
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                <X className="h-4 w-4 mr-1" />
+                Odznacz
+              </Button>
+            </div>
+          )}
+
           {/* Table */}
           <div className="max-h-[500px] overflow-y-auto border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelectableSelected && selectableGuests.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Imię i nazwisko</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Zapraszający</TableHead>
