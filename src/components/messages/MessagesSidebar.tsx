@@ -1,13 +1,16 @@
-import { Search } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Archive } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { UnifiedChannel, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import type { AdminConversationUser } from '@/hooks/useAdminConversations';
 import { ChannelListItem } from './ChannelListItem';
 import { TeamMembersSection } from './TeamMembersSection';
 import { AdminUserSearch } from './AdminUserSearch';
+import { ConversationActions } from './ConversationActions';
 
 interface MessagesSidebarProps {
   channels: UnifiedChannel[];
@@ -31,6 +34,15 @@ interface MessagesSidebarProps {
   isAdmin?: boolean;
   adminConversations?: AdminConversationUser[];
   onAdminSelectUser?: (userId: string) => void;
+  // Conversation settings props
+  onDeleteConversation?: (userId: string) => void;
+  onArchiveConversation?: (userId: string) => void;
+  onBlockUser?: (userId: string) => void;
+  onUnblockUser?: (userId: string) => void;
+  isConversationArchived?: (userId: string) => boolean;
+  isConversationBlocked?: (userId: string) => boolean;
+  archivedConversations?: AdminConversationUser[];
+  archivedTeamMembers?: TeamMemberChannel[];
 }
 
 export const MessagesSidebar = ({
@@ -52,7 +64,16 @@ export const MessagesSidebar = ({
   isAdmin = false,
   adminConversations = [],
   onAdminSelectUser,
+  onDeleteConversation,
+  onArchiveConversation,
+  onBlockUser,
+  onUnblockUser,
+  isConversationArchived,
+  isConversationBlocked,
+  archivedConversations = [],
+  archivedTeamMembers = [],
 }: MessagesSidebarProps) => {
+  const [showArchive, setShowArchive] = useState(false);
   // Separate outgoing (can send) and incoming (can receive) channels
   const outgoingChannels = channels.filter(c => c.canSend);
   const incomingChannels = channels.filter(c => c.canReceive);
@@ -107,29 +128,19 @@ export const MessagesSidebar = ({
                 .filter(c => c.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                              c.lastName.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map(conv => (
-                  <button
+                  <ConversationListItem
                     key={conv.userId}
+                    conv={conv}
+                    isSelected={selectedDirectUserId === conv.userId}
                     onClick={() => onAdminSelectUser(conv.userId)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left',
-                      selectedDirectUserId === conv.userId && 'bg-accent'
-                    )}
-                  >
-                    <Avatar className="h-9 w-9 shrink-0">
-                      <AvatarImage src={conv.avatarUrl || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                        {conv.firstName?.charAt(0)}{conv.lastName?.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {conv.firstName} {conv.lastName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {conv.conversationStatus === 'closed' ? '🔒 Zamknięta' : '💬 Otwarta'}
-                      </p>
-                    </div>
-                  </button>
+                    statusLabel={conv.conversationStatus === 'closed' ? '🔒 Zamknięta' : '💬 Otwarta'}
+                    onDelete={onDeleteConversation}
+                    onArchive={onArchiveConversation}
+                    onBlock={onBlockUser}
+                    onUnblock={onUnblockUser}
+                    isArchived={isConversationArchived?.(conv.userId)}
+                    isBlocked={isConversationBlocked?.(conv.userId)}
+                  />
                 ))}
             </div>
           )}
@@ -143,31 +154,20 @@ export const MessagesSidebar = ({
                 </span>
               </div>
               {adminConversations
-                .filter(c => c.conversationStatus === 'open' || true) // show all, status shown in UI
                 .map(conv => (
-                  <button
+                  <ConversationListItem
                     key={conv.userId}
+                    conv={conv}
+                    isSelected={selectedDirectUserId === conv.userId}
                     onClick={() => onAdminSelectUser(conv.userId)}
-                    className={cn(
-                      'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left',
-                      selectedDirectUserId === conv.userId && 'bg-accent'
-                    )}
-                  >
-                    <Avatar className="h-9 w-9 shrink-0">
-                      <AvatarImage src={conv.avatarUrl || undefined} />
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                        {conv.firstName?.charAt(0)}{conv.lastName?.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {conv.firstName} {conv.lastName}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : 'Administrator'}
-                      </p>
-                    </div>
-                  </button>
+                    statusLabel={conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : 'Administrator'}
+                    onDelete={onDeleteConversation}
+                    onArchive={onArchiveConversation}
+                    onBlock={onBlockUser}
+                    onUnblock={onUnblockUser}
+                    isArchived={isConversationArchived?.(conv.userId)}
+                    isBlocked={isConversationBlocked?.(conv.userId)}
+                  />
                 ))}
             </div>
           )}
@@ -199,7 +199,6 @@ export const MessagesSidebar = ({
               selectedUserId={selectedDirectUserId}
               onSelectMember={onSelectDirectMember}
               searchQuery={searchQuery}
-              // Group chat props
               selectionMode={selectionMode}
               onToggleSelectionMode={onToggleSelectionMode}
               selectedMembers={selectedMembers}
@@ -236,6 +235,137 @@ export const MessagesSidebar = ({
           )}
         </div>
       </ScrollArea>
+
+      {/* Archive toggle at bottom */}
+      {(archivedConversations.length > 0 || archivedTeamMembers.length > 0) && (
+        <div className="border-t border-border shrink-0">
+          <Button
+            variant="ghost"
+            className="w-full justify-start gap-2 px-4 py-3 h-auto text-muted-foreground hover:text-foreground"
+            onClick={() => setShowArchive(!showArchive)}
+          >
+            <Archive className="h-4 w-4" />
+            <span className="text-sm">Archiwum ({archivedConversations.length + archivedTeamMembers.length})</span>
+          </Button>
+          {showArchive && (
+            <div className="px-2 pb-2 space-y-1">
+              {archivedConversations.map(conv => (
+                <ConversationListItem
+                  key={conv.userId}
+                  conv={conv}
+                  isSelected={selectedDirectUserId === conv.userId}
+                  onClick={() => onAdminSelectUser?.(conv.userId)}
+                  statusLabel="📦 Zarchiwizowana"
+                  onDelete={onDeleteConversation}
+                  onArchive={onArchiveConversation}
+                  onBlock={onBlockUser}
+                  onUnblock={onUnblockUser}
+                  isArchived={true}
+                  isBlocked={isConversationBlocked?.(conv.userId)}
+                />
+              ))}
+              {archivedTeamMembers.map(member => (
+                <button
+                  key={member.userId}
+                  onClick={() => onSelectDirectMember?.(member.userId)}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left rounded-md',
+                    selectedDirectUserId === member.userId && 'bg-accent'
+                  )}
+                >
+                  <Avatar className="h-9 w-9 shrink-0">
+                    <AvatarImage src={member.avatarUrl || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                      {member.firstName?.charAt(0)}{member.lastName?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {member.firstName} {member.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">📦 Zarchiwizowana</p>
+                  </div>
+                  {onArchiveConversation && (
+                    <ConversationActions
+                      otherUserId={member.userId}
+                      otherUserName={`${member.firstName} ${member.lastName}`}
+                      isArchived={true}
+                      isBlocked={isConversationBlocked?.(member.userId)}
+                      onDelete={onDeleteConversation || (() => {})}
+                      onArchive={onArchiveConversation}
+                      onBlock={onBlockUser || (() => {})}
+                      onUnblock={onUnblockUser || (() => {})}
+                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100"
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+
+// Extracted conversation list item with actions menu
+interface ConversationListItemProps {
+  conv: AdminConversationUser;
+  isSelected: boolean;
+  onClick: () => void;
+  statusLabel: string;
+  onDelete?: (userId: string) => void;
+  onArchive?: (userId: string) => void;
+  onBlock?: (userId: string) => void;
+  onUnblock?: (userId: string) => void;
+  isArchived?: boolean;
+  isBlocked?: boolean;
+}
+
+const ConversationListItem = ({
+  conv,
+  isSelected,
+  onClick,
+  statusLabel,
+  onDelete,
+  onArchive,
+  onBlock,
+  onUnblock,
+  isArchived = false,
+  isBlocked = false,
+}: ConversationListItemProps) => (
+  <div
+    className={cn(
+      'group w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left cursor-pointer',
+      isSelected && 'bg-accent'
+    )}
+    onClick={onClick}
+  >
+    <Avatar className="h-9 w-9 shrink-0">
+      <AvatarImage src={conv.avatarUrl || undefined} />
+      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+        {conv.firstName?.charAt(0)}{conv.lastName?.charAt(0)}
+      </AvatarFallback>
+    </Avatar>
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-foreground truncate">
+        {conv.firstName} {conv.lastName}
+      </p>
+      <p className="text-xs text-muted-foreground">{statusLabel}</p>
+    </div>
+    {onDelete && onArchive && onBlock && onUnblock && (
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+        <ConversationActions
+          otherUserId={conv.userId}
+          otherUserName={`${conv.firstName} ${conv.lastName}`}
+          isArchived={isArchived}
+          isBlocked={isBlocked}
+          onDelete={onDelete}
+          onArchive={onArchive}
+          onBlock={onBlock}
+          onUnblock={onUnblock}
+        />
+      </div>
+    )}
+  </div>
+);

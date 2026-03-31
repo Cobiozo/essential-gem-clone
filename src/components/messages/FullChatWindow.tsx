@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/useUnifiedChat';
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
+import { ConversationActions } from './ConversationActions';
 
 interface FullChatWindowProps {
   channel: UnifiedChannel | null;
@@ -19,6 +20,13 @@ interface FullChatWindowProps {
   isAdmin?: boolean;
   adminConversationStatus?: string | null;
   onCloseConversation?: () => void;
+  // Conversation settings
+  onDeleteConversation?: (userId: string) => void;
+  onArchiveConversation?: (userId: string) => void;
+  onBlockUser?: (userId: string) => void;
+  onUnblockUser?: (userId: string) => void;
+  isConversationArchived?: boolean;
+  isConversationBlocked?: boolean;
 }
 
 export const FullChatWindow = ({
@@ -31,6 +39,12 @@ export const FullChatWindow = ({
   isAdmin = false,
   adminConversationStatus,
   onCloseConversation,
+  onDeleteConversation,
+  onArchiveConversation,
+  onBlockUser,
+  onUnblockUser,
+  isConversationArchived = false,
+  isConversationBlocked = false,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   
@@ -95,9 +109,19 @@ export const FullChatWindow = ({
               🔒 Zamknięta
             </span>
           )}
-          <Button variant="ghost" size="icon">
-            <Search className="h-4 w-4" />
-          </Button>
+          {/* Conversation actions menu */}
+          {directMember && onDeleteConversation && onArchiveConversation && onBlockUser && onUnblockUser && (
+            <ConversationActions
+              otherUserId={directMember.userId}
+              otherUserName={`${directMember.firstName} ${directMember.lastName}`}
+              isArchived={isConversationArchived}
+              isBlocked={isConversationBlocked}
+              onDelete={onDeleteConversation}
+              onArchive={onArchiveConversation}
+              onBlock={onBlockUser}
+              onUnblock={onUnblockUser}
+            />
+          )}
         </div>
       </header>
 
