@@ -43,6 +43,17 @@ const MessagesPage = () => {
     refetch: refetchAdminConv,
   } = useAdminConversations();
 
+  // Conversation settings (delete, archive, block)
+  const {
+    deleteConversation,
+    archiveConversation,
+    blockUser,
+    unblockUser,
+    isDeleted,
+    isArchived,
+    isBlocked,
+  } = useConversationSettings();
+
   const {
     channels,
     selectedChannel,
