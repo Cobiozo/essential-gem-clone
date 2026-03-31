@@ -185,7 +185,7 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 
   return (
     <Collapsible open={isOpen} onOpenChange={onOpenChange}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-accent/50 transition-colors text-left">
+      <CollapsibleTrigger className="flex items-center justify-center w-full p-3 rounded-lg hover:bg-accent/50 transition-colors">
         <div className="flex items-center gap-2">
           {hasLiveSlot && (
             <span className="relative flex h-2.5 w-2.5">
@@ -197,8 +197,8 @@ ${labels.signUp}: ${inviteUrl}`.trim();
           {hasLiveSlot && (
             <Badge variant="destructive" className="text-[10px] px-1.5 py-0">LIVE</Badge>
           )}
+          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
-        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </CollapsibleTrigger>
 
       <CollapsibleContent className="px-3 pb-3 space-y-3">
