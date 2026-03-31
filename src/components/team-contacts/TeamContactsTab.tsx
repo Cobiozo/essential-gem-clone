@@ -340,47 +340,52 @@ export const TeamContactsTab: React.FC = () => {
                 </div>
               )}
               {/* Sub-tabs for private contacts */}
-              <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <div className="flex items-center gap-1.5 sm:gap-2 mb-4 flex-wrap">
                 <Button
                   variant={privateSubTab === 'own' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('own')}
                 >
-                  Moja lista kontaktów
-                  <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
+                  <span className="sm:hidden">Moja lista</span>
+                  <span className="hidden sm:inline">Moja lista kontaktów</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{ownContacts.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'events-bo' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('events-bo')}
                 >
-                  Z zaproszeń na Business Opportunity
-                  <Badge variant="secondary" className="ml-2">{eventContactsBO.length}</Badge>
+                  <span className="sm:hidden">BO</span>
+                  <span className="hidden sm:inline">Z zaproszeń na Business Opportunity</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsBO.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'events-hc' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('events-hc')}
                 >
-                  Z zaproszeń na Health Conversation
-                  <Badge variant="secondary" className="ml-2">{eventContactsHC.length}</Badge>
+                  <span className="sm:hidden">HC</span>
+                  <span className="hidden sm:inline">Z zaproszeń na Health Conversation</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsHC.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'events-general' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('events-general')}
                 >
-                  Z zaproszeń na webinary ogólne
-                  <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
+                  <span className="sm:hidden">Webinary</span>
+                  <span className="hidden sm:inline">Z zaproszeń na webinary ogólne</span>
+                  <Badge variant="secondary" className="ml-1.5 sm:ml-2">{eventContactsGeneral.length}</Badge>
                 </Button>
                 <Button
                   variant={privateSubTab === 'partner-page' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setPrivateSubTab('partner-page')}
                 >
-                  Z Mojej Strony Partnera
+                  <span className="sm:hidden">Strona</span>
+                  <span className="hidden sm:inline">Z Mojej Strony Partnera</span>
                   {partnerPageContacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
+                    <Badge variant="secondary" className="ml-1.5 sm:ml-2">{partnerPageContacts.length}</Badge>
                   )}
                 </Button>
                 <Button
@@ -391,7 +396,7 @@ export const TeamContactsTab: React.FC = () => {
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
                   Usunięte
                   {deletedContacts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2">{deletedContacts.length}</Badge>
+                    <Badge variant="secondary" className="ml-1.5 sm:ml-2">{deletedContacts.length}</Badge>
                   )}
                 </Button>
               </div>
