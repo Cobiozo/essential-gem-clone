@@ -267,7 +267,7 @@ const MessagesPage = () => {
           onSelectChannel={handleSelectChannel}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          teamMembers={teamMembers}
+          teamMembers={filteredTeamMembers}
           upline={upline}
           selectedDirectUserId={selectedDirectUserId}
           onSelectDirectMember={handleSelectDirectMember}
@@ -279,8 +279,17 @@ const MessagesPage = () => {
           onCreateGroupChat={() => setShowGroupDialog(true)}
           // Admin conversation props
           isAdmin={isAdmin}
-          adminConversations={adminConversations}
+          adminConversations={filteredAdminConversations}
           onAdminSelectUser={handleAdminSelectUser}
+          // Conversation settings
+          onDeleteConversation={deleteConversation}
+          onArchiveConversation={archiveConversation}
+          onBlockUser={blockUser}
+          onUnblockUser={unblockUser}
+          isConversationArchived={isArchived}
+          isConversationBlocked={isBlocked}
+          archivedConversations={archivedAdminConversations}
+          archivedTeamMembers={archivedTeamMembers}
           className={cn(
             'w-80 border-r border-border shrink-0',
             'max-md:absolute max-md:inset-0 max-md:w-full max-md:z-10 max-md:bg-background',
