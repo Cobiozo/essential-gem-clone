@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { useAdminConversations } from '@/hooks/useAdminConversations';
+import { useConversationSettings } from '@/hooks/useConversationSettings';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { MessagesSidebar } from '@/components/messages/MessagesSidebar';
 import { FullChatWindow } from '@/components/messages/FullChatWindow';
