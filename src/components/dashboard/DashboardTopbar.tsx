@@ -141,6 +141,10 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
               </div>
             </div>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+              <Home className="mr-2 h-4 w-4" />
+              {tf('nav.home', 'Strona główna')}
+            </DropdownMenuItem>
             <DropdownMenuItem 
               data-tour="user-menu-account"
               onClick={() => navigate('/my-account?tab=profile')}
