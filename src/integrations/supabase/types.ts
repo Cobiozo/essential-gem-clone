@@ -1927,6 +1927,48 @@ export type Database = {
           },
         ]
       }
+      conversation_user_settings: {
+        Row: {
+          archived_at: string | null
+          blocked_at: string | null
+          created_at: string | null
+          deleted_at: string | null
+          id: string
+          is_archived: boolean | null
+          is_blocked: boolean | null
+          is_deleted: boolean | null
+          other_user_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          blocked_at?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_archived?: boolean | null
+          is_blocked?: boolean | null
+          is_deleted?: boolean | null
+          other_user_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          blocked_at?: string | null
+          created_at?: string | null
+          deleted_at?: string | null
+          id?: string
+          is_archived?: boolean | null
+          is_blocked?: boolean | null
+          is_deleted?: boolean | null
+          other_user_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       cookie_banner_settings: {
         Row: {
           accept_all_text: string | null
@@ -9014,6 +9056,10 @@ export type Database = {
       }
       is_active_leader: { Args: { _user_id: string }; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
+      is_blocked_by: {
+        Args: { p_blocked_id: string; p_blocker_id: string }
+        Returns: boolean
+      }
       is_current_user_leader: { Args: never; Returns: boolean }
       is_role_update: {
         Args: { new_role: string; user_id_param: string }
