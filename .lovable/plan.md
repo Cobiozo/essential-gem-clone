@@ -1,76 +1,64 @@
 
 
-# Audit: Systemy powiadomień o braku aktywności — stan po zmianach
+# Rozbudowa listy gości auto-webinaru — zapraszający + filtry + usuwanie
 
-## KRYTYCZNE BŁĘDY
+## Co się zmieni
 
-### 1. Migracja SQL nie została zastosowana w bazie danych
-Pierwsza migracja (tworzenie `inactivity_settings`, kolumn profili, RPCs) **nie zadziałała**. Stan bazy:
+Komponent `AutoWebinarGuestStats.tsx` zostanie przebudowany, aby:
+1. Pobierać dane zapraszającego partnera (imię, nazwisko, eq_id) z tabeli `profiles` przez `invited_by_user_id`
+2. Wyświetlać kolumnę "Zapraszający" w tabeli
+3. Umożliwić adminowi usunięcie gościa z listy (cancel rejestracji)
+4. Dodać panel filtrów z możliwością filtrowania po wszystkich kategoriach danych
 
-| Element | Oczekiwany | Faktyczny |
-|---------|-----------|-----------|
-| Tabela `inactivity_settings` | Istnieje | **NIE ISTNIEJE** |
-| `profiles.blocked_at` | Istnieje | **NIE ISTNIEJE** |
-| `profiles.block_reason` | Istnieje | **NIE ISTNIEJE** |
-| `profiles.inactivity_warning_sent_at` | Istnieje | **NIE ISTNIEJE** |
-| RPC `get_inactive_users_for_warning()` | Istnieje | **NIE ISTNIEJE** |
-| RPC `get_inactive_users_for_blocking()` | Istnieje | **NIE ISTNIEJE** |
-| `training_reminder_settings` → `days_inactive=30, max_reminders=1` | Zaktualizowane | **STARE WARTOŚCI (7/7/3)** |
+## Filtry
 
-**Skutek**: Logi CRON pokazują błędy:
-- `Could not find the function public.get_inactive_users_for_warning`
-- `Could not find the function public.get_inactive_users_for_blocking`
+Panel filtrów (rozwijany) z następującymi opcjami:
+- **Zapraszający** — dropdown z listą unikalnych partnerów (+ "Brak zapraszającego")
+- **Status dołączenia** — Tak / Nie / Wszyscy
+- **Slot** — dropdown z unikalnymi slotami
+- **Data rejestracji** — zakres dat (od–do)
+- **Czas oglądania** — minimum sekund (np. > 0, > 60, > 300)
+- **Wyszukiwarka tekstowa** — jak dotychczas (imię, nazwisko, email)
 
-System ostrzeżeń i blokowania jest **całkowicie niefunkcjonalny**.
+## Usuwanie gościa
 
-### 2. Co działa poprawnie
-| Element | Status |
-|---------|--------|
-| RPC `get_training_reminders_due()` | OK — przebudowana z grupowaniem i filtrem `is_active=true` |
-| RPC `admin_toggle_user_status()` | OK — rozszerzona o reset `blocked_at`, `block_reason`, etc. |
-| Edge Function `send-inactivity-warning` | OK — kod istnieje, ale nie może działać bez RPC |
-| Edge Function `send-training-reminder-grouped` | OK — kod istnieje |
-| `process-pending-notifications` — Step 7 (grupowanie) | OK — logika grupowania po `user_id` |
-| `process-pending-notifications` — Step 7b/7c | Kod OK, ale RPCs nie istnieją → błędy |
-| `AuthContext.tsx` — guard blokady | OK — ekran blokady dla `is_active=false` |
-| `CompactUserCard.tsx` — przycisk odblokowania | OK |
+- Przycisk kosza w każdym wierszu
+- Dialog potwierdzenia przed usunięciem
+- Ustawia `status = 'cancelled'` w `guest_event_registrations` (soft delete)
+- Po usunięciu odświeża listę
 
----
+## Szczegóły techniczne
 
-## PLAN NAPRAWY
+### Plik: `src/components/admin/AutoWebinarGuestStats.tsx`
 
-Jedna nowa migracja SQL, która:
+**Pobieranie danych:**
+- Zapytanie do `guest_event_registrations` rozszerzone o `invited_by_user_id`
+- Osobne zapytanie do `profiles` po unikalnych `invited_by_user_id` → mapa `userId → {first_name, last_name, eq_id}`
+- Interfejs `GuestStat` rozszerzony o `invited_by_name: string | null`, `invited_by_eq_id: string | null`
 
-1. **Tworzy tabelę `inactivity_settings`** (singleton) z `warning_days=14`, `block_days=30`, `is_enabled=true`, `support_email='support@purelife.info.pl'`
-2. **Dodaje kolumny do `profiles`**: `blocked_at` (timestamptz), `block_reason` (text), `inactivity_warning_sent_at` (timestamptz)
-3. **Tworzy RPC `get_inactive_users_for_warning()`** — zwraca użytkowników z `last_seen_at` starszym niż `warning_days`, nie-adminów, aktywnych, jeszcze nie ostrzeganych (lub ostrzeżonych dawniej niż `warning_days` temu)
-4. **Tworzy RPC `get_inactive_users_for_blocking()`** — zwraca użytkowników z `last_seen_at` starszym niż `block_days`, nie-adminów, aktywnych
-5. **Aktualizuje `training_reminder_settings`**: `days_inactive=30`, `max_reminders=1`, `reminder_interval_days=30`
+**Filtrowanie:**
+- Nowy state: `filterInviter`, `filterJoined`, `filterSlot`, `filterDateFrom`, `filterDateTo`, `filterMinWatch`
+- `useMemo` łączy wszystkie filtry z wyszukiwarką tekstową
+- Unikalne wartości (zapraszający, sloty) wyciągane z `stats` do dropdownów
 
-Po migracji: Edge Functions `send-inactivity-warning` i `send-training-reminder-grouped` należy zdeployować ponownie, aby upewnić się że działają z aktualnym kodem.
+**Usuwanie:**
+- Funkcja `handleDeleteGuest(id)` → `supabase.from('guest_event_registrations').update({ status: 'cancelled', cancelled_at: now() }).eq('id', id)`
+- Dialog `AlertDialog` z potwierdzeniem
 
-### Szczegóły techniczne — SQL RPCs
+**Tabela:**
+- Nowa kolumna "Zapraszający" między "Email" a "Slot"
+- Nowa kolumna "Akcje" na końcu z przyciskiem usuwania
+- CSV eksport rozszerzony o kolumnę "Zapraszający"
 
-```text
-get_inactive_users_for_warning():
-  - JOIN profiles z user_roles (wykluczenie adminów)  
-  - WHERE is_active = true
-  - AND last_seen_at < now() - warning_days
-  - AND (inactivity_warning_sent_at IS NULL OR inactivity_warning_sent_at < now() - warning_days)
-  - RETURNS: user_id, email, first_name, days_inactive
-
-get_inactive_users_for_blocking():
-  - JOIN profiles z user_roles (wykluczenie adminów)
-  - WHERE is_active = true  
-  - AND last_seen_at < now() - block_days
-  - RETURNS: user_id, email, first_name, days_inactive
-```
+**UI filtrów:**
+- Przycisk "Filtry" obok wyszukiwarki, rozwijający panel z `Select` i `Input` type="date"
+- Badge z liczbą aktywnych filtrów
+- Przycisk "Wyczyść filtry"
 
 ### Pliki do zmiany
 | Plik | Zmiana |
 |------|--------|
-| Nowa migracja SQL | Tabela, kolumny, RPCs, UPDATE settings |
-| Edge Functions | Redeploy `send-inactivity-warning` i `send-training-reminder-grouped` |
+| `src/components/admin/AutoWebinarGuestStats.tsx` | Pełna przebudowa — zapraszający, filtry, usuwanie |
 
-Żadne zmiany w kodzie TypeScript nie są potrzebne — frontend i Edge Functions są poprawne.
+Brak zmian w bazie danych — `invited_by_user_id` i `status`/`cancelled_at` już istnieją w tabeli.
 
