@@ -218,6 +218,24 @@ const MessagesPage = () => {
     return null;
   }, [selectedDirectUserId, selectedDirectMember, adminConversations]);
 
+  // Filter conversations by settings (deleted, archived, blocked)
+  const filteredAdminConversations = useMemo(() => {
+    return adminConversations.filter(c => !isDeleted(c.userId) && !isArchived(c.userId) && !isBlocked(c.userId));
+  }, [adminConversations, isDeleted, isArchived, isBlocked]);
+
+  const archivedAdminConversations = useMemo(() => {
+    return adminConversations.filter(c => isArchived(c.userId) && !isDeleted(c.userId) && !isBlocked(c.userId));
+  }, [adminConversations, isArchived, isDeleted, isBlocked]);
+
+  // Filter team members by settings
+  const filteredTeamMembers = useMemo(() => {
+    return teamMembers.filter(m => !isDeleted(m.userId) && !isArchived(m.userId) && !isBlocked(m.userId));
+  }, [teamMembers, isDeleted, isArchived, isBlocked]);
+
+  const archivedTeamMembers = useMemo(() => {
+    return teamMembers.filter(m => isArchived(m.userId) && !isDeleted(m.userId) && !isBlocked(m.userId));
+  }, [teamMembers, isArchived, isDeleted, isBlocked]);
+
   return (
     <div className="h-screen flex flex-col bg-background">
       {/* Header */}
