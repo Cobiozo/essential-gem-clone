@@ -1261,52 +1261,56 @@ export const NewsTickerManagement: React.FC = () => {
               )}
 
               {/* Widoczność */}
-              <div className="space-y-3 p-4 border rounded-lg">
-                <Label className="text-sm font-medium">Widoczność dla ról</Label>
-                <div className="flex flex-wrap gap-4 pt-1">
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.visible_to_clients ?? true}
-                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, visible_to_clients: !!checked })}
-                    />
-                    Klienci
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.visible_to_partners ?? true}
-                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, visible_to_partners: !!checked })}
-                    />
-                    Partnerzy
-                  </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer">
-                    <Checkbox
-                      checked={editingItem.visible_to_specjalista ?? true}
-                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, visible_to_specjalista: !!checked })}
-                    />
-                    Specjaliści
-                  </label>
-                </div>
-              </div>
+              {editingItem && (
+                <>
+                  <div className="space-y-3 p-4 border rounded-lg">
+                    <Label className="text-sm font-medium">Widoczność dla ról</Label>
+                    <div className="flex flex-wrap gap-4 pt-1">
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={editingItem.visible_to_clients ?? true}
+                          onCheckedChange={(checked) => setEditingItem({ ...editingItem, visible_to_clients: !!checked })}
+                        />
+                        Klienci
+                      </label>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={editingItem.visible_to_partners ?? true}
+                          onCheckedChange={(checked) => setEditingItem({ ...editingItem, visible_to_partners: !!checked })}
+                        />
+                        Partnerzy
+                      </label>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer">
+                        <Checkbox
+                          checked={editingItem.visible_to_specjalista ?? true}
+                          onCheckedChange={(checked) => setEditingItem({ ...editingItem, visible_to_specjalista: !!checked })}
+                        />
+                        Specjaliści
+                      </label>
+                    </div>
+                  </div>
 
-              {/* Daty ważności */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Data od</Label>
-                  <Input
-                    type="date"
-                    value={editingItem.start_date || ''}
-                    onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value || null })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Data do</Label>
-                  <Input
-                    type="date"
-                    value={editingItem.end_date || ''}
-                    onChange={(e) => setEditingItem({ ...editingItem, end_date: e.target.value || null })}
-                  />
-                </div>
-              </div>
+                  {/* Daty ważności */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Data od</Label>
+                      <Input
+                        type="date"
+                        value={editingItem.start_date || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, start_date: e.target.value || null })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Data do</Label>
+                      <Input
+                        type="date"
+                        value={editingItem.end_date || ''}
+                        onChange={(e) => setEditingItem({ ...editingItem, end_date: e.target.value || null })}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditingItem(null)}>Anuluj</Button>
