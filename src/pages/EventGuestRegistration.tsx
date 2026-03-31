@@ -746,25 +746,64 @@ const EventGuestRegistration: React.FC = () => {
                     );
                   })()}
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">{format(startDate, 'PPPP', { locale: dateLocale })}</p>
+              ) : (() => {
+                const occs = event.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+                const futureOccs = occs.map((occ, idx) => {
+                  const occDate = new Date(`${occ.date}T${occ.time}:00`);
+                  return { ...occ, idx, dateObj: occDate, isPast: occDate < new Date() };
+                }).filter(o => !o.isPast);
+
+                if (futureOccs.length > 1) {
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-foreground mb-2">Wybierz termin:</p>
+                      {futureOccs.map((occ) => (
+                        <button
+                          key={occ.idx}
+                          type="button"
+                          onClick={() => setSelectedOccurrenceIndex(occ.idx)}
+                          className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                            selectedOccurrenceIndex === occ.idx
+                              ? 'border-primary bg-primary/10'
+                              : 'border-border hover:bg-muted/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Calendar className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium">{format(occ.dateObj, 'PPPP', { locale: dateLocale })}</p>
+                              <p className="text-sm text-muted-foreground">{occ.time} • {occ.duration_minutes} min</p>
+                            </div>
+                            {selectedOccurrenceIndex === occ.idx && (
+                              <Check className="h-5 w-5 text-primary ml-auto" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-5 w-5 text-primary" />
-                    <div>
-                      <p className="font-medium">
-                        {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
-                        {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
-                      </p>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">{format(startDate, 'PPPP', { locale: dateLocale })}</p>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-medium">
+                          {format(startDate, 'HH:mm')} - {format(endDate, 'HH:mm')}
+                          {event.duration_minutes && <span className="text-muted-foreground ml-2">({event.duration_minutes} min)</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
               {/* Show host from video data for auto-webinar, or from event */}
               {(isAutoWebinar && autoWebinarVideo?.host_name) ? (
                 <div className="flex items-center gap-3">
