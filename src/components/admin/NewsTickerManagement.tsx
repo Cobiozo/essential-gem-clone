@@ -1102,55 +1102,49 @@ export const NewsTickerManagement: React.FC = () => {
             <div className="space-y-3">
               {items.map(item => (
                 <Card key={item.id} className={!item.is_active ? 'opacity-50' : ''}>
-                  <CardContent className="py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          {item.is_important && (
-                            <Badge variant="destructive" className="text-xs">Ważny</Badge>
-                          )}
-                          {!item.is_active && (
-                            <Badge variant="secondary" className="text-xs">Nieaktywny</Badge>
-                          )}
-                          <Badge variant="outline" className="text-xs">Priorytet: {item.priority}</Badge>
-                          {item.target_user_id && (
-                            <Badge variant="secondary" className="text-xs">
-                              <User className="h-3 w-3 mr-1" />
-                              Dla użytkownika
-                            </Badge>
-                          )}
-                          {item.effect && item.effect !== 'none' && (
-                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-                              {EFFECT_OPTIONS.find(o => o.value === item.effect)?.label}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm font-medium truncate">{item.short_description || item.content}</p>
-                        {item.short_description && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.content}</p>
-                        )}
-                        <div className="flex gap-2 mt-2 text-xs text-muted-foreground">
-                          {!item.target_user_id && (
-                            <>
-                              {item.visible_to_clients && <span>Klienci</span>}
-                              {item.visible_to_partners && <span>Partnerzy</span>}
-                              {item.visible_to_specjalista && <span>Specjaliści</span>}
-                            </>
-                          )}
-                        </div>
+                  <CardContent className="py-4 space-y-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {item.is_important && (
+                        <Badge variant="destructive" className="text-xs">Ważny</Badge>
+                      )}
+                      {!item.is_active && (
+                        <Badge variant="secondary" className="text-xs">Nieaktywny</Badge>
+                      )}
+                      <Badge variant="outline" className="text-xs">Priorytet: {item.priority}</Badge>
+                      {item.target_user_id && (
+                        <Badge variant="secondary" className="text-xs">
+                          <User className="h-3 w-3 mr-1" />
+                          Dla użytkownika
+                        </Badge>
+                      )}
+                      {item.effect && item.effect !== 'none' && (
+                        <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+                          {EFFECT_OPTIONS.find(o => o.value === item.effect)?.label}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-medium whitespace-pre-wrap break-words">{item.short_description || item.content}</p>
+                    {item.short_description && (
+                      <p className="text-xs text-muted-foreground">{item.content}</p>
+                    )}
+                    {!item.target_user_id && (
+                      <div className="flex gap-2 text-xs text-muted-foreground">
+                        {item.visible_to_clients && <span>Klienci</span>}
+                        {item.visible_to_partners && <span>Partnerzy</span>}
+                        {item.visible_to_specjalista && <span>Specjaliści</span>}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Switch
-                          checked={item.is_active}
-                          onCheckedChange={() => toggleItemActive(item)}
-                        />
-                        <Button variant="ghost" size="icon" onClick={() => setEditingItem(item)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => deleteItem(item.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    )}
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/40">
+                      <Switch
+                        checked={item.is_active}
+                        onCheckedChange={() => toggleItemActive(item)}
+                      />
+                      <Button variant="ghost" size="icon" onClick={() => setEditingItem(item)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => deleteItem(item.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
