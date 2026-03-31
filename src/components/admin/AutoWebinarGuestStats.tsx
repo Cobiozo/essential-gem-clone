@@ -12,6 +12,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Clock, Eye, RefreshCw, Download, Search, Filter, Trash2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
