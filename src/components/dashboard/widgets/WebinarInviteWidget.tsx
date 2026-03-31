@@ -184,7 +184,7 @@ ${labels.signUp}: ${inviteUrl}`.trim();
   });
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible open={isOpen} onOpenChange={onOpenChange}>
       <CollapsibleTrigger className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-accent/50 transition-colors text-left">
         <div className="flex items-center gap-2">
           {hasLiveSlot && (
