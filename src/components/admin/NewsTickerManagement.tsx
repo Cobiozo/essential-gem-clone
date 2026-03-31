@@ -1154,7 +1154,7 @@ export const NewsTickerManagement: React.FC = () => {
 
           {/* Edit Dialog */}
           <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edytuj komunikat</DialogTitle>
               </DialogHeader>
