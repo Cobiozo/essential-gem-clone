@@ -1,57 +1,52 @@
 
 
-# Fix: Historia znika po zamknięciu + Messenger-like: Usuwanie, Archiwizacja, Blokowanie
+# Fix: Goście otrzymują powiadomienia o terminach, na które nie są zarejestrowani
 
-## Problem 1: Historia znika u użytkownika po zamknięciu konwersacji
-**Przyczyna**: W `useAdminConversations.ts` hook poprawnie zwraca zamknięte konwersacje, a sidebar je wyświetla. Ale `handleAdminSelectUser` dla non-admin wywołuje `selectDirectMember(userId)` — i to powinno działać. Prawdopodobny problem: użytkownik nie widzi konwersacji w sidebarze, bo `adminConversations` jest puste (problem z RLS lub fetchem). Trzeba dodać debug i upewnić się, że `onAdminSelectUser` jest przekazywane poprawnie dla non-admin.
+## Problem
+W `send-bulk-webinar-reminders/index.ts` istnieją dwa fallbacki "legacy", które powodują, że rejestracje **bez `occurrence_index`** (lub bez `occurrence_date`) otrzymują przypomnienia o **KAŻDYM** terminie wydarzenia cyklicznego:
 
-**Fix**: W `MessagesSidebar.tsx` sekcja non-admin zależy od `onAdminSelectUser` — ale ta prop jest przekazywana jako `handleAdminSelectUser`. Problem może być w tym, że non-admin user nie ma konwersacji w `adminConversations` z powodu braku fetcha albo złego mapowania. Dodam dodatkowe zabezpieczenie: w `useAdminConversations` upewnię się że fetch działa poprawnie dla non-admin.
-
-## Nowe funkcje (Messenger-style)
-
-### Nowa tabela: `conversation_user_settings`
-Przechowuje per-user ustawienia dla każdej konwersacji (usunięcie, archiwizacja, blokowanie).
-
-```sql
-CREATE TABLE public.conversation_user_settings (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  other_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  is_deleted boolean DEFAULT false,
-  deleted_at timestamptz,
-  is_archived boolean DEFAULT false,
-  archived_at timestamptz,
-  is_blocked boolean DEFAULT false,
-  blocked_at timestamptz,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now(),
-  UNIQUE(user_id, other_user_id)
-);
--- RLS: users can only manage their own settings
+**Linia 448 (użytkownicy)**:
+```typescript
+r.occurrence_index === null  // ← pasuje do WSZYSTKICH terminów
 ```
 
-### Logika działania (jak Messenger):
-- **Usunięcie**: Ukrywa konwersację z listy (nie kasuje wiadomości z bazy). Jeśli druga osoba napisze ponownie, konwersacja pojawi się znowu.
-- **Archiwizacja**: Przenosi do sekcji "Archiwum". Konwersacja wraca do głównej listy po nowej wiadomości.
-- **Blokowanie**: Ukrywa konwersację + blokuje odbiór nowych wiadomości od tej osoby. Zablokowany użytkownik nie wie że jest zablokowany.
+**Linia 408 (goście)**:
+```typescript
+g.occurrence_index === null  // ← pasuje do WSZYSTKICH terminów
+```
 
-### Zmiany w plikach:
+Po globalnym resecie rejestracji w marcu 2026, te fallbacki nie są już potrzebne — każda nowa rejestracja posiada `occurrence_date` i `occurrence_time`. Te fallbacki powodują, że goście jak Hybert i Testomir dostają e-maile o terminie 01.04.2026, mimo że nie zarejestrowali się na ten konkretny slot.
 
-| Plik | Zmiana |
-|------|--------|
-| Migration SQL | Nowa tabela `conversation_user_settings` |
-| `src/hooks/useConversationSettings.ts` | **NOWY** — CRUD dla delete/archive/block |
-| `src/hooks/useAdminConversations.ts` | Fix: lepsze pobieranie konwersacji dla non-admin |
-| `src/hooks/useUnifiedChat.ts` | Filtrowanie konwersacji po settings (deleted/archived/blocked) |
-| `src/components/messages/ConversationActions.tsx` | **NOWY** — Menu kontekstowe (prawy klik / przycisk ⋮) z opcjami: Usuń, Archiwizuj, Zablokuj |
-| `src/components/messages/MessagesSidebar.tsx` | Dodanie menu kontekstowego na konwersacjach + sekcja "Archiwum" |
-| `src/components/messages/FullChatWindow.tsx` | Przycisk ⋮ w headerze z tymi samymi opcjami |
-| `src/pages/MessagesPage.tsx` | Wire up conversation settings |
+## Fix — `supabase/functions/send-bulk-webinar-reminders/index.ts`
 
-### UI/UX:
-- Każda konwersacja na sidebarze: długie przytrzymanie (mobile) lub hover → ikona ⋮ → menu: "Usuń rozmowę", "Archiwizuj", "Zablokuj użytkownika"
-- W headerze czatu: ikona ⋮ → te same opcje
-- Na dole sidebara: link "Archiwum" (jeśli są zarchiwizowane konwersacje)
-- Po zablokowaniu: potwierdzenie dialogowe "Czy na pewno chcesz zablokować?"
-- Po usunięciu: toast "Konwersacja usunięta"
+### Zmiana 1: Usunięcie fallbacku dla gości (linia ~406-410)
+```typescript
+// Strict filtering: only guests registered for THIS specific occurrence
+guests = guests.filter(g =>
+  g.occurrence_index === termOccurrenceIndex
+);
+```
+Usunięcie `g.occurrence_index === null` — gość bez przypisanego terminu NIE powinien dostawać powiadomień o żadnym terminie.
+
+### Zmiana 2: Usunięcie fallbacków legacy dla użytkowników (linia ~442-449)
+```typescript
+relevantUserRegs = relevantUserRegs.filter(r =>
+  // Match by stable date+time snapshot
+  (r.occurrence_date === targetDate && r.occurrence_time === targetTime) ||
+  // Fallback: legacy index-only match (no date stored)
+  (r.occurrence_date === null && r.occurrence_index === termOccurrenceIndex)
+);
+```
+Usunięcie `r.occurrence_index === null` — rejestracja bez żadnej informacji o terminie NIE powinna automatycznie pasować do wszystkich terminów. Zachowujemy fallback na `occurrence_index` gdy brak `occurrence_date` (starsze rejestracje z indeksem ale bez daty).
+
+### Zmiana 3: Logowanie odrzuconych rejestracji
+Dodanie logowania ile rejestracji zostało odfiltrowanych, aby ułatwić debugowanie w przyszłości.
+
+## Efekt
+- Goście i użytkownicy dostaną e-mail TYLKO o terminie, na który się faktycznie zarejestrowali
+- Brak "legacy" zachowania rozsyłającego powiadomienia do wszystkich terminów
+- Wymaga redeployment edge function `send-bulk-webinar-reminders`
+
+## Pliki do edycji
+- `supabase/functions/send-bulk-webinar-reminders/index.ts`
 
