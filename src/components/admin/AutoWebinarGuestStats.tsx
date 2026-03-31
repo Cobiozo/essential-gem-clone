@@ -296,7 +296,27 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
     return result;
   }, [stats, search, filterInviter, filterJoined, filterSlot, filterDateFrom, filterDateTo, filterMinWatch, filterStatus]);
 
-  const formatDuration = (seconds: number | null) => {
+  const selectableGuests = useMemo(() => filtered.filter(g => g.status !== 'cancelled'), [filtered]);
+  const allSelectableSelected = selectableGuests.length > 0 && selectableGuests.every(g => selectedIds.has(g.id));
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelectableSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableGuests.map(g => g.id)));
+    }
+  }, [allSelectableSelected, selectableGuests]);
+
+  const toggleSelectOne = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+
     if (!seconds) return '—';
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
