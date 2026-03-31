@@ -49,6 +49,9 @@ export const MessagesSidebar = ({
   selectedMembers = new Set(),
   onToggleSelection,
   onCreateGroupChat,
+  isAdmin = false,
+  adminConversations = [],
+  onAdminSelectUser,
 }: MessagesSidebarProps) => {
   // Separate outgoing (can send) and incoming (can receive) channels
   const outgoingChannels = channels.filter(c => c.canSend);
