@@ -62,11 +62,19 @@ const MessagesPage = () => {
   // Handle ?user= URL parameter for notification deep-linking
   useEffect(() => {
     const userId = searchParams.get('user');
-    if (userId && teamMembers.length > 0) {
+    if (!userId || !user) return;
+    
+    const adminConv = adminConversations.find(c => c.userId === userId);
+    if (adminConv) {
+      handleAdminSelectUser(userId);
+    } else if (teamMembers.length > 0) {
       handleSelectDirectMember(userId);
-      setSearchParams({}, { replace: true });
+    } else {
+      selectDirectMember(userId);
+      setMobileView('chat');
     }
-  }, [searchParams, teamMembers]);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, user, teamMembers, adminConversations]);
 
   // Fetch conversation status when direct user changes
   useEffect(() => {
