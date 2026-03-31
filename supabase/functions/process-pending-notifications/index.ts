@@ -89,6 +89,8 @@ serve(async (req) => {
     pushReminders: { processed: 0, success: 0, failed: 0 },
     contactReminders: { processed: 0, success: 0, failed: 0 },
     postEventThankYou: { processed: 0, success: 0, failed: 0 },
+    inactivityWarnings: { processed: 0, success: 0, failed: 0 },
+    inactivityBlocks: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
   
