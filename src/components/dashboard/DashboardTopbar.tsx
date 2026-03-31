@@ -82,19 +82,6 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2 ml-auto">
-        {/* Classic view toggle - only for admins */}
-        {isAdmin && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleSwitchToClassic}
-            className="h-9 w-9"
-            title={t('dashboard.switchToClassic')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
-        )}
-
         {/* Session Timer */}
         {sessionTimer && (
           <SessionTimer
@@ -107,23 +94,32 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         {/* Notifications */}
         <NotificationBell />
 
-        {/* Language */}
-        <LanguageSelector />
-
-        {/* Tutorial help button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
-          className="h-9 w-9"
-          title={tf('nav.tutorial', 'Samouczek')}
-          data-tour="tutorial-button"
-        >
-          <HelpCircle className="h-4 w-4" />
-        </Button>
-
-        {/* Theme */}
-        <ThemeSelector />
+        {/* Desktop-only actions */}
+        <div className="hidden sm:flex items-center gap-1">
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleSwitchToClassic}
+              className="h-9 w-9"
+              title={t('dashboard.switchToClassic')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          )}
+          <LanguageSelector />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => window.dispatchEvent(new CustomEvent('startOnboardingTour'))}
+            className="h-9 w-9"
+            title={tf('nav.tutorial', 'Samouczek')}
+            data-tour="tutorial-button"
+          >
+            <HelpCircle className="h-4 w-4" />
+          </Button>
+          <ThemeSelector />
+        </div>
 
         {/* User dropdown */}
         <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
