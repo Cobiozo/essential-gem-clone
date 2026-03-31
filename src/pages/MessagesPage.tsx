@@ -313,6 +313,12 @@ const MessagesPage = () => {
               isAdmin={isAdmin}
               adminConversationStatus={currentConvStatus}
               onCloseConversation={handleCloseConversation}
+              onDeleteConversation={deleteConversation}
+              onArchiveConversation={archiveConversation}
+              onBlockUser={blockUser}
+              onUnblockUser={unblockUser}
+              isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
+              isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
             />
           ) : (
             <EmptyState />
