@@ -1,73 +1,57 @@
 
 
-# Fix: User cannot see admin messages
+# Fix: Historia znika po zamknięciu + Messenger-like: Usuwanie, Archiwizacja, Blokowanie
 
-## Root Cause
+## Problem 1: Historia znika u użytkownika po zamknięciu konwersacji
+**Przyczyna**: W `useAdminConversations.ts` hook poprawnie zwraca zamknięte konwersacje, a sidebar je wyświetla. Ale `handleAdminSelectUser` dla non-admin wywołuje `selectDirectMember(userId)` — i to powinno działać. Prawdopodobny problem: użytkownik nie widzi konwersacji w sidebarze, bo `adminConversations` jest puste (problem z RLS lub fetchem). Trzeba dodać debug i upewnić się, że `onAdminSelectUser` jest przekazywane poprawnie dla non-admin.
 
-Two issues found:
+**Fix**: W `MessagesSidebar.tsx` sekcja non-admin zależy od `onAdminSelectUser` — ale ta prop jest przekazywana jako `handleAdminSelectUser`. Problem może być w tym, że non-admin user nie ma konwersacji w `adminConversations` z powodu braku fetcha albo złego mapowania. Dodam dodatkowe zabezpieczenie: w `useAdminConversations` upewnię się że fetch działa poprawnie dla non-admin.
 
-### 1. Deep-link from notification never fires (PRIMARY BUG)
-In `MessagesPage.tsx` line 59-63, the `?user=` URL parameter handler has this condition:
-```ts
-if (userId && teamMembers.length > 0) {
-```
-If the user has **zero team members** (e.g., a client with no downline), this condition never becomes true, so clicking the notification link does nothing. Even for users with team members, the admin is not in `teamMembers`, but the effect still needs them loaded as a "ready" signal — this is fragile.
+## Nowe funkcje (Messenger-style)
 
-### 2. Deep-link uses wrong handler
-`handleSelectDirectMember` is used for the `?user=` param, but it doesn't fetch admin conversation status. The user ends up with no `currentConvStatus`, so the closed/open state of the conversation isn't tracked.
+### Nowa tabela: `conversation_user_settings`
+Przechowuje per-user ustawienia dla każdej konwersacji (usunięcie, archiwizacja, blokowanie).
 
-## Fix — `src/pages/MessagesPage.tsx`
-
-### Change 1: Fix the `?user=` URL handler
-Replace the `teamMembers.length > 0` guard with a more reliable readiness check, and use `handleAdminSelectUser` when the target is an admin conversation:
-
-```tsx
-useEffect(() => {
-    const userId = searchParams.get('user');
-    if (!userId || !user) return;
-    
-    // Check if this user has an admin conversation with us
-    const adminConv = adminConversations.find(c => c.userId === userId);
-    if (adminConv) {
-      handleAdminSelectUser(userId);
-    } else if (teamMembers.length > 0) {
-      handleSelectDirectMember(userId);
-    } else {
-      // Fallback: select even without team members loaded
-      selectDirectMember(userId);
-      setMobileView('chat');
-    }
-    setSearchParams({}, { replace: true });
-}, [searchParams, user, teamMembers, adminConversations]);
+```sql
+CREATE TABLE public.conversation_user_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  other_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  is_deleted boolean DEFAULT false,
+  deleted_at timestamptz,
+  is_archived boolean DEFAULT false,
+  archived_at timestamptz,
+  is_blocked boolean DEFAULT false,
+  blocked_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, other_user_id)
+);
+-- RLS: users can only manage their own settings
 ```
 
-### Change 2: Fix `effectiveDirectMember` for non-admin users
-Remove the `isAdmin` guard on the `adminConversations` fallback so non-admin users also get the member info from admin conversations:
+### Logika działania (jak Messenger):
+- **Usunięcie**: Ukrywa konwersację z listy (nie kasuje wiadomości z bazy). Jeśli druga osoba napisze ponownie, konwersacja pojawi się znowu.
+- **Archiwizacja**: Przenosi do sekcji "Archiwum". Konwersacja wraca do głównej listy po nowej wiadomości.
+- **Blokowanie**: Ukrywa konwersację + blokuje odbiór nowych wiadomości od tej osoby. Zablokowany użytkownik nie wie że jest zablokowany.
 
-```tsx
-const effectiveDirectMember = useMemo(() => {
-    if (!selectedDirectUserId) return null;
-    if (selectedDirectMember) return selectedDirectMember;
-    // Check admin conversations for profile info (works for both admin and user side)
-    const conv = adminConversations.find(c => c.userId === selectedDirectUserId);
-    if (conv) {
-      return {
-        userId: conv.userId,
-        firstName: conv.firstName,
-        lastName: conv.lastName,
-        role: conv.role,
-        eqId: null,
-        avatarUrl: conv.avatarUrl,
-        isUpline: false,
-        level: 0,
-      };
-    }
-    return null;
-}, [selectedDirectUserId, selectedDirectMember, adminConversations]);
-```
+### Zmiany w plikach:
 
-## Summary
-Two targeted changes in `src/pages/MessagesPage.tsx`:
-1. Fix URL deep-link handler to work without team members and route admin conversations correctly
-2. Remove `isAdmin` guard from `effectiveDirectMember` so both sides can resolve the conversation partner
+| Plik | Zmiana |
+|------|--------|
+| Migration SQL | Nowa tabela `conversation_user_settings` |
+| `src/hooks/useConversationSettings.ts` | **NOWY** — CRUD dla delete/archive/block |
+| `src/hooks/useAdminConversations.ts` | Fix: lepsze pobieranie konwersacji dla non-admin |
+| `src/hooks/useUnifiedChat.ts` | Filtrowanie konwersacji po settings (deleted/archived/blocked) |
+| `src/components/messages/ConversationActions.tsx` | **NOWY** — Menu kontekstowe (prawy klik / przycisk ⋮) z opcjami: Usuń, Archiwizuj, Zablokuj |
+| `src/components/messages/MessagesSidebar.tsx` | Dodanie menu kontekstowego na konwersacjach + sekcja "Archiwum" |
+| `src/components/messages/FullChatWindow.tsx` | Przycisk ⋮ w headerze z tymi samymi opcjami |
+| `src/pages/MessagesPage.tsx` | Wire up conversation settings |
+
+### UI/UX:
+- Każda konwersacja na sidebarze: długie przytrzymanie (mobile) lub hover → ikona ⋮ → menu: "Usuń rozmowę", "Archiwizuj", "Zablokuj użytkownika"
+- W headerze czatu: ikona ⋮ → te same opcje
+- Na dole sidebara: link "Archiwum" (jeśli są zarchiwizowane konwersacje)
+- Po zablokowaniu: potwierdzenie dialogowe "Czy na pewno chcesz zablokować?"
+- Po usunięciu: toast "Konwersacja usunięta"
 
