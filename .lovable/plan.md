@@ -1,64 +1,27 @@
 
 
-# Rozbudowa listy gości auto-webinaru — zapraszający + filtry + usuwanie
+# Bulk selection and deletion for auto-webinar guest list
 
-## Co się zmieni
+## Changes to `src/components/admin/AutoWebinarGuestStats.tsx`
 
-Komponent `AutoWebinarGuestStats.tsx` zostanie przebudowany, aby:
-1. Pobierać dane zapraszającego partnera (imię, nazwisko, eq_id) z tabeli `profiles` przez `invited_by_user_id`
-2. Wyświetlać kolumnę "Zapraszający" w tabeli
-3. Umożliwić adminowi usunięcie gościa z listy (cancel rejestracji)
-4. Dodać panel filtrów z możliwością filtrowania po wszystkich kategoriach danych
+### New state
+- `selectedIds: Set<string>` — tracks checked guest IDs
+- `showBulkDeleteDialog: boolean` — controls bulk delete confirmation
 
-## Filtry
+### UI additions
 
-Panel filtrów (rozwijany) z następującymi opcjami:
-- **Zapraszający** — dropdown z listą unikalnych partnerów (+ "Brak zapraszającego")
-- **Status dołączenia** — Tak / Nie / Wszyscy
-- **Slot** — dropdown z unikalnymi slotami
-- **Data rejestracji** — zakres dat (od–do)
-- **Czas oglądania** — minimum sekund (np. > 0, > 60, > 300)
-- **Wyszukiwarka tekstowa** — jak dotychczas (imię, nazwisko, email)
+1. **Checkbox column** — new first column in table header with "select all" checkbox (toggles all visible filtered guests), and per-row checkboxes
+2. **Bulk action bar** — appears above table when `selectedIds.size > 0`, showing count of selected items and a "Usuń zaznaczonych" (Delete selected) button with Trash2 icon
+3. **Bulk delete dialog** — AlertDialog confirming deletion of N selected guests
 
-## Usuwanie gościa
+### Logic
+- `handleBulkDelete()` — loops through `selectedIds`, updates each to `status: 'cancelled'` via single Supabase `.in('id', [...selectedIds])` update call, then refreshes and clears selection
+- "Select all" checkbox selects/deselects only currently filtered non-cancelled guests
+- Selection clears when filters change (via useEffect on filtered)
+- ColSpan values updated from 8 to 9 for empty/loading states
 
-- Przycisk kosza w każdym wierszu
-- Dialog potwierdzenia przed usunięciem
-- Ustawia `status = 'cancelled'` w `guest_event_registrations` (soft delete)
-- Po usunięciu odświeża listę
-
-## Szczegóły techniczne
-
-### Plik: `src/components/admin/AutoWebinarGuestStats.tsx`
-
-**Pobieranie danych:**
-- Zapytanie do `guest_event_registrations` rozszerzone o `invited_by_user_id`
-- Osobne zapytanie do `profiles` po unikalnych `invited_by_user_id` → mapa `userId → {first_name, last_name, eq_id}`
-- Interfejs `GuestStat` rozszerzony o `invited_by_name: string | null`, `invited_by_eq_id: string | null`
-
-**Filtrowanie:**
-- Nowy state: `filterInviter`, `filterJoined`, `filterSlot`, `filterDateFrom`, `filterDateTo`, `filterMinWatch`
-- `useMemo` łączy wszystkie filtry z wyszukiwarką tekstową
-- Unikalne wartości (zapraszający, sloty) wyciągane z `stats` do dropdownów
-
-**Usuwanie:**
-- Funkcja `handleDeleteGuest(id)` → `supabase.from('guest_event_registrations').update({ status: 'cancelled', cancelled_at: now() }).eq('id', id)`
-- Dialog `AlertDialog` z potwierdzeniem
-
-**Tabela:**
-- Nowa kolumna "Zapraszający" między "Email" a "Slot"
-- Nowa kolumna "Akcje" na końcu z przyciskiem usuwania
-- CSV eksport rozszerzony o kolumnę "Zapraszający"
-
-**UI filtrów:**
-- Przycisk "Filtry" obok wyszukiwarki, rozwijający panel z `Select` i `Input` type="date"
-- Badge z liczbą aktywnych filtrów
-- Przycisk "Wyczyść filtry"
-
-### Pliki do zmiany
-| Plik | Zmiana |
+### File changes
+| File | Change |
 |------|--------|
-| `src/components/admin/AutoWebinarGuestStats.tsx` | Pełna przebudowa — zapraszający, filtry, usuwanie |
-
-Brak zmian w bazie danych — `invited_by_user_id` i `status`/`cancelled_at` już istnieją w tabeli.
+| `src/components/admin/AutoWebinarGuestStats.tsx` | Add selection state, checkbox column, bulk action bar, bulk delete dialog |
 
