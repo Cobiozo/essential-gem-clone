@@ -178,15 +178,6 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 
   if (!config?.is_enabled) return null;
 
-  // Per-category role visibility check
-  if (!isAdmin) {
-    const hasAccess =
-      (isPartner && config.visible_to_partners) ||
-      (isSpecjalista && config.visible_to_specjalista) ||
-      (isClient && config.visible_to_clients);
-    if (!hasAccess) return null;
-  }
-
   const hasLiveSlot = timeSlots.some(t => {
     const s = getSlotStatus(0, t);
     return s === 'now' || s === 'ongoing';
