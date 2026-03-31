@@ -146,6 +146,12 @@ export const FullChatWindow = ({
       {/* Message input */}
       {canSend ? (
         <MessageInput onSend={onSend} />
+      ) : adminConversationStatus === 'closed' ? (
+        <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
+          <p className="text-sm text-muted-foreground">
+            🔒 Konwersacja została zamknięta przez administratora
+          </p>
+        </div>
       ) : (
         <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
           <p className="text-sm text-muted-foreground">
