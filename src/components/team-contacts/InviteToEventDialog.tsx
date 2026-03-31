@@ -183,6 +183,17 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
   const handleInvite = async (event: UpcomingEvent) => {
     if (!user || !contact.email || !inviterProfile) return;
 
+    // Determine occurrence data
+    const occs = event.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+    const futureOccs = occs.filter(o => new Date(`${o.date}T${o.time}:00`) > new Date());
+    const selectedIdx = selectedOccurrences[event.id];
+    const selectedOcc = futureOccs.length > 1 && selectedIdx !== undefined ? occs[selectedIdx] : (futureOccs.length === 1 ? futureOccs[0] : null);
+
+    if (futureOccs.length > 1 && selectedIdx === undefined) {
+      // User needs to select a term first
+      return;
+    }
+
     setSending(event.id);
     try {
       const { error: rpcError } = await supabase.rpc('register_event_guest', {
@@ -194,7 +205,9 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         p_invited_by: user.id,
         p_source: 'partner_invite',
         p_slot_time: null,
-      });
+        p_occurrence_date: selectedOcc?.date || null,
+        p_occurrence_time: selectedOcc?.time || null,
+      } as any);
 
       if (rpcError) throw rpcError;
 
