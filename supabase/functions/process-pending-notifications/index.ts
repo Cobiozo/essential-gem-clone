@@ -547,9 +547,9 @@ serve(async (req) => {
       }
     }
 
-    // 7. Process training reminders (for inactive users) - skip if stopped early
+    // 7. Process training reminders (GROUPED per user) - skip if stopped early
     if (!results.stoppedEarly) {
-      console.log("[CRON] Finding training reminders due...");
+      console.log("[CRON] Finding training reminders due (grouped by user)...");
       
       const { data: remindersDue, error: reminderError } = await supabase
         .rpc("get_training_reminders_due");
@@ -559,62 +559,164 @@ serve(async (req) => {
       } else if (remindersDue && remindersDue.length > 0) {
         console.log(`[CRON] Found ${remindersDue.length} training reminders to send`);
         
+        // Group reminders by user_id
+        const groupedByUser = new Map<string, typeof remindersDue>();
         for (const reminder of remindersDue) {
-          // Check timeout before processing
+          const existing = groupedByUser.get(reminder.user_id) || [];
+          existing.push(reminder);
+          groupedByUser.set(reminder.user_id, existing);
+        }
+        
+        console.log(`[CRON] Grouped into ${groupedByUser.size} users`);
+        
+        for (const [userId, userReminders] of groupedByUser) {
           if (isTimeoutApproaching()) {
             console.log("[CRON] Approaching timeout limit, stopping training reminders");
             results.stoppedEarly = true;
             break;
           }
           
-          // Short delay between emails to avoid SMTP overload
           if (results.trainingReminders.processed > 0) {
             await delay(200);
           }
           
           results.trainingReminders.processed++;
           try {
-            // Call send-training-reminder function
-            const { error: sendError } = await supabase.functions.invoke("send-training-reminder", {
-              body: {
-                userId: reminder.user_id,
-                moduleId: reminder.module_id,
-                daysInactive: reminder.days_inactive,
-                progressPercent: reminder.progress_percent,
-                assignmentId: reminder.assignment_id
-              }
+            // Build modules list for grouped email
+            const modules = userReminders.map((r: any) => ({
+              moduleId: r.module_id,
+              moduleTitle: r.module_title,
+              progressPercent: r.progress_percent,
+              daysInactive: r.days_inactive,
+              assignmentId: r.assignment_id,
+            }));
+            
+            // Call grouped reminder function
+            const { error: sendError } = await supabase.functions.invoke("send-training-reminder-grouped", {
+              body: { userId, modules }
             });
             
             if (sendError) {
-              console.error(`[CRON] Failed to send training reminder to ${reminder.user_email}:`, sendError);
+              console.error(`[CRON] Failed to send grouped training reminder for user ${userId}:`, sendError);
               results.trainingReminders.failed++;
             } else {
-              console.log(`[CRON] Sent training reminder to ${reminder.user_email} for module: ${reminder.module_title} (${reminder.days_inactive} days inactive, ${reminder.progress_percent}% complete)`);
+              console.log(`[CRON] Sent grouped training reminder to user ${userId} for ${modules.length} modules`);
               results.trainingReminders.success++;
               
-              // Send Push notification (best effort)
+              // Send single Push notification (best effort)
               try {
+                const pushBody = modules.length === 1
+                  ? `Moduł „${modules[0].moduleTitle}" czeka — ukończyłeś ${modules[0].progressPercent}%`
+                  : `${modules.length} modułów szkoleniowych czeka na kontynuację`;
                 await supabase.functions.invoke("send-push-notification", {
                   body: {
-                    userId: reminder.user_id,
+                    userId,
                     title: "Przypomnienie o szkoleniu",
-                    body: `Moduł "${reminder.module_title}" czeka — ukończyłeś ${reminder.progress_percent}%`,
+                    body: pushBody,
                     url: "/training",
-                    tag: `training-reminder-${reminder.module_id}`
+                    tag: `training-reminder-grouped-${userId}`
                   }
                 });
-                console.log(`[CRON] Push sent for training reminder to ${reminder.user_email}`);
               } catch (pushErr) {
                 console.warn(`[CRON] Push failed for training reminder (non-blocking):`, pushErr);
               }
             }
           } catch (err) {
-            console.error(`[CRON] Exception sending training reminder:`, err);
+            console.error(`[CRON] Exception sending grouped training reminder:`, err);
             results.trainingReminders.failed++;
           }
         }
       } else {
         console.log("[CRON] No training reminders due");
+      }
+    }
+
+    // 7b. INACTIVITY WARNINGS (14 days without login)
+    if (!results.stoppedEarly && !isTimeoutApproaching()) {
+      console.log("[CRON] Step 7b: Processing inactivity warnings...");
+      
+      const { data: inactiveWarningUsers, error: warningError } = await supabase
+        .rpc("get_inactive_users_for_warning");
+
+      if (warningError) {
+        console.error("[CRON] Error fetching inactive users for warning:", warningError);
+      } else if (inactiveWarningUsers && inactiveWarningUsers.length > 0) {
+        console.log(`[CRON] Found ${inactiveWarningUsers.length} users for inactivity warning`);
+        
+        for (const u of inactiveWarningUsers) {
+          if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+          if (results.inactivityWarnings.processed > 0) await delay(200);
+          
+          results.inactivityWarnings.processed++;
+          try {
+            const { error: sendError } = await supabase.functions.invoke("send-inactivity-warning", {
+              body: { userId: u.user_id, daysInactive: u.days_inactive }
+            });
+            
+            if (sendError) {
+              console.error(`[CRON] Failed to send inactivity warning to ${u.email}:`, sendError);
+              results.inactivityWarnings.failed++;
+            } else {
+              console.log(`[CRON] Sent inactivity warning to ${u.email} (${u.days_inactive} days inactive)`);
+              results.inactivityWarnings.success++;
+            }
+          } catch (err) {
+            console.error(`[CRON] Exception sending inactivity warning:`, err);
+            results.inactivityWarnings.failed++;
+          }
+        }
+      } else {
+        console.log("[CRON] No users need inactivity warning");
+      }
+    }
+
+    // 7c. INACTIVITY BLOCKING (30 days without login)
+    if (!results.stoppedEarly && !isTimeoutApproaching()) {
+      console.log("[CRON] Step 7c: Processing inactivity blocks...");
+      
+      const { data: inactiveBlockUsers, error: blockError } = await supabase
+        .rpc("get_inactive_users_for_blocking");
+
+      if (blockError) {
+        console.error("[CRON] Error fetching inactive users for blocking:", blockError);
+      } else if (inactiveBlockUsers && inactiveBlockUsers.length > 0) {
+        console.log(`[CRON] Found ${inactiveBlockUsers.length} users for inactivity blocking`);
+        
+        for (const u of inactiveBlockUsers) {
+          if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+          
+          results.inactivityBlocks.processed++;
+          try {
+            // Block the user
+            await supabase
+              .from("profiles")
+              .update({
+                is_active: false,
+                blocked_at: new Date().toISOString(),
+                block_reason: 'inactivity_30_days',
+                updated_at: new Date().toISOString()
+              })
+              .eq("user_id", u.user_id);
+            
+            console.log(`[CRON] Blocked user ${u.email} for ${u.days_inactive} days of inactivity`);
+            results.inactivityBlocks.success++;
+            
+            // Create admin notification about the block
+            await supabase.from("user_notifications").insert({
+              user_id: u.user_id,
+              notification_type: "system",
+              source_module: "inactivity",
+              title: "Konto zablokowane z powodu braku aktywności",
+              message: `Twoje konto zostało zablokowane po ${u.days_inactive} dniach braku aktywności. Skontaktuj się z support@purelife.info.pl lub swoim opiekunem, aby odblokować dostęp.`,
+              metadata: { event: 'inactivity_block', days_inactive: u.days_inactive },
+            });
+          } catch (err) {
+            console.error(`[CRON] Exception blocking inactive user ${u.email}:`, err);
+            results.inactivityBlocks.failed++;
+          }
+        }
+      } else {
+        console.log("[CRON] No users need inactivity blocking");
       }
     }
 
