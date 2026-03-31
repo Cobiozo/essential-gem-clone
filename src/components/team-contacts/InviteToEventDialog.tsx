@@ -141,9 +141,12 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     };
   };
 
-  const sendConfirmationEmail = async (event: UpcomingEvent, email: string, firstName: string, lastName: string, phoneNumber: string) => {
+  const sendConfirmationEmail = async (event: UpcomingEvent, email: string, firstName: string, lastName: string, phoneNumber: string, occDate?: string | null, occTime?: string | null) => {
     if (!user || !inviterProfile) return;
-    const { formattedTime } = formatEventDateTime(event.start_time);
+    
+    // Use occurrence date/time if available, otherwise fall back to event start_time
+    const eventDateToUse = occDate && occTime ? `${occDate}T${occTime}:00` : event.start_time;
+    const { formattedTime } = formatEventDateTime(eventDateToUse);
 
     await supabase.functions.invoke('send-webinar-confirmation', {
       body: {
@@ -153,8 +156,8 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
         phoneNumber,
         eventId: event.id,
         eventTitle: event.title,
-        eventDate: event.start_time,
-        eventTime: formattedTime,
+        eventDate: eventDateToUse,
+        eventTime: occTime || formattedTime,
         eventHost: event.host_name || 'Zespół Pure Life',
         imageUrl: event.image_url || '',
         invitedByUserId: user.id,
