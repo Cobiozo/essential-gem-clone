@@ -82,14 +82,16 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2 ml-auto">
-        {/* Session Timer */}
-        {sessionTimer && (
-          <SessionTimer
-            timeRemaining={sessionTimer.timeRemaining}
-            onRefresh={sessionTimer.onRefreshTimer}
-            hidden={sessionTimer.isProtectedRoute}
-          />
-        )}
+        {/* Session Timer - hidden on mobile */}
+        <div className="hidden sm:block">
+          {sessionTimer && (
+            <SessionTimer
+              timeRemaining={sessionTimer.timeRemaining}
+              onRefresh={sessionTimer.onRefreshTimer}
+              hidden={sessionTimer.isProtectedRoute}
+            />
+          )}
+        </div>
 
         {/* Notifications */}
         <NotificationBell />
