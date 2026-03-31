@@ -297,7 +297,7 @@ const WebinarInviteWidget: React.FC = () => {
         <div className="flex flex-col items-center gap-1 py-1">
           <div className="flex items-center gap-2">
             <Radio className="h-5 w-5 text-red-500" />
-            <h2 className="text-base font-bold text-foreground">Zaproś Swojego Gościa na Live Webinar</h2>
+            <h2 className="text-xl font-bold text-foreground">Zaproś Swojego Gościa na Live Webinar</h2>
           </div>
           <p className="text-xs text-muted-foreground">kliknij, wybierz webinar, dobierz termin i skopiuj zaproszenie</p>
         </div>
