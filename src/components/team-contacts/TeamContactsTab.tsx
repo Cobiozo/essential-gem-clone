@@ -271,17 +271,17 @@ export const TeamContactsTab: React.FC = () => {
         <TabsContent value="private">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UserPlus className="w-5 h-5" />
                     Kontakty prywatne
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">
                     Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   {/* View Toggle */}
                   <div className="flex border rounded-md overflow-hidden">
                     <Button
@@ -308,21 +308,23 @@ export const TeamContactsTab: React.FC = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowFilters(!showFilters)}
+                    title="Filtry"
                   >
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filtry
+                    <Filter className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Filtry</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowExport(true)}
+                    title="Eksport"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Eksport
+                    <Download className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Eksport</span>
                   </Button>
-                  <Button size="sm" onClick={() => setShowForm(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Dodaj kontakt
+                  <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
+                    <Plus className="w-4 h-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Dodaj kontakt</span>
                   </Button>
                 </div>
               </div>
