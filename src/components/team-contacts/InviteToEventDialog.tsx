@@ -367,6 +367,11 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
             {events.map((event) => {
               const { formattedDate, formattedTime } = formatEventDateTime(event.start_time);
               const alreadyInvited = invitedEventIds.has(event.id);
+              const occs = event.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+              const futureOccs = occs.filter(o => new Date(`${o.date}T${o.time}:00`) > new Date());
+              const isMultiOcc = futureOccs.length > 1;
+              const selectedOccIdx = selectedOccurrences[event.id];
+              const needsOccSelection = isMultiOcc && selectedOccIdx === undefined;
 
               return (
                 <div
@@ -379,15 +384,17 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
                         <span className="font-medium text-foreground">{event.title}</span>
                         {getEventTypeBadge(event.event_type)}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        📅 {formattedDate} • {formattedTime}
-                      </p>
+                      {!isMultiOcc && (
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          📅 {formattedDate} • {formattedTime}
+                        </p>
+                      )}
                     </div>
                     {!alreadyInvited && (
                       <Button
                         size="sm"
                         onClick={() => handleInvite(event)}
-                        disabled={sending === event.id || !contact.email}
+                        disabled={sending === event.id || !contact.email || needsOccSelection}
                       >
                         {sending === event.id ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -398,6 +405,32 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
                       </Button>
                     )}
                   </div>
+
+                  {/* Occurrence picker for multi-occurrence events */}
+                  {isMultiOcc && !alreadyInvited && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs text-muted-foreground">Wybierz termin:</p>
+                      {futureOccs.map((occ) => {
+                        const occIdx = occs.indexOf(occ);
+                        const occDate = new Date(`${occ.date}T${occ.time}:00`);
+                        const isSelected = selectedOccIdx === occIdx;
+                        return (
+                          <button
+                            key={occIdx}
+                            type="button"
+                            onClick={() => setSelectedOccurrences(prev => ({ ...prev, [event.id]: occIdx }))}
+                            className={`w-full text-left px-3 py-1.5 rounded text-sm border transition-colors ${
+                              isSelected
+                                ? 'border-primary bg-primary/10 text-foreground'
+                                : 'border-border hover:bg-muted/50 text-muted-foreground'
+                            }`}
+                          >
+                            📅 {occDate.toLocaleDateString('pl-PL', { day: '2-digit', month: 'long', year: 'numeric' })} • {occ.time}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   {alreadyInvited && (
                     <div className="mt-2 space-y-2">
