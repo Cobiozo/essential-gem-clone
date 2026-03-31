@@ -348,6 +348,18 @@ const EventGuestRegistration: React.FC = () => {
         ? resolvedSlot.time
         : null;
 
+      // Determine occurrence date/time for standard multi-occurrence events
+      const occs = event?.occurrences && Array.isArray(event.occurrences) ? event.occurrences : [];
+      const isMultiOccurrence = !isAutoWebinar && occs.length > 1;
+      const selectedOcc = isMultiOccurrence && selectedOccurrenceIndex !== null ? occs[selectedOccurrenceIndex] : null;
+      const occurrenceDate = selectedOcc ? selectedOcc.date : null;
+      const occurrenceTime = selectedOcc ? selectedOcc.time : null;
+
+      // For single-occurrence standard events, use the first occurrence if available
+      const singleOcc = !isMultiOccurrence && occs.length === 1 ? occs[0] : null;
+      const finalOccDate = occurrenceDate || (singleOcc ? singleOcc.date : null);
+      const finalOccTime = occurrenceTime || (singleOcc ? singleOcc.time : null);
+
       // Use RPC for atomic registration with attempt counting
       const { data: rpcResult, error: rpcError } = await supabase.rpc('register_event_guest', {
         p_event_id: eventId,
@@ -358,13 +370,24 @@ const EventGuestRegistration: React.FC = () => {
         p_invited_by: invitedBy || null,
         p_source: 'webinar_form',
         p_slot_time: slotTimeValue,
-      });
+        p_occurrence_date: finalOccDate,
+        p_occurrence_time: finalOccTime,
+      } as any);
 
       if (rpcError) throw rpcError;
 
       if ((rpcResult as any)?.status === 'already_registered') {
         setAlreadyRegistered(true);
         return;
+      }
+
+      // Determine the correct eventDate for confirmation email
+      let confirmationEventDate = event?.start_time;
+      if (selectedOcc) {
+        // Use the specific occurrence date/time for the email
+        confirmationEventDate = `${selectedOcc.date}T${selectedOcc.time}:00`;
+      } else if (singleOcc) {
+        confirmationEventDate = `${singleOcc.date}T${singleOcc.time}:00`;
       }
 
       try {
@@ -380,7 +403,8 @@ const EventGuestRegistration: React.FC = () => {
             phone: data.phone,
             invitedByUserId: invitedBy,
             eventTitle: event?.title,
-            eventDate: event?.start_time,
+            eventDate: confirmationEventDate,
+            eventTime: occurrenceTime || undefined,
             eventHost: autoWebinarVideo?.host_name || event?.host_name,
             // Auto-webinar specific
             isAutoWebinar,
