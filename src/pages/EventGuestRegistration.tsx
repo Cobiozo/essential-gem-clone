@@ -279,7 +279,10 @@ const EventGuestRegistration: React.FC = () => {
           throw error;
         }
         console.log('Event fetched successfully:', data?.title);
-        setEvent(data);
+        setEvent({
+          ...data,
+          occurrences: Array.isArray(data.occurrences) ? data.occurrences as unknown as EventOccurrenceData[] : null,
+        });
       } catch (err: any) {
         console.error('Error fetching event:', err?.message || err);
         setError(`${labels.notFound} (${err?.code || 'unknown'})`);
