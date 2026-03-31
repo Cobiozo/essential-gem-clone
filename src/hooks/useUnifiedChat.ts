@@ -64,6 +64,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const [teamMembers, setTeamMembers] = useState<TeamMemberChannel[]>([]);
   const [upline, setUpline] = useState<TeamMemberChannel | null>(null);
   const [canBroadcast, setCanBroadcast] = useState(false);
+  const [adhocDirectMember, setAdhocDirectMember] = useState<TeamMemberChannel | null>(null);
 
   const enableRealtime = options?.enableRealtime ?? false;
   const currentRole = userRole?.role?.toLowerCase() || 'client';
