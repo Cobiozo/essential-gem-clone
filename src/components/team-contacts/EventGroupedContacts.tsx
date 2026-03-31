@@ -100,18 +100,18 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
             >
               <Card>
                 <CollapsibleTrigger asChild>
-                  <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 gap-2 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                         <Calendar className="w-5 h-5 text-primary" />
                       </div>
-                      <div>
-                        <h3 className="font-semibold text-foreground">{group.title}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-foreground truncate">{group.title}</h3>
                         <p className="text-sm text-muted-foreground">{eventDate}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant="secondary" className="flex items-center gap-1">
+                    <div className="flex items-center gap-3 pl-[52px] sm:pl-0">
+                      <Badge variant="secondary" className="flex items-center gap-1 whitespace-nowrap">
                         <Users className="w-3 h-3" />
                         {group.contacts.length} {group.contacts.length === 1 ? 'gość' : group.contacts.length < 5 ? 'gości' : 'gości'}
                       </Badge>
