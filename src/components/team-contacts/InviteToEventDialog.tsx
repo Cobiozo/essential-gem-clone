@@ -77,7 +77,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, start_time, end_time, event_type, host_name, image_url')
+        .select('id, title, start_time, end_time, event_type, host_name, image_url, occurrences')
         .eq('is_active', true)
         .eq('allow_invites', true)
         .gt('start_time', new Date().toISOString())
