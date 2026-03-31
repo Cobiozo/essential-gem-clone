@@ -551,5 +551,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     );
   }
 
+  // Guard: blocked user screen (is_active === false and not admin)
+  if (user && profile && !profile.is_active && !isAdmin) {
+    return (
+      <AuthContext.Provider value={value}>
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-card border rounded-xl shadow-lg p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+            <h2 className="text-xl font-bold text-foreground mb-2">Dostęp do konta został ograniczony</h2>
+            <p className="text-muted-foreground mb-6">
+              Twoje konto zostało zablokowane z powodu braku aktywności na platformie Pure Life Center przez okres 30 dni.
+            </p>
+            <div className="bg-muted rounded-lg p-4 mb-6 text-left">
+              <p className="text-sm font-medium text-foreground mb-2">Jak odblokować konto?</p>
+              <ul className="text-sm text-muted-foreground space-y-1.5">
+                <li>📧 Napisz na: <a href="mailto:support@purelife.info.pl" className="text-primary hover:underline font-medium">support@purelife.info.pl</a></li>
+                <li>👤 Skontaktuj się ze swoim opiekunem</li>
+                <li>📝 Użyj formularza kontaktowego na stronie</li>
+              </ul>
+            </div>
+            <button
+              onClick={signOut}
+              className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+            >
+              Wyloguj się
+            </button>
+          </div>
+        </div>
+      </AuthContext.Provider>
+    );
+  }
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
