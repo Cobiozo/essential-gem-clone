@@ -3068,7 +3068,9 @@ export type Database = {
           invited_by_user_id: string | null
           last_name: string | null
           notes: string | null
+          occurrence_date: string | null
           occurrence_index: number | null
+          occurrence_time: string | null
           phone: string | null
           registered_at: string | null
           registration_attempts: number
@@ -3102,7 +3104,9 @@ export type Database = {
           invited_by_user_id?: string | null
           last_name?: string | null
           notes?: string | null
+          occurrence_date?: string | null
           occurrence_index?: number | null
+          occurrence_time?: string | null
           phone?: string | null
           registered_at?: string | null
           registration_attempts?: number
@@ -3136,7 +3140,9 @@ export type Database = {
           invited_by_user_id?: string | null
           last_name?: string | null
           notes?: string | null
+          occurrence_date?: string | null
           occurrence_index?: number | null
+          occurrence_time?: string | null
           phone?: string | null
           registered_at?: string | null
           registration_attempts?: number
@@ -9087,6 +9093,8 @@ export type Database = {
           p_first_name: string
           p_invited_by?: string
           p_last_name?: string
+          p_occurrence_date?: string
+          p_occurrence_time?: string
           p_phone?: string
           p_slot_time?: string
           p_source?: string
