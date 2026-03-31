@@ -69,7 +69,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
+    <header className="sticky top-0 z-40 flex h-14 items-center gap-2 sm:gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-4 lg:px-6">
       {/* Left side - Sidebar trigger and title */}
       <div className="flex items-center gap-4">
         <SidebarTrigger className="-ml-1" />
@@ -82,14 +82,16 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
       {/* Right side - Actions */}
       <div className="flex items-center gap-2 ml-auto">
-        {/* Session Timer */}
-        {sessionTimer && (
-          <SessionTimer
-            timeRemaining={sessionTimer.timeRemaining}
-            onRefresh={sessionTimer.onRefreshTimer}
-            hidden={sessionTimer.isProtectedRoute}
-          />
-        )}
+        {/* Session Timer - hidden on mobile */}
+        <div className="hidden sm:block">
+          {sessionTimer && (
+            <SessionTimer
+              timeRemaining={sessionTimer.timeRemaining}
+              onRefresh={sessionTimer.onRefreshTimer}
+              hidden={sessionTimer.isProtectedRoute}
+            />
+          )}
+        </div>
 
         {/* Notifications */}
         <NotificationBell />
@@ -124,7 +126,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         {/* User dropdown */}
         <DropdownMenu open={isOpen} onOpenChange={handleOpenChange}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full" data-tour="user-avatar">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full flex-shrink-0" data-tour="user-avatar">
               <Avatar className="h-9 w-9">
                 <AvatarImage src={avatarUrl} alt={fullName} />
                 <AvatarFallback className="bg-primary/10 text-primary text-sm">
