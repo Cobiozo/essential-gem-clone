@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Clock, Eye, RefreshCw, Download, Search, Filter, Trash2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -42,6 +43,8 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
   const [search, setSearch] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   // Filters
   const [filterInviter, setFilterInviter] = useState('all');
@@ -175,6 +178,30 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const { error } = await supabase
+        .from('guest_event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      toast({ title: 'Usunięto', description: `Usunięto ${selectedIds.size} gości z listy.` });
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
+      fetchStats();
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      toast({ title: 'Błąd', description: 'Nie udało się usunąć gości.', variant: 'destructive' });
+    }
+  };
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, filterInviter, filterJoined, filterSlot, filterDateFrom, filterDateTo, filterMinWatch, filterStatus]);
+
+
   // Unique values for filter dropdowns
   const uniqueInviters = useMemo(() => {
     const set = new Map<string, string>();
@@ -269,7 +296,27 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
     return result;
   }, [stats, search, filterInviter, filterJoined, filterSlot, filterDateFrom, filterDateTo, filterMinWatch, filterStatus]);
 
-  const formatDuration = (seconds: number | null) => {
+  const selectableGuests = useMemo(() => filtered.filter(g => g.status !== 'cancelled'), [filtered]);
+  const allSelectableSelected = selectableGuests.length > 0 && selectableGuests.every(g => selectedIds.has(g.id));
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelectableSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableGuests.map(g => g.id)));
+    }
+  }, [allSelectableSelected, selectableGuests]);
+
+  const toggleSelectOne = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+
     if (!seconds) return '—';
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
@@ -484,11 +531,39 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
             </div>
           )}
 
+          {/* Bulk Action Bar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/40">
+              <Checkbox checked={allSelectableSelected} onCheckedChange={toggleSelectAll} />
+              <span className="text-sm font-medium">
+                Zaznaczono: {selectedIds.size}
+              </span>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowBulkDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Usuń zaznaczonych
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                <X className="h-4 w-4 mr-1" />
+                Odznacz
+              </Button>
+            </div>
+          )}
+
           {/* Table */}
           <div className="max-h-[500px] overflow-y-auto border rounded-lg">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={allSelectableSelected && selectableGuests.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Imię i nazwisko</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Zapraszający</TableHead>
@@ -502,15 +577,23 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Ładowanie...</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Ładowanie...</TableCell>
                   </TableRow>
                 ) : filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Brak zarejestrowanych gości</TableCell>
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Brak zarejestrowanych gości</TableCell>
                   </TableRow>
                 ) : (
                   filtered.map(g => (
                     <TableRow key={g.id} className={g.status === 'cancelled' ? 'opacity-50' : ''}>
+                      <TableCell>
+                        {g.status !== 'cancelled' && (
+                          <Checkbox
+                            checked={selectedIds.has(g.id)}
+                            onCheckedChange={() => toggleSelectOne(g.id)}
+                          />
+                        )}
+                      </TableCell>
                       <TableCell className="font-medium">{g.first_name} {g.last_name || ''}</TableCell>
                       <TableCell className="text-muted-foreground text-sm">{g.email}</TableCell>
                       <TableCell className="text-sm">
@@ -571,6 +654,24 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
             <AlertDialogCancel>Anuluj</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteGuest} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Usuń
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usunąć {selectedIds.size} gości z listy?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Rejestracje zaznaczonych gości ({selectedIds.size}) zostaną anulowane (soft delete). Nie będą widoczni na liście aktywnych.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Usuń {selectedIds.size} gości
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
