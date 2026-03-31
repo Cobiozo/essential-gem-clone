@@ -178,6 +178,49 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const { error } = await supabase
+        .from('guest_event_registrations')
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      toast({ title: 'Usunięto', description: `Usunięto ${selectedIds.size} gości z listy.` });
+      setSelectedIds(new Set());
+      setShowBulkDeleteDialog(false);
+      fetchStats();
+    } catch (err) {
+      console.error('Bulk delete error:', err);
+      toast({ title: 'Błąd', description: 'Nie udało się usunąć gości.', variant: 'destructive' });
+    }
+  };
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, filterInviter, filterJoined, filterSlot, filterDateFrom, filterDateTo, filterMinWatch, filterStatus]);
+
+  const selectableGuests = useMemo(() => filtered.filter(g => g.status !== 'cancelled'), [filtered]);
+  const allSelectableSelected = selectableGuests.length > 0 && selectableGuests.every(g => selectedIds.has(g.id));
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelectableSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableGuests.map(g => g.id)));
+    }
+  }, [allSelectableSelected, selectableGuests]);
+
+  const toggleSelectOne = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   // Unique values for filter dropdowns
   const uniqueInviters = useMemo(() => {
     const set = new Map<string, string>();
