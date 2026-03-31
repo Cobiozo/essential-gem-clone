@@ -77,9 +77,28 @@ export const FullChatWindow = ({
           
           <h3 className="font-semibold text-foreground">{displayName}</h3>
         </div>
-        <Button variant="ghost" size="icon">
-          <Search className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Admin close conversation button */}
+          {isAdmin && directMember && adminConversationStatus === 'open' && onCloseConversation && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onCloseConversation}
+              className="text-destructive border-destructive/30 hover:bg-destructive/10 gap-1.5"
+            >
+              <XCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Zakończ konwersację</span>
+            </Button>
+          )}
+          {isAdmin && directMember && adminConversationStatus === 'closed' && (
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+              🔒 Zamknięta
+            </span>
+          )}
+          <Button variant="ghost" size="icon">
+            <Search className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       {/* Messages area */}
