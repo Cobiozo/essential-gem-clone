@@ -45,7 +45,6 @@ const CategoryColumn: React.FC<{ category: AutoWebinarCategory; isOpen: boolean;
   const [copied, setCopied] = useState(false);
   const [inviteLang, setInviteLang] = useState(language);
   const [activeDay, setActiveDay] = useState(0);
-  const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
     if (!config?.event_id) { setLoadingEvent(false); return; }
