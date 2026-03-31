@@ -314,7 +314,7 @@ const WebinarInviteWidget: React.FC = () => {
     fetchVisibility();
   }, [isAdmin, isPartner, isSpecjalista, isClient]);
 
-  if (masterVisible === false) return null;
+  if (masterVisible !== true) return null;
 
   const handleOpenChange = (category: AutoWebinarCategory) => (open: boolean) => {
     setOpenCategory(open ? category : null);
