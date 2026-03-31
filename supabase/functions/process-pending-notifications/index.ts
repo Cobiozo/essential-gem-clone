@@ -976,32 +976,76 @@ serve(async (req) => {
       const twoHoursAgo2 = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
       const nowIso = new Date().toISOString();
 
-      // Find events that ended within last 2 hours
+      // Find events that ended within last 2 hours (base end_time OR occurrence-based)
       const { data: endedEvents, error: endedErr } = await supabase
         .from("events")
-        .select("id, title, end_time, host_user_id, created_by")
-        .eq("is_active", true)
-        .gte("end_time", twoHoursAgo2)
-        .lte("end_time", nowIso);
+        .select("id, title, end_time, host_user_id, created_by, occurrences")
+        .eq("is_active", true);
 
       if (endedErr) {
-        console.error("[CRON] Error fetching ended events:", endedErr);
+        console.error("[CRON] Error fetching events for post-event:", endedErr);
       } else if (endedEvents && endedEvents.length > 0) {
-        console.log(`[CRON] Found ${endedEvents.length} recently ended events`);
+        // Expand events with occurrences to find which ones just ended
+        const twoHoursAgoMs = Date.now() - 2 * 60 * 60 * 1000;
+        const nowMs = Date.now();
+        
+        interface EndedTerm {
+          event: typeof endedEvents[0];
+          occurrence_date: string | null;
+          occurrence_time: string | null;
+        }
+        
+        const endedTerms: EndedTerm[] = [];
+        
+        for (const evt of endedEvents) {
+          const occs = evt.occurrences && Array.isArray(evt.occurrences) ? evt.occurrences : [];
+          if (occs.length > 1) {
+            // Multi-occurrence: check each occurrence end time
+            for (const occ of occs as any[]) {
+              if (!occ.date || !occ.time) continue;
+              const occStart = warsawLocalToUtc(occ.date, occ.time);
+              const durationMin = occ.duration_minutes || 60;
+              const occEnd = new Date(occStart.getTime() + durationMin * 60 * 1000);
+              if (occEnd.getTime() >= twoHoursAgoMs && occEnd.getTime() <= nowMs) {
+                endedTerms.push({ event: evt, occurrence_date: occ.date, occurrence_time: occ.time });
+              }
+            }
+          } else {
+            // Single occurrence: use base end_time
+            const endMs = new Date(evt.end_time).getTime();
+            if (endMs >= twoHoursAgoMs && endMs <= nowMs) {
+              endedTerms.push({ event: evt, occurrence_date: null, occurrence_time: null });
+            }
+          }
+        }
 
-        for (const event of endedEvents) {
+        console.log(`[CRON] Found ${endedTerms.length} recently ended event terms`);
+
+        for (const term of endedTerms) {
+          const event = term.event;
           if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
 
           // NOTE: Registered users (partners, specialists, clients) do NOT receive post-event thank-you emails.
           // Only invited guests receive emails, conditional on attendance.
 
-          // Process guest registrations with attendance check
-          const { data: guestRegs } = await supabase
+          // Process guest registrations with attendance check — filter by occurrence for recurring events
+          let guestQuery = supabase
             .from("guest_event_registrations")
-            .select("id, email, first_name, last_name, invited_by_user_id, thank_you_sent")
+            .select("id, email, first_name, last_name, invited_by_user_id, thank_you_sent, occurrence_date, occurrence_time")
             .eq("event_id", event.id)
             .eq("status", "registered")
             .or("thank_you_sent.eq.false,thank_you_sent.is.null");
+
+          const { data: allGuestRegs } = await guestQuery;
+          
+          // Filter guests to only those registered for this specific occurrence
+          let guestRegs = allGuestRegs || [];
+          if (term.occurrence_date && term.occurrence_time) {
+            guestRegs = guestRegs.filter((g: any) =>
+              (g.occurrence_date === term.occurrence_date && g.occurrence_time === term.occurrence_time)
+            );
+            console.log(`[CRON] Post-event guest filtering for ${term.occurrence_date} ${term.occurrence_time}: ${allGuestRegs?.length || 0} total → ${guestRegs.length} matched`);
+          }
 
           if (guestRegs && guestRegs.length > 0) {
             // Check if this event has an auto-webinar config to determine attendance
