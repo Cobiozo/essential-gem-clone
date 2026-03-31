@@ -78,7 +78,7 @@ const RotatingContent: React.FC<{ items: TickerItem[]; interval: number }> = ({ 
   if (items.length === 0) return null;
 
   return (
-    <div className="flex items-center justify-center min-h-[24px] max-w-full overflow-hidden">
+    <div className="flex items-center justify-center min-h-fit max-w-full">
       <div
         className={cn(
           "transition-opacity duration-200 max-w-full",

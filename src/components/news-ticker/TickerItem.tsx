@@ -66,7 +66,7 @@ export const TickerItemComponent: React.FC<TickerItemProps> = ({ item, className
       ) : (
         <IconComponent className={cn("h-4 w-4 flex-shrink-0", iconAnimationClass)} />
       )}
-      <span className={cn(!isScroll && allowWrap && "truncate max-w-[75vw] sm:max-w-none")}>{item.content}</span>
+      <span className={cn(!isScroll && allowWrap ? "whitespace-normal break-words" : (!isScroll ? "truncate" : ""))}>{item.content}</span>
       {item.isImportant && (
         <span className="inline-flex items-center justify-center h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
       )}
