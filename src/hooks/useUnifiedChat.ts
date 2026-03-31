@@ -1015,8 +1015,11 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const selectedDirectMember = useMemo(() => {
     if (!selectedDirectUserId) return null;
     if (upline?.userId === selectedDirectUserId) return upline;
-    return teamMembers.find(m => m.userId === selectedDirectUserId) || null;
-  }, [selectedDirectUserId, upline, teamMembers]);
+    const found = teamMembers.find(m => m.userId === selectedDirectUserId);
+    if (found) return found;
+    // Return adhoc member (fetched for admin conversations)
+    return adhocDirectMember;
+  }, [selectedDirectUserId, upline, teamMembers, adhocDirectMember]);
 
   return {
     channels,
