@@ -214,7 +214,7 @@ export const InviteToEventDialog: React.FC<InviteToEventDialogProps> = ({
 
       if (rpcError) throw rpcError;
 
-      await sendConfirmationEmail(event, contact.email, contact.first_name, contact.last_name || '', contact.phone_number || '');
+      await sendConfirmationEmail(event, contact.email, contact.first_name, contact.last_name || '', contact.phone_number || '', selectedOcc?.date, selectedOcc?.time);
 
       await logToHistory('event_invite', {
         event_title: event.title,
