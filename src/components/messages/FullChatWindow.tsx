@@ -28,6 +28,9 @@ export const FullChatWindow = ({
   loading,
   onSend,
   onBack,
+  isAdmin = false,
+  adminConversationStatus,
+  onCloseConversation,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   
