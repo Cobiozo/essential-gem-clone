@@ -1,10 +1,13 @@
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { UnifiedChannel, TeamMemberChannel } from '@/hooks/useUnifiedChat';
+import type { AdminConversationUser } from '@/hooks/useAdminConversations';
 import { ChannelListItem } from './ChannelListItem';
 import { TeamMembersSection } from './TeamMembersSection';
+import { AdminUserSearch } from './AdminUserSearch';
 
 interface MessagesSidebarProps {
   channels: UnifiedChannel[];
