@@ -302,7 +302,7 @@ const WebinarInviteWidget: React.FC = () => {
         .select('visible_to_admin, visible_to_partner, visible_to_specjalista, visible_to_client')
         .eq('feature_key', 'dashboard.webinar_invite')
         .single();
-      if (!data) { setMasterVisible(true); return; }
+      if (!data) { setMasterVisible(false); return; }
       const visible =
         (isAdmin && data.visible_to_admin) ||
         (isPartner && data.visible_to_partner) ||
