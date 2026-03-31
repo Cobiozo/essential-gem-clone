@@ -187,16 +187,12 @@ ${labels.signUp}: ${inviteUrl}`.trim();
     <Collapsible open={isOpen} onOpenChange={onOpenChange}>
       <CollapsibleTrigger className="flex items-center justify-center w-full p-3 rounded-lg hover:bg-accent/50 transition-colors">
         <div className="flex items-center gap-2">
-          {hasLiveSlot && (
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-            </span>
-          )}
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500" />
+          </span>
+          <Badge variant="destructive" className="text-[10px] px-1.5 py-0">LIVE</Badge>
           <span className="font-semibold text-sm">{CATEGORY_LABELS[category]}</span>
-          {hasLiveSlot && (
-            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">LIVE</Badge>
-          )}
           <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
       </CollapsibleTrigger>
@@ -301,7 +297,7 @@ const WebinarInviteWidget: React.FC = () => {
         <div className="flex flex-col items-center gap-1 py-1">
           <div className="flex items-center gap-2">
             <Radio className="h-5 w-5 text-red-500" />
-            <h2 className="text-base font-bold text-foreground">Zaproś Swojego Gościa na Live Webinar</h2>
+            <h2 className="text-xl font-bold text-foreground">Zaproś Swojego Gościa na Live Webinar</h2>
           </div>
           <p className="text-xs text-muted-foreground">kliknij, wybierz webinar, dobierz termin i skopiuj zaproszenie</p>
         </div>
