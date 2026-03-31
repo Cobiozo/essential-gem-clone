@@ -17,6 +17,7 @@ const CalendarWidget = lazy(() => import('@/components/dashboard/widgets/Calenda
 const MyMeetingsWidget = lazy(() => import('@/components/dashboard/widgets/MyMeetingsWidget'));
 const DashboardFooterSection = lazy(() => import('@/components/dashboard/widgets/DashboardFooterSection'));
 const CombinedOtpCodesWidget = lazy(() => import('@/components/dashboard/widgets/CombinedOtpCodesWidget'));
+const WebinarInviteWidget = lazy(() => import('@/components/dashboard/widgets/WebinarInviteWidget'));
 
 
 const OnboardingTour = lazy(() => import('@/components/onboarding/OnboardingTour'));
