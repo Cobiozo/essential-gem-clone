@@ -34,6 +34,15 @@ interface MessagesSidebarProps {
   isAdmin?: boolean;
   adminConversations?: AdminConversationUser[];
   onAdminSelectUser?: (userId: string) => void;
+  // Conversation settings props
+  onDeleteConversation?: (userId: string) => void;
+  onArchiveConversation?: (userId: string) => void;
+  onBlockUser?: (userId: string) => void;
+  onUnblockUser?: (userId: string) => void;
+  isConversationArchived?: (userId: string) => boolean;
+  isConversationBlocked?: (userId: string) => boolean;
+  archivedConversations?: AdminConversationUser[];
+  archivedTeamMembers?: TeamMemberChannel[];
 }
 
 export const MessagesSidebar = ({
