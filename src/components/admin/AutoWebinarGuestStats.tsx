@@ -657,6 +657,24 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Usunąć {selectedIds.size} gości z listy?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Rejestracje zaznaczonych gości ({selectedIds.size}) zostaną anulowane (soft delete). Nie będą widoczni na liście aktywnych.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Usuń {selectedIds.size} gości
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
