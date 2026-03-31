@@ -88,8 +88,90 @@ export const MessagesSidebar = ({
         </div>
       </div>
 
+      {/* Admin user search */}
+      {isAdmin && onAdminSelectUser && (
+        <AdminUserSearch onSelectUser={onAdminSelectUser} />
+      )}
+
       <ScrollArea className="flex-1">
         <div className="py-2">
+          {/* Admin conversations section */}
+          {isAdmin && adminConversations.length > 0 && onAdminSelectUser && (
+            <div className="mb-4">
+              <div className="px-4 py-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Konwersacje z użytkownikami
+                </span>
+              </div>
+              {adminConversations
+                .filter(c => c.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                             c.lastName.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map(conv => (
+                  <button
+                    key={conv.userId}
+                    onClick={() => onAdminSelectUser(conv.userId)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left',
+                      selectedDirectUserId === conv.userId && 'bg-accent'
+                    )}
+                  >
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarImage src={conv.avatarUrl || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {conv.firstName?.charAt(0)}{conv.lastName?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {conv.firstName} {conv.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {conv.conversationStatus === 'closed' ? '🔒 Zamknięta' : '💬 Otwarta'}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          )}
+
+          {/* Non-admin: show admin conversations user received */}
+          {!isAdmin && adminConversations.length > 0 && onAdminSelectUser && (
+            <div className="mb-4">
+              <div className="px-4 py-2">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Od Administratora
+                </span>
+              </div>
+              {adminConversations
+                .filter(c => c.conversationStatus === 'open' || true) // show all, status shown in UI
+                .map(conv => (
+                  <button
+                    key={conv.userId}
+                    onClick={() => onAdminSelectUser(conv.userId)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left',
+                      selectedDirectUserId === conv.userId && 'bg-accent'
+                    )}
+                  >
+                    <Avatar className="h-9 w-9 shrink-0">
+                      <AvatarImage src={conv.avatarUrl || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-sm">
+                        {conv.firstName?.charAt(0)}{conv.lastName?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {conv.firstName} {conv.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : 'Administrator'}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          )}
+
           {/* Outgoing channels (can send) */}
           {filteredOutgoing.length > 0 && (
             <div className="mb-4">
