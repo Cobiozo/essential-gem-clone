@@ -39,6 +39,12 @@ export const FullChatWindow = ({
   isAdmin = false,
   adminConversationStatus,
   onCloseConversation,
+  onDeleteConversation,
+  onArchiveConversation,
+  onBlockUser,
+  onUnblockUser,
+  isConversationArchived = false,
+  isConversationBlocked = false,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   
