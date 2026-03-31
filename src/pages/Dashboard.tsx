@@ -91,6 +91,11 @@ const Dashboard: React.FC = () => {
           <WelcomeWidget />
         </Suspense>
 
+        {/* Webinar Invite Widget - full width */}
+        <Suspense fallback={<WidgetSkeleton />}>
+          <WebinarInviteWidget />
+        </Suspense>
+
         {/* Three-column grid for remaining widgets */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
           {/* Column 1: Calendar */}
