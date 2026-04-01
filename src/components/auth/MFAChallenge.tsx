@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,7 @@ const AUTO_LOGOUT_THRESHOLD = 5;
 
 export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
@@ -407,7 +407,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
               size="sm"
               onClick={async () => {
                 await supabase.auth.signOut();
-                navigate('/auth', { replace: true });
+                window.location.href = '/auth';
               }}
               className="w-full text-muted-foreground hover:text-destructive"
             >
