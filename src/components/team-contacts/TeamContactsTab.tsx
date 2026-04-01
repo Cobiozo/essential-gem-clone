@@ -698,7 +698,7 @@ export const TeamContactsTab: React.FC = () => {
                   {tf('teamContacts.searchSpecialist', 'Wyszukiwarka specjalistów')}
                 </CardTitle>
                 <CardDescription>
-                  Wyszukaj specjalistę według słów kluczowych, specjalizacji lub lokalizacji
+                  {tf('teamContacts.searchSpecialistDesc', 'Wyszukaj specjalistę według słów kluczowych, specjalizacji lub lokalizacji')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
