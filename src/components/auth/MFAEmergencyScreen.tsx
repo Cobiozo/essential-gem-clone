@@ -184,8 +184,7 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
               <>
                 <PinKeypad
                   onComplete={(pinCode) => {
-                    setCode(pinCode);
-                    verifyAndReset();
+                    verifyAndReset(pinCode);
                   }}
                   loading={verifying}
                   submitLabel="Zweryfikuj i resetuj"
