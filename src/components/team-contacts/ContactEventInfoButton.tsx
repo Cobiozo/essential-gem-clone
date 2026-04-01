@@ -125,10 +125,16 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
           for (const reg of regsWithoutViews) {
             const regEventId = (reg as any).event_id;
             const regSlotTime = (reg as any).slot_time;
+            const regRegisteredAt = (reg as any).registered_at;
             if (!regEventId) continue;
 
+            // Build proper datetime from date part of registered_at + slot_time (HH:MM)
+            const slotDatetime = (regSlotTime && regRegisteredAt)
+              ? `${regRegisteredAt.substring(0, 10)}T${regSlotTime}:00`
+              : null;
+
             // Skip future slots — no view data possible yet
-            if (regSlotTime && new Date(regSlotTime).getTime() > Date.now()) continue;
+            if (slotDatetime && new Date(slotDatetime).getTime() > Date.now()) continue;
 
             const matchingView = emailViews.find(v => {
               if (usedViewIds.has(v.id)) return false;
@@ -136,8 +142,8 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
               if (viewEventId !== regEventId) return false;
 
               // When slot_time exists, require view to be within slot window
-              if (regSlotTime && v.created_at) {
-                const slotMs = new Date(regSlotTime).getTime();
+              if (slotDatetime && v.created_at) {
+                const slotMs = new Date(slotDatetime).getTime();
                 const viewMs = new Date(v.created_at).getTime();
                 // View must be between 5 min before slot and 90 min after
                 if (viewMs < slotMs - 5 * 60 * 1000 || viewMs > slotMs + 90 * 60 * 1000) return false;
