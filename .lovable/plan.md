@@ -1,84 +1,152 @@
 
 
-# Fix: slot_time is a bare time string, not a datetime
+# Audyt tłumaczeń + dodanie języka norweskiego
 
-## Root cause
+## Audyt: miejsca z brakującymi tłumaczeniami / hardkodowanymi językami
 
-The `slot_time` column in `guest_event_registrations` stores just a time like `"13:30"`, not a full ISO datetime. The previous fix blindly used `slot_time` as the first element in `slot_time || registered_at || events.start_time`, causing:
+### A. Hardkodowane listy języków (brak norweskiego)
 
-1. **"Invalid Date"** — `new Date("13:30")` returns Invalid Date
-2. **Wrong "Dołączył 22:00"** — In `ContactEventInfoButton`, the fallback view matching uses `new Date(regSlotTime).getTime()` which returns `NaN`. The time-window check `viewMs < NaN` is always `false`, so ALL views pass the filter regardless of time, matching a view from the 22:00 slot to a 13:30 registration.
+| Plik | Problem |
+|------|---------|
+| `src/components/LanguageSelector.tsx` | `languageToCountry` — tylko pl, en, de, it, es, fr, pt |
+| `src/components/InvitationLanguageSelect.tsx` | `languageToCountry` — tylko pl, en, de, it, es, fr, pt |
+| `src/components/ContentLanguageSelector.tsx` | `languageToCountry` — tylko pl, en, de, it, es, fr, pt |
+| `src/types/knowledge.ts` | `LANGUAGE_OPTIONS` — tylko pl, en, de, it, es, fr, pt |
+| `src/pages/OmegaBasePage.tsx` | `ExportLanguage = 'pl' \| 'de' \| 'en' \| 'it'` — brak no |
+| `src/pages/OmegaBasePage.tsx` | `exportTranslations`, `getTranslation` — tylko pl, de, en, it |
+| `src/components/admin/push-notifications/NotificationTemplatesPanel.tsx` | `supportedLanguages` — tylko pl, en, de, uk |
+| `src/contexts/LanguageContext.tsx` | `type Language = 'pl' \| 'de' \| 'en' \| string` — kosmetycznie |
 
-## Solution
+### B. Hardkodowane szablony bez norweskiego
 
-Create a helper that combines `registered_at` date part + `slot_time` to produce a proper datetime string. Apply it in all 3 files.
+| Plik | Problem |
+|------|---------|
+| `src/utils/invitationTemplates.ts` | `templates` (InvitationLabels) — tylko pl, en, de |
+| `src/utils/invitationTemplates.ts` | `registrationTemplates` (RegistrationLabels) — tylko pl, en, de |
+| `src/utils/invitationTemplates.ts` | `getDateLocale()` — switch tylko en, de, default pl |
+| `supabase/functions/generate-hk-otp/index.ts` | `messageTemplates` — tylko pl, en, de |
 
-### Helper function
+### C. Hardkodowane `locale: pl` bez uwzględnienia języka użytkownika (57 plików!)
+
+Ponad 57 plików używa `{ locale: pl }` z date-fns bez sprawdzania aktualnego języka. Przykłady:
+- `ConversationView.tsx`, `NotificationBellEnhanced.tsx`, `LeaderApprovalView.tsx`
+- `AdminGuestDashboard.tsx`, `GoogleCalendarManagement.tsx`, `OmegaTestForm.tsx`
+- `PartnerMeetingBooking.tsx`, `LeaderMeetingSchedule.tsx`
+
+Te pliki zawsze formatują daty po polsku, niezależnie od wybranego języka interfejsu.
+
+### D. Brakujące klucze i18n
+
+Wiele komponentów używa polskich stringów zamiast kluczy `t()`:
+- Większość panelu admina (hardkodowane polskie etykiety)
+- To jest świadomy wybór architektury (admin panel = polski), ale brak kluczy utrudnia ewentualne tłumaczenie
+
+---
+
+## Plan implementacji: dodanie norweskiego (no)
+
+### 1. Wyodrębnić wspólny moduł `languageToCountry` (DRY)
+
+**Nowy plik: `src/utils/languageFlags.ts`**
+
+Wyodrębnić zduplikowany kod z 3 komponentów (`LanguageSelector`, `InvitationLanguageSelect`, `ContentLanguageSelector`) do jednego modułu:
 
 ```ts
-// Combine registration date + slot_time ("HH:MM") into a full datetime
-function buildSlotDatetime(registeredAt: string, slotTime: string): string {
-  const datePart = registeredAt.substring(0, 10); // "2026-03-31"
-  return `${datePart}T${slotTime}:00`;
+export const languageToCountry: Record<string, string> = {
+  'pl': 'pl', 'en': 'gb', 'de': 'de', 'it': 'it',
+  'es': 'es', 'fr': 'fr', 'pt': 'pt', 'no': 'no',
+};
+
+export const getFlagUrl = (langCode: string): string => {
+  const countryCode = languageToCountry[langCode] || langCode;
+  return `https://flagcdn.com/w40/${countryCode}.png`;
+};
+```
+
+Zaktualizować 3 komponenty żeby importowały z nowego modułu.
+
+### 2. Dodać norweski do `LANGUAGE_OPTIONS` w `src/types/knowledge.ts`
+
+```ts
+{ code: 'no', label: '🇳🇴 Norsk', flag: '🇳🇴' }
+```
+
+### 3. Dodać norweski do `invitationTemplates.ts`
+
+- Nowy wpis `no` w `templates` (InvitationLabels)
+- Nowy wpis `no` w `registrationTemplates` (RegistrationLabels)
+- Dodać `import { nb } from 'date-fns/locale'` i case `'no': return nb` w `getDateLocale()`
+
+### 4. Dodać norweski do `OmegaBasePage.tsx`
+
+- Rozszerzyć `ExportLanguage` o `'no'`
+- Dodać norweskie tłumaczenia w `exportTranslations` i `getTranslation`
+
+### 5. Dodać norweski do `NotificationTemplatesPanel.tsx`
+
+```ts
+{ code: 'no', name: 'Norsk' }
+```
+
+### 6. Dodać norweski do `generate-hk-otp` edge function
+
+```ts
+no: `Hei!\n\nJeg har et interessant materiale til deg:\n...`
+```
+
+### 7. Naprawić hardkodowane `locale: pl` w kluczowych komponentach
+
+Stworzyć helper w `src/utils/dateLocale.ts`:
+```ts
+import { pl, enUS, de, nb } from 'date-fns/locale';
+export function getAppDateLocale(lang: string): Locale {
+  switch(lang) {
+    case 'en': return enUS;
+    case 'de': return de;
+    case 'no': return nb;
+    default: return pl;
+  }
 }
 ```
 
-### File 1: `src/components/team-contacts/ContactEventInfoButton.tsx`
+Zaktualizować kluczowe pliki (te widoczne dla użytkowników końcowych):
+- `ConversationView.tsx`
+- `NotificationBellEnhanced.tsx`
+- `UserNotificationCenter.tsx`
+- `PartnerMeetingBooking.tsx`
+- `LeaderMeetingSchedule.tsx`
+- `MyHkCodesHistory.tsx`
+- I inne pliki korzystające z `locale: pl`
 
-**Line 164** — event_date mapping:
+### 8. Dodać default fallback w `LanguageSelector`, `InvitationLanguageSelect`, `ContentLanguageSelector`
+
+Upewnić się że statyczny fallback (gdy DB jest niedostępna) zawiera norweski:
 ```ts
-// Before (broken):
-event_date: r.slot_time || r.registered_at || r.events?.start_time || '',
-
-// After:
-event_date: (r.slot_time && r.registered_at) 
-  ? `${r.registered_at.substring(0, 10)}T${r.slot_time}:00`
-  : r.registered_at || r.events?.start_time || '',
+{ code: 'no', name: 'Norwegian', native_name: 'Norsk' }
 ```
 
-**Lines 127-143** — fallback view matching slot window:
-```ts
-// Before (broken — new Date("13:30") = NaN):
-const regSlotTime = (reg as any).slot_time;
-// ...
-if (regSlotTime && v.created_at) {
-  const slotMs = new Date(regSlotTime).getTime();
+---
 
-// After — build proper datetime from registered_at date + slot_time:
-const regSlotTime = (reg as any).slot_time;
-const regRegisteredAt = (reg as any).registered_at;
-// ...
-if (regSlotTime && regRegisteredAt && v.created_at) {
-  const slotDatetime = `${regRegisteredAt.substring(0, 10)}T${regSlotTime}:00`;
-  const slotMs = new Date(slotDatetime).getTime();
-```
+## Pliki do edycji (podsumowanie)
 
-### File 2: `src/hooks/useTeamContacts.ts`
+| Plik | Zmiana |
+|------|--------|
+| **NOWY** `src/utils/languageFlags.ts` | Wspólny moduł flag |
+| **NOWY** `src/utils/dateLocale.ts` | Wspólny helper date-fns locale |
+| `src/components/LanguageSelector.tsx` | Import z languageFlags, dodać NO do fallback |
+| `src/components/InvitationLanguageSelect.tsx` | Import z languageFlags, dodać NO do fallback |
+| `src/components/ContentLanguageSelector.tsx` | Import z languageFlags, dodać NO do fallback |
+| `src/types/knowledge.ts` | Dodać NO do LANGUAGE_OPTIONS |
+| `src/utils/invitationTemplates.ts` | Dodać norweskie szablony + nb locale |
+| `src/pages/OmegaBasePage.tsx` | Rozszerzyć ExportLanguage + tłumaczenia |
+| `src/components/admin/push-notifications/NotificationTemplatesPanel.tsx` | Dodać NO |
+| `src/contexts/LanguageContext.tsx` | Kosmetyka typu Language |
+| `supabase/functions/generate-hk-otp/index.ts` | Dodać NO template |
+| ~15 plików z `locale: pl` | Zamienić na `getAppDateLocale(language)` |
 
-**Line 483** — event_start_time in EventRegistrationInfo:
-```ts
-// Before:
-event_start_time: (r as any).slot_time || r.registered_at || event.start_time || '',
+## Bezpieczeństwo
 
-// After:
-event_start_time: ((r as any).slot_time && r.registered_at) 
-  ? `${r.registered_at.substring(0, 10)}T${(r as any).slot_time}:00`
-  : r.registered_at || event.start_time || '',
-```
-
-### File 3: `src/components/team-contacts/TeamContactHistoryDialog.tsx`
-
-Same pattern — combine `slot_time` + `registered_at` date part instead of using bare `slot_time`.
-
-## Files to edit
-
-1. `src/components/team-contacts/ContactEventInfoButton.tsx` — fix event_date mapping + fix view matching window
-2. `src/hooks/useTeamContacts.ts` — fix event_start_time construction
-3. `src/components/team-contacts/TeamContactHistoryDialog.tsx` — fix event_date construction
-
-## Effect
-
-- Event dates display correctly (e.g., "31 marca 2026 13:30" instead of "Invalid Date")
-- View matching correctly filters by time window, preventing cross-slot matches
-- "Dołączył" shows the actual join time for the correct slot
+- Edge functions auto-translate (`scheduled-translate-sync`, `background-translate`) pobierają języki dynamicznie z `i18n_languages` — norweski wystarczy dodać w panelu admina (lub migracją SQL)
+- Żadne zmiany nie naruszają RLS, autentykacji ani logiki biznesowej
+- Fallbacki zawsze wracają do polskiego jeśli tłumaczenie nie istnieje
 
