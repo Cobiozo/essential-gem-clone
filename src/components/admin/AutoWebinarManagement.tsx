@@ -155,6 +155,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     const { error } = await supabase.from('auto_webinar_fake_messages').insert({
       config_id: config.id,
       appear_at_minute: fakeMessageForm.appear_at_minute,
+      appear_at_second: fakeMessageForm.appear_at_second,
       author_name: fakeMessageForm.author_name,
       content: fakeMessageForm.content,
       phase: fakeMessageForm.phase,
@@ -164,7 +165,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    setFakeMessageForm({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' });
     loadFakeMessages(config.id);
     toast({ title: 'Dodano wiadomość' });
   };
