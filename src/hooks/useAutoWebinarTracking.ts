@@ -104,18 +104,28 @@ export function useAutoWebinarTracking(
 
   // Update view with guestRegistrationId when it resolves after view creation
   useEffect(() => {
-    if (guestRegistrationId && viewId.current) {
-      console.log('[AutoWebinarTracking] Updating view with guestRegistrationId:', guestRegistrationId);
-      supabase
-        .from('auto_webinar_views' as any)
-        .update({ guest_registration_id: guestRegistrationId })
-        .eq('id', viewId.current)
-        .then(({ error }) => {
-          if (error) {
-            console.error('[AutoWebinarTracking] Failed to update guest_registration_id:', error);
-          }
-        });
-    }
+    if (!guestRegistrationId) return;
+
+    const tryLink = () => {
+      if (viewId.current) {
+        console.log('[AutoWebinarTracking] Updating view with guestRegistrationId:', guestRegistrationId);
+        supabase
+          .from('auto_webinar_views' as any)
+          .update({ guest_registration_id: guestRegistrationId })
+          .eq('id', viewId.current)
+          .then(({ error }) => {
+            if (error) {
+              console.error('[AutoWebinarTracking] Failed to update guest_registration_id:', error);
+            }
+          });
+      } else {
+        // viewId not ready yet — retry after short delay
+        console.log('[AutoWebinarTracking] viewId not ready, retrying link in 2s...');
+        setTimeout(tryLink, 2000);
+      }
+    };
+
+    tryLink();
   }, [guestRegistrationId]);
 
   const updateDuration = useCallback(async () => {
