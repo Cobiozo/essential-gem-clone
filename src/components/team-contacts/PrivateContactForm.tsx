@@ -344,7 +344,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="second_contact_date">Data drugiego kontaktu</Label>
+        <Label htmlFor="second_contact_date">{tf('teamContacts.secondContactDate', 'Data drugiego kontaktu')}</Label>
         <Input
           id="second_contact_date"
           type="date"
