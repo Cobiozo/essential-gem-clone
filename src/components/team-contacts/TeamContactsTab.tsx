@@ -380,7 +380,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('partner-page')}
                  >
-                   Z Mojej Strony Partnera
+                   {tf('teamContacts.fromPartnerPage', 'Z Mojej Strony Partnera')}
                    {partnerPageContacts.length > 0 && (
                      <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
                    )}
