@@ -194,6 +194,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       .from('auto_webinar_fake_messages')
       .update({
         appear_at_minute: fakeMessageForm.appear_at_minute,
+        appear_at_second: fakeMessageForm.appear_at_second,
         author_name: fakeMessageForm.author_name,
         content: fakeMessageForm.content,
         phase: fakeMessageForm.phase,
@@ -204,7 +205,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       return;
     }
     setEditingFakeMessage(null);
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    setFakeMessageForm({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' });
     loadFakeMessages(config.id);
     toast({ title: 'Zapisano zmiany' });
   };
