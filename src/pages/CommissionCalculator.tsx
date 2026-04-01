@@ -26,7 +26,7 @@ export default function CommissionCalculatorPage() {
 
   if (authLoading || accessLoading) {
     return (
-      <DashboardLayout>
+       <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
         <div className="space-y-6 p-6">
           <Skeleton className="h-10 w-80" />
           <div className="grid gap-6 lg:grid-cols-2">
