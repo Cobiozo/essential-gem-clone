@@ -115,7 +115,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                     <div className="flex items-center gap-3 pl-[52px] sm:pl-0">
                       <Badge variant="secondary" className="flex items-center gap-1 whitespace-nowrap">
                         <Users className="w-3 h-3" />
-                        {group.contacts.length} {group.contacts.length === 1 ? 'gość' : group.contacts.length < 5 ? 'gości' : 'gości'}
+                        {group.contacts.length} {group.contacts.length === 1 ? tf('teamContacts.guest', 'gość') : tf('teamContacts.guests', 'gości')}
                       </Badge>
                       {isOpen ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
                     </div>
