@@ -1025,7 +1025,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm font-medium mb-3">
-                    {format(selectedDate, 'd MMMM yyyy', { locale: pl })}
+                    {format(selectedDate, 'd MMMM yyyy', { locale: getAppDateLocale(language) })}
                   </p>
                   <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
                     {availableSlots.map((slot, index) => (
