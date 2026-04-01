@@ -191,46 +191,51 @@ const OmegaBasePage: React.FC = () => {
 
   const getTranslation = (key: string): string => {
     const translations: Record<string, Record<string, string>> = {
-      title: { pl: 'PLC OMEGA BASE', de: 'PLC OMEGA BASE', en: 'PLC OMEGA BASE', it: 'PLC OMEGA BASE' },
+      title: { pl: 'PLC OMEGA BASE', de: 'PLC OMEGA BASE', en: 'PLC OMEGA BASE', it: 'PLC OMEGA BASE', no: 'PLC OMEGA BASE' },
       placeholder: {
         pl: 'Zadaj pytanie naukowe...',
         de: 'Stellen Sie eine wissenschaftliche Frage...',
         en: 'Ask a scientific question...',
         it: 'Fai una domanda scientifica...',
+        no: 'Still et vitenskapelig spørsmål...',
       },
       disclaimer: {
         pl: '⚠️ Ten asystent służy wyłącznie celom informacyjnym i nie zastępuje porady lekarskiej.',
         de: '⚠️ Dieser Assistent dient nur zu Informationszwecken und ersetzt keine ärztliche Beratung.',
         en: '⚠️ This assistant is for informational purposes only and does not replace medical advice.',
         it: '⚠️ Questo assistente è solo a scopo informativo e non sostituisce il parere medico.',
+        no: '⚠️ Denne assistenten er kun til informasjonsformål og erstatter ikke medisinsk rådgivning.',
       },
       thinking: {
         pl: 'Analizuję literaturę naukową...',
         de: 'Analysiere wissenschaftliche Literatur...',
         en: 'Analyzing scientific literature...',
         it: 'Analizzando la letteratura scientifica...',
+        no: 'Analyserer vitenskapelig litteratur...',
       },
-      results: { pl: 'Wyniki', de: 'Ergebnisse', en: 'Results', it: 'Risultati' },
-      max: { pl: 'Maks.', de: 'Max.', en: 'Max.', it: 'Max.' },
-      download: { pl: 'Pobierz', de: 'Herunterladen', en: 'Download', it: 'Scarica' },
-      history: { pl: 'Historia', de: 'Verlauf', en: 'History', it: 'Cronologia' },
-      noHistory: { pl: 'Brak historii', de: 'Kein Verlauf', en: 'No history', it: 'Nessuna cronologia' },
-      exportSuccess: { pl: 'Eksport zakończony', de: 'Export abgeschlossen', en: 'Export completed', it: 'Esportazione completata' },
-      exportError: { pl: 'Błąd eksportu', de: 'Exportfehler', en: 'Export error', it: 'Errore di esportazione' },
-      translating: { pl: 'Tłumaczenie...', de: 'Übersetzen...', en: 'Translating...', it: 'Traduzione...' },
+      results: { pl: 'Wyniki', de: 'Ergebnisse', en: 'Results', it: 'Risultati', no: 'Resultater' },
+      max: { pl: 'Maks.', de: 'Max.', en: 'Max.', it: 'Max.', no: 'Maks.' },
+      download: { pl: 'Pobierz', de: 'Herunterladen', en: 'Download', it: 'Scarica', no: 'Last ned' },
+      history: { pl: 'Historia', de: 'Verlauf', en: 'History', it: 'Cronologia', no: 'Historikk' },
+      noHistory: { pl: 'Brak historii', de: 'Kein Verlauf', en: 'No history', it: 'Nessuna cronologia', no: 'Ingen historikk' },
+      exportSuccess: { pl: 'Eksport zakończony', de: 'Export abgeschlossen', en: 'Export completed', it: 'Esportazione completata', no: 'Eksport fullført' },
+      exportError: { pl: 'Błąd eksportu', de: 'Exportfehler', en: 'Export error', it: 'Errore di esportazione', no: 'Eksportfeil' },
+      translating: { pl: 'Tłumaczenie...', de: 'Übersetzen...', en: 'Translating...', it: 'Traduzione...', no: 'Oversetter...' },
       translationRequired: {
         pl: 'Tłumaczenie nie powiodło się.',
         de: 'Übersetzung fehlgeschlagen.',
         en: 'Translation failed.',
         it: 'Traduzione fallita.',
+        no: 'Oversettelse mislyktes.',
       },
       summaryError: {
         pl: 'Nie udało się wygenerować podsumowania.',
         de: 'Zusammenfassung konnte nicht erstellt werden.',
         en: 'Failed to generate summary.',
         it: 'Impossibile generare il riepilogo.',
+        no: 'Kunne ikke generere sammendrag.',
       },
-      back: { pl: 'Powrót', de: 'Zurück', en: 'Back', it: 'Indietro' },
+      back: { pl: 'Powrót', de: 'Zurück', en: 'Back', it: 'Indietro', no: 'Tilbake' },
     };
     return translations[key]?.[language] || translations[key]?.en || key;
   };
