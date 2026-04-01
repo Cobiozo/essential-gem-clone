@@ -27,6 +27,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const { tf } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
