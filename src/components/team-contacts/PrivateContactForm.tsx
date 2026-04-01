@@ -368,7 +368,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Przypomnienia */}
       <div className="space-y-2">
-        <Label htmlFor="next_contact_date">Data kolejnego kontaktu</Label>
+        <Label htmlFor="next_contact_date">{tf('teamContacts.nextContactDate', 'Data kolejnego kontaktu')}</Label>
         <Input
           id="next_contact_date"
           type="date"
