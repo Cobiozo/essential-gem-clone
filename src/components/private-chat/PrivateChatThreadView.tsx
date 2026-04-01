@@ -29,6 +29,7 @@ export const PrivateChatThreadView = ({
   getOtherParticipant,
 }: PrivateChatThreadViewProps) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
