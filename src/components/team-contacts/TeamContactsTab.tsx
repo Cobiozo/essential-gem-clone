@@ -326,7 +326,7 @@ export const TeamContactsTab: React.FC = () => {
                   </Button>
                   <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
                     <Plus className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Dodaj kontakt</span>
+                    <span className="hidden sm:inline">{tf('teamContacts.addContact', 'Dodaj kontakt')}</span>
                   </Button>
                 </div>
               </div>
