@@ -56,6 +56,7 @@ type BookingStep = 'select-partner' | 'select-datetime' | 'confirm';
 export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ meetingType }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { language } = useLanguage();
 
   const [step, setStep] = useState<BookingStep>('select-partner');
   const [loading, setLoading] = useState(true);

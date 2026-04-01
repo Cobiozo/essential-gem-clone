@@ -47,6 +47,7 @@ const parseDescription = (desc: string | null): Record<string, string> => {
 
 export const LeaderMeetingSchedule: React.FC = () => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState<MeetingEvent[]>([]);
 

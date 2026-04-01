@@ -210,7 +210,7 @@ export const UserNotificationCenter = () => {
                               <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(notification.created_at), { 
                                   addSuffix: true, 
-                                  locale: pl 
+                                  locale: getAppDateLocale(language) 
                                 })}
                               </span>
                             </div>

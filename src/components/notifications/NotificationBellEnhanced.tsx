@@ -105,7 +105,7 @@ export const NotificationBellEnhanced = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {formatDistanceToNow(new Date(notification.created_at), { 
                           addSuffix: true, 
-                          locale: pl 
+                          locale: getAppDateLocale(language) 
                         })}
                       </p>
                     </div>

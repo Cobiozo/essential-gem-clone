@@ -43,6 +43,7 @@ interface ProspectData {
 
 export const UpcomingMeetings: React.FC = () => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { toast } = useToast();
   const [meetings, setMeetings] = useState<UpcomingMeeting[]>([]);
   const [loading, setLoading] = useState(true);
