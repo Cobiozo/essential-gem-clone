@@ -313,7 +313,7 @@ export const TeamContactsTab: React.FC = () => {
                     title="Filtry"
                   >
                     <Filter className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Filtry</span>
+                    <span className="hidden sm:inline">{tf('teamContacts.filters', 'Filtry')}</span>
                   </Button>
                   <Button
                     variant="outline"
