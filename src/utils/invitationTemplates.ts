@@ -99,6 +99,7 @@ export function getDateLocale(lang: string): Locale {
   switch (lang) {
     case 'en': return enUS;
     case 'de': return de;
+    case 'no': return nb;
     default: return pl;
   }
 }

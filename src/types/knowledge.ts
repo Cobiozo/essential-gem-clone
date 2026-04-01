@@ -48,7 +48,8 @@ export const LANGUAGE_OPTIONS = [
   { code: 'it', label: '🇮🇹 Italiano', flag: '🇮🇹' },
   { code: 'es', label: '🇪🇸 Español', flag: '🇪🇸' },
   { code: 'fr', label: '🇫🇷 Français', flag: '🇫🇷' },
-  { code: 'pt', label: '🇵🇹 Português', flag: '🇵🇹' }
+  { code: 'pt', label: '🇵🇹 Português', flag: '🇵🇹' },
+  { code: 'no', label: '🇳🇴 Norsk', flag: '🇳🇴' }
 ] as const;
 
 export const getLanguageLabel = (code: string | null): string => {
