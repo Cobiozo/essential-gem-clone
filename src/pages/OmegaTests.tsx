@@ -10,7 +10,7 @@ import { VitalityProgress } from '@/components/omega-tests/VitalityProgress';
 import { Droplets } from 'lucide-react';
 
 const OmegaTests: React.FC = () => {
-  const { tests, isLoading, addTest, deleteTest, latestTest } = useOmegaTests();
+  const { tests, isLoading, addTest, updateTest, deleteTest, latestTest } = useOmegaTests();
 
   return (
     <DashboardLayout title="Moje Testy" backTo={{ label: 'Strona główna', path: '/dashboard' }}>
@@ -54,6 +54,7 @@ const OmegaTests: React.FC = () => {
             <OmegaTestHistory
               tests={tests}
               onDelete={(id) => deleteTest.mutate(id)}
+              onEdit={(id, data) => updateTest.mutate({ id, ...data })}
             />
           </div>
         </div>
