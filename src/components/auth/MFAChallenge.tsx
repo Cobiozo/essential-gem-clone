@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Loader2, Mail, Smartphone, AlertCircle, Clock } from 'lucide-react';
+import { Shield, Loader2, Mail, Smartphone, AlertCircle, Clock, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TOTPSetup } from './TOTPSetup';
 import { MFAEmergencyScreen } from './MFAEmergencyScreen';
