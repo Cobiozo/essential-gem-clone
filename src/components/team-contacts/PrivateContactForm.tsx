@@ -281,7 +281,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="products">Zainteresowanie produktami</Label>
+        <Label htmlFor="products">{tf('teamContacts.products', 'Zainteresowanie produktami')}</Label>
         <Input
           id="products"
           value={formData.products}
