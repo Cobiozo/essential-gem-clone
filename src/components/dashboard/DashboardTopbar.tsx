@@ -28,12 +28,14 @@ import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 
 interface DashboardTopbarProps {
   title?: string;
+  backTo?: { label: string; path: string } | null;
   isUserMenuOpen?: boolean;
   onUserMenuOpenChange?: (open: boolean) => void;
 }
 
 export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ 
   title,
+  backTo,
   isUserMenuOpen,
   onUserMenuOpenChange,
 }) => {
