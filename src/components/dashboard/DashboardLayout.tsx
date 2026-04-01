@@ -25,6 +25,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         <SidebarInset className="flex flex-col flex-1 h-dvh overflow-hidden">
           <DashboardTopbar 
             title={title} 
+            backTo={backTo}
             isUserMenuOpen={isUserMenuOpen}
             onUserMenuOpenChange={onUserMenuOpenChange}
           />
