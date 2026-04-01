@@ -1,26 +1,31 @@
 
 
-# Naprawa błędu: useNavigate() poza kontekstem Router
+# Dodanie edycji testów Omega w historii
 
-## Problem
-`MFAChallenge` jest renderowany w bloku MFA gate (linia 354-361 w `App.tsx`) **bez** `<BrowserRouter>`. Dodanie `useNavigate()` w ostatniej zmianie powoduje crash: *"useNavigate() may be used only in the context of a Router component"*.
+## Zmiana
 
-## Rozwiązanie
+Obok ikony kosza w historii transformacji dodać przycisk edycji (ołówek). Po kliknięciu — wpis rozwija się w formularz inline z wypełnionymi aktualnymi wartościami, umożliwiając ich poprawienie i zapisanie.
 
-### Opcja A (prosta, zalecana): Zamienić `useNavigate` na `window.location.href`
+## Plan
 
-W `MFAChallenge.tsx`:
-- Usunąć import i wywołanie `useNavigate`
-- W handlerze "Porzuć i wyloguj" użyć `window.location.href = '/auth'` zamiast `navigate('/auth', { replace: true })`
+### 1. Hook `useOmegaTests` — dodać mutację `updateTest`
+Nowa mutacja `updateTest` przyjmuje `{ id: string } & OmegaTestInput`, wywołuje `supabase.from('omega_tests').update({...}).eq('id', id)`, invaliduje cache i pokazuje toast "Zaktualizowano wynik testu".
 
-To jedyna zmiana — 3 linie w jednym pliku.
+### 2. `OmegaTestHistory` — tryb edycji inline
+- Dodać stan `editingId: string | null` i `editData: OmegaTestInput`
+- Obok `Trash2` dodać przycisk z ikoną `Pencil` (lucide-react)
+- Kliknięcie ustawia `editingId` na dany test i wypełnia `editData` wartościami z testu
+- Gdy `editingId === test.id` — zamiast statycznego widoku renderować pola `Input` (date, ratio, index, AA, EPA, DHA, LA, notes) z przyciskami Zapisz/Anuluj
+- Props: dodać `onEdit?: (id: string, data: OmegaTestInput) => void`
 
-### Dlaczego nie opakowywać w BrowserRouter?
-MFA gate celowo blokuje dostęp do routera. Dodanie BrowserRouter tylko dla jednego przycisku to nadmierna zmiana architektury.
+### 3. `OmegaTests.tsx` (strona) — podłączyć `updateTest`
+Przekazać `onEdit={(id, data) => updateTest.mutate({ id, ...data })}` do `OmegaTestHistory`.
 
-## Plik do edycji
+## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/auth/MFAChallenge.tsx` | Usunąć `useNavigate`, zamienić na `window.location.href = '/auth'` |
+| `src/hooks/useOmegaTests.ts` | Dodać mutację `updateTest` |
+| `src/components/omega-tests/OmegaTestHistory.tsx` | Ikona edycji + inline formularz edycji |
+| `src/pages/OmegaTests.tsx` | Przekazać `onEdit` prop |
 
