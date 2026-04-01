@@ -23,6 +23,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export const NotificationBellEnhanced = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   
   // Enable realtime only when popover is open to reduce unnecessary subscriptions
