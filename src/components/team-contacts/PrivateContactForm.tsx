@@ -306,7 +306,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Data utworzenia kontaktu — read-only */}
       <div className="space-y-2">
-        <Label>Data utworzenia kontaktu</Label>
+        <Label>{tf('teamContacts.dateCreated', 'Data utworzenia kontaktu')}</Label>
         <Input
           value={createdAtDisplay}
           readOnly
