@@ -260,7 +260,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Źródło i cel kontaktu */}
       <div className="space-y-2">
-        <Label htmlFor="contact_source">Skąd jest kontakt</Label>
+        <Label htmlFor="contact_source">{tf('teamContacts.contactSource', 'Skąd jest kontakt')}</Label>
         <Input
           id="contact_source"
           value={formData.contact_source}
