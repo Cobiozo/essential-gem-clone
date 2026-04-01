@@ -830,9 +830,9 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Dodaj kontakt prywatny</DialogTitle>
+             <DialogTitle>{tf('teamContacts.addPrivateContact', 'Dodaj kontakt prywatny')}</DialogTitle>
             <DialogDescription>
-              Dodaj osobę spoza systemu do swojej bazy kontaktów
+              {tf('teamContacts.addPrivateDesc', 'Dodaj osobę spoza systemu do swojej bazy kontaktów')}
             </DialogDescription>
           </DialogHeader>
           <PrivateContactForm
