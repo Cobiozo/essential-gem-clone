@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Shield, Loader2, Mail, Smartphone, AlertCircle, Clock } from 'lucide-react';
+import { Shield, Loader2, Mail, Smartphone, AlertCircle, Clock, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TOTPSetup } from './TOTPSetup';
 import { MFAEmergencyScreen } from './MFAEmergencyScreen';
@@ -18,6 +19,7 @@ const AUTO_LOGOUT_THRESHOLD = 5;
 
 export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
@@ -397,6 +399,22 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
               Nie mam dostępu do Authenticatora
             </Button>
           )}
+
+          {/* Abandon and logout */}
+          <div className="pt-2 mt-2 border-t border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate('/auth', { replace: true });
+              }}
+              className="w-full text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="w-4 h-4 mr-1" />
+              Porzuć i wyloguj
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
