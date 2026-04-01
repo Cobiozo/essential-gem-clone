@@ -236,11 +236,11 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="observation">Czynny obserwujący</SelectItem>
-              <SelectItem value="potential_client">Potencjalny klient</SelectItem>
-              <SelectItem value="potential_partner">Potencjalny partner</SelectItem>
-              <SelectItem value="closed_success">Zamknięty - sukces dołączył</SelectItem>
-              <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+               <SelectItem value="observation">{tf('teamContacts.observation', 'Czynny obserwujący')}</SelectItem>
+              <SelectItem value="potential_client">{tf('teamContacts.potentialClient', 'Potencjalny klient')}</SelectItem>
+              <SelectItem value="potential_partner">{tf('teamContacts.potentialPartner', 'Potencjalny partner')}</SelectItem>
+              <SelectItem value="closed_success">{tf('teamContacts.closedSuccess', 'Zamknięty - sukces dołączył')}</SelectItem>
+              <SelectItem value="closed_not_now">{tf('teamContacts.closedNotNow', 'Zamknięty - nie teraz')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
