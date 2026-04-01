@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { cn } from '@/lib/utils';
 import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
