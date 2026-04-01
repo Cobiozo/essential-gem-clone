@@ -102,16 +102,18 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
 
   // Resolve guest_registration_id from email + event_id + slot_time for accurate tracking
   const [guestRegistrationId, setGuestRegistrationId] = useState<string | null>(null);
+  const [guestDisplayName, setGuestDisplayName] = useState<string | null>(null);
   useEffect(() => {
     if (!isGuest || !guestEmail || !config?.event_id) {
       setGuestRegistrationId(null);
+      setGuestDisplayName(null);
       return;
     }
     const resolve = async () => {
       const normalizedEmail = guestEmail.trim().toLowerCase();
       let query = supabase
         .from('guest_event_registrations')
-        .select('id')
+        .select('id, first_name, last_name')
         .eq('email', normalizedEmail)
         .eq('event_id', config.event_id)
         .neq('status', 'cancelled')
@@ -128,6 +130,11 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       if (data?.id) {
         console.log('[AutoWebinarEmbed] Resolved guestRegistrationId:', data.id);
         setGuestRegistrationId(data.id);
+        // Format name as "Imię P." for chat display
+        const firstName = data.first_name || '';
+        const lastInitial = data.last_name ? ` ${data.last_name[0]}.` : '';
+        const formatted = `${firstName}${lastInitial}`.trim();
+        if (formatted) setGuestDisplayName(formatted);
       } else {
         console.log('[AutoWebinarEmbed] Could not resolve guestRegistrationId for', normalizedEmail);
         setGuestRegistrationId(null);
