@@ -259,9 +259,9 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usunąć kontakt?</AlertDialogTitle>
+            <AlertDialogTitle>{tf('teamContacts.deleteContact', 'Usunąć kontakt?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Ta operacja jest nieodwracalna. Kontakt zostanie trwale usunięty.
+              {tf('teamContacts.deleteConfirmation', 'Ta operacja jest nieodwracalna. Kontakt zostanie trwale usunięty.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
