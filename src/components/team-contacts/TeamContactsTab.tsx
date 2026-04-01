@@ -391,7 +391,7 @@ export const TeamContactsTab: React.FC = () => {
                   onClick={() => setPrivateSubTab('deleted')}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Usunięte
+                  {tf('teamContacts.deletedContacts', 'Usunięte')}
                   {deletedContacts.length > 0 && (
                     <Badge variant="secondary" className="ml-1.5 sm:ml-2">{deletedContacts.length}</Badge>
                   )}
