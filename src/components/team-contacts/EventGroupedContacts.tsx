@@ -284,9 +284,9 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
       <AlertDialog open={!!duplicateConfirm} onOpenChange={() => setDuplicateConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Kontakt już istnieje</AlertDialogTitle>
+            <AlertDialogTitle>{tf('teamContacts.contactExists', 'Kontakt już istnieje')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Kontakt z tym samym adresem email i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?
+              {tf('teamContacts.contactExistsDesc', 'Kontakt z tym samym adresem email i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
