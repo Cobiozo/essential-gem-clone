@@ -356,7 +356,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('events-bo')}
                  >
-                   Z zaproszeń na Business Opportunity
+                   {tf('teamContacts.fromInvitationsBO', 'Z zaproszeń na Business Opportunity')}
                    <Badge variant="secondary" className="ml-2">{eventContactsBO.length}</Badge>
                  </Button>
                  <Button
