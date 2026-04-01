@@ -90,7 +90,7 @@ const LeaderPanel: React.FC = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -104,7 +104,7 @@ const LeaderPanel: React.FC = () => {
 
   if (!isAnyLeaderFeatureEnabled) {
     return (
-      <DashboardLayout>
+      <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
         <div className="container mx-auto px-4 py-6 max-w-5xl">
           <div className="flex items-center gap-3 mb-6">
             <Crown className="h-6 w-6 text-primary" />
@@ -198,7 +198,7 @@ const LeaderPanel: React.FC = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
       <div className="container mx-auto px-4 py-6 max-w-5xl">
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">

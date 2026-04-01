@@ -67,7 +67,7 @@ const PaidEventsListPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
         <div className="flex items-center justify-center min-h-[400px]">
           <LoadingSpinner />
         </div>
@@ -76,7 +76,7 @@ const PaidEventsListPage: React.FC = () => {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-lg bg-primary/10">
