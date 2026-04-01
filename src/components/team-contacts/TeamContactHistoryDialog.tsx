@@ -130,21 +130,21 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
   const getChangeBadge = (changeType: string) => {
     switch (changeType) {
       case 'created':
-        return <Badge className="bg-green-100 text-green-800">{t('teamContacts.created') || 'Utworzono'}</Badge>;
+        return <Badge className="bg-green-100 text-green-800">{tf('teamContacts.created', 'Utworzono')}</Badge>;
       case 'updated':
-        return <Badge className="bg-blue-100 text-blue-800">{t('teamContacts.updated') || 'Zaktualizowano'}</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800">{tf('teamContacts.updated', 'Zaktualizowano')}</Badge>;
       case 'deleted':
-        return <Badge variant="destructive">{t('teamContacts.deleted') || 'Usunięto'}</Badge>;
+        return <Badge variant="destructive">{tf('teamContacts.deleted', 'Usunięto')}</Badge>;
       case 'event_invite':
-        return <Badge className="bg-yellow-100 text-yellow-800">Zaproszono na wydarzenie</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800">{tf('teamContacts.eventInvite', 'Zaproszono na wydarzenie')}</Badge>;
       case 'event_invite_reg':
-        return <Badge className="bg-yellow-100 text-yellow-800">Zaproszony przez partnera</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800">{tf('teamContacts.eventInviteReg', 'Zaproszony przez partnera')}</Badge>;
       case 'event_registration':
-        return <Badge className="bg-purple-100 text-purple-800">Samodzielna rejestracja</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800">{tf('teamContacts.eventRegistration', 'Samodzielna rejestracja')}</Badge>;
       case 'event_invite_alt_email':
-        return <Badge className="bg-orange-100 text-orange-800">Wysłano na inny email</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800">{tf('teamContacts.eventInviteAltEmail', 'Wysłano na inny email')}</Badge>;
       case 'event_invite_resend':
-        return <Badge className="bg-blue-100 text-blue-800">Ponowne wysłanie</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800">{tf('teamContacts.eventInviteResend', 'Ponowne wysłanie')}</Badge>;
       default:
         return <Badge variant="secondary">{changeType}</Badge>;
     }
