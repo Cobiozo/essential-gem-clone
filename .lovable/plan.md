@@ -1,129 +1,114 @@
 
 
-# Audyt tłumaczeń + dodanie języka norweskiego
+# Uzupełnienie brakujących kluczy tłumaczeń w całej aplikacji
 
-## Audyt: miejsca z brakującymi tłumaczeniami / hardkodowanymi językami
+## Problem widoczny na screenie
 
-### A. Hardkodowane listy języków (brak norweskiego)
+Tytuł okna historii wyświetla surowy klucz `teamContacts.historyTitle` zamiast przetłumaczonego tekstu. Oznacza to, że klucz nie istnieje w tabeli `i18n_translations` w bazie danych.
 
-| Plik | Problem |
-|------|---------|
-| `src/components/LanguageSelector.tsx` | `languageToCountry` — tylko pl, en, de, it, es, fr, pt |
-| `src/components/InvitationLanguageSelect.tsx` | `languageToCountry` — tylko pl, en, de, it, es, fr, pt |
-| `src/components/ContentLanguageSelector.tsx` | `languageToCountry` — tylko pl, en, de, it, es, fr, pt |
-| `src/types/knowledge.ts` | `LANGUAGE_OPTIONS` — tylko pl, en, de, it, es, fr, pt |
-| `src/pages/OmegaBasePage.tsx` | `ExportLanguage = 'pl' \| 'de' \| 'en' \| 'it'` — brak no |
-| `src/pages/OmegaBasePage.tsx` | `exportTranslations`, `getTranslation` — tylko pl, de, en, it |
-| `src/components/admin/push-notifications/NotificationTemplatesPanel.tsx` | `supportedLanguages` — tylko pl, en, de, uk |
-| `src/contexts/LanguageContext.tsx` | `type Language = 'pl' \| 'de' \| 'en' \| string` — kosmetycznie |
+## Skala problemu
 
-### B. Hardkodowane szablony bez norweskiego
+Po przeanalizowaniu całego kodu:
 
-| Plik | Problem |
-|------|---------|
-| `src/utils/invitationTemplates.ts` | `templates` (InvitationLabels) — tylko pl, en, de |
-| `src/utils/invitationTemplates.ts` | `registrationTemplates` (RegistrationLabels) — tylko pl, en, de |
-| `src/utils/invitationTemplates.ts` | `getDateLocale()` — switch tylko en, de, default pl |
-| `supabase/functions/generate-hk-otp/index.ts` | `messageTemplates` — tylko pl, en, de |
+### A. Moduł team-contacts (12 plików, ~200 hardkodowanych stringów PL)
 
-### C. Hardkodowane `locale: pl` bez uwzględnienia języka użytkownika (57 plików!)
+Tylko 4 z 18 plików używają `useLanguage`. Reszta ma czyste polskie stringy:
 
-Ponad 57 plików używa `{ locale: pl }` z date-fns bez sprawdzania aktualnego języka. Przykłady:
-- `ConversationView.tsx`, `NotificationBellEnhanced.tsx`, `LeaderApprovalView.tsx`
-- `AdminGuestDashboard.tsx`, `GoogleCalendarManagement.tsx`, `OmegaTestForm.tsx`
-- `PartnerMeetingBooking.tsx`, `LeaderMeetingSchedule.tsx`
+| Plik | Hardkodowane stringi (przykłady) |
+|------|----------------------------------|
+| `TeamContactsTab.tsx` | "Kontakty prywatne", "Dodaj kontakt", "Eksport", "Filtry" |
+| `TeamContactFilters.tsx` | "Filtry", "Wyczyść", "Szukaj", status labels |
+| `PrivateContactForm.tsx` | "Zawód", "Status relacji", "Czynny obserwujący", "Potencjalny klient" |
+| `TeamContactForm.tsx` | "Dodaj kontakt", "Zapisz" |
+| `TeamContactExport.tsx` | "Kontakty prywatne", "Wygenerowano", status labels |
+| `TeamMap.tsx` | "Brak kontaktów do wyświetlenia" |
+| `ContactEventInfoButton.tsx` | "Dołączył", "Nie dołączył" |
+| `ContactEventHistory.tsx` | "Samodzielna rejestracja" |
+| `ContactExpandedDetails.tsx` | Etykiety pól |
+| `DeletedContactsList.tsx` | "Usunięte kontakty" |
+| `EventGroupedContacts.tsx` | "Anuluj", dialogi potwierdzenia |
+| `InviteToEventDialog.tsx` | "Alternatywny email", toasty |
+| `TeamContactHistoryDialog.tsx` | "Zaproszono na wydarzenie", "Samodzielna rejestracja", "Ponowne wysłanie", "Alternatywny email" |
 
-Te pliki zawsze formatują daty po polsku, niezależnie od wybranego języka interfejsu.
+### B. Moduł events (częściowo przetłumaczony)
 
-### D. Brakujące klucze i18n
+`EventDetailsDialog.tsx` używa hardkodowanego `pl/enUS` zamiast `getAppDateLocale`. Część komponentów ma `useLanguage` ale wiele stringów nadal jest po polsku.
 
-Wiele komponentów używa polskich stringów zamiast kluczy `t()`:
-- Większość panelu admina (hardkodowane polskie etykiety)
-- To jest świadomy wybór architektury (admin panel = polski), ale brak kluczy utrudnia ewentualne tłumaczenie
+### C. Moduł training (0 plików z useLanguage)
+
+Cały moduł `src/components/training/` nie korzysta z tłumaczeń — ale to jest moduł treściowy (treści szkoleniowe tłumaczone przez CMS), więc UI labels to odrębna kwestia.
+
+### D. Admin panel (~21 plików z useLanguage, ale setki hardkodowanych stringów)
+
+Panel admina jest celowo po polsku (architektonicznie) — NIE tłumaczę go.
+
+### E. Brakujące klucze w DB
+
+Klucze używane z `t()` w kodzie, które prawdopodobnie nie istnieją w tabeli `i18n_translations`:
+- `teamContacts.historyTitle` (widoczny na screenie!)
+- `teamContacts.created`, `teamContacts.updated`, `teamContacts.deleted`
+- `teamContacts.noHistory`
+- I prawdopodobnie wiele innych z namespace `teamContacts.*`
 
 ---
 
-## Plan implementacji: dodanie norweskiego (no)
+## Plan implementacji (3 fazy)
 
-### 1. Wyodrębnić wspólny moduł `languageToCountry` (DRY)
+### Faza 1: Naprawić brakujące klucze w DB + TeamContactHistoryDialog (krytyczne)
 
-**Nowy plik: `src/utils/languageFlags.ts`**
+**Problem**: Klucze `teamContacts.*` są używane w kodzie ale nie istnieją w bazie. Dialog historii wyświetla surowe klucze.
 
-Wyodrębnić zduplikowany kod z 3 komponentów (`LanguageSelector`, `InvitationLanguageSelect`, `ContentLanguageSelector`) do jednego modułu:
+**Rozwiązanie**: Dodać migrację SQL wstawiającą brakujące klucze do `i18n_translations` dla języka domyślnego (pl) oraz dostępnych języków (en, de, no).
 
-```ts
-export const languageToCountry: Record<string, string> = {
-  'pl': 'pl', 'en': 'gb', 'de': 'de', 'it': 'it',
-  'es': 'es', 'fr': 'fr', 'pt': 'pt', 'no': 'no',
-};
+Klucze do dodania:
+- `teamContacts.historyTitle` → "Historia zmian"
+- `teamContacts.created` → "Utworzono"
+- `teamContacts.updated` → "Zaktualizowano"
+- `teamContacts.deleted` → "Usunięto"
+- `teamContacts.noHistory` → "Brak historii zmian"
+- `teamContacts.eventInvite` → "Zaproszono na wydarzenie"
+- `teamContacts.eventInviteReg` → "Zaproszony przez partnera"
+- `teamContacts.eventRegistration` → "Samodzielna rejestracja"
+- `teamContacts.eventInviteAltEmail` → "Wysłano na inny email"
+- `teamContacts.eventInviteResend` → "Ponowne wysłanie"
+- `teamContacts.altEmail` → "Alternatywny email"
+- `teamContacts.joined` → "Dołączył"
+- `teamContacts.notJoined` → "Nie dołączył"
 
-export const getFlagUrl = (langCode: string): string => {
-  const countryCode = languageToCountry[langCode] || langCode;
-  return `https://flagcdn.com/w40/${countryCode}.png`;
-};
-```
+**Plik**: Migracja SQL + aktualizacja `TeamContactHistoryDialog.tsx` aby używać kluczy zamiast hardkodowanych stringów.
 
-Zaktualizować 3 komponenty żeby importowały z nowego modułu.
+### Faza 2: Dodać `useLanguage` do wszystkich plików team-contacts
 
-### 2. Dodać norweski do `LANGUAGE_OPTIONS` w `src/types/knowledge.ts`
-
-```ts
-{ code: 'no', label: '🇳🇴 Norsk', flag: '🇳🇴' }
-```
-
-### 3. Dodać norweski do `invitationTemplates.ts`
-
-- Nowy wpis `no` w `templates` (InvitationLabels)
-- Nowy wpis `no` w `registrationTemplates` (RegistrationLabels)
-- Dodać `import { nb } from 'date-fns/locale'` i case `'no': return nb` w `getDateLocale()`
-
-### 4. Dodać norweski do `OmegaBasePage.tsx`
-
-- Rozszerzyć `ExportLanguage` o `'no'`
-- Dodać norweskie tłumaczenia w `exportTranslations` i `getTranslation`
-
-### 5. Dodać norweski do `NotificationTemplatesPanel.tsx`
+Dodać `tf()` do 12 plików bez tłumaczeń, zastępując hardkodowane polskie stringy kluczami z fallbackami:
 
 ```ts
-{ code: 'no', name: 'Norsk' }
+// Przykład: zamiast "Dodaj kontakt"
+tf('teamContacts.addContact', 'Dodaj kontakt')
 ```
 
-### 6. Dodać norweski do `generate-hk-otp` edge function
+**Pliki** (12 komponentów):
+- `TeamContactsTab.tsx` — nagłówki, przyciski, taby
+- `TeamContactFilters.tsx` — etykiety filtrów
+- `PrivateContactForm.tsx` — etykiety formularza, statusy
+- `TeamContactForm.tsx` — etykiety formularza
+- `TeamContactExport.tsx` — etykiety eksportu
+- `TeamMap.tsx` — komunikaty puste
+- `ContactEventInfoButton.tsx` — "Dołączył"/"Nie dołączył" 
+- `ContactEventHistory.tsx` — "Samodzielna rejestracja"
+- `ContactExpandedDetails.tsx` — etykiety pól
+- `DeletedContactsList.tsx` — nagłówek
+- `EventGroupedContacts.tsx` — dialogi
+- `InviteToEventDialog.tsx` — etykiety
 
-```ts
-no: `Hei!\n\nJeg har et interessant materiale til deg:\n...`
-```
+Klucze dodane z `tf(key, fallback)` — dzięki temu nawet jeśli klucz nie istnieje w DB, wyświetli się fallback po polsku.
 
-### 7. Naprawić hardkodowane `locale: pl` w kluczowych komponentach
+### Faza 3: Dodać migrację z pełnym zestawem kluczy PL + EN + DE + NO
 
-Stworzyć helper w `src/utils/dateLocale.ts`:
-```ts
-import { pl, enUS, de, nb } from 'date-fns/locale';
-export function getAppDateLocale(lang: string): Locale {
-  switch(lang) {
-    case 'en': return enUS;
-    case 'de': return de;
-    case 'no': return nb;
-    default: return pl;
-  }
-}
-```
+Migracja SQL dodająca ~50-60 kluczy tłumaczeń dla namespace `teamContacts.*` w 4 językach. System `scheduled-translate-sync` automatycznie uzupełni brakujące tłumaczenia dla dodatkowych języków.
 
-Zaktualizować kluczowe pliki (te widoczne dla użytkowników końcowych):
-- `ConversationView.tsx`
-- `NotificationBellEnhanced.tsx`
-- `UserNotificationCenter.tsx`
-- `PartnerMeetingBooking.tsx`
-- `LeaderMeetingSchedule.tsx`
-- `MyHkCodesHistory.tsx`
-- I inne pliki korzystające z `locale: pl`
-
-### 8. Dodać default fallback w `LanguageSelector`, `InvitationLanguageSelect`, `ContentLanguageSelector`
-
-Upewnić się że statyczny fallback (gdy DB jest niedostępna) zawiera norweski:
-```ts
-{ code: 'no', name: 'Norwegian', native_name: 'Norsk' }
-```
+**Dodatkowe naprawy**:
+- `EventDetailsDialog.tsx` — zamienić hardkodowane `pl/enUS` na `getAppDateLocale(language)`
+- `CronJobsManagement.tsx` — zamienić `language === 'pl' ? pl : enUS` na `getAppDateLocale(language)`
 
 ---
 
@@ -131,22 +116,26 @@ Upewnić się że statyczny fallback (gdy DB jest niedostępna) zawiera norweski
 
 | Plik | Zmiana |
 |------|--------|
-| **NOWY** `src/utils/languageFlags.ts` | Wspólny moduł flag |
-| **NOWY** `src/utils/dateLocale.ts` | Wspólny helper date-fns locale |
-| `src/components/LanguageSelector.tsx` | Import z languageFlags, dodać NO do fallback |
-| `src/components/InvitationLanguageSelect.tsx` | Import z languageFlags, dodać NO do fallback |
-| `src/components/ContentLanguageSelector.tsx` | Import z languageFlags, dodać NO do fallback |
-| `src/types/knowledge.ts` | Dodać NO do LANGUAGE_OPTIONS |
-| `src/utils/invitationTemplates.ts` | Dodać norweskie szablony + nb locale |
-| `src/pages/OmegaBasePage.tsx` | Rozszerzyć ExportLanguage + tłumaczenia |
-| `src/components/admin/push-notifications/NotificationTemplatesPanel.tsx` | Dodać NO |
-| `src/contexts/LanguageContext.tsx` | Kosmetyka typu Language |
-| `supabase/functions/generate-hk-otp/index.ts` | Dodać NO template |
-| ~15 plików z `locale: pl` | Zamienić na `getAppDateLocale(language)` |
+| **NOWA migracja SQL** | Wstawienie ~60 kluczy tłumaczeń teamContacts.* |
+| `TeamContactHistoryDialog.tsx` | Użycie kluczy tf() dla badge'ów |
+| `TeamContactsTab.tsx` | Dodanie useLanguage + tf() |
+| `TeamContactFilters.tsx` | Dodanie useLanguage + tf() |
+| `PrivateContactForm.tsx` | Dodanie useLanguage + tf() |
+| `TeamContactForm.tsx` | Dodanie useLanguage + tf() |
+| `TeamContactExport.tsx` | Dodanie useLanguage + tf() |
+| `TeamMap.tsx` | Dodanie useLanguage + tf() |
+| `ContactEventInfoButton.tsx` | Zamiana hardkodowanych na tf() |
+| `ContactEventHistory.tsx` | Dodanie useLanguage + tf() |
+| `ContactExpandedDetails.tsx` | Dodanie useLanguage + tf() |
+| `DeletedContactsList.tsx` | Dodanie useLanguage + tf() |
+| `EventGroupedContacts.tsx` | Dodanie useLanguage + tf() |
+| `InviteToEventDialog.tsx` | Dodanie useLanguage + tf() |
+| `EventDetailsDialog.tsx` | getAppDateLocale zamiast hardkodowanego locale |
+| `CronJobsManagement.tsx` | getAppDateLocale zamiast hardkodowanego locale |
 
 ## Bezpieczeństwo
 
-- Edge functions auto-translate (`scheduled-translate-sync`, `background-translate`) pobierają języki dynamicznie z `i18n_languages` — norweski wystarczy dodać w panelu admina (lub migracją SQL)
-- Żadne zmiany nie naruszają RLS, autentykacji ani logiki biznesowej
-- Fallbacki zawsze wracają do polskiego jeśli tłumaczenie nie istnieje
+- Użycie `tf(key, fallback)` gwarantuje że nawet bez klucza w DB wyświetli się poprawny fallback
+- Żadne zmiany nie dotykają logiki biznesowej, RLS, ani autentykacji
+- Admin panel pozostaje po polsku (świadoma decyzja architektoniczna)
 
