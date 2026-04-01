@@ -175,7 +175,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="last_name">Nazwisko *</Label>
+          <Label htmlFor="last_name">{tf('teamContacts.lastName', 'Nazwisko')} *</Label>
           <Input
             id="last_name"
             value={formData.last_name}
