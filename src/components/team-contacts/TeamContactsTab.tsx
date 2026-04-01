@@ -847,7 +847,7 @@ export const TeamContactsTab: React.FC = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingContact?.contact_type === 'team_member' ? 'Podgląd członka zespołu' : 'Edytuj kontakt'}
+              {editingContact?.contact_type === 'team_member' ? tf('teamContacts.teamMemberPreview', 'Podgląd członka zespołu') : tf('teamContacts.editContact', 'Edytuj kontakt')}
             </DialogTitle>
             <DialogDescription>
               {editingContact?.contact_type === 'team_member' 
