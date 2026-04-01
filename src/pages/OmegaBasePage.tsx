@@ -164,24 +164,28 @@ const OmegaBasePage: React.FC = () => {
       de: 'PLC OMEGA BASE - Zusammenfassung',
       en: 'PLC OMEGA BASE - Summary',
       it: 'PLC OMEGA BASE - Riepilogo',
+      no: 'PLC OMEGA BASE - Sammendrag',
     },
     summary: {
       pl: 'Podsumowanie dialogu',
       de: 'Dialogzusammenfassung',
       en: 'Dialog Summary',
       it: 'Riepilogo del dialogo',
+      no: 'Dialogsammendrag',
     },
     disclaimer: {
       pl: 'Te informacje służą wyłącznie celom edukacyjnym i nie zastępują porady lekarskiej.',
       de: 'Diese Informationen dienen nur zu Bildungszwecken und ersetzen keine ärztliche Beratung.',
       en: 'This information is for educational purposes only and does not replace medical advice.',
       it: 'Queste informazioni sono solo a scopo educativo e non sostituiscono il parere medico.',
+      no: 'Denne informasjonen er kun til utdanningsformål og erstatter ikke medisinsk rådgivning.',
     },
     generatedOn: {
       pl: 'Wygenerowano',
       de: 'Erstellt am',
       en: 'Generated on',
       it: 'Generato il',
+      no: 'Generert',
     },
   };
 
