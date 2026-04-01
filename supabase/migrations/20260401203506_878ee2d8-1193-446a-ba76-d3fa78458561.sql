@@ -1,0 +1,1 @@
+ALTER TABLE public.auto_webinar_fake_messages ADD COLUMN appear_at_second integer NOT NULL DEFAULT 0;

@@ -689,6 +689,7 @@ export type Database = {
       auto_webinar_fake_messages: {
         Row: {
           appear_at_minute: number
+          appear_at_second: number
           author_name: string
           config_id: string | null
           content: string
@@ -699,6 +700,7 @@ export type Database = {
         }
         Insert: {
           appear_at_minute?: number
+          appear_at_second?: number
           author_name: string
           config_id?: string | null
           content: string
@@ -709,6 +711,7 @@ export type Database = {
         }
         Update: {
           appear_at_minute?: number
+          appear_at_second?: number
           author_name?: string
           config_id?: string | null
           content?: string

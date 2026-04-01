@@ -91,7 +91,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const [fakeParticipantsMax, setFakeParticipantsMax] = useState(120);
   const [fakeChatEnabled, setFakeChatEnabled] = useState(true);
   const [fakeMessages, setFakeMessages] = useState<AutoWebinarFakeMessage[]>([]);
-  const [fakeMessageForm, setFakeMessageForm] = useState({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' as 'welcome' | 'during' | 'ending' });
+  const [fakeMessageForm, setFakeMessageForm] = useState({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' as 'welcome' | 'during' | 'ending' });
   const [editingFakeMessage, setEditingFakeMessage] = useState<AutoWebinarFakeMessage | null>(null);
 
   useEffect(() => {
@@ -155,6 +155,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     const { error } = await supabase.from('auto_webinar_fake_messages').insert({
       config_id: config.id,
       appear_at_minute: fakeMessageForm.appear_at_minute,
+      appear_at_second: fakeMessageForm.appear_at_second,
       author_name: fakeMessageForm.author_name,
       content: fakeMessageForm.content,
       phase: fakeMessageForm.phase,
@@ -164,7 +165,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
       return;
     }
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    setFakeMessageForm({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' });
     loadFakeMessages(config.id);
     toast({ title: 'Dodano wiadomość' });
   };
@@ -180,6 +181,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     setEditingFakeMessage(msg);
     setFakeMessageForm({
       appear_at_minute: msg.appear_at_minute,
+      appear_at_second: msg.appear_at_second || 0,
       author_name: msg.author_name,
       content: msg.content,
       phase: (msg.phase as 'welcome' | 'during' | 'ending') || 'during',
@@ -192,6 +194,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       .from('auto_webinar_fake_messages')
       .update({
         appear_at_minute: fakeMessageForm.appear_at_minute,
+        appear_at_second: fakeMessageForm.appear_at_second,
         author_name: fakeMessageForm.author_name,
         content: fakeMessageForm.content,
         phase: fakeMessageForm.phase,
@@ -202,14 +205,14 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
       return;
     }
     setEditingFakeMessage(null);
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    setFakeMessageForm({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' });
     loadFakeMessages(config.id);
     toast({ title: 'Zapisano zmiany' });
   };
 
   const handleCancelEditFakeMessage = () => {
     setEditingFakeMessage(null);
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    setFakeMessageForm({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' });
   };
 
   const handleLoadDefaultMessages = async () => {
@@ -263,6 +266,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     const rows = defaults.map((d, i) => ({
       config_id: config.id,
       appear_at_minute: d.m,
+      appear_at_second: Math.floor(Math.random() * 50) + 5,
       author_name: d.a,
       content: d.c,
       phase: d.m <= 3 ? 'welcome' : d.m >= 40 ? 'ending' : 'during',
@@ -1315,7 +1319,18 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-1">
+                    <Label className="text-xs">Sek.</Label>
+                    <Input
+                      type="number"
+                      value={fakeMessageForm.appear_at_second}
+                      onChange={(e) => setFakeMessageForm(p => ({ ...p, appear_at_second: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                      min={0}
+                      max={59}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="col-span-2">
                     <Label className="text-xs">Autor</Label>
                     <Input
                       value={fakeMessageForm.author_name}
@@ -1368,7 +1383,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="w-16 text-xs">Min.</TableHead>
+                                  <TableHead className="w-16 text-xs">Czas</TableHead>
                                   <TableHead className="w-28 text-xs">Autor</TableHead>
                                   <TableHead className="text-xs">Treść</TableHead>
                                  <TableHead className="w-20 text-xs"></TableHead>
@@ -1377,7 +1392,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                               <TableBody>
                                 {phaseMessages.map((msg) => (
                                   <TableRow key={msg.id} className={editingFakeMessage?.id === msg.id ? 'bg-muted/50' : ''}>
-                                    <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
+                                    <TableCell className="text-xs font-mono">{msg.appear_at_minute}:{String(msg.appear_at_second || 0).padStart(2, '0')}</TableCell>
                                     <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
                                     <TableCell>
