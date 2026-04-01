@@ -212,7 +212,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
 
   const handleCancelEditFakeMessage = () => {
     setEditingFakeMessage(null);
-    setFakeMessageForm({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' });
+    setFakeMessageForm({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' });
   };
 
   const handleLoadDefaultMessages = async () => {
