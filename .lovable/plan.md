@@ -1,122 +1,98 @@
 
 
-# Ujednolicona nawigacja "Wstecz" w całej aplikacji
+# Fix: Goście z przeszłych terminów otrzymują przypomnienia o nowych terminach
 
-## Obecny stan
+## Analiza problemu
 
-Nawigacja wstecz jest niespójna:
-- **Training** (standalone): ArrowLeft → "Wróć do strony głównej" → `/dashboard`
-- **TrainingModule** (standalone): ArrowLeft → "Powrót do szkoleń" → `/training`
-- **DashboardLayout pages** (12 stron): SidebarTrigger (hamburger), brak strzałki wstecz
-- **Standalone pages** (OmegaBase, Messages, MyAccount, KnowledgeCenter): własne headery, różne wzorce
+Wydarzenie "Prezentacja możliwości biznesowych" (`58aac028`) jest **jednoterminowe** (brak `occurrences`). Administrator aktualizuje `start_time` co tydzień na nowy termin. Stare rejestracje gości pozostają ze statusem `registered` i `occurrence_date = null`, `occurrence_index = null`.
 
-## Wzorzec docelowy (jak w Akademii)
+W `send-bulk-webinar-reminders`:
+- Linia 403: `if (termOccurrenceIndex !== null && event.occurrences)` → **false** dla wydarzeń jednoterminowych
+- Efekt: **ZERO filtrowania** — wszyscy goście z `status='registered'` dostają przypomnienia, nawet ci zarejestrowani 2 tygodnie temu na miniony termin
 
-Na **desktopie**: strzałka wstecz + tekst (np. "Wróć do strony głównej") w topbarze, obok SidebarTrigger.
-Na **mobile**: strzałka wstecz **zamiast** SidebarTrigger.
+## Rozwiązanie (dwuczęściowe)
 
-Hierarchia nawigacji:
-- **Dashboard** (`/dashboard`): brak wstecz (to jest strona główna)
-- **Strony 1-poziomu** (Zdrowa Wiedza, Kalkulatory, Webinary, itp.): wstecz → `/dashboard` ("Strona główna")
-- **Strony 2-poziomu** (Player Zdrowa Wiedza, moduł szkolenia): wstecz → strona rodzica
+### Część 1: Filtrowanie w `send-bulk-webinar-reminders` (natychmiastowa ochrona)
 
-## Rozwiązanie
+**Plik: `supabase/functions/send-bulk-webinar-reminders/index.ts`**
 
-### 1. Rozszerzyć `DashboardLayout` i `DashboardTopbar` o prop `backTo`
+Po pobraniu gości (linia ~399), dla wydarzeń **bez `occurrences`** (jednoterminowych), dodać filtr:
+- Goście których `created_at` jest wcześniejszy niż `start_time - 8 dni` → pominąć
+- Logika: jeśli gość zarejestrował się ponad 8 dni przed aktualnym `start_time`, to rejestracja dotyczyła poprzedniego terminu
 
-Dodać nowy prop:
 ```ts
-interface DashboardTopbarProps {
-  title?: string;
-  backTo?: { label: string; path: string } | null;
-  // ...existing
+// For single-occurrence events, filter out stale registrations
+// (guests who registered for a previous occurrence before start_time was updated)
+if (!event.occurrences || !Array.isArray(event.occurrences) || event.occurrences.length === 0) {
+  const registrationWindowMs = 8 * 24 * 60 * 60 * 1000; // 8 days
+  const cutoffDate = new Date(termDatetime.getTime() - registrationWindowMs);
+  const beforeCount = guests.length;
+  guests = guests.filter((g: any) => new Date(g.created_at) >= cutoffDate);
+  if (beforeCount !== guests.length) {
+    console.log(`[bulk-reminders] Single-occurrence stale guest filter: ${beforeCount} → ${guests.length} (removed ${beforeCount - guests.length} old registrations)`);
+  }
 }
 ```
 
-W `DashboardTopbar.tsx`:
-- Gdy `backTo` jest podane: na mobile pokazać ArrowLeft (zamiast SidebarTrigger), na desktop ArrowLeft + tekst + separator + SidebarTrigger
-- Gdy `backTo` jest `null`/undefined (Dashboard): standardowy SidebarTrigger na obu rozdzielczościach
+To samo dla `userRegs` (rejestracje użytkowników).
 
-### 2. Plik: `src/components/dashboard/DashboardTopbar.tsx`
+Wymaga dodania `created_at` do selectów na liniach 395 i 431.
 
-Sekcja "Left side" (linie 73-81) — zmienić na:
-```tsx
-<div className="flex items-center gap-2 sm:gap-4">
-  {backTo ? (
-    <>
-      {/* Mobile: back arrow replaces sidebar trigger */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => navigate(backTo.path)}
-        className="sm:hidden h-9 w-9 -ml-1"
-      >
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
-      {/* Desktop: back arrow + label + sidebar trigger */}
-      <div className="hidden sm:flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(backTo.path)}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {backTo.label}
-        </Button>
-        <Separator orientation="vertical" className="h-6" />
-        <SidebarTrigger />
-      </div>
-    </>
-  ) : (
-    <SidebarTrigger className="-ml-1" />
-  )}
-  {title && (
-    <h1 className="text-lg font-semibold hidden sm:block">{title}</h1>
-  )}
-</div>
-```
+### Część 2: CRON — automatyczne zamykanie starych rejestracji
 
-Import: dodać `ArrowLeft` z lucide-react, `Separator` z components/ui.
+**Plik: `supabase/functions/process-pending-notifications/index.ts`**
 
-### 3. Plik: `src/components/dashboard/DashboardLayout.tsx`
+Dodać nowy krok na początku CRON-a: dla wydarzeń jednoterminowych (bez `occurrences`) których `end_time` już minęło, oznaczyć wszystkie rejestracje gości jako `completed`:
 
-Przekazać nowy prop `backTo` z layoutu do topbara:
 ```ts
-interface DashboardLayoutProps {
-  children: React.ReactNode;
-  title?: string;
-  backTo?: { label: string; path: string } | null;
-  // ...existing
+// Step 0: Close stale guest registrations for single-occurrence events
+// whose end_time has passed
+const { data: pastSingleEvents } = await supabase
+  .from("events")
+  .select("id, title, end_time")
+  .lt("end_time", now.toISOString())
+  .eq("is_active", true)
+  .is("occurrences", null);
+
+for (const evt of (pastSingleEvents || [])) {
+  const { data: staleGuests, error: staleErr } = await supabase
+    .from("guest_event_registrations")
+    .update({ status: "completed" })
+    .eq("event_id", evt.id)
+    .eq("status", "registered")
+    .select("id");
+  
+  if (staleGuests && staleGuests.length > 0) {
+    console.log(`[CRON] Closed ${staleGuests.length} stale guest registrations for ended event: ${evt.title}`);
+  }
 }
 ```
 
-### 4. Aktualizacja wszystkich stron używających DashboardLayout
+To samo dla `event_registrations` (użytkownicy zarejestrowani).
 
-Dodać prop `backTo` do każdego wywołania `<DashboardLayout>`:
+**Uwaga**: To zadziała tylko gdy `end_time < now` — czyli PO zakończeniu wydarzenia. Następny CRON zamknie rejestracje automatycznie, zanim admin zaktualizuje `start_time` na nowy termin.
 
-| Strona | Route | backTo.path | backTo.label |
-|---|---|---|---|
-| Dashboard | `/dashboard` | brak (strona główna) | — |
-| HealthyKnowledge | `/zdrowa-wiedza` | `/dashboard` | "Strona główna" |
-| HealthyKnowledgePlayer | `/zdrowa-wiedza/player/:id` | `/zdrowa-wiedza` | "Zdrowa Wiedza" |
-| CommissionCalculator | `/calculator/influencer` | `/dashboard` | "Strona główna" |
-| SpecialistCalculator | `/calculator/specialist` | `/dashboard` | "Strona główna" |
-| IndividualMeetingsPage | `/events/individual-meetings` | `/dashboard` | "Strona główna" |
-| WebinarsPage | `/events/webinars` | `/dashboard` | "Strona główna" |
-| TeamMeetingsPage | `/events/team-meetings` | `/dashboard` | "Strona główna" |
-| PaidEventsListPage | `/paid-events` | `/dashboard` | "Strona główna" |
-| OmegaTests | `/omega-tests` | `/dashboard` | "Strona główna" |
-| MyPartnerPage | `/my-partner-page` | `/dashboard` | "Strona główna" |
-| LeaderPanel | `/leader` | `/dashboard` | "Strona główna" |
+### Część 3: Natychmiastowe czyszczenie obecnych danych
 
-### Pliki do edycji
+Migracja SQL do jednorazowego zamknięcia starych rejestracji gości:
 
-1. `src/components/dashboard/DashboardTopbar.tsx` — logika backTo w topbarze
-2. `src/components/dashboard/DashboardLayout.tsx` — przekazanie prop backTo
-3. 12 stron w `src/pages/` — dodanie prop `backTo` do `<DashboardLayout>`
+```sql
+UPDATE guest_event_registrations 
+SET status = 'completed'
+WHERE event_id = '58aac028-c68f-45c8-9999-d34b5ebb9ced'
+  AND status = 'registered'
+  AND created_at < '2026-03-30T00:00:00Z';
+```
 
-### Strony standalone (Training, TrainingModule)
+## Pliki do edycji
 
-Te strony już mają prawidłowy wzorzec — nie wymagają zmian.
+1. `supabase/functions/send-bulk-webinar-reminders/index.ts` — filtr stale registrations
+2. `supabase/functions/process-pending-notifications/index.ts` — auto-close po zakończeniu
+3. Migracja SQL — jednorazowe czyszczenie
+
+## Efekt
+
+- Goście zarejestrowani na miniony termin nie otrzymają przypomnień o nowym terminie
+- CRON automatycznie zamyka rejestracje po zakończeniu wydarzenia
+- Filtr w bulk-reminders stanowi dodatkowe zabezpieczenie
 
