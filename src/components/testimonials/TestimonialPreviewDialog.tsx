@@ -13,7 +13,7 @@ import { HealthyKnowledge, TestimonialComment } from '@/types/healthyKnowledge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 
 interface TestimonialPreviewDialogProps {
   material: HealthyKnowledge | null;
