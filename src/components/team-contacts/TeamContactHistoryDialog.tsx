@@ -32,7 +32,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
   getHistory,
   onClose,
 }) => {
-  const { t } = useLanguage();
+  const { tf } = useLanguage();
   const [entries, setEntries] = useState<UnifiedHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
