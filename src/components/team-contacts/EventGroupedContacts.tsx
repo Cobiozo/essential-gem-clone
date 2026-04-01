@@ -76,7 +76,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Brak kontaktów z zaproszeń na wydarzenia</p>
+        <p>{tf('teamContacts.noEventContacts', 'Brak kontaktów z zaproszeń na wydarzenia')}</p>
       </div>
     );
   }
