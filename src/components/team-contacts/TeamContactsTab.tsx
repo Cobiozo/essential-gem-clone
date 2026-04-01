@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { useGuardianApproval } from '@/hooks/useGuardianApproval';
