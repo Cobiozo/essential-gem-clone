@@ -5,9 +5,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Send, ArrowLeft, User, Lock } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { format } from 'date-fns';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface PrivateChatThreadViewProps {
