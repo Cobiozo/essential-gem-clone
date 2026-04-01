@@ -266,6 +266,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     const rows = defaults.map((d, i) => ({
       config_id: config.id,
       appear_at_minute: d.m,
+      appear_at_second: Math.floor(Math.random() * 50) + 5,
       author_name: d.a,
       content: d.c,
       phase: d.m <= 3 ? 'welcome' : d.m >= 40 ? 'ending' : 'during',
