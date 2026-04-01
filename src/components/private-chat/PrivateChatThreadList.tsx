@@ -55,6 +55,7 @@ export const PrivateChatThreadList = ({
   getThreadDisplayName,
 }: PrivateChatThreadListProps) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
 
   if (loading) {
     return (
