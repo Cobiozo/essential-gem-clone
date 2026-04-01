@@ -70,19 +70,19 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
 
         {/* Role */}
         <div className="space-y-2">
-          <Label className="text-xs">Rola</Label>
+          <Label className="text-xs">{tf('teamContacts.role', 'Rola')}</Label>
           <Select
             value={filters.role}
             onValueChange={(value) => onFiltersChange({ ...filters, role: value === 'all' ? '' : value })}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Wszystkie role" />
+              <SelectValue placeholder={tf('teamContacts.allRoles', 'Wszystkie role')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Wszystkie role</SelectItem>
-              <SelectItem value="client">Klient</SelectItem>
-              <SelectItem value="partner">Partner</SelectItem>
-              <SelectItem value="specjalista">Specjalista</SelectItem>
+              <SelectItem value="all">{tf('teamContacts.allRoles', 'Wszystkie role')}</SelectItem>
+              <SelectItem value="client">{tf('teamContacts.client', 'Klient')}</SelectItem>
+              <SelectItem value="partner">{tf('teamContacts.partner', 'Partner')}</SelectItem>
+              <SelectItem value="specjalista">{tf('teamContacts.specialist', 'Specjalista')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
