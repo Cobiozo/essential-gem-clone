@@ -68,7 +68,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
               new_values: {
                 event_title: r.events?.title || 'Nieznane wydarzenie',
                 event_id: r.event_id,
-                event_date: r.events?.start_time || '',
+                event_date: r.slot_time || r.registered_at || r.events?.start_time || '',
                 source: r.source,
                 status: r.status,
               },

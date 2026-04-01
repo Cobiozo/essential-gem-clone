@@ -480,7 +480,7 @@ export const useTeamContacts = () => {
           const info: EventRegistrationInfo = {
             event_id: r.event_id,
             event_title: event.title || '',
-            event_start_time: event.start_time || '',
+            event_start_time: (r as any).slot_time || r.registered_at || event.start_time || '',
             guest_status: r.status || 'registered',
             registered_at: r.registered_at || '',
             registration_attempts: attempts > 1 ? attempts : undefined,

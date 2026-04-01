@@ -243,7 +243,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                           <Eye className="w-3 h-3 text-green-600 shrink-0" />
                           <span className="text-green-700 dark:text-green-400 font-medium">Dołączył</span>
                           <span className="text-muted-foreground">
-                            {new Date(reg.view_stats.joined_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(reg.view_stats.joined_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
                           </span>
                           <span className="text-muted-foreground">•</span>
                           <span className="text-muted-foreground">
