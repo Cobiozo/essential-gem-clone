@@ -294,7 +294,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Notatki */}
       <div className="space-y-2">
-        <Label htmlFor="notes">Notatki z rozmów</Label>
+        <Label htmlFor="notes">{tf('teamContacts.conversationNotes', 'Notatki z rozmów')}</Label>
         <Textarea
           id="notes"
           value={formData.notes}
