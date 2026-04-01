@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 
-type ExportLanguage = 'pl' | 'de' | 'en' | 'it';
+type ExportLanguage = 'pl' | 'de' | 'en' | 'it' | 'no';
 
 const TRANSLATE_URL = 'https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/translate-content';
 const SUMMARIZE_URL = 'https://xzlhssqqbajqhnsmbucf.supabase.co/functions/v1/medical-assistant';
