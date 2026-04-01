@@ -451,7 +451,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                       isPlaying={effectiveIsPlaying}
                       guestRegistrationId={guestRegistrationId}
                       guestEmail={guestEmail}
-                      guestName={null}
+                      guestName={guestDisplayName}
                       videoId={currentVideo?.id || null}
                       slotTime={guestSlotTime || null}
                     />
