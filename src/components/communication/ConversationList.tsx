@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Users, Search, MessageSquare, Plus, Archive, CheckCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { PrivateChatThread } from '@/types/privateChat';
 import { useAuth } from '@/contexts/AuthContext';
 
