@@ -183,7 +183,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         {eventDate && <span className="ml-2">({eventDate})</span>}
         {vals.alt_email && (
           <div className="mt-1 text-xs">
-            <span className="font-medium">Alternatywny email:</span> {vals.alt_email}
+            <span className="font-medium">{tf('teamContacts.altEmail', 'Alternatywny email')}:</span> {vals.alt_email}
           </div>
         )}
       </div>
