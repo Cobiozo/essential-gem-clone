@@ -1,45 +1,32 @@
 
 
-# Fix: Panel CMS admina nie ładuje się (infinite loading)
+# Dwukolumnowy układ: użytkownicy z dostępem i bez dostępu
 
-## Problem
+## Zmiana
 
-W `Admin.tsx` stan `loading` startuje jako `true` (linia 180) i jest ustawiany na `false` **wyłącznie** wewnątrz `fetchData()` (linia 2152). Jednak `fetchData()` jest wywoływany tylko gdy `isAdmin === true` (linia 2117-2119).
+Przebudować `AutoWebinarAccessManagement.tsx` z jednej tabeli na dwukolumnowy (grid) układ:
 
-Jeśli z jakiegokolwiek powodu `isAdmin` nie jest od razu `true` po załadowaniu auth (np. opóźnienie w `rolesReady`, chwilowa niespójność stanu), `fetchData()` nigdy się nie wywołuje i strona wisi na spinnerze na zawsze.
+**Lewa kolumna** — "Wszyscy partnerzy" (bez dostępu):
+- Lista partnerów z `can_access_auto_webinar === false`
+- Wyszukiwarka filtruje tylko tę listę
+- Switch do włączania dostępu
 
-## Rozwiązanie
+**Prawa kolumna** — "Z dostępem do Auto-Webinaru":
+- Lista partnerów z `can_access_auto_webinar === true`
+- Wyróżniona wizualnie (np. zielona ramka lub ikona potwierdzenia)
+- Switch do wyłączania dostępu
+- Licznik aktywnych użytkowników w nagłówku
 
-W `useEffect` na liniach 2108-2121, dodać `setLoading(false)` w dwóch brakujących przypadkach:
+Układ: `grid grid-cols-1 lg:grid-cols-2 gap-4` — dwie karty obok siebie na dużych ekranach, jedna pod drugą na mniejszych.
 
-1. Gdy użytkownik nie jest adminem (`!isAdmin`) — ustawić `loading = false` i przekierować na dashboard
-2. Gdy użytkownik nie jest zalogowany — `loading = false` przed navigate
+### Szczegóły
 
-### Zmiana w `src/pages/Admin.tsx`
+| Element | Opis |
+|---------|------|
+| Plik | `src/components/admin/AutoWebinarAccessManagement.tsx` |
+| Podział danych | `filtered.filter(p => p.can_access_auto_webinar)` vs `filtered.filter(p => !p.can_access_auto_webinar)` |
+| Wyszukiwarka | Jedna wspólna na górze, filtruje obie listy |
+| Prawa kolumna | Badge z liczbą aktywnych, np. "Aktywni (3)" |
 
-```typescript
-useEffect(() => {
-  if (authLoading || !rolesReady) return;
-  
-  if (!user) {
-    setLoading(false);        // <-- dodane
-    navigate('/auth');
-    return;
-  }
-
-  if (!isAdmin) {
-    setLoading(false);        // <-- dodane
-    navigate('/dashboard');   // <-- przekierowanie zamiast cichego return
-    return;
-  }
-
-  fetchData();
-}, [user, authLoading, rolesReady, isAdmin, navigate]);
-```
-
-| Plik | Zmiana |
-|------|--------|
-| `src/pages/Admin.tsx` | Dodać `setLoading(false)` przed `navigate` w obu wczesnych wyjściach z `useEffect` |
-
-Zmiana dotyczy tylko 2 linii kodu.
+Zmiana dotyczy wyłącznie jednego pliku — przebudowa renderowania JSX.
 
