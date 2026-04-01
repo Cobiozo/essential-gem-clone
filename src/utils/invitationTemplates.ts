@@ -72,6 +72,23 @@ const templates: Record<string, InvitationLabels> = {
     hkAfterFirstUse: 'Nach der ersten Nutzung hast du {hours} Stunden Zugang.',
     hkRegards: 'Mit freundlichen Grüßen',
   },
+  no: {
+    webinarInvitation: 'Invitasjon til webinar',
+    meetingInvitation: 'Invitasjon til møte',
+    date: 'Dato',
+    time: 'Tid',
+    host: 'Vert',
+    signUp: 'Meld deg på her',
+    copied: 'Kopiert!',
+    invitationCopied: 'Invitasjonen er kopiert til utklippstavlen',
+    hkGreeting: 'Hei!',
+    hkIntro: 'Jeg har et interessant materiale til deg:',
+    hkInstructions: 'Gå til lenken nedenfor og bruk tilgangskoden:',
+    hkLink: 'Lenke',
+    hkAccessCode: 'Tilgangskode',
+    hkAfterFirstUse: 'Etter første bruk har du {hours} timers tilgang.',
+    hkRegards: 'Med vennlig hilsen',
+  },
 };
 
 export function getInvitationLabels(lang: string): InvitationLabels {
