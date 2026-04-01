@@ -354,7 +354,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="first_contact_annotation">Adnotacja po pierwszym kontakcie</Label>
+        <Label htmlFor="first_contact_annotation">{tf('teamContacts.firstContactAnnotation', 'Adnotacja po pierwszym kontakcie')}</Label>
         <Textarea
           id="first_contact_annotation"
           value={formData.first_contact_annotation}
