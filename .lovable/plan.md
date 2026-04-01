@@ -1,28 +1,122 @@
 
 
-# Naprawa widoczności "Strona główna" i "Wyloguj się" na mobile
+# Ujednolicona nawigacja "Wstecz" w całej aplikacji
 
-## Analiza problemu
+## Obecny stan
 
-Na screenshocie widać, że pasek górny na 390px jest przepełniony — avatar (z dropdownem zawierającym "Strona główna" i "Wyloguj się") jest ucięty na prawej krawędzi ekranu. Sidebar na mobile jest Sheet (overlay), więc gdy jest zamknięty, pozycje "Strona główna" i "Wyloguj się" z sidebar footer są niedostępne.
+Nawigacja wstecz jest niespójna:
+- **Training** (standalone): ArrowLeft → "Wróć do strony głównej" → `/dashboard`
+- **TrainingModule** (standalone): ArrowLeft → "Powrót do szkoleń" → `/training`
+- **DashboardLayout pages** (12 stron): SidebarTrigger (hamburger), brak strzałki wstecz
+- **Standalone pages** (OmegaBase, Messages, MyAccount, KnowledgeCenter): własne headery, różne wzorce
 
-Nasz poprzedni fix (`hidden sm:flex`) powinien ukrywać LanguageSelector, ThemeSelector i HelpCircle na mobile, ale wygląda na to, że pasek nadal się przepełnia — prawdopodobnie SessionTimer, NotificationBell i inne elementy zajmują za dużo miejsca, obcinając avatar.
+## Wzorzec docelowy (jak w Akademii)
+
+Na **desktopie**: strzałka wstecz + tekst (np. "Wróć do strony głównej") w topbarze, obok SidebarTrigger.
+Na **mobile**: strzałka wstecz **zamiast** SidebarTrigger.
+
+Hierarchia nawigacji:
+- **Dashboard** (`/dashboard`): brak wstecz (to jest strona główna)
+- **Strony 1-poziomu** (Zdrowa Wiedza, Kalkulatory, Webinary, itp.): wstecz → `/dashboard` ("Strona główna")
+- **Strony 2-poziomu** (Player Zdrowa Wiedza, moduł szkolenia): wstecz → strona rodzica
 
 ## Rozwiązanie
 
-### Plik: `src/components/dashboard/DashboardTopbar.tsx`
+### 1. Rozszerzyć `DashboardLayout` i `DashboardTopbar` o prop `backTo`
 
-1. **Ograniczyć overflow topbara** — dodać `overflow-hidden` i `min-w-0` do kontenera prawej strony, aby elementy nie wychodziły poza ekran.
+Dodać nowy prop:
+```ts
+interface DashboardTopbarProps {
+  title?: string;
+  backTo?: { label: string; path: string } | null;
+  // ...existing
+}
+```
 
-2. **Zmniejszyć gap i padding na mobile** — zmienić `gap-4` na `gap-2 sm:gap-4` w headerze i `px-2 sm:px-4 lg:px-6` zamiast `px-4 lg:px-6`.
+W `DashboardTopbar.tsx`:
+- Gdy `backTo` jest podane: na mobile pokazać ArrowLeft (zamiast SidebarTrigger), na desktop ArrowLeft + tekst + separator + SidebarTrigger
+- Gdy `backTo` jest `null`/undefined (Dashboard): standardowy SidebarTrigger na obu rozdzielczościach
 
-3. **SessionTimer — ukryć na mobile lub zmniejszyć** — SessionTimer zajmuje dużo miejsca. Dodać `hidden sm:block` wrapper, aby na mobile nie zabierał przestrzeni.
+### 2. Plik: `src/components/dashboard/DashboardTopbar.tsx`
 
-4. **Upewnić się, że avatar (z dropdownem) jest zawsze widoczny** — dodać `flex-shrink-0` na przycisku avatara, żeby nigdy nie był ściśnięty.
+Sekcja "Left side" (linie 73-81) — zmienić na:
+```tsx
+<div className="flex items-center gap-2 sm:gap-4">
+  {backTo ? (
+    <>
+      {/* Mobile: back arrow replaces sidebar trigger */}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => navigate(backTo.path)}
+        className="sm:hidden h-9 w-9 -ml-1"
+      >
+        <ArrowLeft className="h-5 w-5" />
+      </Button>
+      {/* Desktop: back arrow + label + sidebar trigger */}
+      <div className="hidden sm:flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(backTo.path)}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {backTo.label}
+        </Button>
+        <Separator orientation="vertical" className="h-6" />
+        <SidebarTrigger />
+      </div>
+    </>
+  ) : (
+    <SidebarTrigger className="-ml-1" />
+  )}
+  {title && (
+    <h1 className="text-lg font-semibold hidden sm:block">{title}</h1>
+  )}
+</div>
+```
 
-5. **Dodać "Wyloguj się" do widocznych elementów na mobile** — w dropdownie avatara "Strona główna" i "Wyloguj się" już istnieją (linie 144-147 i 189-192). Wystarczy upewnić się, że dropdown się otwiera poprawnie.
+Import: dodać `ArrowLeft` z lucide-react, `Separator` z components/ui.
 
-## Efekt
+### 3. Plik: `src/components/dashboard/DashboardLayout.tsx`
 
-Na 390px topbar: SidebarTrigger + NotificationBell + Avatar = 3 elementy. Dropdown z avatara daje dostęp do "Strona główna" i "Wyloguj się". Sidebar (Sheet) po otwarciu też pokazuje pełne menu z tekstami.
+Przekazać nowy prop `backTo` z layoutu do topbara:
+```ts
+interface DashboardLayoutProps {
+  children: React.ReactNode;
+  title?: string;
+  backTo?: { label: string; path: string } | null;
+  // ...existing
+}
+```
+
+### 4. Aktualizacja wszystkich stron używających DashboardLayout
+
+Dodać prop `backTo` do każdego wywołania `<DashboardLayout>`:
+
+| Strona | Route | backTo.path | backTo.label |
+|---|---|---|---|
+| Dashboard | `/dashboard` | brak (strona główna) | — |
+| HealthyKnowledge | `/zdrowa-wiedza` | `/dashboard` | "Strona główna" |
+| HealthyKnowledgePlayer | `/zdrowa-wiedza/player/:id` | `/zdrowa-wiedza` | "Zdrowa Wiedza" |
+| CommissionCalculator | `/calculator/influencer` | `/dashboard` | "Strona główna" |
+| SpecialistCalculator | `/calculator/specialist` | `/dashboard` | "Strona główna" |
+| IndividualMeetingsPage | `/events/individual-meetings` | `/dashboard` | "Strona główna" |
+| WebinarsPage | `/events/webinars` | `/dashboard` | "Strona główna" |
+| TeamMeetingsPage | `/events/team-meetings` | `/dashboard` | "Strona główna" |
+| PaidEventsListPage | `/paid-events` | `/dashboard` | "Strona główna" |
+| OmegaTests | `/omega-tests` | `/dashboard` | "Strona główna" |
+| MyPartnerPage | `/my-partner-page` | `/dashboard` | "Strona główna" |
+| LeaderPanel | `/leader` | `/dashboard` | "Strona główna" |
+
+### Pliki do edycji
+
+1. `src/components/dashboard/DashboardTopbar.tsx` — logika backTo w topbarze
+2. `src/components/dashboard/DashboardLayout.tsx` — przekazanie prop backTo
+3. 12 stron w `src/pages/` — dodanie prop `backTo` do `<DashboardLayout>`
+
+### Strony standalone (Training, TrainingModule)
+
+Te strony już mają prawidłowy wzorzec — nie wymagają zmian.
 
