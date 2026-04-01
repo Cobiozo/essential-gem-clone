@@ -10,7 +10,7 @@ const MyPartnerPage = () => {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
