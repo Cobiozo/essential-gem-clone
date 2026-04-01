@@ -407,7 +407,7 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
               size="sm"
               onClick={async () => {
                 await supabase.auth.signOut();
-                navigate('/auth', { replace: true });
+                window.location.href = '/auth';
               }}
               className="w-full text-muted-foreground hover:text-destructive"
             >
