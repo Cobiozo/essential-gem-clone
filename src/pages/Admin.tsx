@@ -2110,11 +2110,16 @@ const Admin = () => {
     if (authLoading || !rolesReady) return;
     
     if (!user) {
+      setLoading(false);
       navigate('/auth');
       return;
     }
 
-    if (!isAdmin) return;
+    if (!isAdmin) {
+      setLoading(false);
+      navigate('/dashboard');
+      return;
+    }
 
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
