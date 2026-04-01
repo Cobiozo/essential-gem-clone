@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, MapPin, Globe, ArrowRight, Users } from 'lucide-react';
 import { format } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface PaidEvent {
