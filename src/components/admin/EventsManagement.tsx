@@ -41,6 +41,7 @@ import { IndividualMeetingsManagement } from './IndividualMeetingsManagement';
 import ZoomIntegrationSettings from './ZoomIntegrationSettings';
 import { BookOpen, Radio } from 'lucide-react';
 import { AutoWebinarManagement } from './AutoWebinarManagement';
+import { AutoWebinarAccessManagement } from './AutoWebinarAccessManagement';
 
 export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
