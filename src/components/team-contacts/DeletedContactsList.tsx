@@ -2,6 +2,7 @@ import React from 'react';
 import { Trash2, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { TeamContact } from './types';
 
 interface DeletedContactsListProps {
@@ -15,6 +16,8 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
   loading,
   onRestore,
 }) => {
+  const { tf } = useLanguage();
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -29,8 +32,8 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Trash2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Brak usuniętych kontaktów</p>
-        <p className="text-sm mt-1">Usunięte kontakty są przechowywane przez 30 dni</p>
+        <p>{tf('teamContacts.noDeletedContacts', 'Brak usuniętych kontaktów')}</p>
+        <p className="text-sm mt-1">{tf('teamContacts.deletedAutoRemove', 'Usunięte kontakty są przechowywane przez 30 dni')}</p>
       </div>
     );
   }
@@ -38,7 +41,7 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
   return (
     <div className="space-y-2">
       <p className="text-sm text-muted-foreground mb-3">
-        Usunięte kontakty są automatycznie usuwane trwale po 30 dniach.
+        {tf('teamContacts.deletedAutoRemove', 'Usunięte kontakty są automatycznie usuwane trwale po 30 dniach.')}
       </p>
       <div className="divide-y rounded-md border">
         {contacts.map((contact) => {
@@ -58,13 +61,13 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
                     {contact.first_name} {contact.last_name}
                   </span>
                   <Badge variant="secondary" className="text-xs">
-                    {daysLeft} {daysLeft === 1 ? 'dzień' : 'dni'} do usunięcia
+                    {daysLeft} {daysLeft === 1 ? tf('teamContacts.day', 'dzień') : tf('teamContacts.days', 'dni')} {tf('teamContacts.daysToDelete', 'do usunięcia')}
                   </Badge>
                 </div>
                 <div className="flex items-center gap-3 text-sm text-muted-foreground mt-0.5">
                   {contact.email && <span>{contact.email}</span>}
                   {contact.phone_number && <span>{contact.phone_number}</span>}
-                  {deletedDateStr && <span className="text-xs">Usunięto: {deletedDateStr}</span>}
+                  {deletedDateStr && <span className="text-xs">{tf('teamContacts.deletedAt', 'Usunięto')}: {deletedDateStr}</span>}
                 </div>
               </div>
               <Button
@@ -74,7 +77,7 @@ export const DeletedContactsList: React.FC<DeletedContactsListProps> = ({
                 className="shrink-0"
               >
                 <RotateCcw className="w-4 h-4 mr-1" />
-                Przywróć
+                {tf('teamContacts.restore', 'Przywróć')}
               </Button>
             </div>
           );

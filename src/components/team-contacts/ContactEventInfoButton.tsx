@@ -260,7 +260,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                       ) : (
                         <>
                           <EyeOff className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <span className="text-muted-foreground">Nie dołączył</span>
+                          <span className="text-muted-foreground">{tf('teamContacts.notJoined', 'Nie dołączył')}</span>
                         </>
                       )}
                     </div>
