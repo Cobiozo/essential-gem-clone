@@ -1166,6 +1166,121 @@ serve(async (req) => {
             }
           }
         }
+
+        // ===== 9b. AUTO-WEBINAR SLOT-BASED POST-EVENT EMAILS =====
+        // For auto-webinars with slot_hours, end_time is far-future — use slot_time + video_duration instead
+        console.log("[CRON] Step 9b: Processing auto-webinar slot-based post-event emails...");
+
+        const { data: awConfigs } = await supabase
+          .from("auto_webinar_config")
+          .select("id, event_id, category")
+          .eq("is_enabled", true)
+          .not("event_id", "is", null);
+
+        if (awConfigs && awConfigs.length > 0) {
+          for (const awCfg of awConfigs) {
+            if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+
+            // Get longest active video duration for this config
+            const { data: videos } = await supabase
+              .from("auto_webinar_videos")
+              .select("id, duration_seconds")
+              .eq("config_id", awCfg.id)
+              .eq("is_active", true)
+              .order("duration_seconds", { ascending: false })
+              .limit(1);
+
+            const videoDurationSeconds = videos && videos.length > 0 ? videos[0].duration_seconds : 3600;
+            const eventVideoIds = videos ? videos.map(v => v.id) : [];
+
+            // Get unprocessed guest registrations with slot_time for this event
+            const { data: slotGuests } = await supabase
+              .from("guest_event_registrations")
+              .select("id, email, first_name, last_name, invited_by_user_id, slot_time, registered_at, thank_you_sent")
+              .eq("event_id", awCfg.event_id)
+              .eq("status", "registered")
+              .not("slot_time", "is", null)
+              .or("thank_you_sent.eq.false,thank_you_sent.is.null");
+
+            if (!slotGuests || slotGuests.length === 0) continue;
+
+            // Get event info for email
+            const { data: eventInfo } = await supabase
+              .from("events")
+              .select("id, title, host_user_id, created_by")
+              .eq("id", awCfg.event_id)
+              .single();
+
+            if (!eventInfo) continue;
+
+            for (const guest of slotGuests) {
+              if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+              if (!guest.email || !guest.slot_time || !guest.registered_at) continue;
+
+              // Calculate slot end time: registered_at date + slot_time + video duration
+              const regDate = guest.registered_at.substring(0, 10); // YYYY-MM-DD
+              const slotLocalStr = `${regDate}T${guest.slot_time}:00`; // e.g. "2025-01-15T23:30:00"
+              
+              // Convert Warsaw local to UTC for comparison
+              const slotStartUtc = warsawLocalToUtc(regDate, guest.slot_time);
+              const slotEndMs = slotStartUtc.getTime() + videoDurationSeconds * 1000;
+
+              // Check if slot ended within last 2 hours
+              if (slotEndMs < twoHoursAgoMs || slotEndMs > nowMs) continue;
+
+              console.log(`[CRON] Auto-webinar slot ended for guest ${guest.email}: slot=${slotLocalStr}, end=${new Date(slotEndMs).toISOString()}`);
+
+              // Check attendance
+              let emailType = 'missed_event';
+              if (eventVideoIds.length > 0) {
+                const { data: views } = await supabase
+                  .from("auto_webinar_views")
+                  .select("watch_duration_seconds")
+                  .eq("guest_email", guest.email)
+                  .in("video_id", eventVideoIds)
+                  .order("watch_duration_seconds", { ascending: false })
+                  .limit(1);
+
+                if (views && views.length > 0 && views[0].watch_duration_seconds && views[0].watch_duration_seconds > 0) {
+                  emailType = 'thank_you';
+                }
+              }
+
+              results.postEventThankYou.processed++;
+              if (results.postEventThankYou.processed > 1) await delay(200);
+
+              try {
+                const { error: sendErr } = await supabase.functions.invoke("send-post-event-thank-you", {
+                  body: {
+                    event_id: eventInfo.id,
+                    recipient_email: guest.email,
+                    recipient_name: `${guest.first_name || ''} ${guest.last_name || ''}`.trim(),
+                    event_title: eventInfo.title,
+                    inviter_user_id: guest.invited_by_user_id || eventInfo.host_user_id || eventInfo.created_by,
+                    source_type: 'guest_event_registration',
+                    source_id: guest.id,
+                    email_type: emailType,
+                  },
+                });
+
+                if (sendErr) {
+                  console.error(`[CRON] Auto-webinar slot post-event ${emailType} failed for ${guest.email}:`, sendErr);
+                  results.postEventThankYou.failed++;
+                } else {
+                  results.postEventThankYou.success++;
+                  console.log(`[CRON] Auto-webinar slot post-event ${emailType} sent to ${guest.email}`);
+                  await supabase.from("guest_event_registrations").update({
+                    thank_you_sent: true,
+                    thank_you_sent_at: new Date().toISOString(),
+                  }).eq("id", guest.id);
+                }
+              } catch (err) {
+                console.error("[CRON] Exception auto-webinar slot post-event email:", err);
+                results.postEventThankYou.failed++;
+              }
+            }
+          }
+        }
       } else {
         console.log("[CRON] No recently ended events for thank you emails");
       }
