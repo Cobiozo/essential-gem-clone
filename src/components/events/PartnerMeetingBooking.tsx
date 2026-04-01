@@ -997,7 +997,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 disabled={(date) => !isDateAvailable(date)}
-                locale={pl}
+                locale={getAppDateLocale(language)}
                 className="rounded-md border"
                 classNames={{
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary font-bold",
