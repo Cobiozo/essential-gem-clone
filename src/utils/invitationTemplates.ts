@@ -1,4 +1,4 @@
-import { pl, enUS, de } from 'date-fns/locale';
+import { pl, enUS, de, nb } from 'date-fns/locale';
 import type { Locale } from 'date-fns';
 
 export interface InvitationLabels {
