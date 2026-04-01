@@ -326,7 +326,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="first_contact_result">Wynik pierwszego kontaktu</Label>
+        <Label htmlFor="first_contact_result">{tf('teamContacts.firstContactResult', 'Wynik pierwszego kontaktu')}</Label>
         <Select
           value={formData.first_contact_result || ''}
           onValueChange={(value) => setFormData({ ...formData, first_contact_result: value })}
