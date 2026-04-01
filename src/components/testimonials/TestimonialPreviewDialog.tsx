@@ -26,7 +26,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   open,
   onOpenChange,
 }) => {
-  const { tf } = useLanguage();
+  const { tf, language } = useLanguage();
   const { user } = useAuth();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
