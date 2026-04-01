@@ -322,7 +322,7 @@ export const TeamContactsTab: React.FC = () => {
                     title="Eksport"
                   >
                     <Download className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Eksport</span>
+                    <span className="hidden sm:inline">{tf('teamContacts.export', 'Eksport')}</span>
                   </Button>
                   <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
                     <Plus className="w-4 h-4 sm:mr-2" />
