@@ -47,12 +47,13 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
     }
   };
 
-  const verifyAndReset = async () => {
-    if (code.length !== 6) return;
+  const verifyAndReset = async (pinCode?: string) => {
+    const codeToUse = pinCode || code;
+    if (codeToUse.length !== 6) return;
     setVerifying(true);
     try {
       const { data, error } = await supabase.functions.invoke('self-reset-mfa', {
-        body: { code },
+        body: { code: codeToUse },
       });
       if (error) {
         // Try to extract server error message from FunctionsHttpError
