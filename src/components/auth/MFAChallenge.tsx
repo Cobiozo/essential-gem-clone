@@ -179,8 +179,8 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
     }
   };
 
-  const handleVerifyTotp = async () => {
-    if (!factorId || code.length !== 6 || isLockedOut) return;
+  const handleVerifyTotp = async (pinCode: string) => {
+    if (!factorId || pinCode.length !== 6 || isLockedOut) return;
     setLoading(true);
     try {
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
@@ -189,30 +189,28 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
       const { error: verifyError } = await supabase.auth.mfa.verify({
         factorId,
         challengeId: challenge.id,
-        code,
+        code: pinCode,
       });
       if (verifyError) throw verifyError;
       onVerified();
     } catch {
       toast({ title: 'Błąd weryfikacji', description: 'Nieprawidłowy kod. Spróbuj ponownie.', variant: 'destructive' });
-      setCode('');
       handleFailedAttempt();
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerifyEmail = async () => {
-    if (code.length !== 6 || isLockedOut) return;
+  const handleVerifyEmail = async (pinCode: string) => {
+    if (pinCode.length !== 6 || isLockedOut) return;
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('verify-mfa-code', {
-        body: { code },
+        body: { code: pinCode },
       });
       if (error) throw error;
       if (data?.rate_limited) {
         toast({ title: 'Zbyt wiele prób', description: data.error, variant: 'destructive' });
-        setCode('');
         return;
       }
       if (data?.valid) {
@@ -222,18 +220,9 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
       }
     } catch {
       toast({ title: 'Błąd weryfikacji', description: 'Nieprawidłowy lub wygasły kod. Spróbuj ponownie.', variant: 'destructive' });
-      setCode('');
       handleFailedAttempt();
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleVerify = () => {
-    if (activeMethod === 'totp') {
-      handleVerifyTotp();
-    } else {
-      handleVerifyEmail();
     }
   };
 
