@@ -7,9 +7,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useTheme } from "@/components/ThemeProvider"
+import { useLanguage } from "@/contexts/LanguageContext"
 
 export function ThemeSelector() {
   const { setTheme, theme } = useTheme()
+  const { tf } = useLanguage()
 
   return (
     <div data-tour="theme-selector">
@@ -18,7 +20,7 @@ export function ThemeSelector() {
         <Button variant="outline" size="icon">
           <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
           <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Przełącz motyw</span>
+          <span className="sr-only">{tf('theme.toggle', 'Przełącz motyw')}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
@@ -27,21 +29,21 @@ export function ThemeSelector() {
           className={theme === "light" ? "bg-accent" : ""}
         >
           <Sun className="mr-2 h-4 w-4" />
-          Jasny
+          {tf('theme.light', 'Jasny')}
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => setTheme("dark")}
           className={theme === "dark" ? "bg-accent" : ""}
         >
           <Moon className="mr-2 h-4 w-4" />
-          Ciemny
+          {tf('theme.dark', 'Ciemny')}
         </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={() => setTheme("system")}
           className={theme === "system" ? "bg-accent" : ""}
         >
           <Monitor className="mr-2 h-4 w-4" />
-          Dostosowany do urządzenia
+          {tf('theme.system', 'Dostosowany do urządzenia')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
