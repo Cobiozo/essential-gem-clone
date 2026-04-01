@@ -196,7 +196,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />
-            {t('teamContacts.historyTitle') || 'Historia zmian'}: {contact.first_name} {contact.last_name}
+            {tf('teamContacts.historyTitle', 'Historia zmian')}: {contact.first_name} {contact.last_name}
           </DialogTitle>
         </DialogHeader>
         
