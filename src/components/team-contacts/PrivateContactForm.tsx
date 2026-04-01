@@ -270,7 +270,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact_reason">Dlaczego chcesz się odezwać</Label>
+        <Label htmlFor="contact_reason">{tf('teamContacts.contactReason', 'Dlaczego chcesz się odezwać')}</Label>
         <Textarea
           id="contact_reason"
           value={formData.contact_reason}
