@@ -372,7 +372,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('events-general')}
                  >
-                   Z zaproszeń na webinary ogólne
+                   {tf('teamContacts.fromInvitationsGeneral', 'Z zaproszeń na webinary ogólne')}
                    <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
                  </Button>
                  <Button
