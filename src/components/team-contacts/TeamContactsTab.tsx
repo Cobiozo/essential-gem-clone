@@ -483,7 +483,7 @@ export const TeamContactsTab: React.FC = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UsersRound className="w-5 h-5" />
-                    Członkowie zespołu
+                     {tf('teamContacts.teamMembers', 'Członkowie zespołu')}
                   </CardTitle>
                   <CardDescription>
                     Zarejestrowani użytkownicy platformy przypisani do Ciebie jako opiekuna
