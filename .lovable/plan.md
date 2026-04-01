@@ -1,61 +1,84 @@
 
 
-# Naprawa logiki danych kontaktów: czas dołączenia, usunięte kontakty, daty wydarzeń
+# Fix: slot_time is a bare time string, not a datetime
 
-## Problem 1: "Dołączył 22:00" — błędna godzina dołączenia
+## Root cause
 
-W `ContactEventInfoButton.tsx` (linia 246) czas `joined_at` z tabeli `auto_webinar_views` jest wyświetlany przez `toLocaleTimeString('pl-PL')` bez podania strefy czasowej. Timestamp w bazie jest w UTC, a przeglądarka interpretuje go lokalnie — ale może wystąpić niespójność jeśli `joined_at` jest zapisywany w innym formacie. Dodatkowo w `ContactExpandedDetails.tsx` nie ma żadnej logiki wyświetlania statystyk obecności — te dane pojawiają się wyłącznie z `ContactEventInfoButton`.
+The `slot_time` column in `guest_event_registrations` stores just a time like `"13:30"`, not a full ISO datetime. The previous fix blindly used `slot_time` as the first element in `slot_time || registered_at || events.start_time`, causing:
 
-**Fix**: W `ContactEventInfoButton.tsx` — wyświetlać `joined_at` z jawną strefą `Europe/Warsaw`:
+1. **"Invalid Date"** — `new Date("13:30")` returns Invalid Date
+2. **Wrong "Dołączył 22:00"** — In `ContactEventInfoButton`, the fallback view matching uses `new Date(regSlotTime).getTime()` which returns `NaN`. The time-window check `viewMs < NaN` is always `false`, so ALL views pass the filter regardless of time, matching a view from the 22:00 slot to a 13:30 registration.
+
+## Solution
+
+Create a helper that combines `registered_at` date part + `slot_time` to produce a proper datetime string. Apply it in all 3 files.
+
+### Helper function
+
 ```ts
-new Date(reg.view_stats.joined_at).toLocaleTimeString('pl-PL', { 
-  hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' 
-})
+// Combine registration date + slot_time ("HH:MM") into a full datetime
+function buildSlotDatetime(registeredAt: string, slotTime: string): string {
+  const datePart = registeredAt.substring(0, 10); // "2026-03-31"
+  return `${datePart}T${slotTime}:00`;
+}
 ```
 
-## Problem 2: Usunięte kontakty nie powinny być brane pod uwagę
+### File 1: `src/components/team-contacts/ContactEventInfoButton.tsx`
 
-Zapytanie w `useTeamContacts.ts` (linia 420) już filtruje `deleted_at IS NULL`. Sprawdzę czy inne miejsca (np. `ContactEventInfoButton`, `TeamContactHistoryDialog`) mogą przypadkowo włączać usunięte kontakty. Główny hook wydaje się poprawny — kontakty z `deleted_at` nie pojawiają się w grupach.
-
-**Weryfikacja**: Przejrzę `fetchContacts` w `useTeamContacts.ts` żeby upewnić się, że główne zapytanie też filtruje `deleted_at`. Jeśli usunięte kontakty pojawiają się w jakichkolwiek widokach, dodam filtr.
-
-## Problem 3: Nieprawidłowe daty wydarzeń w historii kontaktu
-
-W `TeamContactHistoryDialog.tsx` (linia 71) data wydarzenia pobiera `r.events?.start_time` — to jest **aktualny** `start_time` wydarzenia (po aktualizacji przez admina), nie termin na który gość się zapisał. Dla wydarzeń jednoterminowych z recyclingiem ID, gość zapisany 31.03 widzi datę 09.03 (aktualny `start_time`).
-
-**Fix**: Dodać `slot_time` do selecta i użyć go jako daty:
+**Line 164** — event_date mapping:
 ```ts
-// TeamContactHistoryDialog.tsx linia 57
-.select('id, registered_at, source, status, event_id, slot_time, events(title, start_time)')
-
-// Linia 71: użyć slot_time lub registered_at zamiast events.start_time
+// Before (broken):
 event_date: r.slot_time || r.registered_at || r.events?.start_time || '',
+
+// After:
+event_date: (r.slot_time && r.registered_at) 
+  ? `${r.registered_at.substring(0, 10)}T${r.slot_time}:00`
+  : r.registered_at || r.events?.start_time || '',
 ```
 
-Tę samą poprawkę zastosować w `useTeamContacts.ts` (linia 417/483):
+**Lines 127-143** — fallback view matching slot window:
 ```ts
-// Dodać slot_time do selecta
-.select('team_contact_id, event_id, ..., slot_time, events(title, start_time)')
+// Before (broken — new Date("13:30") = NaN):
+const regSlotTime = (reg as any).slot_time;
+// ...
+if (regSlotTime && v.created_at) {
+  const slotMs = new Date(regSlotTime).getTime();
 
-// Linia 483: użyć slot_time lub registered_at zamiast event.start_time  
-event_start_time: r.slot_time || r.registered_at || event.start_time || '',
+// After — build proper datetime from registered_at date + slot_time:
+const regSlotTime = (reg as any).slot_time;
+const regRegisteredAt = (reg as any).registered_at;
+// ...
+if (regSlotTime && regRegisteredAt && v.created_at) {
+  const slotDatetime = `${regRegisteredAt.substring(0, 10)}T${regSlotTime}:00`;
+  const slotMs = new Date(slotDatetime).getTime();
 ```
 
-I w `ContactEventInfoButton.tsx` (linia 164):
+### File 2: `src/hooks/useTeamContacts.ts`
+
+**Line 483** — event_start_time in EventRegistrationInfo:
 ```ts
-event_date: r.slot_time || r.registered_at || r.events?.start_time || '',
+// Before:
+event_start_time: (r as any).slot_time || r.registered_at || event.start_time || '',
+
+// After:
+event_start_time: ((r as any).slot_time && r.registered_at) 
+  ? `${r.registered_at.substring(0, 10)}T${(r as any).slot_time}:00`
+  : r.registered_at || event.start_time || '',
 ```
 
-## Pliki do edycji
+### File 3: `src/components/team-contacts/TeamContactHistoryDialog.tsx`
 
-1. **`src/components/team-contacts/ContactEventInfoButton.tsx`** — timezone fix na `joined_at`, użycie `slot_time` jako daty
-2. **`src/components/team-contacts/TeamContactHistoryDialog.tsx`** — dodanie `slot_time` do selecta, użycie go jako daty wydarzenia
-3. **`src/hooks/useTeamContacts.ts`** — dodanie `slot_time` do selecta, użycie go jako `event_start_time`
+Same pattern — combine `slot_time` + `registered_at` date part instead of using bare `slot_time`.
 
-## Efekt
+## Files to edit
 
-- Godzina "Dołączył" będzie poprawna (strefa Warsaw)
-- Historia kontaktu pokaże faktyczną datę terminu rejestracji (np. 31.03) zamiast aktualnego `start_time` wydarzenia (np. 09.03)
-- Usunięte kontakty pozostają niewidoczne (istniejące filtrowanie działa poprawnie)
-- Żadne inne funkcjonalności nie są naruszone — zmiany dotyczą wyłącznie wyświetlania dat i timezone
+1. `src/components/team-contacts/ContactEventInfoButton.tsx` — fix event_date mapping + fix view matching window
+2. `src/hooks/useTeamContacts.ts` — fix event_start_time construction
+3. `src/components/team-contacts/TeamContactHistoryDialog.tsx` — fix event_date construction
+
+## Effect
+
+- Event dates display correctly (e.g., "31 marca 2026 13:30" instead of "Invalid Date")
+- View matching correctly filters by time window, preventing cross-slot matches
+- "Dołączył" shows the actual join time for the correct slot
 
