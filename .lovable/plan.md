@@ -1,19 +1,21 @@
 
 
-# Poprawki Auto-Webinar: sortowanie listy + dostęp widżetu
+# Diagnoza: Biała strona z błędami 404
 
-## Problem 1: Użytkownik z dostępem nie widzi widżetu
-Baza danych jest poprawna — Sebastian ma `can_access_auto_webinar: true`, RLS pozwala mu czytać swój wiersz. Sprawdzenie kodu wykazało, że linia 314 w `WebinarInviteWidget.tsx` blokuje dostęp dla **specjalistów** (tylko `isPartner` jest sprawdzane). Choć Sebastian jest partnerem, warto rozszerzyć sprawdzanie na wszystkie role. Dodatkowo dodam logowanie do konsoli aby zdiagnozować ewentualne problemy z kolejnością ładowania stanów.
+## Problem
+Podgląd pokazuje pustą stronę. Błędy w konsoli to:
+- **404 na plikach JS** (chunki) — stare referencje do plików, które już nie istnieją po nowym buildzie
+- Ostrzeżenia RS SDK (Google Ads, TikTok) — nieszkodliwe, nie powodują białej strony
+- Iframe sandbox warnings — standardowe, nieszkodliwe
 
-**Zmiana**: W `WebinarInviteWidget.tsx` — rozszerzyć warunek dostępu z `!isPartner` na `!isPartner && !isSpecjalista`, aby specjaliści też mogli mieć dostęp. Dodatkowo upewnić się, że `null` (stan ładowania) nie powoduje ukrycia widżetu przedwcześnie.
+## Przyczyna
+To **nie jest błąd w kodzie**. Przejrzałem wszystkie zmienione pliki (`AutoWebinarAccessManagement.tsx`, `WebinarInviteWidget.tsx`, `NotificationPermissionBanner.tsx`, `AutoWebinarEmbed.tsx`, `EventsManagement.tsx`) — nie ma błędów składni, typów, ani importów.
 
-## Problem 2: Sortowanie — użytkownicy z dostępem na górze
-W `AutoWebinarAccessManagement.tsx` — posortować listę partnerów tak, aby ci z `can_access_auto_webinar === true` byli na górze, a reszta alfabetycznie po nazwisku.
+Błędy 404 na chunkach oznaczają, że przeglądarka próbuje załadować pliki JS ze starego buildu, które już nie istnieją na serwerze. To typowy problem po aktualizacji — **wystarczy odświeżyć stronę** (Ctrl+Shift+R / hard reload).
 
-## Pliki do edycji
+## Rozwiązanie
+1. **Hard refresh** podglądu (Ctrl+Shift+R lub kliknij ikonę odświeżenia w panelu podglądu)
+2. Jeśli dalej nie działa — wyczyścić cache przeglądarki dla tej strony
 
-| Plik | Zmiana |
-|------|--------|
-| `src/components/dashboard/widgets/WebinarInviteWidget.tsx` | Rozszerzyć warunek o `isSpecjalista`, poprawić obsługę stanu ładowania |
-| `src/components/admin/AutoWebinarAccessManagement.tsx` | Sortować: `can_access_auto_webinar=true` na górze, reszta alfabetycznie |
+Nie ma zmian w kodzie do wykonania.
 
