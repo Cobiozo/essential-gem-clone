@@ -114,11 +114,12 @@ export function useAutoWebinarFakeChat(
   useEffect(() => {
     if (!isPlaying || startOffset < 0) return;
 
-    const currentMinute = Math.floor(startOffset / 60);
+    const currentSecond = Math.floor(startOffset);
     const newVisible: ChatMessage[] = [];
 
     for (const msg of fakeMessages) {
-      if (msg.appear_at_minute <= currentMinute && !shownIdsRef.current.has(msg.id)) {
+      const messageTimeInSeconds = msg.appear_at_minute * 60 + (msg.appear_at_second || 0);
+      if (messageTimeInSeconds <= currentSecond && !shownIdsRef.current.has(msg.id)) {
         shownIdsRef.current.add(msg.id);
         newVisible.push({
           id: msg.id,

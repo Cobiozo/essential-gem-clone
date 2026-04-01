@@ -1392,7 +1392,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                               <TableBody>
                                 {phaseMessages.map((msg) => (
                                   <TableRow key={msg.id} className={editingFakeMessage?.id === msg.id ? 'bg-muted/50' : ''}>
-                                    <TableCell className="text-xs font-mono">{msg.appear_at_minute}</TableCell>
+                                    <TableCell className="text-xs font-mono">{msg.appear_at_minute}:{String(msg.appear_at_second || 0).padStart(2, '0')}</TableCell>
                                     <TableCell className="text-xs font-medium">{msg.author_name}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground">{msg.content}</TableCell>
                                     <TableCell>
