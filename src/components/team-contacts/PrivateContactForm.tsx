@@ -426,7 +426,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="reminder_note">Treść przypomnienia</Label>
+        <Label htmlFor="reminder_note">{tf('teamContacts.reminderContent', 'Treść przypomnienia')}</Label>
         <Textarea
           id="reminder_note"
           value={formData.reminder_note}
