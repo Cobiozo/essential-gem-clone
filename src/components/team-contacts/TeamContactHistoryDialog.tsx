@@ -54,7 +54,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         if (contact.email) {
           const { data: regs } = await supabase
             .from('guest_event_registrations')
-            .select('id, registered_at, source, status, event_id, events(title, start_time)')
+            .select('id, registered_at, source, status, event_id, slot_time, events(title, start_time)')
             .eq('email', contact.email.toLowerCase().trim())
             .neq('status', 'cancelled')
             .order('registered_at', { ascending: false });
