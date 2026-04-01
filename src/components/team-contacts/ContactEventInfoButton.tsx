@@ -254,7 +254,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                           </span>
                           <span className="text-muted-foreground">•</span>
                           <span className="text-muted-foreground">
-                            Oglądał: {formatDuration(reg.view_stats.watch_duration_seconds)}
+                            {tf('teamContacts.watched', 'Oglądał')}: {formatDuration(reg.view_stats.watch_duration_seconds)}
                           </span>
                         </>
                       ) : (
