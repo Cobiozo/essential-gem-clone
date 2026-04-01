@@ -1,0 +1,1 @@
+ALTER TABLE public.leader_permissions ADD COLUMN IF NOT EXISTS can_access_auto_webinar boolean DEFAULT false;

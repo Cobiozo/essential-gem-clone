@@ -282,9 +282,10 @@ ${labels.signUp}: ${inviteUrl}`.trim();
 };
 
 const WebinarInviteWidget: React.FC = () => {
-  const { isAdmin, isPartner, isSpecjalista, isClient } = useAuth();
+  const { isAdmin, isPartner, isSpecjalista, isClient, user } = useAuth();
   const [openCategory, setOpenCategory] = useState<AutoWebinarCategory | null>(null);
   const [masterVisible, setMasterVisible] = useState<boolean | null>(null);
+  const [hasAutoWebinarAccess, setHasAutoWebinarAccess] = useState<boolean | null>(null);
   const { config: boConfig, loading: boLoading } = useAutoWebinarConfig('business_opportunity');
   const { config: hcConfig, loading: hcLoading } = useAutoWebinarConfig('health_conversation');
 
@@ -307,7 +308,23 @@ const WebinarInviteWidget: React.FC = () => {
     fetchVisibility();
   }, [isAdmin, isPartner, isSpecjalista, isClient]);
 
+  // Check per-user auto-webinar access for non-admin users
+  useEffect(() => {
+    if (isAdmin) { setHasAutoWebinarAccess(true); return; }
+    if (!user?.id || !isPartner) { setHasAutoWebinarAccess(false); return; }
+    const checkAccess = async () => {
+      const { data } = await supabase
+        .from('leader_permissions')
+        .select('can_access_auto_webinar')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      setHasAutoWebinarAccess((data as any)?.can_access_auto_webinar === true);
+    };
+    checkAccess();
+  }, [user?.id, isAdmin, isPartner]);
+
   if (masterVisible !== true) return null;
+  if (hasAutoWebinarAccess !== true) return null;
   if (boLoading || hcLoading) return null;
 
   const canSee = (cfg: typeof boConfig) => {

@@ -827,12 +827,16 @@ export const EventsManagement: React.FC = () => {
             <TabsList className="mb-4">
               <TabsTrigger value="business_opportunity">Business Opportunity</TabsTrigger>
               <TabsTrigger value="health_conversation">Health Conversation</TabsTrigger>
+              <TabsTrigger value="user_access">Dostęp użytkowników</TabsTrigger>
             </TabsList>
             <TabsContent value="business_opportunity">
               <AutoWebinarManagement category="business_opportunity" />
             </TabsContent>
             <TabsContent value="health_conversation">
               <AutoWebinarManagement category="health_conversation" />
+            </TabsContent>
+            <TabsContent value="user_access">
+              <AutoWebinarAccessManagement />
             </TabsContent>
           </Tabs>
         </TabsContent>

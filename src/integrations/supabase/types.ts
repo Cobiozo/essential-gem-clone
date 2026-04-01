@@ -4148,6 +4148,7 @@ export type Database = {
         Row: {
           activated_at: string | null
           activated_by: string | null
+          can_access_auto_webinar: boolean | null
           can_approve_registrations: boolean | null
           can_broadcast: boolean | null
           can_create_team_events: boolean | null
@@ -4185,6 +4186,7 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           activated_by?: string | null
+          can_access_auto_webinar?: boolean | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_create_team_events?: boolean | null
@@ -4222,6 +4224,7 @@ export type Database = {
         Update: {
           activated_at?: string | null
           activated_by?: string | null
+          can_access_auto_webinar?: boolean | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_create_team_events?: boolean | null

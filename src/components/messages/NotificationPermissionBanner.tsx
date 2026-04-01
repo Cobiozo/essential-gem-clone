@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useToast } from '@/hooks/use-toast';
 
 const DISMISS_KEY = 'push_notification_banner_dismissed';
 const DISMISS_DURATION_DAYS = 7;
@@ -17,6 +18,7 @@ export const NotificationPermissionBanner = () => {
     isLoading,
     error
   } = usePushNotifications();
+  const { toast } = useToast();
   
   const [dismissed, setDismissed] = useState(() => {
     const dismissedAt = localStorage.getItem(DISMISS_KEY);
@@ -24,6 +26,7 @@ export const NotificationPermissionBanner = () => {
     const daysElapsed = (Date.now() - parseInt(dismissedAt)) / (1000 * 60 * 60 * 24);
     return daysElapsed < DISMISS_DURATION_DAYS;
   });
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   // Nie pokazuj jeśli:
   // - Push nie jest wspierany
@@ -31,12 +34,23 @@ export const NotificationPermissionBanner = () => {
   // - Użytkownik ma już aktywną subskrypcję
   // - Użytkownik odrzucił na później
   // - Uprawnienia zostały trwale zablokowane
-  if (!isSupported || !pushConfig?.enabled || isSubscribed || dismissed || permission === 'denied' || permission === 'granted') {
+  // - Użytkownik właśnie odrzucił w przeglądarce
+  if (!isSupported || !pushConfig?.enabled || isSubscribed || dismissed || permission === 'denied' || permission === 'granted' || permissionDenied) {
     return null;
   }
 
   const handleEnable = async () => {
     await subscribe();
+    // Check if browser permission was denied after the attempt
+    if ('Notification' in window && Notification.permission === 'denied') {
+      setPermissionDenied(true);
+      toast({
+        title: 'Powiadomienia zablokowane',
+        description: 'Powiadomienia zostały zablokowane w ustawieniach przeglądarki. Aby je włączyć, zmień ustawienia w przeglądarce.',
+        variant: 'destructive',
+      });
+      return;
+    }
   };
 
   const handleDismiss = () => {
