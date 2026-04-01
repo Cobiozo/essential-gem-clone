@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { formatInTimeZone } from 'date-fns-tz';
 import { Clock } from 'lucide-react';
 import {
