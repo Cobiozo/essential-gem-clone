@@ -44,11 +44,11 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
   return (
     <div className="bg-muted/50 p-4 rounded-lg mb-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h4 className="font-medium text-sm">Filtry</h4>
+        <h4 className="font-medium text-sm">{tf('teamContacts.filters', 'Filtry')}</h4>
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters}>
             <X className="w-4 h-4 mr-1" />
-            Wyczyść
+            {tf('teamContacts.clear', 'Wyczyść')}
           </Button>
         )}
       </div>
