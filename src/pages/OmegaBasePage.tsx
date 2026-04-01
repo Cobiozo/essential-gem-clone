@@ -291,7 +291,7 @@ const OmegaBasePage: React.FC = () => {
   };
 
   const generateDocumentContent = (summary: string, lang: ExportLanguage): DocumentContent => {
-    const locales: Record<ExportLanguage, string> = { pl: 'pl-PL', de: 'de-DE', en: 'en-US', it: 'it-IT' };
+    const locales: Record<ExportLanguage, string> = { pl: 'pl-PL', de: 'de-DE', en: 'en-US', it: 'it-IT', no: 'nb-NO' };
     const htmlSummary = summary
       .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\)]+)\)/g, '<a href="$2">$1</a>')
