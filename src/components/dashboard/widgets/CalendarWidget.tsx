@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, isToday, subMinutes, isAfter, isBefore, isPast } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { cn } from '@/lib/utils';
 import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
@@ -43,7 +43,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [inviteLang, setInviteLang] = useState(language);
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   // Collect meeting_room_ids from internal meeting events for overtime detection
   const internalMeetingRoomIds = useMemo(() => {
@@ -129,7 +129,7 @@ ${labels.signUp}: ${inviteUrl}
     }
   }, [filteredEvents, selectedDate, activeFilter]);
 
-  const locale = language === 'pl' ? pl : enUS;
+  const locale = getAppDateLocale(language);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);

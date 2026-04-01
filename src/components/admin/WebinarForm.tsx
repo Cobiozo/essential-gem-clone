@@ -20,7 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, addMinutes, parseISO } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { 
   Calendar, 
@@ -72,7 +72,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   // Translated webinar types
   const webinarTypes = [

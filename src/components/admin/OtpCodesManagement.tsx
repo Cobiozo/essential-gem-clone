@@ -41,7 +41,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format, formatDistanceToNow, isPast } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 
 interface OtpCode {
   id: string;
@@ -86,7 +86,7 @@ export const OtpCodesManagement: React.FC = () => {
   // Protect against tab-switch reloads when dialogs are open
   useMultiFormProtection(deleteDialogOpen, detailsDialogOpen);
   
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   useEffect(() => {
     fetchOtpCodes();

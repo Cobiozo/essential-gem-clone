@@ -7,7 +7,7 @@ import { Widget3DIcon } from './Widget3DIcon';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 
 export const NotificationsWidget: React.FC = () => {
@@ -86,7 +86,7 @@ export const NotificationsWidget: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(notification.created_at), {
                       addSuffix: true,
-                      locale: language === 'pl' ? pl : enUS,
+                      locale: getAppDateLocale(language),
                     })}
                   </p>
                 </div>

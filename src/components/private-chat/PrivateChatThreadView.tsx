@@ -5,9 +5,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Send, ArrowLeft, User, Lock } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { format } from 'date-fns';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface PrivateChatThreadViewProps {
@@ -28,6 +29,7 @@ export const PrivateChatThreadView = ({
   getOtherParticipant,
 }: PrivateChatThreadViewProps) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -111,7 +113,7 @@ export const PrivateChatThreadView = ({
                   {showDate && (
                     <div className="flex justify-center my-4">
                       <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                        {format(new Date(message.created_at), 'd MMMM yyyy', { locale: pl })}
+                        {format(new Date(message.created_at), 'd MMMM yyyy', { locale: getAppDateLocale(language) })}
                       </span>
                     </div>
                   )}

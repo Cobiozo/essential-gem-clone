@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Users, Search, MessageSquare, Plus, Archive, CheckCircle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { PrivateChatThread } from '@/types/privateChat';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +31,7 @@ export const ConversationList = ({
   getThreadDisplayName,
 }: ConversationListProps) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [statusFilter, setStatusFilter] = useState<'active' | 'closed' | 'archived'>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -55,7 +57,7 @@ export const ConversationList = ({
   const formatTime = (date: string | null) => {
     if (!date) return '';
     try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: pl });
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: getAppDateLocale(language) });
     } catch {
       return '';
     }

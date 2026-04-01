@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { isPast, isFuture, differenceInMinutes } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
@@ -46,7 +46,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);

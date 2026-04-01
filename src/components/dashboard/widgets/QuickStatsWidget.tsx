@@ -17,7 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 
 interface Stats {
   // Activity
@@ -209,7 +209,7 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
     try {
       return formatDistanceToNow(new Date(stats.lastSignIn), { 
         addSuffix: true, 
-        locale: language === 'pl' ? pl : enUS 
+        locale: getAppDateLocale(language) 
       });
     } catch {
       return t('dashboard.stats.recently');

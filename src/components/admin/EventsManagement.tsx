@@ -17,7 +17,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { 
   Calendar, 
   Plus, 
@@ -46,7 +46,7 @@ export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   const [searchParams] = useSearchParams();
 
   // Protect form state when switching browser tabs

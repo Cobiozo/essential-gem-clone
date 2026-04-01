@@ -5,8 +5,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageSquare, User, Users, Clock, X, RefreshCw, Archive, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +55,7 @@ export const PrivateChatThreadList = ({
   getThreadDisplayName,
 }: PrivateChatThreadListProps) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
 
   if (loading) {
     return (
@@ -166,7 +168,7 @@ export const PrivateChatThreadList = ({
                     <Clock className="h-3 w-3" />
                     {formatDistanceToNow(new Date(thread.last_message_at), { 
                       addSuffix: true, 
-                      locale: pl 
+                      locale: getAppDateLocale(language) 
                     })}
                   </p>
                 )}

@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isPast, isFuture } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { 
   Copy, 
   Users, 
@@ -75,7 +75,7 @@ export const WebinarList: React.FC<WebinarListProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { getEventRegistrations } = useEvents();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
   const [selectedWebinar, setSelectedWebinar] = useState<DbEvent | null>(null);

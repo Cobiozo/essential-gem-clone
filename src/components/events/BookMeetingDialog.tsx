@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { Clock, User, Video, CalendarIcon, Loader2 } from 'lucide-react';
 import type { MeetingTopic, LeaderAvailability, EventsSettings, TopicWithLeader } from '@/types/events';
 
@@ -32,7 +32,7 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   // State
   const [step, setStep] = useState<'topic' | 'date' | 'time' | 'confirm'>('topic');

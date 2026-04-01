@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { subMinutes, isAfter, isBefore, differenceInMinutes, format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import type { EventWithRegistration } from '@/types/events';
 import { EventDetailsDialog } from '@/components/events/EventDetailsDialog';
 import { WidgetInfoButton } from '../WidgetInfoButton';
@@ -43,7 +43,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [inviteLangs, setInviteLangs] = useState<Record<string, string>>({});
 
-  const locale = language === 'pl' ? pl : enUS;
+  const locale = getAppDateLocale(language);
 
   const userEvents = useMemo(() => {
     if (!sharedEvents) return [];
