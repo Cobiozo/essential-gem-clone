@@ -63,6 +63,20 @@ export const useOmegaTests = () => {
     },
   });
 
+  const updateTest = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string } & OmegaTestInput) => {
+      const { error } = await supabase.from('omega_tests').update(data).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['omega-tests'] });
+      toast({ title: 'Zaktualizowano wynik testu' });
+    },
+    onError: () => {
+      toast({ title: 'Błąd aktualizacji', variant: 'destructive' });
+    },
+  });
+
   const deleteTest = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('omega_tests').delete().eq('id', id);
@@ -76,5 +90,5 @@ export const useOmegaTests = () => {
 
   const latestTest = tests.length > 0 ? tests[tests.length - 1] : null;
 
-  return { tests, isLoading, addTest, deleteTest, latestTest };
+  return { tests, isLoading, addTest, updateTest, deleteTest, latestTest };
 };
