@@ -1,32 +1,23 @@
 
 
-# Dwukolumnowy układ: użytkownicy z dostępem i bez dostępu
+# Fix: Widżet auto-webinar nie pojawia się mimo nadanego dostępu
 
-## Zmiana
+## Problem
 
-Przebudować `AutoWebinarAccessManagement.tsx` z jednej tabeli na dwukolumnowy (grid) układ:
+W `WebinarInviteWidget.tsx` linia 314:
+```typescript
+if (!user?.id || !isPartner) { setHasAutoWebinarAccess(false); return; }
+```
 
-**Lewa kolumna** — "Wszyscy partnerzy" (bez dostępu):
-- Lista partnerów z `can_access_auto_webinar === false`
-- Wyszukiwarka filtruje tylko tę listę
-- Switch do włączania dostępu
+Sprawdzenie dostępu ogranicza się **wyłącznie do partnerów** (`isPartner`). Jeśli użytkownik ma rolę **specjalista** — warunek `!isPartner` jest `true`, więc `hasAutoWebinarAccess` jest ustawiane na `false` i widżet się nie renderuje, mimo że admin włączył mu dostęp w `leader_permissions`.
 
-**Prawa kolumna** — "Z dostępem do Auto-Webinaru":
-- Lista partnerów z `can_access_auto_webinar === true`
-- Wyróżniona wizualnie (np. zielona ramka lub ikona potwierdzenia)
-- Switch do wyłączania dostępu
-- Licznik aktywnych użytkowników w nagłówku
+## Rozwiązanie
 
-Układ: `grid grid-cols-1 lg:grid-cols-2 gap-4` — dwie karty obok siebie na dużych ekranach, jedna pod drugą na mniejszych.
+Zmienić warunek na linii 314, aby uwzględnić obie role (partner i specjalista):
 
-### Szczegóły
+```typescript
+if (!user?.id || (!isPartner && !isSpecjalista)) { setHasAutoWebinarAccess(false); return; }
+```
 
-| Element | Opis |
-|---------|------|
-| Plik | `src/components/admin/AutoWebinarAccessManagement.tsx` |
-| Podział danych | `filtered.filter(p => p.can_access_auto_webinar)` vs `filtered.filter(p => !p.can_access_auto_webinar)` |
-| Wyszukiwarka | Jedna wspólna na górze, filtruje obie listy |
-| Prawa kolumna | Badge z liczbą aktywnych, np. "Aktywni (3)" |
-
-Zmiana dotyczy wyłącznie jednego pliku — przebudowa renderowania JSX.
+Jedna linia w jednym pliku: `src/components/dashboard/widgets/WebinarInviteWidget.tsx`.
 
