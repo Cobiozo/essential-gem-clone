@@ -414,7 +414,7 @@ export const useTeamContacts = () => {
     try {
       const { data, error } = await supabase
         .from('guest_event_registrations')
-        .select('team_contact_id, event_id, first_name, email, status, registered_at, registration_attempts, events(title, start_time), team_contacts!inner(id, deleted_at)')
+        .select('team_contact_id, event_id, first_name, email, status, registered_at, registration_attempts, slot_time, events(title, start_time), team_contacts!inner(id, deleted_at)')
         .eq('invited_by_user_id', user.id)
         .not('team_contact_id', 'is', null)
         .is('team_contacts.deleted_at', null);
