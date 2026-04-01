@@ -348,7 +348,7 @@ export const TeamContactsTab: React.FC = () => {
                   size="sm"
                   onClick={() => setPrivateSubTab('own')}
                 >
-                   Moja lista kontaktów
+                   {tf('teamContacts.myContactList', 'Moja lista kontaktów')}
                    <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
                  </Button>
                  <Button
