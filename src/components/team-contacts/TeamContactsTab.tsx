@@ -879,7 +879,7 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={showExport} onOpenChange={setShowExport}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eksportuj kontakty</DialogTitle>
+            <DialogTitle>{tf('teamContacts.exportContacts', 'Eksportuj kontakty')}</DialogTitle>
           </DialogHeader>
           <TeamContactExport
             contacts={filteredContacts}
