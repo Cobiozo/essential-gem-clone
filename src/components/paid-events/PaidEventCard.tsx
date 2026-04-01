@@ -31,7 +31,7 @@ interface PaidEventCardProps {
 export const PaidEventCard: React.FC<PaidEventCardProps> = ({ event, isPast = false }) => {
   const navigate = useNavigate();
   const { tf, language } = useLanguage();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   
   const formatPrice = (priceInGrosze: number) => {
     return `${(priceInGrosze / 100).toFixed(0)} zł`;

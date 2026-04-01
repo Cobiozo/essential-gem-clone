@@ -46,7 +46,7 @@ export const EventCard: React.FC<EventCardProps> = ({
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   
   const [registering, setRegistering] = useState(false);
   const [isRegistered, setIsRegistered] = useState(event.is_registered || false);

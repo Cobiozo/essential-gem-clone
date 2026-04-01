@@ -84,7 +84,7 @@ export const TeamTrainingList: React.FC<TeamTrainingListProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { getEventRegistrations } = useEvents();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
   const [selectedTraining, setSelectedTraining] = useState<DbEvent | null>(null);

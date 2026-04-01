@@ -168,7 +168,7 @@ export const PrivateChatThreadList = ({
                     <Clock className="h-3 w-3" />
                     {formatDistanceToNow(new Date(thread.last_message_at), { 
                       addSuffix: true, 
-                      locale: pl 
+                      locale: getAppDateLocale(language) 
                     })}
                   </p>
                 )}

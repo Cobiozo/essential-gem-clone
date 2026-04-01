@@ -46,7 +46,7 @@ export const EventsManagement: React.FC = () => {
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   const [searchParams] = useSearchParams();
 
   // Protect form state when switching browser tabs

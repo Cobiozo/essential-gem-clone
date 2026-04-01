@@ -56,7 +56,7 @@ export const ConversationList = ({
   const formatTime = (date: string | null) => {
     if (!date) return '';
     try {
-      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: pl });
+      return formatDistanceToNow(new Date(date), { addSuffix: true, locale: getAppDateLocale(language) });
     } catch {
       return '';
     }

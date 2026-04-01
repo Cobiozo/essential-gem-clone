@@ -72,7 +72,7 @@ export const WebinarForm: React.FC<WebinarFormProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   // Translated webinar types
   const webinarTypes = [

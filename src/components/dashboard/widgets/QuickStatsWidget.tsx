@@ -209,7 +209,7 @@ export const QuickStatsWidget: React.FC<QuickStatsWidgetProps> = ({ fullWidth = 
     try {
       return formatDistanceToNow(new Date(stats.lastSignIn), { 
         addSuffix: true, 
-        locale: language === 'pl' ? pl : enUS 
+        locale: getAppDateLocale(language) 
       });
     } catch {
       return t('dashboard.stats.recently');

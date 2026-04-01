@@ -149,7 +149,7 @@ export const EventCardCompact: React.FC<EventCardCompactProps> = ({
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const [registering, setRegistering] = useState(false);

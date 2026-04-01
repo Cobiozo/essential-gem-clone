@@ -43,7 +43,7 @@ export const MyMeetingsWidget: React.FC<MyMeetingsWidgetProps> = ({
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [inviteLangs, setInviteLangs] = useState<Record<string, string>>({});
 
-  const locale = language === 'pl' ? pl : enUS;
+  const locale = getAppDateLocale(language);
 
   const userEvents = useMemo(() => {
     if (!sharedEvents) return [];

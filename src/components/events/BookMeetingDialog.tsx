@@ -32,7 +32,7 @@ export const BookMeetingDialog: React.FC<BookMeetingDialogProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { user } = useAuth();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   // State
   const [step, setStep] = useState<'topic' | 'date' | 'time' | 'confirm'>('topic');

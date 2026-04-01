@@ -97,7 +97,7 @@ export const WelcomeWidget: React.FC = () => {
 
   // Format date based on language
   const formattedDate = useMemo(() => format(currentTime, 'EEEE, d MMMM yyyy', {
-    locale: language === 'pl' ? pl : enUS,
+    locale: getAppDateLocale(language),
   }), [currentTime.toDateString(), language]);
 
   // Format time in selected timezone

@@ -86,7 +86,7 @@ export const NotificationsWidget: React.FC = () => {
                   <p className="text-xs text-muted-foreground">
                     {formatDistanceToNow(new Date(notification.created_at), {
                       addSuffix: true,
-                      locale: language === 'pl' ? pl : enUS,
+                      locale: getAppDateLocale(language),
                     })}
                   </p>
                 </div>

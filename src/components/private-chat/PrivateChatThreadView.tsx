@@ -113,7 +113,7 @@ export const PrivateChatThreadView = ({
                   {showDate && (
                     <div className="flex justify-center my-4">
                       <span className="text-xs text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                        {format(new Date(message.created_at), 'd MMMM yyyy', { locale: pl })}
+                        {format(new Date(message.created_at), 'd MMMM yyyy', { locale: getAppDateLocale(language) })}
                       </span>
                     </div>
                   )}

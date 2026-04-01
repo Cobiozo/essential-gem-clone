@@ -75,7 +75,7 @@ export const WebinarList: React.FC<WebinarListProps> = ({
   const { t, language } = useLanguage();
   const { toast } = useToast();
   const { getEventRegistrations } = useEvents();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
   const [selectedWebinar, setSelectedWebinar] = useState<DbEvent | null>(null);

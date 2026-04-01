@@ -86,7 +86,7 @@ export const OtpCodesManagement: React.FC = () => {
   // Protect against tab-switch reloads when dialogs are open
   useMultiFormProtection(deleteDialogOpen, detailsDialogOpen);
   
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   useEffect(() => {
     fetchOtpCodes();

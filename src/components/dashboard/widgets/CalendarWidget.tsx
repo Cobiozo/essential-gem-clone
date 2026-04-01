@@ -129,7 +129,7 @@ ${labels.signUp}: ${inviteUrl}
     }
   }, [filteredEvents, selectedDate, activeFilter]);
 
-  const locale = language === 'pl' ? pl : enUS;
+  const locale = getAppDateLocale(language);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
