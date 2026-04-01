@@ -55,7 +55,7 @@ export default function CommissionCalculatorPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
       <div className="p-6">
         <CommissionCalculator />
       </div>

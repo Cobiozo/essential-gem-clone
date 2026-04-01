@@ -13,7 +13,7 @@ const OmegaTests: React.FC = () => {
   const { tests, isLoading, addTest, deleteTest, latestTest } = useOmegaTests();
 
   return (
-    <DashboardLayout title="Moje Testy">
+    <DashboardLayout title="Moje Testy" backTo={{ label: 'Strona główna', path: '/dashboard' }}>
       <div className="space-y-4 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-3">
