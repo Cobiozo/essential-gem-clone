@@ -1,76 +1,49 @@
 
 
-# Poprawka kolejności norweskiego + uzupełnienie brakujących tłumaczeń
+# Dodanie interfejsu PIN keypad do weryfikacji MFA
 
-## Problem 1: Norweski na pierwszym miejscu listy
-Norweski ma `position: 0` w tabeli `i18n_languages` — taki sam jak polski. Trzeba ustawić `position: 8` (za portugalskim).
+## Co to zmienia
 
-## Problem 2: Brakujące tłumaczenia norweskie
-Norweski ma tylko **89 kluczy** vs **2585** dla polskiego. Brakuje 1631 kluczy. System `scheduled-translate-sync` automatycznie je uzupełni po wywołaniu, ale trzeba go uruchomić.
+Zamiana standardowego pola tekstowego w `MFAChallenge.tsx` na wizualny interfejs z klawiaturą numeryczną (jak na screenie) — 6 kropek/dots + klawiatura 3×4 + przyciski Reset/LOGIN.
 
-## Problem 3: Hardkodowane locale w 14+ plikach user-facing
-Nadal 14 plików używa `language === 'pl' ? pl : enUS` zamiast `getAppDateLocale(language)`, a kolejne ~10 user-facing plików ma twarde `locale: pl`.
+Backend i logika weryfikacji pozostają bez zmian — to czysto wizualna zmiana UI.
 
-## Problem 4: ThemeSelector z hardkodowanymi polskimi stringami
-"Jasny", "Ciemny", "Dostosowany do urządzenia" — bez tłumaczeń.
+## Szczegóły techniczne
 
----
+### 1. Nowy komponent `PinKeypad.tsx`
 
-## Plan
+Komponent wielokrotnego użytku:
+- 6 kółek (puste/wypełnione) pokazujących stan wpisywania
+- Klawiatura numeryczna 3×4: 1-9, puste, 0, Reset
+- Callback `onComplete(code: string)` gdy 6 cyfr wpisanych
+- Przycisk "LOGIN" / "Weryfikuj" pod klawiaturą
+- Animacja wypełniania kropek
+- Obsługa klawiatury fizycznej (numery + Backspace)
+- Stylizacja zbliżona do screena: ciemnoszare przyciski, cyan header, czerwony Reset
 
-### 1. Migracja SQL — pozycja norweskiego
-```sql
-UPDATE public.i18n_languages SET position = 8 WHERE code = 'no';
-```
+### 2. Aktualizacja `MFAChallenge.tsx`
 
-### 2. Zamiana `language === 'pl' ? pl : enUS` → `getAppDateLocale(language)` (14 plików)
+Zamiana sekcji z `<Input>` na `<PinKeypad>`:
+- Zamiast `<Input value={code} onChange={...} />` → `<PinKeypad onComplete={handleVerify} />`
+- Zachowanie całej logiki: lockout, failed attempts, method switching, email/totp
+- Reset PIN po błędnej weryfikacji
 
-Pliki user-facing:
-- `WelcomeWidget.tsx`, `QuickStatsWidget.tsx`, `CalendarWidget.tsx`, `NotificationsWidget.tsx`, `MyMeetingsWidget.tsx`
-- `BookMeetingDialog.tsx`, `EventCardCompact.tsx`, `EventCard.tsx`, `PaidEventCard.tsx`
-- `ConversationList.tsx`, `PrivateChatThreadView.tsx`, `PrivateChatThreadList.tsx`
+### 3. Aktualizacja `MFAEmergencyScreen.tsx`
 
-Pliki admin (też poprawić dla spójności):
-- `WebinarList.tsx`, `TeamTrainingList.tsx`, `OtpCodesManagement.tsx`, `EventsManagement.tsx`, `WebinarForm.tsx`
+Zamiana pola kodu w ekranie resetu na ten sam `PinKeypad`.
 
-### 3. ThemeSelector — dodanie `tf()` z fallbackami
-```tsx
-tf('theme.light', 'Jasny')
-tf('theme.dark', 'Ciemny')  
-tf('theme.system', 'Dostosowany do urządzenia')
-tf('theme.toggle', 'Przełącz motyw')
-```
-
-### 4. Dodanie kluczy theme.* do migracji SQL
-4 klucze × 4 języki (pl, en, de, no).
-
-### 5. Wywołanie scheduled-translate-sync
-Uruchomić edge function aby automatycznie wygenerować brakujące ~1631 norweskich tłumaczeń.
-
----
-
-## Pliki do edycji
+## Pliki
 
 | Plik | Zmiana |
 |------|--------|
-| **Migracja SQL** | `position = 8` dla NO + klucze theme.* |
-| `ThemeSelector.tsx` | Dodanie `useLanguage` + `tf()` |
-| `WelcomeWidget.tsx` | `getAppDateLocale(language)` |
-| `QuickStatsWidget.tsx` | `getAppDateLocale(language)` |
-| `CalendarWidget.tsx` | `getAppDateLocale(language)` |
-| `NotificationsWidget.tsx` | `getAppDateLocale(language)` |
-| `MyMeetingsWidget.tsx` | `getAppDateLocale(language)` |
-| `BookMeetingDialog.tsx` | `getAppDateLocale(language)` |
-| `EventCardCompact.tsx` | `getAppDateLocale(language)` |
-| `EventCard.tsx` | `getAppDateLocale(language)` |
-| `PaidEventCard.tsx` | `getAppDateLocale(language)` |
-| `ConversationList.tsx` | `getAppDateLocale(language)` |
-| `PrivateChatThreadView.tsx` | `getAppDateLocale(language)` + `useLanguage` |
-| `PrivateChatThreadList.tsx` | `getAppDateLocale(language)` + `useLanguage` |
-| `WebinarList.tsx` | `getAppDateLocale(language)` |
-| `TeamTrainingList.tsx` | `getAppDateLocale(language)` |
-| `OtpCodesManagement.tsx` | `getAppDateLocale(language)` |
-| `EventsManagement.tsx` | `getAppDateLocale(language)` |
-| `WebinarForm.tsx` | `getAppDateLocale(language)` |
-| Edge function trigger | `scheduled-translate-sync` dla NO |
+| `src/components/auth/PinKeypad.tsx` | **NOWY** — komponent klawiatury PIN |
+| `src/components/auth/MFAChallenge.tsx` | Zamiana `<Input>` na `<PinKeypad>` |
+| `src/components/auth/MFAEmergencyScreen.tsx` | Zamiana `<Input>` na `<PinKeypad>` |
+
+## Bez zmian
+
+- Żadne edge functions
+- Żadne migracje SQL
+- Żadne nowe tabele
+- Backend weryfikacji identyczny
 
