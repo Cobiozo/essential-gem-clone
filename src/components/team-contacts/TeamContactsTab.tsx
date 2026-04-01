@@ -280,7 +280,7 @@ export const TeamContactsTab: React.FC = () => {
                      {tf('teamContacts.privateContacts', 'Kontakty prywatne')}
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
-                    Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści
+                    {tf('teamContacts.peopleOutsideSystem', 'Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści')}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
