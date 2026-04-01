@@ -301,23 +301,24 @@ const EventGuestRegistration: React.FC = () => {
     const fetchConfig = async () => {
       const { data } = await supabase
         .from('auto_webinar_config')
-        .select('start_hour, end_hour, interval_minutes, slot_hours, category')
+        .select('id, start_hour, end_hour, interval_minutes, slot_hours, category')
         .eq('event_id', event.id)
         .maybeSingle();
       if (data) {
         setAutoWebinarConfig(data as AutoWebinarSlotConfig);
         setAutoWebinarCategory((data as any).category || null);
-      }
 
-      // Fetch first active video for display data
-      const { data: videoData } = await supabase
-        .from('auto_webinar_videos')
-        .select('title, description, host_name, cover_image_url, thumbnail_url')
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (videoData) setAutoWebinarVideo(videoData as AutoWebinarVideoData);
+        // Fetch first active video for THIS config
+        const { data: videoData } = await supabase
+          .from('auto_webinar_videos')
+          .select('title, description, host_name, cover_image_url, thumbnail_url')
+          .eq('config_id', data.id)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (videoData) setAutoWebinarVideo(videoData as AutoWebinarVideoData);
+      }
     };
     fetchConfig();
   }, [event]);
