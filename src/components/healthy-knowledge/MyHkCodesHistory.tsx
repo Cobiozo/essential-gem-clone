@@ -80,6 +80,7 @@ const LiveCountdown: React.FC<{ expiresAt: string; firstUsedAt: string | null; v
 
 const MyHkCodesHistory: React.FC = () => {
   const { user, isPartner, isAdmin } = useAuth();
+  const { language } = useLanguage();
   const [codes, setCodes] = useState<HkOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
