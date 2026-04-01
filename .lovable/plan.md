@@ -1,60 +1,47 @@
 
 
-# Fix: Widżet auto-webinar ma działać niezależnie od roli
+# Precyzyjne ustawianie czasu fikcyjnych komentarzy (minuta + sekunda)
 
-## Problem
+## Obecny stan
+Pole `appear_at_minute` (integer) określa minutę pojawienia się komentarza. W hooku `useAutoWebinarFakeChat` porównanie: `msg.appear_at_minute <= currentMinute`.
 
-Widżet jest blokowany w **trzech miejscach** przez sprawdzanie roli użytkownika:
+## Podejście
+Dodać kolumnę `appear_at_second` (integer, domyślnie 0) do tabeli `auto_webinar_fake_messages`. Dzięki temu admin ustala precyzyjnie minutę i sekundę. W logice wyświetlania porównanie zmieni się na sekundy.
 
-1. **Linia 314** — `if (!isPartner && !isSpecjalista)` → odrzuca klientów i inne role, nawet jeśli mają `can_access_auto_webinar = true`
-2. **Linia 326** — `masterVisible` sprawdza `feature_visibility` per rola → jeśli admin nie włączył widżeta dla roli "partner", partner go nie widzi
-3. **Linia 330-336** — `canSee()` sprawdza `visible_to_partners`/`visible_to_specjalista` per kategoria → blokuje nawet z indywidualnym dostępem
+## Zmiany
 
-## Rozwiązanie
+### 1. Migracja bazy danych
+Dodać kolumnę `appear_at_second` (integer, default 0) do `auto_webinar_fake_messages`.
 
-Zasada: **jeśli `can_access_auto_webinar = true` w `leader_permissions`, użytkownik widzi widżet i obie kategorie, niezależnie od roli i globalnych ustawień widoczności.**
+### 2. Typ `AutoWebinarFakeMessage` (`src/types/autoWebinar.ts`)
+Dodać pole `appear_at_second: number`.
 
-### Zmiany w `src/components/dashboard/widgets/WebinarInviteWidget.tsx`
+### 3. Admin UI (`src/components/admin/AutoWebinarManagement.tsx`)
+- Dodać pole "Sek." (input number 0-59) obok pola "Min." w formularzu dodawania/edycji
+- W state `fakeMessageForm` dodać `appear_at_second: 0`
+- W tabeli wyświetlać czas jako `min:sek` (np. `5:30`) zamiast samej minuty
+- Przy zapisie/edycji wysyłać `appear_at_second`
+- Domyślne wiadomości: dodać losowe sekundy dla naturalności
 
-**1. useEffect dla `hasAutoWebinarAccess` (linia 312-324)** — usunąć bramkę `isPartner && isSpecjalista`:
+### 4. Hook `useAutoWebinarFakeChat` (`src/hooks/useAutoWebinarFakeChat.ts`)
+Zmienić porównanie z:
 ```typescript
-useEffect(() => {
-  if (isAdmin) { setHasAutoWebinarAccess(true); return; }
-  if (!user?.id) { setHasAutoWebinarAccess(false); return; }
-  const checkAccess = async () => {
-    const { data } = await supabase
-      .from('leader_permissions')
-      .select('can_access_auto_webinar')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    setHasAutoWebinarAccess((data as any)?.can_access_auto_webinar === true);
-  };
-  checkAccess();
-}, [user?.id, isAdmin]);
+msg.appear_at_minute <= currentMinute
+```
+na:
+```typescript
+(msg.appear_at_minute * 60 + (msg.appear_at_second || 0)) <= startOffset
 ```
 
-**2. Warunek renderowania (linia 326)** — `masterVisible` nie blokuje użytkowników z indywidualnym dostępem:
-```typescript
-if (masterVisible !== true && hasAutoWebinarAccess !== true) return null;
-if (hasAutoWebinarAccess !== true) return null;
-```
+### 5. Typy Supabase (`src/integrations/supabase/types.ts`)
+Dodać `appear_at_second` do Row/Insert/Update typów tabeli `auto_webinar_fake_messages`.
 
-**3. Funkcja `canSee` (linia 330-336)** — użytkownik z `hasAutoWebinarAccess` widzi każdą włączoną kategorię:
-```typescript
-const canSee = (cfg: typeof boConfig) => {
-  if (!cfg?.is_enabled) return false;
-  if (isAdmin || hasAutoWebinarAccess) return true;
-  return (isPartner && cfg.visible_to_partners) ||
-         (isSpecjalista && cfg.visible_to_specjalista) ||
-         (isClient && cfg.visible_to_clients);
-};
-```
-
-| Zmiana | Efekt |
-|--------|-------|
-| Usunięcie bramki ról w checkAccess | Każdy user (nie tylko partner/specjalista) może mieć dostęp |
-| `masterVisible` OR `hasAutoWebinarAccess` | Indywidualny dostęp omija globalny toggle roli |
-| `hasAutoWebinarAccess` w `canSee` | Użytkownik z dostępem widzi obie włączone kategorie |
-
-Jeden plik, trzy drobne zmiany.
+### Pliki do edycji
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | Dodanie kolumny `appear_at_second` |
+| `src/types/autoWebinar.ts` | Dodanie pola do interfejsu |
+| `src/integrations/supabase/types.ts` | Aktualizacja typów |
+| `src/components/admin/AutoWebinarManagement.tsx` | Pole "Sek." w formularzu, wyświetlanie min:sek |
+| `src/hooks/useAutoWebinarFakeChat.ts` | Porównanie na sekundy |
 
