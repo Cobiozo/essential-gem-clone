@@ -299,7 +299,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                 }
               }}
             >
-              Zapisz jako nowy
+              {tf('teamContacts.saveAsNew', 'Zapisz jako nowy')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
