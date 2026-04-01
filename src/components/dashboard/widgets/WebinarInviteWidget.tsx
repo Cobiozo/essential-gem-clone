@@ -323,8 +323,7 @@ const WebinarInviteWidget: React.FC = () => {
     checkAccess();
   }, [user?.id, isAdmin]);
 
-  if (masterVisible !== true) return null;
-  if (hasAutoWebinarAccess !== true) return null;
+  if (masterVisible !== true && hasAutoWebinarAccess !== true) return null;
   if (boLoading || hcLoading) return null;
 
   const canSee = (cfg: typeof boConfig) => {
