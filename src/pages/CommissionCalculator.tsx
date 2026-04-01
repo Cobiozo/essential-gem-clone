@@ -40,7 +40,7 @@ export default function CommissionCalculatorPage() {
 
   if (!accessData?.hasAccess) {
     return (
-      <DashboardLayout>
+       <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
         <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
           <ShieldAlert className="h-16 w-16 text-muted-foreground" />
           <h2 className="text-xl font-semibold">
