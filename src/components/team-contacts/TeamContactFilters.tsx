@@ -26,6 +26,7 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
   isAdmin,
   contactType,
 }) => {
+  const { tf } = useLanguage();
   const clearFilters = () => {
     onFiltersChange({
       role: '',
