@@ -450,15 +450,15 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          Anuluj
+         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+          {tf('teamContacts.cancel', 'Anuluj')}
         </Button>
         <Button type="submit" disabled={loading}>
           {loading 
-            ? 'Zapisywanie...'
+            ? tf('teamContacts.saving', 'Zapisywanie...')
             : contact 
-              ? 'Zapisz'
-              : 'Dodaj kontakt'
+              ? tf('teamContacts.save', 'Zapisz')
+              : tf('teamContacts.addContact', 'Dodaj kontakt')
           }
         </Button>
       </div>
