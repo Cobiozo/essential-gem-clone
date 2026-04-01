@@ -311,7 +311,7 @@ const WebinarInviteWidget: React.FC = () => {
   // Check per-user auto-webinar access for non-admin users
   useEffect(() => {
     if (isAdmin) { setHasAutoWebinarAccess(true); return; }
-    if (!user?.id || (!isPartner && !isSpecjalista)) { setHasAutoWebinarAccess(false); return; }
+    if (!user?.id) { setHasAutoWebinarAccess(false); return; }
     const checkAccess = async () => {
       const { data } = await supabase
         .from('leader_permissions')
@@ -321,15 +321,14 @@ const WebinarInviteWidget: React.FC = () => {
       setHasAutoWebinarAccess((data as any)?.can_access_auto_webinar === true);
     };
     checkAccess();
-  }, [user?.id, isAdmin, isPartner]);
+  }, [user?.id, isAdmin]);
 
-  if (masterVisible !== true) return null;
-  if (hasAutoWebinarAccess !== true) return null;
+  if (masterVisible !== true && hasAutoWebinarAccess !== true) return null;
   if (boLoading || hcLoading) return null;
 
   const canSee = (cfg: typeof boConfig) => {
     if (!cfg?.is_enabled) return false;
-    if (isAdmin) return true;
+    if (isAdmin || hasAutoWebinarAccess) return true;
     return (isPartner && cfg.visible_to_partners) ||
            (isSpecjalista && cfg.visible_to_specjalista) ||
            (isClient && cfg.visible_to_clients);
