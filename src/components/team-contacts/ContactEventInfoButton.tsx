@@ -161,7 +161,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         id: r.id,
         status: r.status,
         event_title: r.events?.title || '-',
-        event_date: r.registered_at || r.events?.start_time || '',
+        event_date: r.slot_time || r.registered_at || r.events?.start_time || '',
         view_stats: viewsMap.get(r.id) || null,
       }));
       setRegistrations(mapped);
@@ -231,7 +231,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                       <div className="min-w-0">
                         <p className="font-medium truncate">{reg.event_title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {reg.event_date ? new Date(reg.event_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                          {reg.event_date ? new Date(reg.event_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' }) : '-'}
                         </p>
                       </div>
                       {getStatusBadge(reg.status)}
@@ -243,7 +243,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                           <Eye className="w-3 h-3 text-green-600 shrink-0" />
                           <span className="text-green-700 dark:text-green-400 font-medium">Dołączył</span>
                           <span className="text-muted-foreground">
-                            {new Date(reg.view_stats.joined_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}
+                            {new Date(reg.view_stats.joined_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
                           </span>
                           <span className="text-muted-foreground">•</span>
                           <span className="text-muted-foreground">
