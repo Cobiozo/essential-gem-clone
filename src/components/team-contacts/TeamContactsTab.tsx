@@ -237,8 +237,8 @@ export const TeamContactsTab: React.FC = () => {
           {!clientOnlyView && (
             <TabsTrigger value="private" className="flex items-center gap-2">
               <UserPlus className="w-4 h-4" />
-              <span className="hidden sm:inline">Kontakty prywatne</span>
-              <span className="sm:hidden">Prywatne</span>
+              <span className="hidden sm:inline">{tf('teamContacts.privateContacts', 'Kontakty prywatne')}</span>
+              <span className="sm:hidden">{tf('teamContacts.privateContacts', 'Prywatne')}</span>
             </TabsTrigger>
           )}
           {!clientOnlyView && (
