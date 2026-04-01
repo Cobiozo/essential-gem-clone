@@ -26,7 +26,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationEventType, UserNotificationPreference } from '@/types/notifications';
 import { MODULE_NAMES } from '@/types/notifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bell,

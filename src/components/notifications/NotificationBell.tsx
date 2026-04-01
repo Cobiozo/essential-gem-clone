@@ -10,7 +10,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, Check, CheckCheck, HandHelping, MessageSquare, Info, BookOpen } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
 export const NotificationBell: React.FC = () => {

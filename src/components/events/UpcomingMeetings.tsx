@@ -16,7 +16,8 @@ import {
   XCircle, FileText, Phone, Target, MessageSquare, Mail 
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface UpcomingMeeting {
   id: string;

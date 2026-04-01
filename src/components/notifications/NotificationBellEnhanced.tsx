@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   contact_added: UserPlus,

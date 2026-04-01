@@ -11,7 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Users, User, Video, Calendar, Clock, XCircle, CheckCircle, Mail } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface MeetingEvent {

@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 import { format, addMinutes, parse, addDays, getDay, startOfDay, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import type { PartnerWithAvailability } from '@/types/events';
 
