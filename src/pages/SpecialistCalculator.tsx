@@ -16,7 +16,7 @@ const SpecialistCalculatorPage = () => {
   const eurToPlnRate = settingsData?.settings?.eur_to_pln_rate || 4.3;
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
       <CurrencyProvider eurToPlnRate={eurToPlnRate}>
         <div className="container max-w-6xl mx-auto py-8 px-4">
           {/* Header - matching influencer calculator style */}

@@ -34,7 +34,7 @@ const WebinarsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardLayout>
+      <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
         <div className="flex items-center justify-center min-h-[400px]">
           <LoadingSpinner />
         </div>
@@ -93,7 +93,7 @@ const WebinarsPage: React.FC = () => {
   );
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: "Strona główna", path: "/dashboard" }}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">

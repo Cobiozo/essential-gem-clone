@@ -162,7 +162,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
 
   if (loading) {
     return (
-      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
+      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')} backTo={{ label: 'Zdrowa Wiedza', path: '/zdrowa-wiedza' }}>
         <div className="flex items-center justify-center min-h-[60vh]">
           <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
         </div>
@@ -172,7 +172,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
 
   if (!material) {
     return (
-      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
+      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')} backTo={{ label: 'Zdrowa Wiedza', path: '/zdrowa-wiedza' }}>
         <div className="text-center py-12">
           <p className="text-muted-foreground">{tf('hk.notFound', 'Materiał nie został znaleziony')}</p>
           <Button onClick={() => navigate('/zdrowa-wiedza')} className="mt-4">
@@ -185,7 +185,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
 
   if (!material.media_url) {
     return (
-      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
+      <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')} backTo={{ label: 'Zdrowa Wiedza', path: '/zdrowa-wiedza' }}>
         <div className="space-y-4 max-w-5xl mx-auto">
           <Button
             variant="ghost"
@@ -218,7 +218,7 @@ const HealthyKnowledgePlayerPage: React.FC = () => {
   }
 
   return (
-    <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')}>
+    <DashboardLayout title={tf('hk.title', 'Zdrowa Wiedza')} backTo={{ label: 'Zdrowa Wiedza', path: '/zdrowa-wiedza' }}>
       <div className="space-y-4 max-w-5xl mx-auto">
         <Button
           variant="ghost"

@@ -26,7 +26,7 @@ export default function CommissionCalculatorPage() {
 
   if (authLoading || accessLoading) {
     return (
-      <DashboardLayout>
+       <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
         <div className="space-y-6 p-6">
           <Skeleton className="h-10 w-80" />
           <div className="grid gap-6 lg:grid-cols-2">
@@ -40,7 +40,7 @@ export default function CommissionCalculatorPage() {
 
   if (!accessData?.hasAccess) {
     return (
-      <DashboardLayout>
+       <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
         <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
           <ShieldAlert className="h-16 w-16 text-muted-foreground" />
           <h2 className="text-xl font-semibold">
@@ -55,7 +55,7 @@ export default function CommissionCalculatorPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
       <div className="p-6">
         <CommissionCalculator />
       </div>

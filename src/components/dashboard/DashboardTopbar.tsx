@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen, ArrowLeft } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import SessionTimer from '@/components/SessionTimer';
@@ -28,12 +29,14 @@ import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 
 interface DashboardTopbarProps {
   title?: string;
+  backTo?: { label: string; path: string } | null;
   isUserMenuOpen?: boolean;
   onUserMenuOpenChange?: (open: boolean) => void;
 }
 
 export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({ 
   title,
+  backTo,
   isUserMenuOpen,
   onUserMenuOpenChange,
 }) => {
@@ -70,9 +73,37 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-2 sm:gap-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-2 sm:px-4 lg:px-6">
-      {/* Left side - Sidebar trigger and title */}
-      <div className="flex items-center gap-4">
-        <SidebarTrigger className="-ml-1" />
+      {/* Left side - Back button, sidebar trigger and title */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        {backTo ? (
+          <>
+            {/* Mobile: back arrow replaces sidebar trigger */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(backTo.path)}
+              className="sm:hidden h-9 w-9 -ml-1"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            {/* Desktop: back arrow + label + separator + sidebar trigger */}
+            <div className="hidden sm:flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(backTo.path)}
+                className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {backTo.label}
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <SidebarTrigger />
+            </div>
+          </>
+        ) : (
+          <SidebarTrigger className="-ml-1" />
+        )}
         {title && (
           <h1 className="text-lg font-semibold text-foreground hidden sm:block">
             {title}

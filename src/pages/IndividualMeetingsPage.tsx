@@ -30,7 +30,7 @@ const IndividualMeetingsPage: React.FC = () => {
   };
 
   return (
-    <DashboardLayout>
+    <DashboardLayout backTo={{ label: 'Strona główna', path: '/dashboard' }}>
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         {/* Header */}
         <div className="mb-6">
