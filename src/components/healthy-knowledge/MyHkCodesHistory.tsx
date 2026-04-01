@@ -371,7 +371,7 @@ const MyHkCodesHistory: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
-                          {format(new Date(code.expires_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                          {format(new Date(code.expires_at), 'dd.MM.yyyy HH:mm', { locale: getAppDateLocale(language) })}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleSoftDelete(code)} title="Usuń z historii" className="text-destructive hover:text-destructive">

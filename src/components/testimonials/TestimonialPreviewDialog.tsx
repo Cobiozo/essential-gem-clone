@@ -287,7 +287,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                               </span>
                             )}
                             <span className="text-[10px] text-muted-foreground">
-                              {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pl })}
+                              {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: getAppDateLocale(language) })}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
