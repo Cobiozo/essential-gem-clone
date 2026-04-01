@@ -213,6 +213,45 @@ serve(async (req) => {
       })
       .eq("job_name", "process-pending-notifications");
 
+    // 2b. Auto-close stale guest registrations for single-occurrence events whose end_time has passed
+    try {
+      const now = new Date();
+      const { data: pastSingleEvents } = await supabase
+        .from("events")
+        .select("id, title, end_time")
+        .lt("end_time", now.toISOString())
+        .eq("is_active", true)
+        .is("occurrences", null);
+
+      for (const evt of (pastSingleEvents || [])) {
+        // Close guest registrations
+        const { data: staleGuests } = await supabase
+          .from("guest_event_registrations")
+          .update({ status: "completed" })
+          .eq("event_id", evt.id)
+          .eq("status", "registered")
+          .select("id");
+
+        if (staleGuests && staleGuests.length > 0) {
+          console.log(`[CRON] Closed ${staleGuests.length} stale guest registrations for ended event: ${evt.title}`);
+        }
+
+        // Close user registrations
+        const { data: staleUserRegs } = await supabase
+          .from("event_registrations")
+          .update({ status: "completed" })
+          .eq("event_id", evt.id)
+          .eq("status", "registered")
+          .select("id");
+
+        if (staleUserRegs && staleUserRegs.length > 0) {
+          console.log(`[CRON] Closed ${staleUserRegs.length} stale user registrations for ended event: ${evt.title}`);
+        }
+      }
+    } catch (autoCloseError) {
+      console.error("[CRON] Error auto-closing stale registrations:", autoCloseError);
+    }
+
     // 3. Process users without welcome email
     console.log("[CRON] Finding users without welcome email...");
     const { data: usersWithoutWelcome, error: welcomeError } = await supabase

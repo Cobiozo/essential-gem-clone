@@ -392,7 +392,7 @@ serve(async (req) => {
     // ==========================================
     let guestQuery = supabase
       .from("guest_event_registrations")
-      .select("id, email, first_name, last_name, occurrence_index, occurrence_date, occurrence_time")
+      .select("id, email, first_name, last_name, occurrence_index, occurrence_date, occurrence_time, created_at")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
@@ -419,6 +419,18 @@ serve(async (req) => {
       }
     }
 
+    // For single-occurrence events (no occurrences array), filter out stale registrations
+    // These are guests who registered for a previous date before admin updated start_time
+    if (!event.occurrences || !Array.isArray(event.occurrences) || event.occurrences.length === 0) {
+      const registrationWindowMs = 8 * 24 * 60 * 60 * 1000; // 8 days
+      const cutoffDate = new Date(termDatetime.getTime() - registrationWindowMs);
+      const beforeCount = guests.length;
+      guests = guests.filter((g: any) => new Date(g.created_at) >= cutoffDate);
+      if (beforeCount !== guests.length) {
+        console.log(`[bulk-reminders] Single-occurrence stale guest filter: ${beforeCount} → ${guests.length} (removed ${beforeCount - guests.length} old registrations, cutoff: ${cutoffDate.toISOString()})`);
+      }
+    }
+
     if (guestsError) {
       console.error(`[bulk-reminders] Error fetching guests:`, guestsError);
     }
@@ -428,7 +440,7 @@ serve(async (req) => {
     // ==========================================
     const { data: userRegs, error: userRegsError } = await supabase
       .from("event_registrations")
-      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time")
+      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time, created_at")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
@@ -459,6 +471,17 @@ serve(async (req) => {
         }
       }
       // Single occurrence: take all registered users (no index filtering)
+    }
+
+    // For single-occurrence events, filter out stale user registrations
+    if (!event.occurrences || !Array.isArray(event.occurrences) || event.occurrences.length === 0) {
+      const registrationWindowMs = 8 * 24 * 60 * 60 * 1000; // 8 days
+      const cutoffDate = new Date(termDatetime.getTime() - registrationWindowMs);
+      const beforeCount = relevantUserRegs.length;
+      relevantUserRegs = relevantUserRegs.filter((r: any) => new Date(r.created_at) >= cutoffDate);
+      if (beforeCount !== relevantUserRegs.length) {
+        console.log(`[bulk-reminders] Single-occurrence stale user reg filter: ${beforeCount} → ${relevantUserRegs.length} (removed ${beforeCount - relevantUserRegs.length} old registrations)`);
+      }
     }
 
     // Deduplicate by user_id (one user may have multiple regs for same occurrence)
