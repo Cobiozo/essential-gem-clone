@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { loadTranslationsCache, getTranslation, invalidateTranslationsCache, loadLanguageTranslations, TranslationsMap } from '@/hooks/useTranslations';
 
-export type Language = 'pl' | 'de' | 'en' | string;
+export type Language = 'pl' | 'de' | 'en' | 'no' | string;
 
 interface LanguageContextType {
   language: Language;
