@@ -274,7 +274,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                 }
               }}
             >
-              Usuń
+              {tf('teamContacts.deleted', 'Usuń')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
