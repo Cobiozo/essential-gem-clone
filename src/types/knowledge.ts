@@ -34,7 +34,7 @@ export interface KnowledgeResource {
   allow_click_redirect: boolean;
   click_redirect_url: string | null;
   // Language support
-  language_code: string | null; // 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt' or null (all languages)
+  language_code: string | null; // 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt', 'no' or null (all languages)
   // Team/leader ownership
   created_by: string | null;
 }
