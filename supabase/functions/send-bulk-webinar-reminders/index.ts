@@ -392,7 +392,7 @@ serve(async (req) => {
     // ==========================================
     let guestQuery = supabase
       .from("guest_event_registrations")
-      .select("id, email, first_name, last_name, occurrence_index, occurrence_date, occurrence_time")
+      .select("id, email, first_name, last_name, occurrence_index, occurrence_date, occurrence_time, created_at")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
@@ -416,6 +416,18 @@ serve(async (req) => {
           );
           console.log(`[bulk-reminders] Guest filtering for occurrence ${termOccurrenceIndex} (${targetDate} ${targetTime}): ${beforeCount} total → ${guests.length} matched, ${beforeCount - guests.length} filtered out`);
         }
+      }
+    }
+
+    // For single-occurrence events (no occurrences array), filter out stale registrations
+    // These are guests who registered for a previous date before admin updated start_time
+    if (!event.occurrences || !Array.isArray(event.occurrences) || event.occurrences.length === 0) {
+      const registrationWindowMs = 8 * 24 * 60 * 60 * 1000; // 8 days
+      const cutoffDate = new Date(termDatetime.getTime() - registrationWindowMs);
+      const beforeCount = guests.length;
+      guests = guests.filter((g: any) => new Date(g.created_at) >= cutoffDate);
+      if (beforeCount !== guests.length) {
+        console.log(`[bulk-reminders] Single-occurrence stale guest filter: ${beforeCount} → ${guests.length} (removed ${beforeCount - guests.length} old registrations, cutoff: ${cutoffDate.toISOString()})`);
       }
     }
 
