@@ -56,7 +56,7 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Search */}
         <div className="space-y-2">
-          <Label className="text-xs">Szukaj</Label>
+          <Label className="text-xs">{tf('teamContacts.search', 'Szukaj')}</Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
