@@ -2,27 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Globe } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { getFlagUrl } from '@/utils/languageFlags';
 
 interface LanguageOption {
   code: string;
   name: string;
   native_name: string | null;
 }
-
-const languageToCountry: Record<string, string> = {
-  'pl': 'pl',
-  'en': 'gb',
-  'de': 'de',
-  'it': 'it',
-  'es': 'es',
-  'fr': 'fr',
-  'pt': 'pt'
-};
-
-const getFlagUrl = (langCode: string): string => {
-  const countryCode = languageToCountry[langCode] || langCode;
-  return `https://flagcdn.com/w40/${countryCode}.png`;
-};
 
 interface ContentLanguageSelectorProps {
   value: string;
@@ -33,7 +19,8 @@ export const ContentLanguageSelector: React.FC<ContentLanguageSelectorProps> = (
   const [languages, setLanguages] = useState<LanguageOption[]>([
     { code: 'pl', name: 'Polish', native_name: 'Polski' },
     { code: 'de', name: 'German', native_name: 'Deutsch' },
-    { code: 'en', name: 'English', native_name: 'English' }
+    { code: 'en', name: 'English', native_name: 'English' },
+    { code: 'no', name: 'Norwegian', native_name: 'Norsk' },
   ]);
 
   useEffect(() => {
