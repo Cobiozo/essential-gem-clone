@@ -1100,7 +1100,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
             <div className="flex items-center gap-2 text-sm">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span>{format(new Date(selectedSlot.date), 'd MMMM yyyy', { locale: pl })}</span>
+              <span>{format(new Date(selectedSlot.date), 'd MMMM yyyy', { locale: getAppDateLocale(language) })}</span>
             </div>
 
             <div className="flex items-center gap-2 text-sm">

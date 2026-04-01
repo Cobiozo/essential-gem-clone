@@ -156,7 +156,7 @@ export const LeaderMeetingSchedule: React.FC = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              {format(parseISO(dateKey), 'EEEE, d MMMM yyyy', { locale: pl })}
+              {format(parseISO(dateKey), 'EEEE, d MMMM yyyy', { locale: getAppDateLocale(language) })}
               <Badge variant="secondary" className="ml-auto">{grouped[dateKey].length}</Badge>
             </CardTitle>
           </CardHeader>
