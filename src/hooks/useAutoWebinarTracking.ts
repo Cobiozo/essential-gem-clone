@@ -76,6 +76,22 @@ export function useAutoWebinarTracking(
           guestEmail: guestEmailRef.current,
           guestRegistrationId: guestRegistrationIdRef.current,
         });
+
+        // Retry linking guest_registration_id if it wasn't available at INSERT time
+        if (!guestRegistrationIdRef.current) {
+          setTimeout(() => {
+            if (guestRegistrationIdRef.current && viewId.current) {
+              console.log('[AutoWebinarTracking] Delayed linking guestRegistrationId:', guestRegistrationIdRef.current);
+              supabase
+                .from('auto_webinar_views' as any)
+                .update({ guest_registration_id: guestRegistrationIdRef.current })
+                .eq('id', viewId.current)
+                .then(({ error: linkErr }) => {
+                  if (linkErr) console.error('[AutoWebinarTracking] Delayed link failed:', linkErr);
+                });
+            }
+          }, 3000);
+        }
       } else if (error) {
         console.error('[AutoWebinarTracking] Failed to create view:', error);
       }
