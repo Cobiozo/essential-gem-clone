@@ -1,47 +1,52 @@
 
 
-# Precyzyjne ustawianie czasu fikcyjnych komentarzy (minuta + sekunda)
+# Fix: Wyświetlanie niewłaściwego prowadzącego na stronie rejestracji gościa
 
-## Obecny stan
-Pole `appear_at_minute` (integer) określa minutę pojawienia się komentarza. W hooku `useAutoWebinarFakeChat` porównanie: `msg.appear_at_minute <= currentMinute`.
+## Problem
 
-## Podejście
-Dodać kolumnę `appear_at_second` (integer, domyślnie 0) do tabeli `auto_webinar_fake_messages`. Dzięki temu admin ustala precyzyjnie minutę i sekundę. W logice wyświetlania porównanie zmieni się na sekundy.
+W pliku `src/pages/EventGuestRegistration.tsx` (linia 313-319), zapytanie o dane wideo **nie filtruje po `config_id`**:
 
-## Zmiany
-
-### 1. Migracja bazy danych
-Dodać kolumnę `appear_at_second` (integer, default 0) do `auto_webinar_fake_messages`.
-
-### 2. Typ `AutoWebinarFakeMessage` (`src/types/autoWebinar.ts`)
-Dodać pole `appear_at_second: number`.
-
-### 3. Admin UI (`src/components/admin/AutoWebinarManagement.tsx`)
-- Dodać pole "Sek." (input number 0-59) obok pola "Min." w formularzu dodawania/edycji
-- W state `fakeMessageForm` dodać `appear_at_second: 0`
-- W tabeli wyświetlać czas jako `min:sek` (np. `5:30`) zamiast samej minuty
-- Przy zapisie/edycji wysyłać `appear_at_second`
-- Domyślne wiadomości: dodać losowe sekundy dla naturalności
-
-### 4. Hook `useAutoWebinarFakeChat` (`src/hooks/useAutoWebinarFakeChat.ts`)
-Zmienić porównanie z:
 ```typescript
-msg.appear_at_minute <= currentMinute
-```
-na:
-```typescript
-(msg.appear_at_minute * 60 + (msg.appear_at_second || 0)) <= startOffset
+const { data: videoData } = await supabase
+  .from('auto_webinar_videos')
+  .select('title, description, host_name, cover_image_url, thumbnail_url')
+  .eq('is_active', true)                    // ← brak filtra config_id!
+  .order('sort_order', { ascending: true })
+  .limit(1)
+  .maybeSingle();
 ```
 
-### 5. Typy Supabase (`src/integrations/supabase/types.ts`)
-Dodać `appear_at_second` do Row/Insert/Update typów tabeli `auto_webinar_fake_messages`.
+W bazie są dwa filmy:
+- sort_order=0 → HC → host_name = "dawid kowalczyk"
+- sort_order=1 → BO → host_name = "Mateusz Sumera i Dawid Kowalczyk"
 
-### Pliki do edycji
-| Plik | Zmiana |
-|------|--------|
-| Migracja SQL | Dodanie kolumny `appear_at_second` |
-| `src/types/autoWebinar.ts` | Dodanie pola do interfejsu |
-| `src/integrations/supabase/types.ts` | Aktualizacja typów |
-| `src/components/admin/AutoWebinarManagement.tsx` | Pole "Sek." w formularzu, wyświetlanie min:sek |
-| `src/hooks/useAutoWebinarFakeChat.ts` | Porównanie na sekundy |
+Zapytanie bez filtra zawsze zwraca pierwszy film globalnie (HC), więc strona rejestracji BO pokazuje "dawid kowalczyk" zamiast "Mateusz Sumera i Dawid Kowalczyk".
+
+## Rozwiązanie
+
+Dodać filtr `.eq('config_id', data.id)` do zapytania o wideo, używając `config_id` z wcześniej pobranej konfiguracji auto-webinaru. Dzięki temu każda kategoria pobierze swój właściwy film z poprawnym prowadzącym.
+
+### Zmiana w `src/pages/EventGuestRegistration.tsx`
+
+Przenieść zapytanie o wideo **wewnątrz bloku `if (data)`**, aby mieć dostęp do `data.id` (config_id):
+
+```typescript
+if (data) {
+  setAutoWebinarConfig(data as AutoWebinarSlotConfig);
+  setAutoWebinarCategory((data as any).category || null);
+
+  // Fetch first active video FOR THIS CONFIG
+  const { data: videoData } = await supabase
+    .from('auto_webinar_videos')
+    .select('title, description, host_name, cover_image_url, thumbnail_url')
+    .eq('config_id', data.id)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (videoData) setAutoWebinarVideo(videoData as AutoWebinarVideoData);
+}
+```
+
+Jeden plik, jedna zmiana — dodanie filtra `config_id`.
 
