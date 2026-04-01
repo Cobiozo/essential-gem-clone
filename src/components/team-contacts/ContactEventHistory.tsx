@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EventReg {
   event_id: string;
@@ -19,6 +20,7 @@ interface ContactEventHistoryProps {
 }
 
 export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email }) => {
+  const { tf } = useLanguage();
   const [events, setEvents] = useState<EventReg[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,7 +43,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
 
         const mapped: EventReg[] = (data || []).map((r: any) => ({
           event_id: r.event_id,
-          event_title: r.events?.title || 'Nieznane wydarzenie',
+          event_title: r.events?.title || tf('teamContacts.unknownEvent', 'Nieznane wydarzenie'),
           event_date: r.events?.start_time || '',
           status: r.status || 'registered',
           registered_at: r.registered_at || '',
@@ -64,7 +66,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
       <>
         <Separator className="my-2" />
         <div className="space-y-2">
-          <Label>Rejestracje na wydarzenia</Label>
+          <Label>{tf('teamContacts.eventRegHistory', 'Rejestracje na wydarzenia')}</Label>
           <div className="h-8 bg-muted/50 rounded animate-pulse" />
         </div>
       </>
@@ -77,13 +79,13 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
     if (source === 'partner_invite') {
       return (
         <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
-          Zaproszony przez partnera
+          {tf('teamContacts.invitedByPartner', 'Zaproszony przez partnera')}
         </Badge>
       );
     }
     return (
       <Badge variant="outline" className="text-xs">
-        Samodzielna rejestracja
+        {tf('teamContacts.selfRegistration', 'Samodzielna rejestracja')}
       </Badge>
     );
   };
@@ -94,7 +96,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
       <div className="space-y-2">
         <Label className="flex items-center gap-2">
           <Calendar className="w-4 h-4" />
-          Rejestracje na wydarzenia ({events.length})
+          {tf('teamContacts.eventRegHistory', 'Rejestracje na wydarzenia')} ({events.length})
         </Label>
         <div className="rounded-md border bg-muted/30 divide-y">
           {events.map((ev, i) => {
@@ -119,7 +121,7 @@ export const ContactEventHistory: React.FC<ContactEventHistoryProps> = ({ email 
                   <Badge
                     variant={ev.status === 'registered' ? 'default' : 'secondary'}
                   >
-                    {ev.status === 'registered' ? 'Zarejestrowany' : ev.status === 'cancelled' ? 'Anulowany' : ev.status}
+                    {ev.status === 'registered' ? tf('teamContacts.registered', 'Zarejestrowany') : ev.status === 'cancelled' ? tf('teamContacts.cancelled', 'Anulowany') : ev.status}
                   </Badge>
                 </div>
               </div>

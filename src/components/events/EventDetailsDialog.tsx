@@ -12,7 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Calendar, Clock, User, MapPin, Users, ExternalLink, Video, X, Globe, FileText, Phone, MessageSquare, Target } from 'lucide-react';
 import { subMinutes, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { EventWithRegistration } from '@/types/events';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,7 +37,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   activeRoomIds,
 }) => {
   const { language } = useLanguage();
-  const locale = language === 'pl' ? pl : enUS;
+  const locale = getAppDateLocale(language);
   const navigate = useNavigate();
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
 

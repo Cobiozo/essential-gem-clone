@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { fromZonedTime } from 'date-fns-tz';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +27,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
   onSubmit,
   onCancel,
 }) => {
+  const { tf } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -164,7 +166,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       {/* Dane podstawowe */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="first_name">Imię *</Label>
+          <Label htmlFor="first_name">{tf('teamContacts.firstName', 'Imię')} *</Label>
           <Input
             id="first_name"
             value={formData.first_name}
@@ -173,7 +175,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="last_name">Nazwisko *</Label>
+          <Label htmlFor="last_name">{tf('teamContacts.lastName', 'Nazwisko')} *</Label>
           <Input
             id="last_name"
             value={formData.last_name}
@@ -185,7 +187,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="phone_number">Telefon</Label>
+          <Label htmlFor="phone_number">{tf('teamContacts.phone', 'Telefon')}</Label>
           <Input
             id="phone_number"
             value={formData.phone_number}
@@ -193,7 +195,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{tf('teamContacts.email', 'Email')}</Label>
           <Input
             id="email"
             type="email"
@@ -217,7 +219,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="profession">Zawód</Label>
+          <Label htmlFor="profession">{tf('teamContacts.profession', 'Zawód')}</Label>
           <Input
             id="profession"
             value={formData.profession}
@@ -225,7 +227,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="relationship_status">Status relacji</Label>
+          <Label htmlFor="relationship_status">{tf('teamContacts.relationshipStatus', 'Status relacji')}</Label>
           <Select
             value={formData.relationship_status || 'observation'}
             onValueChange={(value) => setFormData({ ...formData, relationship_status: value as TeamContact['relationship_status'] })}
@@ -234,18 +236,18 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="observation">Czynny obserwujący</SelectItem>
-              <SelectItem value="potential_client">Potencjalny klient</SelectItem>
-              <SelectItem value="potential_partner">Potencjalny partner</SelectItem>
-              <SelectItem value="closed_success">Zamknięty - sukces dołączył</SelectItem>
-              <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+               <SelectItem value="observation">{tf('teamContacts.observation', 'Czynny obserwujący')}</SelectItem>
+              <SelectItem value="potential_client">{tf('teamContacts.potentialClient', 'Potencjalny klient')}</SelectItem>
+              <SelectItem value="potential_partner">{tf('teamContacts.potentialPartner', 'Potencjalny partner')}</SelectItem>
+              <SelectItem value="closed_success">{tf('teamContacts.closedSuccess', 'Zamknięty - sukces dołączył')}</SelectItem>
+              <SelectItem value="closed_not_now">{tf('teamContacts.closedNotNow', 'Zamknięty - nie teraz')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="address">Adres</Label>
+        <Label htmlFor="address">{tf('teamContacts.address', 'Adres')}</Label>
         <Input
           id="address"
           value={formData.address}
@@ -258,7 +260,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Źródło i cel kontaktu */}
       <div className="space-y-2">
-        <Label htmlFor="contact_source">Skąd jest kontakt</Label>
+        <Label htmlFor="contact_source">{tf('teamContacts.contactSource', 'Skąd jest kontakt')}</Label>
         <Input
           id="contact_source"
           value={formData.contact_source}
@@ -268,7 +270,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="contact_reason">Dlaczego chcesz się odezwać</Label>
+        <Label htmlFor="contact_reason">{tf('teamContacts.contactReason', 'Dlaczego chcesz się odezwać')}</Label>
         <Textarea
           id="contact_reason"
           value={formData.contact_reason}
@@ -279,7 +281,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="products">Zainteresowanie produktami</Label>
+        <Label htmlFor="products">{tf('teamContacts.products', 'Zainteresowanie produktami')}</Label>
         <Input
           id="products"
           value={formData.products}
@@ -292,7 +294,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Notatki */}
       <div className="space-y-2">
-        <Label htmlFor="notes">Notatki z rozmów</Label>
+        <Label htmlFor="notes">{tf('teamContacts.conversationNotes', 'Notatki z rozmów')}</Label>
         <Textarea
           id="notes"
           value={formData.notes}
@@ -304,7 +306,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Data utworzenia kontaktu — read-only */}
       <div className="space-y-2">
-        <Label>Data utworzenia kontaktu</Label>
+        <Label>{tf('teamContacts.dateCreated', 'Data utworzenia kontaktu')}</Label>
         <Input
           value={createdAtDisplay}
           readOnly
@@ -314,7 +316,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="added_at">Data pierwszego kontaktu</Label>
+        <Label htmlFor="added_at">{tf('teamContacts.firstContactDate', 'Data pierwszego kontaktu')}</Label>
         <Input
           id="added_at"
           type="date"
@@ -324,7 +326,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="first_contact_result">Wynik pierwszego kontaktu</Label>
+        <Label htmlFor="first_contact_result">{tf('teamContacts.firstContactResult', 'Wynik pierwszego kontaktu')}</Label>
         <Select
           value={formData.first_contact_result || ''}
           onValueChange={(value) => setFormData({ ...formData, first_contact_result: value })}
@@ -333,16 +335,16 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             <SelectValue placeholder="Wybierz wynik..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="answered">Odebrał</SelectItem>
-            <SelectItem value="no_answer">Nie odebrane</SelectItem>
-            <SelectItem value="wrong_number">Błędny numer</SelectItem>
-            <SelectItem value="out_of_range">Poza zasięgiem</SelectItem>
+             <SelectItem value="answered">{tf('teamContacts.answered', 'Odebrał')}</SelectItem>
+            <SelectItem value="no_answer">{tf('teamContacts.noAnswer', 'Nie odebrane')}</SelectItem>
+            <SelectItem value="wrong_number">{tf('teamContacts.wrongNumber', 'Błędny numer')}</SelectItem>
+            <SelectItem value="out_of_range">{tf('teamContacts.outOfRange', 'Poza zasięgiem')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="second_contact_date">Data drugiego kontaktu</Label>
+        <Label htmlFor="second_contact_date">{tf('teamContacts.secondContactDate', 'Data drugiego kontaktu')}</Label>
         <Input
           id="second_contact_date"
           type="date"
@@ -352,7 +354,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="first_contact_annotation">Adnotacja po pierwszym kontakcie</Label>
+        <Label htmlFor="first_contact_annotation">{tf('teamContacts.firstContactAnnotation', 'Adnotacja po pierwszym kontakcie')}</Label>
         <Textarea
           id="first_contact_annotation"
           value={formData.first_contact_annotation}
@@ -366,7 +368,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Przypomnienia */}
       <div className="space-y-2">
-        <Label htmlFor="next_contact_date">Data kolejnego kontaktu</Label>
+        <Label htmlFor="next_contact_date">{tf('teamContacts.nextContactDate', 'Data kolejnego kontaktu')}</Label>
         <Input
           id="next_contact_date"
           type="date"
@@ -376,7 +378,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="reminder_date">Data i godzina przypomnienia</Label>
+        <Label htmlFor="reminder_date">{tf('teamContacts.reminderDate', 'Data i godzina przypomnienia')}</Label>
         <div className="grid grid-cols-2 gap-2">
           <Input
             id="reminder_date"
@@ -424,7 +426,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="reminder_note">Treść przypomnienia</Label>
+        <Label htmlFor="reminder_note">{tf('teamContacts.reminderContent', 'Treść przypomnienia')}</Label>
         <Textarea
           id="reminder_note"
           value={formData.reminder_note}
@@ -448,15 +450,15 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       {/* Actions */}
       <div className="flex justify-end gap-3 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
-          Anuluj
+         <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>
+          {tf('teamContacts.cancel', 'Anuluj')}
         </Button>
         <Button type="submit" disabled={loading}>
           {loading 
-            ? 'Zapisywanie...'
+            ? tf('teamContacts.saving', 'Zapisywanie...')
             : contact 
-              ? 'Zapisz'
-              : 'Dodaj kontakt'
+              ? tf('teamContacts.save', 'Zapisz')
+              : tf('teamContacts.addContact', 'Dodaj kontakt')
           }
         </Button>
       </div>

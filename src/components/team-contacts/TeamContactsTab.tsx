@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
 import { useSpecialistSearch } from '@/hooks/useSpecialistSearch';
 import { useGuardianApproval } from '@/hooks/useGuardianApproval';
@@ -64,6 +65,7 @@ interface PendingApproval {
 
 export const TeamContactsTab: React.FC = () => {
   const { isAdmin, isClient, isPartner, isSpecjalista, profile } = useAuth();
+  const { tf } = useLanguage();
   const { contacts, loading, filters, setFilters, addContact, updateContact, deleteContact, getContactHistory, refetch, eventContactIds, eventContactIdsBO, eventContactIdsHC, eventContactIdsGeneral, eventContactDetails, eventGroupedContacts, eventGroupedContactsBO, eventGroupedContactsHC, eventGroupedContactsGeneral, duplicateContactEvents, pendingOfflineCount, deletedContacts, deletedLoading, restoreContact, moveToOwnList } = useTeamContacts();
   const { canAccess: canSearchSpecialists } = useSpecialistSearch();
   const { tree, upline, statistics, settings: treeSettings, canAccessTree, loading: treeLoading } = useOrganizationTree();
@@ -235,15 +237,15 @@ export const TeamContactsTab: React.FC = () => {
           {!clientOnlyView && (
             <TabsTrigger value="private" className="flex items-center gap-2">
               <UserPlus className="w-4 h-4" />
-              <span className="hidden sm:inline">Kontakty prywatne</span>
-              <span className="sm:hidden">Prywatne</span>
+              <span className="hidden sm:inline">{tf('teamContacts.privateContacts', 'Kontakty prywatne')}</span>
+              <span className="sm:hidden">{tf('teamContacts.privateContacts', 'Prywatne')}</span>
             </TabsTrigger>
           )}
           {!clientOnlyView && (
             <TabsTrigger value="team" className="flex items-center gap-2 relative">
               <UsersRound className="w-4 h-4" />
-              <span className="hidden sm:inline">Członkowie zespołu</span>
-              <span className="sm:hidden">Zespół</span>
+              <span className="hidden sm:inline">{tf('teamContacts.teamMembers', 'Członkowie zespołu')}</span>
+              <span className="sm:hidden">{tf('teamContacts.teamMembers', 'Zespół')}</span>
               {pendingApprovals.length > 0 && (
                 <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
                   {pendingApprovals.length}
@@ -254,15 +256,15 @@ export const TeamContactsTab: React.FC = () => {
           {canSearchSpecialists && (
             <TabsTrigger value="search" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
-              <span className="hidden sm:inline">Szukaj specjalisty</span>
-              <span className="sm:hidden">Szukaj</span>
+              <span className="hidden sm:inline">{tf('teamContacts.searchSpecialist', 'Szukaj specjalisty')}</span>
+              <span className="sm:hidden">{tf('teamContacts.search', 'Szukaj')}</span>
             </TabsTrigger>
           )}
           {canAccessTree() && (
             <TabsTrigger value="structure" className="flex items-center gap-2">
               <TreePine className="w-4 h-4" />
-              <span className="hidden sm:inline">Struktura</span>
-              <span className="sm:hidden">Struktura</span>
+              <span className="hidden sm:inline">{tf('teamContacts.structure', 'Struktura')}</span>
+              <span className="sm:hidden">{tf('teamContacts.structure', 'Struktura')}</span>
             </TabsTrigger>
           )}
         </TabsList>
@@ -275,10 +277,10 @@ export const TeamContactsTab: React.FC = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UserPlus className="w-5 h-5" />
-                    Kontakty prywatne
+                     {tf('teamContacts.privateContacts', 'Kontakty prywatne')}
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
-                    Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści
+                    {tf('teamContacts.peopleOutsideSystem', 'Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści')}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
@@ -311,7 +313,7 @@ export const TeamContactsTab: React.FC = () => {
                     title="Filtry"
                   >
                     <Filter className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Filtry</span>
+                    <span className="hidden sm:inline">{tf('teamContacts.filters', 'Filtry')}</span>
                   </Button>
                   <Button
                     variant="outline"
@@ -320,11 +322,11 @@ export const TeamContactsTab: React.FC = () => {
                     title="Eksport"
                   >
                     <Download className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Eksport</span>
+                    <span className="hidden sm:inline">{tf('teamContacts.export', 'Eksport')}</span>
                   </Button>
                   <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
                     <Plus className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Dodaj kontakt</span>
+                    <span className="hidden sm:inline">{tf('teamContacts.addContact', 'Dodaj kontakt')}</span>
                   </Button>
                 </div>
               </div>
@@ -346,7 +348,7 @@ export const TeamContactsTab: React.FC = () => {
                   size="sm"
                   onClick={() => setPrivateSubTab('own')}
                 >
-                   Moja lista kontaktów
+                   {tf('teamContacts.myContactList', 'Moja lista kontaktów')}
                    <Badge variant="secondary" className="ml-2">{ownContacts.length}</Badge>
                  </Button>
                  <Button
@@ -354,7 +356,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('events-bo')}
                  >
-                   Z zaproszeń na Business Opportunity
+                   {tf('teamContacts.fromInvitationsBO', 'Z zaproszeń na Business Opportunity')}
                    <Badge variant="secondary" className="ml-2">{eventContactsBO.length}</Badge>
                  </Button>
                  <Button
@@ -362,7 +364,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('events-hc')}
                  >
-                   Z zaproszeń na Health Conversation
+                   {tf('teamContacts.fromInvitationsHC', 'Z zaproszeń na Health Conversation')}
                    <Badge variant="secondary" className="ml-2">{eventContactsHC.length}</Badge>
                  </Button>
                  <Button
@@ -370,7 +372,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('events-general')}
                  >
-                   Z zaproszeń na webinary ogólne
+                   {tf('teamContacts.fromInvitationsGeneral', 'Z zaproszeń na webinary ogólne')}
                    <Badge variant="secondary" className="ml-2">{eventContactsGeneral.length}</Badge>
                  </Button>
                  <Button
@@ -378,7 +380,7 @@ export const TeamContactsTab: React.FC = () => {
                    size="sm"
                    onClick={() => setPrivateSubTab('partner-page')}
                  >
-                   Z Mojej Strony Partnera
+                   {tf('teamContacts.fromPartnerPage', 'Z Mojej Strony Partnera')}
                    {partnerPageContacts.length > 0 && (
                      <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
                    )}
@@ -389,7 +391,7 @@ export const TeamContactsTab: React.FC = () => {
                   onClick={() => setPrivateSubTab('deleted')}
                 >
                   <Trash2 className="w-3.5 h-3.5 mr-1" />
-                  Usunięte
+                  {tf('teamContacts.deletedContacts', 'Usunięte')}
                   {deletedContacts.length > 0 && (
                     <Badge variant="secondary" className="ml-1.5 sm:ml-2">{deletedContacts.length}</Badge>
                   )}
@@ -481,10 +483,10 @@ export const TeamContactsTab: React.FC = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UsersRound className="w-5 h-5" />
-                    Członkowie zespołu
+                     {tf('teamContacts.teamMembers', 'Członkowie zespołu')}
                   </CardTitle>
                   <CardDescription>
-                    Zarejestrowani użytkownicy platformy przypisani do Ciebie jako opiekuna
+                    {tf('teamContacts.registeredUsersAssigned', 'Zarejestrowani użytkownicy platformy przypisani do Ciebie jako opiekuna')}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -525,7 +527,7 @@ export const TeamContactsTab: React.FC = () => {
                     onClick={() => setShowFilters(!showFilters)}
                   >
                     <Filter className="w-4 h-4 mr-2" />
-                    Filtry
+                     {tf('teamContacts.filters', 'Filtry')}
                   </Button>
                   <Button
                     variant="outline"
@@ -533,7 +535,7 @@ export const TeamContactsTab: React.FC = () => {
                     onClick={() => setShowExport(true)}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Eksport
+                     {tf('teamContacts.export', 'Eksport')}
                   </Button>
                 </div>
               </div>
@@ -693,10 +695,10 @@ export const TeamContactsTab: React.FC = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Search className="w-5 h-5" />
-                  Wyszukiwarka specjalistów
+                  {tf('teamContacts.searchSpecialist', 'Wyszukiwarka specjalistów')}
                 </CardTitle>
                 <CardDescription>
-                  Wyszukaj specjalistę według słów kluczowych, specjalizacji lub lokalizacji
+                  {tf('teamContacts.searchSpecialistDesc', 'Wyszukaj specjalistę według słów kluczowych, specjalizacji lub lokalizacji')}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -828,9 +830,9 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Dodaj kontakt prywatny</DialogTitle>
+             <DialogTitle>{tf('teamContacts.addPrivateContact', 'Dodaj kontakt prywatny')}</DialogTitle>
             <DialogDescription>
-              Dodaj osobę spoza systemu do swojej bazy kontaktów
+              {tf('teamContacts.addPrivateDesc', 'Dodaj osobę spoza systemu do swojej bazy kontaktów')}
             </DialogDescription>
           </DialogHeader>
           <PrivateContactForm
@@ -845,12 +847,12 @@ export const TeamContactsTab: React.FC = () => {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingContact?.contact_type === 'team_member' ? 'Podgląd członka zespołu' : 'Edytuj kontakt'}
+              {editingContact?.contact_type === 'team_member' ? tf('teamContacts.teamMemberPreview', 'Podgląd członka zespołu') : tf('teamContacts.editContact', 'Edytuj kontakt')}
             </DialogTitle>
             <DialogDescription>
               {editingContact?.contact_type === 'team_member' 
-                ? 'Dane członka zespołu są synchronizowane z profilem użytkownika'
-                : 'Zaktualizuj dane kontaktu'
+                ? tf('teamContacts.teamMemberSynced', 'Dane członka zespołu są synchronizowane z profilem użytkownika')
+                : tf('teamContacts.updateContactData', 'Zaktualizuj dane kontaktu')
               }
             </DialogDescription>
           </DialogHeader>
@@ -877,7 +879,7 @@ export const TeamContactsTab: React.FC = () => {
       <Dialog open={showExport} onOpenChange={setShowExport}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Eksportuj kontakty</DialogTitle>
+            <DialogTitle>{tf('teamContacts.exportContacts', 'Eksportuj kontakty')}</DialogTitle>
           </DialogHeader>
           <TeamContactExport
             contacts={filteredContacts}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MessageSquare, Clock, Mail, Phone, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { TeamContact, EventRegistrationInfo } from './types';
 
 interface GuestMessage {
@@ -20,6 +21,7 @@ export const ContactExpandedDetails: React.FC<ContactExpandedDetailsProps> = ({
   contact,
   registrationInfo,
 }) => {
+  const { tf } = useLanguage();
   const [chatMessages, setChatMessages] = useState<GuestMessage[]>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
@@ -76,13 +78,13 @@ export const ContactExpandedDetails: React.FC<ContactExpandedDetailsProps> = ({
       <div>
         <div className="flex items-center gap-1.5 mb-2">
           <MessageSquare className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-xs font-semibold text-foreground">Wiadomości na czacie</span>
+          <span className="text-xs font-semibold text-foreground">{tf('teamContacts.chatMessages', 'Wiadomości na czacie')}</span>
         </div>
 
         {loadingMessages ? (
-          <p className="text-xs text-muted-foreground pl-5">Ładowanie...</p>
+          <p className="text-xs text-muted-foreground pl-5">{tf('teamContacts.loading', 'Ładowanie...')}</p>
         ) : chatMessages.length === 0 ? (
-          <p className="text-xs text-muted-foreground pl-5">Brak wiadomości na czacie</p>
+          <p className="text-xs text-muted-foreground pl-5">{tf('teamContacts.noChatMessages', 'Brak wiadomości na czacie')}</p>
         ) : (
           <div className="space-y-1.5 pl-5">
             {chatMessages.map((msg) => (

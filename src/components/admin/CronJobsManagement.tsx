@@ -10,7 +10,7 @@ import { Loader2, Play, Clock, CheckCircle, XCircle, SkipForward, RefreshCw, Ale
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 
 interface CronSettings {
   id: string;
@@ -75,7 +75,7 @@ const formatInterval = (minutes: number): string => {
 
 export const CronJobsManagement: React.FC = () => {
   const { language } = useLanguage();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   
   const [settings, setSettings] = useState<CronSettings | null>(null);
   const [logs, setLogs] = useState<CronJobLog[]>([]);

@@ -32,7 +32,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
   getHistory,
   onClose,
 }) => {
-  const { t } = useLanguage();
+  const { tf } = useLanguage();
   const [entries, setEntries] = useState<UnifiedHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -130,21 +130,21 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
   const getChangeBadge = (changeType: string) => {
     switch (changeType) {
       case 'created':
-        return <Badge className="bg-green-100 text-green-800">{t('teamContacts.created') || 'Utworzono'}</Badge>;
+        return <Badge className="bg-green-100 text-green-800">{tf('teamContacts.created', 'Utworzono')}</Badge>;
       case 'updated':
-        return <Badge className="bg-blue-100 text-blue-800">{t('teamContacts.updated') || 'Zaktualizowano'}</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800">{tf('teamContacts.updated', 'Zaktualizowano')}</Badge>;
       case 'deleted':
-        return <Badge variant="destructive">{t('teamContacts.deleted') || 'Usunięto'}</Badge>;
+        return <Badge variant="destructive">{tf('teamContacts.deleted', 'Usunięto')}</Badge>;
       case 'event_invite':
-        return <Badge className="bg-yellow-100 text-yellow-800">Zaproszono na wydarzenie</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800">{tf('teamContacts.eventInvite', 'Zaproszono na wydarzenie')}</Badge>;
       case 'event_invite_reg':
-        return <Badge className="bg-yellow-100 text-yellow-800">Zaproszony przez partnera</Badge>;
+        return <Badge className="bg-yellow-100 text-yellow-800">{tf('teamContacts.eventInviteReg', 'Zaproszony przez partnera')}</Badge>;
       case 'event_registration':
-        return <Badge className="bg-purple-100 text-purple-800">Samodzielna rejestracja</Badge>;
+        return <Badge className="bg-purple-100 text-purple-800">{tf('teamContacts.eventRegistration', 'Samodzielna rejestracja')}</Badge>;
       case 'event_invite_alt_email':
-        return <Badge className="bg-orange-100 text-orange-800">Wysłano na inny email</Badge>;
+        return <Badge className="bg-orange-100 text-orange-800">{tf('teamContacts.eventInviteAltEmail', 'Wysłano na inny email')}</Badge>;
       case 'event_invite_resend':
-        return <Badge className="bg-blue-100 text-blue-800">Ponowne wysłanie</Badge>;
+        return <Badge className="bg-blue-100 text-blue-800">{tf('teamContacts.eventInviteResend', 'Ponowne wysłanie')}</Badge>;
       default:
         return <Badge variant="secondary">{changeType}</Badge>;
     }
@@ -183,7 +183,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         {eventDate && <span className="ml-2">({eventDate})</span>}
         {vals.alt_email && (
           <div className="mt-1 text-xs">
-            <span className="font-medium">Alternatywny email:</span> {vals.alt_email}
+            <span className="font-medium">{tf('teamContacts.altEmail', 'Alternatywny email')}:</span> {vals.alt_email}
           </div>
         )}
       </div>
@@ -196,7 +196,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-5 h-5" />
-            {t('teamContacts.historyTitle') || 'Historia zmian'}: {contact.first_name} {contact.last_name}
+            {tf('teamContacts.historyTitle', 'Historia zmian')}: {contact.first_name} {contact.last_name}
           </DialogTitle>
         </DialogHeader>
         
@@ -209,7 +209,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
             </div>
           ) : entries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {t('teamContacts.noHistory') || 'Brak historii zmian'}
+              {tf('teamContacts.noHistory', 'Brak historii zmian')}
             </div>
           ) : (
             <div className="space-y-4">

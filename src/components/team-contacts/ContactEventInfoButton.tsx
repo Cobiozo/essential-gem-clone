@@ -248,20 +248,19 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                     <div className="flex items-center gap-2 mt-1.5 text-xs">
                       {reg.view_stats ? (
                         <>
-                          <Eye className="w-3 h-3 text-green-600 shrink-0" />
-                          <span className="text-green-700 dark:text-green-400 font-medium">Dołączył</span>
+                          <span className="text-green-700 dark:text-green-400 font-medium">{tf('teamContacts.joined', 'Dołączył')}</span>
                           <span className="text-muted-foreground">
                             {new Date(reg.view_stats.joined_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' })}
                           </span>
                           <span className="text-muted-foreground">•</span>
                           <span className="text-muted-foreground">
-                            Oglądał: {formatDuration(reg.view_stats.watch_duration_seconds)}
+                            {tf('teamContacts.watched', 'Oglądał')}: {formatDuration(reg.view_stats.watch_duration_seconds)}
                           </span>
                         </>
                       ) : (
                         <>
                           <EyeOff className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <span className="text-muted-foreground">Nie dołączył</span>
+                          <span className="text-muted-foreground">{tf('teamContacts.notJoined', 'Nie dołączył')}</span>
                         </>
                       )}
                     </div>

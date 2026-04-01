@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, Calendar, Users, Edit, Trash2, History, RefreshCw, UserPlus, CheckCheck } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,6 +41,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   getContactHistory,
   onMoveToOwnList,
 }) => {
+  const { tf } = useLanguage();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
     return (
       <div className="text-center py-8 text-muted-foreground">
         <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p>Brak kontaktów z zaproszeń na wydarzenia</p>
+        <p>{tf('teamContacts.noEventContacts', 'Brak kontaktów z zaproszeń na wydarzenia')}</p>
       </div>
     );
   }
@@ -113,7 +115,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                     <div className="flex items-center gap-3 pl-[52px] sm:pl-0">
                       <Badge variant="secondary" className="flex items-center gap-1 whitespace-nowrap">
                         <Users className="w-3 h-3" />
-                        {group.contacts.length} {group.contacts.length === 1 ? 'gość' : group.contacts.length < 5 ? 'gości' : 'gości'}
+                        {group.contacts.length} {group.contacts.length === 1 ? tf('teamContacts.guest', 'gość') : tf('teamContacts.guests', 'gości')}
                       </Badge>
                       {isOpen ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
                     </div>
@@ -170,7 +172,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                   {(contact as any).moved_to_own_list && (
                                     <Badge variant="outline" className="text-xs border-green-300 text-green-700 dark:text-green-400 dark:border-green-700 gap-1 whitespace-nowrap">
                                       <CheckCheck className="w-3 h-3" />
-                                      W mojej liście
+                                      {tf('teamContacts.inMyList', 'W mojej liście')}
                                     </Badge>
                                   )}
                                   {dupCount && dupCount > 1 && (
@@ -257,13 +259,13 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
       <AlertDialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Usunąć kontakt?</AlertDialogTitle>
+            <AlertDialogTitle>{tf('teamContacts.deleteContact', 'Usunąć kontakt?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Ta operacja jest nieodwracalna. Kontakt zostanie trwale usunięty.
+              {tf('teamContacts.deleteConfirmation', 'Ta operacja jest nieodwracalna. Kontakt zostanie trwale usunięty.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{tf('teamContacts.cancel', 'Anuluj')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (deleteConfirm) {
@@ -272,7 +274,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                 }
               }}
             >
-              Usuń
+              {tf('teamContacts.deleted', 'Usuń')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -282,13 +284,13 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
       <AlertDialog open={!!duplicateConfirm} onOpenChange={() => setDuplicateConfirm(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Kontakt już istnieje</AlertDialogTitle>
+            <AlertDialogTitle>{tf('teamContacts.contactExists', 'Kontakt już istnieje')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Kontakt z tym samym adresem email i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?
+              {tf('teamContacts.contactExistsDesc', 'Kontakt z tym samym adresem email i numerem telefonu już istnieje w Twojej liście. Czy chcesz zapisać go jako nowy kontakt?')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{tf('teamContacts.cancel', 'Anuluj')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (duplicateConfirm && onMoveToOwnList) {
@@ -297,7 +299,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                 }
               }}
             >
-              Zapisz jako nowy
+              {tf('teamContacts.saveAsNew', 'Zapisz jako nowy')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
