@@ -10,7 +10,7 @@ import { Loader2, Play, Clock, CheckCircle, XCircle, SkipForward, RefreshCw, Ale
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 
 interface CronSettings {
   id: string;
