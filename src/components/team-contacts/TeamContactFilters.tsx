@@ -89,30 +89,30 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
 
         {/* Status */}
         <div className="space-y-2">
-          <Label className="text-xs">Status relacji</Label>
+          <Label className="text-xs">{tf('teamContacts.relationshipStatus', 'Status relacji')}</Label>
           <Select
             value={filters.status}
             onValueChange={(value) => onFiltersChange({ ...filters, status: value === 'all' ? '' : value })}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Wszystkie statusy" />
+              <SelectValue placeholder={tf('teamContacts.allStatuses', 'Wszystkie statusy')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Wszystkie statusy</SelectItem>
+              <SelectItem value="all">{tf('teamContacts.allStatuses', 'Wszystkie statusy')}</SelectItem>
               {contactType === 'private' ? (
                 <>
-                  <SelectItem value="observation">Czynny obserwujący</SelectItem>
-                  <SelectItem value="potential_client">Potencjalny klient</SelectItem>
-                  <SelectItem value="potential_partner">Potencjalny partner</SelectItem>
-                  <SelectItem value="closed_success">Zamknięty - sukces dołączył</SelectItem>
-                  <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+                  <SelectItem value="observation">{tf('teamContacts.observation', 'Czynny obserwujący')}</SelectItem>
+                  <SelectItem value="potential_client">{tf('teamContacts.potentialClient', 'Potencjalny klient')}</SelectItem>
+                  <SelectItem value="potential_partner">{tf('teamContacts.potentialPartner', 'Potencjalny partner')}</SelectItem>
+                  <SelectItem value="closed_success">{tf('teamContacts.closedSuccess', 'Zamknięty - sukces dołączył')}</SelectItem>
+                  <SelectItem value="closed_not_now">{tf('teamContacts.closedNotNow', 'Zamknięty - nie teraz')}</SelectItem>
                 </>
               ) : (
                 <>
-                  <SelectItem value="active">Aktywny</SelectItem>
-                  <SelectItem value="suspended">Wstrzymany</SelectItem>
-                  <SelectItem value="closed_success">Zamknięty - sukces</SelectItem>
-                  <SelectItem value="closed_not_now">Zamknięty - nie teraz</SelectItem>
+                  <SelectItem value="active">{tf('teamContacts.active', 'Aktywny')}</SelectItem>
+                  <SelectItem value="suspended">{tf('teamContacts.suspended', 'Wstrzymany')}</SelectItem>
+                  <SelectItem value="closed_success">{tf('teamContacts.closedSuccess', 'Zamknięty - sukces')}</SelectItem>
+                  <SelectItem value="closed_not_now">{tf('teamContacts.closedNotNow', 'Zamknięty - nie teraz')}</SelectItem>
                 </>
               )}
             </SelectContent>
