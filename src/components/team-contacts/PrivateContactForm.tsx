@@ -187,7 +187,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="phone_number">Telefon</Label>
+          <Label htmlFor="phone_number">{tf('teamContacts.phone', 'Telefon')}</Label>
           <Input
             id="phone_number"
             value={formData.phone_number}
