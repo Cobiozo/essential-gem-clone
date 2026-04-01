@@ -535,7 +535,7 @@ export const TeamContactsTab: React.FC = () => {
                     onClick={() => setShowExport(true)}
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    Eksport
+                     {tf('teamContacts.export', 'Eksport')}
                   </Button>
                 </div>
               </div>
