@@ -43,7 +43,7 @@ export const CalendarWidget: React.FC<CalendarWidgetProps> = ({
   const [detailsEvent, setDetailsEvent] = useState<EventWithRegistration | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [inviteLang, setInviteLang] = useState(language);
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
 
   // Collect meeting_room_ids from internal meeting events for overtime detection
   const internalMeetingRoomIds = useMemo(() => {
