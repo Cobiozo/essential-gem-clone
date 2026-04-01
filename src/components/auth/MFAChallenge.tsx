@@ -19,7 +19,7 @@ const AUTO_LOGOUT_THRESHOLD = 5;
 
 export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
   const { toast } = useToast();
-  const navigate = useNavigate();
+  
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
