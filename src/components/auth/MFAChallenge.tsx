@@ -344,11 +344,10 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
           {(activeMethod === 'totp' || (codeSent && !sendError)) && (
             <PinKeypad
               onComplete={(pinCode) => {
-                setCode(pinCode);
                 if (activeMethod === 'totp') {
-                  handleVerifyTotp();
+                  handleVerifyTotp(pinCode);
                 } else {
-                  handleVerifyEmail();
+                  handleVerifyEmail(pinCode);
                 }
               }}
               loading={loading}
