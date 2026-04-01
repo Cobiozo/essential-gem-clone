@@ -1,21 +1,58 @@
 
 
-# Diagnoza: Biała strona z błędami 404
+# Plan: Przydzielanie auto-webinaru per użytkownik + Fix powiadomień
 
-## Problem
-Podgląd pokazuje pustą stronę. Błędy w konsoli to:
-- **404 na plikach JS** (chunki) — stare referencje do plików, które już nie istnieją po nowym buildzie
-- Ostrzeżenia RS SDK (Google Ads, TikTok) — nieszkodliwe, nie powodują białej strony
-- Iframe sandbox warnings — standardowe, nieszkodliwe
+## 1. Przydzielanie funkcji Auto-Webinar konkretnym użytkownikom
 
-## Przyczyna
-To **nie jest błąd w kodzie**. Przejrzałem wszystkie zmienione pliki (`AutoWebinarAccessManagement.tsx`, `WebinarInviteWidget.tsx`, `NotificationPermissionBanner.tsx`, `AutoWebinarEmbed.tsx`, `EventsManagement.tsx`) — nie ma błędów składni, typów, ani importów.
+### Podejście
+Dodać nową kolumnę `can_access_auto_webinar` (boolean, default false) do tabeli `leader_permissions` i panel administracyjny w zakładce Auto-Webinary, wzorowany na istniejącym `IndividualMeetingsManagement`.
 
-Błędy 404 na chunkach oznaczają, że przeglądarka próbuje załadować pliki JS ze starego buildu, które już nie istnieją na serwerze. To typowy problem po aktualizacji — **wystarczy odświeżyć stronę** (Ctrl+Shift+R / hard reload).
+### Zmiany
 
-## Rozwiązanie
-1. **Hard refresh** podglądu (Ctrl+Shift+R lub kliknij ikonę odświeżenia w panelu podglądu)
-2. Jeśli dalej nie działa — wyczyścić cache przeglądarki dla tej strony
+**A. Migracja SQL** — dodać kolumnę:
+```sql
+ALTER TABLE leader_permissions 
+ADD COLUMN can_access_auto_webinar boolean DEFAULT false;
+```
 
-Nie ma zmian w kodzie do wykonania.
+**B. Nowy komponent `AutoWebinarAccessManagement.tsx`** (w `src/components/admin/`):
+- Lista wszystkich partnerów z wyszukiwarką (wzorowany na `IndividualMeetingsManagement`)
+- Switch do włączania/wyłączania dostępu per partner
+- Upsert do `leader_permissions` z polem `can_access_auto_webinar`
+
+**C. Integracja w `EventsManagement.tsx`**:
+- Dodać nową pod-zakładkę "Dostęp użytkowników" w sekcji Auto-Webinary (obok "Business Opportunity" i "Health Conversation")
+
+**D. Gate w `WebinarInviteWidget.tsx`**:
+- Po sprawdzeniu `feature_visibility` i `auto_webinar_config.visible_to_partners`, dodatkowo sprawdzić czy partner ma `can_access_auto_webinar === true` w `leader_permissions`
+- Jeśli brak wpisu lub `false` — widget się nie renderuje dla tego partnera
+
+**E. Aktualizacja typów** w `types.ts` — regeneracja po migracji.
+
+| Plik | Zmiana |
+|------|--------|
+| Migracja SQL | Kolumna `can_access_auto_webinar` |
+| `src/components/admin/AutoWebinarAccessManagement.tsx` | Nowy komponent — lista partnerów z switch |
+| `src/components/admin/EventsManagement.tsx` | Nowa pod-zakładka w sekcji auto-webinar |
+| `src/components/dashboard/widgets/WebinarInviteWidget.tsx` | Gate: sprawdzenie `can_access_auto_webinar` |
+
+---
+
+## 2. Fix: "Notification permission denied" w bannerze czatu
+
+### Problem
+Po kliknięciu "Włącz powiadomienia" i odrzuceniu przez przeglądarkę, baner nadal się wyświetla z błędem "Notification permission denied" zamiast się ukryć lub pokazać czytelną informację.
+
+### Przyczyna
+W `NotificationPermissionBanner.tsx` linia 34: baner ukrywa się gdy `permission === 'denied'`, ale po `subscribe()` stan `permission` w hooku aktualizuje się, a `error` jest ustawiony — komponnet renderuje się z błędem zanim warunek ukrycia zadziała (lub `permission` nie jest ustawiane na `'denied'` w pewnych przeglądarkach).
+
+### Rozwiązanie
+W `NotificationPermissionBanner.tsx`:
+- Po kliknięciu "Włącz powiadomienia" i niepowodzeniu — sprawdzić `Notification.permission` bezpośrednio
+- Jeśli `'denied'` — schować baner i pokazać toast z informacją "Powiadomienia zostały zablokowane w ustawieniach przeglądarki"
+- Dodać dodatkowy warunek ukrycia: `if (error?.includes('denied'))` → return null
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/messages/NotificationPermissionBanner.tsx` | Obsługa stanu po odmowie + czytelny komunikat |
 

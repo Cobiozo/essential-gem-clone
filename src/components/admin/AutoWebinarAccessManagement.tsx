@@ -91,18 +91,11 @@ export const AutoWebinarAccessManagement: React.FC = () => {
     }
   };
 
-  const filtered = partners
-    .filter(p => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return p.first_name?.toLowerCase().includes(q) || p.last_name?.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      if (a.can_access_auto_webinar !== b.can_access_auto_webinar) {
-        return a.can_access_auto_webinar ? -1 : 1;
-      }
-      return (a.last_name || '').localeCompare(b.last_name || '');
-    });
+  const filtered = partners.filter(p => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return p.first_name?.toLowerCase().includes(q) || p.last_name?.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
+  });
 
   if (loading) {
     return (
