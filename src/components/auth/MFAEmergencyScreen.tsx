@@ -181,21 +181,14 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
 
             {resetStep === 'verify' && (
               <>
-                <Input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="text-center text-2xl tracking-widest"
-                  autoFocus
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  onKeyDown={(e) => { if (e.key === 'Enter') verifyAndReset(); }}
+                <PinKeypad
+                  onComplete={(pinCode) => {
+                    setCode(pinCode);
+                    verifyAndReset();
+                  }}
+                  loading={verifying}
+                  submitLabel="Zweryfikuj i resetuj"
                 />
-                <Button onClick={verifyAndReset} disabled={code.length !== 6 || verifying} className="w-full">
-                  {verifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Zweryfikuj i resetuj
-                </Button>
                 <Button variant="ghost" size="sm" onClick={sendResetCode} disabled={sendingCode} className="w-full">
                   {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Wyślij kod ponownie

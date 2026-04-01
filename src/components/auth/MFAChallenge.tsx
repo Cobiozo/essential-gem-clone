@@ -353,28 +353,20 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
 
           {/* Code input */}
           {(activeMethod === 'totp' || (codeSent && !sendError)) && (
-            <>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="000000"
-                maxLength={6}
-                className="text-center text-2xl tracking-widest"
-                autoFocus
-                autoComplete="one-time-code"
-                inputMode="numeric"
-                disabled={isLockedOut}
-                onKeyDown={(e) => { if (e.key === 'Enter') handleVerify(); }}
-              />
-              <Button
-                onClick={handleVerify}
-                disabled={code.length !== 6 || loading || (activeMethod === 'totp' && !factorId) || isLockedOut}
-                className="w-full"
-              >
-                {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Weryfikuj
-              </Button>
-            </>
+            <PinKeypad
+              onComplete={(pinCode) => {
+                setCode(pinCode);
+                if (activeMethod === 'totp') {
+                  handleVerifyTotp();
+                } else {
+                  handleVerifyEmail();
+                }
+              }}
+              loading={loading}
+              disabled={isLockedOut || (activeMethod === 'totp' && !factorId)}
+              submitLabel="Weryfikuj"
+              resetKey={failedAttempts}
+            />
           )}
 
           {/* Resend for email */}
