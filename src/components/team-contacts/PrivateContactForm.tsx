@@ -378,7 +378,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="reminder_date">Data i godzina przypomnienia</Label>
+        <Label htmlFor="reminder_date">{tf('teamContacts.reminderDate', 'Data i godzina przypomnienia')}</Label>
         <div className="grid grid-cols-2 gap-2">
           <Input
             id="reminder_date"
