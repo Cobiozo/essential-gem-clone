@@ -45,6 +45,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 export const UserNotificationCenter = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
   const [preferences, setPreferences] = useState<UserNotificationPreference[]>([]);
