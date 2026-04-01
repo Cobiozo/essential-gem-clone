@@ -1383,7 +1383,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                             <Table>
                               <TableHeader>
                                 <TableRow>
-                                  <TableHead className="w-16 text-xs">Min.</TableHead>
+                                  <TableHead className="w-16 text-xs">Czas</TableHead>
                                   <TableHead className="w-28 text-xs">Autor</TableHead>
                                   <TableHead className="text-xs">Treść</TableHead>
                                  <TableHead className="w-20 text-xs"></TableHead>
