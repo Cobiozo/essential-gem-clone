@@ -181,6 +181,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
     setEditingFakeMessage(msg);
     setFakeMessageForm({
       appear_at_minute: msg.appear_at_minute,
+      appear_at_second: msg.appear_at_second || 0,
       author_name: msg.author_name,
       content: msg.content,
       phase: (msg.phase as 'welcome' | 'during' | 'ending') || 'during',
