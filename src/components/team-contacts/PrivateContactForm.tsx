@@ -335,10 +335,10 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
             <SelectValue placeholder="Wybierz wynik..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="answered">Odebrał</SelectItem>
-            <SelectItem value="no_answer">Nie odebrane</SelectItem>
-            <SelectItem value="wrong_number">Błędny numer</SelectItem>
-            <SelectItem value="out_of_range">Poza zasięgiem</SelectItem>
+             <SelectItem value="answered">{tf('teamContacts.answered', 'Odebrał')}</SelectItem>
+            <SelectItem value="no_answer">{tf('teamContacts.noAnswer', 'Nie odebrane')}</SelectItem>
+            <SelectItem value="wrong_number">{tf('teamContacts.wrongNumber', 'Błędny numer')}</SelectItem>
+            <SelectItem value="out_of_range">{tf('teamContacts.outOfRange', 'Poza zasięgiem')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
