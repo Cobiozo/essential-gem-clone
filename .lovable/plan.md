@@ -1,25 +1,26 @@
 
 
-# Dodanie przycisku "Porzuć i wyloguj" na ekranie MFA
+# Naprawa błędu: useNavigate() poza kontekstem Router
 
-## Zmiana
+## Problem
+`MFAChallenge` jest renderowany w bloku MFA gate (linia 354-361 w `App.tsx`) **bez** `<BrowserRouter>`. Dodanie `useNavigate()` w ostatniej zmianie powoduje crash: *"useNavigate() may be used only in the context of a Router component"*.
 
-Dodać mały przycisk "Porzuć i wyloguj" pod istniejącymi opcjami na ekranie weryfikacji MFA (`MFAChallenge.tsx`). Po kliknięciu:
-1. Wywołuje `supabase.auth.signOut()`
-2. Przekierowuje na `/auth`
+## Rozwiązanie
 
-Przycisk będzie zawsze widoczny (niezależnie od metody MFA), mniejszy i mniej wyrazisty niż pozostałe, z ikoną `LogOut`.
+### Opcja A (prosta, zalecana): Zamienić `useNavigate` na `window.location.href`
+
+W `MFAChallenge.tsx`:
+- Usunąć import i wywołanie `useNavigate`
+- W handlerze "Porzuć i wyloguj" użyć `window.location.href = '/auth'` zamiast `navigate('/auth', { replace: true })`
+
+To jedyna zmiana — 3 linie w jednym pliku.
+
+### Dlaczego nie opakowywać w BrowserRouter?
+MFA gate celowo blokuje dostęp do routera. Dodanie BrowserRouter tylko dla jednego przycisku to nadmierna zmiana architektury.
 
 ## Plik do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/auth/MFAChallenge.tsx` | Dodanie przycisku `variant="ghost" size="sm"` z `LogOut` ikoną tuż przed `</CardContent>`, wywołującego `signOut()` + `navigate('/auth')` |
-
-## Szczegol techniczny
-
-- Import `useNavigate` z react-router-dom i `LogOut` z lucide-react
-- Handler: `await supabase.auth.signOut(); navigate('/auth', { replace: true });`
-- Tekst: `tf('mfa.abandonAndLogout', 'Porzuć i wyloguj')` (z fallbackiem PL)
-- Styl: `text-muted-foreground hover:text-destructive`, oddzielony separatorem lub dodatkowym marginesem od przycisków powyżej
+| `src/components/auth/MFAChallenge.tsx` | Usunąć `useNavigate`, zamienić na `window.location.href = '/auth'` |
 
