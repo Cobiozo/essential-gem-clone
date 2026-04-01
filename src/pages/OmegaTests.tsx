@@ -54,6 +54,7 @@ const OmegaTests: React.FC = () => {
             <OmegaTestHistory
               tests={tests}
               onDelete={(id) => deleteTest.mutate(id)}
+              onEdit={(id, data) => updateTest.mutate({ id, ...data })}
             />
           </div>
         </div>
