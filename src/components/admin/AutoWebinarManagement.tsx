@@ -1319,7 +1319,18 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
                       className="h-8 text-xs"
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-1">
+                    <Label className="text-xs">Sek.</Label>
+                    <Input
+                      type="number"
+                      value={fakeMessageForm.appear_at_second}
+                      onChange={(e) => setFakeMessageForm(p => ({ ...p, appear_at_second: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                      min={0}
+                      max={59}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="col-span-2">
                     <Label className="text-xs">Autor</Label>
                     <Input
                       value={fakeMessageForm.author_name}
