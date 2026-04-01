@@ -41,6 +41,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   getContactHistory,
   onMoveToOwnList,
 }) => {
+  const { tf } = useLanguage();
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
