@@ -263,8 +263,8 @@ export const TeamContactsTab: React.FC = () => {
           {canAccessTree() && (
             <TabsTrigger value="structure" className="flex items-center gap-2">
               <TreePine className="w-4 h-4" />
-              <span className="hidden sm:inline">Struktura</span>
-              <span className="sm:hidden">Struktura</span>
+              <span className="hidden sm:inline">{tf('teamContacts.structure', 'Struktura')}</span>
+              <span className="sm:hidden">{tf('teamContacts.structure', 'Struktura')}</span>
             </TabsTrigger>
           )}
         </TabsList>
