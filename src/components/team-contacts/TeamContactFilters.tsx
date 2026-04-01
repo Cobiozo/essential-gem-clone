@@ -121,7 +121,7 @@ export const TeamContactFilters: React.FC<TeamContactFiltersProps> = ({
 
         {/* Date Range */}
         <div className="space-y-2">
-          <Label className="text-xs">Zakres dat</Label>
+          <Label className="text-xs">{tf('teamContacts.dateRange', 'Zakres dat')}</Label>
           <div className="flex gap-2">
             <Input
               type="date"

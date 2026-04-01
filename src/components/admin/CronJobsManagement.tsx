@@ -75,7 +75,7 @@ const formatInterval = (minutes: number): string => {
 
 export const CronJobsManagement: React.FC = () => {
   const { language } = useLanguage();
-  const dateLocale = language === 'pl' ? pl : enUS;
+  const dateLocale = getAppDateLocale(language);
   
   const [settings, setSettings] = useState<CronSettings | null>(null);
   const [logs, setLogs] = useState<CronJobLog[]>([]);

@@ -37,7 +37,7 @@ export const EventDetailsDialog: React.FC<EventDetailsDialogProps> = ({
   activeRoomIds,
 }) => {
   const { language } = useLanguage();
-  const locale = language === 'pl' ? pl : enUS;
+  const locale = getAppDateLocale(language);
   const navigate = useNavigate();
   const [dynamicZoomLink, setDynamicZoomLink] = useState<string | null>(null);
 
