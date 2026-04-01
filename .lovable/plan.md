@@ -1,31 +1,37 @@
 
 
-# Dodanie edycji testów Omega w historii
+# Dwie poprawki: nick na czacie + weryfikacja e-maili po webinarze
 
-## Zmiana
+## 1. Czat: zamiana "Ty" na prawdziwe imię gościa
 
-Obok ikony kosza w historii transformacji dodać przycisk edycji (ołówek). Po kliknięciu — wpis rozwija się w formularz inline z wypełnionymi aktualnymi wartościami, umożliwiając ich poprawienie i zapisanie.
+### Problem
+W `AutoWebinarEmbed.tsx` linia 447: `guestName={null}` — zawsze przekazuje null do komponentu czatu. W efekcie w `AutoWebinarFakeChat.tsx` linia 91: `sendMessage(text, guestName || 'Ty')` zawsze używa fallbacku "Ty".
 
-## Plan
+### Rozwiązanie
+W `AutoWebinarEmbed.tsx` — przy resolwowaniu `guestRegistrationId` (linia 112-126) już wykonywany jest query do `guest_event_registrations`. Wystarczy rozszerzyć `.select('id')` o `first_name, last_name` i zapisać wynik w nowym stanie `guestName`.
 
-### 1. Hook `useOmegaTests` — dodać mutację `updateTest`
-Nowa mutacja `updateTest` przyjmuje `{ id: string } & OmegaTestInput`, wywołuje `supabase.from('omega_tests').update({...}).eq('id', id)`, invaliduje cache i pokazuje toast "Zaktualizowano wynik testu".
-
-### 2. `OmegaTestHistory` — tryb edycji inline
-- Dodać stan `editingId: string | null` i `editData: OmegaTestInput`
-- Obok `Trash2` dodać przycisk z ikoną `Pencil` (lucide-react)
-- Kliknięcie ustawia `editingId` na dany test i wypełnia `editData` wartościami z testu
-- Gdy `editingId === test.id` — zamiast statycznego widoku renderować pola `Input` (date, ratio, index, AA, EPA, DHA, LA, notes) z przyciskami Zapisz/Anuluj
-- Props: dodać `onEdit?: (id: string, data: OmegaTestInput) => void`
-
-### 3. `OmegaTests.tsx` (strona) — podłączyć `updateTest`
-Przekazać `onEdit={(id, data) => updateTest.mutate({ id, ...data })}` do `OmegaTestHistory`.
-
-## Pliki do edycji
+Następnie:
+- Sformatować nick jako `"Imię P."` (imię + pierwsza litera nazwiska z kropką), np. "Anna K." — identycznie jak fikcyjne komentarze
+- Przekazać ten nick do `<AutoWebinarFakeChat guestName={guestName}>` zamiast `null`
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useOmegaTests.ts` | Dodać mutację `updateTest` |
-| `src/components/omega-tests/OmegaTestHistory.tsx` | Ikona edycji + inline formularz edycji |
-| `src/pages/OmegaTests.tsx` | Przekazać `onEdit` prop |
+| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Dodać stan `guestName`, rozszerzyć query o `first_name, last_name`, sformatować jako "Imię P.", przekazać do `AutoWebinarFakeChat` |
+
+Komponent `AutoWebinarFakeChat.tsx` i hook `useAutoWebinarFakeChat.ts` **nie wymagają zmian** — już poprawnie używają `guestName` gdy jest podane.
+
+---
+
+## 2. E-maile po auto-webinarze — weryfikacja
+
+### Wynik analizy: system działa poprawnie
+
+Po przeanalizowaniu kodu potwierdzam, że e-maile po zakończeniu auto-webinaru **są wysyłane prawidłowo**:
+
+- **Trigger**: `process-pending-notifications` (CRON co 5 min) szuka wydarzeń zakończonych w ciągu ostatnich 2h
+- **Logika obecności**: Sprawdza `auto_webinar_views` — jeśli `watch_duration_seconds > 0` → email "thank_you", jeśli 0 lub brak → email "missed_event"
+- **Dane kontaktowe opiekuna**: Funkcja `send-post-event-thank-you` pobiera `inviter_user_id` z rejestracji gościa, następnie ładuje profil opiekuna (imię, nazwisko, email, telefon) i umieszcza te dane w dedykowanej sekcji e-maila z nagłówkiem "Twoja osoba kontaktowa"
+- **Filtrowanie**: Tylko goście (`guest_event_registrations`), nigdy partnerzy/admini. Flaga `thank_you_sent` zapobiega duplikatom.
+
+Nie są potrzebne żadne zmiany w systemie e-maili.
 
