@@ -31,6 +31,7 @@ export const ConversationList = ({
   getThreadDisplayName,
 }: ConversationListProps) => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [statusFilter, setStatusFilter] = useState<'active' | 'closed' | 'archived'>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
