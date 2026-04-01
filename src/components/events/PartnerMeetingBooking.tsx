@@ -703,7 +703,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       // Send email notifications
       const emailTopic = meetingSettings?.title || (meetingType === 'tripartite' ? 'Spotkanie trójstronne' : 'Konsultacje partnerskie');
-      const emailDate = format(selectedDate!, 'dd.MM.yyyy', { locale: pl });
+      const emailDate = format(selectedDate!, 'dd.MM.yyyy', { locale: getAppDateLocale(language) });
       const emailTime = selectedSlot!.time;
 
       // Get current user's profile for email
