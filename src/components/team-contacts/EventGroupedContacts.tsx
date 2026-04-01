@@ -290,7 +290,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Anuluj</AlertDialogCancel>
+            <AlertDialogCancel>{tf('teamContacts.cancel', 'Anuluj')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (duplicateConfirm && onMoveToOwnList) {
