@@ -328,7 +328,7 @@ const WebinarInviteWidget: React.FC = () => {
 
   const canSee = (cfg: typeof boConfig) => {
     if (!cfg?.is_enabled) return false;
-    if (isAdmin) return true;
+    if (isAdmin || hasAutoWebinarAccess) return true;
     return (isPartner && cfg.visible_to_partners) ||
            (isSpecjalista && cfg.visible_to_specjalista) ||
            (isClient && cfg.visible_to_clients);
