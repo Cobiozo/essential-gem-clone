@@ -209,7 +209,7 @@ export const TeamContactHistoryDialog: React.FC<TeamContactHistoryDialogProps> =
             </div>
           ) : entries.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              {t('teamContacts.noHistory') || 'Brak historii zmian'}
+              {tf('teamContacts.noHistory', 'Brak historii zmian')}
             </div>
           ) : (
             <div className="space-y-4">
