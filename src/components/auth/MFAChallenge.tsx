@@ -399,6 +399,22 @@ export const MFAChallenge: React.FC<MFAChallengeProps> = ({ onVerified }) => {
               Nie mam dostępu do Authenticatora
             </Button>
           )}
+
+          {/* Abandon and logout */}
+          <div className="pt-2 mt-2 border-t border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                navigate('/auth', { replace: true });
+              }}
+              className="w-full text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="w-4 h-4 mr-1" />
+              Porzuć i wyloguj
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
