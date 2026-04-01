@@ -91,7 +91,7 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   const [fakeParticipantsMax, setFakeParticipantsMax] = useState(120);
   const [fakeChatEnabled, setFakeChatEnabled] = useState(true);
   const [fakeMessages, setFakeMessages] = useState<AutoWebinarFakeMessage[]>([]);
-  const [fakeMessageForm, setFakeMessageForm] = useState({ appear_at_minute: 0, author_name: '', content: '', phase: 'during' as 'welcome' | 'during' | 'ending' });
+  const [fakeMessageForm, setFakeMessageForm] = useState({ appear_at_minute: 0, appear_at_second: 0, author_name: '', content: '', phase: 'during' as 'welcome' | 'during' | 'ending' });
   const [editingFakeMessage, setEditingFakeMessage] = useState<AutoWebinarFakeMessage | null>(null);
 
   useEffect(() => {
