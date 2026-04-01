@@ -256,8 +256,8 @@ export const TeamContactsTab: React.FC = () => {
           {canSearchSpecialists && (
             <TabsTrigger value="search" className="flex items-center gap-2">
               <Search className="w-4 h-4" />
-              <span className="hidden sm:inline">Szukaj specjalisty</span>
-              <span className="sm:hidden">Szukaj</span>
+              <span className="hidden sm:inline">{tf('teamContacts.searchSpecialist', 'Szukaj specjalisty')}</span>
+              <span className="sm:hidden">{tf('teamContacts.search', 'Szukaj')}</span>
             </TabsTrigger>
           )}
           {canAccessTree() && (
