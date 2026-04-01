@@ -7,7 +7,7 @@ import { Widget3DIcon } from './Widget3DIcon';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { WidgetInfoButton } from '../WidgetInfoButton';
 
 export const NotificationsWidget: React.FC = () => {
