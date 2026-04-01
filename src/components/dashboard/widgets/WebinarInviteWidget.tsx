@@ -311,7 +311,7 @@ const WebinarInviteWidget: React.FC = () => {
   // Check per-user auto-webinar access for non-admin users
   useEffect(() => {
     if (isAdmin) { setHasAutoWebinarAccess(true); return; }
-    if (!user?.id || !isPartner) { setHasAutoWebinarAccess(false); return; }
+    if (!user?.id || (!isPartner && !isSpecjalista)) { setHasAutoWebinarAccess(false); return; }
     const checkAccess = async () => {
       const { data } = await supabase
         .from('leader_permissions')
@@ -321,7 +321,7 @@ const WebinarInviteWidget: React.FC = () => {
       setHasAutoWebinarAccess((data as any)?.can_access_auto_webinar === true);
     };
     checkAccess();
-  }, [user?.id, isAdmin, isPartner]);
+  }, [user?.id, isAdmin, isPartner, isSpecjalista]);
 
   if (masterVisible !== true) return null;
   if (hasAutoWebinarAccess !== true) return null;
