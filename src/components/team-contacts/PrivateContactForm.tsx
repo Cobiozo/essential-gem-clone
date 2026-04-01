@@ -227,7 +227,7 @@ export const PrivateContactForm: React.FC<PrivateContactFormProps> = ({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="relationship_status">Status relacji</Label>
+          <Label htmlFor="relationship_status">{tf('teamContacts.relationshipStatus', 'Status relacji')}</Label>
           <Select
             value={formData.relationship_status || 'observation'}
             onValueChange={(value) => setFormData({ ...formData, relationship_status: value as TeamContact['relationship_status'] })}
