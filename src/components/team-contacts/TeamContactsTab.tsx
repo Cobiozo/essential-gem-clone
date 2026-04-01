@@ -527,7 +527,7 @@ export const TeamContactsTab: React.FC = () => {
                     onClick={() => setShowFilters(!showFilters)}
                   >
                     <Filter className="w-4 h-4 mr-2" />
-                    Filtry
+                     {tf('teamContacts.filters', 'Filtry')}
                   </Button>
                   <Button
                     variant="outline"
