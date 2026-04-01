@@ -851,8 +851,8 @@ export const TeamContactsTab: React.FC = () => {
             </DialogTitle>
             <DialogDescription>
               {editingContact?.contact_type === 'team_member' 
-                ? 'Dane członka zespołu są synchronizowane z profilem użytkownika'
-                : 'Zaktualizuj dane kontaktu'
+                ? tf('teamContacts.teamMemberSynced', 'Dane członka zespołu są synchronizowane z profilem użytkownika')
+                : tf('teamContacts.updateContactData', 'Zaktualizuj dane kontaktu')
               }
             </DialogDescription>
           </DialogHeader>
