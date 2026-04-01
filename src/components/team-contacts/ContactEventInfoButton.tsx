@@ -231,7 +231,7 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
                       <div className="min-w-0">
                         <p className="font-medium truncate">{reg.event_title}</p>
                         <p className="text-xs text-muted-foreground">
-                          {reg.event_date ? new Date(reg.event_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                          {reg.event_date ? new Date(reg.event_date).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Warsaw' }) : '-'}
                         </p>
                       </div>
                       {getStatusBadge(reg.status)}
