@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format, isPast, isFuture } from 'date-fns';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { useFormProtection } from '@/hooks/useFormProtection';
 import { 
   Copy, 
