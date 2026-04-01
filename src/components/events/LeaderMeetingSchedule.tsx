@@ -11,7 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Loader2, Users, User, Video, Calendar, Clock, XCircle, CheckCircle, Mail } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface MeetingEvent {
@@ -46,6 +47,7 @@ const parseDescription = (desc: string | null): Record<string, string> => {
 
 export const LeaderMeetingSchedule: React.FC = () => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState<MeetingEvent[]>([]);
 
@@ -154,7 +156,7 @@ export const LeaderMeetingSchedule: React.FC = () => {
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              {format(parseISO(dateKey), 'EEEE, d MMMM yyyy', { locale: pl })}
+              {format(parseISO(dateKey), 'EEEE, d MMMM yyyy', { locale: getAppDateLocale(language) })}
               <Badge variant="secondary" className="ml-auto">{grouped[dateKey].length}</Badge>
             </CardTitle>
           </CardHeader>

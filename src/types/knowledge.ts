@@ -34,7 +34,7 @@ export interface KnowledgeResource {
   allow_click_redirect: boolean;
   click_redirect_url: string | null;
   // Language support
-  language_code: string | null; // 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt' or null (all languages)
+  language_code: string | null; // 'pl', 'en', 'de', 'it', 'es', 'fr', 'pt', 'no' or null (all languages)
   // Team/leader ownership
   created_by: string | null;
 }
@@ -48,7 +48,8 @@ export const LANGUAGE_OPTIONS = [
   { code: 'it', label: '🇮🇹 Italiano', flag: '🇮🇹' },
   { code: 'es', label: '🇪🇸 Español', flag: '🇪🇸' },
   { code: 'fr', label: '🇫🇷 Français', flag: '🇫🇷' },
-  { code: 'pt', label: '🇵🇹 Português', flag: '🇵🇹' }
+  { code: 'pt', label: '🇵🇹 Português', flag: '🇵🇹' },
+  { code: 'no', label: '🇳🇴 Norsk', flag: '🇳🇴' }
 ] as const;
 
 export const getLanguageLabel = (code: string | null): string => {

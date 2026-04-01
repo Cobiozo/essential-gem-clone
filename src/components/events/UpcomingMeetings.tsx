@@ -16,7 +16,8 @@ import {
   XCircle, FileText, Phone, Target, MessageSquare, Mail 
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface UpcomingMeeting {
   id: string;
@@ -42,6 +43,7 @@ interface ProspectData {
 
 export const UpcomingMeetings: React.FC = () => {
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { toast } = useToast();
   const [meetings, setMeetings] = useState<UpcomingMeeting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,7 +209,7 @@ export const UpcomingMeetings: React.FC = () => {
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-3.5 w-3.5" />
-                      {format(new Date(meeting.start_time), 'EEEE, d MMM yyyy', { locale: pl })}
+                      {format(new Date(meeting.start_time), 'EEEE, d MMM yyyy', { locale: getAppDateLocale(language) })}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3.5 w-3.5" />

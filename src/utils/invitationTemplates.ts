@@ -1,4 +1,4 @@
-import { pl, enUS, de } from 'date-fns/locale';
+import { pl, enUS, de, nb } from 'date-fns/locale';
 import type { Locale } from 'date-fns';
 
 export interface InvitationLabels {
@@ -72,6 +72,23 @@ const templates: Record<string, InvitationLabels> = {
     hkAfterFirstUse: 'Nach der ersten Nutzung hast du {hours} Stunden Zugang.',
     hkRegards: 'Mit freundlichen Grüßen',
   },
+  no: {
+    webinarInvitation: 'Invitasjon til webinar',
+    meetingInvitation: 'Invitasjon til møte',
+    date: 'Dato',
+    time: 'Tid',
+    host: 'Vert',
+    signUp: 'Meld deg på her',
+    copied: 'Kopiert!',
+    invitationCopied: 'Invitasjonen er kopiert til utklippstavlen',
+    hkGreeting: 'Hei!',
+    hkIntro: 'Jeg har et interessant materiale til deg:',
+    hkInstructions: 'Gå til lenken nedenfor og bruk tilgangskoden:',
+    hkLink: 'Lenke',
+    hkAccessCode: 'Tilgangskode',
+    hkAfterFirstUse: 'Etter første bruk har du {hours} timers tilgang.',
+    hkRegards: 'Med vennlig hilsen',
+  },
 };
 
 export function getInvitationLabels(lang: string): InvitationLabels {
@@ -82,6 +99,7 @@ export function getDateLocale(lang: string): Locale {
   switch (lang) {
     case 'en': return enUS;
     case 'de': return de;
+    case 'no': return nb;
     default: return pl;
   }
 }
@@ -285,6 +303,55 @@ const registrationTemplates: Record<string, RegistrationLabels> = {
     placeholderPhone: '+49 151 1234 5678',
     emailConsent: 'Ich stimme dem Erhalt von E-Mail-Nachrichten mit Informationen zu dieser Veranstaltung, einschließlich des Meeting-Links, zu. Ihre Daten sind geschützt. Sie können Ihre Einwilligung widerrufen, indem Sie sich an support@purelife.info.pl wenden.',
     emailConsentRequired: 'Sie müssen zustimmen, um die Registrierung fortzusetzen',
+  },
+  no: {
+    formTitle: 'Meld deg på webinar',
+    emailLabel: 'E-post',
+    confirmEmailLabel: 'Bekreft e-post',
+    emailsMismatch: 'E-postadressene stemmer ikke overens',
+    emailsMatch: 'E-postadressene stemmer overens',
+    firstNameLabel: 'Fornavn',
+    lastNameLabel: 'Etternavn',
+    phoneLabel: 'Telefon',
+    phoneError: 'Telefonnummer er påkrevd',
+    submitButton: 'Meld deg på webinar',
+    submitting: 'Registrerer...',
+    consent: 'Ved å registrere deg samtykker du til behandling av personopplysninger for å organisere webinaret.',
+    successTitle: 'Registrering fullført!',
+    successMessage: 'Takk for at du meldte deg på webinaret. Vi har sendt en bekreftelse til e-postadressen din.',
+    alreadyRegisteredTitle: 'Du er allerede registrert!',
+    alreadyRegisteredMsg1: 'Denne e-postadressen er allerede på gjestelisten for dette arrangementet.',
+    alreadyRegisteredMsg2: 'Sjekk innboksen din (inkludert SPAM/Tilbud-mappen).',
+    alreadyRegisteredMsg3: 'Hvis du ikke finner meldingen, kontakt personen som inviterte deg umiddelbart.',
+    eventFinished: 'Dette webinaret har allerede funnet sted.',
+    registrationClosed: 'Registreringen er stengt',
+    registrationClosedDetail: 'Registrering var mulig til kl. {time}. Arrangementet pågår nå. Vennligst registrer deg før arrangementet starter neste gang.',
+    host: 'Vert',
+    webinarBadge: 'Webinar',
+    onlineWebinar: 'Nettbasert webinar',
+    emailError: 'Vennligst oppgi en gyldig e-postadresse',
+    emailDomainError: 'Vennligst oppgi en e-post med et gyldig domene (f.eks. gmail.com)',
+    nameError: 'Fornavnet må ha minst 2 tegn',
+    phoneFormatError: 'Vennligst oppgi et gyldig telefonnummer (minst 9 sifre)',
+    notFound: 'Arrangement ikke funnet eller inaktivt.',
+    registrationError: 'Det oppstod en feil under registreringen',
+    footer: '© {year} Pure Life. Alle rettigheter forbeholdt.',
+    roomOpens5min: 'Rommet åpner 5 minutter før planlagt start.',
+    roomOpensOnTime: 'Rommet åpner til planlagt tid.',
+    checkEmail: 'Sjekk e-posten din — vi har sendt deg en lenke for å bli med umiddelbart! 🔴',
+    nextWebinar: 'Neste webinar: {date} kl. {time}. {accessNote}',
+    reminderNote24: 'Du vil motta påminnelser: 24 timer, 12 timer, 2 timer, 1 time og 15 minutter før webinaret med en møtelenke.',
+    reminderNote12: 'Du vil motta påminnelser: 12 timer, 2 timer, 1 time og 15 minutter før webinaret med en møtelenke.',
+    reminderNote2: 'Du vil motta påminnelser: 2 timer, 1 time og 15 minutter før webinaret med en møtelenke.',
+    reminderNote1: 'Du vil motta påminnelser: 1 time og 15 minutter før webinaret med en møtelenke.',
+    reminderNote15min: 'Du vil motta en påminnelse 15 minutter før webinaret med en møtelenke.',
+    thanksForRegistration: 'Takk for registreringen!',
+    placeholderEmail: 'ola@example.com',
+    placeholderFirstName: 'Ola',
+    placeholderLastName: 'Nordmann',
+    placeholderPhone: '+47 123 45 678',
+    emailConsent: 'Jeg samtykker til å motta e-postmeldinger med informasjon om dette arrangementet, inkludert møtelenken. Dataene dine er beskyttet. Du kan trekke tilbake samtykket ved å kontakte support@purelife.info.pl.',
+    emailConsentRequired: 'Du må gi samtykke for å fortsette registreringen',
   },
 };
 

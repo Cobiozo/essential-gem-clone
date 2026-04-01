@@ -164,6 +164,7 @@ Deno.serve(async (req) => {
       pl: `Cześć!\n\nMam dla Ciebie ciekawy materiał:\n"{title}"\n\n{description}\n\nWejdź na link poniżej i użyj kodu dostępu:\n\n🔗 Link:\n{share_url}\n\n🔑 Kod dostępu:\n{otp_code}\n\n⏰ Po pierwszym użyciu masz {validity_hours} godzin dostępu.\n\nPozdrawiam,\n{partner_name}`,
       en: `Hi!\n\nI have an interesting material for you:\n"{title}"\n\n{description}\n\nGo to the link below and use the access code:\n\n🔗 Link:\n{share_url}\n\n🔑 Access code:\n{otp_code}\n\n⏰ After first use you have {validity_hours} hours of access.\n\nBest regards,\n{partner_name}`,
       de: `Hallo!\n\nIch habe ein interessantes Material für dich:\n"{title}"\n\n{description}\n\nGehe zum Link unten und verwende den Zugangscode:\n\n🔗 Link:\n{share_url}\n\n🔑 Zugangscode:\n{otp_code}\n\n⏰ Nach der ersten Nutzung hast du {validity_hours} Stunden Zugang.\n\nMit freundlichen Grüßen,\n{partner_name}`,
+      no: `Hei!\n\nJeg har et interessant materiale til deg:\n"{title}"\n\n{description}\n\nGå til lenken nedenfor og bruk tilgangskoden:\n\n🔗 Lenke:\n{share_url}\n\n🔑 Tilgangskode:\n{otp_code}\n\n⏰ Etter første bruk har du {validity_hours} timers tilgang.\n\nMed vennlig hilsen,\n{partner_name}`,
     };
 
     // Use custom template if set, otherwise use language-appropriate template

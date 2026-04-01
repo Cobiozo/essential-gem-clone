@@ -11,7 +11,8 @@ import { toast } from 'sonner';
 import { Heart, Search, Copy, Trash2, Loader2, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { HkOtpCode } from '@/types/healthyKnowledge';
 import { formatDistanceToNow, format, isPast } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Live countdown component - starts from first use, not generation
 const LiveCountdown: React.FC<{ expiresAt: string; firstUsedAt: string | null; validityHours?: number }> = ({ 
@@ -79,6 +80,7 @@ const LiveCountdown: React.FC<{ expiresAt: string; firstUsedAt: string | null; v
 
 const MyHkCodesHistory: React.FC = () => {
   const { user, isPartner, isAdmin } = useAuth();
+  const { language } = useLanguage();
   const [codes, setCodes] = useState<HkOtpCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -369,7 +371,7 @@ const MyHkCodesHistory: React.FC = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
-                          {format(new Date(code.expires_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
+                          {format(new Date(code.expires_at), 'dd.MM.yyyy HH:mm', { locale: getAppDateLocale(language) })}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button variant="ghost" size="icon" onClick={() => handleSoftDelete(code)} title="Usuń z historii" className="text-destructive hover:text-destructive">

@@ -7,7 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   contact_added: UserPlus,
@@ -22,6 +23,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export const NotificationBellEnhanced = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   
   // Enable realtime only when popover is open to reduce unnecessary subscriptions
@@ -103,7 +105,7 @@ export const NotificationBellEnhanced = () => {
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {formatDistanceToNow(new Date(notification.created_at), { 
                           addSuffix: true, 
-                          locale: pl 
+                          locale: getAppDateLocale(language) 
                         })}
                       </p>
                     </div>

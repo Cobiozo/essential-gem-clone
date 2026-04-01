@@ -13,7 +13,7 @@ import { HealthyKnowledge, TestimonialComment } from '@/types/healthyKnowledge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 
 interface TestimonialPreviewDialogProps {
   material: HealthyKnowledge | null;
@@ -26,7 +26,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
   open,
   onOpenChange,
 }) => {
-  const { tf } = useLanguage();
+  const { tf, language } = useLanguage();
   const { user } = useAuth();
   const [api, setApi] = useState<CarouselApi>();
   const [current, setCurrent] = useState(0);
@@ -287,7 +287,7 @@ export const TestimonialPreviewDialog: React.FC<TestimonialPreviewDialogProps> =
                               </span>
                             )}
                             <span className="text-[10px] text-muted-foreground">
-                              {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: pl })}
+                              {formatDistanceToNow(new Date(c.created_at), { addSuffix: true, locale: getAppDateLocale(language) })}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mt-1 leading-relaxed">

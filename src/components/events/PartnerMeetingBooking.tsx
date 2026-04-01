@@ -27,7 +27,8 @@ import {
 } from 'lucide-react';
 import { format, addMinutes, parse, addDays, getDay, startOfDay, isAfter, isBefore } from 'date-fns';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import type { PartnerWithAvailability } from '@/types/events';
 
@@ -55,6 +56,7 @@ type BookingStep = 'select-partner' | 'select-datetime' | 'confirm';
 export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ meetingType }) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { language } = useLanguage();
 
   const [step, setStep] = useState<BookingStep>('select-partner');
   const [loading, setLoading] = useState(true);
@@ -701,7 +703,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
       // Send email notifications
       const emailTopic = meetingSettings?.title || (meetingType === 'tripartite' ? 'Spotkanie trójstronne' : 'Konsultacje partnerskie');
-      const emailDate = format(selectedDate!, 'dd.MM.yyyy', { locale: pl });
+      const emailDate = format(selectedDate!, 'dd.MM.yyyy', { locale: getAppDateLocale(language) });
       const emailTime = selectedSlot!.time;
 
       // Get current user's profile for email
@@ -995,7 +997,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 disabled={(date) => !isDateAvailable(date)}
-                locale={pl}
+                locale={getAppDateLocale(language)}
                 className="rounded-md border"
                 classNames={{
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary/90 focus:bg-primary font-bold",
@@ -1023,7 +1025,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
               ) : (
                 <div className="space-y-2">
                   <p className="text-sm font-medium mb-3">
-                    {format(selectedDate, 'd MMMM yyyy', { locale: pl })}
+                    {format(selectedDate, 'd MMMM yyyy', { locale: getAppDateLocale(language) })}
                   </p>
                   <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
                     {availableSlots.map((slot, index) => (
@@ -1098,7 +1100,7 @@ export const PartnerMeetingBooking: React.FC<PartnerMeetingBookingProps> = ({ me
 
             <div className="flex items-center gap-2 text-sm">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span>{format(new Date(selectedSlot.date), 'd MMMM yyyy', { locale: pl })}</span>
+              <span>{format(new Date(selectedSlot.date), 'd MMMM yyyy', { locale: getAppDateLocale(language) })}</span>
             </div>
 
             <div className="flex items-center gap-2 text-sm">

@@ -70,6 +70,7 @@ export const NotificationTemplatesPanel: React.FC<NotificationTemplatesPanelProp
     { code: 'en', name: 'English' },
     { code: 'de', name: 'Deutsch' },
     { code: 'uk', name: 'Українська' },
+    { code: 'no', name: 'Norsk' },
   ];
 
   return (

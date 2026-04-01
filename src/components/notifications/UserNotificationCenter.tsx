@@ -26,7 +26,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import type { NotificationEventType, UserNotificationPreference } from '@/types/notifications';
 import { MODULE_NAMES } from '@/types/notifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Bell,
@@ -44,6 +45,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
 export const UserNotificationCenter = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useLanguage();
   const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const [eventTypes, setEventTypes] = useState<NotificationEventType[]>([]);
   const [preferences, setPreferences] = useState<UserNotificationPreference[]>([]);
@@ -208,7 +210,7 @@ export const UserNotificationCenter = () => {
                               <span className="text-xs text-muted-foreground">
                                 {formatDistanceToNow(new Date(notification.created_at), { 
                                   addSuffix: true, 
-                                  locale: pl 
+                                  locale: getAppDateLocale(language) 
                                 })}
                               </span>
                             </div>

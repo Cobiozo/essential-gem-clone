@@ -10,11 +10,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, Check, CheckCheck, HandHelping, MessageSquare, Info, BookOpen } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
-import { pl } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
 export const NotificationBell: React.FC = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   
   // Enable realtime only when popover is open to reduce server load
@@ -107,7 +109,7 @@ export const NotificationBell: React.FC = () => {
                       <p className="text-xs text-muted-foreground mt-1">
                         {formatDistanceToNow(new Date(notification.created_at), {
                           addSuffix: true,
-                          locale: pl,
+                          locale: getAppDateLocale(language),
                         })}
                       </p>
                     </div>
