@@ -244,8 +244,8 @@ export const TeamContactsTab: React.FC = () => {
           {!clientOnlyView && (
             <TabsTrigger value="team" className="flex items-center gap-2 relative">
               <UsersRound className="w-4 h-4" />
-              <span className="hidden sm:inline">Członkowie zespołu</span>
-              <span className="sm:hidden">Zespół</span>
+              <span className="hidden sm:inline">{tf('teamContacts.teamMembers', 'Członkowie zespołu')}</span>
+              <span className="sm:hidden">{tf('teamContacts.teamMembers', 'Zespół')}</span>
               {pendingApprovals.length > 0 && (
                 <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-xs">
                   {pendingApprovals.length}
