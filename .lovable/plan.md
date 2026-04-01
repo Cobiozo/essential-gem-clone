@@ -1,37 +1,58 @@
 
 
-# Dwie poprawki: nick na czacie + weryfikacja e-maili po webinarze
+# Plan: Przydzielanie auto-webinaru per użytkownik + Fix powiadomień
 
-## 1. Czat: zamiana "Ty" na prawdziwe imię gościa
+## 1. Przydzielanie funkcji Auto-Webinar konkretnym użytkownikom
 
-### Problem
-W `AutoWebinarEmbed.tsx` linia 447: `guestName={null}` — zawsze przekazuje null do komponentu czatu. W efekcie w `AutoWebinarFakeChat.tsx` linia 91: `sendMessage(text, guestName || 'Ty')` zawsze używa fallbacku "Ty".
+### Podejście
+Dodać nową kolumnę `can_access_auto_webinar` (boolean, default false) do tabeli `leader_permissions` i panel administracyjny w zakładce Auto-Webinary, wzorowany na istniejącym `IndividualMeetingsManagement`.
 
-### Rozwiązanie
-W `AutoWebinarEmbed.tsx` — przy resolwowaniu `guestRegistrationId` (linia 112-126) już wykonywany jest query do `guest_event_registrations`. Wystarczy rozszerzyć `.select('id')` o `first_name, last_name` i zapisać wynik w nowym stanie `guestName`.
+### Zmiany
 
-Następnie:
-- Sformatować nick jako `"Imię P."` (imię + pierwsza litera nazwiska z kropką), np. "Anna K." — identycznie jak fikcyjne komentarze
-- Przekazać ten nick do `<AutoWebinarFakeChat guestName={guestName}>` zamiast `null`
+**A. Migracja SQL** — dodać kolumnę:
+```sql
+ALTER TABLE leader_permissions 
+ADD COLUMN can_access_auto_webinar boolean DEFAULT false;
+```
+
+**B. Nowy komponent `AutoWebinarAccessManagement.tsx`** (w `src/components/admin/`):
+- Lista wszystkich partnerów z wyszukiwarką (wzorowany na `IndividualMeetingsManagement`)
+- Switch do włączania/wyłączania dostępu per partner
+- Upsert do `leader_permissions` z polem `can_access_auto_webinar`
+
+**C. Integracja w `EventsManagement.tsx`**:
+- Dodać nową pod-zakładkę "Dostęp użytkowników" w sekcji Auto-Webinary (obok "Business Opportunity" i "Health Conversation")
+
+**D. Gate w `WebinarInviteWidget.tsx`**:
+- Po sprawdzeniu `feature_visibility` i `auto_webinar_config.visible_to_partners`, dodatkowo sprawdzić czy partner ma `can_access_auto_webinar === true` w `leader_permissions`
+- Jeśli brak wpisu lub `false` — widget się nie renderuje dla tego partnera
+
+**E. Aktualizacja typów** w `types.ts` — regeneracja po migracji.
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Dodać stan `guestName`, rozszerzyć query o `first_name, last_name`, sformatować jako "Imię P.", przekazać do `AutoWebinarFakeChat` |
-
-Komponent `AutoWebinarFakeChat.tsx` i hook `useAutoWebinarFakeChat.ts` **nie wymagają zmian** — już poprawnie używają `guestName` gdy jest podane.
+| Migracja SQL | Kolumna `can_access_auto_webinar` |
+| `src/components/admin/AutoWebinarAccessManagement.tsx` | Nowy komponent — lista partnerów z switch |
+| `src/components/admin/EventsManagement.tsx` | Nowa pod-zakładka w sekcji auto-webinar |
+| `src/components/dashboard/widgets/WebinarInviteWidget.tsx` | Gate: sprawdzenie `can_access_auto_webinar` |
 
 ---
 
-## 2. E-maile po auto-webinarze — weryfikacja
+## 2. Fix: "Notification permission denied" w bannerze czatu
 
-### Wynik analizy: system działa poprawnie
+### Problem
+Po kliknięciu "Włącz powiadomienia" i odrzuceniu przez przeglądarkę, baner nadal się wyświetla z błędem "Notification permission denied" zamiast się ukryć lub pokazać czytelną informację.
 
-Po przeanalizowaniu kodu potwierdzam, że e-maile po zakończeniu auto-webinaru **są wysyłane prawidłowo**:
+### Przyczyna
+W `NotificationPermissionBanner.tsx` linia 34: baner ukrywa się gdy `permission === 'denied'`, ale po `subscribe()` stan `permission` w hooku aktualizuje się, a `error` jest ustawiony — komponnet renderuje się z błędem zanim warunek ukrycia zadziała (lub `permission` nie jest ustawiane na `'denied'` w pewnych przeglądarkach).
 
-- **Trigger**: `process-pending-notifications` (CRON co 5 min) szuka wydarzeń zakończonych w ciągu ostatnich 2h
-- **Logika obecności**: Sprawdza `auto_webinar_views` — jeśli `watch_duration_seconds > 0` → email "thank_you", jeśli 0 lub brak → email "missed_event"
-- **Dane kontaktowe opiekuna**: Funkcja `send-post-event-thank-you` pobiera `inviter_user_id` z rejestracji gościa, następnie ładuje profil opiekuna (imię, nazwisko, email, telefon) i umieszcza te dane w dedykowanej sekcji e-maila z nagłówkiem "Twoja osoba kontaktowa"
-- **Filtrowanie**: Tylko goście (`guest_event_registrations`), nigdy partnerzy/admini. Flaga `thank_you_sent` zapobiega duplikatom.
+### Rozwiązanie
+W `NotificationPermissionBanner.tsx`:
+- Po kliknięciu "Włącz powiadomienia" i niepowodzeniu — sprawdzić `Notification.permission` bezpośrednio
+- Jeśli `'denied'` — schować baner i pokazać toast z informacją "Powiadomienia zostały zablokowane w ustawieniach przeglądarki"
+- Dodać dodatkowy warunek ukrycia: `if (error?.includes('denied'))` → return null
 
-Nie są potrzebne żadne zmiany w systemie e-maili.
+| Plik | Zmiana |
+|------|--------|
+| `src/components/messages/NotificationPermissionBanner.tsx` | Obsługa stanu po odmowie + czytelny komunikat |
 
