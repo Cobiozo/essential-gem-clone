@@ -9,7 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { isPast, isFuture, differenceInMinutes } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
-import { pl, enUS } from 'date-fns/locale';
+import { getAppDateLocale } from '@/utils/dateLocale';
 import { getTimezoneAbbr, DEFAULT_EVENT_TIMEZONE } from '@/utils/timezoneHelpers';
 import { getInvitationLabels, getDateLocale } from '@/utils/invitationTemplates';
 import { InvitationLanguageSelect } from '@/components/InvitationLanguageSelect';
