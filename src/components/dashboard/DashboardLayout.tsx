@@ -6,6 +6,7 @@ import { DashboardTopbar } from './DashboardTopbar';
 interface DashboardLayoutProps {
   children: React.ReactNode;
   title?: string;
+  backTo?: { label: string; path: string } | null;
   isUserMenuOpen?: boolean;
   onUserMenuOpenChange?: (open: boolean) => void;
 }
@@ -13,6 +14,7 @@ interface DashboardLayoutProps {
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
   children, 
   title,
+  backTo,
   isUserMenuOpen,
   onUserMenuOpenChange,
 }) => {
