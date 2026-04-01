@@ -277,7 +277,7 @@ export const TeamContactsTab: React.FC = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     <UserPlus className="w-5 h-5" />
-                    Kontakty prywatne
+                     {tf('teamContacts.privateContacts', 'Kontakty prywatne')}
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
                     Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści
