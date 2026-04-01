@@ -5,7 +5,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2, Mail, RotateCcw, MessageSquare, CheckCircle, AlertTriangle, ArrowLeft } from 'lucide-react';
-import { PinKeypad } from './PinKeypad';
 import { useToast } from '@/hooks/use-toast';
 
 interface MFAEmergencyScreenProps {
@@ -47,13 +46,12 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
     }
   };
 
-  const verifyAndReset = async (pinCode?: string) => {
-    const codeToUse = pinCode || code;
-    if (codeToUse.length !== 6) return;
+  const verifyAndReset = async () => {
+    if (code.length !== 6) return;
     setVerifying(true);
     try {
       const { data, error } = await supabase.functions.invoke('self-reset-mfa', {
-        body: { code: codeToUse },
+        body: { code },
       });
       if (error) {
         // Try to extract server error message from FunctionsHttpError
@@ -182,13 +180,21 @@ export const MFAEmergencyScreen: React.FC<MFAEmergencyScreenProps> = ({ onResetC
 
             {resetStep === 'verify' && (
               <>
-                <PinKeypad
-                  onComplete={(pinCode) => {
-                    verifyAndReset(pinCode);
-                  }}
-                  loading={verifying}
-                  submitLabel="Zweryfikuj i resetuj"
+                <Input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="text-center text-2xl tracking-widest"
+                  autoFocus
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  onKeyDown={(e) => { if (e.key === 'Enter') verifyAndReset(); }}
                 />
+                <Button onClick={verifyAndReset} disabled={code.length !== 6 || verifying} className="w-full">
+                  {verifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Zweryfikuj i resetuj
+                </Button>
                 <Button variant="ghost" size="sm" onClick={sendResetCode} disabled={sendingCode} className="w-full">
                   {sendingCode ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                   Wyślij kod ponownie
