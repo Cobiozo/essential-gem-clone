@@ -527,7 +527,7 @@ export const useTeamContacts = () => {
         if (isAutoWebinar && reg.registered_at) {
           const regDay = reg.registered_at.substring(0, 10); // YYYY-MM-DD
           groupKey = `${reg.event_id}::${regDay}`;
-          groupDate = reg.registered_at;
+          groupDate = reg.event_start_time;
         } else {
           groupKey = reg.event_id;
           groupDate = reg.event_start_time;
