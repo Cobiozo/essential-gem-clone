@@ -1,141 +1,76 @@
 
 
-# Uzupełnienie brakujących kluczy tłumaczeń w całej aplikacji
+# Poprawka kolejności norweskiego + uzupełnienie brakujących tłumaczeń
 
-## Problem widoczny na screenie
+## Problem 1: Norweski na pierwszym miejscu listy
+Norweski ma `position: 0` w tabeli `i18n_languages` — taki sam jak polski. Trzeba ustawić `position: 8` (za portugalskim).
 
-Tytuł okna historii wyświetla surowy klucz `teamContacts.historyTitle` zamiast przetłumaczonego tekstu. Oznacza to, że klucz nie istnieje w tabeli `i18n_translations` w bazie danych.
+## Problem 2: Brakujące tłumaczenia norweskie
+Norweski ma tylko **89 kluczy** vs **2585** dla polskiego. Brakuje 1631 kluczy. System `scheduled-translate-sync` automatycznie je uzupełni po wywołaniu, ale trzeba go uruchomić.
 
-## Skala problemu
+## Problem 3: Hardkodowane locale w 14+ plikach user-facing
+Nadal 14 plików używa `language === 'pl' ? pl : enUS` zamiast `getAppDateLocale(language)`, a kolejne ~10 user-facing plików ma twarde `locale: pl`.
 
-Po przeanalizowaniu całego kodu:
-
-### A. Moduł team-contacts (12 plików, ~200 hardkodowanych stringów PL)
-
-Tylko 4 z 18 plików używają `useLanguage`. Reszta ma czyste polskie stringy:
-
-| Plik | Hardkodowane stringi (przykłady) |
-|------|----------------------------------|
-| `TeamContactsTab.tsx` | "Kontakty prywatne", "Dodaj kontakt", "Eksport", "Filtry" |
-| `TeamContactFilters.tsx` | "Filtry", "Wyczyść", "Szukaj", status labels |
-| `PrivateContactForm.tsx` | "Zawód", "Status relacji", "Czynny obserwujący", "Potencjalny klient" |
-| `TeamContactForm.tsx` | "Dodaj kontakt", "Zapisz" |
-| `TeamContactExport.tsx` | "Kontakty prywatne", "Wygenerowano", status labels |
-| `TeamMap.tsx` | "Brak kontaktów do wyświetlenia" |
-| `ContactEventInfoButton.tsx` | "Dołączył", "Nie dołączył" |
-| `ContactEventHistory.tsx` | "Samodzielna rejestracja" |
-| `ContactExpandedDetails.tsx` | Etykiety pól |
-| `DeletedContactsList.tsx` | "Usunięte kontakty" |
-| `EventGroupedContacts.tsx` | "Anuluj", dialogi potwierdzenia |
-| `InviteToEventDialog.tsx` | "Alternatywny email", toasty |
-| `TeamContactHistoryDialog.tsx` | "Zaproszono na wydarzenie", "Samodzielna rejestracja", "Ponowne wysłanie", "Alternatywny email" |
-
-### B. Moduł events (częściowo przetłumaczony)
-
-`EventDetailsDialog.tsx` używa hardkodowanego `pl/enUS` zamiast `getAppDateLocale`. Część komponentów ma `useLanguage` ale wiele stringów nadal jest po polsku.
-
-### C. Moduł training (0 plików z useLanguage)
-
-Cały moduł `src/components/training/` nie korzysta z tłumaczeń — ale to jest moduł treściowy (treści szkoleniowe tłumaczone przez CMS), więc UI labels to odrębna kwestia.
-
-### D. Admin panel (~21 plików z useLanguage, ale setki hardkodowanych stringów)
-
-Panel admina jest celowo po polsku (architektonicznie) — NIE tłumaczę go.
-
-### E. Brakujące klucze w DB
-
-Klucze używane z `t()` w kodzie, które prawdopodobnie nie istnieją w tabeli `i18n_translations`:
-- `teamContacts.historyTitle` (widoczny na screenie!)
-- `teamContacts.created`, `teamContacts.updated`, `teamContacts.deleted`
-- `teamContacts.noHistory`
-- I prawdopodobnie wiele innych z namespace `teamContacts.*`
+## Problem 4: ThemeSelector z hardkodowanymi polskimi stringami
+"Jasny", "Ciemny", "Dostosowany do urządzenia" — bez tłumaczeń.
 
 ---
 
-## Plan implementacji (3 fazy)
+## Plan
 
-### Faza 1: Naprawić brakujące klucze w DB + TeamContactHistoryDialog (krytyczne)
-
-**Problem**: Klucze `teamContacts.*` są używane w kodzie ale nie istnieją w bazie. Dialog historii wyświetla surowe klucze.
-
-**Rozwiązanie**: Dodać migrację SQL wstawiającą brakujące klucze do `i18n_translations` dla języka domyślnego (pl) oraz dostępnych języków (en, de, no).
-
-Klucze do dodania:
-- `teamContacts.historyTitle` → "Historia zmian"
-- `teamContacts.created` → "Utworzono"
-- `teamContacts.updated` → "Zaktualizowano"
-- `teamContacts.deleted` → "Usunięto"
-- `teamContacts.noHistory` → "Brak historii zmian"
-- `teamContacts.eventInvite` → "Zaproszono na wydarzenie"
-- `teamContacts.eventInviteReg` → "Zaproszony przez partnera"
-- `teamContacts.eventRegistration` → "Samodzielna rejestracja"
-- `teamContacts.eventInviteAltEmail` → "Wysłano na inny email"
-- `teamContacts.eventInviteResend` → "Ponowne wysłanie"
-- `teamContacts.altEmail` → "Alternatywny email"
-- `teamContacts.joined` → "Dołączył"
-- `teamContacts.notJoined` → "Nie dołączył"
-
-**Plik**: Migracja SQL + aktualizacja `TeamContactHistoryDialog.tsx` aby używać kluczy zamiast hardkodowanych stringów.
-
-### Faza 2: Dodać `useLanguage` do wszystkich plików team-contacts
-
-Dodać `tf()` do 12 plików bez tłumaczeń, zastępując hardkodowane polskie stringy kluczami z fallbackami:
-
-```ts
-// Przykład: zamiast "Dodaj kontakt"
-tf('teamContacts.addContact', 'Dodaj kontakt')
+### 1. Migracja SQL — pozycja norweskiego
+```sql
+UPDATE public.i18n_languages SET position = 8 WHERE code = 'no';
 ```
 
-**Pliki** (12 komponentów):
-- `TeamContactsTab.tsx` — nagłówki, przyciski, taby
-- `TeamContactFilters.tsx` — etykiety filtrów
-- `PrivateContactForm.tsx` — etykiety formularza, statusy
-- `TeamContactForm.tsx` — etykiety formularza
-- `TeamContactExport.tsx` — etykiety eksportu
-- `TeamMap.tsx` — komunikaty puste
-- `ContactEventInfoButton.tsx` — "Dołączył"/"Nie dołączył" 
-- `ContactEventHistory.tsx` — "Samodzielna rejestracja"
-- `ContactExpandedDetails.tsx` — etykiety pól
-- `DeletedContactsList.tsx` — nagłówek
-- `EventGroupedContacts.tsx` — dialogi
-- `InviteToEventDialog.tsx` — etykiety
+### 2. Zamiana `language === 'pl' ? pl : enUS` → `getAppDateLocale(language)` (14 plików)
 
-Klucze dodane z `tf(key, fallback)` — dzięki temu nawet jeśli klucz nie istnieje w DB, wyświetli się fallback po polsku.
+Pliki user-facing:
+- `WelcomeWidget.tsx`, `QuickStatsWidget.tsx`, `CalendarWidget.tsx`, `NotificationsWidget.tsx`, `MyMeetingsWidget.tsx`
+- `BookMeetingDialog.tsx`, `EventCardCompact.tsx`, `EventCard.tsx`, `PaidEventCard.tsx`
+- `ConversationList.tsx`, `PrivateChatThreadView.tsx`, `PrivateChatThreadList.tsx`
 
-### Faza 3: Dodać migrację z pełnym zestawem kluczy PL + EN + DE + NO
+Pliki admin (też poprawić dla spójności):
+- `WebinarList.tsx`, `TeamTrainingList.tsx`, `OtpCodesManagement.tsx`, `EventsManagement.tsx`, `WebinarForm.tsx`
 
-Migracja SQL dodająca ~50-60 kluczy tłumaczeń dla namespace `teamContacts.*` w 4 językach. System `scheduled-translate-sync` automatycznie uzupełni brakujące tłumaczenia dla dodatkowych języków.
+### 3. ThemeSelector — dodanie `tf()` z fallbackami
+```tsx
+tf('theme.light', 'Jasny')
+tf('theme.dark', 'Ciemny')  
+tf('theme.system', 'Dostosowany do urządzenia')
+tf('theme.toggle', 'Przełącz motyw')
+```
 
-**Dodatkowe naprawy**:
-- `EventDetailsDialog.tsx` — zamienić hardkodowane `pl/enUS` na `getAppDateLocale(language)`
-- `CronJobsManagement.tsx` — zamienić `language === 'pl' ? pl : enUS` na `getAppDateLocale(language)`
+### 4. Dodanie kluczy theme.* do migracji SQL
+4 klucze × 4 języki (pl, en, de, no).
+
+### 5. Wywołanie scheduled-translate-sync
+Uruchomić edge function aby automatycznie wygenerować brakujące ~1631 norweskich tłumaczeń.
 
 ---
 
-## Pliki do edycji (podsumowanie)
+## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| **NOWA migracja SQL** | Wstawienie ~60 kluczy tłumaczeń teamContacts.* |
-| `TeamContactHistoryDialog.tsx` | Użycie kluczy tf() dla badge'ów |
-| `TeamContactsTab.tsx` | Dodanie useLanguage + tf() |
-| `TeamContactFilters.tsx` | Dodanie useLanguage + tf() |
-| `PrivateContactForm.tsx` | Dodanie useLanguage + tf() |
-| `TeamContactForm.tsx` | Dodanie useLanguage + tf() |
-| `TeamContactExport.tsx` | Dodanie useLanguage + tf() |
-| `TeamMap.tsx` | Dodanie useLanguage + tf() |
-| `ContactEventInfoButton.tsx` | Zamiana hardkodowanych na tf() |
-| `ContactEventHistory.tsx` | Dodanie useLanguage + tf() |
-| `ContactExpandedDetails.tsx` | Dodanie useLanguage + tf() |
-| `DeletedContactsList.tsx` | Dodanie useLanguage + tf() |
-| `EventGroupedContacts.tsx` | Dodanie useLanguage + tf() |
-| `InviteToEventDialog.tsx` | Dodanie useLanguage + tf() |
-| `EventDetailsDialog.tsx` | getAppDateLocale zamiast hardkodowanego locale |
-| `CronJobsManagement.tsx` | getAppDateLocale zamiast hardkodowanego locale |
-
-## Bezpieczeństwo
-
-- Użycie `tf(key, fallback)` gwarantuje że nawet bez klucza w DB wyświetli się poprawny fallback
-- Żadne zmiany nie dotykają logiki biznesowej, RLS, ani autentykacji
-- Admin panel pozostaje po polsku (świadoma decyzja architektoniczna)
+| **Migracja SQL** | `position = 8` dla NO + klucze theme.* |
+| `ThemeSelector.tsx` | Dodanie `useLanguage` + `tf()` |
+| `WelcomeWidget.tsx` | `getAppDateLocale(language)` |
+| `QuickStatsWidget.tsx` | `getAppDateLocale(language)` |
+| `CalendarWidget.tsx` | `getAppDateLocale(language)` |
+| `NotificationsWidget.tsx` | `getAppDateLocale(language)` |
+| `MyMeetingsWidget.tsx` | `getAppDateLocale(language)` |
+| `BookMeetingDialog.tsx` | `getAppDateLocale(language)` |
+| `EventCardCompact.tsx` | `getAppDateLocale(language)` |
+| `EventCard.tsx` | `getAppDateLocale(language)` |
+| `PaidEventCard.tsx` | `getAppDateLocale(language)` |
+| `ConversationList.tsx` | `getAppDateLocale(language)` |
+| `PrivateChatThreadView.tsx` | `getAppDateLocale(language)` + `useLanguage` |
+| `PrivateChatThreadList.tsx` | `getAppDateLocale(language)` + `useLanguage` |
+| `WebinarList.tsx` | `getAppDateLocale(language)` |
+| `TeamTrainingList.tsx` | `getAppDateLocale(language)` |
+| `OtpCodesManagement.tsx` | `getAppDateLocale(language)` |
+| `EventsManagement.tsx` | `getAppDateLocale(language)` |
+| `WebinarForm.tsx` | `getAppDateLocale(language)` |
+| Edge function trigger | `scheduled-translate-sync` dla NO |
 
