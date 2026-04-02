@@ -6381,6 +6381,8 @@ export type Database = {
           admin_approved: boolean | null
           admin_approved_at: string | null
           avatar_url: string | null
+          block_reason: string | null
+          blocked_at: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -6393,6 +6395,7 @@ export type Database = {
           guardian_approved_at: string | null
           guardian_name: string | null
           id: string
+          inactivity_warning_sent_at: string | null
           is_active: boolean
           is_searchable: boolean | null
           last_name: string | null
@@ -6430,6 +6433,8 @@ export type Database = {
           admin_approved?: boolean | null
           admin_approved_at?: string | null
           avatar_url?: string | null
+          block_reason?: string | null
+          blocked_at?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -6442,6 +6447,7 @@ export type Database = {
           guardian_approved_at?: string | null
           guardian_name?: string | null
           id?: string
+          inactivity_warning_sent_at?: string | null
           is_active?: boolean
           is_searchable?: boolean | null
           last_name?: string | null
@@ -6479,6 +6485,8 @@ export type Database = {
           admin_approved?: boolean | null
           admin_approved_at?: string | null
           avatar_url?: string | null
+          block_reason?: string | null
+          blocked_at?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -6491,6 +6499,7 @@ export type Database = {
           guardian_approved_at?: string | null
           guardian_name?: string | null
           id?: string
+          inactivity_warning_sent_at?: string | null
           is_active?: boolean
           is_searchable?: boolean | null
           last_name?: string | null
