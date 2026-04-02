@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import type { TeamContact, TeamContactHistory, EventGroup, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { InviteToEventDialog } from './InviteToEventDialog';
 import { ContactExpandedDetails } from './ContactExpandedDetails';
 import {
   AlertDialog,
