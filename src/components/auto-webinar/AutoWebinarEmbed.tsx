@@ -151,7 +151,44 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
     resolve();
   }, [isGuest, guestEmail, config?.event_id, guestSlotTime]);
 
-  // Analytics tracking
+  // Send thank-you email immediately when video ends for guests
+  const thankYouEmailSentRef = useRef(false);
+  useEffect(() => {
+    if (!isVideoEnded || !isGuest || !guestRegistrationId || !guestEmail || !config?.event_id || thankYouEmailSentRef.current) return;
+    
+    thankYouEmailSentRef.current = true;
+    
+    const eventTitle = config?.room_title || 'Webinar';
+    const recipientName = guestFirstName || guestEmail.split('@')[0];
+    
+    console.log('[AutoWebinarEmbed] Video ended — sending thank-you email to', guestEmail);
+    
+    supabase.functions.invoke('send-post-event-thank-you', {
+      body: {
+        event_id: config.event_id,
+        recipient_email: guestEmail,
+        recipient_name: recipientName,
+        event_title: eventTitle,
+        inviter_user_id: guestInviterUserId,
+        source_type: 'guest_event_registration',
+        source_id: guestRegistrationId,
+        email_type: 'thank_you',
+      },
+    }).then(({ error }) => {
+      if (error) {
+        console.error('[AutoWebinarEmbed] Failed to send thank-you email:', error);
+      } else {
+        console.log('[AutoWebinarEmbed] Thank-you email sent successfully');
+        // Mark as sent in DB
+        supabase
+          .from('guest_event_registrations')
+          .update({ thank_you_sent: true, thank_you_sent_at: new Date().toISOString() })
+          .eq('id', guestRegistrationId)
+          .then(() => console.log('[AutoWebinarEmbed] Marked thank_you_sent'));
+      }
+    });
+  }, [isVideoEnded, isGuest, guestRegistrationId, guestEmail, config?.event_id, config?.room_title, guestFirstName, guestInviterUserId]);
+
   useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId, category);
 
   // Invalidate session when room closes
