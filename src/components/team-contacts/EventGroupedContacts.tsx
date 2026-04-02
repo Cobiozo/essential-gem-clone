@@ -324,6 +324,15 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
           onClose={() => setHistoryContact(null)}
         />
       )}
+
+      {/* Invite to Event Dialog */}
+      {inviteContact && (
+        <InviteToEventDialog
+          contact={inviteContact}
+          open={!!inviteContact}
+          onOpenChange={(open) => !open && setInviteContact(null)}
+        />
+      )}
     </>
   );
 };
