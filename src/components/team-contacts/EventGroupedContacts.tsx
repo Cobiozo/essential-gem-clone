@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronUp, Calendar, Users, Edit, Trash2, History, RefreshCw, UserPlus, CheckCheck } from 'lucide-react';
+import { ChevronDown, ChevronUp, Calendar, Users, Edit, Trash2, History, RefreshCw, UserPlus, CheckCheck, Send } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import type { TeamContact, TeamContactHistory, EventGroup, EventRegistrationInfo } from './types';
 import { ContactEventInfoButton } from './ContactEventInfoButton';
 import { TeamContactHistoryDialog } from './TeamContactHistoryDialog';
+import { InviteToEventDialog } from './InviteToEventDialog';
 import { ContactExpandedDetails } from './ContactExpandedDetails';
 import {
   AlertDialog,
@@ -47,6 +48,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const [duplicateConfirm, setDuplicateConfirm] = useState<string | null>(null);
+  const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
 
   const toggleGroup = (eventId: string) => {
     setOpenGroups(prev => {
@@ -206,6 +208,15 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                     <UserPlus className="w-4 h-4 text-primary" />
                                   </Button>
                                 )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setInviteContact(contact)}
+                                  title="Zaproś na wydarzenie"
+                                >
+                                  <Send className="w-4 h-4 text-primary" />
+                                </Button>
                                 <ContactEventInfoButton contact={contact} />
                                 <Button
                                   variant="ghost"
@@ -311,6 +322,15 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
           contact={historyContact}
           getHistory={getContactHistory}
           onClose={() => setHistoryContact(null)}
+        />
+      )}
+
+      {/* Invite to Event Dialog */}
+      {inviteContact && (
+        <InviteToEventDialog
+          contact={inviteContact}
+          open={!!inviteContact}
+          onOpenChange={(open) => !open && setInviteContact(null)}
         />
       )}
     </>
