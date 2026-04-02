@@ -378,7 +378,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   return (
     <div className="space-y-3 sm:space-y-4 max-w-5xl mx-auto">
       {/* Header */}
-      {!previewMode && (
+      {(
         <div className="flex items-center justify-between gap-2 px-1">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
