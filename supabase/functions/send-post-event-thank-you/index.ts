@@ -289,6 +289,22 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Deduplication: check if thank_you already sent for this guest registration
+    if (source_id && source_type === 'guest_event_registration') {
+      const { data: reg } = await supabase
+        .from('guest_event_registrations')
+        .select('thank_you_sent')
+        .eq('id', source_id)
+        .maybeSingle();
+
+      if (reg?.thank_you_sent) {
+        console.log(`[send-post-event-thank-you] Email already sent for registration ${source_id}, skipping`);
+        return new Response(JSON.stringify({ success: true, message: 'Already sent' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Get SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
       .from("smtp_settings")
