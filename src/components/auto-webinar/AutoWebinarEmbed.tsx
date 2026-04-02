@@ -685,7 +685,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       )}
 
       {/* Custom section */}
-      {!previewMode && showScheduleInfo && config?.room_custom_section_title && config?.room_custom_section_content && (
+      {showScheduleInfo && config?.room_custom_section_title && config?.room_custom_section_content && (
         <Card>
           <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
             <CardTitle className="text-xs sm:text-sm font-medium">{config.room_custom_section_title}</CardTitle>
