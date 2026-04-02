@@ -103,17 +103,21 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   // Resolve guest_registration_id from email + event_id + slot_time for accurate tracking
   const [guestRegistrationId, setGuestRegistrationId] = useState<string | null>(null);
   const [guestDisplayName, setGuestDisplayName] = useState<string | null>(null);
+  const [guestInviterUserId, setGuestInviterUserId] = useState<string | null>(null);
+  const [guestFirstName, setGuestFirstName] = useState<string | null>(null);
   useEffect(() => {
     if (!isGuest || !guestEmail || !config?.event_id) {
       setGuestRegistrationId(null);
       setGuestDisplayName(null);
+      setGuestInviterUserId(null);
+      setGuestFirstName(null);
       return;
     }
     const resolve = async () => {
       const normalizedEmail = guestEmail.trim().toLowerCase();
       let query = supabase
         .from('guest_event_registrations')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, invited_by_user_id')
         .eq('email', normalizedEmail)
         .eq('event_id', config.event_id)
         .neq('status', 'cancelled')
@@ -130,6 +134,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       if (data?.id) {
         console.log('[AutoWebinarEmbed] Resolved guestRegistrationId:', data.id);
         setGuestRegistrationId(data.id);
+        setGuestInviterUserId(data.invited_by_user_id || null);
+        setGuestFirstName(data.first_name || null);
         // Format name as "Imię P." for chat display
         const firstName = data.first_name || '';
         const lastInitial = data.last_name ? ` ${data.last_name[0]}.` : '';
@@ -138,12 +144,51 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       } else {
         console.log('[AutoWebinarEmbed] Could not resolve guestRegistrationId for', normalizedEmail);
         setGuestRegistrationId(null);
+        setGuestInviterUserId(null);
+        setGuestFirstName(null);
       }
     };
     resolve();
   }, [isGuest, guestEmail, config?.event_id, guestSlotTime]);
 
-  // Analytics tracking
+  // Send thank-you email immediately when video ends for guests
+  const thankYouEmailSentRef = useRef(false);
+  useEffect(() => {
+    if (!isVideoEnded || !isGuest || !guestRegistrationId || !guestEmail || !config?.event_id || thankYouEmailSentRef.current) return;
+    
+    thankYouEmailSentRef.current = true;
+    
+    const eventTitle = config?.room_title || 'Webinar';
+    const recipientName = guestFirstName || guestEmail.split('@')[0];
+    
+    console.log('[AutoWebinarEmbed] Video ended — sending thank-you email to', guestEmail);
+    
+    supabase.functions.invoke('send-post-event-thank-you', {
+      body: {
+        event_id: config.event_id,
+        recipient_email: guestEmail,
+        recipient_name: recipientName,
+        event_title: eventTitle,
+        inviter_user_id: guestInviterUserId,
+        source_type: 'guest_event_registration',
+        source_id: guestRegistrationId,
+        email_type: 'thank_you',
+      },
+    }).then(({ error }) => {
+      if (error) {
+        console.error('[AutoWebinarEmbed] Failed to send thank-you email:', error);
+      } else {
+        console.log('[AutoWebinarEmbed] Thank-you email sent successfully');
+        // Mark as sent in DB
+        supabase
+          .from('guest_event_registrations')
+          .update({ thank_you_sent: true, thank_you_sent_at: new Date().toISOString() })
+          .eq('id', guestRegistrationId)
+          .then(() => console.log('[AutoWebinarEmbed] Marked thank_you_sent'));
+      }
+    });
+  }, [isVideoEnded, isGuest, guestRegistrationId, guestEmail, config?.event_id, config?.room_title, guestFirstName, guestInviterUserId]);
+
   useAutoWebinarTracking(effectiveVideoId, effectiveIsPlaying, isGuest, guestEmail, guestRegistrationId, category);
 
   // Invalidate session when room closes

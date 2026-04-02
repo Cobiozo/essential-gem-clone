@@ -289,6 +289,22 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
+    // Deduplication: check if thank_you already sent for this guest registration
+    if (source_id && source_type === 'guest_event_registration') {
+      const { data: reg } = await supabase
+        .from('guest_event_registrations')
+        .select('thank_you_sent')
+        .eq('id', source_id)
+        .maybeSingle();
+
+      if (reg?.thank_you_sent) {
+        console.log(`[send-post-event-thank-you] Email already sent for registration ${source_id}, skipping`);
+        return new Response(JSON.stringify({ success: true, message: 'Already sent' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Get SMTP settings
     const { data: smtpData, error: smtpError } = await supabase
       .from("smtp_settings")
@@ -367,6 +383,14 @@ Deno.serve(async (req) => {
         source_id,
       },
     });
+
+    // Mark thank_you_sent on guest registration to prevent duplicates
+    if (source_id && source_type === 'guest_event_registration') {
+      await supabase
+        .from('guest_event_registrations')
+        .update({ thank_you_sent: true, thank_you_sent_at: new Date().toISOString() })
+        .eq('id', source_id);
+    }
 
     console.log(`[send-post-event-thank-you] ${effectiveEmailType} email sent to ${recipient_email} for event ${event_title}`);
 
