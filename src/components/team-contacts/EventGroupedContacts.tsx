@@ -48,6 +48,7 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [historyContact, setHistoryContact] = useState<TeamContact | null>(null);
   const [duplicateConfirm, setDuplicateConfirm] = useState<string | null>(null);
+  const [inviteContact, setInviteContact] = useState<TeamContact | null>(null);
 
   const toggleGroup = (eventId: string) => {
     setOpenGroups(prev => {
