@@ -408,9 +408,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                 NA ŻYWO
               </Badge>
             )}
-          </div>
         </div>
-      )}
+      </div>
 
       {/* Welcome message overlay */}
       {shouldShowWelcome ? (
