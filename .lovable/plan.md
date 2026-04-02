@@ -1,26 +1,33 @@
 
 
-# Dodanie przycisku "Zaproś na wydarzenie" w kontaktach z BO/HC
+# Poprawka: wyświetlanie terminu wydarzenia zamiast daty rejestracji
 
 ## Problem
 
-Kontakty w zakładkach "Z zaproszeń na Business Opportunity" i "Z zaproszeń na Health Conversation" nie mają przycisku zaproszenia na inne wydarzenia (ikona `Send`), który jest dostępny w kontaktach z "Mojej listy" i "Z Mojej Strony Partnerskiej".
+Kontakty w zakładce "Z zaproszeń na webinary ogólne" wyświetlają datę rejestracji gościa zamiast faktycznego terminu wydarzenia. Np. gość zarejestrowany 2 kwietnia widzi "02 kwietnia 2026" mimo że wydarzenie jest w innym terminie.
+
+## Przyczyna
+
+W `src/hooks/useTeamContacts.ts` (linia 483-485), pole `event_start_time` w `EventRegistrationInfo` jest ustawiane jako:
+```
+r.registered_at || event.start_time
+```
+Dla wydarzeń ogólnych (bez `slot_time`), `registered_at` ma pierwszeństwo nad `event.start_time`, więc wyświetla się data rejestracji zamiast daty wydarzenia.
 
 ## Rozwiązanie
 
-Dodać przycisk zaproszenia i dialog `InviteToEventDialog` do komponentu `EventGroupedContacts.tsx`.
+Zmienić kolejność fallbacku — dla wydarzeń ogólnych (nie auto-webinarowych), `event.start_time` powinno mieć pierwszeństwo:
 
-### Zmiany w `src/components/team-contacts/EventGroupedContacts.tsx`:
+```
+event_start_time: ((r as any).slot_time && r.registered_at)
+  ? `${r.registered_at.substring(0, 10)}T${(r as any).slot_time}:00`
+  : event.start_time || r.registered_at || '',
+```
 
-1. **Import** `Send` z lucide-react oraz `InviteToEventDialog`
-2. **Dodać stan** `inviteContact` (analogicznie do `historyContact`)
-3. **Dodać przycisk** `Send` w sekcji action buttons (linia 192), zaraz za przyciskiem `UserPlus` (Przenieś do Mojej listy) — przed `ContactEventInfoButton`
-4. **Dodać dialog** `InviteToEventDialog` na końcu komponentu (obok `TeamContactHistoryDialog`)
-
-Przycisk będzie wyglądał identycznie jak w `TeamContactAccordion.tsx` — ghost, icon, `h-8 w-8`, z ikoną `Send` w kolorze `text-primary`.
+To zamienia `r.registered_at || event.start_time` na `event.start_time || r.registered_at` — tak, że rzeczywisty termin wydarzenia jest zawsze preferowany.
 
 ### Plik do edycji
 | Plik | Zmiana |
 |------|--------|
-| `src/components/team-contacts/EventGroupedContacts.tsx` | Dodanie przycisku Send + InviteToEventDialog |
+| `src/hooks/useTeamContacts.ts` | Zamiana kolejności fallbacku w linii 485: `event.start_time \|\| r.registered_at` |
 
