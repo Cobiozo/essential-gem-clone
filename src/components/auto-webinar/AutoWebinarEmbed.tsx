@@ -378,26 +378,25 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   return (
     <div className="space-y-3 sm:space-y-4 max-w-5xl mx-auto">
       {/* Header */}
-      {(
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
-                {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
-              </div>
-            ) : (
-              <div className="p-1.5 sm:p-2 rounded-lg bg-destructive/10 shrink-0">
-                <Radio className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-xl font-bold truncate">{roomTitle}</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">{roomSubtitle}</p>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
+              {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
             </div>
+          ) : (
+            <div className="p-1.5 sm:p-2 rounded-lg bg-destructive/10 shrink-0">
+              <Radio className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-xl font-bold truncate">{roomTitle}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">{roomSubtitle}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {config?.fake_participants_enabled && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {config?.fake_participants_enabled && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
               <AutoWebinarParticipantCount
                 min={config.fake_participants_min || 45}
                 max={config.fake_participants_max || 120}
