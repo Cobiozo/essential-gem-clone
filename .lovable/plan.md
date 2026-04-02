@@ -1,33 +1,26 @@
 
 
-# Poprawka: wyświetlanie terminu wydarzenia zamiast daty rejestracji
+# Poprawka: brakujące kolumny w tabeli profiles
 
 ## Problem
 
-Kontakty w zakładce "Z zaproszeń na webinary ogólne" wyświetlają datę rejestracji gościa zamiast faktycznego terminu wydarzenia. Np. gość zarejestrowany 2 kwietnia widzi "02 kwietnia 2026" mimo że wydarzenie jest w innym terminie.
-
-## Przyczyna
-
-W `src/hooks/useTeamContacts.ts` (linia 483-485), pole `event_start_time` w `EventRegistrationInfo` jest ustawiane jako:
-```
-r.registered_at || event.start_time
-```
-Dla wydarzeń ogólnych (bez `slot_time`), `registered_at` ma pierwszeństwo nad `event.start_time`, więc wyświetla się data rejestracji zamiast daty wydarzenia.
+Funkcja `admin_toggle_user_status` (oraz `process-pending-notifications`) odwołuje się do kolumn `blocked_at`, `block_reason` i `inactivity_warning_sent_at` w tabeli `profiles`, ale te kolumny **nie istnieją** w bazie danych. Stąd błąd "column 'blocked_at' does not exist" przy próbie zablokowania użytkownika.
 
 ## Rozwiązanie
 
-Zmienić kolejność fallbacku — dla wydarzeń ogólnych (nie auto-webinarowych), `event.start_time` powinno mieć pierwszeństwo:
+Dodać brakujące kolumny do tabeli `profiles` poprzez migrację SQL:
 
+```sql
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS blocked_at timestamptz,
+  ADD COLUMN IF NOT EXISTS block_reason text,
+  ADD COLUMN IF NOT EXISTS inactivity_warning_sent_at timestamptz;
 ```
-event_start_time: ((r as any).slot_time && r.registered_at)
-  ? `${r.registered_at.substring(0, 10)}T${(r as any).slot_time}:00`
-  : event.start_time || r.registered_at || '',
-```
 
-To zamienia `r.registered_at || event.start_time` na `event.start_time || r.registered_at` — tak, że rzeczywisty termin wydarzenia jest zawsze preferowany.
+### Plik do zmiany
+| Element | Zmiana |
+|---------|--------|
+| Migracja SQL | Dodanie 3 brakujących kolumn do `profiles` |
 
-### Plik do edycji
-| Plik | Zmiana |
-|------|--------|
-| `src/hooks/useTeamContacts.ts` | Zamiana kolejności fallbacku w linii 485: `event.start_time \|\| r.registered_at` |
+Żadne zmiany w kodzie frontendu nie są potrzebne — funkcja RPC i istniejący kod są poprawne, brakuje tylko kolumn w bazie.
 
