@@ -482,7 +482,7 @@ export const useTeamContacts = () => {
             event_title: event.title || '',
             event_start_time: ((r as any).slot_time && r.registered_at)
               ? `${r.registered_at.substring(0, 10)}T${(r as any).slot_time}:00`
-              : r.registered_at || event.start_time || '',
+              : event.start_time || r.registered_at || '',
             guest_status: r.status || 'registered',
             registered_at: r.registered_at || '',
             registration_attempts: attempts > 1 ? attempts : undefined,
