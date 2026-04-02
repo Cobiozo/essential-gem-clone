@@ -272,7 +272,8 @@ export const TeamContactsTab: React.FC = () => {
         {/* Private Contacts Tab */}
         <TabsContent value="private">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
+              {/* Row 1: Title + Add Contact button */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <CardTitle className="flex items-center gap-2">
@@ -283,6 +284,14 @@ export const TeamContactsTab: React.FC = () => {
                     {tf('teamContacts.peopleOutsideSystem', 'Osoby spoza systemu - potencjalni klienci, partnerzy i specjaliści')}
                   </CardDescription>
                 </div>
+                <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
+                  <Plus className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">{tf('teamContacts.addContact', 'Dodaj kontakt')}</span>
+                </Button>
+              </div>
+
+              {/* Row 2: Toolbar - view toggle, filters, export */}
+              <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-border/50">
                 <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                   {/* View Toggle */}
                   <div className="flex border rounded-md overflow-hidden">
@@ -290,7 +299,7 @@ export const TeamContactsTab: React.FC = () => {
                       variant={viewMode === 'accordion' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewMode('accordion')}
-                      className="rounded-none"
+                      className="rounded-none h-8 w-8 p-0"
                       title="Widok zwijany"
                     >
                       <LayoutGrid className="w-4 h-4" />
@@ -299,7 +308,7 @@ export const TeamContactsTab: React.FC = () => {
                       variant={viewMode === 'table' ? 'default' : 'ghost'}
                       size="sm"
                       onClick={() => setViewMode('table')}
-                      className="rounded-none"
+                      className="rounded-none h-8 w-8 p-0"
                       title="Widok tabeli"
                     >
                       <List className="w-4 h-4" />
@@ -311,22 +320,20 @@ export const TeamContactsTab: React.FC = () => {
                     size="sm"
                     onClick={() => setShowFilters(!showFilters)}
                     title="Filtry"
+                    className="h-8"
                   >
-                    <Filter className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{tf('teamContacts.filters', 'Filtry')}</span>
+                    <Filter className="w-4 h-4 sm:mr-1.5" />
+                    <span className="hidden sm:inline text-xs">{tf('teamContacts.filters', 'Filtry')}</span>
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowExport(true)}
                     title="Eksport"
+                    className="h-8"
                   >
-                    <Download className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{tf('teamContacts.export', 'Eksport')}</span>
-                  </Button>
-                  <Button size="sm" onClick={() => setShowForm(true)} title="Dodaj kontakt">
-                    <Plus className="w-4 h-4 sm:mr-2" />
-                    <span className="hidden sm:inline">{tf('teamContacts.addContact', 'Dodaj kontakt')}</span>
+                    <Download className="w-4 h-4 sm:mr-1.5" />
+                    <span className="hidden sm:inline text-xs">{tf('teamContacts.export', 'Eksport')}</span>
                   </Button>
                 </div>
               </div>
