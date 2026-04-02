@@ -384,6 +384,14 @@ Deno.serve(async (req) => {
       },
     });
 
+    // Mark thank_you_sent on guest registration to prevent duplicates
+    if (source_id && source_type === 'guest_event_registration') {
+      await supabase
+        .from('guest_event_registrations')
+        .update({ thank_you_sent: true, thank_you_sent_at: new Date().toISOString() })
+        .eq('id', source_id);
+    }
+
     console.log(`[send-post-event-thank-you] ${effectiveEmailType} email sent to ${recipient_email} for event ${event_title}`);
 
     return new Response(JSON.stringify({ success: true }), {
