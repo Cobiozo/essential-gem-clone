@@ -247,12 +247,12 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       }
       
       if (previewMode) {
-        // In preview mode, always start muted to guarantee autoplay in dialogs
+        // In preview mode, start muted but show "Enable sound" overlay like for guests
         video.muted = true;
         setIsMuted(true);
         video.play().then(() => {
           hasStartedRef.current = true;
-          setNeedsUserInteraction(false);
+          setNeedsUserInteraction(true);
           setHasStarted(true);
         }).catch(console.warn);
         return;
@@ -378,26 +378,25 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
   return (
     <div className="space-y-3 sm:space-y-4 max-w-5xl mx-auto">
       {/* Header */}
-      {!previewMode && (
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
-              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
-                {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
-              </div>
-            ) : (
-              <div className="p-1.5 sm:p-2 rounded-lg bg-destructive/10 shrink-0">
-                <Radio className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-xl font-bold truncate">{roomTitle}</h2>
-              <p className="text-xs sm:text-sm text-muted-foreground truncate">{roomSubtitle}</p>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {(config?.room_logo_url || (config as any)?.room_logo_url_2) ? (
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {config?.room_logo_url && <img src={config.room_logo_url} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
+              {(config as any)?.room_logo_url_2 && <img src={(config as any).room_logo_url_2} alt="" className="h-7 sm:h-10 max-w-[80px] sm:max-w-[120px] object-contain" />}
             </div>
+          ) : (
+            <div className="p-1.5 sm:p-2 rounded-lg bg-destructive/10 shrink-0">
+              <Radio className="h-4 w-4 sm:h-5 sm:w-5 text-destructive" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-xl font-bold truncate">{roomTitle}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground truncate">{roomSubtitle}</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {config?.fake_participants_enabled && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {config?.fake_participants_enabled && isInActiveHours && currentVideo && startOffset >= 0 && !showWelcome && (
               <AutoWebinarParticipantCount
                 min={config.fake_participants_min || 45}
                 max={config.fake_participants_max || 120}
@@ -409,9 +408,8 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
                 NA ŻYWO
               </Badge>
             )}
-          </div>
         </div>
-      )}
+      </div>
 
       {/* Welcome message overlay */}
       {shouldShowWelcome ? (
@@ -685,7 +683,7 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       )}
 
       {/* Custom section */}
-      {!previewMode && showScheduleInfo && config?.room_custom_section_title && config?.room_custom_section_content && (
+      {showScheduleInfo && config?.room_custom_section_title && config?.room_custom_section_content && (
         <Card>
           <CardHeader className="pb-2 sm:pb-3 px-3 sm:px-6">
             <CardTitle className="text-xs sm:text-sm font-medium">{config.room_custom_section_title}</CardTitle>
