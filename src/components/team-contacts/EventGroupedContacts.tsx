@@ -208,6 +208,15 @@ export const EventGroupedContacts: React.FC<EventGroupedContactsProps> = ({
                                     <UserPlus className="w-4 h-4 text-primary" />
                                   </Button>
                                 )}
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setInviteContact(contact)}
+                                  title="Zaproś na wydarzenie"
+                                >
+                                  <Send className="w-4 h-4 text-primary" />
+                                </Button>
                                 <ContactEventInfoButton contact={contact} />
                                 <Button
                                   variant="ghost"
