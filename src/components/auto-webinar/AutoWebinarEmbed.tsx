@@ -247,12 +247,12 @@ export const AutoWebinarEmbed: React.FC<AutoWebinarEmbedProps> = ({ isGuest = fa
       }
       
       if (previewMode) {
-        // In preview mode, always start muted to guarantee autoplay in dialogs
+        // In preview mode, start muted but show "Enable sound" overlay like for guests
         video.muted = true;
         setIsMuted(true);
         video.play().then(() => {
           hasStartedRef.current = true;
-          setNeedsUserInteraction(false);
+          setNeedsUserInteraction(true);
           setHasStarted(true);
         }).catch(console.warn);
         return;
