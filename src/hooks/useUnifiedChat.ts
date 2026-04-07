@@ -744,6 +744,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           createdAt: m.created_at,
           isOwn: m.sender_id === user.id,
           isRead: m.is_read,
+          isDeleted: (m as any).is_deleted || false,
           messageType: m.message_type,
           attachmentUrl: m.attachment_url,
           attachmentName: m.attachment_name,
