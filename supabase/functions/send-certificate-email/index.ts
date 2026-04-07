@@ -311,19 +311,7 @@ serve(async (req) => {
     }
     console.log('[send-certificate-email] ✅ Email sent to user');
 
-    // 7. Send CC copy to support@purelife.info.pl
-    const supportEmail = 'support@purelife.info.pl';
-    const supportSubject = `[KOPIA] Certyfikat: ${displayName} - "${moduleTitle}"`;
-    console.log(`[send-certificate-email] Sending CC to ${supportEmail}...`);
-    
-    const ccResult = await sendSmtpEmail(smtpSettings, supportEmail, supportSubject, emailBody, smtpSettings.sender_name);
-    
-    if (!ccResult.success) {
-      console.warn(`[send-certificate-email] ⚠️ CC to support failed: ${ccResult.error}`);
-      // Don't throw - CC failure should not block the main flow
-    } else {
-      console.log('[send-certificate-email] ✅ CC sent to support');
-    }
+    // 7. (CC to support disabled)
 
     // 8. Update email_sent_at in certificates table
     const emailSentAt = new Date().toISOString();
