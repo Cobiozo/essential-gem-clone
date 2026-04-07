@@ -3,7 +3,8 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardTopbar } from './DashboardTopbar';
 import { ChatSidebarProvider } from '@/contexts/ChatSidebarContext';
-import { ChatSidebarPanel } from '@/components/chat-sidebar/ChatSidebarPanel';
+import { ChatDockedPanel } from '@/components/chat-sidebar/ChatDockedPanel';
+import { ChatFloatingWindow } from '@/components/chat-sidebar/ChatFloatingWindow';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -36,10 +37,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
               <main className="flex-1 overflow-auto p-4 lg:p-6">
                 {children}
               </main>
-              <ChatSidebarPanel />
+              <ChatDockedPanel />
             </div>
           </SidebarInset>
         </div>
+        <ChatFloatingWindow />
       </SidebarProvider>
     </ChatSidebarProvider>
   );
