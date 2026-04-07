@@ -37,6 +37,7 @@ export const UnifiedChatWidget = () => {
             messages={messages}
             loading={loading}
             onSend={sendMessage}
+            onDeleteMessage={deleteMessage}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
