@@ -43,11 +43,13 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   onUserMenuOpenChange,
 }) => {
   const navigate = useNavigate();
-  const { profile, signOut, isAdmin } = useAuth();
+  const { profile, signOut, isAdmin, userRole } = useAuth();
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const sessionTimer = useSessionTimer();
   const chatSidebar = useChatSidebar();
+  const { data: chatVisibility } = useChatSidebarVisibility();
+  const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   
