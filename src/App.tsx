@@ -22,6 +22,7 @@ import { useDashboardPreference } from "@/hooks/useDashboardPreference";
 import { useInactivityTimeout } from "@/hooks/useInactivityTimeout";
 import { useLastSeenUpdater } from "@/hooks/useLastSeenUpdater";
 import { SessionTimerProvider } from "@/contexts/SessionTimerContext";
+import { ChatSidebarProvider } from "@/contexts/ChatSidebarContext";
 import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
 import { SupportFormDialog } from "@/components/support";
 import { useSecurityPreventions } from "@/hooks/useSecurityPreventions";
@@ -366,6 +367,7 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ChatSidebarProvider>
         <InactivityHandler>
           <ProfileCompletionGuard>
             <Suspense fallback={<LoadingSpinner />}>
@@ -428,6 +430,7 @@ const AppContent = () => {
           <ChatWidgetsWrapper />
           <PWAInstallBanner />
         </InactivityHandler>
+        </ChatSidebarProvider>
       </BrowserRouter>
       <CookieConsentBanner />
       <SWUpdateBanner />

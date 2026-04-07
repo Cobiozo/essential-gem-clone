@@ -2,7 +2,7 @@ import React from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { DashboardSidebar } from './DashboardSidebar';
 import { DashboardTopbar } from './DashboardTopbar';
-import { ChatSidebarProvider } from '@/contexts/ChatSidebarContext';
+
 import { ChatDockedPanel } from '@/components/chat-sidebar/ChatDockedPanel';
 import { ChatFloatingWindow } from '@/components/chat-sidebar/ChatFloatingWindow';
 
@@ -22,27 +22,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   onUserMenuOpenChange,
 }) => {
   return (
-    <ChatSidebarProvider>
-      <SidebarProvider defaultOpen={true}>
-        <div className="min-h-screen flex w-full bg-gradient-to-br from-[hsl(225,50%,6%)] via-[hsl(225,40%,8%)] to-[hsl(230,35%,5%)] dark:from-[hsl(225,50%,6%)] dark:via-[hsl(225,40%,8%)] dark:to-[hsl(230,35%,5%)]">
-          <DashboardSidebar />
-          <SidebarInset className="flex flex-col flex-1 h-dvh overflow-hidden">
-            <DashboardTopbar 
-              title={title} 
-              backTo={backTo}
-              isUserMenuOpen={isUserMenuOpen}
-              onUserMenuOpenChange={onUserMenuOpenChange}
-            />
-            <div className="flex-1 flex overflow-hidden">
-              <main className="flex-1 overflow-auto p-4 lg:p-6">
-                {children}
-              </main>
-              <ChatDockedPanel />
-            </div>
-          </SidebarInset>
-        </div>
-        <ChatFloatingWindow />
-      </SidebarProvider>
-    </ChatSidebarProvider>
+    <SidebarProvider defaultOpen={true}>
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-[hsl(225,50%,6%)] via-[hsl(225,40%,8%)] to-[hsl(230,35%,5%)] dark:from-[hsl(225,50%,6%)] dark:via-[hsl(225,40%,8%)] dark:to-[hsl(230,35%,5%)]">
+        <DashboardSidebar />
+        <SidebarInset className="flex flex-col flex-1 h-dvh overflow-hidden">
+          <DashboardTopbar 
+            title={title} 
+            backTo={backTo}
+            isUserMenuOpen={isUserMenuOpen}
+            onUserMenuOpenChange={onUserMenuOpenChange}
+          />
+          <div className="flex-1 flex overflow-hidden">
+            <main className="flex-1 overflow-auto p-4 lg:p-6">
+              {children}
+            </main>
+            <ChatDockedPanel />
+          </div>
+        </SidebarInset>
+      </div>
+      <ChatFloatingWindow />
+    </SidebarProvider>
   );
 };

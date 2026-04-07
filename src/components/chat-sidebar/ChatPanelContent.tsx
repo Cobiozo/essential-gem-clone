@@ -131,7 +131,7 @@ export const ChatPanelContent = () => {
           onUnblockUser={unblockUser}
           isConversationArchived={isArchived}
           isConversationBlocked={isBlocked}
-          className="w-full"
+          className="w-full h-full overflow-hidden"
         />
       ) : hasActiveChat ? (
         <FullChatWindow
