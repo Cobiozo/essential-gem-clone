@@ -1,26 +1,21 @@
 
 
-# Fix: Selecting broadcast channel opens previous DM instead
+# Fix: Show PLC OMEGA BASE widget in PiP mode
 
 ## Problem
-When you select a broadcast channel (e.g. "Liderzy"), the previous direct message conversation (e.g. Dawid Kowalczyk) stays active and is displayed instead of the channel.
-
-## Root Cause
-In `useUnifiedChat.ts`, the `selectChannel` function sets the channel ID but **never clears** `selectedDirectUserId`. Meanwhile `selectDirectMember` correctly clears `selectedChannelId`. Since the UI checks `selectedDirectUserId` first (via `effectiveDirectMember`), the stale DM takes priority over the newly selected channel.
+The widget hides when the chat is in **any** open mode (docked or floating). User wants it visible during PiP (floating) — only hidden when sidebar (docked) is open.
 
 ## Fix
-**File: `src/hooks/useUnifiedChat.ts`** — line ~966
+**File: `src/components/MedicalChatWidget.tsx`** — line 66
 
-Add `setSelectedDirectUserId(null)` inside `selectChannel`:
-
+Change:
 ```typescript
-const selectChannel = useCallback((channelId: string) => {
-  setSelectedChannelId(channelId);
-  setSelectedDirectUserId(null);  // ← clear DM selection
-  fetchMessages(channelId);
-  // ...rest unchanged
-}, [fetchMessages, channels, markChannelAsRead]);
+if (chatSidebar?.isDocked || chatSidebar?.isFloating) return null;
+```
+To:
+```typescript
+if (chatSidebar?.isDocked) return null;
 ```
 
-One-line fix. Both `ChatPanelContent` and `MessagesPage` use the same hook, so this fixes the bug everywhere (sidebar, PiP, and full messages page).
+One-line change. The widget will reappear when switching to PiP mode and only hide when the docked sidebar is active.
 
