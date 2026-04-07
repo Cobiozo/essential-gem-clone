@@ -965,6 +965,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   // Select channel
   const selectChannel = useCallback((channelId: string) => {
     setSelectedChannelId(channelId);
+    setSelectedDirectUserId(null);
     fetchMessages(channelId);
     
     const channel = channels.find(c => c.id === channelId);
