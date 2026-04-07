@@ -130,7 +130,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
         </div>
       )}
 
-      <div className="flex items-center gap-3 bg-muted/50 rounded-full px-4 py-2">
+      <div className="flex items-end gap-3 bg-muted/50 rounded-2xl px-4 py-2">
         {/* Attachment dialog */}
         <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
           <DialogTrigger asChild>
