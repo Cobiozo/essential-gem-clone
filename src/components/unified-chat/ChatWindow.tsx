@@ -58,7 +58,7 @@ export const ChatWindow = ({ channel, messages, loading, onSend, onDeleteMessage
                     {showDateSeparator && (
                       <DateSeparator date={new Date(message.createdAt)} />
                     )}
-                    <MessageBubble message={message} />
+                    <MessageBubble message={message} onDelete={onDeleteMessage} />
                   </div>
                 );
               })}
