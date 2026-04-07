@@ -29,7 +29,7 @@ export const MedicalChatWidget: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { language } = useLanguage();
-  const chatSidebar = useChatSidebar();
+  const chatSidebar = useContext(ChatSidebarContext);
   const {
     resultsCount,
     setResultsCount,
