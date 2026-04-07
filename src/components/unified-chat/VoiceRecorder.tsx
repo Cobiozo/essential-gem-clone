@@ -141,10 +141,6 @@ export const VoiceRecorder = ({ onRecordingComplete, onCancel }: VoiceRecorderPr
       setAudioUrl(null);
       setRecordingTime(0);
 
-      toast({
-        title: 'Sukces',
-        description: 'Wiadomość głosowa została wysłana'
-      });
     } catch (error) {
       console.error('Error uploading voice message:', error);
       toast({

@@ -86,11 +86,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger
             onClick={() => handleEmojiClick(emoji)}
           >
             {emoji}
-            {copiedEmoji === emoji && (
-              <div className="absolute -top-2 -right-2">
-                <Check className="w-3 h-3 text-green-600" />
-              </div>
-            )}
           </Button>
         ))}
       </div>

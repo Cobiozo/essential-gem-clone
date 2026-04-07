@@ -991,33 +991,47 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   useEffect(() => { fetchUnreadCountsRef.current = fetchUnreadCounts; }, [fetchUnreadCounts]);
   useEffect(() => { fetchDirectMessagesRef.current = fetchDirectMessages; }, [fetchDirectMessages]);
 
+  // Ref for selectedDirectUserId to use in realtime handler
+  const selectedDirectUserIdRef = useRef<string | null>(null);
+  useEffect(() => { selectedDirectUserIdRef.current = selectedDirectUserId; }, [selectedDirectUserId]);
+  const selectedChannelIdRef = useRef<string | null>(null);
+  useEffect(() => { selectedChannelIdRef.current = selectedChannelId; }, [selectedChannelId]);
+
   // Real-time subscription - STABILIZED: uses refs to prevent circular restarts
   useEffect(() => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel(`unified-chat-${user.id}`)  // Removed Date.now() - prevents resubscription loops
+      .channel(`unified-chat-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'role_chat_messages',
-          // SQL filter: only receive messages for current user (reduces network traffic by ~90%)
           filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${currentRole}))`,
         },
         (payload) => {
           const newMessage = payload.new as any;
           
-          // Check if message is for current user
           const isForMe = 
             newMessage.recipient_role === currentRole &&
             (newMessage.recipient_id === user.id || newMessage.recipient_id === null);
           
           if (isForMe || newMessage.sender_id === user.id) {
-            // Use refs to avoid dependency cycles
-            if (selectedChannelId) {
-              fetchMessagesRef.current?.(selectedChannelId);
+            // Handle DM realtime refresh
+            if (selectedDirectUserIdRef.current) {
+              const otherUserId = selectedDirectUserIdRef.current;
+              const isDMForThisConversation = 
+                (newMessage.sender_id === otherUserId && newMessage.recipient_id === user.id) ||
+                (newMessage.sender_id === user.id && newMessage.recipient_id === otherUserId);
+              if (isDMForThisConversation) {
+                fetchDirectMessagesRef.current?.(otherUserId, { silent: true });
+              }
+            }
+            // Handle channel realtime refresh
+            if (selectedChannelIdRef.current) {
+              fetchMessagesRef.current?.(selectedChannelIdRef.current);
             }
             fetchUnreadCountsRef.current?.();
           }
@@ -1028,7 +1042,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, enableRealtime, currentRole, selectedChannelId]);  // Removed fetchMessages and fetchUnreadCounts from deps
+  }, [user, enableRealtime, currentRole]);
 
   // Calculate total unread
   const totalUnread = useMemo(() => {
