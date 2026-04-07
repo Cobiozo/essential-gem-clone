@@ -258,6 +258,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     platformTeams: 'Zespoły platformy',
     security: 'Bezpieczeństwo',
     emailDelivery: 'Dostarczalność e-mail',
+    activityLog: 'Dziennik działań',
     purebox: 'PureBox',
   };
 
