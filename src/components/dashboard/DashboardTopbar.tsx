@@ -26,6 +26,7 @@ import { CacheManagementDialog } from './CacheManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
+import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 
 interface DashboardTopbarProps {
   title?: string;
