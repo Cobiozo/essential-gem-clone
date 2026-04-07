@@ -1,32 +1,37 @@
 
 
-# Fix: Textarea not using full width
+# Ukrywanie ikony czatu w topbarze gdy brak uprawnień
 
 ## Problem
-The current layout places 3 icon buttons (attachment, emoji, mic) on the **left side** of the textarea in a single flex row. This steals ~120px of horizontal space from the text input, leaving much of the input bar unused — especially visible on mobile/PiP.
+Ikona czatu (MessageSquare) w `DashboardTopbar` jest zawsze widoczna, nawet gdy administrator wyłączył dostęp do czatu dla danej roli użytkownika poprzez ustawienia widoczności (`chat_sidebar_visibility`).
 
-## Fix
-**File: `src/components/unified-chat/MessageInput.tsx`**
+## Rozwiązanie
 
-Restructure the input container from a single row to a **stacked layout**:
+**Plik: `src/components/dashboard/DashboardTopbar.tsx`**
 
-```text
-┌─────────────────────────────────┐
-│  textarea (full width)          │
-│                                 │
-│  📎  😊  🎤          [Send ➤]  │
-└─────────────────────────────────┘
+1. Zaimportować `useChatSidebarVisibility` i `isRoleVisibleForChat` z `@/hooks/useChatSidebarVisibility`
+2. Zaimportować `useAuth` (już jest) — użyć `userRole` do pobrania roli
+3. Wywołać hook `useChatSidebarVisibility()` i sprawdzić `isRoleVisibleForChat(chatVisibility, role)`
+4. Warunkowo renderować przycisk czatu (linie 129-138) — wyświetlać go tylko gdy `isRoleVisibleForChat` zwraca `true`
+
+### Szczegóły techniczne
+
+```tsx
+// Dodać importy
+import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+
+// W komponencie - użyć istniejącego useAuth + dodać hook
+const { profile, signOut, isAdmin, userRole } = useAuth();
+const { data: chatVisibility } = useChatSidebarVisibility();
+const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
+
+// Warunkowo renderować przycisk czatu
+{isChatVisible && (
+  <Button variant={...} onClick={chatSidebar.toggleDocked}>
+    <MessageSquare />
+  </Button>
+)}
 ```
 
-- Textarea spans the full width on top
-- Bottom row: icons on the left (`flex`), send button on the right (`ml-auto`)
-- Keep `rounded-2xl` container, `bg-muted/50` styling
-
-### Key changes
-1. Wrap in a vertical flex (`flex-col`) container
-2. Textarea as the first child — full width, no icons beside it
-3. Second child: horizontal flex row with icons left + send button right
-4. Icons use `gap-1` for compact spacing, send button uses `ml-auto`
-
-Single file edit. Textarea gets 100% of container width.
+Jeden plik do edycji. Reużycie istniejącego hooka i funkcji helper — ten sam mechanizm co w sidebarze.
 
