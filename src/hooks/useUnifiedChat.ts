@@ -166,10 +166,12 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   }, [user, profile]);
 
   // Fetch direct messages for 1:1 chat
-  const fetchDirectMessages = useCallback(async (otherUserId: string) => {
+  const fetchDirectMessages = useCallback(async (otherUserId: string, options?: { silent?: boolean }) => {
     if (!user) return;
 
-    setLoading(true);
+    if (!options?.silent) {
+      setLoading(true);
+    }
     try {
       const { data, error } = await supabase
         .from('role_chat_messages')
@@ -229,7 +231,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     } catch (error) {
       console.error('Error fetching direct messages:', error);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
@@ -269,6 +273,25 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (msgError) throw msgError;
 
+      // Optimistic update - add message to local state immediately
+      const optimisticMessage: UnifiedMessage = {
+        id: `temp-${Date.now()}`,
+        channelId: null,
+        senderId: user.id,
+        senderName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik',
+        senderAvatar: (profile as any).avatar_url || undefined,
+        senderInitials: `${(profile.first_name || '?').charAt(0)}${(profile.last_name || '?').charAt(0)}`.toUpperCase(),
+        senderRole: currentRole,
+        content,
+        createdAt: new Date().toISOString(),
+        isOwn: true,
+        isRead: false,
+        messageType: messageType,
+        attachmentUrl: attachmentUrl,
+        attachmentName: attachmentName,
+      };
+      setMessages(prev => [...prev, optimisticMessage]);
+
       // Send notification
       const senderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik';
       const notificationMessage = messageType !== 'text' 
@@ -304,8 +327,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         console.warn('Email notification failed:', emailError);
       }
 
-      // Refresh messages
-      await fetchDirectMessages(recipientId);
+      // Silent background refresh to sync with DB (get real IDs)
+      fetchDirectMessages(recipientId, { silent: true });
       return true;
     } catch (error) {
       console.error('Error sending direct message:', error);
@@ -900,7 +923,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         }
       }
 
-      toast.success('Wiadomość wysłana');
+      
 
       // Refresh messages
       await fetchMessages(selectedChannel.id);
@@ -968,33 +991,47 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   useEffect(() => { fetchUnreadCountsRef.current = fetchUnreadCounts; }, [fetchUnreadCounts]);
   useEffect(() => { fetchDirectMessagesRef.current = fetchDirectMessages; }, [fetchDirectMessages]);
 
+  // Ref for selectedDirectUserId to use in realtime handler
+  const selectedDirectUserIdRef = useRef<string | null>(null);
+  useEffect(() => { selectedDirectUserIdRef.current = selectedDirectUserId; }, [selectedDirectUserId]);
+  const selectedChannelIdRef = useRef<string | null>(null);
+  useEffect(() => { selectedChannelIdRef.current = selectedChannelId; }, [selectedChannelId]);
+
   // Real-time subscription - STABILIZED: uses refs to prevent circular restarts
   useEffect(() => {
     if (!user || !enableRealtime) return;
 
     const channel = supabase
-      .channel(`unified-chat-${user.id}`)  // Removed Date.now() - prevents resubscription loops
+      .channel(`unified-chat-${user.id}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'role_chat_messages',
-          // SQL filter: only receive messages for current user (reduces network traffic by ~90%)
           filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${currentRole}))`,
         },
         (payload) => {
           const newMessage = payload.new as any;
           
-          // Check if message is for current user
           const isForMe = 
             newMessage.recipient_role === currentRole &&
             (newMessage.recipient_id === user.id || newMessage.recipient_id === null);
           
           if (isForMe || newMessage.sender_id === user.id) {
-            // Use refs to avoid dependency cycles
-            if (selectedChannelId) {
-              fetchMessagesRef.current?.(selectedChannelId);
+            // Handle DM realtime refresh
+            if (selectedDirectUserIdRef.current) {
+              const otherUserId = selectedDirectUserIdRef.current;
+              const isDMForThisConversation = 
+                (newMessage.sender_id === otherUserId && newMessage.recipient_id === user.id) ||
+                (newMessage.sender_id === user.id && newMessage.recipient_id === otherUserId);
+              if (isDMForThisConversation) {
+                fetchDirectMessagesRef.current?.(otherUserId, { silent: true });
+              }
+            }
+            // Handle channel realtime refresh
+            if (selectedChannelIdRef.current) {
+              fetchMessagesRef.current?.(selectedChannelIdRef.current);
             }
             fetchUnreadCountsRef.current?.();
           }
@@ -1005,7 +1042,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, enableRealtime, currentRole, selectedChannelId]);  // Removed fetchMessages and fetchUnreadCounts from deps
+  }, [user, enableRealtime, currentRole]);
 
   // Calculate total unread
   const totalUnread = useMemo(() => {

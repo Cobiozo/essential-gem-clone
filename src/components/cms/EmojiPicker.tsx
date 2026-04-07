@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -6,8 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Smile, Search, Heart, Star, ThumbsUp, Copy, Check } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Smile, Search } from 'lucide-react';
 
 interface EmojiCategory {
   name: string;
@@ -58,8 +57,6 @@ interface EmojiPickerProps {
 export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
-  const [copiedEmoji, setCopiedEmoji] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const filteredEmojis = emojiCategories.map(category => ({
     ...category,
@@ -72,17 +69,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger
   const handleEmojiClick = (emoji: string) => {
     setSelectedEmoji(emoji);
     onEmojiSelect?.(emoji);
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(emoji).then(() => {
-      setCopiedEmoji(emoji);
-      toast({
-        title: "Emoji skopiowane",
-        description: `${emoji} zostało skopiowane do schowka`,
-      });
-      
-      setTimeout(() => setCopiedEmoji(null), 2000);
-    });
   };
 
   const EmojiGrid = ({ emojis, title }: { emojis: string[]; title?: string }) => (
@@ -100,11 +86,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger
             onClick={() => handleEmojiClick(emoji)}
           >
             {emoji}
-            {copiedEmoji === emoji && (
-              <div className="absolute -top-2 -right-2">
-                <Check className="w-3 h-3 text-green-600" />
-              </div>
-            )}
           </Button>
         ))}
       </div>
