@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen, ArrowLeft } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen, ArrowLeft, MessageSquare } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import SessionTimer from '@/components/SessionTimer';
@@ -26,6 +26,7 @@ import { CacheManagementDialog } from './CacheManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
+import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 
 interface DashboardTopbarProps {
   title?: string;
@@ -45,6 +46,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const sessionTimer = useSessionTimer();
+  const chatSidebar = useChatSidebar();
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   
@@ -123,6 +125,17 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             />
           )}
         </div>
+
+        {/* Chat sidebar toggle */}
+        <Button
+          variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
+          size="icon"
+          onClick={chatSidebar.toggle}
+          className="h-9 w-9"
+          title="Czat"
+        >
+          <MessageSquare className="h-4 w-4" />
+        </Button>
 
         {/* Notifications */}
         <NotificationBell />
