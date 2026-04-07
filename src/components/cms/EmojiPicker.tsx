@@ -57,8 +57,6 @@ interface EmojiPickerProps {
 export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
-  const [copiedEmoji, setCopiedEmoji] = useState<string | null>(null);
-  const { toast } = useToast();
 
   const filteredEmojis = emojiCategories.map(category => ({
     ...category,
@@ -71,17 +69,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger
   const handleEmojiClick = (emoji: string) => {
     setSelectedEmoji(emoji);
     onEmojiSelect?.(emoji);
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(emoji).then(() => {
-      setCopiedEmoji(emoji);
-      toast({
-        title: "Emoji skopiowane",
-        description: `${emoji} zostało skopiowane do schowka`,
-      });
-      
-      setTimeout(() => setCopiedEmoji(null), 2000);
-    });
   };
 
   const EmojiGrid = ({ emojis, title }: { emojis: string[]; title?: string }) => (
