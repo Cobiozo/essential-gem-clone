@@ -130,66 +130,8 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
         </div>
       )}
 
-      <div className="flex items-end gap-3 bg-muted/50 rounded-2xl px-4 py-2">
-        {/* Attachment dialog */}
-        <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
-          <DialogTrigger asChild>
-            <button 
-              type="button"
-              className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Paperclip className="h-5 w-5" />
-            </button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Załącz plik</DialogTitle>
-            </DialogHeader>
-            <MediaUpload
-              onMediaUploaded={handleMediaUploaded}
-              allowedTypes={['image', 'video', 'document', 'audio']}
-              compact
-            />
-          </DialogContent>
-        </Dialog>
-
-        {/* Emoji picker */}
-        <EmojiPicker
-          onEmojiSelect={handleEmojiSelect}
-          trigger={
-            <button 
-              type="button"
-              className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Smile className="h-5 w-5" />
-            </button>
-          }
-        />
-
-        {/* Voice recorder trigger */}
-        <button 
-          type="button"
-          onClick={() => setIsRecording(true)}
-          className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width="20" 
-            height="20" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-            strokeLinejoin="round"
-          >
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-            <line x1="12" x2="12" y1="19" y2="22"/>
-          </svg>
-        </button>
-
-        {/* Input */}
+      <div className="flex flex-col bg-muted/50 rounded-2xl px-4 py-2">
+        {/* Textarea - full width */}
         <textarea
           value={message}
           onChange={(e) => {
@@ -206,18 +148,79 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
           placeholder="Wpisz wiadomość..."
           disabled={disabled || sending}
           rows={1}
-          className="flex-1 bg-transparent border-0 shadow-none focus:outline-none focus-visible:ring-0 resize-none text-sm px-2 py-2 max-h-[120px] min-h-[36px]"
+          className="w-full bg-transparent border-0 shadow-none focus:outline-none focus-visible:ring-0 resize-none text-sm py-2 max-h-[120px] min-h-[36px]"
         />
 
-        {/* Send button - turquoise */}
-        <Button
-          onClick={handleSend}
-          disabled={(!message.trim() && !pendingAttachment) || sending || disabled}
-          size="icon"
-          className="h-10 w-10 rounded-full bg-cyan-500 hover:bg-cyan-600 shrink-0"
-        >
-          <Send className="h-4 w-4 text-white" />
-        </Button>
+        {/* Bottom row: icons left, send button right */}
+        <div className="flex items-center gap-1 mt-1">
+          {/* Attachment dialog */}
+          <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
+            <DialogTrigger asChild>
+              <button 
+                type="button"
+                className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Paperclip className="h-5 w-5" />
+              </button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Załącz plik</DialogTitle>
+              </DialogHeader>
+              <MediaUpload
+                onMediaUploaded={handleMediaUploaded}
+                allowedTypes={['image', 'video', 'document', 'audio']}
+                compact
+              />
+            </DialogContent>
+          </Dialog>
+
+          {/* Emoji picker */}
+          <EmojiPicker
+            onEmojiSelect={handleEmojiSelect}
+            trigger={
+              <button 
+                type="button"
+                className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Smile className="h-5 w-5" />
+              </button>
+            }
+          />
+
+          {/* Voice recorder trigger */}
+          <button 
+            type="button"
+            onClick={() => setIsRecording(true)}
+            className="h-8 w-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="20" 
+              height="20" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" x2="12" y1="19" y2="22"/>
+            </svg>
+          </button>
+
+          {/* Send button - turquoise, pushed to right */}
+          <Button
+            onClick={handleSend}
+            disabled={(!message.trim() && !pendingAttachment) || sending || disabled}
+            size="icon"
+            className="h-10 w-10 rounded-full bg-cyan-500 hover:bg-cyan-600 shrink-0 ml-auto"
+          >
+            <Send className="h-4 w-4 text-white" />
+          </Button>
+        </div>
       </div>
     </div>
   );
