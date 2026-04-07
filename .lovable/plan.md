@@ -1,26 +1,40 @@
 
 
-# Poprawka podglądu auto-webinaru — identyczny widok jak dla gościa
+# Ulepszenie systemu wiadomości — 3 zmiany
 
-## Problem
+## 1. Załączniki: podgląd przed wysłaniem (nie auto-send)
 
-Podgląd admina (`previewMode`) ukrywa elementy widoczne dla gościa:
-1. **Header z logotypami**, tytułem, liczbą uczestników i badge "NA ŻYWO" — ukryty przez `!previewMode` (linia 381)
-2. **Sekcja custom** (dolny przypis) — ukryta przez `!previewMode` (linia 688)
-3. **Dźwięk** — wymuszony `muted=true` bez możliwości odblokowania (linia 249-258), bo overlay "Włącz dźwięk" nie pojawia się (needsUserInteraction nie jest ustawiane)
+**Problem**: Po wybraniu pliku w `MessageInput.tsx`, `handleMediaUploaded` natychmiast wywołuje `onSend()` — użytkownik nie ma kontroli.
 
-## Rozwiązanie
+**Rozwiązanie**: Dodać stan `pendingAttachment` (url, type, fileName) w `MessageInput`. Po uploaderze plik trafia do podglądu (miniaturka/ikona) obok pola tekstowego zamiast natychmiastowego wysłania. Użytkownik widzi podgląd z przyciskiem X (usunięcie) i może dodać tekst. Dopiero kliknięcie Send wysyła wiadomość z załącznikiem.
 
-### Zmiany w `src/components/auto-webinar/AutoWebinarEmbed.tsx`:
-
-1. **Pokazać header w trybie podglądu** — usunąć warunek `!previewMode` z bloku headera (linia 381). Header z logotypami, tytułem, uczestnikami i badge "NA ŻYWO" będzie widoczny również w podglądzie.
-
-2. **Pokazać sekcję custom** — usunąć warunek `!previewMode` z bloku custom section (linia 688).
-
-3. **Naprawić dźwięk w podglądzie** — zmienić logikę w `handleCanPlay` tak, aby w `previewMode` wideo startowało muted, ale ustawiało `needsUserInteraction = true`, co pokaże overlay "Włącz dźwięk". Admin kliknie i odblokuje dźwięk, dokładnie jak gość.
-
-### Plik do edycji
 | Plik | Zmiana |
 |------|--------|
-| `src/components/auto-webinar/AutoWebinarEmbed.tsx` | Usunięcie `!previewMode` z headera i custom section; zmiana logiki dźwięku w preview |
+| `src/components/unified-chat/MessageInput.tsx` | Dodanie stanu `pendingAttachment`, pasek podglądu załącznika z X do usunięcia, zmiana `handleMediaUploaded` aby ustawiał stan zamiast wysyłać, zmiana `handleSend` aby wysyłał z załącznikiem |
+
+## 2. Układ wiadomości Messenger-style (prawo/lewo + kolory)
+
+**Problem**: Wszystkie wiadomości są wyrównane do lewej z avatarem. Brak rozróżnienia wizualnego jak w Messengerze.
+
+**Rozwiązanie**: W `MessageBubble` — wiadomości własne (`isOwn`) wyrównane do prawej (bez avatara, kolor np. `bg-amber-500/amber-600`), obce do lewej z avatarem (kolor `bg-muted`). Flex direction zmienia się w zależności od `isOwn`.
+
+| Plik | Zmiana |
+|------|--------|
+| `src/components/unified-chat/MessageBubble.tsx` | Warunkowy layout: `flex-row-reverse` dla `isOwn`, ukrycie avatara dla własnych, zmiana koloru bąbelka własnych wiadomości na wyrazisty (np. amber/orange), wyrównanie tekstu nadawcy |
+
+## 3. Usuwanie wiadomości z informacją "Wiadomość usunięta"
+
+**Problem**: Brak możliwości usunięcia wiadomości w konwersacji.
+
+**Rozwiązanie**: 
+- Dodać pole `is_deleted` / `deleted_at` do tabeli wiadomości (migracja SQL)
+- Przy long-press/hover na własnej wiadomości — opcja "Usuń" 
+- Po usunięciu wiadomość nie znika, ale wyświetla się jako "Wiadomość została usunięta" (szary, kursywa) — tak jak w Messengerze
+- Soft-delete: ustawienie flagi, treść ukryta w UI
+
+| Element | Zmiana |
+|---------|--------|
+| Migracja SQL | Dodanie `is_deleted boolean default false`, `deleted_at timestamptz` do tabel wiadomości (`private_chat_messages`, `role_chat_messages`) |
+| `src/components/unified-chat/MessageBubble.tsx` | Menu kontekstowe (hover) z opcją "Usuń" na własnych wiadomościach; render "Wiadomość została usunięta" gdy `is_deleted=true` |
+| `src/hooks/useUnifiedChat.ts` | Dodanie `isDeleted` do `UnifiedMessage`, funkcja `deleteMessage` (soft-delete via update) |
 
