@@ -46,6 +46,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const sessionTimer = useSessionTimer();
+  const chatSidebar = useChatSidebar();
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   
