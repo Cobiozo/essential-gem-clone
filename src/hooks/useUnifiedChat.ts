@@ -166,10 +166,12 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   }, [user, profile]);
 
   // Fetch direct messages for 1:1 chat
-  const fetchDirectMessages = useCallback(async (otherUserId: string) => {
+  const fetchDirectMessages = useCallback(async (otherUserId: string, options?: { silent?: boolean }) => {
     if (!user) return;
 
-    setLoading(true);
+    if (!options?.silent) {
+      setLoading(true);
+    }
     try {
       const { data, error } = await supabase
         .from('role_chat_messages')
@@ -229,7 +231,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     } catch (error) {
       console.error('Error fetching direct messages:', error);
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [user]);
 
