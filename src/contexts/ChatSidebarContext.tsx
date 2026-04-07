@@ -29,7 +29,7 @@ interface ChatSidebarContextType {
   setMinimized: (v: boolean) => void;
 }
 
-const ChatSidebarContext = createContext<ChatSidebarContextType | null>(null);
+export const ChatSidebarContext = createContext<ChatSidebarContextType | null>(null);
 
 const DEFAULT_FLOATING: FloatingPosition = {
   x: window.innerWidth - 420,

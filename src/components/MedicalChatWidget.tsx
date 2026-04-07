@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { Search, Send, X, Trash2, Download, History } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useChatSidebar } from '@/contexts/ChatSidebarContext';
+import { ChatSidebarContext } from '@/contexts/ChatSidebarContext';
 import {
   Select,
   SelectContent,
@@ -29,7 +29,7 @@ export const MedicalChatWidget: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { language } = useLanguage();
-  const chatSidebar = useChatSidebar();
+  const chatSidebar = useContext(ChatSidebarContext);
   const {
     resultsCount,
     setResultsCount,
@@ -63,7 +63,7 @@ export const MedicalChatWidget: React.FC = () => {
 
   if (!hasAccess) return null;
   if (location.pathname === '/omega-base') return null;
-  if (chatSidebar.isDocked || chatSidebar.isFloating) return null;
+  if (chatSidebar?.isDocked || chatSidebar?.isFloating) return null;
 
   const getTranslation = (key: string): string => {
     const translations: Record<string, Record<string, string>> = {
