@@ -204,6 +204,7 @@ const navCategories: NavCategory[] = [
     icon: Wrench,
     items: [
       { value: 'system-health', labelKey: 'systemHealth', icon: AlertTriangle },
+      { value: 'activity-log', labelKey: 'activityLog', icon: Clock },
       { value: 'maintenance', labelKey: 'maintenance', icon: Settings2 },
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
@@ -257,6 +258,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     platformTeams: 'Zespoły platformy',
     security: 'Bezpieczeństwo',
     emailDelivery: 'Dostarczalność e-mail',
+    activityLog: 'Dziennik działań',
     purebox: 'PureBox',
   };
 
