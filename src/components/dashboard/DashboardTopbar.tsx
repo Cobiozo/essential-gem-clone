@@ -126,6 +126,17 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           )}
         </div>
 
+        {/* Chat sidebar toggle */}
+        <Button
+          variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
+          size="icon"
+          onClick={chatSidebar.toggle}
+          className="h-9 w-9"
+          title="Czat"
+        >
+          <MessageSquare className="h-4 w-4" />
+        </Button>
+
         {/* Notifications */}
         <NotificationBell />
 
