@@ -15,6 +15,7 @@ export const UnifiedChatWidget = () => {
     totalUnread,
     selectChannel,
     sendMessage,
+    deleteMessage,
   } = useUnifiedChat({ enableRealtime: true });
 
   return (
