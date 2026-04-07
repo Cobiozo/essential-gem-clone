@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
+import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 
 interface DashboardTopbarProps {
   title?: string;
