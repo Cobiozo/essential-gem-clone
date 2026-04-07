@@ -367,6 +367,7 @@ const AppContent = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ChatSidebarProvider>
         <InactivityHandler>
           <ProfileCompletionGuard>
             <Suspense fallback={<LoadingSpinner />}>
