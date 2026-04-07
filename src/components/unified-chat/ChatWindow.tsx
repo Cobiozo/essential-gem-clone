@@ -11,9 +11,10 @@ interface ChatWindowProps {
   messages: UnifiedMessage[];
   loading: boolean;
   onSend: (content: string, messageType?: string, attachmentUrl?: string, attachmentName?: string) => Promise<boolean>;
+  onDeleteMessage?: (messageId: string) => Promise<boolean>;
 }
 
-export const ChatWindow = ({ channel, messages, loading, onSend }: ChatWindowProps) => {
+export const ChatWindow = ({ channel, messages, loading, onSend, onDeleteMessage }: ChatWindowProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
