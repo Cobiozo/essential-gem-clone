@@ -273,6 +273,25 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (msgError) throw msgError;
 
+      // Optimistic update - add message to local state immediately
+      const optimisticMessage: UnifiedMessage = {
+        id: `temp-${Date.now()}`,
+        channelId: null,
+        senderId: user.id,
+        senderName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik',
+        senderAvatar: profile.avatar_url || undefined,
+        senderInitials: `${(profile.first_name || '?').charAt(0)}${(profile.last_name || '?').charAt(0)}`.toUpperCase(),
+        senderRole: currentRole,
+        content,
+        createdAt: new Date().toISOString(),
+        isOwn: true,
+        isRead: false,
+        messageType: messageType,
+        attachmentUrl: attachmentUrl,
+        attachmentName: attachmentName,
+      };
+      setMessages(prev => [...prev, optimisticMessage]);
+
       // Send notification
       const senderName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik';
       const notificationMessage = messageType !== 'text' 
@@ -308,8 +327,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         console.warn('Email notification failed:', emailError);
       }
 
-      // Refresh messages
-      await fetchDirectMessages(recipientId);
+      // Silent background refresh to sync with DB (get real IDs)
+      fetchDirectMessages(recipientId, { silent: true });
       return true;
     } catch (error) {
       console.error('Error sending direct message:', error);
