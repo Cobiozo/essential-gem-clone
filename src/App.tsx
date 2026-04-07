@@ -430,6 +430,7 @@ const AppContent = () => {
           <ChatWidgetsWrapper />
           <PWAInstallBanner />
         </InactivityHandler>
+        </ChatSidebarProvider>
       </BrowserRouter>
       <CookieConsentBanner />
       <SWUpdateBanner />

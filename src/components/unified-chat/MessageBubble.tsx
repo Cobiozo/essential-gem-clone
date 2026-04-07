@@ -137,7 +137,7 @@ export const MessageBubble = ({ message, onDelete }: MessageBubbleProps) => {
             )}
           >
             {message.content && (
-              <p className="text-sm whitespace-pre-wrap break-words">
+              <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
                 {message.content}
               </p>
             )}
