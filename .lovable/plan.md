@@ -1,43 +1,42 @@
 
 
-# Miniaturki obrazków w czacie + podgląd z opcjami
+# Fix: Input text not fully visible before sending
 
 ## Problem
-Obrazki w czacie zajmują całe okno PiP/sidebar (max-w-[280px] to za dużo). Kliknięcie otwiera nową kartę zamiast podglądu z akcjami.
+The message input uses a single-line `<Input>` (HTML `<input>`) inside a fixed-width container with icons on both sides. Long text gets clipped because:
+1. `<input>` is single-line — no wrapping
+2. The input shares horizontal space with 4 icon buttons + send button in a `flex` row with `rounded-full` pill shape
 
-## Rozwiązanie
+## Fix
+**File: `src/components/unified-chat/MessageInput.tsx`**
 
-### 1. Zmniejszenie miniaturek w `MessageBubble.tsx`
-- Zmiana `max-w-[280px]` na `max-w-[120px]` (mały thumbnail)
-- Dodanie `max-h-[120px] object-cover` żeby zachować proporcje
+Replace `<Input>` with a `<textarea>` that auto-grows:
+- Use a `<textarea>` with `rows={1}` and auto-resize on input (up to ~4 lines max)
+- Remove `rounded-full` from the container — switch to `rounded-2xl` to accommodate multi-line
+- Keep icons on the left side and send button on the right, but align them to the bottom (`items-end`) so they stay near the text line
+- Apply same transparent/borderless styling as current input
 
-### 2. Dialog podglądu obrazka w `MessageBubble.tsx`
-Zamiast `window.open()` na kliknięcie, otworzy się wbudowany dialog (shadcn `Dialog`) z:
-- Dużym podglądem obrazka (object-contain, pełna szerokość dialogu)
-- Przycisk **"Przekaż"** — użyje `navigator.share()` na mobile lub skopiuje URL na desktop
-- Przycisk **"Zapisz na urządzeniu"** — użyje istniejącego `shareOrDownloadImage()` z `imageShareUtils.ts`
+### Key changes
 
-### 3. Struktura nowego dialogu
-
-```text
-┌─────────────────────────────┐
-│         Podgląd obrazka   ✕ │
-│                             │
-│    ┌───────────────────┐    │
-│    │                   │    │
-│    │   duży obrazek    │    │
-│    │   object-contain  │    │
-│    │                   │    │
-│    └───────────────────┘    │
-│                             │
-│  [  Przekaż  ] [ Zapisz  ] │
-└─────────────────────────────┘
+```tsx
+// Replace <Input> with auto-growing <textarea>
+<textarea
+  value={message}
+  onChange={(e) => {
+    setMessage(e.target.value);
+    // Auto-resize
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  }}
+  onKeyDown={handleKeyDown}
+  placeholder="Wpisz wiadomość..."
+  disabled={disabled || sending}
+  rows={1}
+  className="flex-1 bg-transparent border-0 shadow-none focus:outline-none focus-visible:ring-0 resize-none text-sm px-2 py-2 max-h-[120px]"
+/>
 ```
 
-### Plik do edycji
-- `src/components/unified-chat/MessageBubble.tsx` — dodanie stanu `previewImage`, zmniejszenie thumbnail, dodanie dialogu z przyciskami wykorzystującymi `shareOrDownloadImage` i `navigator.share`
+Container change: `rounded-full` → `rounded-2xl`, `items-center` → `items-end`
 
-### Reużycie
-- `shareOrDownloadImage` z `src/lib/imageShareUtils.ts` — obsługuje mobile (Web Share API → galeria) i desktop (blob download)
-- Nie tworzymy nowego komponentu — dialog jest prosty, wystarczy stan + shadcn Dialog w tym samym pliku
+Single file edit. Works on both desktop and mobile.
 
