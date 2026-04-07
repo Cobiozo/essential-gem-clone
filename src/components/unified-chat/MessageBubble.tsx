@@ -113,7 +113,7 @@ export const MessageBubble = ({ message, onDelete }: MessageBubbleProps) => {
         </div>
       )}
 
-      <div className={cn('max-w-[75%] min-w-0', message.isOwn ? 'items-end' : 'items-start', 'flex flex-col')}>
+      <div className={cn('max-w-[75%] min-w-0 overflow-hidden', message.isOwn ? 'items-end' : 'items-start', 'flex flex-col')}>
         {/* Sender name + time */}
         <div className={cn('flex items-center gap-2 mb-1', message.isOwn ? 'flex-row-reverse' : 'flex-row')}>
           {!message.isOwn && (
