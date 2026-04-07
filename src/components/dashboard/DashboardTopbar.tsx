@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
+import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 
 interface DashboardTopbarProps {
   title?: string;
@@ -42,11 +43,13 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   onUserMenuOpenChange,
 }) => {
   const navigate = useNavigate();
-  const { profile, signOut, isAdmin } = useAuth();
+  const { profile, signOut, isAdmin, userRole } = useAuth();
   const { t, tf } = useLanguage();
   const { setViewMode } = useDashboardPreference();
   const sessionTimer = useSessionTimer();
   const chatSidebar = useChatSidebar();
+  const { data: chatVisibility } = useChatSidebarVisibility();
+  const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
   
@@ -127,15 +130,17 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
         </div>
 
         {/* Chat toggle - simple sidebar toggle */}
-        <Button
-          variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
-          size="icon"
-          className="h-9 w-9"
-          title="Czat"
-          onClick={chatSidebar.toggleDocked}
-        >
-          <MessageSquare className="h-4 w-4" />
-        </Button>
+        {isChatVisible && (
+          <Button
+            variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
+            size="icon"
+            className="h-9 w-9"
+            title="Czat"
+            onClick={chatSidebar.toggleDocked}
+          >
+            <MessageSquare className="h-4 w-4" />
+          </Button>
+        )}
 
         {/* Notifications */}
         <NotificationBell />
