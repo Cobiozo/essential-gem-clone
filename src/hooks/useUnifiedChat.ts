@@ -923,7 +923,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         }
       }
 
-      toast.success('Wiadomość wysłana');
+      
 
       // Refresh messages
       await fetchMessages(selectedChannel.id);
