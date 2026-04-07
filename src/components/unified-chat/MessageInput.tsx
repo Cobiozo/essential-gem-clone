@@ -1,11 +1,17 @@
 import { useState, KeyboardEvent } from 'react';
-import { Send, Smile, Paperclip } from 'lucide-react';
+import { Send, Smile, Paperclip, X, FileText, Image as ImageIcon, Film, Music } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { EmojiPicker } from '@/components/cms/EmojiPicker';
 import { MediaUpload } from '@/components/MediaUpload';
 import { VoiceRecorder } from './VoiceRecorder';
+
+interface PendingAttachment {
+  url: string;
+  type: string;
+  fileName: string;
+}
 
 interface MessageInputProps {
   onSend: (content: string, messageType?: string, attachmentUrl?: string, attachmentName?: string) => Promise<boolean>;
@@ -17,16 +23,24 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
   const [sending, setSending] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [attachmentDialogOpen, setAttachmentDialogOpen] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
 
   const handleSend = async () => {
     const trimmed = message.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed && !pendingAttachment) return;
+    if (sending) return;
 
     setSending(true);
     try {
-      const success = await onSend(trimmed, 'text');
+      const success = await onSend(
+        trimmed,
+        pendingAttachment ? pendingAttachment.type : 'text',
+        pendingAttachment?.url,
+        pendingAttachment?.fileName
+      );
       if (success) {
         setMessage('');
+        setPendingAttachment(null);
       }
     } finally {
       setSending(false);
@@ -44,18 +58,11 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
     setMessage(prev => prev + emoji);
   };
 
-  const handleMediaUploaded = async (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other') => {
+  const handleMediaUploaded = (url: string, type: 'image' | 'video' | 'document' | 'audio' | 'other') => {
     setAttachmentDialogOpen(false);
-    
     const messageType = type === 'other' ? 'file' : type;
     const fileName = url.split('/').pop() || 'attachment';
-    
-    setSending(true);
-    try {
-      await onSend('', messageType, url, fileName);
-    } finally {
-      setSending(false);
-    }
+    setPendingAttachment({ url, type: messageType, fileName });
   };
 
   const handleVoiceRecordingComplete = async (url: string, fileName: string) => {
@@ -65,6 +72,15 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
       await onSend('', 'audio', url, fileName);
     } finally {
       setSending(false);
+    }
+  };
+
+  const getAttachmentIcon = (type: string) => {
+    switch (type) {
+      case 'image': return <ImageIcon className="h-5 w-5 text-primary" />;
+      case 'video': return <Film className="h-5 w-5 text-primary" />;
+      case 'audio': return <Music className="h-5 w-5 text-primary" />;
+      default: return <FileText className="h-5 w-5 text-primary" />;
     }
   };
 
@@ -82,6 +98,38 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
 
   return (
     <div className="p-4 border-t border-border bg-background/80">
+      {/* Pending attachment preview */}
+      {pendingAttachment && (
+        <div className="flex items-center gap-3 mb-3 p-2.5 bg-muted/60 rounded-xl border border-border">
+          {pendingAttachment.type === 'image' ? (
+            <img
+              src={pendingAttachment.url}
+              alt="Podgląd"
+              className="h-14 w-14 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center">
+              {getAttachmentIcon(pendingAttachment.type)}
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
+              {pendingAttachment.fileName}
+            </p>
+            <p className="text-xs text-muted-foreground capitalize">
+              {pendingAttachment.type === 'file' ? 'Dokument' : pendingAttachment.type === 'image' ? 'Zdjęcie' : pendingAttachment.type === 'video' ? 'Wideo' : pendingAttachment.type === 'audio' ? 'Audio' : pendingAttachment.type}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPendingAttachment(null)}
+            className="h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-3 bg-muted/50 rounded-full px-4 py-2">
         {/* Attachment dialog */}
         <Dialog open={attachmentDialogOpen} onOpenChange={setAttachmentDialogOpen}>
@@ -154,7 +202,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
         {/* Send button - turquoise */}
         <Button
           onClick={handleSend}
-          disabled={!message.trim() || sending || disabled}
+          disabled={(!message.trim() && !pendingAttachment) || sending || disabled}
           size="icon"
           className="h-10 w-10 rounded-full bg-cyan-500 hover:bg-cyan-600 shrink-0"
         >

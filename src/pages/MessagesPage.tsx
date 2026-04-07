@@ -69,6 +69,7 @@ const MessagesPage = () => {
     selectDirectMember,
     sendDirectMessage,
     createGroupChat,
+    deleteMessage,
   } = useUnifiedChat({ enableRealtime: true });
 
   // Handle ?user= URL parameter for notification deep-linking
@@ -319,6 +320,7 @@ const MessagesPage = () => {
               onUnblockUser={unblockUser}
               isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
               isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
+              onDeleteMessage={deleteMessage}
             />
           ) : (
             <EmptyState />

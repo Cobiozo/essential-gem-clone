@@ -27,6 +27,7 @@ interface FullChatWindowProps {
   onUnblockUser?: (userId: string) => void;
   isConversationArchived?: boolean;
   isConversationBlocked?: boolean;
+  onDeleteMessage?: (messageId: string) => Promise<boolean>;
 }
 
 export const FullChatWindow = ({
@@ -45,6 +46,7 @@ export const FullChatWindow = ({
   onUnblockUser,
   isConversationArchived = false,
   isConversationBlocked = false,
+  onDeleteMessage,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   
@@ -157,7 +159,7 @@ export const FullChatWindow = ({
                     {showDateSeparator && (
                       <DateSeparator date={new Date(message.createdAt)} />
                     )}
-                    <MessageBubble message={message} />
+                    <MessageBubble message={message} onDelete={onDeleteMessage} />
                   </div>
                 );
               })}

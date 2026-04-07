@@ -45,6 +45,7 @@ export interface UnifiedMessage {
   createdAt: string;
   isOwn: boolean;
   isRead: boolean;
+  isDeleted?: boolean;
   messageType?: string;
   attachmentUrl?: string;
   attachmentName?: string;
@@ -217,6 +218,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           createdAt: m.created_at,
           isOwn: m.sender_id === user.id,
           isRead: m.is_read,
+          isDeleted: (m as any).is_deleted || false,
           messageType: m.message_type,
           attachmentUrl: m.attachment_url,
           attachmentName: m.attachment_name,
@@ -742,6 +744,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           createdAt: m.created_at,
           isOwn: m.sender_id === user.id,
           isRead: m.is_read,
+          isDeleted: (m as any).is_deleted || false,
           messageType: m.message_type,
           attachmentUrl: m.attachment_url,
           attachmentName: m.attachment_name,
@@ -1038,6 +1041,37 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     selectDirectMember,
     sendDirectMessage,
     createGroupChat,
+    deleteMessage: async (messageId: string): Promise<boolean> => {
+      if (!user) return false;
+      try {
+        // Try role_chat_messages first
+        const { error: roleErr } = await supabase
+          .from('role_chat_messages')
+          .update({ is_deleted: true, deleted_at: new Date().toISOString() } as any)
+          .eq('id', messageId)
+          .eq('sender_id', user.id);
+
+        if (roleErr) {
+          // Try private_chat_messages
+          const { error: privateErr } = await supabase
+            .from('private_chat_messages')
+            .update({ is_deleted: true, deleted_at: new Date().toISOString() } as any)
+            .eq('id', messageId)
+            .eq('sender_id', user.id);
+          if (privateErr) throw privateErr;
+        }
+
+        // Update local state
+        setMessages(prev => prev.map(m =>
+          m.id === messageId ? { ...m, isDeleted: true, content: '' } : m
+        ));
+        return true;
+      } catch (error) {
+        console.error('Error deleting message:', error);
+        toast.error('Nie udało się usunąć wiadomości');
+        return false;
+      }
+    },
     refetch: () => {
       fetchUnreadCounts();
       fetchTeamMembers();

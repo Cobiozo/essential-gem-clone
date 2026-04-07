@@ -6234,7 +6234,9 @@ export type Database = {
         Row: {
           content: string
           created_at: string | null
+          deleted_at: string | null
           id: string
+          is_deleted: boolean
           is_read: boolean | null
           read_at: string | null
           sender_id: string
@@ -6243,7 +6245,9 @@ export type Database = {
         Insert: {
           content: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
+          is_deleted?: boolean
           is_read?: boolean | null
           read_at?: string | null
           sender_id: string
@@ -6252,7 +6256,9 @@ export type Database = {
         Update: {
           content?: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
+          is_deleted?: boolean
           is_read?: boolean | null
           read_at?: string | null
           sender_id?: string
@@ -6955,8 +6961,10 @@ export type Database = {
           channel_id: string | null
           content: string
           created_at: string | null
+          deleted_at: string | null
           id: string
           is_broadcast: boolean | null
+          is_deleted: boolean
           is_read: boolean | null
           message_type: string | null
           read_at: string | null
@@ -6971,8 +6979,10 @@ export type Database = {
           channel_id?: string | null
           content: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           is_broadcast?: boolean | null
+          is_deleted?: boolean
           is_read?: boolean | null
           message_type?: string | null
           read_at?: string | null
@@ -6987,8 +6997,10 @@ export type Database = {
           channel_id?: string | null
           content?: string
           created_at?: string | null
+          deleted_at?: string | null
           id?: string
           is_broadcast?: boolean | null
+          is_deleted?: boolean
           is_read?: boolean | null
           message_type?: string | null
           read_at?: string | null
