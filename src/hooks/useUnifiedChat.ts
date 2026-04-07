@@ -279,7 +279,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         channelId: null,
         senderId: user.id,
         senderName: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Użytkownik',
-        senderAvatar: profile.avatar_url || undefined,
+        senderAvatar: (profile as any).avatar_url || undefined,
         senderInitials: `${(profile.first_name || '?').charAt(0)}${(profile.last_name || '?').charAt(0)}`.toUpperCase(),
         senderRole: currentRole,
         content,
