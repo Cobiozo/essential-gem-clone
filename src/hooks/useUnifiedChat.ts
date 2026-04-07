@@ -45,6 +45,7 @@ export interface UnifiedMessage {
   createdAt: string;
   isOwn: boolean;
   isRead: boolean;
+  isDeleted?: boolean;
   messageType?: string;
   attachmentUrl?: string;
   attachmentName?: string;
