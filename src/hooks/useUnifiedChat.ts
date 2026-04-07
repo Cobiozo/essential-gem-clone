@@ -1084,5 +1084,3 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     },
   };
 };
-  };
-};
