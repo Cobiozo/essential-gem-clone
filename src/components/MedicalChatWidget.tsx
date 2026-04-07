@@ -63,7 +63,7 @@ export const MedicalChatWidget: React.FC = () => {
 
   if (!hasAccess) return null;
   if (location.pathname === '/omega-base') return null;
-  if (chatSidebar.isDocked || chatSidebar.isFloating) return null;
+  if (chatSidebar?.isDocked || chatSidebar?.isFloating) return null;
 
   const getTranslation = (key: string): string => {
     const translations: Record<string, Record<string, string>> = {
