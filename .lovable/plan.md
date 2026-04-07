@@ -1,42 +1,94 @@
 
+Obecna implementacja wygląda na niedokończoną względem Twojego celu: jest tylko prosty prawy panel w `DashboardLayout`, ale nie ma prawdziwego, niezależnego trybu PiP/floating. Dodatkowo logika czatu siedzi bezpośrednio w `ChatSidebarPanel`, więc trudno bezpiecznie przełączać ten sam czat między trybem dockowanym i pływającym.
 
-# Czat jako wysuwalny sidebar po prawej stronie pulpitu
+Plan naprawy:
 
-## Koncepcja
+1. Uporządkuję architekturę czatu
+- przeniosę wspólną logikę z `ChatSidebarPanel` do jednego hosta/shella czatu
+- ten host będzie trzymał:
+  - aktywną rozmowę
+  - listę rozmów
+  - wiadomości
+  - stan widoku `list/chat`
+  - akcje wysyłki/usuwania/archiwizacji
+- dzięki temu docked sidebar i PiP będą korzystały z dokładnie tego samego stanu
 
-Przycisk (ikona czatu) w topbarze lub jako floating button uruchamia panel czatu, który wysuwa się z prawej strony ekranu jako osobna kolumna obok głównej treści. Nie jest to modal ani overlay — główny pulpit pozostaje w pełni interaktywny (można klikać, scrollować, nawigować), a czat działa równocześnie jako osobna sekcja.
+2. Rozszerzę `ChatSidebarContext`
+- zamiast samego `isOpen` dodam tryby:
+  - `closed`
+  - `docked`
+  - `floating`
+- dodam akcje:
+  - `openDocked()`
+  - `openFloating()`
+  - `toggleDocked()`
+  - `close()`
+  - `openWithUser(userId, mode?)`
+- dodam też stan rozmiaru i pozycji dla okna floating
 
+3. Poprawię prawy sidebar na pulpicie
+- w `DashboardLayout` zostawię czat jako osobną kolumnę po prawej
+- główna zawartość pozostanie aktywna i klikalna
+- sidebar będzie działał jako część układu, a nie jako przeszkadzający overlay na desktopie
+- dodam opcjonalne zwężanie/rozszerzanie szerokości
+
+4. Dodam prawdziwy tryb PiP-style dla czatu
+- zamiast natywnego browser PiP (ma słabe wsparcie dla zwykłego HTML i bywa niestabilny), zrobię aplikacyjne okno PiP:
+  - pływające
+  - draggable
+  - resizable
+  - zawsze nad pulpitem
+  - możliwe do zminimalizowania i zamknięcia
+- to będzie niezależne od docked sidebara
+
+5. Rozdzielę warstwę prezentacji
+- `ChatSidebarPanel` przekształcę w wspólną zawartość czatu
+- dodam dwa kontenery:
+  - docked: prawy panel w dashboardzie
+  - floating: okno PiP renderowane jako fixed/portal, żeby nie było obcinane przez `overflow-hidden`
+
+6. Poprawię sterowanie w `DashboardTopbar`
+- obecny przycisk czatu zamienię na bardziej czytelne sterowanie:
+  - otwórz jako sidebar
+  - otwórz jako PiP
+  - zamknij
+- jeśli ma zostać jeden przycisk, zrobię menu po kliknięciu
+
+7. Dopilnuję zachowania rozmowy przy przełączaniu trybów
+- jeśli otworzysz rozmowę w sidebarze i przełączysz na PiP:
+  - ta sama rozmowa ma zostać otwarta
+  - bez resetu listy i bez utraty kontekstu
+- analogicznie przy powrocie z PiP do sidebara
+
+8. Responsywność
+- desktop:
+  - docked sidebar jako prawa kolumna
+  - floating jako niezależne okno
+- mobile:
+  - sidebar/floating uproszczę do pełnoekranowego widoku lub sheet, żeby nie psuć obsługi
+
+Najważniejsza decyzja techniczna:
+- nie opierałbym tego na natywnym browser Picture-in-Picture dla czatu tekstowego
+- zrobię stabilny “PiP-style” wewnątrz aplikacji, bo daje pełną kontrolę i działa przewidywalnie
+
+Pliki do przebudowy:
+- `src/contexts/ChatSidebarContext.tsx`
+- `src/components/dashboard/DashboardLayout.tsx`
+- `src/components/dashboard/DashboardTopbar.tsx`
+- `src/components/chat-sidebar/ChatSidebarPanel.tsx`
+- nowy wspólny host/renderery czatu, np.:
+  - `src/components/chat-sidebar/ChatPanelContent.tsx`
+  - `src/components/chat-sidebar/ChatDockedPanel.tsx`
+  - `src/components/chat-sidebar/ChatFloatingWindow.tsx`
+
+Efekt końcowy:
 ```text
-┌──────────┬────────────────────────┬──────────────┐
-│ Sidebar  │   Main Content         │  Chat Panel  │
-│ (nav)    │   (fully interactive)  │  (messages)  │
-│          │                        │  ← resizable │
-└──────────┴────────────────────────┴──────────────┘
+Tryb 1: Docked
+[menu] [pulpit główny .........] [czat]
+
+Tryb 2: PiP-style
+[menu] [pulpit główny ......................]
+                           [pływające okno czatu]
 ```
 
-## Jak to zadziała
-
-1. **Przycisk toggle** w `DashboardTopbar` (ikona MessageSquare) — włącza/wyłącza panel czatu
-2. **Stan globalny** — React Context (`ChatSidebarContext`) z `isOpen` / `toggle()` / `close()`, dostępny w całej aplikacji
-3. **Panel czatu** renderowany w `DashboardLayout` obok `<main>` — nie nakłada się na treść, a treść główna kurczy się, robiąc miejsce (flex layout)
-4. **Wewnątrz panelu** — pełna funkcjonalność MessagesPage: lista konwersacji + okno czatu (reużycie `MessagesSidebar` + `FullChatWindow`)
-5. **Resizable** — opcjonalnie panel można rozciągać za pomocą `ResizableHandle` (komponent już istnieje w projekcie)
-
-## Zmiany w plikach
-
-| Plik | Co |
-|------|----|
-| **Nowy: `src/contexts/ChatSidebarContext.tsx`** | Context z `isOpen`, `toggle()`, `close()`, `openWithUser(userId)` |
-| **Nowy: `src/components/chat-sidebar/ChatSidebarPanel.tsx`** | Panel czatu (350-400px szerokości) z nagłówkiem, listą konwersacji i oknem czatu. Reużywa `useUnifiedChat`, `MessagesSidebar`, `FullChatWindow` |
-| **`src/components/dashboard/DashboardLayout.tsx`** | Dodanie `ChatSidebarProvider` wrappera + render `ChatSidebarPanel` obok `<main>` w flex layout |
-| **`src/components/dashboard/DashboardTopbar.tsx`** | Dodanie przycisku toggle czatu (ikona MessageSquare z badge nieprzeczytanych) |
-| **`src/pages/MessagesPage.tsx`** | Bez zmian — pełna strona /messages nadal działa niezależnie |
-
-## Szczegóły techniczne
-
-- Panel czatu używa `transition-all duration-300` dla animacji wysuwania
-- Gdy `isOpen=false`, panel ma `w-0 overflow-hidden`; gdy `true` — `w-[380px]`
-- Główna treść (`<main>`) automatycznie kurczy się dzięki flexbox
-- Na mobile (<768px) panel może działać jako overlay (pełna szerokość) z przyciskiem zamknięcia
-- `openWithUser(userId)` pozwala otworzyć czat z konkretnym użytkownikiem z dowolnego miejsca w aplikacji
-
+To naprawi obecne “nie działa”, a jednocześnie da dokładnie to, o co prosisz: czat jako prawa część pulpitu oraz osobny, włączany przyciskiem tryb PiP.
