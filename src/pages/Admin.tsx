@@ -4720,6 +4720,10 @@ const Admin = () => {
             <SecurityModule />
           </TabsContent>
 
+          <TabsContent value="activity-log">
+            <AdminActivityLog />
+          </TabsContent>
+
           <TabsContent value="purebox">
             <PureBoxManagement />
           </TabsContent>
