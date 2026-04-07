@@ -1,19 +1,39 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { FileText, Download } from 'lucide-react';
+import { FileText, Download, Trash2 } from 'lucide-react';
 import { RoleBadgedAvatar } from '@/components/chat/RoleBadgedAvatar';
 import type { UnifiedMessage } from '@/hooks/useUnifiedChat';
 
 interface MessageBubbleProps {
   message: UnifiedMessage;
+  onDelete?: (messageId: string) => void;
 }
 
-export const MessageBubble = ({ message }: MessageBubbleProps) => {
+export const MessageBubble = ({ message, onDelete }: MessageBubbleProps) => {
+  const [showActions, setShowActions] = useState(false);
+
   const formatTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleTimeString('pl-PL', {
       hour: '2-digit',
       minute: '2-digit',
     });
   };
+
+  // Deleted message placeholder
+  if (message.isDeleted) {
+    return (
+      <div className={cn('flex w-full mb-4', message.isOwn ? 'justify-end' : 'justify-start')}>
+        <div className="inline-block px-4 py-2.5 rounded-2xl border border-border bg-transparent">
+          <p className="text-sm italic text-muted-foreground">
+            🚫 Wiadomość została usunięta
+          </p>
+          <span className="text-[10px] text-muted-foreground/60 mt-1 block">
+            {formatTime(message.createdAt)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   const renderAttachment = () => {
     if (!message.attachmentUrl) return null;
@@ -72,43 +92,68 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
   };
 
   return (
-    <div className="flex items-start gap-3">
-      {/* Avatar with role badge */}
-      <RoleBadgedAvatar
-        role={message.senderRole}
-        isLeader={message.isLeader}
-        avatarUrl={message.senderAvatar}
-        initials={message.senderInitials}
-        size="md"
-      />
+    <div
+      className={cn(
+        'flex w-full mb-4 group',
+        message.isOwn ? 'justify-end' : 'justify-start'
+      )}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      {/* Avatar — only for other's messages */}
+      {!message.isOwn && (
+        <div className="mr-2.5 shrink-0">
+          <RoleBadgedAvatar
+            role={message.senderRole}
+            isLeader={message.isLeader}
+            avatarUrl={message.senderAvatar}
+            initials={message.senderInitials}
+            size="md"
+          />
+        </div>
+      )}
 
-      {/* Message content */}
-      <div className="flex-1 min-w-0">
-        {/* Sender info */}
-        <div className="flex items-center gap-2 mb-1">
-          <span className="font-medium text-sm text-foreground">
-            {message.senderName}
-          </span>
-          <span className="text-xs text-muted-foreground">
+      <div className={cn('max-w-[75%] min-w-0', message.isOwn ? 'items-end' : 'items-start', 'flex flex-col')}>
+        {/* Sender name + time */}
+        <div className={cn('flex items-center gap-2 mb-1', message.isOwn ? 'flex-row-reverse' : 'flex-row')}>
+          {!message.isOwn && (
+            <span className="font-medium text-xs text-foreground">
+              {message.senderName}
+            </span>
+          )}
+          <span className="text-[10px] text-muted-foreground">
             {formatTime(message.createdAt)}
           </span>
         </div>
 
         {/* Message bubble */}
-        <div
-          className={cn(
-            'inline-block px-4 py-2.5 rounded-2xl max-w-[85%]',
-            message.isOwn
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-foreground'
+        <div className="relative">
+          <div
+            className={cn(
+              'inline-block px-4 py-2.5 rounded-2xl',
+              message.isOwn
+                ? 'bg-amber-500 text-white rounded-br-md'
+                : 'bg-muted text-foreground rounded-bl-md'
+            )}
+          >
+            {message.content && (
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {message.content}
+              </p>
+            )}
+            {renderAttachment()}
+          </div>
+
+          {/* Delete action on hover — own messages only */}
+          {message.isOwn && showActions && onDelete && (
+            <button
+              onClick={() => onDelete(message.id)}
+              className="absolute -left-8 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center transition-colors"
+              title="Usuń wiadomość"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-destructive" />
+            </button>
           )}
-        >
-          {message.content && (
-            <p className="text-sm whitespace-pre-wrap break-words">
-              {message.content}
-            </p>
-          )}
-          {renderAttachment()}
         </div>
       </div>
     </div>
