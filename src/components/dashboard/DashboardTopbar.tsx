@@ -126,29 +126,16 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           )}
         </div>
 
-        {/* Chat toggle */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
-              size="icon"
-              className="h-9 w-9"
-              title="Czat"
-            >
-              <MessageSquare className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onClick={chatSidebar.isDocked ? chatSidebar.close : chatSidebar.openDocked}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              {chatSidebar.isDocked ? 'Zamknij sidebar' : 'Otwórz sidebar'}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={chatSidebar.isFloating ? chatSidebar.close : chatSidebar.openFloating}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              {chatSidebar.isFloating ? 'Zamknij PiP' : 'Otwórz jako PiP'}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Chat toggle - simple sidebar toggle */}
+        <Button
+          variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
+          size="icon"
+          className="h-9 w-9"
+          title="Czat"
+          onClick={chatSidebar.toggleDocked}
+        >
+          <MessageSquare className="h-4 w-4" />
+        </Button>
 
         {/* Notifications */}
         <NotificationBell />
