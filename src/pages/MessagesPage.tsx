@@ -320,6 +320,7 @@ const MessagesPage = () => {
               onUnblockUser={unblockUser}
               isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
               isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
+              onDeleteMessage={deleteMessage}
             />
           ) : (
             <EmptyState />

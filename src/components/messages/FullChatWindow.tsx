@@ -27,6 +27,7 @@ interface FullChatWindowProps {
   onUnblockUser?: (userId: string) => void;
   isConversationArchived?: boolean;
   isConversationBlocked?: boolean;
+  onDeleteMessage?: (messageId: string) => Promise<boolean>;
 }
 
 export const FullChatWindow = ({
