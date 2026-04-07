@@ -190,13 +190,23 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
         </button>
 
         {/* Input */}
-        <Input
+        <textarea
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            e.target.style.height = 'auto';
+            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder="Wpisz wiadomość..."
           disabled={disabled || sending}
-          className="flex-1 bg-transparent border-0 shadow-none focus-visible:ring-0 h-9 px-2"
+          rows={1}
+          className="flex-1 bg-transparent border-0 shadow-none focus:outline-none focus-visible:ring-0 resize-none text-sm px-2 py-2 max-h-[120px] min-h-[36px]"
         />
 
         {/* Send button - turquoise */}
