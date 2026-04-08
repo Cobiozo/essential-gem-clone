@@ -17,6 +17,7 @@ export const ChatPanelContent = () => {
     selectChannel, sendMessage, teamMembers, upline,
     selectedDirectUserId, selectedDirectMember,
     selectDirectMember, sendDirectMessage, deleteMessage,
+    unreadCounts,
   } = useUnifiedChat({ enableRealtime: true });
 
   const {
@@ -132,6 +133,7 @@ export const ChatPanelContent = () => {
           isConversationArchived={isArchived}
           isConversationBlocked={isBlocked}
           className="w-full h-full overflow-hidden"
+          unreadCounts={unreadCounts}
         />
       ) : hasActiveChat ? (
         <FullChatWindow

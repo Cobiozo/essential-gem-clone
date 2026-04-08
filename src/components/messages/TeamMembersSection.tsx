@@ -21,6 +21,7 @@ interface TeamMembersSectionProps {
   onToggleSelection?: (userId: string) => void;
   onCreateGroupChat?: () => void;
   canCreateGroups?: boolean;
+  unreadCounts?: Map<string, number>;
 }
 
 export const TeamMembersSection = ({
@@ -35,6 +36,7 @@ export const TeamMembersSection = ({
   onToggleSelection,
   onCreateGroupChat,
   canCreateGroups = false,
+  unreadCounts = new Map(),
 }: TeamMembersSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
@@ -102,6 +104,7 @@ export const TeamMembersSection = ({
                 isSelected={selectedUserId === filteredUpline.userId && !selectionMode}
                 onClick={() => !selectionMode && onSelectMember(filteredUpline.userId)}
                 badge="Opiekun"
+                unreadCount={unreadCounts.get(`dm-${filteredUpline.userId}`) || 0}
               />
               {filteredMembers.length > 0 && (
                 <Separator className="my-1 mx-4" />
@@ -143,6 +146,7 @@ export const TeamMembersSection = ({
                       onSelectMember(member.userId);
                     }
                   }}
+                  unreadCount={unreadCounts.get(`dm-${member.userId}`) || 0}
                 />
               </div>
             </div>

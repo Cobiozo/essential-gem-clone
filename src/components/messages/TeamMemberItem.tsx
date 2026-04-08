@@ -15,9 +15,10 @@ interface TeamMemberItemProps {
   isSelected: boolean;
   onClick: () => void;
   badge?: string;
+  unreadCount?: number;
 }
 
-export const TeamMemberItem = ({ member, isSelected, onClick, badge }: TeamMemberItemProps) => (
+export const TeamMemberItem = ({ member, isSelected, onClick, badge, unreadCount }: TeamMemberItemProps) => (
   <button
     onClick={onClick}
     className={cn(
@@ -50,5 +51,10 @@ export const TeamMemberItem = ({ member, isSelected, onClick, badge }: TeamMembe
         {member.eqId && ` • ${member.eqId}`}
       </span>
     </div>
+    {!!unreadCount && unreadCount > 0 && (
+      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground shrink-0">
+        {unreadCount > 99 ? '99+' : unreadCount}
+      </span>
+    )}
   </button>
 );

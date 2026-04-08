@@ -43,6 +43,7 @@ interface MessagesSidebarProps {
   isConversationBlocked?: (userId: string) => boolean;
   archivedConversations?: AdminConversationUser[];
   archivedTeamMembers?: TeamMemberChannel[];
+  unreadCounts?: Map<string, number>;
 }
 
 export const MessagesSidebar = ({
@@ -72,6 +73,7 @@ export const MessagesSidebar = ({
   isConversationBlocked,
   archivedConversations = [],
   archivedTeamMembers = [],
+  unreadCounts = new Map(),
 }: MessagesSidebarProps) => {
   const [showArchive, setShowArchive] = useState(false);
   // Separate outgoing (can send) and incoming (can receive) channels
@@ -140,6 +142,7 @@ export const MessagesSidebar = ({
                     onUnblock={onUnblockUser}
                     isArchived={isConversationArchived?.(conv.userId)}
                     isBlocked={isConversationBlocked?.(conv.userId)}
+                    unreadCount={unreadCounts.get(`dm-${conv.userId}`) || 0}
                   />
                 ))}
             </div>
@@ -167,6 +170,7 @@ export const MessagesSidebar = ({
                     onUnblock={onUnblockUser}
                     isArchived={isConversationArchived?.(conv.userId)}
                     isBlocked={isConversationBlocked?.(conv.userId)}
+                    unreadCount={unreadCounts.get(`dm-${conv.userId}`) || 0}
                   />
                 ))}
             </div>
@@ -205,6 +209,7 @@ export const MessagesSidebar = ({
               onToggleSelection={onToggleSelection}
               onCreateGroupChat={onCreateGroupChat}
               canCreateGroups={canCreateGroups}
+              unreadCounts={unreadCounts}
             />
           )}
 
@@ -320,6 +325,7 @@ interface ConversationListItemProps {
   onUnblock?: (userId: string) => void;
   isArchived?: boolean;
   isBlocked?: boolean;
+  unreadCount?: number;
 }
 
 const ConversationListItem = ({
@@ -333,6 +339,7 @@ const ConversationListItem = ({
   onUnblock,
   isArchived = false,
   isBlocked = false,
+  unreadCount = 0,
 }: ConversationListItemProps) => (
   <div
     className={cn(
@@ -353,6 +360,11 @@ const ConversationListItem = ({
       </p>
       <p className="text-xs text-muted-foreground">{statusLabel}</p>
     </div>
+    {unreadCount > 0 && (
+      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground shrink-0">
+        {unreadCount > 99 ? '99+' : unreadCount}
+      </span>
+    )}
     {onDelete && onArchive && onBlock && onUnblock && (
       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
         <ConversationActions
