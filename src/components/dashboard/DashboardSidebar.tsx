@@ -67,7 +67,6 @@ import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
-import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 // Dynamic HTML pages type
