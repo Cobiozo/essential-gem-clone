@@ -771,17 +771,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
-      // Deduplicate messages (admin sends one per recipient, but show once in outgoing view)
-      const seenContent = new Map<string, boolean>();
       const enrichedMessages: UnifiedMessage[] = [];
       
       for (const m of (data || [])) {
-        // For outgoing channels, deduplicate by content+timestamp
-        if (!channel.isIncoming) {
-          const key = `${m.content}-${m.created_at}`;
-          if (seenContent.has(key)) continue;
-          seenContent.set(key, true);
-        }
 
         const senderProfile = profileMap.get(m.sender_id);
         const firstName = senderProfile?.first_name || '';
