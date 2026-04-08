@@ -258,6 +258,13 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (!recipientProfile) return false;
 
+      // Check if recipient has chat access
+      const recipientHasAccess = await checkRecipientChatAccess(recipientId);
+      if (!recipientHasAccess) {
+        toast.error('Ten użytkownik nie ma włączonego czatu. Wysyłanie wiadomości jest niemożliwe.');
+        return false;
+      }
+
       const { error: msgError } = await supabase
         .from('role_chat_messages')
         .insert({
