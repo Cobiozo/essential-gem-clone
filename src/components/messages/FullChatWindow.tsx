@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Search, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +8,7 @@ import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
 import { ConversationActions } from './ConversationActions';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FullChatWindowProps {
   channel: UnifiedChannel | null;
