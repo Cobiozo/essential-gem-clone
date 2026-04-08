@@ -70,6 +70,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const [adhocDirectMember, setAdhocDirectMember] = useState<TeamMemberChannel | null>(null);
 
   const enableRealtime = options?.enableRealtime ?? false;
+  const { playMessageSound } = useNotificationSound();
   const currentRole = userRole?.role?.toLowerCase() || 'client';
   const currentLevel = ROLE_HIERARCHY[currentRole] || 25;
 
