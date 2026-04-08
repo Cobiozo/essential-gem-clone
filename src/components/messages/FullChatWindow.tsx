@@ -28,6 +28,7 @@ interface FullChatWindowProps {
   isConversationArchived?: boolean;
   isConversationBlocked?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<boolean>;
+  recipientChatDisabled?: boolean;
 }
 
 export const FullChatWindow = ({
@@ -47,6 +48,7 @@ export const FullChatWindow = ({
   isConversationArchived = false,
   isConversationBlocked = false,
   onDeleteMessage,
+  recipientChatDisabled = false,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
   
@@ -55,9 +57,11 @@ export const FullChatWindow = ({
     ? `${directMember.firstName} ${directMember.lastName}`
     : channel?.name || '';
   
-  const canSend = adminConversationStatus === 'closed' 
-    ? false 
-    : directMember ? true : channel?.canSend;
+  const canSend = recipientChatDisabled
+    ? false
+    : adminConversationStatus === 'closed' 
+      ? false 
+      : directMember ? true : channel?.canSend;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -171,6 +175,12 @@ export const FullChatWindow = ({
       {/* Message input */}
       {canSend ? (
         <MessageInput onSend={onSend} />
+      ) : recipientChatDisabled ? (
+        <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
+          <p className="text-sm text-muted-foreground">
+            🚫 Ten użytkownik nie ma włączonego czatu. Wysyłanie wiadomości jest niemożliwe.
+          </p>
+        </div>
       ) : adminConversationStatus === 'closed' ? (
         <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
           <p className="text-sm text-muted-foreground">

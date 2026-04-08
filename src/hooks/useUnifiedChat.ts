@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
 import { toast } from 'sonner';
+import { checkRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
 
 export interface UnifiedChannel {
   id: string;
@@ -256,6 +257,13 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         .single();
 
       if (!recipientProfile) return false;
+
+      // Check if recipient has chat access
+      const recipientHasAccess = await checkRecipientChatAccess(recipientId);
+      if (!recipientHasAccess) {
+        toast.error('Ten użytkownik nie ma włączonego czatu. Wysyłanie wiadomości jest niemożliwe.');
+        return false;
+      }
 
       const { error: msgError } = await supabase
         .from('role_chat_messages')

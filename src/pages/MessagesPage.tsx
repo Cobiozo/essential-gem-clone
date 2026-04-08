@@ -7,6 +7,7 @@ import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { useAdminConversations } from '@/hooks/useAdminConversations';
 import { useConversationSettings } from '@/hooks/useConversationSettings';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
+import { useRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
 import { MessagesSidebar } from '@/components/messages/MessagesSidebar';
 import { FullChatWindow } from '@/components/messages/FullChatWindow';
 import { CreateGroupChatDialog } from '@/components/messages/CreateGroupChatDialog';
@@ -72,6 +73,8 @@ const MessagesPage = () => {
     deleteMessage,
     unreadCounts,
   } = useUnifiedChat({ enableRealtime: true });
+
+  const { hasAccess: recipientHasAccess } = useRecipientChatAccess(selectedDirectUserId);
 
   // Handle ?user= URL parameter for notification deep-linking
   useEffect(() => {
@@ -323,6 +326,7 @@ const MessagesPage = () => {
               isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
               isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
               onDeleteMessage={deleteMessage}
+              recipientChatDisabled={selectedDirectUserId ? !recipientHasAccess : false}
             />
           ) : (
             <EmptyState />

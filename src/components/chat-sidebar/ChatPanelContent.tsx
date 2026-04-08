@@ -4,6 +4,7 @@ import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { useAdminConversations } from '@/hooks/useAdminConversations';
 import { useConversationSettings } from '@/hooks/useConversationSettings';
+import { useRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
 import { MessagesSidebar } from '@/components/messages/MessagesSidebar';
 import { FullChatWindow } from '@/components/messages/FullChatWindow';
 
@@ -31,6 +32,7 @@ export const ChatPanelContent = () => {
   } = useConversationSettings();
 
   const [currentConvStatus, setCurrentConvStatus] = useState<string | null>(null);
+  const { hasAccess: recipientHasAccess } = useRecipientChatAccess(selectedDirectUserId);
 
   useEffect(() => {
     if (pendingUserId && isOpen) {
@@ -152,7 +154,8 @@ export const ChatPanelContent = () => {
           onUnblockUser={unblockUser}
           isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
           isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
-          onDeleteMessage={deleteMessage}
+           onDeleteMessage={deleteMessage}
+           recipientChatDisabled={selectedDirectUserId ? !recipientHasAccess : false}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
