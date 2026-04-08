@@ -360,6 +360,11 @@ const ConversationListItem = ({
       </p>
       <p className="text-xs text-muted-foreground">{statusLabel}</p>
     </div>
+    {unreadCount > 0 && (
+      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground shrink-0">
+        {unreadCount > 99 ? '99+' : unreadCount}
+      </span>
+    )}
     {onDelete && onArchive && onBlock && onUnblock && (
       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
         <ConversationActions
