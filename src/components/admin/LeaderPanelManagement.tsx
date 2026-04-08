@@ -52,7 +52,8 @@ type LeaderPermField =
   | 'can_send_team_emails' | 'can_send_team_push' | 'can_view_team_contacts'
   | 'can_manage_team_contacts' | 'can_manage_daily_signal' | 'can_manage_important_info'
   | 'can_manage_team_reflinks' | 'can_view_team_reports' | 'can_manage_certificates'
-  | 'can_customize_landing_page';
+  | 'can_customize_landing_page'
+  | 'can_manage_auto_webinar_access';
 
 const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'individual_meetings_enabled', 'can_view_team_progress', 'can_view_org_tree',
@@ -61,7 +62,7 @@ const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'can_send_team_emails', 'can_send_team_push', 'can_view_team_contacts',
   'can_manage_team_contacts', 'can_manage_daily_signal', 'can_manage_important_info',
   'can_manage_team_reflinks', 'can_view_team_reports', 'can_manage_certificates',
-  'can_customize_landing_page',
+  'can_customize_landing_page', 'can_manage_auto_webinar_access',
 ];
 
 interface ColumnDef {
