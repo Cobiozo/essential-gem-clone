@@ -336,8 +336,8 @@ const ConversationListItem = ({
 }: ConversationListItemProps) => (
   <div
     className={cn(
-      'group w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left cursor-pointer',
-      isSelected && 'bg-accent'
+      'group w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left cursor-pointer rounded-md',
+      isSelected ? 'border border-primary/40 bg-muted/30' : 'border border-transparent'
     )}
     onClick={onClick}
   >
