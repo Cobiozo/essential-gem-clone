@@ -166,7 +166,23 @@ export const useAdminConversations = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user) fetchConversations();
+    if (!user) return;
+    fetchConversations();
+
+    const channel = supabase
+      .channel('admin-conversations-realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'admin_conversations',
+      }, () => {
+        fetchConversations();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, fetchConversations]);
 
   return {
