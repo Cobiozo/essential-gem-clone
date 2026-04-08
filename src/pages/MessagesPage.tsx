@@ -70,6 +70,7 @@ const MessagesPage = () => {
     sendDirectMessage,
     createGroupChat,
     deleteMessage,
+    unreadCounts,
   } = useUnifiedChat({ enableRealtime: true });
 
   // Handle ?user= URL parameter for notification deep-linking
