@@ -21,6 +21,7 @@ import type { AutoWebinarVideo, AutoWebinarConfig, AutoWebinarFakeMessage } from
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
 import { AutoWebinarGuestStats } from '@/components/admin/AutoWebinarGuestStats';
+import { AutoWebinarPartnerStats } from '@/components/admin/AutoWebinarPartnerStats';
 
 interface LinkedEvent {
   id: string;
