@@ -92,7 +92,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         }
 
         // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
-        const { data: settingsData, error: settingsError } = await supabase
+        const { data: settingsDataRaw, error: settingsError } = await supabase
           .from('daily_signal_settings')
           .select('*')
           .limit(1)
@@ -100,6 +100,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
 
         if (!mounted) return;
 
+        const settingsData = settingsDataRaw as any;
         console.log('[DailySignalBanner] Settings:', { is_enabled: settingsData?.is_enabled, visible_to_partners: settingsData?.visible_to_partners });
 
         if (settingsError || !settingsData?.is_enabled) {
