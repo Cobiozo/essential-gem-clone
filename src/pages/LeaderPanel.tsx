@@ -18,7 +18,7 @@ import {
   CalendarDays, GraduationCap, Crown, Loader2, Calculator, UserRound,
   TreePine, UserCheck, Users, Pencil, ShieldX,
   CalendarPlus, ClipboardList, BookOpenCheck, Library,
-  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe,
+  Bell, Mail, Smartphone, Contact, Sun, Info, Link, BarChart3, Award, Globe, Radio,
 } from 'lucide-react';
 import { CommissionCalculator } from '@/components/calculator';
 import { SpecialistCalculator } from '@/components/specialist-calculator';
