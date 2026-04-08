@@ -94,12 +94,13 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       // No sessionStorage check needed - App.tsx controls rendering
 
       // Check if user is fully approved (guardian + admin)
-      const { data: profileData } = await supabase
+      const { data: profileDataRaw } = await supabase
         .from('profiles')
         .select('guardian_approved, admin_approved')
-        .eq('user_id', user!.id)
+        .eq('user_id', user!.id as any)
         .maybeSingle();
       
+      const profileData = profileDataRaw as any;
       if (!profileData || !profileData.guardian_approved || !profileData.admin_approved) {
         onComplete();
         return;
