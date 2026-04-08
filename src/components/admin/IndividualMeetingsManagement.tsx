@@ -60,7 +60,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
       // Fetch leader permissions
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
-        .select('id, user_id, individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_broadcast, can_view_team_progress');
+        .select('id, user_id, individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_broadcast, can_view_team_progress, can_manage_auto_webinar_access');
 
       if (permError) throw permError;
 
