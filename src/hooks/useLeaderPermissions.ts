@@ -206,6 +206,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
     hasTeamReports,
     hasCertificates,
     hasLandingPage,
+    hasAutoWebinarAccess,
     isAnyLeaderFeatureEnabled:
       hasMeetings || hasTeamProgress || hasInfluencerCalc || hasSpecialistCalc ||
       hasOrgTree || hasApprovalPermission || hasTeamEvents || hasEventRegistrations ||
