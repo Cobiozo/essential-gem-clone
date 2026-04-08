@@ -5,13 +5,14 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Radio, Loader2, UserCheck, Users } from 'lucide-react';
+import { Search, Loader2, UserCheck, Users } from 'lucide-react';
 
 interface PartnerAccess {
   user_id: string;
   first_name: string | null;
   last_name: string | null;
   email: string;
+  role: string;
   can_access_auto_webinar: boolean;
   permission_id?: string;
   granted_by_name?: string | null;
@@ -31,7 +32,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
     try {
       const [profilesRes, rolesRes, permsRes] = await Promise.all([
         supabase.from('profiles').select('user_id, first_name, last_name, email').order('last_name'),
-        supabase.from('user_roles').select('user_id, role').eq('role', 'partner'),
+        supabase.from('user_roles').select('user_id, role').in('role', ['partner', 'specjalista']),
         supabase.from('leader_permissions').select('id, user_id, can_access_auto_webinar, auto_webinar_granted_by'),
       ]);
 
@@ -39,7 +40,9 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       if (rolesRes.error) throw rolesRes.error;
       if (permsRes.error) throw permsRes.error;
 
-      const partnerIds = new Set(rolesRes.data?.map(r => r.user_id) || []);
+      const roleMap = new Map<string, string>();
+      rolesRes.data?.forEach(r => roleMap.set(r.user_id, r.role));
+      const eligibleIds = new Set(rolesRes.data?.map(r => r.user_id) || []);
       const permMap = new Map(permsRes.data?.map(p => [p.user_id, p]) || []);
 
       // Collect granted_by IDs to fetch names
@@ -61,7 +64,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
 
       setPartners(
         (profilesRes.data || [])
-          .filter(p => partnerIds.has(p.user_id))
+          .filter(p => eligibleIds.has(p.user_id))
           .map(profile => {
             const perm = permMap.get(profile.user_id);
             const grantedBy = (perm as any)?.auto_webinar_granted_by;
@@ -70,9 +73,12 @@ export const AutoWebinarAccessManagement: React.FC = () => {
               first_name: profile.first_name,
               last_name: profile.last_name,
               email: profile.email,
+              role: roleMap.get(profile.user_id) || 'partner',
               can_access_auto_webinar: perm?.can_access_auto_webinar || false,
               permission_id: perm?.id,
-              granted_by_name: grantedBy ? granterNames.get(grantedBy) || 'Lider' : null,
+              granted_by_name: perm?.can_access_auto_webinar
+                ? (grantedBy ? granterNames.get(grantedBy) || 'Lider' : 'Administrator')
+                : null,
             };
           })
       );
@@ -120,6 +126,12 @@ export const AutoWebinarAccessManagement: React.FC = () => {
   const withAccess = filtered.filter(p => p.can_access_auto_webinar);
   const withoutAccess = filtered.filter(p => !p.can_access_auto_webinar);
 
+  const roleBadge = (role: string) => (
+    <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1">
+      {role === 'specjalista' ? 'Specjalista' : 'Partner'}
+    </Badge>
+  );
+
   if (loading) {
     return (
       <Card>
@@ -135,7 +147,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Szukaj partnera..."
+          placeholder="Szukaj partnera lub specjalistę..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -143,20 +155,20 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Left column — partners without access */}
+        {/* Left column — without access */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Users className="h-5 w-5 text-muted-foreground" />
-              Wszyscy partnerzy
+              Bez dostępu
               <Badge variant="secondary" className="ml-auto">{withoutAccess.length}</Badge>
             </CardTitle>
-            <CardDescription>Partnerzy bez dostępu do auto-webinaru</CardDescription>
+            <CardDescription>Partnerzy i specjaliści bez dostępu do auto-webinaru</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
             {withoutAccess.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                {searchQuery ? 'Nie znaleziono' : 'Wszyscy partnerzy mają dostęp'}
+                {searchQuery ? 'Nie znaleziono' : 'Wszyscy mają dostęp'}
               </p>
             ) : (
               withoutAccess.map(partner => (
@@ -167,6 +179,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">
                       {partner.first_name} {partner.last_name}
+                      {roleBadge(partner.role)}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
                   </div>
@@ -181,7 +194,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Right column — partners with access */}
+        {/* Right column — with access */}
         <Card className="border-primary/30">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -189,12 +202,12 @@ export const AutoWebinarAccessManagement: React.FC = () => {
               Z dostępem
               <Badge className="ml-auto bg-primary text-primary-foreground">{withAccess.length}</Badge>
             </CardTitle>
-            <CardDescription>Partnerzy z aktywnym dostępem do auto-webinaru</CardDescription>
+            <CardDescription>Użytkownicy z aktywnym dostępem do auto-webinaru</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-[500px] overflow-y-auto">
             {withAccess.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-6">
-                {searchQuery ? 'Nie znaleziono' : 'Brak partnerów z dostępem'}
+                {searchQuery ? 'Nie znaleziono' : 'Brak użytkowników z dostępem'}
               </p>
             ) : (
               withAccess.map(partner => (
@@ -205,13 +218,12 @@ export const AutoWebinarAccessManagement: React.FC = () => {
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">
                       {partner.first_name} {partner.last_name}
+                      {roleBadge(partner.role)}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
-                    {partner.granted_by_name && (
-                      <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0">
-                        Nadane przez: {partner.granted_by_name}
-                      </Badge>
-                    )}
+                    <p className="text-xs text-primary mt-1 font-medium">
+                      Nadane przez: {partner.granted_by_name}
+                    </p>
                   </div>
                   <Switch
                     checked={true}
