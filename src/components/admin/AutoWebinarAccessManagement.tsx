@@ -32,7 +32,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       const [profilesRes, rolesRes, permsRes] = await Promise.all([
         supabase.from('profiles').select('user_id, first_name, last_name, email').order('last_name'),
         supabase.from('user_roles').select('user_id, role').eq('role', 'partner'),
-        supabase.from('leader_permissions').select('id, user_id, can_access_auto_webinar'),
+        supabase.from('leader_permissions').select('id, user_id, can_access_auto_webinar, auto_webinar_granted_by'),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
@@ -42,11 +42,29 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       const partnerIds = new Set(rolesRes.data?.map(r => r.user_id) || []);
       const permMap = new Map(permsRes.data?.map(p => [p.user_id, p]) || []);
 
+      // Collect granted_by IDs to fetch names
+      const grantedByIds = new Set<string>();
+      permsRes.data?.forEach(p => {
+        if ((p as any).auto_webinar_granted_by) grantedByIds.add((p as any).auto_webinar_granted_by);
+      });
+
+      let granterNames = new Map<string, string>();
+      if (grantedByIds.size > 0) {
+        const { data: granterProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', Array.from(grantedByIds));
+        granterProfiles?.forEach(gp => {
+          granterNames.set(gp.user_id, `${gp.first_name || ''} ${gp.last_name || ''}`.trim());
+        });
+      }
+
       setPartners(
         (profilesRes.data || [])
           .filter(p => partnerIds.has(p.user_id))
           .map(profile => {
             const perm = permMap.get(profile.user_id);
+            const grantedBy = (perm as any)?.auto_webinar_granted_by;
             return {
               user_id: profile.user_id,
               first_name: profile.first_name,
@@ -54,6 +72,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
               email: profile.email,
               can_access_auto_webinar: perm?.can_access_auto_webinar || false,
               permission_id: perm?.id,
+              granted_by_name: grantedBy ? granterNames.get(grantedBy) || 'Lider' : null,
             };
           })
       );
