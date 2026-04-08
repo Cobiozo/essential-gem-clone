@@ -159,6 +159,11 @@ export const FullChatWindow = ({
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
+              {otherUserDeletedConvo && (
+                <p className="text-xs text-muted-foreground/70 mb-2">
+                  ℹ️ {directMember?.firstName} usunął(ęła) historię tej rozmowy
+                </p>
+              )}
               <p className="text-sm">
                 {directMember 
                   ? `Rozpocznij rozmowę z ${directMember.firstName}` 
