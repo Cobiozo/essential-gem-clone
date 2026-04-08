@@ -198,6 +198,15 @@ export const TeamContactAccordion: React.FC<TeamContactAccordionProps> = ({
                       </h3>
                       {contactType !== 'private' && getRoleBadge(contact.role)}
                        {getStatusBadge(contact, contactType === 'team_member')}
+                       {/* Source badge for moved contacts on own list */}
+                       {contactType === 'private' && (contact as any).moved_to_own_list && contact.contact_source && (
+                         <Badge variant="outline" className="text-xs font-normal">
+                           {contact.contact_source === 'Strona partnerska' ? '🌐 Strona partnerska' :
+                            contact.contact_source === 'auto_webinar' ? '📹 Auto-webinar' :
+                            contact.contact_source === 'guest_registration' ? '📨 Zaproszenie' :
+                            `📋 ${contact.contact_source}`}
+                         </Badge>
+                       )}
                     </div>
                     {contactType !== 'private' && (
                       <p className="text-sm text-muted-foreground whitespace-nowrap truncate">
