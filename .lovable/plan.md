@@ -1,33 +1,48 @@
 
 
-# Naprawa powiadomien i wyswietlania prywatnych wiadomosci od admina
+# Plan: Powiadomienia o wiadomosciach na ikonie czatu, nie w dzwoneczku
 
-## Problemy
+## Problem
 
-1. **Powiadomienia nie maja ikony wiadomosci** — typ `direct_message` nie jest obslugiwany w `getNotificationIcon`, wiec wyswietla sie generyczna ikona `Info` zamiast ikony wiadomosci
-2. **Sekcja "Od Administratora" w sidebarze** — prywatne wiadomosci od admina sa pogrupowane pod naglowkiem "Od Administratora", co wyglada jak kanal broadcast. Uzytkownik powinien widziec te rozmowy jako normalne prywatne konwersacje z imieniem i nazwiskiem admina, nie jako kanal zbiorczy
+Obecnie powiadomienia typu `direct_message` pojawiaja sie w dzwoneczku (NotificationBell). Powinny byc widoczne **wylacznie** na ikonie czatu (MessageSquare), ktora juz poprawnie wyswietla badge `totalUnread` z tabeli `role_chat_messages`.
+
+## Wazne zalozenia
+
+- Ikona czatu jest juz poprawnie wyswietlana dla uzytkownikow z dostepem — zarowno przez role (`chat_sidebar_visibility`), jak i przez indywidualny override admina (`chat_user_visibility`). Funkcja `isRoleVisibleForChat` sprawdza `_userOverride` w pierwszej kolejnosci.
+- Uzytkownicy bez dostepu do czatu nie otrzymuja wiadomosci, wiec nie potrzebuja ikony czatu.
+- Rekord `direct_message` w `user_notifications` nadal jest potrzebny do triggerowania emaili — usuwamy go tylko z **wyswietlania** w dzwoneczku.
 
 ## Zmiany
 
-### 1. Ikona wiadomosci w powiadomieniach
+### 1. `src/hooks/useNotifications.ts` — odfiltrowac `direct_message`
 
-**Pliki:** `src/components/notifications/NotificationBell.tsx` i `src/components/dashboard/widgets/NotificationsWidget.tsx`
+Trzy miejsca:
 
-Dodac case `direct_message` do `getNotificationIcon` — zwracajac ikone `MessageSquare` (lub `Mail`) w kolorze wyrozniajacym wiadomosci prywatne.
+- **`fetchNotifications`** — dodac `.neq('notification_type', 'direct_message')` do zapytania
+- **`fetchUnreadCount`** — dodac ten sam filtr
+- **Realtime callback (INSERT)** — ignorowac powiadomienia z `notification_type === 'direct_message'`
 
-### 2. Sekcja prywatnych konwersacji z adminem w sidebarze
+Dzieki temu dzwoneczek nie bedzie liczyc ani wyswietlac powiadomien o wiadomosciach czatu.
 
-**Plik:** `src/components/messages/MessagesSidebar.tsx`
+### 2. `src/components/notifications/NotificationBell.tsx` — usunac case `direct_message`
 
-Zmienic naglowek sekcji dla nie-adminow z "Od Administratora" na "Wiadomosci prywatne" (lub "Rozmowy prywatne"). Konwersacje z adminem to normalne czaty 1:1, wiec powinny byc prezentowane identycznie jak inne prywatne rozmowy — z imieniem i nazwiskiem admina oraz statusem konwersacji, a nie pod generycznym naglowkiem kanalu.
+Usunac `case 'direct_message'` z `getNotificationIcon` — skoro te powiadomienia nie beda juz wyswietlane w dzwoneczku, case jest zbedny.
 
-Status label zmieni sie z `'Administrator'` na role/status konwersacji (np. imie admina jest juz wyswietlane w `ConversationListItem` z `conv.firstName conv.lastName`).
+### 3. `src/components/dashboard/widgets/NotificationsWidget.tsx` — odfiltrowac `direct_message`
 
-### Podsumowanie
+W widgecie na dashboardzie odfiltrowac powiadomienia typu `direct_message` z wyswietlanej listy.
+
+## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `NotificationBell.tsx` | Dodac `case 'direct_message'` z ikona `MessageSquare` |
-| `NotificationsWidget.tsx` | Dodac `case 'direct_message'` z ikona `MessageSquare` |
-| `MessagesSidebar.tsx` | Naglowek "Od Administratora" → "Wiadomosci prywatne", status label: rola zamiast "Administrator" |
+| `src/hooks/useNotifications.ts` | `.neq('notification_type', 'direct_message')` w fetch, unreadCount i realtime |
+| `src/components/notifications/NotificationBell.tsx` | Usunac case `direct_message` z getNotificationIcon |
+| `src/components/dashboard/widgets/NotificationsWidget.tsx` | Odfiltrowac `direct_message` z listy |
+
+## Co pozostaje bez zmian
+
+- Ikona czatu w topbarze — juz poprawnie pokazuje `totalUnread` i uwzglednia indywidualne uprawnienia uzytkownika (override admina)
+- Wstawianie rekordu `direct_message` do `user_notifications` — nadal potrzebne do emaili i deep-linkow
+- Tabela `chat_user_visibility` — indywidualne wlaczenie czatu przez admina dziala poprawnie i jest brane pod uwage przy renderowaniu ikony
 
