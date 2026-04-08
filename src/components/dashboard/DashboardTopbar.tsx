@@ -50,6 +50,7 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const sessionTimer = useSessionTimer();
   const chatSidebar = useChatSidebar();
   const { data: chatVisibility } = useChatSidebarVisibility();
+  const { totalUnread } = useUnifiedChat({ enableRealtime: false });
   const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
