@@ -222,7 +222,8 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         },
         (payload) => {
           const newNotification = payload.new as UserNotification & { target_role?: string };
-          // Filter by target_role (consolidated from useRoleNotifications)
+          // Filter by target_role and exclude direct_message
+          if (newNotification.notification_type === 'direct_message') return;
           if (!newNotification.target_role || newNotification.target_role === currentRole) {
             setNotifications(prev => [newNotification, ...prev]);
             setUnreadCount(prev => prev + 1);
