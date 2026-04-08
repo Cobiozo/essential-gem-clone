@@ -19,6 +19,7 @@ interface PartnerWithPermissions {
   partner_consultation_enabled: boolean;
   can_broadcast: boolean;
   can_view_team_progress: boolean;
+  can_manage_auto_webinar_access: boolean;
   permission_id?: string;
 }
 
