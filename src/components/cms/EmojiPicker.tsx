@@ -52,6 +52,7 @@ const recentEmojis = ['😊', '👍', '❤️', '🎉', '🔥', '💯', '✨', '
 interface EmojiPickerProps {
   onEmojiSelect?: (emoji: string) => void;
   trigger?: React.ReactNode;
+  popoverClassName?: string;
 }
 
 export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger }) => {
