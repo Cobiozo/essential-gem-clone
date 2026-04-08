@@ -269,8 +269,8 @@ export const MessagesSidebar = ({
                   key={member.userId}
                   onClick={() => onSelectDirectMember?.(member.userId)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 transition-colors text-left rounded-md',
-                    selectedDirectUserId === member.userId && 'bg-accent'
+                    'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left rounded-md',
+                    selectedDirectUserId === member.userId ? 'border border-primary/40 bg-muted/30' : 'border border-transparent'
                   )}
                 >
                   <Avatar className="h-9 w-9 shrink-0">

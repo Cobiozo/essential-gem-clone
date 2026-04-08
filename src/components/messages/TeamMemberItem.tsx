@@ -21,10 +21,10 @@ export const TeamMemberItem = ({ member, isSelected, onClick, badge }: TeamMembe
   <button
     onClick={onClick}
     className={cn(
-      'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+      'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors rounded-md',
       isSelected 
-        ? 'bg-primary/10 border-l-2 border-primary' 
-        : 'hover:bg-muted/50'
+        ? 'border border-primary/40 bg-muted/30' 
+        : 'hover:bg-muted/50 border border-transparent'
     )}
   >
     <RoleBadgedAvatar
