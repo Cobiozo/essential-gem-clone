@@ -174,9 +174,16 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         id: r.id,
         status: r.status,
         event_title: r.events?.title || '-',
-        event_date: (r.slot_time && r.registered_at)
-          ? `${r.registered_at.substring(0, 10)}T${r.slot_time}:00`
-          : r.registered_at || r.events?.start_time || '',
+        event_date: (() => {
+          if (r.slot_time && r.slot_time.includes('_')) {
+            const [datePart, timePart] = r.slot_time.split('_');
+            return `${datePart}T${timePart}:00`;
+          }
+          if (r.slot_time && r.registered_at) {
+            return `${r.registered_at.substring(0, 10)}T${r.slot_time}:00`;
+          }
+          return r.registered_at || r.events?.start_time || '';
+        })(),
         view_stats: viewsMap.get(r.id) || null,
       }));
       setRegistrations(mapped);
