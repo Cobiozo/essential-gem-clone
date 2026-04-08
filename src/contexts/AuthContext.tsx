@@ -302,24 +302,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             setInitialized(true);
           } else {
-            // Unexpected SIGNED_OUT (token refresh failure) — attempt recovery
-            console.warn('[Auth] Unexpected SIGNED_OUT detected, attempting session recovery...');
-            // Use setTimeout to avoid blocking onAuthStateChange processing
+            // Unexpected SIGNED_OUT (token refresh failure) — attempt recovery with delay
+            // Another tab may have consumed the refresh token; wait for it to finish and update localStorage
+            console.warn('[Auth] Unexpected SIGNED_OUT detected, attempting delayed session recovery...');
             setTimeout(async () => {
+              // Wait 2s — gives another tab time to complete its refresh and persist the new token
+              await new Promise(r => setTimeout(r, 2000));
+
               try {
                 const { data } = await supabase.auth.getSession();
                 if (data.session) {
-                  console.log('[Auth] Session still valid, ignoring SIGNED_OUT event');
-                  // Session is still valid — restore state
+                  console.log('[Auth] Session recovered after delay — ignoring SIGNED_OUT');
                   setSession(data.session);
                   setUser(data.session.user);
-                  return;
+                  return; // Session restored — do NOT log out
                 }
               } catch (e) {
                 console.error('[Auth] Session recovery failed:', e);
               }
-              // No valid session — show toast and clear state
-              console.log('[Auth] No valid session found, clearing state');
+
+              // Second attempt after additional 1s (edge-case: slow network)
+              try {
+                await new Promise(r => setTimeout(r, 1000));
+                const { data: retryData } = await supabase.auth.getSession();
+                if (retryData.session) {
+                  console.log('[Auth] Session recovered on retry — ignoring SIGNED_OUT');
+                  setSession(retryData.session);
+                  setUser(retryData.session.user);
+                  return;
+                }
+              } catch (e2) {
+                console.error('[Auth] Session retry recovery failed:', e2);
+              }
+
+              // No valid session after retries — real logout
+              console.log('[Auth] No valid session found after retries, clearing state');
               toast({
                 title: 'Sesja wygasła',
                 description: 'Zostałeś wylogowany z powodu wygaśnięcia sesji. Zaloguj się ponownie.',
@@ -330,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setRolesReady(true);
               setLoading(false);
               setInitialized(true);
-            }, 0);
+            }, 100);
           }
         } else {
           setProfile(null);
