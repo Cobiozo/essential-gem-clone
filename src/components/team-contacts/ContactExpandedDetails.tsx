@@ -49,7 +49,7 @@ export const ContactExpandedDetails: React.FC<ContactExpandedDetailsProps> = ({
     };
 
     fetchMessages();
-  }, [contact.email]);
+  }, [contact.email, registrationInfo?.registration_id]);
 
   const formatSeconds = (seconds: number) => {
     const m = Math.floor(seconds / 60);
