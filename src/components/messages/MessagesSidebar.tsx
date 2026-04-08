@@ -153,7 +153,7 @@ export const MessagesSidebar = ({
             <div className="mb-4">
               <div className="px-4 py-2">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Od Administratora
+                  Wiadomości prywatne
                 </span>
               </div>
               {adminConversations
