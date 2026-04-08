@@ -4,6 +4,7 @@ import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { useAdminConversations } from '@/hooks/useAdminConversations';
 import { useConversationSettings } from '@/hooks/useConversationSettings';
+import { useRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
 import { MessagesSidebar } from '@/components/messages/MessagesSidebar';
 import { FullChatWindow } from '@/components/messages/FullChatWindow';
 
