@@ -120,7 +120,7 @@ export const ConversationActions = ({
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+        <AlertDialogContent className="z-[200]" onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Usunąć rozmowę?</AlertDialogTitle>
             <AlertDialogDescription>
