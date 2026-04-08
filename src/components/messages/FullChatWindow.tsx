@@ -28,6 +28,7 @@ interface FullChatWindowProps {
   isConversationArchived?: boolean;
   isConversationBlocked?: boolean;
   onDeleteMessage?: (messageId: string) => Promise<boolean>;
+  recipientChatDisabled?: boolean;
 }
 
 export const FullChatWindow = ({
