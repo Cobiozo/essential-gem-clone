@@ -60,7 +60,7 @@ export const ConversationActions = ({
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuContent align="end" className="z-[200]" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)}>
             <Trash2 className="h-4 w-4 mr-2" />
             Usuń rozmowę
