@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -24,29 +24,31 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
   const [permLoading, setPermLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
+  const permissionsLoaded = useRef(false);
 
   useEffect(() => {
-    if (!teamLoading && teamMembers.length > 0) {
-      loadPermissions();
-    } else if (!teamLoading) {
+    if (teamLoading) return;
+    if (permissionsLoaded.current) return;
+    if (teamMembers.length === 0) {
       setPermLoading(false);
+      return;
     }
-  }, [teamLoading, teamMembers]);
+    loadPermissions();
+  }, [teamLoading]);
 
   const loadPermissions = async () => {
     setPermLoading(true);
     try {
       const userIds = teamMembers.map(m => m.id);
       const { data, error } = await supabase
-        .from('leader_permissions')
-        .select('user_id, can_access_auto_webinar')
-        .in('user_id', userIds);
+        .rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds });
 
       if (error) throw error;
 
       const map = new Map<string, boolean>();
-      data?.forEach(p => map.set(p.user_id, p.can_access_auto_webinar || false));
+      (data as any[])?.forEach(p => map.set(p.user_id, p.can_access_auto_webinar || false));
       setAccessMap(map);
+      permissionsLoaded.current = true;
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
     } finally {
