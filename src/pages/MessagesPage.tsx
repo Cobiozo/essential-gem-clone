@@ -100,7 +100,7 @@ const MessagesPage = () => {
     } else {
       setCurrentConvStatus(null);
     }
-  }, [selectedDirectUserId, getConversationStatus]);
+  }, [selectedDirectUserId, getConversationStatus, adminConversations]);
 
   const handleSelectChannel = (channelId: string) => {
     selectChannel(channelId);
