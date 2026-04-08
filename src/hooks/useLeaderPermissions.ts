@@ -182,6 +182,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
   const hasTeamReports = data?.hasTeamReports ?? false;
   const hasCertificates = data?.hasCertificates ?? false;
   const hasLandingPage = data?.hasLandingPage ?? false;
+  const hasAutoWebinarAccess = data?.hasAutoWebinarAccess ?? false;
 
   return {
     hasMeetings,
