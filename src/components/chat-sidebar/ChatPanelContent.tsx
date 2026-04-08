@@ -28,7 +28,7 @@ export const ChatPanelContent = () => {
 
   const {
     deleteConversation, archiveConversation, blockUser, unblockUser,
-    isDeleted, isArchived, isBlocked,
+    isDeleted, isArchived, isBlocked, refetch: refetchSettings,
   } = useConversationSettings();
 
   const [currentConvStatus, setCurrentConvStatus] = useState<string | null>(null);
