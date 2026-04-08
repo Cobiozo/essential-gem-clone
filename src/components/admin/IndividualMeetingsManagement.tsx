@@ -81,6 +81,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
             partner_consultation_enabled: perm?.partner_consultation_enabled || false,
             can_broadcast: perm?.can_broadcast || false,
             can_view_team_progress: perm?.can_view_team_progress || false,
+            can_manage_auto_webinar_access: (perm as any)?.can_manage_auto_webinar_access || false,
             permission_id: perm?.id,
           };
         });
