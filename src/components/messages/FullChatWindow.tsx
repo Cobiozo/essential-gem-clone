@@ -57,9 +57,11 @@ export const FullChatWindow = ({
     ? `${directMember.firstName} ${directMember.lastName}`
     : channel?.name || '';
   
-  const canSend = adminConversationStatus === 'closed' 
-    ? false 
-    : directMember ? true : channel?.canSend;
+  const canSend = recipientChatDisabled
+    ? false
+    : adminConversationStatus === 'closed' 
+      ? false 
+      : directMember ? true : channel?.canSend;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
