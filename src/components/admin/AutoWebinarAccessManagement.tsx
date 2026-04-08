@@ -14,6 +14,7 @@ interface PartnerAccess {
   email: string;
   can_access_auto_webinar: boolean;
   permission_id?: string;
+  granted_by_name?: string | null;
 }
 
 export const AutoWebinarAccessManagement: React.FC = () => {
@@ -31,7 +32,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       const [profilesRes, rolesRes, permsRes] = await Promise.all([
         supabase.from('profiles').select('user_id, first_name, last_name, email').order('last_name'),
         supabase.from('user_roles').select('user_id, role').eq('role', 'partner'),
-        supabase.from('leader_permissions').select('id, user_id, can_access_auto_webinar'),
+        supabase.from('leader_permissions').select('id, user_id, can_access_auto_webinar, auto_webinar_granted_by'),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
@@ -41,11 +42,29 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       const partnerIds = new Set(rolesRes.data?.map(r => r.user_id) || []);
       const permMap = new Map(permsRes.data?.map(p => [p.user_id, p]) || []);
 
+      // Collect granted_by IDs to fetch names
+      const grantedByIds = new Set<string>();
+      permsRes.data?.forEach(p => {
+        if ((p as any).auto_webinar_granted_by) grantedByIds.add((p as any).auto_webinar_granted_by);
+      });
+
+      let granterNames = new Map<string, string>();
+      if (grantedByIds.size > 0) {
+        const { data: granterProfiles } = await supabase
+          .from('profiles')
+          .select('user_id, first_name, last_name')
+          .in('user_id', Array.from(grantedByIds));
+        granterProfiles?.forEach(gp => {
+          granterNames.set(gp.user_id, `${gp.first_name || ''} ${gp.last_name || ''}`.trim());
+        });
+      }
+
       setPartners(
         (profilesRes.data || [])
           .filter(p => partnerIds.has(p.user_id))
           .map(profile => {
             const perm = permMap.get(profile.user_id);
+            const grantedBy = (perm as any)?.auto_webinar_granted_by;
             return {
               user_id: profile.user_id,
               first_name: profile.first_name,
@@ -53,6 +72,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
               email: profile.email,
               can_access_auto_webinar: perm?.can_access_auto_webinar || false,
               permission_id: perm?.id,
+              granted_by_name: grantedBy ? granterNames.get(grantedBy) || 'Lider' : null,
             };
           })
       );
@@ -69,13 +89,13 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       if (partner.permission_id) {
         const { error } = await supabase
           .from('leader_permissions')
-          .update({ can_access_auto_webinar: value } as any)
+          .update({ can_access_auto_webinar: value, auto_webinar_granted_by: null } as any)
           .eq('id', partner.permission_id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('leader_permissions')
-          .insert({ user_id: partner.user_id, can_access_auto_webinar: value } as any);
+          .insert({ user_id: partner.user_id, can_access_auto_webinar: value, auto_webinar_granted_by: null } as any);
         if (error) throw error;
       }
 
@@ -187,6 +207,11 @@ export const AutoWebinarAccessManagement: React.FC = () => {
                       {partner.first_name} {partner.last_name}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
+                    {partner.granted_by_name && (
+                      <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0">
+                        Nadane przez: {partner.granted_by_name}
+                      </Badge>
+                    )}
                   </div>
                   <Switch
                     checked={true}

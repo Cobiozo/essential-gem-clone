@@ -25,6 +25,7 @@ export interface LeaderPermissionsResult {
   hasTeamReports: boolean;
   hasCertificates: boolean;
   hasLandingPage: boolean;
+  hasAutoWebinarAccess: boolean;
   isAnyLeaderFeatureEnabled: boolean;
   leaderPermission: {
     individual_meetings_enabled?: boolean | null;
@@ -128,6 +129,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       const hasTeamReports = leaderPerm?.can_view_team_reports === true;
       const hasCertificates = leaderPerm?.can_manage_certificates === true;
       const hasLandingPage = leaderPerm?.can_customize_landing_page === true;
+      const hasAutoWebinarAccess = (leaderPerm as any)?.can_manage_auto_webinar_access === true;
 
       return {
         leaderPermission: leaderPerm,
@@ -152,6 +154,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
         hasTeamReports,
         hasCertificates,
         hasLandingPage,
+        hasAutoWebinarAccess,
       };
     },
     enabled: !!user && (isPartner || isAdmin),
@@ -179,6 +182,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
   const hasTeamReports = data?.hasTeamReports ?? false;
   const hasCertificates = data?.hasCertificates ?? false;
   const hasLandingPage = data?.hasLandingPage ?? false;
+  const hasAutoWebinarAccess = data?.hasAutoWebinarAccess ?? false;
 
   return {
     hasMeetings,
@@ -202,12 +206,13 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
     hasTeamReports,
     hasCertificates,
     hasLandingPage,
+    hasAutoWebinarAccess,
     isAnyLeaderFeatureEnabled:
       hasMeetings || hasTeamProgress || hasInfluencerCalc || hasSpecialistCalc ||
       hasOrgTree || hasApprovalPermission || hasTeamEvents || hasEventRegistrations ||
       hasTeamTrainingMgmt || hasKnowledgeBase || hasTeamNotifications || hasTeamEmails ||
       hasTeamPush || hasTeamContacts || hasTeamContactsMgmt || hasDailySignal ||
-      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage,
+      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage || hasAutoWebinarAccess,
     leaderPermission: data?.leaderPermission ?? null,
     loading: isLoading,
   };

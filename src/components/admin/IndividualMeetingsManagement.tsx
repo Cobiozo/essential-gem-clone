@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserRound, Loader2, GraduationCap } from 'lucide-react';
+import { Search, Users, UserRound, Loader2, GraduationCap, Radio } from 'lucide-react';
 
 interface PartnerWithPermissions {
   user_id: string;
@@ -19,6 +19,7 @@ interface PartnerWithPermissions {
   partner_consultation_enabled: boolean;
   can_broadcast: boolean;
   can_view_team_progress: boolean;
+  can_manage_auto_webinar_access: boolean;
   permission_id?: string;
 }
 
@@ -59,7 +60,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
       // Fetch leader permissions
       const { data: permissions, error: permError } = await supabase
         .from('leader_permissions')
-        .select('id, user_id, individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_broadcast, can_view_team_progress');
+        .select('id, user_id, individual_meetings_enabled, tripartite_meeting_enabled, partner_consultation_enabled, can_broadcast, can_view_team_progress, can_manage_auto_webinar_access');
 
       if (permError) throw permError;
 
@@ -80,6 +81,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
             partner_consultation_enabled: perm?.partner_consultation_enabled || false,
             can_broadcast: perm?.can_broadcast || false,
             can_view_team_progress: perm?.can_view_team_progress || false,
+            can_manage_auto_webinar_access: (perm as any)?.can_manage_auto_webinar_access || false,
             permission_id: perm?.id,
           };
         });
@@ -95,7 +97,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
 
   const togglePermission = async (
     partner: PartnerWithPermissions,
-    field: 'tripartite_meeting_enabled' | 'partner_consultation_enabled' | 'can_broadcast' | 'can_view_team_progress',
+    field: 'tripartite_meeting_enabled' | 'partner_consultation_enabled' | 'can_broadcast' | 'can_view_team_progress' | 'can_manage_auto_webinar_access',
     value: boolean
   ) => {
     setSaving(partner.user_id);
@@ -221,6 +223,12 @@ export const IndividualMeetingsManagement: React.FC = () => {
                     <span>Szkolenia zespołu</span>
                   </div>
                 </TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Radio className="h-4 w-4" />
+                    <span>Auto-Webinar</span>
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -259,11 +267,20 @@ export const IndividualMeetingsManagement: React.FC = () => {
                       disabled={saving === partner.user_id}
                     />
                   </TableCell>
+                  <TableCell className="text-center">
+                    <Switch
+                      checked={partner.can_manage_auto_webinar_access}
+                      onCheckedChange={(checked) => 
+                        togglePermission(partner, 'can_manage_auto_webinar_access', checked)
+                      }
+                      disabled={saving === partner.user_id}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
               {filteredPartners.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {searchQuery ? t('admin.meetings.noPartnersFound') : t('admin.meetings.noPartnersInSystem')}
                   </TableCell>
                 </TableRow>
