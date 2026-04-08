@@ -1058,6 +1058,10 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
               (record.sender_id === user.id && record.recipient_id === otherUserId);
             if (isDMForThisConversation) {
               fetchDirectMessagesRef.current?.(otherUserId, { silent: true });
+              // Auto-mark as read if incoming message in open conversation
+              if (record.sender_id === otherUserId && record.recipient_id === user.id) {
+                markDirectAsReadRef.current?.(otherUserId);
+              }
             }
           }
           // Handle channel realtime refresh
