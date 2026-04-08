@@ -32,7 +32,7 @@ export const AutoWebinarAccessManagement: React.FC = () => {
     try {
       const [profilesRes, rolesRes, permsRes] = await Promise.all([
         supabase.from('profiles').select('user_id, first_name, last_name, email').order('last_name'),
-        supabase.from('user_roles').select('user_id, role').in('role', ['partner', 'specjalista']),
+        supabase.from('user_roles').select('user_id, role'),
         supabase.from('leader_permissions').select('id, user_id, can_access_auto_webinar, auto_webinar_granted_by'),
       ]);
 
@@ -42,8 +42,16 @@ export const AutoWebinarAccessManagement: React.FC = () => {
 
       const roleMap = new Map<string, string>();
       rolesRes.data?.forEach(r => roleMap.set(r.user_id, r.role));
-      const eligibleIds = new Set(rolesRes.data?.map(r => r.user_id) || []);
+      // Eligible: partners/specjaliści OR anyone with active auto-webinar access
+      const baseEligibleIds = new Set(
+        rolesRes.data?.filter(r => ['partner', 'specjalista'].includes(r.role)).map(r => r.user_id) || []
+      );
       const permMap = new Map(permsRes.data?.map(p => [p.user_id, p]) || []);
+      // Add users who have active access regardless of role
+      permsRes.data?.forEach(p => {
+        if (p.can_access_auto_webinar) baseEligibleIds.add(p.user_id);
+      });
+      const eligibleIds = baseEligibleIds;
 
       // Collect granted_by IDs to fetch names
       const grantedByIds = new Set<string>();
