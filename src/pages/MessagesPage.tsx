@@ -74,6 +74,8 @@ const MessagesPage = () => {
     unreadCounts,
   } = useUnifiedChat({ enableRealtime: true });
 
+  const { hasAccess: recipientHasAccess } = useRecipientChatAccess(selectedDirectUserId);
+
   // Handle ?user= URL parameter for notification deep-linking
   useEffect(() => {
     const userId = searchParams.get('user');
