@@ -1,0 +1,3 @@
+TRUNCATE TABLE role_chat_messages;
+TRUNCATE TABLE admin_conversations CASCADE;
+TRUNCATE TABLE conversation_user_settings;

@@ -60,7 +60,7 @@ export const ConversationActions = ({
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenuContent align="end" className="z-[200]" onClick={(e) => e.stopPropagation()}>
           <DropdownMenuItem onClick={() => setDeleteDialogOpen(true)}>
             <Trash2 className="h-4 w-4 mr-2" />
             Usuń rozmowę
@@ -98,7 +98,7 @@ export const ConversationActions = ({
 
       {/* Block confirmation dialog */}
       <AlertDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+        <AlertDialogContent className="z-[200]" onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Zablokować {otherUserName}?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -120,7 +120,7 @@ export const ConversationActions = ({
 
       {/* Delete confirmation dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+        <AlertDialogContent className="z-[200]" onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Usunąć rozmowę?</AlertDialogTitle>
             <AlertDialogDescription>
