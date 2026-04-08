@@ -186,6 +186,19 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (error) throw error;
 
+      // Filter messages by deleted_at marker from conversation_user_settings
+      let filteredData = data || [];
+      const { data: setting } = await supabase
+        .from('conversation_user_settings')
+        .select('deleted_at')
+        .eq('user_id', user.id)
+        .eq('other_user_id', otherUserId)
+        .maybeSingle();
+
+      if (setting?.deleted_at) {
+        filteredData = filteredData.filter(m => m.created_at > setting.deleted_at);
+      }
+
       // Fetch sender profiles
       const senderIds = [...new Set((data || []).map(m => m.sender_id))];
       const { data: profiles } = await supabase
