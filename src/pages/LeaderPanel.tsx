@@ -73,6 +73,7 @@ const LeaderPanel: React.FC = () => {
     hasTeamReports,
     hasCertificates,
     hasLandingPage,
+    hasAutoWebinarAccess,
     isAnyLeaderFeatureEnabled,
     loading: permLoading,
   } = useLeaderPermissions();
