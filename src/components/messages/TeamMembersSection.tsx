@@ -36,6 +36,7 @@ export const TeamMembersSection = ({
   onToggleSelection,
   onCreateGroupChat,
   canCreateGroups = false,
+  unreadCounts = new Map(),
 }: TeamMembersSectionProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
 
