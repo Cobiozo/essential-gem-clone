@@ -466,6 +466,15 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   onMoveToOwnList={moveToOwnList}
                 />
+              ) : privateSubTab === 'partner-page' ? (
+                <PartnerPageContactsList
+                  contacts={partnerPageContacts}
+                  loading={loading}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
+                  onMoveToOwnList={moveToOwnList}
+                />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
                   contacts={filteredContacts}
