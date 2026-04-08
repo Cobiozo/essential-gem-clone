@@ -18,6 +18,5 @@ export const supabase = createClient<CompatibleDatabase>(SUPABASE_URL, SUPABASE_
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    lock: 'advisory' as any,
   }
 });
