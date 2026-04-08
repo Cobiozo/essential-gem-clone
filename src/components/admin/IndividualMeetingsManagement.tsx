@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Search, Users, UserRound, Loader2, GraduationCap } from 'lucide-react';
+import { Search, Users, UserRound, Loader2, GraduationCap, Radio } from 'lucide-react';
 
 interface PartnerWithPermissions {
   user_id: string;
