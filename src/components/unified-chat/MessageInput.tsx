@@ -186,6 +186,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
                 <Smile className="h-5 w-5" />
               </button>
             }
+            popoverClassName="z-[200]"
           />
 
           {/* Voice recorder trigger */}
