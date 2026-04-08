@@ -230,6 +230,9 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
             setNotifications(prev => [newNotification, ...prev]);
             setUnreadCount(prev => prev + 1);
             
+            // Play notification sound
+            playNotificationSound();
+            
             // Show browser notification when tab is in background
             if (enableBrowserNotifications && document.hidden && permission === 'granted') {
               showNotification(newNotification.title || 'Nowe powiadomienie', {

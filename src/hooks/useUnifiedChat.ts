@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
 import { toast } from 'sonner';
 import { checkRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 
 export interface UnifiedChannel {
   id: string;
