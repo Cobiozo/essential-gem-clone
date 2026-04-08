@@ -55,7 +55,7 @@ interface EmojiPickerProps {
   popoverClassName?: string;
 }
 
-export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger }) => {
+export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger, popoverClassName }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
 
