@@ -1,52 +1,57 @@
 
-
-# Plan: Izolacja kontaktów per rejestracja — brak mieszania danych między terminami
+# Plan: Naprawienie blokady rejestracji na inny termin (ta sama godzina, inny dzień)
 
 ## Problem
 
-Gdy gość rejestruje się na różne terminy tego samego auto-webinaru, system pobiera wiadomości czatowe (`auto_webinar_guest_messages`) **tylko po emailu** — bez filtrowania po konkretnej rejestracji. Efekt: gość zarejestrowany na 22:00 widzi wiadomości z czatu innego terminu, który jeszcze się nie rozpoczął.
+`slot_time` w tabeli `guest_event_registrations` przechowuje tylko `HH:MM` (np. `23:00`). Unique constraint `(event_id, email, COALESCE(slot_time, ''))` sprawdza unikalność bez daty. Efekt: rejestracja z 27 marca na 23:00 blokuje rejestrację z 8 kwietnia na 23:00 — mimo że to inny dzień.
 
 ## Rozwiązanie
 
-Powiązać wiadomości czatowe z konkretną rejestracją (`guest_registration_id`), a nie globalnie z emailem.
+Zmienić `slot_time` na format `YYYY-MM-DD_HH:MM` (np. `2026-04-08_23:00`) — ten format jest już używany w URL-ach (`?slot=2026-04-08_23:00`). Dzięki temu unique constraint poprawnie odróżni sloty na różne daty.
 
 ## Zmiany
 
-### 1. Dodać `registration_id` do `EventRegistrationInfo` (types.ts)
+### 1. Migracja SQL — aktualizacja unique constraint
 
-Rozszerzyć interfejs o pole `registration_id: string`, aby ID rejestracji było dostępne w komponentach.
+```sql
+-- Drop old constraint
+DROP INDEX IF EXISTS unique_guest_per_event;
 
-### 2. Przekazać `id` rejestracji w `useTeamContacts.ts`
-
-W `fetchEventContactIds` — dodać `id` do selectu z `guest_event_registrations` (linia 417) i zapisać je w obiekcie `EventRegistrationInfo`:
-```typescript
-const info: EventRegistrationInfo = {
-  registration_id: r.id,  // <-- nowe pole
-  event_id: r.event_id,
-  // ... reszta bez zmian
-};
+-- Recreate with same logic — slot_time will now contain date
+CREATE UNIQUE INDEX unique_guest_per_event 
+ON guest_event_registrations (event_id, email, COALESCE(slot_time, ''))
+WHERE status <> 'cancelled';
 ```
 
-### 3. Filtrować wiadomości po `guest_registration_id` (ContactExpandedDetails.tsx)
+Constraint pozostaje ten sam — zmiana jest w formacie danych, nie w indeksie.
 
-Zamiast `.eq('guest_email', contact.email)`, użyć `registration_id` z props:
+### 2. `EventGuestRegistration.tsx` — zmiana `slotTimeValue`
+
+Zmienić z `resolvedSlot.time` (`HH:MM`) na pełny format z datą:
+
 ```typescript
-// Jeśli mamy registration_id → filtruj precyzyjnie
-if (registrationInfo?.registration_id) {
-  query = query.eq('guest_registration_id', registrationInfo.registration_id);
-} else {
-  // Fallback dla kontaktów bez rejestracji
-  query = query.eq('guest_email', contact.email.trim().toLowerCase());
-}
+const slotTimeValue = isAutoWebinar && resolvedSlot
+  ? `${format(resolvedSlot.date, 'yyyy-MM-dd')}_${resolvedSlot.time}`
+  : null;
 ```
 
-To zagwarantuje, że wiadomości czatowe będą pokazywane **tylko** dla konkretnego terminu/rejestracji.
+### 3. Migracja istniejących danych (opcjonalna)
+
+Stare rekordy mają `slot_time = '23:00'` bez daty. Nie powoduje to problemów — nowe rekordy będą miały format `2026-04-08_23:00`, więc nie będą kolidować ze starymi. Stare dane nie muszą być migrowane.
+
+### 4. Weryfikacja — inne miejsca używające `slot_time`
+
+Sprawdzić i ewentualnie dostosować kod, który porównuje `slot_time` (np. w powiadomieniach, statystykach), żeby obsługiwał oba formaty.
 
 ## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/team-contacts/types.ts` | Dodanie `registration_id` do `EventRegistrationInfo` |
-| `src/hooks/useTeamContacts.ts` | Dodanie `id` do selectu i mapowania |
-| `src/components/team-contacts/ContactExpandedDetails.tsx` | Filtrowanie wiadomości po `guest_registration_id` |
+| `src/pages/EventGuestRegistration.tsx` | `slotTimeValue` z `HH:MM` na `YYYY-MM-DD_HH:MM` |
+| Weryfikacja użyć `slot_time` w pozostałych plikach | Upewnienie się, że nowy format nie łamie istniejących funkcji |
 
+## Efekt
+
+- Gość zarejestrowany na 22:00 (8 kwietnia) może się zarejestrować na 23:00 (8 kwietnia) — inny slot
+- Gość zarejestrowany na 23:00 (27 marca) może się zarejestrować na 23:00 (8 kwietnia) — inny dzień
+- Gość NIE może się zarejestrować drugi raz na ten sam slot tego samego dnia
