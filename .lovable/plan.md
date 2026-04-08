@@ -1,55 +1,51 @@
 
 
-# Plan: Dźwięki powiadomień — dzwonek i czat
+# Plan: Automatyczne wykrywanie nowych konwersacji od admina (realtime)
 
 ## Problem
 
-Gdy użytkownik ma otwartą kartę i jest zalogowany, nie otrzymuje żadnego sygnału dźwiękowego o nowych powiadomieniach ani wiadomościach czatu.
+Gdy admin pisze do użytkownika B, tworzy się rekord w tabeli `admin_conversations`, ale hook `useAdminConversations` u użytkownika B **nie ma subskrypcji realtime** — pobiera dane tylko raz przy montowaniu. Dlatego użytkownik B nie widzi nowej konwersacji w sidebarze czatu ani na stronie /messages, dopóki nie odświeży strony.
 
 ## Rozwiązanie
 
-Dwa różne dźwięki:
-- **Dzwonek (bell)** — krótki dźwięk dla nowych powiadomień systemowych (dzwoneczek)
-- **Czat (chat)** — inny dźwięk dla nowych wiadomości prywatnych (ikona MessageSquare)
-
-Dźwięki będą odtwarzane tylko gdy karta jest aktywna LUB w tle — użytkownik usłyszy sygnał niezależnie od tego, czy patrzy na ekran.
+Dodać subskrypcję realtime na tabelę `admin_conversations` w hooku `useAdminConversations`, aby automatycznie odświeżał listę konwersacji gdy:
+- pojawi się nowy rekord (INSERT) — admin zainicjował rozmowę
+- zmieni się status (UPDATE) — admin zamknął/otworzył konwersację
 
 ## Zmiany
 
-### 1. Wygenerować pliki dźwiękowe
+### 1. `src/hooks/useAdminConversations.ts` — dodać realtime subscription
 
-**Lokalizacja:** `public/sounds/notification.mp3` i `public/sounds/message.mp3`
+W `useEffect` przy montowaniu, obok `fetchConversations()`, dodać:
 
-Wygenerować dwa krótkie dźwięki (< 1s) za pomocą Web Audio API w skrypcie buildowym lub użyć darmowych plików MP3. Notification — pojedynczy dzwonek, message — podwójny „pop".
+```typescript
+const channel = supabase
+  .channel('admin-conversations-realtime')
+  .on('postgres_changes', {
+    event: '*',
+    schema: 'public',
+    table: 'admin_conversations',
+  }, () => {
+    fetchConversations();
+  })
+  .subscribe();
 
-### 2. Nowy hook `src/hooks/useNotificationSound.ts`
+return () => { supabase.removeChannel(channel); };
+```
 
-Hook zarządzający odtwarzaniem dźwięków:
-- Preładowuje oba pliki Audio przy montowaniu
-- Eksportuje `playNotificationSound()` i `playMessageSound()`
-- Respektuje ustawienie użytkownika (localStorage: `notification-sounds-enabled`, domyślnie `true`)
-- Zabezpieczenie przed spamem — minimum 2s odstęp między dźwiękami tego samego typu
+Dzięki temu:
+- Gdy admin napisze do partnera → w tabeli pojawi się INSERT → partner automatycznie zobaczy konwersację w sekcji „Wiadomości prywatne"
+- Gdy admin zamknie konwersację → UPDATE → status zmieni się automatycznie u użytkownika
 
-### 3. Integracja w `src/hooks/useNotifications.ts`
-
-W callbacku realtime (linia ~223, event INSERT) po dodaniu powiadomienia do stanu — wywołać `playNotificationSound()`.
-
-### 4. Integracja w `src/hooks/useUnifiedChat.ts`
-
-W callbacku realtime (linia ~1050, event INSERT) gdy przychodzi nowa wiadomość od innego użytkownika (`record.sender_id !== user.id`) — wywołać `playMessageSound()`.
-
-### 5. Przełącznik w ustawieniach (opcjonalnie w menu użytkownika)
-
-Dodać prosty toggle w dropdownie użytkownika (DashboardTopbar) lub w panelu narzędziowym, pozwalający wyciszyć dźwięki powiadomień. Wartość zapisywana w `localStorage`.
-
-## Pliki do utworzenia/edycji
+## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `public/sounds/notification.mp3` | Nowy — dźwięk powiadomienia |
-| `public/sounds/message.mp3` | Nowy — dźwięk wiadomości czatu |
-| `src/hooks/useNotificationSound.ts` | Nowy — hook odtwarzania dźwięków |
-| `src/hooks/useNotifications.ts` | Wywołanie `playNotificationSound()` w realtime INSERT |
-| `src/hooks/useUnifiedChat.ts` | Wywołanie `playMessageSound()` w realtime INSERT |
-| `src/components/dashboard/DashboardTopbar.tsx` | Toggle wyciszenia dźwięków (ikona Volume2/VolumeX) |
+| `src/hooks/useAdminConversations.ts` | Dodać subskrypcję realtime na `admin_conversations` |
+
+## Co pozostaje bez zmian
+
+- Logika sidebar (MessagesSidebar) — już poprawnie renderuje sekcję „Wiadomości prywatne" dla nie-adminów gdy `adminConversations.length > 0`
+- RLS na `admin_conversations` — polityka `user_read_own` poprawnie pozwala target_user na odczyt swoich konwersacji
+- Dźwięki powiadomień — `playMessageSound()` jest już wywoływany w realtime subscription `role_chat_messages`
 
