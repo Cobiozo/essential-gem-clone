@@ -155,7 +155,7 @@ export const ChatPanelContent = () => {
           isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
           isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
            onDeleteMessage={deleteMessage}
-           recipientChatDisabled={selectedDirectUserId ? !recipientHasAccess : false}
+           recipientChatDisabled={selectedDirectUserId && !isAdmin ? !recipientHasAccess : false}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-muted-foreground">
