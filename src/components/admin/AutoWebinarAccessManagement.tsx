@@ -14,6 +14,7 @@ interface PartnerAccess {
   email: string;
   can_access_auto_webinar: boolean;
   permission_id?: string;
+  granted_by_name?: string | null;
 }
 
 export const AutoWebinarAccessManagement: React.FC = () => {
