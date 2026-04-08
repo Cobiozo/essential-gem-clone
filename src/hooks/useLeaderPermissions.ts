@@ -212,7 +212,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       hasOrgTree || hasApprovalPermission || hasTeamEvents || hasEventRegistrations ||
       hasTeamTrainingMgmt || hasKnowledgeBase || hasTeamNotifications || hasTeamEmails ||
       hasTeamPush || hasTeamContacts || hasTeamContactsMgmt || hasDailySignal ||
-      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage,
+      hasImportantInfo || hasTeamReflinks || hasTeamReports || hasCertificates || hasLandingPage || hasAutoWebinarAccess,
     leaderPermission: data?.leaderPermission ?? null,
     loading: isLoading,
   };

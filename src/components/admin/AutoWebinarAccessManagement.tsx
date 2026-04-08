@@ -207,6 +207,11 @@ export const AutoWebinarAccessManagement: React.FC = () => {
                       {partner.first_name} {partner.last_name}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
+                    {partner.granted_by_name && (
+                      <Badge variant="outline" className="mt-1 text-[10px] px-1.5 py-0">
+                        Nadane przez: {partner.granted_by_name}
+                      </Badge>
+                    )}
                   </div>
                   <Switch
                     checked={true}
