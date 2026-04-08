@@ -9109,6 +9109,10 @@ export type Database = {
         Args: { rejection_reason?: string; target_user_id: string }
         Returns: boolean
       }
+      has_active_admin_conversation: {
+        Args: { _user_a: string; _user_b: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
