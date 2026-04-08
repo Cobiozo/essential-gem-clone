@@ -34,6 +34,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         .select('*')
         .eq('user_id', user.id)
         .or(`target_role.is.null,target_role.eq.${currentRole}`)
+        .neq('notification_type', 'direct_message')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -59,7 +60,8 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('is_read', false)
-        .or(`target_role.is.null,target_role.eq.${currentRole}`);
+        .or(`target_role.is.null,target_role.eq.${currentRole}`)
+        .neq('notification_type', 'direct_message');
 
       if (error) throw error;
       setUnreadCount(count || 0);
@@ -220,7 +222,8 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         },
         (payload) => {
           const newNotification = payload.new as UserNotification & { target_role?: string };
-          // Filter by target_role (consolidated from useRoleNotifications)
+          // Filter by target_role and exclude direct_message
+          if (newNotification.notification_type === 'direct_message') return;
           if (!newNotification.target_role || newNotification.target_role === currentRole) {
             setNotifications(prev => [newNotification, ...prev]);
             setUnreadCount(prev => prev + 1);

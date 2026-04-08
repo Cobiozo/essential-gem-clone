@@ -15,8 +15,10 @@ export const NotificationsWidget: React.FC = () => {
   const { t, language } = useLanguage();
   const { notifications, loading, markAsRead } = useNotifications();
 
-  // Take only first 4
-  const displayNotifications = notifications.slice(0, 4);
+  // Filter out chat notifications and take only first 4
+  const displayNotifications = notifications
+    .filter(n => n.notification_type !== 'direct_message')
+    .slice(0, 4);
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
