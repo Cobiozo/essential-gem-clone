@@ -81,11 +81,12 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], h
       const { data } = await supabase
         .from('reflinks_visibility_settings')
         .select('button_visible')
-        .eq('role', mappedRole)
+        .eq('role', mappedRole as any)
         .maybeSingle();
 
-      setIsReflinksVisible(data?.button_visible ?? false);
-      if (data?.button_visible) {
+      const visData = data as any;
+      setIsReflinksVisible(visData?.button_visible ?? false);
+      if (visData?.button_visible) {
         fetchReflinks();
       }
     };
@@ -94,12 +95,12 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], h
       const { data } = await supabase
         .from('reflinks')
         .select('id, target_role, reflink_code, title, link_url, link_type, visible_to_roles, position, clipboard_content')
-        .eq('is_active', true)
+        .eq('is_active', true as any)
         .order('target_role')
         .order('position');
 
       const currentRole = userRole?.role || null;
-      const filtered = (data || []).filter(reflink => {
+      const filtered = ((data || []) as any[]).filter(reflink => {
         if (currentRole === 'admin') return true;
         const visibleRoles = reflink.visible_to_roles || [];
         const roleMapping: Record<string, string> = {
@@ -112,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({ siteLogo, publishedPages = [], h
         return mappedRole && visibleRoles.includes(mappedRole);
       });
 
-      setReflinks(filtered);
+      setReflinks(filtered as Reflink[]);
     };
 
     checkReflinksVisibility();

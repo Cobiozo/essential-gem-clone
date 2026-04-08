@@ -318,7 +318,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           show_daily_signal: false,
           last_signal_shown_at: new Date().toISOString(),
           last_signal_id: currentSignal?.id || null
-        }, {
+        } as any, {
           onConflict: 'user_id'
         });
     } catch (error) {

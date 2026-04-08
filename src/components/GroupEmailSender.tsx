@@ -56,14 +56,14 @@ export const GroupEmailSender: React.FC<GroupEmailSenderProps> = ({ className })
     const { data, error } = await supabase
       .from('email_templates')
       .select('id, name, subject, body_html, is_active')
-      .eq('is_active', true)
+      .eq('is_active', true as any)
       .order('name');
 
     if (error) {
       console.error('Error fetching templates:', error);
       return;
     }
-    setTemplates(data || []);
+    setTemplates((data || []) as any as EmailTemplate[]);
   };
 
   const handleTemplateSelect = (templateId: string) => {
