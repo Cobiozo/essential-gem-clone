@@ -146,7 +146,7 @@ const LeaderPanel: React.FC = () => {
     ...(hasTeamReports ? [{ id: 'reports', label: 'Raporty', icon: BarChart3, badge: 0 }] : []),
     ...(hasCertificates ? [{ id: 'certificates', label: 'Certyfikaty', icon: Award, badge: 0 }] : []),
     ...(hasLandingPage ? [{ id: 'landing-page', label: 'Moja strona', icon: Globe, badge: 0 }] : []),
-    
+    ...(hasAutoWebinarAccess ? [{ id: 'auto-webinar', label: 'Auto-Webinary', icon: Radio, badge: 0 }] : []),
   ];
 
   const resolvedDefaultTab = availableTabs.find(t => t.id === defaultTab)?.id ?? availableTabs[0]?.id ?? '';
