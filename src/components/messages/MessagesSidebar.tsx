@@ -43,6 +43,7 @@ interface MessagesSidebarProps {
   isConversationBlocked?: (userId: string) => boolean;
   archivedConversations?: AdminConversationUser[];
   archivedTeamMembers?: TeamMemberChannel[];
+  unreadCounts?: Map<string, number>;
 }
 
 export const MessagesSidebar = ({
