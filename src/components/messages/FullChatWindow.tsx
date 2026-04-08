@@ -52,6 +52,25 @@ export const FullChatWindow = ({
   recipientChatDisabled = false,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [otherUserDeletedConvo, setOtherUserDeletedConvo] = useState(false);
+
+  // Check if the other user has deleted the conversation
+  useEffect(() => {
+    if (!directMember) {
+      setOtherUserDeletedConvo(false);
+      return;
+    }
+    const checkOtherUserDeletion = async () => {
+      const { data } = await supabase
+        .from('conversation_user_settings')
+        .select('deleted_at')
+        .eq('user_id', directMember.userId)
+        .eq('other_user_id', (await supabase.auth.getUser()).data.user?.id || '')
+        .maybeSingle();
+      setOtherUserDeletedConvo(!!data?.deleted_at);
+    };
+    checkOtherUserDeletion();
+  }, [directMember]);
   
   // Determine display name and capabilities
   const displayName = directMember 
