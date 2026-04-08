@@ -72,6 +72,7 @@ export interface TeamContact {
 }
 
 export interface EventRegistrationInfo {
+  registration_id?: string;
   event_id: string;
   event_title: string;
   event_start_time: string;

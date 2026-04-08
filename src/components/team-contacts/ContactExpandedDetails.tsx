@@ -27,13 +27,20 @@ export const ContactExpandedDetails: React.FC<ContactExpandedDetailsProps> = ({
 
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!contact.email) return;
+      if (!contact.email && !registrationInfo?.registration_id) return;
       setLoadingMessages(true);
 
-      const { data } = await supabase
+      let query = supabase
         .from('auto_webinar_guest_messages' as any)
-        .select('id, content, sent_at_second, created_at, guest_name')
-        .eq('guest_email', contact.email.trim().toLowerCase())
+        .select('id, content, sent_at_second, created_at, guest_name');
+
+      if (registrationInfo?.registration_id) {
+        query = query.eq('guest_registration_id', registrationInfo.registration_id);
+      } else if (contact.email) {
+        query = query.eq('guest_email', contact.email.trim().toLowerCase());
+      }
+
+      const { data } = await query
         .order('sent_at_second', { ascending: true })
         .limit(50);
 
@@ -42,7 +49,7 @@ export const ContactExpandedDetails: React.FC<ContactExpandedDetailsProps> = ({
     };
 
     fetchMessages();
-  }, [contact.email]);
+  }, [contact.email, registrationInfo?.registration_id]);
 
   const formatSeconds = (seconds: number) => {
     const m = Math.floor(seconds / 60);
