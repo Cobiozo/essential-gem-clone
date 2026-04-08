@@ -17,6 +17,7 @@ export const ChatPanelContent = () => {
     selectChannel, sendMessage, teamMembers, upline,
     selectedDirectUserId, selectedDirectMember,
     selectDirectMember, sendDirectMessage, deleteMessage,
+    unreadCounts,
   } = useUnifiedChat({ enableRealtime: true });
 
   const {
