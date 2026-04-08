@@ -1,101 +1,92 @@
 
+# Plan: Naprawa widoczności wiadomości prywatnych + nowa logika usuwania konwersacji
 
-# Plan: Naprawienie duplikowania wiadomości w kanałach rozgłoszeniowych
+## Znalezione problemy
 
-## Problem
+### Problem 1: Partner nie widzi wiadomości od admina
+**Przyczyna**: W bazie danych obie strony mają `is_deleted: true` w tabeli `conversation_user_settings`. Admin wcześniej usunął konwersację z Sebastianem, a Sebastian usunął konwersację z adminem. Mimo że admin wysłał NOWĄ wiadomość (widoczna w bazie), sidebar odfiltrowuje tę konwersację bo `is_deleted = true`.
 
-Gdy admin wysyła wiadomość do kanału "Partnerzy", kod tworzy **po jednym rekordzie w bazie na każdego partnera** (pętla `for (const targetUser of targetUsers)`). Następnie przy odczycie próbuje deduplikować po kluczu `content + created_at`, ale każdy INSERT ma nieco inny timestamp — więc deduplicacja nie działa i admin widzi N kopii tej samej wiadomości.
+Kod filtrujący w MessagesPage/ChatPanelContent:
+```
+adminConversations.filter(c => !isDeleted(c.userId) && ...)
+```
+Efekt: konwersacja nie wyświetla się w sidebarze partnera, mimo że nowa wiadomość istnieje w bazie.
+
+### Problem 2: Logika usuwania konwersacji
+Aktualnie "Usuń" tylko ustawia flagę `is_deleted: true`, ale nie kasuje historii. Po cofnięciu flagi wszystkie stare wiadomości wracają. Użytkownik chce trwałego usunięcia historii z jego perspektywy.
 
 ## Rozwiązanie
 
-Zmienić architekturę: kanał rozgłoszeniowy = **jeden rekord** w bazie z `recipient_role` ustawionym na docelową rolę i `recipient_id = null`. Odbiorcy filtrują wiadomości po `recipient_role` pasującej do ich roli. Nie ma potrzeby tworzenia kopii per użytkownik.
+### 1. Auto-reset `is_deleted` przy nowej wiadomości (useUnifiedChat.ts)
 
-## Zmiany
-
-### 1. `src/hooks/useUnifiedChat.ts` — funkcja `sendMessage` (~linia 862)
-
-Zastąpić pętle tworzące wiele rekordów jednym INSERT-em:
-
-**Było (broadcast-partner):**
+W `sendDirectMessage` — po wysłaniu wiadomości, automatycznie resetuj `is_deleted` dla nadawcy:
 ```typescript
-const { data: targetUsers } = await supabase.from('profiles')...
-for (const targetUser of (targetUsers || [])) {
-  await supabase.from('role_chat_messages').insert({...recipient_id: targetUser.user_id...});
+// Po udanym INSERT wiadomości:
+await supabase.from('conversation_user_settings')
+  .update({ is_deleted: false, deleted_at: null })
+  .eq('user_id', user.id)
+  .eq('other_user_id', recipientId);
+```
+
+### 2. Auto-reset `is_deleted` dla odbiorcy przy nowej wiadomości (useUnifiedChat.ts)
+
+W `sendDirectMessage` — po wysłaniu, resetuj też flagę u odbiorcy, ale zachowaj `deleted_at` jako marker "od kiedy pokazywać wiadomości":
+```typescript
+await supabase.from('conversation_user_settings')
+  .update({ is_deleted: false })  // NIE resetuj deleted_at - to marker historii
+  .eq('user_id', recipientId)
+  .eq('other_user_id', user.id)
+  .eq('is_deleted', true);
+```
+
+### 3. Filtrowanie historii po `deleted_at` (useUnifiedChat.ts)
+
+W `fetchDirectMessages` — po pobraniu wiadomości, odfiltruj te starsze niż `deleted_at` z `conversation_user_settings`:
+```typescript
+const { data: setting } = await supabase
+  .from('conversation_user_settings')
+  .select('deleted_at')
+  .eq('user_id', user.id)
+  .eq('other_user_id', otherUserId)
+  .maybeSingle();
+
+// Filtruj wiadomości — pokaż tylko te po deleted_at
+if (setting?.deleted_at) {
+  data = data.filter(m => m.created_at > setting.deleted_at);
 }
 ```
 
-**Będzie:**
+### 4. Informacja u drugiej strony o usunięciu (FullChatWindow)
+
+Gdy użytkownik A usunie konwersację, u użytkownika B wyświetl komunikat systemowy:
+- Sprawdź `conversation_user_settings` drugiej strony — jeśli ma `deleted_at`, pokaż baner: "Użytkownik usunął historię tej rozmowy"
+- Wiadomości sprzed `deleted_at` drugiej strony pozostają widoczne u B
+
+### 5. Realtime: dodanie `recipient_role === 'all'` (useUnifiedChat.ts)
+
+Bonus fix — brak realtime dla broadcastów `recipient_role: 'all'`:
 ```typescript
-// Jeden rekord broadcast — bez pętli
-await supabase.from('role_chat_messages').insert({
-  sender_id: user.id,
-  sender_role: 'admin',
-  recipient_role: targetRole,  // np. 'partner'
-  recipient_id: null,          // broadcast = brak konkretnego odbiorcy
-  content,
-  channel_id: null,
-  is_broadcast: true,
-});
+const isRelevant =
+  record.sender_id === user.id ||
+  record.recipient_id === user.id ||
+  (record.recipient_id === null && (
+    record.recipient_role === currentRole || 
+    record.recipient_role === 'all'  // <-- brakujący warunek
+  ));
 ```
-
-Ta sama zmiana dotyczy:
-- `broadcast-all` → jeden INSERT z `recipient_role: 'all'` (zamiast 3 insertów)
-- `broadcast-lider` → jeden INSERT z `recipient_role: 'lider'` (zamiast pętli po liderach)
-- `broadcast-{role}` → jeden INSERT (zamiast pętli po użytkownikach)
-- `leader-broadcast-{role}` → jeden INSERT z `sender_role: 'lider'` (zamiast pętli)
-
-### 2. `src/hooks/useUnifiedChat.ts` — funkcja `fetchMessages` (~linia 708)
-
-Uprościć zapytania dla kanałów wychodzących:
-- Kanał `broadcast-all`: `sender_id = user.id AND recipient_role = 'all'` (bez zmian)
-- Kanał `broadcast-{role}`: `sender_id = user.id AND recipient_role = {role}` (bez zmian)
-- Kanał incoming `Od Administratora`: `sender_role = 'admin' AND (recipient_role = currentRole OR recipient_role = 'all')` — usunąć filtr `recipient_id` bo teraz jest null
-
-Usunąć blok deduplicacji (linie 776-785) — nie będzie już potrzebny, bo jest jeden rekord per wiadomość.
-
-### 3. Zapytania incoming — dostosowanie filtrów
-
-Dla kanałów przychodzących (np. partner widzi "Od Administratora"):
-```typescript
-query = query
-  .eq('sender_role', 'admin')
-  .eq('is_broadcast', true)
-  .or(`recipient_role.eq.${currentRole},recipient_role.eq.all`);
-// Usunięto: .or(`recipient_id.eq.${user.id},recipient_id.is.null`)
-// Bo teraz recipient_id jest zawsze null dla broadcastów
-```
-
-Dla "Od Lidera" (leader broadcast) — ta sama zasada: `recipient_role = currentRole AND sender_role = 'lider'`, bez filtra po `recipient_id`.
-
-### 4. RLS — dostosowanie polityki SELECT
-
-Aktualna polityka "Read own messages" wymaga `recipient_id = auth.uid()` lub `recipient_id IS NULL AND recipient_role = role`. Broadcast z `recipient_id = null` powinien już działać poprawnie dzięki warunkowi `recipient_id IS NULL AND recipient_role = user_role`. Weryfikacja potrzebna — jeśli warunek nie pokrywa `recipient_role = 'all'`, doda się go.
-
-**Migracja SQL (jeśli potrzebna):**
-```sql
-DROP POLICY IF EXISTS "Read own messages" ON role_chat_messages;
-CREATE POLICY "Read own messages" ON role_chat_messages
-FOR SELECT USING (
-  sender_id = auth.uid()
-  OR recipient_id = auth.uid()
-  OR (recipient_id IS NULL AND is_broadcast = true AND (
-    recipient_role = get_user_role_name(auth.uid())
-    OR recipient_role = 'all'
-  ))
-);
-```
-
-## Efekt
-
-- Admin wysyła 1 wiadomość → 1 rekord w bazie → admin widzi 1 wiadomość
-- Wszyscy partnerzy widzą tę samą wiadomość (filtr po `recipient_role`)
-- Eliminacja zbędnych rekordów i pętli → lepsza wydajność
-- Leader broadcast działa tak samo — 1 rekord zamiast N
 
 ## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useUnifiedChat.ts` | Refactor `sendMessage` + `fetchMessages` — 1 INSERT zamiast pętli, usunięcie deduplicacji |
-| Migracja SQL | Aktualizacja polityki RLS SELECT dla broadcastów |
+| `src/hooks/useUnifiedChat.ts` | Auto-reset is_deleted przy wysyłce, filtrowanie historii po deleted_at, fix realtime 'all' |
+| `src/components/messages/FullChatWindow.tsx` | Komunikat systemowy o usunięciu konwersacji przez drugą stronę |
+| `src/hooks/useConversationSettings.ts` | Zachowanie `deleted_at` jako markera historii przy usuwaniu |
 
+## Efekt
+
+- Admin wysyła wiadomość do Sebastiana → `is_deleted` automatycznie resetowane u obu stron → Sebastian widzi konwersację i nową wiadomość
+- Partner klika "Usuń rozmowę" → flaga `is_deleted: true` + `deleted_at` = teraz → stare wiadomości znikają trwale z jego widoku
+- Druga strona widzi info: "Użytkownik usunął historię rozmowy" + zachowuje swoją historię
+- Nowe wiadomości po usunięciu → konwersacja wraca jako "nowa" (bez starej historii)
+- Broadcasty `recipient_role: 'all'` poprawnie odświeżają się w realtime
