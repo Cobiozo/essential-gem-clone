@@ -175,6 +175,13 @@ export const FullChatWindow = ({
             </div>
           ) : (
             <>
+              {otherUserDeletedConvo && (
+                <div className="text-center py-2">
+                  <p className="text-xs text-muted-foreground/70">
+                    ℹ️ {directMember?.firstName} usunął(ęła) historię tej rozmowy
+                  </p>
+                </div>
+              )}
               {messages.map((message, index) => {
                 const prevMessage = messages[index - 1];
                 const showDateSeparator =
