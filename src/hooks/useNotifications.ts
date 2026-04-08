@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { globalEditingStateRef } from '@/contexts/EditingContext';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 import type { UserNotification } from '@/components/team-contacts/types';
 
 interface UseNotificationsOptions {
@@ -23,6 +24,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   
   // Browser notifications hook
   const { showNotification, permission } = useBrowserNotifications();
+  const { playNotificationSound } = useNotificationSound();
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -227,6 +229,9 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
           if (!newNotification.target_role || newNotification.target_role === currentRole) {
             setNotifications(prev => [newNotification, ...prev]);
             setUnreadCount(prev => prev + 1);
+            
+            // Play notification sound
+            playNotificationSound();
             
             // Show browser notification when tab is in background
             if (enableBrowserNotifications && document.hidden && permission === 'granted') {

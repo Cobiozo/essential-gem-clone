@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
 import { toast } from 'sonner';
 import { checkRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
+import { useNotificationSound } from '@/hooks/useNotificationSound';
 
 export interface UnifiedChannel {
   id: string;
@@ -69,6 +70,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const [adhocDirectMember, setAdhocDirectMember] = useState<TeamMemberChannel | null>(null);
 
   const enableRealtime = options?.enableRealtime ?? false;
+  const { playMessageSound } = useNotificationSound();
   const currentRole = userRole?.role?.toLowerCase() || 'client';
   const currentLevel = ROLE_HIERARCHY[currentRole] || 25;
 
@@ -1077,6 +1079,11 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
             fetchMessagesRef.current?.(selectedChannelIdRef.current);
           }
           fetchUnreadCountsRef.current?.();
+          
+          // Play message sound for incoming messages from others
+          if (payload.eventType === 'INSERT' && record.sender_id !== user.id) {
+            playMessageSound();
+          }
         }
       )
       .subscribe();

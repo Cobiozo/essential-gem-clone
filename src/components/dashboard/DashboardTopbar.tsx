@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen, ArrowLeft, MessageSquare } from 'lucide-react';
+import { LayoutGrid, User, LogOut, Settings, Wrench, Link2, CalendarDays, HelpCircle, Home, Globe, Palette, BookOpen, ArrowLeft, MessageSquare, Volume2, VolumeX } from 'lucide-react';
 import { GoogleCalendarConnect } from '@/components/settings/GoogleCalendarConnect';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 import SessionTimer from '@/components/SessionTimer';
@@ -29,6 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+import { isSoundEnabled, setSoundEnabled } from '@/hooks/useNotificationSound';
 
 interface DashboardTopbarProps {
   title?: string;
@@ -54,6 +55,20 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled);
+
+  // Listen for sound toggle changes from other components
+  useEffect(() => {
+    const handler = () => setSoundEnabledState(isSoundEnabled());
+    window.addEventListener('notification-sounds-changed', handler);
+    return () => window.removeEventListener('notification-sounds-changed', handler);
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setSoundEnabledState(next);
+  };
   
   // Controlled/uncontrolled pattern for dropdown
   const isOpen = isUserMenuOpen !== undefined ? isUserMenuOpen : internalOpen;
@@ -150,6 +165,17 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
             )}
           </div>
         )}
+
+        {/* Sound toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSound}
+          className="h-9 w-9"
+          title={soundEnabled ? tf('nav.muteNotifications', 'Wycisz dźwięki') : tf('nav.unmuteNotifications', 'Włącz dźwięki')}
+        >
+          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+        </Button>
 
         {/* Notifications */}
         <NotificationBell />
