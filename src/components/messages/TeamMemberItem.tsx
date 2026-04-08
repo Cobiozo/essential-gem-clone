@@ -15,6 +15,7 @@ interface TeamMemberItemProps {
   isSelected: boolean;
   onClick: () => void;
   badge?: string;
+  unreadCount?: number;
 }
 
 export const TeamMemberItem = ({ member, isSelected, onClick, badge }: TeamMemberItemProps) => (
