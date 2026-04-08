@@ -192,7 +192,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           const { data: randomSignals } = await supabase
             .from('daily_signals')
             .select('*')
-            .eq('is_approved', true)
+            .eq('is_approved', true as any)
             .limit(10);
 
           if (!mounted) return;
