@@ -1,75 +1,49 @@
 
 
-# System statystyk Auto-Webinarów dla admina
+# Wyswietlanie badge nieprzeczytanych wiadomosci per rozmowa
 
-## Dane dostępne w bazie (bez migracji)
+## Problem
+Ikona czatu w topbarze poprawnie pokazuje laczna liczbe nieprzeczytanych (16), ale po otwarciu panelu czatu zaden element listy nie wskazuje, ktore rozmowy maja nowe wiadomosci. Dane sa juz dostepne w hookach -- `unreadCounts` map przechowuje klucze `dm-${userId}` i `incoming-${senderRole}` -- ale nigdy nie sa przekazywane do komponentow listy.
 
-Wszystkie potrzebne dane już istnieją:
-- **Kliknięcia**: `auto_webinar_invitation_clicks` (ref_code, event_id, clicked_at)
-- **Rejestracje gości**: `guest_event_registrations` (invited_by_user_id, event_id, slot_time, status)
-- **Obecność/czas oglądania**: `auto_webinar_views` (guest_registration_id, watch_duration_seconds, joined_at)
-- **Profile partnerów**: `profiles` (first_name, last_name, eq_id)
-- **Powiązanie z kategorią**: `auto_webinar_config` (event_id, category)
+## Zmiany
 
-Relacja kluczowa: `guest_event_registrations.invited_by_user_id` -> `profiles.user_id` pozwala powiązać gościa z partnerem zapraszającym.
+### 1. Udostepnic `unreadCounts` z `useUnifiedChat`
+**Plik: `src/hooks/useUnifiedChat.ts`**
+- Dodac `unreadCounts` do zwracanego obiektu hooka (obecnie jest wewnetrznym stanem, nieeksportowanym)
 
-## Plan implementacji
+### 2. Przekazac `unreadCounts` przez warstwy komponentow
+**Pliki: `ChatPanelContent.tsx`, `MessagesPage.tsx`**
+- Pobrac `unreadCounts` z hooka i przekazac do `MessagesSidebar`
 
-### Nowy komponent: `AutoWebinarPartnerStats.tsx`
+**Plik: `MessagesSidebar.tsx`**
+- Dodac prop `unreadCounts?: Map<string, number>`
+- Przekazac do `TeamMembersSection` i uzyc w `ConversationListItem`
+- Wyswietlic badge przy admin conversations: `unreadCounts.get('dm-' + conv.userId)`
 
-Osobna zakładka "Statystyki partnerów" wewnątrz każdej kategorii (BO / HC), renderowana w `AutoWebinarManagement.tsx` jako dodatkowy tab obok istniejącej zawartości.
+**Plik: `TeamMembersSection.tsx`**
+- Dodac prop `unreadCounts` i przekazac do kazdego `TeamMemberItem`
 
-### Zawartość zakładki
+### 3. Dodac badge w `TeamMemberItem`
+**Plik: `TeamMemberItem.tsx`**
+- Dodac opcjonalny prop `unreadCount?: number`
+- Gdy > 0, wyswietlic czerwony badge (destructive) z liczba po prawej stronie elementu (identyczny styl jak w `ChannelListItem`)
 
-**1. Karty podsumowujące (top summary)**
-- Łączna liczba kliknięć w linki zaproszeniowe
-- Łączna liczba zarejestrowanych gości
-- Łączna liczba gości, którzy dołączyli (mają wpis w `auto_webinar_views`)
-- Średni czas oglądania (avg `watch_duration_seconds`)
-- Współczynnik konwersji: rejestracja -> dołączenie (%)
+### 4. Badge w `ConversationListItem`
+**Plik: `MessagesSidebar.tsx` (komponent wewnetrzny)**
+- Dodac prop `unreadCount` do `ConversationListItem`
+- Wyswietlic czerwony badge z liczba nieprzeczitanych
 
-**2. Ranking TOP 20 partnerów** (tabela sortowalna)
+### 5. Rowniez w `ConversationsSidebar.tsx` (panel docked/PiP)
+Ten komponent juz wyswietla `channel.unreadCount` -- ale nie obsluguje DM. Upewnic sie, ze tez przekazuje badge dla direct messages.
 
-Kolumny:
-| # | Partner (imię, nazwisko, EQID) | Zaproszenia (kliknięcia) | Rejestracje | Dołączyli | % konwersji | Łączny czas oglądania | Śr. czas/gość |
-|---|---|---|---|---|---|---|---|
+## Efekt
+Po otwarciu panelu czatu uzytkownik od razu widzi, ktore rozmowy (DM i kanaly) maja nowe wiadomosci -- czerwony badge z liczba, identyczny jak na ikonach powiadomien.
 
-Dane agregowane po `invited_by_user_id`. Sortowanie domyślne po liczbie rejestracji. Możliwość przełączania sortowania klikając nagłówki kolumn.
-
-**3. Filtr czasowy**
-- Dropdown: Ostatnie 7 dni / 30 dni / 90 dni / Wszystko
-- Filtr wpływa na wszystkie dane jednocześnie
-
-### Integracja w panelu admina
-
-W `AutoWebinarManagement.tsx` dodam wewnętrzny system zakładek:
-- **Ustawienia** (obecna zawartość)
-- **Statystyki partnerów** (nowy komponent)
-
-### Pobieranie danych (client-side)
-
-Trzy zapytania równoległe po załadowaniu:
-1. `auto_webinar_invitation_clicks` WHERE event_id = config.event_id -> grupowanie po ref_code -> mapowanie ref_code na user_id
-2. `guest_event_registrations` WHERE event_id = config.event_id AND status != 'cancelled' -> grupowanie po invited_by_user_id
-3. `auto_webinar_views` JOIN z guest_event_registrations -> grupowanie po invited_by_user_id z sumą watch_duration_seconds
-
-Połączenie w jedną tabelę rankingową po user_id partnera.
-
-### Pliki do edycji/utworzenia
-- **Nowy**: `src/components/admin/AutoWebinarPartnerStats.tsx`
-- **Edycja**: `src/components/admin/AutoWebinarManagement.tsx` (dodanie zakładek wewnętrznych)
-
-Bez migracji bazy danych - wszystkie dane już istnieją.
-
----
-
-## Dodatkowe sugestie do rozważenia
-
-1. **Eksport CSV** - przycisk eksportujący ranking do pliku CSV (imię, nazwisko, EQID, liczby)
-2. **Wykres trendu** - mały wykres liniowy pokazujący liczbę rejestracji/dołączeń w czasie (dzień po dniu)
-3. **Porównanie BO vs HC** - osobna zakładka z zestawieniem obu kategorii obok siebie (która kategoria lepiej konwertuje)
-4. **Statystyki per slot** - która godzina slotu przyciąga najwięcej gości (heatmapa godzinowa)
-5. **Powiadomienie o nowej rejestracji** - push/notyfikacja do partnera gdy jego gość dołączy do webinaru
-
-Które z tych dodatkowych opcji chcesz wdrożyć razem z rankingiem?
+## Pliki do edycji
+- `src/hooks/useUnifiedChat.ts` (eksport `unreadCounts`)
+- `src/components/chat-sidebar/ChatPanelContent.tsx`
+- `src/pages/MessagesPage.tsx`
+- `src/components/messages/MessagesSidebar.tsx`
+- `src/components/messages/TeamMembersSection.tsx`
+- `src/components/messages/TeamMemberItem.tsx`
 
