@@ -1,57 +1,59 @@
 
+Problem, który widać w kodzie, nie jest już po stronie samego zapisu `auto_webinar_granted_by`, tylko po stronie tego, co adminowi pokazujemy.
 
-# Fix: Auto-Webinary infinite loading in Leader Panel
+Plan naprawy:
 
-## Root cause
+1. Uporządkuję źródło danych w `AutoWebinarAccessManagement.tsx`
+- Zamiast pobierać tylko użytkowników z rolą `partner`, rozszerzę listę o role objęte tym mechanizmem dostępu, przede wszystkim `partner` i `specjalista`.
+- Dzięki temu admin zobaczy też osoby, którym lider nadał dostęp, ale nie są partnerami.
 
-Two problems:
+2. Poprawię prezentację informacji „kto komu nadał”
+- Teraz nazwa lidera pojawia się tylko jako mały badge przy użytkownikach z dostępem.
+- Zmienimy widok tak, by admin jednoznacznie widział:
+  - komu nadano dostęp,
+  - kto nadał dostęp,
+  - bez chowania tej informacji w mało widocznym badge.
+- Najprościej: dodać wyraźny opis pod nazwą użytkownika albo osobną kolumnę/sekcję „Nadane przez”.
 
-1. **Infinite re-render loop**: `useEffect` depends on `teamMembers` array from `useLeaderTeamMembers()`, but this array is recreated on every render (`.filter()` returns new reference). This causes: loadPermissions → setState → re-render → new array ref → effect fires again → loadPermissions → forever.
+3. Dodam rozróżnienie źródła nadania
+- Jeśli `auto_webinar_granted_by` jest puste, a dostęp istnieje, UI pokaże jasną etykietę typu „Nadane przez administratora” zamiast ogólnego fallbacku „Lider”.
+- Jeśli jest ustawione, pokażemy konkretne imię i nazwisko lidera.
 
-2. **RLS blocks permission reads**: The leader queries `leader_permissions.in('user_id', teamMemberIds)` but RLS only allows reading your own row (`user_id = auth.uid()`). The query silently returns empty — so even when loading completes, no permissions are shown.
+4. Zweryfikuję zgodność z obecną logiką zapisu
+- Lider zapisuje `auto_webinar_granted_by = auth.uid()` przez RPC `leader_update_auto_webinar_access`.
+- Admin przy ręcznej zmianie ustawia `auto_webinar_granted_by: null`.
+- Widok admina dopasuję dokładnie do tego modelu, żeby dane były interpretowane poprawnie.
 
-## Fix
+5. Opcjonalne, ale zalecane usprawnienie
+- Jeśli chcesz pełną historię „jaki lider i komu przydzielił dostęp”, obecne pole `auto_webinar_granted_by` pokazuje tylko ostatniego nadającego, a nie historię zmian.
+- W kolejnym kroku warto dodać logowanie do `platform_team_actions` lub osobnej tabeli historii, np.:
+  - lider,
+  - użytkownik docelowy,
+  - akcja grant/revoke,
+  - data i godzina.
+- To da adminowi prawdziwy rejestr działań, a nie tylko bieżący stan.
 
-### `src/components/leader/LeaderAutoWebinarAccessView.tsx`
-- Change `useEffect` dependency from `teamMembers` (unstable ref) to `teamMembers.length` or `teamLoading` only
-- Add a `loaded` ref to prevent re-calling `loadPermissions` after first successful load
-- Use the existing RPC or a new security-definer function to read team permissions (since direct table query is blocked by RLS)
+Pliki do zmiany:
+- `src/components/admin/AutoWebinarAccessManagement.tsx` — rozszerzenie filtrowania ról i poprawa sposobu wyświetlania informacji o nadającym
+- opcjonalnie później:
+  - `src/components/leader/LeaderAutoWebinarAccessView.tsx`
+  - `src/hooks/usePlatformTeamActions.ts`
+  - nowa migracja SQL, jeśli mamy dodać pełną historię akcji
 
-Since creating a new RPC requires a migration, a simpler approach: use a security-definer RPC `leader_get_team_auto_webinar_access` that takes an array of user_ids and returns their `can_access_auto_webinar` status — but only if the caller's downline includes those users.
+Szczegóły techniczne:
+- Obecnie komponent robi:
+  - `user_roles.eq('role', 'partner')`
+  - to jest zbyt wąskie i może ukrywać część przypisań
+- Obecnie admin widzi tylko stan końcowy z `leader_permissions.can_access_auto_webinar` + `auto_webinar_granted_by`
+- To nie jest audyt logów, tylko snapshot aktualnego przypisania
+- Jeśli wymaganie brzmi dokładnie „widzieć jaki lider i komu przydzielił dostęp”, warto wdrożyć 2 etapy:
+  - etap 1: poprawny widok aktualnych przypisań,
+  - etap 2: pełna historia przydzieleń i odebrań
 
-**Alternatively (simpler, no migration):** Query permissions one-by-one using the existing `leader_update_auto_webinar_access` RPC for reads... no, that's only for updates.
+Efekt po wdrożeniu etapu 1:
+- admin zobaczy więcej właściwych użytkowników,
+- przy każdym aktywnym dostępie zobaczy wyraźnie, kto go nadał,
+- zniknie wrażenie, że system „nie pokazuje lidera”.
 
-**Simplest approach (migration needed):** Create a new RPC `leader_get_team_permissions` that returns `can_access_auto_webinar` for users in the caller's organization tree.
-
-### Migration: New RPC function
-```sql
-CREATE OR REPLACE FUNCTION public.leader_get_team_auto_webinar_access(p_user_ids uuid[])
-RETURNS TABLE(user_id uuid, can_access_auto_webinar boolean)
-LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $$
-BEGIN
-  -- Verify caller has can_manage_auto_webinar_access
-  IF NOT EXISTS (
-    SELECT 1 FROM leader_permissions lp
-    WHERE lp.user_id = auth.uid() AND lp.can_manage_auto_webinar_access = true
-  ) THEN
-    RAISE EXCEPTION 'Access denied';
-  END IF;
-
-  RETURN QUERY
-  SELECT lp.user_id, COALESCE(lp.can_access_auto_webinar, false)
-  FROM leader_permissions lp
-  WHERE lp.user_id = ANY(p_user_ids);
-END; $$;
-```
-
-### Component fix
-- Replace direct `supabase.from('leader_permissions').select(...)` with `supabase.rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds })`
-- Fix useEffect deps: `[teamLoading]` + use a ref to track if permissions were already loaded
-
-## Files to change
-
-| File | Change |
-|------|--------|
-| Migration SQL | New RPC `leader_get_team_auto_webinar_access` |
-| `src/components/leader/LeaderAutoWebinarAccessView.tsx` | Fix useEffect deps, use RPC instead of direct table query |
-
+Efekt po wdrożeniu etapu 2:
+- admin zobaczy także kiedy i komu lider nadał/odebrał dostęp, jako historię działań.
