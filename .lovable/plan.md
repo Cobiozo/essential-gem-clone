@@ -1,61 +1,43 @@
 
 
-# Plan: Delegowanie zarządzania dostępem do Auto-Webinaru na liderów
+# Plan: Naprawienie widoczności uprawnienia "Auto-Webinar" w panelu admina
 
-## Cel
+## Problem
 
-Lider w Panelu Lidera będzie mógł włączać/wyłączać dostęp do auto-webinaru (kafelki BO i HC na pulpicie) użytkownikom ze swojej struktury downline. Admin widzi kto nadał dostęp i zawsze może go odebrać.
+Uprawnienie `can_manage_auto_webinar_access` zostało dodane do `IndividualMeetingsManagement.tsx` (zakładka Wydarzenia > Spotkania indywidualne), ale NIE zostało dodane do głównego panelu zarządzania liderami `LeaderPanelManagement.tsx` — czyli tam gdzie admin faktycznie zarządza uprawnieniami liderów (zakładka Zarządzanie liderami).
 
-## Zmiany w bazie danych (migracja)
+Admin na stronie `/admin?tab=leader-panel-management` nie widzi opcji "Auto-Webinar" bo ta nie jest zdefiniowana w `columns`, `LEADER_PERM_FIELDS` ani w interfejsie `PartnerLeaderData`.
 
-1. Dodać kolumnę `auto_webinar_granted_by` (UUID, nullable, FK do auth.users) w tabeli `leader_permissions` — przechowuje ID lidera, który nadał dostęp. Jeśli NULL = nadane przez admina.
-2. Dodać kolumnę `can_manage_auto_webinar_access` (boolean, default false) w tabeli `leader_permissions` — nowe uprawnienie lidera do zarządzania dostępem auto-webinaru w swojej strukturze.
-3. Zaktualizować RLS na `leader_permissions` — lider z `can_manage_auto_webinar_access` może UPDATE `can_access_auto_webinar` i `auto_webinar_granted_by` dla użytkowników ze swojej struktury downline (przez RPC `get_organization_tree`).
+Lider nie widzi zakładki "Auto-Webinary" w Panelu Lidera, bo `can_manage_auto_webinar_access` jest `false` dla wszystkich — admin nie miał jak tego włączyć z poziomu panelu zarządzania liderami.
 
-```sql
-ALTER TABLE leader_permissions 
-  ADD COLUMN auto_webinar_granted_by uuid REFERENCES auth.users(id),
-  ADD COLUMN can_manage_auto_webinar_access boolean DEFAULT false;
-```
+## Zmiany
 
-## Zmiany w kodzie
+### `src/components/admin/LeaderPanelManagement.tsx`
 
-### 1. `useLeaderPermissions.ts` — dodać `hasAutoWebinarAccess`
-Odczytać `can_manage_auto_webinar_access` z `leader_permissions` i wyeksportować jako nową flagę.
+1. Dodać `can_manage_auto_webinar_access: boolean` do interfejsu `PartnerLeaderData`
+2. Dodać `'can_manage_auto_webinar_access'` do `LeaderPermField` union type i tablicy `LEADER_PERM_FIELDS`
+3. Dodać nową kolumnę w `columns`:
+   ```typescript
+   { key: 'can_manage_auto_webinar_access', label: 'Auto-Webinar', 
+     description: 'Zarządzanie dostępem do auto-webinaru dla użytkowników w strukturze lidera', 
+     icon: Radio, type: 'leader', group: 'Wydarzenia' }
+   ```
+4. Import ikony `Radio` z lucide-react (jeśli brakuje)
 
-### 2. `LeaderPanel.tsx` — dodać zakładkę "Auto-Webinary"
-Nowa zakładka widoczna gdy `hasAutoWebinarAccess === true`, renderuje nowy komponent `LeaderAutoWebinarAccessView`.
+### `src/hooks/useLeaderPermissions.ts`
 
-### 3. Nowy komponent: `src/components/leader/LeaderAutoWebinarAccessView.tsx`
-- Używa `useLeaderTeamMembers()` do pobrania listy downline
-- Pobiera `leader_permissions.can_access_auto_webinar` dla tych użytkowników
-- UI identyczny jak `AutoWebinarAccessManagement` (dwukolumnowy layout z wyszukiwarką i switchami)
-- Przy toggle: ustawia `can_access_auto_webinar` + `auto_webinar_granted_by = currentUser.id`
-- Lider widzi tylko swoją strukturę (nie wszystkich partnerów jak admin)
+Usunąć cast `(leaderPerm as any)` na linii 132 — typ `can_manage_auto_webinar_access` już istnieje w types.ts.
 
-### 4. `AutoWebinarAccessManagement.tsx` (admin) — pokazać kto nadał dostęp
-- Pobierać `auto_webinar_granted_by` z `leader_permissions`
-- Jeśli ustawione — wyświetlić badge "Nadane przez: [Imię Nazwisko lidera]" obok switcha
-- Admin nadal może wyłączyć dostęp niezależnie od tego kto go nadał (przy wyłączeniu czyści `auto_webinar_granted_by`)
-
-### 5. `IndividualMeetingsManagement.tsx` (CMS zarządzanie uprawnieniami liderów)
-- Dodać nowy switch "Zarządzanie dostępem Auto-Webinar" w liście uprawnień liderskich (obok istniejących jak "can_broadcast", "can_create_team_events" itp.)
-
-## Pliki do edycji/utworzenia
+## Pliki do edycji
 
 | Plik | Zmiana |
 |------|--------|
-| Migracja SQL | 2 nowe kolumny + polityka RLS |
-| `src/hooks/useLeaderPermissions.ts` | Nowa flaga `hasAutoWebinarAccess` |
-| `src/pages/LeaderPanel.tsx` | Nowa zakładka + import |
-| `src/components/leader/LeaderAutoWebinarAccessView.tsx` | **Nowy** — widok lidera |
-| `src/components/admin/AutoWebinarAccessManagement.tsx` | Badge "Nadane przez lidera X" |
-| `src/components/admin/IndividualMeetingsManagement.tsx` | Nowy switch uprawnienia |
+| `src/components/admin/LeaderPanelManagement.tsx` | Dodanie pola, kolumny i typu dla `can_manage_auto_webinar_access` |
+| `src/hooks/useLeaderPermissions.ts` | Usunięcie zbędnego cast `as any` |
 
-## Logika bezpieczeństwa
+## Efekt
 
-- Lider może zmieniać `can_access_auto_webinar` TYLKO dla użytkowników w swoim downline (weryfikacja przez `get_organization_tree`)
-- Admin może zmieniać dla każdego
-- Przy wyłączeniu przez admina — `auto_webinar_granted_by` jest czyszczone
-- Lider NIE może nadać sobie samemu tego uprawnienia
+- Admin widzi toggle "Auto-Webinar" w panelu zarządzania liderami i może go włączyć
+- Po włączeniu lider widzi zakładkę "Auto-Webinary" w Panelu Lidera
+- Żadne zmiany w bazie danych nie są potrzebne — kolumna już istnieje
 
