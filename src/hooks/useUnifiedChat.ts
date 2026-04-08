@@ -1022,6 +1022,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   useEffect(() => { selectedDirectUserIdRef.current = selectedDirectUserId; }, [selectedDirectUserId]);
   const selectedChannelIdRef = useRef<string | null>(null);
   useEffect(() => { selectedChannelIdRef.current = selectedChannelId; }, [selectedChannelId]);
+  const markDirectAsReadRef = useRef(markDirectAsRead);
+  useEffect(() => { markDirectAsReadRef.current = markDirectAsRead; }, [markDirectAsRead]);
 
   // Real-time subscription - listens for ALL events (INSERT, UPDATE, DELETE)
   // No filter — receives all changes, then checks relevance in handler
