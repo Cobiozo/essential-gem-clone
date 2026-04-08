@@ -326,6 +326,7 @@ const MessagesPage = () => {
               isConversationArchived={selectedDirectUserId ? isArchived(selectedDirectUserId) : false}
               isConversationBlocked={selectedDirectUserId ? isBlocked(selectedDirectUserId) : false}
               onDeleteMessage={deleteMessage}
+              recipientChatDisabled={selectedDirectUserId ? !recipientHasAccess : false}
             />
           ) : (
             <EmptyState />
