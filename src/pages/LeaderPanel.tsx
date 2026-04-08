@@ -40,6 +40,7 @@ const LeaderReflinksView = lazy(() => import('@/components/leader/LeaderReflinks
 const LeaderReportsView = lazy(() => import('@/components/leader/LeaderReportsView'));
 const LeaderCertificatesView = lazy(() => import('@/components/leader/LeaderCertificatesView'));
 const LeaderLandingEditorView = lazy(() => import('@/components/leader/LeaderLandingEditorView'));
+const LeaderAutoWebinarAccessView = lazy(() => import('@/components/leader/LeaderAutoWebinarAccessView'));
 
 
 const LazyFallback = () => (
