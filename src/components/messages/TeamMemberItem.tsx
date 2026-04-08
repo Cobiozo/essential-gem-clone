@@ -18,7 +18,7 @@ interface TeamMemberItemProps {
   unreadCount?: number;
 }
 
-export const TeamMemberItem = ({ member, isSelected, onClick, badge }: TeamMemberItemProps) => (
+export const TeamMemberItem = ({ member, isSelected, onClick, badge, unreadCount }: TeamMemberItemProps) => (
   <button
     onClick={onClick}
     className={cn(
