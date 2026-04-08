@@ -216,7 +216,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       const leaderSet = new Set(leaderPerms?.map(lp => lp.user_id) || []);
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
-      const enrichedMessages: UnifiedMessage[] = (data || []).map(m => {
+      const enrichedMessages: UnifiedMessage[] = filteredData.map(m => {
         const senderProfile = profileMap.get(m.sender_id);
         const firstName = senderProfile?.first_name || '';
         const lastName = senderProfile?.last_name || '';
