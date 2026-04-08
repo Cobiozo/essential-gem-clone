@@ -1,37 +1,70 @@
 
+Cel: poprawić czytelność zaznaczonej konwersacji oraz zapewnić natychmiastowe odświeżanie wiadomości bez ręcznego reloadu po obu stronach.
 
-# Ukrywanie ikony czatu w topbarze gdy brak uprawnień
+1. Zmiana stylu zaznaczonego elementu w sidebarze wiadomości
+- Zastąpić obecne pełne wypełnienie tła dla zaznaczonej konwersacji subtelnym obramowaniem.
+- Ujednolicić zaznaczenie w komponentach listy:
+  - `src/components/messages/MessagesSidebar.tsx`
+  - `src/components/messages/ChannelListItem.tsx`
+  - `src/components/messages/TeamMemberItem.tsx`
+- Docelowy wzorzec:
+  - bez jaskrawego żółtego tła,
+  - obramowanie `border border-primary/40` lub podobne,
+  - delikatne tło neutralne albo brak tła,
+  - zachować hover i dobrą czytelność tekstu.
 
-## Problem
-Ikona czatu (MessageSquare) w `DashboardTopbar` jest zawsze widoczna, nawet gdy administrator wyłączył dostęp do czatu dla danej roli użytkownika poprzez ustawienia widoczności (`chat_sidebar_visibility`).
+2. Naprawa real-time dla wiadomości
+- Problem w kodzie:
+  - `useUnifiedChat` subskrybuje tylko wiadomości odbierane przez użytkownika, więc nadawca nie dostaje własnych eventów realtime.
+  - subskrypcja nasłuchuje tylko `INSERT`, więc nie synchronizuje np. odczytów/usunięć.
+  - w migracjach nie widać dodania `role_chat_messages` do `supabase_realtime`, więc eventy mogą w ogóle nie być emitowane.
+- Do wdrożenia:
+  - dodać migrację SQL w `supabase/migrations`, która bezpiecznie dopisze `public.role_chat_messages` do publikacji realtime,
+  - przebudować subskrypcję w `src/hooks/useUnifiedChat.ts`, aby obejmowała:
+    - wiadomości, gdzie użytkownik jest odbiorcą,
+    - wiadomości, gdzie użytkownik jest nadawcą,
+    - najlepiej event `*` zamiast samego `INSERT`.
+- Handler realtime powinien:
+  - odświeżać aktywną rozmowę direct po obu stronach,
+  - odświeżać aktywny kanał broadcast po obu stronach,
+  - aktualizować liczniki nieprzeczytanych,
+  - odświeżać też po `UPDATE`, aby status odczytu/usunięcia był widoczny bez reloadu.
 
-## Rozwiązanie
+3. Zachowanie spójności z obecną architekturą
+- Zostawić istniejące fetchery (`fetchDirectMessages`, `fetchMessages`, `fetchUnreadCounts`) i wykorzystać je w handlerze realtime zamiast przepisywać całą logikę.
+- Zachować obecne optimistic update, ale oprzeć finalną synchronizację na eventach realtime z bazy.
+- Dopilnować, by warunki odświeżania były zależne od aktualnie otwartej rozmowy/kanału, żeby nie robić zbędnych refetchy.
 
-**Plik: `src/components/dashboard/DashboardTopbar.tsx`**
+4. Zakres plików
+- `src/hooks/useUnifiedChat.ts`
+- `src/components/messages/MessagesSidebar.tsx`
+- `src/components/messages/ChannelListItem.tsx`
+- `src/components/messages/TeamMemberItem.tsx`
+- nowa migracja w `supabase/migrations/...sql`
 
-1. Zaimportować `useChatSidebarVisibility` i `isRoleVisibleForChat` z `@/hooks/useChatSidebarVisibility`
-2. Zaimportować `useAuth` (już jest) — użyć `userRole` do pobrania roli
-3. Wywołać hook `useChatSidebarVisibility()` i sprawdzić `isRoleVisibleForChat(chatVisibility, role)`
-4. Warunkowo renderować przycisk czatu (linie 129-138) — wyświetlać go tylko gdy `isRoleVisibleForChat` zwraca `true`
+5. Efekt po wdrożeniu
+- zaznaczona konwersacja będzie czytelna dzięki obramowaniu zamiast ostrego żółtego tła,
+- nowa wiadomość pojawi się automatycznie bez odświeżania:
+  - u nadawcy,
+  - u odbiorcy,
+  - w direct message i w kanałach,
+- zmiany odczytu/usunięcia też będą widoczne od razu.
 
-### Szczegóły techniczne
+Sekcja techniczna
+```text
+Obecna luka realtime:
+useUnifiedChat filter:
+  recipient only
+  -> sender-side events nie wpadają
 
-```tsx
-// Dodać importy
-import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+Docelowo:
+subscribe to role_chat_messages
+  event: *
+  refresh when:
+    sender_id = currentUser
+    OR recipient_id = currentUser
+    OR broadcast to current role
 
-// W komponencie - użyć istniejącego useAuth + dodać hook
-const { profile, signOut, isAdmin, userRole } = useAuth();
-const { data: chatVisibility } = useChatSidebarVisibility();
-const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
-
-// Warunkowo renderować przycisk czatu
-{isChatVisible && (
-  <Button variant={...} onClick={chatSidebar.toggleDocked}>
-    <MessageSquare />
-  </Button>
-)}
+Dodatkowo:
+ALTER PUBLICATION supabase_realtime ADD TABLE public.role_chat_messages;
 ```
-
-Jeden plik do edycji. Reużycie istniejącego hooka i funkcji helper — ten sam mechanizm co w sidebarze.
-
