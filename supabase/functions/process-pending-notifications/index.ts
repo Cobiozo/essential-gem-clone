@@ -1217,12 +1217,23 @@ serve(async (req) => {
               if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
               if (!guest.email || !guest.slot_time || !guest.registered_at) continue;
 
-              // Calculate slot end time: registered_at date + slot_time + video duration
-              const regDate = guest.registered_at.substring(0, 10); // YYYY-MM-DD
-              const slotLocalStr = `${regDate}T${guest.slot_time}:00`; // e.g. "2025-01-15T23:30:00"
+              // Calculate slot end time — handle both "HH:MM" (legacy) and "YYYY-MM-DD_HH:MM" (new) formats
+              let slotDate: string;
+              let slotHHMM: string;
+              if (guest.slot_time!.includes('_')) {
+                // New format: "2026-04-08_23:00"
+                const parts = guest.slot_time!.split('_');
+                slotDate = parts[0];
+                slotHHMM = parts[1];
+              } else {
+                // Legacy format: "23:00" — use registered_at date
+                slotDate = guest.registered_at!.substring(0, 10);
+                slotHHMM = guest.slot_time!;
+              }
+              const slotLocalStr = `${slotDate}T${slotHHMM}:00`; // e.g. "2025-01-15T23:30:00"
               
               // Convert Warsaw local to UTC for comparison
-              const slotStartUtc = warsawLocalToUtc(regDate, guest.slot_time);
+              const slotStartUtc = warsawLocalToUtc(slotDate, slotHHMM);
               const slotEndMs = slotStartUtc.getTime() + videoDurationSeconds * 1000;
 
               // Check if slot ended within last 2 hours
