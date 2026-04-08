@@ -37,10 +37,10 @@ export const ChannelListItem = ({ channel, isSelected, onClick }: ChannelListIte
     <button
       onClick={onClick}
       className={cn(
-        'w-full text-left px-4 py-3 transition-colors flex items-center gap-3',
+        'w-full text-left px-4 py-3 transition-colors flex items-center gap-3 rounded-md',
         isSelected
-          ? 'bg-primary/10 border-l-2 border-primary'
-          : 'hover:bg-muted/50 border-l-2 border-transparent'
+          ? 'border border-primary/40 bg-muted/30'
+          : 'hover:bg-muted/50 border border-transparent'
       )}
     >
       {/* Avatar */}

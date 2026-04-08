@@ -998,7 +998,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
   const selectedChannelIdRef = useRef<string | null>(null);
   useEffect(() => { selectedChannelIdRef.current = selectedChannelId; }, [selectedChannelId]);
 
-  // Real-time subscription - STABILIZED: uses refs to prevent circular restarts
+  // Real-time subscription - listens for ALL events (INSERT, UPDATE, DELETE)
+  // No filter — receives all changes, then checks relevance in handler
   useEffect(() => {
     if (!user || !enableRealtime) return;
 
@@ -1007,35 +1008,36 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'role_chat_messages',
-          filter: `or(recipient_id.eq.${user.id},and(recipient_id.is.null,recipient_role.eq.${currentRole}))`,
         },
         (payload) => {
-          const newMessage = payload.new as any;
-          
-          const isForMe = 
-            newMessage.recipient_role === currentRole &&
-            (newMessage.recipient_id === user.id || newMessage.recipient_id === null);
-          
-          if (isForMe || newMessage.sender_id === user.id) {
-            // Handle DM realtime refresh
-            if (selectedDirectUserIdRef.current) {
-              const otherUserId = selectedDirectUserIdRef.current;
-              const isDMForThisConversation = 
-                (newMessage.sender_id === otherUserId && newMessage.recipient_id === user.id) ||
-                (newMessage.sender_id === user.id && newMessage.recipient_id === otherUserId);
-              if (isDMForThisConversation) {
-                fetchDirectMessagesRef.current?.(otherUserId, { silent: true });
-              }
+          const record = (payload.new || payload.old) as any;
+          if (!record) return;
+
+          const isRelevant =
+            record.sender_id === user.id ||
+            record.recipient_id === user.id ||
+            (record.recipient_id === null && record.recipient_role === currentRole);
+
+          if (!isRelevant) return;
+
+          // Handle DM realtime refresh
+          if (selectedDirectUserIdRef.current) {
+            const otherUserId = selectedDirectUserIdRef.current;
+            const isDMForThisConversation =
+              (record.sender_id === otherUserId && record.recipient_id === user.id) ||
+              (record.sender_id === user.id && record.recipient_id === otherUserId);
+            if (isDMForThisConversation) {
+              fetchDirectMessagesRef.current?.(otherUserId, { silent: true });
             }
-            // Handle channel realtime refresh
-            if (selectedChannelIdRef.current) {
-              fetchMessagesRef.current?.(selectedChannelIdRef.current);
-            }
-            fetchUnreadCountsRef.current?.();
           }
+          // Handle channel realtime refresh
+          if (selectedChannelIdRef.current) {
+            fetchMessagesRef.current?.(selectedChannelIdRef.current);
+          }
+          fetchUnreadCountsRef.current?.();
         }
       )
       .subscribe();
