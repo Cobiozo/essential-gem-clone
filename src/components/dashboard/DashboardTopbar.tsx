@@ -166,6 +166,17 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
           </div>
         )}
 
+        {/* Sound toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleSound}
+          className="h-9 w-9"
+          title={soundEnabled ? tf('nav.muteNotifications', 'Wycisz dźwięki') : tf('nav.unmuteNotifications', 'Włącz dźwięki')}
+        >
+          {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-muted-foreground" />}
+        </Button>
+
         {/* Notifications */}
         <NotificationBell />
 
