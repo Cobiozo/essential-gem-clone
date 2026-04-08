@@ -66,8 +66,7 @@ import { useCalculatorAccess } from '@/hooks/useCalculatorSettings';
 import { usePartnerPageAccess } from '@/hooks/usePartnerPageAccess';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
-import { useUnifiedChat } from '@/hooks/useUnifiedChat';
-import { Badge } from '@/components/ui/badge';
+import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
 import { usePaidEventsVisibility, isRoleVisibleForPaidEvents } from '@/hooks/usePaidEventsVisibility';
 import { useIsMobile } from '@/hooks/use-mobile';
 
