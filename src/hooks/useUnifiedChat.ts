@@ -726,13 +726,12 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           // "Od Administratora" - messages sent by admin to my role or 'all'
           query = query
             .eq('sender_role', 'admin')
-            .or(`recipient_role.eq.${currentRole},recipient_role.eq.all`)
-            .or(`recipient_id.eq.${user.id},recipient_id.is.null`);
+            .or(`recipient_role.eq.${currentRole},recipient_role.eq.all`);
         } else if (channel.targetRole === 'lider') {
-          // "Od Lidera" - broadcast messages from leaders where I'm a recipient
+          // "Od Lidera" - broadcast messages from leaders to my role
           query = query
             .eq('sender_role', 'lider')
-            .eq('recipient_id', user.id);
+            .or(`recipient_role.eq.${currentRole},recipient_id.eq.${user.id}`);
         }
       } else if (channelId === 'broadcast-all') {
         // Admin broadcast to all - show sent messages
