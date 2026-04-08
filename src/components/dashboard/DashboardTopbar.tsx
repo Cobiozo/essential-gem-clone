@@ -55,6 +55,20 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
   const isChatVisible = isRoleVisibleForChat(chatVisibility, userRole?.role);
   const [isGoogleCalendarOpen, setIsGoogleCalendarOpen] = useState(false);
   const [internalOpen, setInternalOpen] = useState(false);
+  const [soundEnabled, setSoundEnabledState] = useState(isSoundEnabled);
+
+  // Listen for sound toggle changes from other components
+  useEffect(() => {
+    const handler = () => setSoundEnabledState(isSoundEnabled());
+    window.addEventListener('notification-sounds-changed', handler);
+    return () => window.removeEventListener('notification-sounds-changed', handler);
+  }, []);
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    setSoundEnabledState(next);
+  };
   
   // Controlled/uncontrolled pattern for dropdown
   const isOpen = isUserMenuOpen !== undefined ? isUserMenuOpen : internalOpen;
