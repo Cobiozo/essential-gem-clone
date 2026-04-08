@@ -292,6 +292,7 @@ const MessagesPage = () => {
           isConversationBlocked={isBlocked}
           archivedConversations={archivedAdminConversations}
           archivedTeamMembers={archivedTeamMembers}
+          unreadCounts={unreadCounts}
           className={cn(
             'w-80 border-r border-border shrink-0',
             'max-md:absolute max-md:inset-0 max-md:w-full max-md:z-10 max-md:bg-background',
