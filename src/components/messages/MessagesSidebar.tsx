@@ -73,6 +73,7 @@ export const MessagesSidebar = ({
   isConversationBlocked,
   archivedConversations = [],
   archivedTeamMembers = [],
+  unreadCounts = new Map(),
 }: MessagesSidebarProps) => {
   const [showArchive, setShowArchive] = useState(false);
   // Separate outgoing (can send) and incoming (can receive) channels
