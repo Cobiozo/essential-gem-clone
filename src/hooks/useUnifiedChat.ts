@@ -921,9 +921,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         .from('role_chat_messages')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .eq('sender_role', channel.targetRole)
-        .eq('recipient_role', currentRole)
+        .eq('is_broadcast', true)
         .eq('is_read', false)
-        .or(`recipient_id.eq.${user.id},recipient_id.is.null`);
+        .or(`recipient_role.eq.${currentRole},recipient_role.eq.all`);
 
       // Update local unread count
       setUnreadCounts(prev => {
