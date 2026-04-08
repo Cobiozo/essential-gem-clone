@@ -244,7 +244,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
             user_id: user.id,
             banner_id: currentBanner.id,
             dismissed_at: new Date().toISOString()
-          }, {
+          } as any, {
             onConflict: 'user_id,banner_id'
           });
       }

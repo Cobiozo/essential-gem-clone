@@ -144,7 +144,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
 
         if (!mounted) return;
 
-        const preferences = preferencesRaw as UserPreferences | null;
+        const preferences = preferencesRaw as any as UserPreferences | null;
 
         // If user explicitly disabled signals, respect that (unless we want to override)
         if (preferences && !preferences.show_daily_signal) {

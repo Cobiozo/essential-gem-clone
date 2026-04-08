@@ -32,11 +32,11 @@ export const InvitationLanguageSelect: React.FC<InvitationLanguageSelectProps> =
       const { data, error } = await supabase
         .from('i18n_languages')
         .select('code, name, native_name')
-        .eq('is_active', true)
+        .eq('is_active', true as any)
         .order('position');
 
       if (!error && data && data.length > 0) {
-        setLanguages(data);
+        setLanguages(data as any as LanguageOption[]);
       }
     };
     fetchLanguages();
