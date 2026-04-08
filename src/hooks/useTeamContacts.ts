@@ -478,6 +478,7 @@ export const useTeamContacts = () => {
           const attempts = (r as any).registration_attempts || 1;
           
           const info: EventRegistrationInfo = {
+            registration_id: r.id,
             event_id: r.event_id,
             event_title: event.title || '',
             event_start_time: ((r as any).slot_time && r.registered_at)
