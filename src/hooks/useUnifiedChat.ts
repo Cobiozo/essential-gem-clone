@@ -870,92 +870,40 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       const senderRole = isLeaderBroadcast ? 'lider' : 'admin';
 
       if (channelId === 'broadcast-all') {
-        // Admin broadcast to ALL - insert one message per role
-        const roles = ['partner', 'specjalista', 'client'];
-        for (const role of roles) {
-          await supabase.from('role_chat_messages').insert({
-            sender_id: user.id,
-            sender_role: 'admin',
-            recipient_role: 'all',
-            recipient_id: null,
-            content,
-            channel_id: null,
-            is_broadcast: true,
-          });
-        }
-      } else if (channelId === 'broadcast-lider') {
-        // Admin broadcast to leaders - find partners with can_broadcast
-        const { data: leaders } = await supabase
-          .from('leader_permissions')
-          .select('user_id')
-          .eq('can_broadcast', true);
-
-        for (const leader of (leaders || [])) {
-          await supabase.from('role_chat_messages').insert({
-            sender_id: user.id,
-            sender_role: 'admin',
-            recipient_role: 'lider',
-            recipient_id: leader.user_id,
-            content,
-            channel_id: null,
-            is_broadcast: true,
-          });
-        }
+        // Admin broadcast to ALL - single record
+        await supabase.from('role_chat_messages').insert({
+          sender_id: user.id,
+          sender_role: 'admin',
+          recipient_role: 'all',
+          recipient_id: null,
+          content,
+          channel_id: null,
+          is_broadcast: true,
+        });
       } else if (channelId.startsWith('broadcast-')) {
-        // Admin broadcast to specific role
+        // Admin broadcast to specific role - single record
         const targetRole = channelId.replace('broadcast-', '');
-        const { data: targetUsers } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('role', targetRole)
-          .eq('is_active', true);
-
-        for (const targetUser of (targetUsers || [])) {
-          await supabase.from('role_chat_messages').insert({
-            sender_id: user.id,
-            sender_role: 'admin',
-            recipient_role: targetRole,
-            recipient_id: targetUser.user_id,
-            content,
-            channel_id: null,
-            is_broadcast: true,
-          });
-        }
+        await supabase.from('role_chat_messages').insert({
+          sender_id: user.id,
+          sender_role: 'admin',
+          recipient_role: targetRole,
+          recipient_id: null,
+          content,
+          channel_id: null,
+          is_broadcast: true,
+        });
       } else if (isLeaderBroadcast) {
-        // Leader broadcast to specific role in downline
+        // Leader broadcast to specific role - single record
         const targetRole = channelId.replace('leader-broadcast-', '');
-        
-        // Filter downline by target role
-        let recipients = teamMembers;
-        if (targetRole === 'lider') {
-          // Sub-leaders: partners with can_broadcast in downline
-          const downlineIds = teamMembers.filter(m => m.role === 'partner').map(m => m.userId);
-          if (downlineIds.length > 0) {
-            const { data: leaderPerms } = await supabase
-              .from('leader_permissions')
-              .select('user_id')
-              .eq('can_broadcast', true)
-              .in('user_id', downlineIds);
-            const leaderIds = new Set((leaderPerms || []).map(l => l.user_id));
-            recipients = teamMembers.filter(m => leaderIds.has(m.userId));
-          } else {
-            recipients = [];
-          }
-        } else {
-          recipients = teamMembers.filter(m => m.role === targetRole);
-        }
-
-        for (const recipient of recipients) {
-          await supabase.from('role_chat_messages').insert({
-            sender_id: user.id,
-            sender_role: 'lider',
-            recipient_role: targetRole,
-            recipient_id: recipient.userId,
-            content,
-            channel_id: null,
-            is_broadcast: true,
-          });
-        }
+        await supabase.from('role_chat_messages').insert({
+          sender_id: user.id,
+          sender_role: 'lider',
+          recipient_role: targetRole,
+          recipient_id: null,
+          content,
+          channel_id: null,
+          is_broadcast: true,
+        });
       }
 
       
