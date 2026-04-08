@@ -98,7 +98,6 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
       const regIds = (registrations || []).map(r => r.id);
       const regEmails = (registrations || []).map(r => r.email).filter(Boolean);
       const viewsByRegId = new Map<string, any>();
-      const viewsByEmail = new Map<string, any>();
 
       if (regIds.length > 0) {
         const { data: viewsById } = await supabase
