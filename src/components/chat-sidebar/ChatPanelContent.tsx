@@ -32,6 +32,7 @@ export const ChatPanelContent = () => {
   } = useConversationSettings();
 
   const [currentConvStatus, setCurrentConvStatus] = useState<string | null>(null);
+  const { hasAccess: recipientHasAccess } = useRecipientChatAccess(selectedDirectUserId);
 
   useEffect(() => {
     if (pendingUserId && isOpen) {
