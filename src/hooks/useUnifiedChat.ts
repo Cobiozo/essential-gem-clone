@@ -186,8 +186,21 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (error) throw error;
 
+      // Filter messages by deleted_at marker from conversation_user_settings
+      let filteredData = data || [];
+      const { data: setting } = await supabase
+        .from('conversation_user_settings')
+        .select('deleted_at')
+        .eq('user_id', user.id)
+        .eq('other_user_id', otherUserId)
+        .maybeSingle();
+
+      if (setting?.deleted_at) {
+        filteredData = filteredData.filter(m => m.created_at > setting.deleted_at);
+      }
+
       // Fetch sender profiles
-      const senderIds = [...new Set((data || []).map(m => m.sender_id))];
+      const senderIds = [...new Set(filteredData.map(m => m.sender_id))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, first_name, last_name, avatar_url')
@@ -203,7 +216,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       const leaderSet = new Set(leaderPerms?.map(lp => lp.user_id) || []);
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
-      const enrichedMessages: UnifiedMessage[] = (data || []).map(m => {
+      const enrichedMessages: UnifiedMessage[] = filteredData.map(m => {
         const senderProfile = profileMap.get(m.sender_id);
         const firstName = senderProfile?.first_name || '';
         const lastName = senderProfile?.last_name || '';
@@ -282,6 +295,21 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         });
 
       if (msgError) throw msgError;
+
+      // Auto-reset is_deleted for sender (so conversation reappears in their sidebar)
+      await supabase
+        .from('conversation_user_settings')
+        .update({ is_deleted: false, deleted_at: null } as any)
+        .eq('user_id', user.id)
+        .eq('other_user_id', recipientId);
+
+      // Auto-reset is_deleted for recipient (keep deleted_at as history marker)
+      await supabase
+        .from('conversation_user_settings')
+        .update({ is_deleted: false } as any)
+        .eq('user_id', recipientId)
+        .eq('other_user_id', user.id)
+        .eq('is_deleted', true);
 
       // Optimistic update - add message to local state immediately
       const optimisticMessage: UnifiedMessage = {
@@ -995,7 +1023,10 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           const isRelevant =
             record.sender_id === user.id ||
             record.recipient_id === user.id ||
-            (record.recipient_id === null && record.recipient_role === currentRole);
+            (record.recipient_id === null && (
+              record.recipient_role === currentRole ||
+              record.recipient_role === 'all'
+            ));
 
           if (!isRelevant) return;
 

@@ -28,7 +28,7 @@ export const ChatPanelContent = () => {
 
   const {
     deleteConversation, archiveConversation, blockUser, unblockUser,
-    isDeleted, isArchived, isBlocked,
+    isDeleted, isArchived, isBlocked, refetch: refetchSettings,
   } = useConversationSettings();
 
   const [currentConvStatus, setCurrentConvStatus] = useState<string | null>(null);
@@ -84,7 +84,9 @@ export const ChatPanelContent = () => {
         const status = await getConversationStatus(selectedDirectUserId);
         setCurrentConvStatus(status);
       }
-      return sendDirectMessage(selectedDirectUserId, content, messageType, attachmentUrl, attachmentName);
+      const result = await sendDirectMessage(selectedDirectUserId, content, messageType, attachmentUrl, attachmentName);
+      if (result) refetchSettings(); // Refresh settings since sendDirectMessage resets is_deleted
+      return result;
     }
     return sendMessage(content);
   };

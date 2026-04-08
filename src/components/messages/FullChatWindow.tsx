@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Search, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -8,6 +8,7 @@ import type { UnifiedChannel, UnifiedMessage, TeamMemberChannel } from '@/hooks/
 import { MessageBubble } from '@/components/unified-chat/MessageBubble';
 import { MessageInput } from '@/components/unified-chat/MessageInput';
 import { ConversationActions } from './ConversationActions';
+import { supabase } from '@/integrations/supabase/client';
 
 interface FullChatWindowProps {
   channel: UnifiedChannel | null;
@@ -51,6 +52,25 @@ export const FullChatWindow = ({
   recipientChatDisabled = false,
 }: FullChatWindowProps) => {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [otherUserDeletedConvo, setOtherUserDeletedConvo] = useState(false);
+
+  // Check if the other user has deleted the conversation
+  useEffect(() => {
+    if (!directMember) {
+      setOtherUserDeletedConvo(false);
+      return;
+    }
+    const checkOtherUserDeletion = async () => {
+      const { data } = await supabase
+        .from('conversation_user_settings')
+        .select('deleted_at')
+        .eq('user_id', directMember.userId)
+        .eq('other_user_id', (await supabase.auth.getUser()).data.user?.id || '')
+        .maybeSingle();
+      setOtherUserDeletedConvo(!!data?.deleted_at);
+    };
+    checkOtherUserDeletion();
+  }, [directMember]);
   
   // Determine display name and capabilities
   const displayName = directMember 
@@ -139,6 +159,11 @@ export const FullChatWindow = ({
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
+              {otherUserDeletedConvo && (
+                <p className="text-xs text-muted-foreground/70 mb-2">
+                  ℹ️ {directMember?.firstName} usunął(ęła) historię tej rozmowy
+                </p>
+              )}
               <p className="text-sm">
                 {directMember 
                   ? `Rozpocznij rozmowę z ${directMember.firstName}` 
@@ -150,6 +175,13 @@ export const FullChatWindow = ({
             </div>
           ) : (
             <>
+              {otherUserDeletedConvo && (
+                <div className="text-center py-2">
+                  <p className="text-xs text-muted-foreground/70">
+                    ℹ️ {directMember?.firstName} usunął(ęła) historię tej rozmowy
+                  </p>
+                </div>
+              )}
               {messages.map((message, index) => {
                 const prevMessage = messages[index - 1];
                 const showDateSeparator =
