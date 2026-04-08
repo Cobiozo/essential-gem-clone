@@ -146,7 +146,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger
         <PopoverTrigger asChild>
           {trigger}
         </PopoverTrigger>
-        <PopoverContent className="p-0" align="start">
+        <PopoverContent className={cn("p-0", popoverClassName)} align="start">
           {pickerContent}
         </PopoverContent>
       </Popover>
