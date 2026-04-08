@@ -132,27 +132,72 @@ Deno.serve(async (req) => {
       notesArr.push(message.trim().slice(0, 1000));
     }
 
-    const { error } = await supabase.from("team_contacts").insert({
-      user_id: partner_user_id,
-      first_name: first_name.trim().slice(0, 100),
-      last_name: sanitize(last_name, 100) || "",
-      email: email.trim().slice(0, 255),
-      phone_number: sanitize(phone_number, 30),
-      role: "client",
-      contact_type: "private",
-      contact_source: "Strona partnerska",
-      contact_reason: (typeof form_name === "string" && form_name.trim()) ? form_name.trim().slice(0, 200) : "Formularz kontaktowy",
-      notes: notesArr.length > 0 ? notesArr.join("\n") : null,
-      added_at: new Date().toISOString().split("T")[0],
-      is_active: true,
-    });
+    const normalizedEmail = email.trim().toLowerCase().slice(0, 255);
 
-    if (error) {
-      console.error("Insert error:", error);
-      return new Response(JSON.stringify({ error: "Failed to save lead" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Deduplication: check if contact with same email already exists for this partner
+    const { data: existingContact } = await supabase
+      .from("team_contacts")
+      .select("id, notes, is_active, deleted_at")
+      .eq("user_id", partner_user_id)
+      .eq("email", normalizedEmail)
+      .eq("contact_source", "Strona partnerska")
+      .eq("contact_type", "private")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingContact) {
+      // Update existing contact instead of creating duplicate
+      const updatedNotes = [
+        existingContact.notes || "",
+        `--- Ponowny kontakt ${new Date().toLocaleDateString("pl-PL")} ---`,
+        ...(notesArr.length > 0 ? notesArr : []),
+      ].filter(Boolean).join("\n");
+
+      const { error } = await supabase
+        .from("team_contacts")
+        .update({
+          first_name: first_name.trim().slice(0, 100),
+          last_name: sanitize(last_name, 100) || existingContact.notes ? undefined : "",
+          phone_number: sanitize(phone_number, 30),
+          notes: updatedNotes,
+          is_active: true,
+          deleted_at: null, // Restore if soft-deleted
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingContact.id);
+
+      if (error) {
+        console.error("Update error:", error);
+        return new Response(JSON.stringify({ error: "Failed to update lead" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      // Create new contact
+      const { error } = await supabase.from("team_contacts").insert({
+        user_id: partner_user_id,
+        first_name: first_name.trim().slice(0, 100),
+        last_name: sanitize(last_name, 100) || "",
+        email: normalizedEmail,
+        phone_number: sanitize(phone_number, 30),
+        role: "client",
+        contact_type: "private",
+        contact_source: "Strona partnerska",
+        contact_reason: (typeof form_name === "string" && form_name.trim()) ? form_name.trim().slice(0, 200) : "Formularz kontaktowy",
+        notes: notesArr.length > 0 ? notesArr.join("\n") : null,
+        added_at: new Date().toISOString().split("T")[0],
+        is_active: true,
       });
+
+      if (error) {
+        console.error("Insert error:", error);
+        return new Response(JSON.stringify({ error: "Failed to save lead" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // ===== POST-SUBMIT ACTIONS =====
