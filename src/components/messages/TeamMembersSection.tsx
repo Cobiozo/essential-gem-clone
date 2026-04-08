@@ -21,6 +21,7 @@ interface TeamMembersSectionProps {
   onToggleSelection?: (userId: string) => void;
   onCreateGroupChat?: () => void;
   canCreateGroups?: boolean;
+  unreadCounts?: Map<string, number>;
 }
 
 export const TeamMembersSection = ({
