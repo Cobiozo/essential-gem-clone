@@ -170,6 +170,7 @@ export const MessagesSidebar = ({
                     onUnblock={onUnblockUser}
                     isArchived={isConversationArchived?.(conv.userId)}
                     isBlocked={isConversationBlocked?.(conv.userId)}
+                    unreadCount={unreadCounts.get(`dm-${conv.userId}`) || 0}
                   />
                 ))}
             </div>
