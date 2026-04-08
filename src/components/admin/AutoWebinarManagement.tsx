@@ -1861,5 +1861,11 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         </DialogContent>
       </Dialog>
     </div>
+      </TabsContent>
+
+      <TabsContent value="partner-stats">
+        <AutoWebinarPartnerStats configId={config?.id || ''} eventId={config?.event_id || null} />
+      </TabsContent>
+    </Tabs>
   );
 };
