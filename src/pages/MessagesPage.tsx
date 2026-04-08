@@ -30,7 +30,6 @@ const MessagesPage = () => {
 
   // Admin conversation status for current chat
   const [currentConvStatus, setCurrentConvStatus] = useState<string | null>(null);
-  const { hasAccess: recipientHasAccess } = useRecipientChatAccess(selectedDirectUserId);
 
   // Browser notifications
   const { permission, showNotification } = useBrowserNotifications();
