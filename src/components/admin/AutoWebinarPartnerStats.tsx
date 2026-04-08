@@ -104,11 +104,11 @@ export const AutoWebinarPartnerStats: React.FC<AutoWebinarPartnerStatsProps> = (
       if (refCodes.length > 0) {
         const { data: reflinks } = await supabase
           .from('user_reflinks')
-          .select('user_id, reflink_code')
+          .select('creator_user_id, reflink_code')
           .in('reflink_code', refCodes);
         if (reflinks) {
-          reflinks.forEach(r => refCodeToUserId.set(r.reflink_code, r.user_id));
-          reflinks.forEach(r => { if (!userIds.includes(r.user_id)) userIds.push(r.user_id); });
+          reflinks.forEach(r => refCodeToUserId.set(r.reflink_code, r.creator_user_id));
+          reflinks.forEach(r => { if (!userIds.includes(r.creator_user_id)) userIds.push(r.creator_user_id); });
         }
       }
 
