@@ -1023,7 +1023,10 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           const isRelevant =
             record.sender_id === user.id ||
             record.recipient_id === user.id ||
-            (record.recipient_id === null && record.recipient_role === currentRole);
+            (record.recipient_id === null && (
+              record.recipient_role === currentRole ||
+              record.recipient_role === 'all'
+            ));
 
           if (!isRelevant) return;
 
