@@ -817,9 +817,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       const { data: broadcastData, error: broadcastError } = await supabase
         .from('role_chat_messages')
         .select('sender_role')
-        .eq('recipient_role', currentRole)
         .eq('is_read', false)
-        .or(`recipient_id.eq.${user.id},recipient_id.is.null`);
+        .eq('is_broadcast', true)
+        .or(`recipient_role.eq.${currentRole},recipient_role.eq.all`);
 
       if (broadcastError) throw broadcastError;
 
