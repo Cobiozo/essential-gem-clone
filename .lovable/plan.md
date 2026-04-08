@@ -1,55 +1,91 @@
 
 
-# Blokada czatu dla uzytkownikow bez dostepu
+# Diagnoza: Nieuzasadnione automatyczne wylogowanie mimo aktywnosci
 
-## Problem
-Gdy uzytkownik A pisze do uzytkownika B, ktory nie ma wlaczonego czatu (feature_visibility / chat_user_visibility), nic nie blokuje wyslania wiadomosci. Uzytkownik B dostaje powiadomienia mimo ze nie ma dostepu do czatu.
+## Przyczyna
 
-## Rozwiazanie
+Logi Supabase Auth jednoznacznie wskazuja przyczyne:
 
-### 1. Sprawdzenie dostepu odbiorcy przed wyslaniem wiadomosci
-**Plik: `src/hooks/useUnifiedChat.ts`** — funkcja `sendDirectMessage`
+```
+error: "400: Invalid Refresh Token: Refresh Token Not Found"
+path: "/token"
+status: 400
+```
 
-Przed insertem do `role_chat_messages`:
-- Pobranie roli odbiorcy (juz jest: `recipientProfile.role`)
-- Pobranie ustawien widocznosci czatu: `chat_sidebar_visibility` (globalnych) i `chat_user_visibility` (per-user override)
-- Jesli odbiorca nie ma dostepu — zwrocic `false` i wyrzucic blad (np. `throw new Error('RECIPIENT_CHAT_DISABLED')`)
+**Scenariusz awarii:**
+1. Supabase JWT wygasa (domyslnie co 1h) i klient automatycznie probuje odswiezyc token (`autoRefreshToken: true`)
+2. Refresh token zostal juz uzyty (np. przez druga karte przegladarki) lub zostal uniewazniony po stronie serwera
+3. Supabase-js otrzymuje blad 400 i emituje zdarzenie `SIGNED_OUT`
+4. AuthContext probuje recovery przez `getSession()` — ale sesja lokalna jest juz wyczyszczona przez supabase-js
+5. Recovery nie znajduje sesji → wylogowanie z komunikatem "Sesja wygasla"
 
-Rowniez: **nie wysylac powiadomienia** (user_notifications insert) ani emaila gdy odbiorca nie ma czatu.
+**Kluczowy problem:** Brak ochrony przed wielokrotnym uzyciem refresh tokena (multi-tab) oraz brak retrya z opoznieniem w recovery.
 
-### 2. Komunikat w UI przed otwarciem konwersacji
-**Plik: `src/components/messages/FullChatWindow.tsx`**
+## Rozwiazanie — 2 zmiany
 
-Dodac nowy prop `recipientChatDisabled?: boolean`. Gdy `true`:
-- Zamiast `MessageInput` wyswietlic komunikat: "Ten uzytkownik nie ma wlaczonego czatu. Wysylanie wiadomosci jest niemozliwe."
-- Ukryc pole wejsciowe
+### 1. Wlaczenie `detectSessionInUrl` i detekcji wielu kart w kliencie Supabase
 
-### 3. Nowy hook helper: `useRecipientChatAccess`
-**Nowy plik: `src/hooks/useRecipientChatAccess.ts`**
+**Plik: `src/integrations/supabase/client.ts`**
 
-Hook przyjmuje `recipientUserId` i zwraca `{ hasAccess: boolean, loading: boolean }`.
-Logika:
-1. Pobranie `chat_user_visibility` per-user override dla odbiorcy
-2. Jesli override istnieje — uzyc go
-3. W przeciwnym razie pobranie `chat_sidebar_visibility` globalnej i sprawdzenie roli odbiorcy (z `profiles`)
-4. Zwrocic wynik
+Dodac `storageKey` oraz `flowType: 'pkce'` — bez tego supabase-js nie koordynuje refreshy miedzy kartami poprawnie. Kluczowa zmiana: dodanie obslugi `lock` (Web Locks API) aby zapobiec rownoczesnym refresh requestom z wielu kart:
 
-### 4. Integracja w `ChatPanelContent.tsx`
-- Uzyc `useRecipientChatAccess(selectedDirectUserId)` 
-- Przekazac `recipientChatDisabled={!hasAccess}` do `FullChatWindow`
+```typescript
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    lock: 'advisory',        // <-- koordynacja refreshy miedzy kartami
+    detectSessionInUrl: true,
+  }
+});
+```
 
-### 5. Blokada powiadomien po stronie nadawcy
-**Plik: `src/hooks/useUnifiedChat.ts`** — w `sendDirectMessage`:
-- Przed insertem notyfikacji i wywolaniem edge function, sprawdzic dostep odbiorcy
-- Jesli brak dostepu — pominac insert do `user_notifications` i wywolanie `send-chat-notification-email`
+Opcja `lock: 'advisory'` korzysta z Web Locks API (wspierana w nowoczesnych przegladarkach) — tylko jedna karta na raz moze wykonac refresh tokena. Pozostale karty czekaja i pobieraja odswiezony token z localStorage.
 
-## Pliki do edycji/utworzenia
+### 2. Ulepszenie recovery w AuthContext po nieudanym refreshu
+
+**Plik: `src/contexts/AuthContext.tsx`** — blok `SIGNED_OUT` (linie 304-334)
+
+Zamiast jednorazowego `getSession()` ktory natychmiast zwraca null (bo supabase-js juz wyczyscil sesje lokalna), dodac:
+
+1. **Opoznienie 2s przed recovery** — daje czas drugiej karcie na zakonczenie refresha i zapisanie nowej sesji w localStorage
+2. **Ponowne odczytanie tokena z localStorage** — jesli inna karta zdazyla odswiezyc sesje
+3. **Retry `getSession()` po odczekaniu** — z pelnym przywroceniem stanu jesli sesja znaleziona
+
+```typescript
+// Zamiast natychmiastowego setTimeout(..., 0):
+setTimeout(async () => {
+  // Poczekaj 2s — inna karta mogla odswiezyc token
+  await new Promise(r => setTimeout(r, 2000));
+  
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      console.log('[Auth] Session recovered after delay');
+      setSession(data.session);
+      setUser(data.session.user);
+      return; // Sesja odzyskana — nie wylogowuj
+    }
+  } catch (e) {
+    console.error('[Auth] Recovery failed:', e);
+  }
+  
+  // Dopiero teraz — prawdziwe wylogowanie
+  toast({ title: 'Sesja wygasla', ... });
+  // ... clear state
+}, 100);
+```
+
+## Podsumowanie zmian
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useRecipientChatAccess.ts` | Nowy hook — sprawdza czy odbiorca ma dostep do czatu |
-| `src/hooks/useUnifiedChat.ts` | Sprawdzenie dostepu przed wyslaniem + pomiecie notyfikacji |
-| `src/components/messages/FullChatWindow.tsx` | Nowy prop `recipientChatDisabled`, komunikat zamiast inputa |
-| `src/components/chat-sidebar/ChatPanelContent.tsx` | Uzycie hooka i przekazanie propu |
-| `src/pages/MessagesPage.tsx` | Analogiczna integracja jak w ChatPanelContent |
+| `src/integrations/supabase/client.ts` | Dodanie `lock: 'advisory'` do konfiguracji auth |
+| `src/contexts/AuthContext.tsx` | Recovery z 2s opoznieniem przed wylogowaniem (linie 304-334) |
+
+## Dlaczego to pomoze
+
+- **`lock: 'advisory'`** — eliminuje glowna przyczyne: dwie karty rywalizujace o refresh token. Tylko jedna karta refreshuje, reszta czeka i pobiera wynik z localStorage.
+- **Opozniona recovery** — nawet jesli lock nie zadziala (starsza przegladarka), system poczeka 2s i sprawdzi czy inna karta odswiezyla sesje zanim wyloguje uzytkownika.
 
