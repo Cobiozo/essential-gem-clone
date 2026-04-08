@@ -280,7 +280,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
               ))}
               {filteredPartners.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     {searchQuery ? t('admin.meetings.noPartnersFound') : t('admin.meetings.noPartnersInSystem')}
                   </TableCell>
                 </TableRow>
