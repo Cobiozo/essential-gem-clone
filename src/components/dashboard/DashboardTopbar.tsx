@@ -29,6 +29,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';
 import { useChatSidebarVisibility, isRoleVisibleForChat } from '@/hooks/useChatSidebarVisibility';
+import { isSoundEnabled, setSoundEnabled } from '@/hooks/useNotificationSound';
 
 interface DashboardTopbarProps {
   title?: string;
