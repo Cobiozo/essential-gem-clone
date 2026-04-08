@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,10 @@ const recentEmojis = ['😊', '👍', '❤️', '🎉', '🔥', '💯', '✨', '
 interface EmojiPickerProps {
   onEmojiSelect?: (emoji: string) => void;
   trigger?: React.ReactNode;
+  popoverClassName?: string;
 }
 
-export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger }) => {
+export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger, popoverClassName }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
 
@@ -145,7 +147,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onEmojiSelect, trigger
         <PopoverTrigger asChild>
           {trigger}
         </PopoverTrigger>
-        <PopoverContent className="p-0" align="start">
+        <PopoverContent className={cn("p-0", popoverClassName)} align="start">
           {pickerContent}
         </PopoverContent>
       </Popover>
