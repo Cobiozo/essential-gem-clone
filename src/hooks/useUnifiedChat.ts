@@ -200,7 +200,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       }
 
       // Fetch sender profiles
-      const senderIds = [...new Set((data || []).map(m => m.sender_id))];
+      const senderIds = [...new Set(filteredData.map(m => m.sender_id))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('user_id, first_name, last_name, avatar_url')
