@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AutoWebinarEmbed } from '@/components/auto-webinar/AutoWebinarEmbed';
 import { MediaUpload } from '@/components/MediaUpload';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import type { AutoWebinarVideo, AutoWebinarConfig, AutoWebinarFakeMessage } from
 import { cn } from '@/lib/utils';
 import { AdminMediaLibrary } from '@/components/admin/AdminMediaLibrary';
 import { AutoWebinarGuestStats } from '@/components/admin/AutoWebinarGuestStats';
+import { AutoWebinarPartnerStats } from '@/components/admin/AutoWebinarPartnerStats';
 
 interface LinkedEvent {
   id: string;
@@ -711,6 +713,13 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   }
 
   return (
+    <Tabs defaultValue="settings" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="settings">⚙️ Ustawienia</TabsTrigger>
+        <TabsTrigger value="partner-stats">📊 Statystyki partnerów</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="settings">
     <div className="space-y-6">
       {/* Config section */}
       <Card>
@@ -1852,5 +1861,11 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
         </DialogContent>
       </Dialog>
     </div>
+      </TabsContent>
+
+      <TabsContent value="partner-stats">
+        <AutoWebinarPartnerStats configId={config?.id || ''} eventId={config?.event_id || null} />
+      </TabsContent>
+    </Tabs>
   );
 };
