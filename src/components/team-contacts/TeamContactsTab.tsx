@@ -25,6 +25,7 @@ import { SpecialistSearch } from './SpecialistSearch';
 import { OrganizationChart, OrganizationList } from './organization';
 import { EventGroupedContacts } from './EventGroupedContacts';
 import { DeletedContactsList } from './DeletedContactsList';
+import { PartnerPageContactsList } from './PartnerPageContactsList';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
@@ -206,11 +207,24 @@ export const TeamContactsTab: React.FC = () => {
 
   // Filter contacts by type for display
   const privateContacts = contacts.filter(c => c.contact_type === 'private');
-  const ownContacts = privateContacts.filter(c => !eventContactIds.has(c.id) || (c as any).moved_to_own_list);
+  // Partner page contacts that haven't been moved to own list
+  const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska' && !(c as any).moved_to_own_list);
+  
+  // Own list: exclude event contacts (unless moved) AND exclude partner page contacts (unless moved)
+  const ownContacts = privateContacts.filter(c => {
+    const isEventContact = eventContactIds.has(c.id);
+    const isPartnerPage = c.contact_source === 'Strona partnerska';
+    const movedToOwn = (c as any).moved_to_own_list;
+    
+    // Show in own list if: (not from events AND not from partner page) OR explicitly moved
+    if (movedToOwn) return true;
+    if (isEventContact) return false;
+    if (isPartnerPage) return false;
+    return true;
+  });
   const eventContactsBO = privateContacts.filter(c => eventContactIdsBO.has(c.id) && !(c as any).moved_to_own_list);
   const eventContactsHC = privateContacts.filter(c => eventContactIdsHC.has(c.id) && !(c as any).moved_to_own_list);
   const eventContactsGeneral = privateContacts.filter(c => eventContactIdsGeneral.has(c.id) && !(c as any).moved_to_own_list);
-  const partnerPageContacts = privateContacts.filter(c => c.contact_source === 'Strona partnerska');
   
   const filteredContacts = (() => {
     if (activeTab === 'private') {
@@ -447,6 +461,15 @@ export const TeamContactsTab: React.FC = () => {
                   eventGroups={eventGroupedContactsGeneral}
                   duplicateContactEvents={duplicateContactEvents}
                   eventContactDetails={eventContactDetails}
+                  loading={loading}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
+                  onMoveToOwnList={moveToOwnList}
+                />
+              ) : privateSubTab === 'partner-page' ? (
+                <PartnerPageContactsList
+                  contacts={partnerPageContacts}
                   loading={loading}
                   onEdit={openEditForm}
                   onDelete={handleDeleteContact}
