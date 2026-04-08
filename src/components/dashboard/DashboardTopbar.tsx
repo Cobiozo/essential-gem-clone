@@ -133,15 +133,22 @@ export const DashboardTopbar: React.FC<DashboardTopbarProps> = ({
 
         {/* Chat toggle - simple sidebar toggle */}
         {isChatVisible && (
-          <Button
-            variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
-            size="icon"
-            className="h-9 w-9"
-            title="Czat"
-            onClick={chatSidebar.toggleDocked}
-          >
-            <MessageSquare className="h-4 w-4" />
-          </Button>
+          <div className="relative">
+            <Button
+              variant={chatSidebar.isOpen ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-9 w-9"
+              title="Czat"
+              onClick={chatSidebar.toggleDocked}
+            >
+              <MessageSquare className="h-4 w-4" />
+            </Button>
+            {totalUnread > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground ring-2 ring-background px-1">
+                {totalUnread > 99 ? '99+' : totalUnread}
+              </span>
+            )}
+          </div>
         )}
 
         {/* Notifications */}
