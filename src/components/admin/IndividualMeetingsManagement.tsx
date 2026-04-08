@@ -267,6 +267,15 @@ export const IndividualMeetingsManagement: React.FC = () => {
                       disabled={saving === partner.user_id}
                     />
                   </TableCell>
+                  <TableCell className="text-center">
+                    <Switch
+                      checked={partner.can_manage_auto_webinar_access}
+                      onCheckedChange={(checked) => 
+                        togglePermission(partner, 'can_manage_auto_webinar_access', checked)
+                      }
+                      disabled={saving === partner.user_id}
+                    />
+                  </TableCell>
                 </TableRow>
               ))}
               {filteredPartners.length === 0 && (
