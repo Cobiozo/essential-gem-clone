@@ -1084,7 +1084,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
           if (payload.eventType === 'INSERT' && record.sender_id !== user.id) {
             playMessageSound();
           }
-      )
+        }
       .subscribe();
 
     return () => {
