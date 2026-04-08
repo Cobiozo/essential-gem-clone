@@ -34,6 +34,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
         .select('*')
         .eq('user_id', user.id)
         .or(`target_role.is.null,target_role.eq.${currentRole}`)
+        .neq('notification_type', 'direct_message')
         .order('created_at', { ascending: false })
         .limit(50);
 
