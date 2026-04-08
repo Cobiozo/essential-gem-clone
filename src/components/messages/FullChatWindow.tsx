@@ -175,6 +175,12 @@ export const FullChatWindow = ({
       {/* Message input */}
       {canSend ? (
         <MessageInput onSend={onSend} />
+      ) : recipientChatDisabled ? (
+        <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
+          <p className="text-sm text-muted-foreground">
+            🚫 Ten użytkownik nie ma włączonego czatu. Wysyłanie wiadomości jest niemożliwe.
+          </p>
+        </div>
       ) : adminConversationStatus === 'closed' ? (
         <div className="p-4 border-t border-border bg-muted/50 text-center shrink-0">
           <p className="text-sm text-muted-foreground">
