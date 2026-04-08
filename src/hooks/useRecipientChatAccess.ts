@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RecipientChatAccess {
   hasAccess: boolean;
@@ -7,6 +8,7 @@ interface RecipientChatAccess {
 }
 
 export const useRecipientChatAccess = (recipientUserId: string | null): RecipientChatAccess => {
+  const { user } = useAuth();
   const [hasAccess, setHasAccess] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -21,23 +23,40 @@ export const useRecipientChatAccess = (recipientUserId: string | null): Recipien
     const check = async () => {
       setLoading(true);
       try {
-        const result = await checkRecipientChatAccess(recipientUserId);
+        const result = await checkRecipientChatAccess(recipientUserId, user?.id);
         if (!cancelled) setHasAccess(result);
       } catch {
-        if (!cancelled) setHasAccess(true); // default allow on error
+        if (!cancelled) setHasAccess(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
     check();
     return () => { cancelled = true; };
-  }, [recipientUserId]);
+  }, [recipientUserId, user?.id]);
 
   return { hasAccess, loading };
 };
 
 /** Reusable helper – also used inside sendDirectMessage */
-export const checkRecipientChatAccess = async (recipientUserId: string): Promise<boolean> => {
+export const checkRecipientChatAccess = async (
+  recipientUserId: string,
+  senderUserId?: string
+): Promise<boolean> => {
+  // 0. If there's an active admin conversation between sender and recipient, always allow
+  if (senderUserId) {
+    const { data: adminConv } = await supabase
+      .from('admin_conversations')
+      .select('status')
+      .or(
+        `and(admin_user_id.eq.${recipientUserId},target_user_id.eq.${senderUserId}),and(admin_user_id.eq.${senderUserId},target_user_id.eq.${recipientUserId})`
+      )
+      .eq('status', 'open')
+      .maybeSingle();
+
+    if (adminConv) return true;
+  }
+
   // 1. Per-user override
   const { data: userOverride } = await supabase
     .from('chat_user_visibility')

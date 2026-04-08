@@ -258,8 +258,8 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (!recipientProfile) return false;
 
-      // Check if recipient has chat access
-      const recipientHasAccess = await checkRecipientChatAccess(recipientId);
+      // Check if recipient has chat access (pass sender to bypass for active admin conversations)
+      const recipientHasAccess = await checkRecipientChatAccess(recipientId, user?.id);
       if (!recipientHasAccess) {
         toast.error('Ten użytkownik nie ma włączonego czatu. Wysyłanie wiadomości jest niemożliwe.');
         return false;
