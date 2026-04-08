@@ -4184,12 +4184,14 @@ export type Database = {
         Row: {
           activated_at: string | null
           activated_by: string | null
+          auto_webinar_granted_by: string | null
           can_access_auto_webinar: boolean | null
           can_approve_registrations: boolean | null
           can_broadcast: boolean | null
           can_create_team_events: boolean | null
           can_customize_landing_page: boolean
           can_host_private_meetings: boolean | null
+          can_manage_auto_webinar_access: boolean | null
           can_manage_certificates: boolean | null
           can_manage_daily_signal: boolean | null
           can_manage_event_registrations: boolean | null
@@ -4222,12 +4224,14 @@ export type Database = {
         Insert: {
           activated_at?: string | null
           activated_by?: string | null
+          auto_webinar_granted_by?: string | null
           can_access_auto_webinar?: boolean | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_create_team_events?: boolean | null
           can_customize_landing_page?: boolean
           can_host_private_meetings?: boolean | null
+          can_manage_auto_webinar_access?: boolean | null
           can_manage_certificates?: boolean | null
           can_manage_daily_signal?: boolean | null
           can_manage_event_registrations?: boolean | null
@@ -4260,12 +4264,14 @@ export type Database = {
         Update: {
           activated_at?: string | null
           activated_by?: string | null
+          auto_webinar_granted_by?: string | null
           can_access_auto_webinar?: boolean | null
           can_approve_registrations?: boolean | null
           can_broadcast?: boolean | null
           can_create_team_events?: boolean | null
           can_customize_landing_page?: boolean
           can_host_private_meetings?: boolean | null
+          can_manage_auto_webinar_access?: boolean | null
           can_manage_certificates?: boolean | null
           can_manage_daily_signal?: boolean | null
           can_manage_event_registrations?: boolean | null
@@ -9149,6 +9155,10 @@ export type Database = {
         Returns: boolean
       }
       leader_unblock_user: { Args: { p_block_id: string }; Returns: boolean }
+      leader_update_auto_webinar_access: {
+        Args: { p_grant_access: boolean; p_target_user_id: string }
+        Returns: boolean
+      }
       refresh_all_active_reflinks: { Args: never; Returns: Json }
       register_event_guest: {
         Args: {
