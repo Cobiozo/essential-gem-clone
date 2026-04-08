@@ -223,6 +223,12 @@ export const IndividualMeetingsManagement: React.FC = () => {
                     <span>Szkolenia zespołu</span>
                   </div>
                 </TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <Radio className="h-4 w-4" />
+                    <span>Auto-Webinar</span>
+                  </div>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
