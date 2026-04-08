@@ -205,19 +205,20 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         if (!mounted) return;
 
         if (todaySignal) {
-          setSignal(todaySignal as DailySignal);
+          const sig = todaySignal as any;
+          setSignal(sig as DailySignal);
           setShowBanner(true);
           bannerShownAtRef.current = Date.now();
           
           // Track view interaction
           trackBannerInteraction(supabase, {
             bannerType: 'signal',
-            bannerId: todaySignal.id,
+            bannerId: sig.id,
             userId: user.id,
             userRole: userRole ? String(userRole) : null,
             interactionType: 'view',
-            bannerTone: todaySignal.signal_type || 'supportive',
-            contentLength: todaySignal.main_message?.length || 0,
+            bannerTone: sig.signal_type || 'supportive',
+            contentLength: sig.main_message?.length || 0,
             hasAnimation: typedSettings.animation_intensity !== 'off',
             animationLevel: typedSettings.animation_intensity,
           });
