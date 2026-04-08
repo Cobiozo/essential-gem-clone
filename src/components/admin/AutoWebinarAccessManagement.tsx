@@ -89,13 +89,13 @@ export const AutoWebinarAccessManagement: React.FC = () => {
       if (partner.permission_id) {
         const { error } = await supabase
           .from('leader_permissions')
-          .update({ can_access_auto_webinar: value } as any)
+          .update({ can_access_auto_webinar: value, auto_webinar_granted_by: null } as any)
           .eq('id', partner.permission_id);
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('leader_permissions')
-          .insert({ user_id: partner.user_id, can_access_auto_webinar: value } as any);
+          .insert({ user_id: partner.user_id, can_access_auto_webinar: value, auto_webinar_granted_by: null } as any);
         if (error) throw error;
       }
 
