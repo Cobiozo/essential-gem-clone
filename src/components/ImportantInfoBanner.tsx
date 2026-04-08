@@ -94,12 +94,13 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       // No sessionStorage check needed - App.tsx controls rendering
 
       // Check if user is fully approved (guardian + admin)
-      const { data: profileData } = await supabase
+      const { data: profileDataRaw } = await supabase
         .from('profiles')
         .select('guardian_approved, admin_approved')
-        .eq('user_id', user!.id)
+        .eq('user_id', user!.id as any)
         .maybeSingle();
       
+      const profileData = profileDataRaw as any;
       if (!profileData || !profileData.guardian_approved || !profileData.admin_approved) {
         onComplete();
         return;
@@ -109,7 +110,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       const { data: banners, error } = await supabase
         .from('important_info_banners')
         .select('*')
-        .eq('is_active', true)
+        .eq('is_active', true as any)
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
@@ -119,7 +120,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
 
       // Filter by role visibility, scheduled date, and expiration date
       const now = new Date();
-      const visibleBanners = (banners as ImportantInfoBannerData[]).filter((b) => {
+      const visibleBanners = ((banners as any[]) as ImportantInfoBannerData[]).filter((b) => {
         // Check scheduled date - only show if scheduled_date is null or in the past
         if (b.scheduled_date && new Date(b.scheduled_date) > now) {
           return false;
@@ -148,9 +149,9 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       const { data: dismissedBanners } = await supabase
         .from('user_dismissed_banners')
         .select('banner_id')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as any);
 
-      const dismissedIds = dismissedBanners?.map(d => d.banner_id) || [];
+      const dismissedIds = (dismissedBanners as any[])?.map(d => d.banner_id) || [];
 
       // Filter banners based on display frequency and dismissal status
       // ADMIN display_frequency has ABSOLUTE PRIORITY
@@ -243,7 +244,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
             user_id: user.id,
             banner_id: currentBanner.id,
             dismissed_at: new Date().toISOString()
-          }, {
+          } as any, {
             onConflict: 'user_id,banner_id'
           });
       }

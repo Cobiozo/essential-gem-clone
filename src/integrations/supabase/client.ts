@@ -8,12 +8,16 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+// Use Database type without __InternalSupabase to avoid PostgrestVersion mismatch
+type PublicSchema = Database['public'];
+type CompatibleDatabase = { public: PublicSchema };
+
+export const supabase = createClient<CompatibleDatabase>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    lock: 'advisory',
+    lock: 'advisory' as any,
   }
 });

@@ -77,12 +77,13 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         // No sessionStorage check needed - App.tsx controls rendering
 
         // Check if user is fully approved (guardian + admin)
-        const { data: profileData } = await supabase
+        const { data: profileDataRaw } = await supabase
           .from('profiles')
           .select('guardian_approved, admin_approved')
-          .eq('user_id', user.id)
+          .eq('user_id', user.id as any)
           .maybeSingle();
         
+        const profileData = profileDataRaw as any;
         console.log('[DailySignalBanner] Profile approval:', profileData);
         if (!profileData || !profileData.guardian_approved || !profileData.admin_approved) {
           console.log('[DailySignalBanner] User not approved - skipping');
@@ -91,7 +92,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         }
 
         // 1. Check global settings - ADMIN SETTINGS HAVE ABSOLUTE PRIORITY
-        const { data: settingsData, error: settingsError } = await supabase
+        const { data: settingsDataRaw, error: settingsError } = await supabase
           .from('daily_signal_settings')
           .select('*')
           .limit(1)
@@ -99,6 +100,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
 
         if (!mounted) return;
 
+        const settingsData = settingsDataRaw as any;
         console.log('[DailySignalBanner] Settings:', { is_enabled: settingsData?.is_enabled, visible_to_partners: settingsData?.visible_to_partners });
 
         if (settingsError || !settingsData?.is_enabled) {
@@ -134,16 +136,18 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         }
 
         // 3. Check user preferences - but ADMIN display_frequency overrides local blocks
-        const { data: preferences } = await supabase
+        const { data: preferencesRaw } = await supabase
           .from('user_signal_preferences')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', user.id as any)
           .maybeSingle();
 
         if (!mounted) return;
 
+        const preferences = preferencesRaw as any as UserPreferences | null;
+
         // If user explicitly disabled signals, respect that (unless we want to override)
-        if (preferences && !(preferences as UserPreferences).show_daily_signal) {
+        if (preferences && !preferences.show_daily_signal) {
           onDismiss?.();
           return;
         }
@@ -157,8 +161,8 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           // Session storage check is removed for every_login mode
         } else {
           // daily mode - check if 24 hours passed since last shown
-          if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
-            const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
+          if (preferences && preferences.last_signal_shown_at) {
+            const lastShown = new Date(preferences.last_signal_shown_at!);
             const now = new Date();
             const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
             
@@ -176,8 +180,8 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         let { data: todaySignal } = await supabase
           .from('daily_signals')
           .select('*')
-          .eq('scheduled_date', today)
-          .eq('is_approved', true)
+          .eq('scheduled_date', today as any)
+          .eq('is_approved', true as any)
           .limit(1)
           .maybeSingle();
 
@@ -188,7 +192,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           const { data: randomSignals } = await supabase
             .from('daily_signals')
             .select('*')
-            .eq('is_approved', true)
+            .eq('is_approved', true as any)
             .limit(10);
 
           if (!mounted) return;
@@ -201,19 +205,20 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         if (!mounted) return;
 
         if (todaySignal) {
-          setSignal(todaySignal as DailySignal);
+          const sig = todaySignal as any;
+          setSignal(sig as DailySignal);
           setShowBanner(true);
           bannerShownAtRef.current = Date.now();
           
           // Track view interaction
           trackBannerInteraction(supabase, {
             bannerType: 'signal',
-            bannerId: todaySignal.id,
+            bannerId: sig.id,
             userId: user.id,
             userRole: userRole ? String(userRole) : null,
             interactionType: 'view',
-            bannerTone: todaySignal.signal_type || 'supportive',
-            contentLength: todaySignal.main_message?.length || 0,
+            bannerTone: sig.signal_type || 'supportive',
+            contentLength: sig.main_message?.length || 0,
             hasAnimation: typedSettings.animation_intensity !== 'off',
             animationLevel: typedSettings.animation_intensity,
           });
@@ -269,7 +274,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           show_daily_signal: true,
           last_signal_shown_at: new Date().toISOString(),
           last_signal_id: currentSignal.id
-        }, {
+        } as any, {
           onConflict: 'user_id'
         });
     } catch (error) {
@@ -313,7 +318,7 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           show_daily_signal: false,
           last_signal_shown_at: new Date().toISOString(),
           last_signal_id: currentSignal?.id || null
-        }, {
+        } as any, {
           onConflict: 'user_id'
         });
     } catch (error) {
