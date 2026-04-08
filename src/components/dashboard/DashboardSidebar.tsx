@@ -760,11 +760,6 @@ export const DashboardSidebar: React.FC = () => {
                 >
                   <item.icon className="h-4 w-4" />
                   <span>{getLabel(item.labelKey)}</span>
-                  {item.id === 'chat' && totalUnread > 0 && (
-                    <Badge variant="destructive" className="h-5 min-w-5 px-1.5 text-xs ml-auto">
-                      {totalUnread > 99 ? '99+' : totalUnread}
-                    </Badge>
-                  )}
                 </SidebarMenuButton>
               ) : (
                 // On desktop - use Tooltip with delay
