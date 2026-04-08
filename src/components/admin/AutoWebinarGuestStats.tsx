@@ -115,23 +115,57 @@ export const AutoWebinarGuestStats: React.FC<AutoWebinarGuestStatsProps> = ({ ca
         });
       }
 
+      // Fetch unlinked views (without guest_registration_id) for email+slot fallback
+      let unlinkedViews: any[] = [];
       if (regEmails.length > 0) {
         const { data: viewsByEm } = await supabase
           .from('auto_webinar_views' as any)
-          .select('guest_email, joined_at, left_at, watch_duration_seconds')
+          .select('guest_email, joined_at, left_at, watch_duration_seconds, created_at')
           .in('guest_email', regEmails);
-        (viewsByEm || []).forEach((v: any) => {
-          if (v.guest_email) {
-            const existing = viewsByEmail.get(v.guest_email);
-            if (!existing || (v.watch_duration_seconds || 0) > (existing.watch_duration_seconds || 0)) {
-              viewsByEmail.set(v.guest_email, v);
-            }
-          }
-        });
+        unlinkedViews = (viewsByEm || []).filter((v: any) => v.guest_email);
       }
 
+      // Helper: parse slot_time to a Date object
+      const parseSlotToDate = (slotTime: string | null, createdAt: string | null): Date | null => {
+        if (!slotTime) return null;
+        // New format: YYYY-MM-DD_HH:MM
+        if (slotTime.includes('_') && slotTime.length >= 16) {
+          const [datePart, timePart] = slotTime.split('_');
+          const d = new Date(`${datePart}T${timePart}:00`);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        // Legacy format: HH:MM — use created_at date as fallback
+        if (createdAt && /^\d{2}:\d{2}$/.test(slotTime)) {
+          const regDate = new Date(createdAt);
+          const [h, m] = slotTime.split(':').map(Number);
+          regDate.setHours(h, m, 0, 0);
+          return regDate;
+        }
+        return null;
+      };
+
+      // Helper: check if joined_at is within slot window (-5 min to +120 min)
+      const isWithinSlotWindow = (joinedAt: string | null, slotDate: Date): boolean => {
+        if (!joinedAt) return false;
+        const joined = new Date(joinedAt).getTime();
+        const slotMs = slotDate.getTime();
+        return joined >= slotMs - 5 * 60 * 1000 && joined <= slotMs + 120 * 60 * 1000;
+      };
+
       const result: GuestStat[] = (registrations || []).map((r: any) => {
-        const view = viewsByRegId.get(r.id) || viewsByEmail.get(r.email);
+        // 1. Precise match by guest_registration_id
+        let view = viewsByRegId.get(r.id);
+
+        // 2. Fallback: match by email + slot time window
+        if (!view && r.email) {
+          const slotDate = parseSlotToDate(r.slot_time, r.created_at);
+          if (slotDate) {
+            view = unlinkedViews
+              .filter(v => v.guest_email === r.email)
+              .filter(v => isWithinSlotWindow(v.joined_at, slotDate))
+              .sort((a: any, b: any) => (b.watch_duration_seconds || 0) - (a.watch_duration_seconds || 0))[0] || null;
+          }
+        }
         const inviter = r.invited_by_user_id ? inviterMap.get(r.invited_by_user_id) : null;
         return {
           id: r.id,
