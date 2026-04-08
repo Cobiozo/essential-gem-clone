@@ -1085,6 +1085,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
             playMessageSound();
           }
         }
+      )
       .subscribe();
 
     return () => {
