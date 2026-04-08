@@ -154,6 +154,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
         hasTeamReports,
         hasCertificates,
         hasLandingPage,
+        hasAutoWebinarAccess,
       };
     },
     enabled: !!user && (isPartner || isAdmin),
