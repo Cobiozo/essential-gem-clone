@@ -146,6 +146,7 @@ export const TeamMembersSection = ({
                       onSelectMember(member.userId);
                     }
                   }}
+                  unreadCount={unreadCounts.get(`dm-${member.userId}`) || 0}
                 />
               </div>
             </div>

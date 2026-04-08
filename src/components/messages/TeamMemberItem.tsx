@@ -51,5 +51,10 @@ export const TeamMemberItem = ({ member, isSelected, onClick, badge, unreadCount
         {member.eqId && ` • ${member.eqId}`}
       </span>
     </div>
+    {!!unreadCount && unreadCount > 0 && (
+      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground shrink-0">
+        {unreadCount > 99 ? '99+' : unreadCount}
+      </span>
+    )}
   </button>
 );

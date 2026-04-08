@@ -1112,6 +1112,7 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
         return false;
       }
     },
+    unreadCounts,
     refetch: () => {
       fetchUnreadCounts();
       fetchTeamMembers();
