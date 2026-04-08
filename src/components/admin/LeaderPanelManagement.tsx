@@ -92,6 +92,7 @@ const columns: ColumnDef[] = [
   { key: 'can_manage_important_info', label: 'Ważne info', description: 'Publikowanie ważnych informacji widocznych dla zespołu', icon: Info, type: 'leader', group: 'Treść' },
   { key: 'can_manage_team_reflinks', label: 'Reflinki', description: 'Zarządzanie linkami referencyjnymi członków zespołu', icon: Link, type: 'leader', group: 'Treść' },
   { key: 'can_customize_landing_page', label: 'Moja strona', description: 'Personalizacja strony landing page dla zespołu', icon: Globe, type: 'leader', group: 'Treść' },
+  { key: 'can_manage_auto_webinar_access', label: 'Auto-Webinar', description: 'Zarządzanie dostępem do auto-webinaru dla użytkowników w strukturze lidera', icon: Radio, type: 'leader', group: 'Wydarzenia' },
   { key: 'can_view_team_reports', label: 'Raporty', description: 'Przeglądanie raportów i statystyk zespołu', icon: BarChart3, type: 'leader', group: 'Raporty' },
   { key: 'can_manage_certificates', label: 'Certyfikaty', description: 'Zarządzanie certyfikatami członków zespołu', icon: Award, type: 'leader', group: 'Raporty' },
   { key: 'has_influencer_calc', label: 'Kalk. Influencer', description: 'Dostęp do kalkulatora influencerów', icon: Calculator, type: 'calc_influencer', group: 'Kalkulatory' },
