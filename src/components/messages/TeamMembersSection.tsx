@@ -104,6 +104,7 @@ export const TeamMembersSection = ({
                 isSelected={selectedUserId === filteredUpline.userId && !selectionMode}
                 onClick={() => !selectionMode && onSelectMember(filteredUpline.userId)}
                 badge="Opiekun"
+                unreadCount={unreadCounts.get(`dm-${filteredUpline.userId}`) || 0}
               />
               {filteredMembers.length > 0 && (
                 <Separator className="my-1 mx-4" />
