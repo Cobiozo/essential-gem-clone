@@ -344,9 +344,9 @@ const EventGuestRegistration: React.FC = () => {
         return;
       }
 
-      // Use pre-resolved slot (strict, no fallback)
+      // Use pre-resolved slot with date prefix for unique constraint isolation
       const slotTimeValue = isAutoWebinar && resolvedSlot
-        ? resolvedSlot.time
+        ? `${format(resolvedSlot.date, 'yyyy-MM-dd')}_${resolvedSlot.time}`
         : null;
 
       // Determine occurrence date/time for standard multi-occurrence events

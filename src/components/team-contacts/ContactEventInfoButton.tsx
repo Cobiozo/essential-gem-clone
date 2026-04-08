@@ -128,10 +128,17 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
             const regRegisteredAt = (reg as any).registered_at;
             if (!regEventId) continue;
 
-            // Build proper datetime from date part of registered_at + slot_time (HH:MM)
-            const slotDatetime = (regSlotTime && regRegisteredAt)
-              ? `${regRegisteredAt.substring(0, 10)}T${regSlotTime}:00`
-              : null;
+            // Build proper datetime from slot_time (supports both "HH:MM" and "YYYY-MM-DD_HH:MM")
+            const slotDatetime = (() => {
+              if (!regSlotTime || !regRegisteredAt) return null;
+              if (regSlotTime.includes('_')) {
+                // New format: "2026-04-08_23:00"
+                const [datePart, timePart] = regSlotTime.split('_');
+                return `${datePart}T${timePart}:00`;
+              }
+              // Legacy format: "23:00"
+              return `${regRegisteredAt.substring(0, 10)}T${regSlotTime}:00`;
+            })();
 
             // Skip future slots — no view data possible yet
             if (slotDatetime && new Date(slotDatetime).getTime() > Date.now()) continue;
@@ -167,9 +174,16 @@ export const ContactEventInfoButton: React.FC<ContactEventInfoButtonProps> = ({ 
         id: r.id,
         status: r.status,
         event_title: r.events?.title || '-',
-        event_date: (r.slot_time && r.registered_at)
-          ? `${r.registered_at.substring(0, 10)}T${r.slot_time}:00`
-          : r.registered_at || r.events?.start_time || '',
+        event_date: (() => {
+          if (r.slot_time && r.slot_time.includes('_')) {
+            const [datePart, timePart] = r.slot_time.split('_');
+            return `${datePart}T${timePart}:00`;
+          }
+          if (r.slot_time && r.registered_at) {
+            return `${r.registered_at.substring(0, 10)}T${r.slot_time}:00`;
+          }
+          return r.registered_at || r.events?.start_time || '';
+        })(),
         view_stats: viewsMap.get(r.id) || null,
       }));
       setRegistrations(mapped);
