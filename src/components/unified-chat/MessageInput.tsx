@@ -163,7 +163,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
                 <Paperclip className="h-5 w-5" />
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md z-[200]">
               <DialogHeader>
                 <DialogTitle>Załącz plik</DialogTitle>
               </DialogHeader>
