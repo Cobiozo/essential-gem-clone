@@ -149,9 +149,9 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       const { data: dismissedBanners } = await supabase
         .from('user_dismissed_banners')
         .select('banner_id')
-        .eq('user_id', user.id);
+        .eq('user_id', user.id as any);
 
-      const dismissedIds = dismissedBanners?.map(d => d.banner_id) || [];
+      const dismissedIds = (dismissedBanners as any[])?.map(d => d.banner_id) || [];
 
       // Filter banners based on display frequency and dismissal status
       // ADMIN display_frequency has ABSOLUTE PRIORITY
