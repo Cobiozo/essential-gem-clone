@@ -32,6 +32,8 @@ export const NotificationBell: React.FC = () => {
         return <MessageSquare className="w-4 h-4 text-blue-500" />;
       case 'training':
         return <BookOpen className="w-4 h-4 text-green-500" />;
+      case 'direct_message':
+        return <MessageSquare className="w-4 h-4 text-primary" />;
       default:
         return <Info className="w-4 h-4 text-muted-foreground" />;
     }

@@ -153,7 +153,7 @@ export const MessagesSidebar = ({
             <div className="mb-4">
               <div className="px-4 py-2">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Od Administratora
+                  Wiadomości prywatne
                 </span>
               </div>
               {adminConversations
@@ -163,7 +163,7 @@ export const MessagesSidebar = ({
                     conv={conv}
                     isSelected={selectedDirectUserId === conv.userId}
                     onClick={() => onAdminSelectUser(conv.userId)}
-                    statusLabel={conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : 'Administrator'}
+                    statusLabel={conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : '💬 Wiadomość prywatna'}
                     onDelete={onDeleteConversation}
                     onArchive={onArchiveConversation}
                     onBlock={onBlockUser}
