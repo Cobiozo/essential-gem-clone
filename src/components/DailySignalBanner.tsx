@@ -136,16 +136,18 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         }
 
         // 3. Check user preferences - but ADMIN display_frequency overrides local blocks
-        const { data: preferences } = await supabase
+        const { data: preferencesRaw } = await supabase
           .from('user_signal_preferences')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', user.id as any)
           .maybeSingle();
 
         if (!mounted) return;
 
+        const preferences = preferencesRaw as UserPreferences | null;
+
         // If user explicitly disabled signals, respect that (unless we want to override)
-        if (preferences && !(preferences as UserPreferences).show_daily_signal) {
+        if (preferences && !preferences.show_daily_signal) {
           onDismiss?.();
           return;
         }
@@ -159,8 +161,8 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
           // Session storage check is removed for every_login mode
         } else {
           // daily mode - check if 24 hours passed since last shown
-          if (preferences && (preferences as UserPreferences).last_signal_shown_at) {
-            const lastShown = new Date((preferences as UserPreferences).last_signal_shown_at!);
+          if (preferences && preferences.last_signal_shown_at) {
+            const lastShown = new Date(preferences.last_signal_shown_at!);
             const now = new Date();
             const hoursDiff = (now.getTime() - lastShown.getTime()) / (1000 * 60 * 60);
             
