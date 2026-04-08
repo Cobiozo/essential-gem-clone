@@ -1,48 +1,55 @@
 
 
-# Plan: Powiadomienia o wiadomosciach na ikonie czatu, nie w dzwoneczku
+# Plan: Dźwięki powiadomień — dzwonek i czat
 
 ## Problem
 
-Obecnie powiadomienia typu `direct_message` pojawiaja sie w dzwoneczku (NotificationBell). Powinny byc widoczne **wylacznie** na ikonie czatu (MessageSquare), ktora juz poprawnie wyswietla badge `totalUnread` z tabeli `role_chat_messages`.
+Gdy użytkownik ma otwartą kartę i jest zalogowany, nie otrzymuje żadnego sygnału dźwiękowego o nowych powiadomieniach ani wiadomościach czatu.
 
-## Wazne zalozenia
+## Rozwiązanie
 
-- Ikona czatu jest juz poprawnie wyswietlana dla uzytkownikow z dostepem — zarowno przez role (`chat_sidebar_visibility`), jak i przez indywidualny override admina (`chat_user_visibility`). Funkcja `isRoleVisibleForChat` sprawdza `_userOverride` w pierwszej kolejnosci.
-- Uzytkownicy bez dostepu do czatu nie otrzymuja wiadomosci, wiec nie potrzebuja ikony czatu.
-- Rekord `direct_message` w `user_notifications` nadal jest potrzebny do triggerowania emaili — usuwamy go tylko z **wyswietlania** w dzwoneczku.
+Dwa różne dźwięki:
+- **Dzwonek (bell)** — krótki dźwięk dla nowych powiadomień systemowych (dzwoneczek)
+- **Czat (chat)** — inny dźwięk dla nowych wiadomości prywatnych (ikona MessageSquare)
+
+Dźwięki będą odtwarzane tylko gdy karta jest aktywna LUB w tle — użytkownik usłyszy sygnał niezależnie od tego, czy patrzy na ekran.
 
 ## Zmiany
 
-### 1. `src/hooks/useNotifications.ts` — odfiltrowac `direct_message`
+### 1. Wygenerować pliki dźwiękowe
 
-Trzy miejsca:
+**Lokalizacja:** `public/sounds/notification.mp3` i `public/sounds/message.mp3`
 
-- **`fetchNotifications`** — dodac `.neq('notification_type', 'direct_message')` do zapytania
-- **`fetchUnreadCount`** — dodac ten sam filtr
-- **Realtime callback (INSERT)** — ignorowac powiadomienia z `notification_type === 'direct_message'`
+Wygenerować dwa krótkie dźwięki (< 1s) za pomocą Web Audio API w skrypcie buildowym lub użyć darmowych plików MP3. Notification — pojedynczy dzwonek, message — podwójny „pop".
 
-Dzieki temu dzwoneczek nie bedzie liczyc ani wyswietlac powiadomien o wiadomosciach czatu.
+### 2. Nowy hook `src/hooks/useNotificationSound.ts`
 
-### 2. `src/components/notifications/NotificationBell.tsx` — usunac case `direct_message`
+Hook zarządzający odtwarzaniem dźwięków:
+- Preładowuje oba pliki Audio przy montowaniu
+- Eksportuje `playNotificationSound()` i `playMessageSound()`
+- Respektuje ustawienie użytkownika (localStorage: `notification-sounds-enabled`, domyślnie `true`)
+- Zabezpieczenie przed spamem — minimum 2s odstęp między dźwiękami tego samego typu
 
-Usunac `case 'direct_message'` z `getNotificationIcon` — skoro te powiadomienia nie beda juz wyswietlane w dzwoneczku, case jest zbedny.
+### 3. Integracja w `src/hooks/useNotifications.ts`
 
-### 3. `src/components/dashboard/widgets/NotificationsWidget.tsx` — odfiltrowac `direct_message`
+W callbacku realtime (linia ~223, event INSERT) po dodaniu powiadomienia do stanu — wywołać `playNotificationSound()`.
 
-W widgecie na dashboardzie odfiltrowac powiadomienia typu `direct_message` z wyswietlanej listy.
+### 4. Integracja w `src/hooks/useUnifiedChat.ts`
 
-## Pliki do edycji
+W callbacku realtime (linia ~1050, event INSERT) gdy przychodzi nowa wiadomość od innego użytkownika (`record.sender_id !== user.id`) — wywołać `playMessageSound()`.
+
+### 5. Przełącznik w ustawieniach (opcjonalnie w menu użytkownika)
+
+Dodać prosty toggle w dropdownie użytkownika (DashboardTopbar) lub w panelu narzędziowym, pozwalający wyciszyć dźwięki powiadomień. Wartość zapisywana w `localStorage`.
+
+## Pliki do utworzenia/edycji
 
 | Plik | Zmiana |
 |------|--------|
-| `src/hooks/useNotifications.ts` | `.neq('notification_type', 'direct_message')` w fetch, unreadCount i realtime |
-| `src/components/notifications/NotificationBell.tsx` | Usunac case `direct_message` z getNotificationIcon |
-| `src/components/dashboard/widgets/NotificationsWidget.tsx` | Odfiltrowac `direct_message` z listy |
-
-## Co pozostaje bez zmian
-
-- Ikona czatu w topbarze — juz poprawnie pokazuje `totalUnread` i uwzglednia indywidualne uprawnienia uzytkownika (override admina)
-- Wstawianie rekordu `direct_message` do `user_notifications` — nadal potrzebne do emaili i deep-linkow
-- Tabela `chat_user_visibility` — indywidualne wlaczenie czatu przez admina dziala poprawnie i jest brane pod uwage przy renderowaniu ikony
+| `public/sounds/notification.mp3` | Nowy — dźwięk powiadomienia |
+| `public/sounds/message.mp3` | Nowy — dźwięk wiadomości czatu |
+| `src/hooks/useNotificationSound.ts` | Nowy — hook odtwarzania dźwięków |
+| `src/hooks/useNotifications.ts` | Wywołanie `playNotificationSound()` w realtime INSERT |
+| `src/hooks/useUnifiedChat.ts` | Wywołanie `playMessageSound()` w realtime INSERT |
+| `src/components/dashboard/DashboardTopbar.tsx` | Toggle wyciszenia dźwięków (ikona Volume2/VolumeX) |
 
