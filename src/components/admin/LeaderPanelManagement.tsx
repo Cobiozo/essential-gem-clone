@@ -12,7 +12,7 @@ import {
   Search, Loader2, Crown, CalendarDays, GraduationCap, Calculator,
   UserRound, TreePine, UserCheck, CalendarPlus, ClipboardList,
   BookOpenCheck, Library, Bell, Mail, Smartphone, Contact, UserCog,
-  Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe,
+  Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe, Radio,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
@@ -39,6 +39,7 @@ interface PartnerLeaderData {
   can_view_team_reports: boolean;
   can_manage_certificates: boolean;
   can_customize_landing_page: boolean;
+  can_manage_auto_webinar_access: boolean;
   permission_id?: string;
   has_influencer_calc: boolean;
   has_specialist_calc: boolean;
@@ -51,7 +52,8 @@ type LeaderPermField =
   | 'can_send_team_emails' | 'can_send_team_push' | 'can_view_team_contacts'
   | 'can_manage_team_contacts' | 'can_manage_daily_signal' | 'can_manage_important_info'
   | 'can_manage_team_reflinks' | 'can_view_team_reports' | 'can_manage_certificates'
-  | 'can_customize_landing_page';
+  | 'can_customize_landing_page'
+  | 'can_manage_auto_webinar_access';
 
 const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'individual_meetings_enabled', 'can_view_team_progress', 'can_view_org_tree',
@@ -60,7 +62,7 @@ const LEADER_PERM_FIELDS: LeaderPermField[] = [
   'can_send_team_emails', 'can_send_team_push', 'can_view_team_contacts',
   'can_manage_team_contacts', 'can_manage_daily_signal', 'can_manage_important_info',
   'can_manage_team_reflinks', 'can_view_team_reports', 'can_manage_certificates',
-  'can_customize_landing_page',
+  'can_customize_landing_page', 'can_manage_auto_webinar_access',
 ];
 
 interface ColumnDef {
@@ -90,6 +92,7 @@ const columns: ColumnDef[] = [
   { key: 'can_manage_important_info', label: 'Ważne info', description: 'Publikowanie ważnych informacji widocznych dla zespołu', icon: Info, type: 'leader', group: 'Treść' },
   { key: 'can_manage_team_reflinks', label: 'Reflinki', description: 'Zarządzanie linkami referencyjnymi członków zespołu', icon: Link, type: 'leader', group: 'Treść' },
   { key: 'can_customize_landing_page', label: 'Moja strona', description: 'Personalizacja strony landing page dla zespołu', icon: Globe, type: 'leader', group: 'Treść' },
+  { key: 'can_manage_auto_webinar_access', label: 'Auto-Webinar', description: 'Zarządzanie dostępem do auto-webinaru dla użytkowników w strukturze lidera', icon: Radio, type: 'leader', group: 'Wydarzenia' },
   { key: 'can_view_team_reports', label: 'Raporty', description: 'Przeglądanie raportów i statystyk zespołu', icon: BarChart3, type: 'leader', group: 'Raporty' },
   { key: 'can_manage_certificates', label: 'Certyfikaty', description: 'Zarządzanie certyfikatami członków zespołu', icon: Award, type: 'leader', group: 'Raporty' },
   { key: 'has_influencer_calc', label: 'Kalk. Influencer', description: 'Dostęp do kalkulatora influencerów', icon: Calculator, type: 'calc_influencer', group: 'Kalkulatory' },
@@ -167,6 +170,7 @@ export const LeaderPanelManagement: React.FC = () => {
           can_view_team_reports: perm?.can_view_team_reports || false,
           can_manage_certificates: perm?.can_manage_certificates || false,
           can_customize_landing_page: perm?.can_customize_landing_page || false,
+          can_manage_auto_webinar_access: perm?.can_manage_auto_webinar_access || false,
           permission_id: perm?.id,
           has_influencer_calc: calcAccess?.has_access || false,
           has_specialist_calc: specAccess?.has_access || false,
