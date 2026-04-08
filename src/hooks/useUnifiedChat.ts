@@ -1079,7 +1079,11 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
             fetchMessagesRef.current?.(selectedChannelIdRef.current);
           }
           fetchUnreadCountsRef.current?.();
-        }
+          
+          // Play message sound for incoming messages from others
+          if (payload.eventType === 'INSERT' && record.sender_id !== user.id) {
+            playMessageSound();
+          }
       )
       .subscribe();
 
