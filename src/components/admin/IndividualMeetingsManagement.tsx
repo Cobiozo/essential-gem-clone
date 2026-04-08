@@ -97,7 +97,7 @@ export const IndividualMeetingsManagement: React.FC = () => {
 
   const togglePermission = async (
     partner: PartnerWithPermissions,
-    field: 'tripartite_meeting_enabled' | 'partner_consultation_enabled' | 'can_broadcast' | 'can_view_team_progress',
+    field: 'tripartite_meeting_enabled' | 'partner_consultation_enabled' | 'can_broadcast' | 'can_view_team_progress' | 'can_manage_auto_webinar_access',
     value: boolean
   ) => {
     setSaving(partner.user_id);
