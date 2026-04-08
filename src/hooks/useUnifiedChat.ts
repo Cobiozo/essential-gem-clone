@@ -296,6 +296,21 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
 
       if (msgError) throw msgError;
 
+      // Auto-reset is_deleted for sender (so conversation reappears in their sidebar)
+      await supabase
+        .from('conversation_user_settings')
+        .update({ is_deleted: false, deleted_at: null } as any)
+        .eq('user_id', user.id)
+        .eq('other_user_id', recipientId);
+
+      // Auto-reset is_deleted for recipient (keep deleted_at as history marker)
+      await supabase
+        .from('conversation_user_settings')
+        .update({ is_deleted: false } as any)
+        .eq('user_id', recipientId)
+        .eq('other_user_id', user.id)
+        .eq('is_deleted', true);
+
       // Optimistic update - add message to local state immediately
       const optimisticMessage: UnifiedMessage = {
         id: `temp-${Date.now()}`,
