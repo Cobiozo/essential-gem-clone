@@ -134,11 +134,14 @@ export const AutoWebinarAccessManagement: React.FC = () => {
   const withAccess = filtered.filter(p => p.can_access_auto_webinar);
   const withoutAccess = filtered.filter(p => !p.can_access_auto_webinar);
 
-  const roleBadge = (role: string) => (
-    <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1">
-      {role === 'specjalista' ? 'Specjalista' : 'Partner'}
-    </Badge>
-  );
+  const roleBadge = (role: string) => {
+    const label = role === 'specjalista' ? 'Specjalista' : role === 'client' ? 'Klient' : 'Partner';
+    return (
+      <Badge variant="outline" className="text-[10px] px-1.5 py-0 ml-1">
+        {label}
+      </Badge>
+    );
+  };
 
   if (loading) {
     return (
