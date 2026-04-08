@@ -98,7 +98,7 @@ export const ConversationActions = ({
 
       {/* Block confirmation dialog */}
       <AlertDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
-        <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+        <AlertDialogContent className="z-[200]" onClick={(e) => e.stopPropagation()}>
           <AlertDialogHeader>
             <AlertDialogTitle>Zablokować {otherUserName}?</AlertDialogTitle>
             <AlertDialogDescription>
