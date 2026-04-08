@@ -325,6 +325,7 @@ interface ConversationListItemProps {
   onUnblock?: (userId: string) => void;
   isArchived?: boolean;
   isBlocked?: boolean;
+  unreadCount?: number;
 }
 
 const ConversationListItem = ({
@@ -338,6 +339,7 @@ const ConversationListItem = ({
   onUnblock,
   isArchived = false,
   isBlocked = false,
+  unreadCount = 0,
 }: ConversationListItemProps) => (
   <div
     className={cn(
