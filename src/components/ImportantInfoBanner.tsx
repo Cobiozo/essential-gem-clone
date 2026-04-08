@@ -110,7 +110,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
       const { data: banners, error } = await supabase
         .from('important_info_banners')
         .select('*')
-        .eq('is_active', true)
+        .eq('is_active', true as any)
         .order('priority', { ascending: false });
 
       if (error || !banners || banners.length === 0) {
@@ -120,7 +120,7 @@ export const ImportantInfoBanner: React.FC<ImportantInfoBannerProps> = ({
 
       // Filter by role visibility, scheduled date, and expiration date
       const now = new Date();
-      const visibleBanners = (banners as ImportantInfoBannerData[]).filter((b) => {
+      const visibleBanners = ((banners as any[]) as ImportantInfoBannerData[]).filter((b) => {
         // Check scheduled date - only show if scheduled_date is null or in the past
         if (b.scheduled_date && new Date(b.scheduled_date) > now) {
           return false;
