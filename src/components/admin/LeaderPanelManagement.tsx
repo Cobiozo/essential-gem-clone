@@ -12,7 +12,7 @@ import {
   Search, Loader2, Crown, CalendarDays, GraduationCap, Calculator,
   UserRound, TreePine, UserCheck, CalendarPlus, ClipboardList,
   BookOpenCheck, Library, Bell, Mail, Smartphone, Contact, UserCog,
-  Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe,
+  Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe, Radio,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
