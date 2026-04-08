@@ -24,6 +24,7 @@ export const useNotifications = (options?: UseNotificationsOptions) => {
   
   // Browser notifications hook
   const { showNotification, permission } = useBrowserNotifications();
+  const { playNotificationSound } = useNotificationSound();
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
