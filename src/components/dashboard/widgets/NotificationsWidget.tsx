@@ -23,6 +23,7 @@ export const NotificationsWidget: React.FC = () => {
       case 'upline_help': return HandHelping;
       case 'ai_compass': return MessageSquare;
       case 'training': return BookOpen;
+      case 'direct_message': return MessageSquare;
       default: return Info;
     }
   };

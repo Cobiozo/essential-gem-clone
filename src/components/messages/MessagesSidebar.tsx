@@ -163,7 +163,7 @@ export const MessagesSidebar = ({
                     conv={conv}
                     isSelected={selectedDirectUserId === conv.userId}
                     onClick={() => onAdminSelectUser(conv.userId)}
-                    statusLabel={conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : 'Administrator'}
+                    statusLabel={conv.conversationStatus === 'closed' ? '🔒 Konwersacja zamknięta' : '💬 Wiadomość prywatna'}
                     onDelete={onDeleteConversation}
                     onArchive={onArchiveConversation}
                     onBlock={onBlockUser}
