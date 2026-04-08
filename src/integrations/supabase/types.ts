@@ -9150,6 +9150,13 @@ export type Database = {
         Args: { p_reason?: string; p_target_user_id: string }
         Returns: boolean
       }
+      leader_get_team_auto_webinar_access: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          can_access_auto_webinar: boolean
+          user_id: string
+        }[]
+      }
       leader_reject_user: {
         Args: { rejection_reason?: string; target_user_id: string }
         Returns: boolean
