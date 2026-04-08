@@ -25,6 +25,7 @@ export interface LeaderPermissionsResult {
   hasTeamReports: boolean;
   hasCertificates: boolean;
   hasLandingPage: boolean;
+  hasAutoWebinarAccess: boolean;
   isAnyLeaderFeatureEnabled: boolean;
   leaderPermission: {
     individual_meetings_enabled?: boolean | null;
