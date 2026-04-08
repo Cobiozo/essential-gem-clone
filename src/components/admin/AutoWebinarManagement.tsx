@@ -713,6 +713,13 @@ export const AutoWebinarManagement: React.FC<AutoWebinarManagementProps> = ({ ca
   }
 
   return (
+    <Tabs defaultValue="settings" className="space-y-4">
+      <TabsList>
+        <TabsTrigger value="settings">⚙️ Ustawienia</TabsTrigger>
+        <TabsTrigger value="partner-stats">📊 Statystyki partnerów</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="settings">
     <div className="space-y-6">
       {/* Config section */}
       <Card>
