@@ -24,6 +24,7 @@ import { LanguageSelector } from '@/components/LanguageSelector';
 import { ThemeSelector } from '@/components/ThemeSelector';
 import { CacheManagementDialog } from './CacheManagementDialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUnifiedChat } from '@/hooks/useUnifiedChat';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardPreference } from '@/hooks/useDashboardPreference';
 import { useChatSidebar } from '@/contexts/ChatSidebarContext';

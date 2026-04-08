@@ -454,12 +454,6 @@ export const DashboardSidebar: React.FC = () => {
     },
     { id: 'paid-events', icon: Ticket, labelKey: 'dashboard.menu.paidEvents', path: '/paid-events' },
     { 
-      id: 'chat', 
-      icon: MessageSquare, 
-      labelKey: 'dashboard.menu.chat', 
-      path: '/messages',
-    },
-    { 
       id: 'reflinks', 
       icon: Link2, 
       labelKey: 'dashboard.pureLinki', 
