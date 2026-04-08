@@ -1,54 +1,51 @@
 
 
-# Plan: Blokada odpowiedzi po zamknięciu konwersacji przez admina (realtime)
+# Plan: Admin zawsze może pisać do każdego użytkownika
 
 ## Problem
 
-Gdy admin zamyka konwersację, użytkownik B nadal widzi pole do pisania — `currentConvStatus` aktualizuje się **tylko** przy zmianie `selectedDirectUserId`, nie reaguje na realtime zmiany w `admin_conversations`. Użytkownik B musi odświeżyć stronę, żeby zobaczyć blokadę.
+Gdy admin wybiera użytkownika (np. Jan Koterski), hook `useRecipientChatAccess` sprawdza czy ten użytkownik ma włączony czat. Jeśli czat jest wyłączony globalnie dla jego roli — hook zwraca `hasAccess: false` → UI blokuje pole wiadomości **zanim** admin zdąży cokolwiek napisać.
+
+Rekord `admin_conversations` (który bypassuje tę blokadę) jest tworzony dopiero przy wysyłaniu wiadomości — problem jajka i kury.
 
 ## Rozwiązanie
 
-Dodać `adminConversations` do dependency useEffect, który pobiera `currentConvStatus`. Dzięki temu, gdy realtime subscription zaktualizuje listę konwersacji (np. admin zamknął rozmowę), status zostanie natychmiast odświeżony i pole wysyłania zniknie.
+Admin powinien **zawsze** móc pisać do każdego użytkownika. Wystarczy wyłączyć `recipientChatDisabled` gdy zalogowany użytkownik jest adminem.
 
 ## Zmiany
 
-### 1. `src/pages/MessagesPage.tsx` — linia ~97
+### 1. `src/components/chat-sidebar/ChatPanelContent.tsx`
 
-Dodać `adminConversations` do tablicy zależności:
+Zmienić linię z `recipientChatDisabled`:
 
 ```typescript
-useEffect(() => {
-  if (selectedDirectUserId) {
-    getConversationStatus(selectedDirectUserId).then(setCurrentConvStatus);
-  } else {
-    setCurrentConvStatus(null);
-  }
-}, [selectedDirectUserId, getConversationStatus, adminConversations]);
+// Było:
+recipientChatDisabled={selectedDirectUserId ? !recipientHasAccess : false}
+
+// Będzie:
+recipientChatDisabled={selectedDirectUserId && !isAdmin ? !recipientHasAccess : false}
 ```
 
-### 2. `src/components/chat-sidebar/ChatPanelContent.tsx` — linia ~45
+### 2. `src/pages/MessagesPage.tsx`
 
-Ta sama zmiana — dodać `adminConversations` do zależności:
+Ta sama zmiana:
 
 ```typescript
-useEffect(() => {
-  if (selectedDirectUserId) {
-    getConversationStatus(selectedDirectUserId).then(setCurrentConvStatus);
-  } else {
-    setCurrentConvStatus(null);
-  }
-}, [selectedDirectUserId, getConversationStatus, adminConversations]);
+// Było:
+recipientChatDisabled={selectedDirectUserId ? !recipientHasAccess : false}
+
+// Będzie:
+recipientChatDisabled={selectedDirectUserId && !isAdmin ? !recipientHasAccess : false}
 ```
 
 ## Efekt
 
-- Admin zamyka konwersację → realtime aktualizuje `adminConversations` u użytkownika B → useEffect odpala ponownie → `currentConvStatus` zmienia się na `'closed'` → pole wiadomości zmienia się na `🔒 Konwersacja została zamknięta przez administratora`
-- Gdy admin ponownie otworzy konwersację → status zmieni się na `'open'` → pole do pisania wróci
-
-## Pliki do edycji
+- Admin może pisać do dowolnego użytkownika niezależnie od ustawień widoczności czatu
+- Zwykli użytkownicy nadal podlegają sprawdzeniu `recipientChatAccess`
+- Brak zmian w logice backendu — RLS i `checkRecipientChatAccess` w `sendDirectMessage` i tak bypassują dla aktywnych konwersacji admin
 
 | Plik | Zmiana |
 |------|--------|
-| `src/pages/MessagesPage.tsx` | Dodać `adminConversations` do useEffect dependency |
-| `src/components/chat-sidebar/ChatPanelContent.tsx` | Dodać `adminConversations` do useEffect dependency |
+| `src/components/chat-sidebar/ChatPanelContent.tsx` | `!isAdmin` guard na `recipientChatDisabled` |
+| `src/pages/MessagesPage.tsx` | `!isAdmin` guard na `recipientChatDisabled` |
 
