@@ -402,6 +402,30 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
     }
   }, [user, profile, currentRole]);
 
+  // Mark all DM messages from a specific user as read
+  const markDirectAsRead = useCallback(async (otherUserId: string) => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('role_chat_messages')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('recipient_id', user.id)
+        .eq('sender_id', otherUserId)
+        .eq('is_read', false);
+
+      if (error) throw error;
+
+      // Update local unread counts
+      setUnreadCounts(prev => {
+        const next = new Map(prev);
+        next.set(`dm-${otherUserId}`, 0);
+        return next;
+      });
+    } catch (error) {
+      console.error('Error marking direct messages as read:', error);
+    }
+  }, [user]);
+
   // Select direct message user (works for any user, not just team members)
   const selectDirectMember = useCallback(async (userId: string) => {
     setSelectedChannelId(null);
@@ -439,8 +463,9 @@ export const useUnifiedChat = (options?: UseUnifiedChatOptions) => {
       setAdhocDirectMember(null);
     }
     
-    fetchDirectMessages(userId);
-  }, [fetchDirectMessages, teamMembers, upline]);
+    await fetchDirectMessages(userId);
+    markDirectAsRead(userId);
+  }, [fetchDirectMessages, markDirectAsRead, teamMembers, upline]);
 
   // Generate virtual channels based on user role
   const channels = useMemo((): UnifiedChannel[] => {
