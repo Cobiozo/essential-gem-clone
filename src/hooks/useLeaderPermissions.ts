@@ -129,6 +129,7 @@ export function useLeaderPermissions(): LeaderPermissionsResult {
       const hasTeamReports = leaderPerm?.can_view_team_reports === true;
       const hasCertificates = leaderPerm?.can_manage_certificates === true;
       const hasLandingPage = leaderPerm?.can_customize_landing_page === true;
+      const hasAutoWebinarAccess = (leaderPerm as any)?.can_manage_auto_webinar_access === true;
 
       return {
         leaderPermission: leaderPerm,
