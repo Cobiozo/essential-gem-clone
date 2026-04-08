@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ROLE_LABELS, ROLE_HIERARCHY } from '@/types/roleChat';
 import { toast } from 'sonner';
+import { checkRecipientChatAccess } from '@/hooks/useRecipientChatAccess';
 
 export interface UnifiedChannel {
   id: string;
