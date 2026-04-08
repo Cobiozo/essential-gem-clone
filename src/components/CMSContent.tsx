@@ -1494,8 +1494,9 @@ export const CMSContent: React.FC<CMSContentProps> = ({ item, onClick, isEditMod
             .select('source_url')
             .eq('id', cellData.resource_id)
             .single();
-          if (data?.source_url) {
-            targetUrl = data.source_url;
+          const resourceData = data as any;
+          if (resourceData?.source_url) {
+            targetUrl = resourceData.source_url;
           }
         }
         

@@ -180,8 +180,8 @@ export const DailySignalBanner: React.FC<DailySignalBannerProps> = ({ onDismiss 
         let { data: todaySignal } = await supabase
           .from('daily_signals')
           .select('*')
-          .eq('scheduled_date', today)
-          .eq('is_approved', true)
+          .eq('scheduled_date', today as any)
+          .eq('is_approved', true as any)
           .limit(1)
           .maybeSingle();
 
