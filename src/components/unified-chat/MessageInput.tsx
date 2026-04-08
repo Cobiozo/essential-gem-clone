@@ -163,7 +163,7 @@ export const MessageInput = ({ onSend, disabled }: MessageInputProps) => {
                 <Paperclip className="h-5 w-5" />
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md !z-[200]" style={{ zIndex: 200 }}>
+            <DialogContent className="sm:max-w-md z-[200]" overlayClassName="z-[200]">
               <DialogHeader>
                 <DialogTitle>Załącz plik</DialogTitle>
               </DialogHeader>
