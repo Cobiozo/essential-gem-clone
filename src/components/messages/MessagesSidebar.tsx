@@ -209,6 +209,7 @@ export const MessagesSidebar = ({
               onToggleSelection={onToggleSelection}
               onCreateGroupChat={onCreateGroupChat}
               canCreateGroups={canCreateGroups}
+              unreadCounts={unreadCounts}
             />
           )}
 
