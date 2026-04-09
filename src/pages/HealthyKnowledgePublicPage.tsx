@@ -4,8 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { PhoneInputWithPrefix } from '@/components/ui/phone-input-prefix';
 import { toast } from 'sonner';
-import { Heart, Lock, Clock, ArrowLeft, Loader2, CheckCircle2, Play, FileText, Image, Music, Type } from 'lucide-react';
+import { Heart, Lock, Clock, ArrowLeft, Loader2, CheckCircle2, Play, FileText, Image, Music, Type, User, Mail, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { SecureMedia } from '@/components/SecureMedia';
@@ -71,6 +74,11 @@ const HealthyKnowledgePublicPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   
   const [otpRaw, setOtpRaw] = useState(''); // raw 6 chars, no hyphens
+  const [guestFirstName, setGuestFirstName] = useState('');
+  const [guestLastName, setGuestLastName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [emailConsent, setEmailConsent] = useState(false);
 
   const cleanCode = (input: string): string => {
     // Strip ZW- prefix and hyphens, keep only alphanumeric, uppercase
