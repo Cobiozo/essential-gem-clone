@@ -412,7 +412,7 @@ export const LeaderPanelManagement: React.FC = () => {
                   ))}
                 </div>
 
-                <ScrollArea className="max-h-[600px]">
+                <div className="overflow-y-auto max-h-[calc(100vh-320px)]">
                   {withPerms.length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground text-sm">
                       {selectedPermFilter ? 'Brak liderów z tym uprawnieniem' : 'Brak aktywnych liderów'}
