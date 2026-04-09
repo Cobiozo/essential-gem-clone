@@ -224,6 +224,12 @@ function buildFallbackBody(
           <p><strong>Data:</strong> ${formattedDate}</p>
           <p><strong>Godzina:</strong> ${formattedTime}</p>
           <p><strong>Prowadzący:</strong> ${event.host_name || 'Zespół Pure Life'}</p>
+          ${event.category === 'team_training' ? `
+            <div style="background:#e0f2fe;border-radius:8px;padding:16px;margin:16px 0;border-left:4px solid #0284c7;">
+              <p style="margin:0;font-weight:bold;color:#0369a1;">🔐 Wejście na to spotkanie odbywa się przez Twoje konto na Platformie Pure Life Center</p>
+              <p style="margin:8px 0 0;"><a href="https://purelife.lovable.app/events" style="color:#0284c7;font-weight:bold;">Przejdź do Platformy →</a></p>
+            </div>
+          ` : ''}
           ${includeLink && zoomLink ? `
             <p style="margin-top:20px;"><strong>🔗 Link do dołączenia:</strong></p>
             <a href="${zoomLink}" class="join-button">Dołącz do webinaru</a>
@@ -440,7 +446,7 @@ serve(async (req) => {
     // ==========================================
     const { data: userRegs, error: userRegsError } = await supabase
       .from("event_registrations")
-      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time, created_at")
+      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time, registered_at")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
@@ -478,7 +484,7 @@ serve(async (req) => {
       const registrationWindowMs = 8 * 24 * 60 * 60 * 1000; // 8 days
       const cutoffDate = new Date(termDatetime.getTime() - registrationWindowMs);
       const beforeCount = relevantUserRegs.length;
-      relevantUserRegs = relevantUserRegs.filter((r: any) => new Date(r.created_at) >= cutoffDate);
+      relevantUserRegs = relevantUserRegs.filter((r: any) => new Date(r.registered_at) >= cutoffDate);
       if (beforeCount !== relevantUserRegs.length) {
         console.log(`[bulk-reminders] Single-occurrence stale user reg filter: ${beforeCount} → ${relevantUserRegs.length} (removed ${beforeCount - relevantUserRegs.length} old registrations)`);
       }
@@ -627,6 +633,8 @@ serve(async (req) => {
             'event_time': formattedTime,
             'host_name': event.host_name || 'Zespół Pure Life',
             'zoom_link': config.includeLink ? zoomLink : '',
+            'platform_link': event.category === 'team_training' ? 'https://purelife.lovable.app/events' : '',
+            'is_team_training': event.category === 'team_training' ? 'true' : 'false',
           };
 
           let finalSubject: string;
