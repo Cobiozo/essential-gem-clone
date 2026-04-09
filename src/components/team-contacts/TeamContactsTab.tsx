@@ -141,7 +141,25 @@ export const TeamContactsTab: React.FC = () => {
     fetchPendingApprovals();
   }, [profile?.eq_id]);
 
-  // Update filters when tab changes
+  // Fetch HK material sessions for partner
+  const fetchHkSessions = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setHkSessionsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_partner_hk_sessions', { p_partner_id: user.id });
+      if (error) throw error;
+      setHkSessions((data as unknown as HKSessionContact[]) || []);
+    } catch (error) {
+      console.error('Error fetching HK sessions:', error);
+    } finally {
+      setHkSessionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHkSessions();
+  }, []);
   useEffect(() => {
     if (activeTab === 'private') {
       setFilters(prev => ({ ...prev, contactType: 'private' }));
