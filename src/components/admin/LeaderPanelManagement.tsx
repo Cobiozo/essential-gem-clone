@@ -456,7 +456,7 @@ export const LeaderPanelManagement: React.FC = () => {
                       })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </div>
 
               {/* Right column: Without permissions */}
