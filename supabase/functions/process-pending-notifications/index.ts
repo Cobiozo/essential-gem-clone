@@ -304,7 +304,7 @@ serve(async (req) => {
       console.log("[CRON] No users without welcome email found");
     }
 
-    // 4. Process training assignments without notification
+    // 4. Process training assignments without notification — GROUPED by user
     console.log("[CRON] Finding training assignments without notification...");
     const { data: trainingsWithoutNotification, error: trainingError } = await supabase
       .rpc("get_training_assignments_without_notification");
@@ -314,7 +314,17 @@ serve(async (req) => {
     } else if (trainingsWithoutNotification && trainingsWithoutNotification.length > 0) {
       console.log(`[CRON] Found ${trainingsWithoutNotification.length} training assignments without notification`);
       
+      // Group assignments by user_id to send ONE grouped email per user
+      const byUser = new Map<string, TrainingAssignment[]>();
       for (const assignment of trainingsWithoutNotification as TrainingAssignment[]) {
+        const existing = byUser.get(assignment.user_id) || [];
+        existing.push(assignment);
+        byUser.set(assignment.user_id, existing);
+      }
+      
+      console.log(`[CRON] Grouped into ${byUser.size} users for grouped training notification`);
+      
+      for (const [userId, assignments] of byUser) {
         // Check timeout before processing
         if (isTimeoutApproaching()) {
           console.log("[CRON] Approaching timeout limit, stopping training notifications");
@@ -327,51 +337,61 @@ serve(async (req) => {
           await delay(200);
         }
         
-        results.trainingNotifications.processed++;
+        results.trainingNotifications.processed += assignments.length;
         try {
-          // Call send-training-notification function
-          const { error: sendError } = await supabase.functions.invoke("send-training-notification", {
+          // Build modules list for grouped email
+          const modules = assignments.map(a => ({
+            moduleId: a.module_id,
+            moduleTitle: a.module_title,
+            progressPercent: 0,
+            daysInactive: 0,
+            assignmentId: a.assignment_id,
+          }));
+          
+          // Call send-training-reminder-grouped (sends ONE email with all modules)
+          const { error: sendError } = await supabase.functions.invoke("send-training-reminder-grouped", {
             body: {
-              userId: assignment.user_id,
-              moduleId: assignment.module_id,
-              email: assignment.user_email,
-              firstName: assignment.user_first_name,
-              moduleTitle: assignment.module_title
+              userId,
+              modules,
             }
           });
           
           if (sendError) {
-            console.error(`[CRON] Failed to send training notification to ${assignment.user_email}:`, sendError);
-            results.trainingNotifications.failed++;
+            console.error(`[CRON] Failed to send grouped training notification to user ${userId}:`, sendError);
+            results.trainingNotifications.failed += assignments.length;
           } else {
-            console.log(`[CRON] Sent training notification to ${assignment.user_email} for module: ${assignment.module_title}`);
-            results.trainingNotifications.success++;
+            console.log(`[CRON] Sent grouped training notification to user ${userId} for ${assignments.length} modules`);
+            results.trainingNotifications.success += assignments.length;
             
-            // Send Push notification (best effort)
+            // Send ONE Push notification (best effort)
             try {
+              const moduleNames = assignments.map(a => a.module_title).slice(0, 3).join(', ');
+              const suffix = assignments.length > 3 ? ` i ${assignments.length - 3} więcej` : '';
               await supabase.functions.invoke("send-push-notification", {
                 body: {
-                  userId: assignment.user_id,
-                  title: "Nowe szkolenie",
-                  body: `Przypisano Ci moduł: ${assignment.module_title}`,
+                  userId,
+                  title: "Nowe szkolenia",
+                  body: `Przypisano Ci moduły: ${moduleNames}${suffix}`,
                   url: "/training",
-                  tag: `training-new-${assignment.module_id}`
+                  tag: `training-new-grouped-${Date.now()}`
                 }
               });
-              console.log(`[CRON] Push sent for training assignment to ${assignment.user_email}`);
+              console.log(`[CRON] Push sent for grouped training assignment to user ${userId}`);
             } catch (pushErr) {
-              console.warn(`[CRON] Push failed for training assignment (non-blocking):`, pushErr);
+              console.warn(`[CRON] Push failed for grouped training assignment (non-blocking):`, pushErr);
             }
             
-            // Mark as notified
-            await supabase
-              .from("training_assignments")
-              .update({ notification_sent: true })
-              .eq("id", assignment.assignment_id);
+            // Mark ALL assignments as notified
+            for (const a of assignments) {
+              await supabase
+                .from("training_assignments")
+                .update({ notification_sent: true })
+                .eq("id", a.assignment_id);
+            }
           }
         } catch (err) {
-          console.error(`[CRON] Exception sending training notification:`, err);
-          results.trainingNotifications.failed++;
+          console.error(`[CRON] Exception sending grouped training notification:`, err);
+          results.trainingNotifications.failed += assignments.length;
         }
       }
     } else {
