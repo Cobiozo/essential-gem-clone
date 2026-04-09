@@ -1,58 +1,46 @@
 
 
-# Edytor zawartości PureBox w panelu admina
+# Formularz danych gościa na stronie Zdrowa Wiedza (OTP)
 
 ## Problem
-Cała zawartość PureBox (pytania oceny umiejętności, opisy, progi Omega, kamienie milowe) jest zahardkodowana w plikach TypeScript. Admin nie ma możliwości edycji treści bez zmiany kodu.
+Obecnie strona OTP Zdrowej Wiedzy wymaga tylko kodu dostępu. Brak zbierania danych kontaktowych gościa (imię, nazwisko, email, telefon) i klauzuli informacyjnej.
 
 ## Rozwiązanie
 
-Stworzyć tabelę `purebox_content` przechowującą edytowalne treści, edytor w panelu admina (nowa zakładka w `PureBoxManagement`) i hooka do pobierania treści z fallbackiem na hardkodowane wartości.
+### 1. Migracja SQL — dodanie kolumn do `hk_otp_sessions`
 
-### 1. Migracja SQL — tabela `purebox_content`
+Dodać kolumny przechowujące dane gościa przy walidacji OTP:
+- `guest_first_name` (text)
+- `guest_last_name` (text)
+- `guest_email` (text)
+- `guest_phone` (text)
+- `email_consent` (boolean, default false)
 
-```
-purebox_content
-├── id (uuid PK)
-├── content_key (text UNIQUE) — np. "assessment_steps", "omega_thresholds", "omega_milestones"
-├── content_data (jsonb) — pełna struktura danych (pytania, progi, opisy)
-├── updated_at (timestamptz)
-├── updated_by (uuid → auth.users)
-```
+### 2. Frontend — `HealthyKnowledgePublicPage.tsx`
 
-RLS: SELECT dla authenticated, UPDATE/INSERT tylko admin.
+Rozbudować formularz OTP o pola:
+- Imię (wymagane, min 2 znaki)
+- Nazwisko (wymagane, min 2 znaki)
+- Email (wymagane, walidacja formatu)
+- Numer telefonu (wymagane, z komponentem `PhoneInputWithPrefix` — jak w rejestracji na wydarzenie)
+- Checkbox zgody na przetwarzanie danych (wymagany) — tekst analogiczny do `emailConsent` z `invitationTemplates.ts` (PL)
+- Klauzula informacyjna pod przyciskiem (tekst analogiczny do `consent` z `invitationTemplates.ts`)
 
-### 2. Edytor w panelu admina — rozszerzenie `PureBoxManagement`
+Dane gościa przekazywane do `validate-hk-otp` w body requestu.
 
-Dodać zakładki (Tabs) w `PureBoxManagement`:
-- **Widoczność** (obecna zawartość)
-- **Ocena Umiejętności** — edycja 12 kroków: tytuł, opis, 4 zakresy (label, description, color)
-- **Dziennik Omega** — edycja progów (ratio/index), kamieni milowych, etykiet
+### 3. Edge Function — `validate-hk-otp/index.ts`
 
-Każda zakładka z formularzem edycji i przyciskiem Zapisz. Podgląd live zmian.
+Odebrać nowe pola z body (`guest_first_name`, `guest_last_name`, `guest_email`, `guest_phone`) i zapisać je w `hk_otp_sessions` przy tworzeniu sesji.
 
-### 3. Hook `usePureBoxContent`
+### 4. Panel admina — widoczność danych gościa
 
-Nowy hook pobierający dane z `purebox_content` z fallbackiem na `ASSESSMENT_STEPS` / `OmegaThresholds`:
-- Jeśli rekord w bazie istnieje → użyj go
-- Jeśli nie → użyj zahardkodowanych defaults
-
-### 4. Aktualizacja komponentów
-
-Komponenty `AssessmentStep`, `AssessmentSummary`, `SkillsRadarChart` i komponenty omega odczytują dane z hooka zamiast z importu statycznego.
+Upewnić się, że dane gościa z sesji OTP są widoczne w panelu zarządzania kodami OTP Zdrowej Wiedzy (jeśli istnieje taki widok).
 
 ## Pliki do zmiany/utworzenia
 
 | Plik | Zmiana |
 |------|--------|
-| Migracja SQL | Nowa tabela `purebox_content` + RLS |
-| `src/hooks/usePureBoxContent.ts` | Nowy hook (fetch + fallback) |
-| `src/components/admin/PureBoxManagement.tsx` | Dodanie zakładek z edytorami treści |
-| `src/components/admin/purebox/AssessmentContentEditor.tsx` | Nowy — edytor pytań oceny |
-| `src/components/admin/purebox/OmegaContentEditor.tsx` | Nowy — edytor progów/kamieni |
-| `src/pages/SkillsAssessment.tsx` | Użycie hooka zamiast statycznego importu |
-| `src/components/skills-assessment/AssessmentStep.tsx` | Props z hooka |
-| `src/components/skills-assessment/AssessmentSummary.tsx` | Props z hooka |
-| `src/pages/OmegaTests.tsx` | Użycie hooka dla progów |
-| `src/components/omega-tests/VitalityProgress.tsx` | Dane z hooka |
+| Migracja SQL | 4 kolumny + consent w `hk_otp_sessions` |
+| `src/pages/HealthyKnowledgePublicPage.tsx` | Formularz z danymi gościa + klauzula |
+| `supabase/functions/validate-hk-otp/index.ts` | Zapis danych gościa w sesji |
 
