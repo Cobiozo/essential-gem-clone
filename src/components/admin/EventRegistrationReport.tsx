@@ -206,7 +206,7 @@ export const EventRegistrationReport: React.FC<EventRegistrationReportProps> = (
         r.profiles.last_name || '',
         r.profiles.email,
         ROLE_LABELS[r.profiles.role] || r.profiles.role,
-        r.status === 'registered' ? 'Aktywny' : 'Anulowany',
+        r.status === 'registered' ? 'Aktywny' : r.status === 'completed' ? 'Zakończony' : 'Anulowany',
         format(parseISO(r.registered_at), 'dd.MM.yyyy HH:mm'),
       ]),
     ];

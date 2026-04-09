@@ -336,9 +336,10 @@ export const EventRegistrationsManagement: React.FC = () => {
   // Calculate statistics for unique users (not rows — one user with 5 occurrences = 1 person)
   const userStats = useMemo(() => {
     const uniqueUsers = new Set(registrations.map(r => r.user_id));
-    const activeUsers = new Set(registrations.filter(r => r.status === 'registered').map(r => r.user_id));
+    const activeUsers = new Set(registrations.filter(r => r.status === 'registered' || r.status === 'completed').map(r => r.user_id));
     const cancelledUsers = new Set(registrations.filter(r => r.status === 'cancelled').map(r => r.user_id));
-    return { total: uniqueUsers.size, active: activeUsers.size, cancelled: cancelledUsers.size };
+    const completedUsers = new Set(registrations.filter(r => r.status === 'completed').map(r => r.user_id));
+    return { total: uniqueUsers.size, active: activeUsers.size, cancelled: cancelledUsers.size, completed: completedUsers.size };
   }, [registrations]);
 
   // Calculate statistics for guests
@@ -370,7 +371,7 @@ export const EventRegistrationsManagement: React.FC = () => {
         ...sorted[0],
         allRegistrations: sorted,
         occurrenceCount: regs.length,
-        activeCount: regs.filter(r => r.status === 'registered').length,
+        activeCount: regs.filter(r => r.status === 'registered' || r.status === 'completed').length,
       };
     });
   }, [filteredRegistrations]);
@@ -415,7 +416,7 @@ export const EventRegistrationsManagement: React.FC = () => {
       r.profiles.last_name || '',
       r.profiles.email,
       getRoleLabel(r.profiles.role),
-      r.status === 'registered' ? 'Zapisany' : 'Anulowany',
+      r.status === 'registered' ? 'Zapisany' : r.status === 'completed' ? 'Zakończony' : 'Anulowany',
       format(new Date(r.registered_at), 'dd.MM.yyyy HH:mm', { locale: pl }),
       getOccurrenceDate(r.events.occurrences, r.occurrence_index, r.events.start_time),
     ]);
@@ -568,6 +569,8 @@ export const EventRegistrationsManagement: React.FC = () => {
         return <Badge variant="secondary"><XCircle className="h-3 w-3 mr-1" />Anulowany</Badge>;
       case 'attended':
         return <Badge className="bg-blue-500"><Users className="h-3 w-3 mr-1" />Uczestniczył</Badge>;
+      case 'completed':
+        return <Badge className="bg-slate-500"><CheckCircle className="h-3 w-3 mr-1" />Zakończony</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -575,7 +578,7 @@ export const EventRegistrationsManagement: React.FC = () => {
 
   // Build recipient lists for the follow-up
   const followUpRecipientLists = useMemo(() => {
-    const activeUserEmails = new Set(registrations.filter(r => r.status === 'registered').map(r => r.profiles.email));
+    const activeUserEmails = new Set(registrations.filter(r => r.status === 'registered' || r.status === 'completed').map(r => r.profiles.email));
     const activeGuestEmails = guestRegistrations
       .filter(r => r.status === 'registered' || r.status === 'attended')
       .map(r => r.email);
@@ -585,7 +588,7 @@ export const EventRegistrationsManagement: React.FC = () => {
     const singleOptions: { value: string; label: string; type: 'user' | 'guest'; email: string; firstName: string }[] = [];
     const seenEmails = new Set<string>();
 
-    registrations.filter(r => r.status === 'registered').forEach(r => {
+    registrations.filter(r => r.status === 'registered' || r.status === 'completed').forEach(r => {
       const email = r.profiles.email?.toLowerCase();
       if (email && !seenEmails.has(email)) {
         seenEmails.add(email);
@@ -599,7 +602,7 @@ export const EventRegistrationsManagement: React.FC = () => {
       }
     });
 
-    guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended').forEach(r => {
+    guestRegistrations.filter(r => r.status === 'registered' || r.status === 'attended' || r.status === 'completed').forEach(r => {
       const email = r.email?.toLowerCase();
       if (email && !seenEmails.has(email)) {
         seenEmails.add(email);
@@ -1198,6 +1201,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="all">Wszystkie</SelectItem>
                   <SelectItem value="registered">Zapisani</SelectItem>
+                  <SelectItem value="completed">Zakończeni</SelectItem>
                   <SelectItem value="cancelled">Anulowani</SelectItem>
                 </SelectContent>
               </Select>
@@ -1369,10 +1373,15 @@ export const EventRegistrationsManagement: React.FC = () => {
                                   </Badge>
                                 </TableCell>
                                 <TableCell>
-                                  {registration.activeCount > 0 ? (
+                                  {registration.allRegistrations.some(r => r.status === 'registered') ? (
                                     <Badge variant="default" className="bg-green-500/10 text-green-600 border-green-500/20">
                                       <CheckCircle className="h-3 w-3 mr-1" />
                                       Zapisany
+                                    </Badge>
+                                  ) : registration.allRegistrations.some(r => r.status === 'completed') ? (
+                                    <Badge variant="default" className="bg-slate-500/10 text-slate-600 border-slate-500/20">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Zakończony
                                     </Badge>
                                   ) : (
                                     <Badge variant="destructive" className="bg-red-500/10 text-red-600 border-red-500/20">
@@ -1442,6 +1451,8 @@ export const EventRegistrationsManagement: React.FC = () => {
                                   <TableCell>
                                     {subReg.status === 'registered' ? (
                                       <Badge variant="outline" className="text-xs text-green-600">aktywna</Badge>
+                                    ) : subReg.status === 'completed' ? (
+                                      <Badge variant="outline" className="text-xs text-slate-600">zakończona</Badge>
                                     ) : (
                                       <Badge variant="outline" className="text-xs text-red-500">anulowana</Badge>
                                     )}
@@ -1554,6 +1565,7 @@ export const EventRegistrationsManagement: React.FC = () => {
                                 </SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="registered">Zarejestrowany</SelectItem>
+                                  <SelectItem value="completed">Zakończony</SelectItem>
                                   <SelectItem value="cancelled">Anulowany</SelectItem>
                                   <SelectItem value="attended">Uczestniczył</SelectItem>
                                 </SelectContent>
