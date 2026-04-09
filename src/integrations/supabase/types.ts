@@ -3437,7 +3437,12 @@ export type Database = {
         Row: {
           created_at: string | null
           device_fingerprint: string | null
+          email_consent: boolean
           expires_at: string
+          guest_email: string | null
+          guest_first_name: string | null
+          guest_last_name: string | null
+          guest_phone: string | null
           id: string
           last_activity_at: string | null
           otp_code_id: string
@@ -3446,7 +3451,12 @@ export type Database = {
         Insert: {
           created_at?: string | null
           device_fingerprint?: string | null
+          email_consent?: boolean
           expires_at: string
+          guest_email?: string | null
+          guest_first_name?: string | null
+          guest_last_name?: string | null
+          guest_phone?: string | null
           id?: string
           last_activity_at?: string | null
           otp_code_id: string
@@ -3455,7 +3465,12 @@ export type Database = {
         Update: {
           created_at?: string | null
           device_fingerprint?: string | null
+          email_consent?: boolean
           expires_at?: string
+          guest_email?: string | null
+          guest_first_name?: string | null
+          guest_last_name?: string | null
+          guest_phone?: string | null
           id?: string
           last_activity_at?: string | null
           otp_code_id?: string
