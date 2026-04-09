@@ -1,66 +1,31 @@
 
 
-# Redesign: Panel Lidera — zarządzanie uprawnieniami
+# Fix: Kompaktowy widok uprawnień liderów
 
-## Problem
+## Problemy
+1. Żółte badge'e uprawnień widoczne przed rozwinięciem — zaśmiecają widok
+2. Brak możliwości przewijania (ScrollArea z `max-h-[600px]` nie działa poprawnie)
+3. Za mało kompaktowy layout
 
-Obecny widok to płaska lista **wszystkich partnerów** (nawet tych bez żadnych uprawnień), każdy z badge "0/22". Admin musi klikać w każdego, żeby sprawdzić co ma włączone. Brak podziału na aktywnych liderów vs. resztę. Brak szybkiego przeglądu "kto ma co".
+## Zmiany w `src/components/admin/LeaderPanelManagement.tsx`
 
-## Proponowane rozwiązanie
+### 1. Ukryć badge'e uprawnień — przenieść do CollapsibleContent
+- Usunąć blok `px-4 pb-2 flex flex-wrap gap-1` z badge'ami (linie 443-450) sprzed `CollapsibleContent`
+- Przenieść je na górę `renderPermEditor` — widoczne dopiero po rozwinięciu
 
-### 1. Podział na dwie sekcje (jak w Auto-Webinar)
+### 2. Kompaktowy nagłówek aktywnego lidera
+- Karta lidera: tylko imię, email, licznik X/22 i chevron — nic więcej
+- Zmniejszyć padding do `py-2` zamiast `py-3`
 
-```text
-┌──────────────────────────┐  ┌──────────────────────────┐
-│ 👑 Aktywni liderzy (5)   │  │ 👤 Bez uprawnień (87)    │
-│                          │  │                          │
-│ ┌──────────────────────┐ │  │ Szukaj...                │
-│ │ Jan Kowalski   18/22 │ │  │                          │
-│ │ Spotkania, Szkolenia,│ │  │ Ewa Nowak         [+]    │
-│ │ Struktura, ...       │ │  │ Adam Wiśniewski   [+]    │
-│ │        [Edytuj]      │ │  │ ...                      │
-│ └──────────────────────┘ │  │                          │
-│ ┌──────────────────────┐ │  │                          │
-│ │ Anna Nowak     12/22 │ │  │                          │
-│ │ ...                  │ │  │                          │
-│ └──────────────────────┘ │  │                          │
-└──────────────────────────┘  └──────────────────────────┘
-```
+### 3. Naprawić przewijanie
+- Zamienić `ScrollArea` z `max-h-[600px]`/`max-h-[650px]` na kontener z `overflow-y-auto` i dynamiczną wysokością `max-h-[calc(100vh-280px)]`
+- Obie kolumny powinny przewijać się niezależnie
 
-- **Lewa kolumna**: Partnerzy z ≥1 uprawnieniem — od razu widać jakie mają (lista badge'ów z nazwami aktywnych uprawnień)
-- **Prawa kolumna**: Partnerzy bez żadnych uprawnień — kompaktowa lista z przyciskiem "Nadaj uprawnienia"
+### 4. Kompaktowa prawa kolumna
+- Usunąć zbędne odstępy, zmniejszyć padding w kartach bez uprawnień
 
-### 2. Karty aktywnych liderów z widocznymi uprawnieniami
-
-Każdy aktywny lider jako karta z:
-- Imię, nazwisko, email
-- **Badge'e aktywnych uprawnień** (np. `Spotkania` `Szkolenia` `Struktura`) — widoczne od razu bez rozwijania
-- Licznik X/22
-- Przycisk "Edytuj" otwierający rozwijany panel z pełną listą switchy (jak teraz)
-- Przyciski "Włącz/Wyłącz wszystko"
-
-### 3. Szybkie filtry / widok uprawnień
-
-Nad listą aktywnych liderów — filtr po uprawnieniu:
-- Dropdown/chips: "Pokaż liderów z uprawnieniem: Spotkania / Szkolenia / Auto-Webinar / ..."
-- Pozwala adminowi szybko sprawdzić "kto ma dostęp do X"
-
-### 4. Przycisk "Nadaj uprawnienia" w prawej kolumnie
-
-Kliknięcie przenosi partnera do edycji (otwiera panel switchy), po zapisaniu partner przesuwa się do lewej kolumny.
-
-## Plik do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/admin/LeaderPanelManagement.tsx` | Przebudowa layoutu na 2 kolumny, dodanie badge'ów uprawnień, filtrów |
-
-## Szczegóły techniczne
-
-- Logika danych i zapytania Supabase **bez zmian** — przebudowa dotyczy tylko warstwy UI
-- Podział `filtered` na `withPerms = filtered.filter(p => countActive(p) > 0)` i `withoutPerms`
-- Badge'e uprawnień: mapowanie `columns.filter(col => partner[col.key]).map(col => col.label)`
-- Filtr po uprawnieniu: stan `selectedPermFilter: string | null`, dodatkowe filtrowanie `withPerms`
-- Collapsible z edycją switchy pozostaje wewnątrz kart aktywnych liderów
-- Layout: `grid grid-cols-1 lg:grid-cols-2` (jak w AutoWebinarAccessManagement)
+## Efekt
+- Widok znacznie bardziej kompaktowy — liderzy to zwięzłe rzędy z licznikiem
+- Po kliknięciu/rozwinięciu: badge'e aktywnych uprawnień + switche edycji
+- Obie kolumny scrollowalne na pełną wysokość ekranu
 
