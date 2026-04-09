@@ -2,23 +2,23 @@ import React from 'react';
 import { OmegaTest } from '@/hooks/useOmegaTests';
 import { differenceInDays, parseISO } from 'date-fns';
 import { Activity, FlaskConical, CheckCircle2 } from 'lucide-react';
+import { useOmegaMilestones } from '@/hooks/usePureBoxContent';
 
 interface VitalityProgressProps {
   tests: OmegaTest[];
 }
 
-const milestones = [
-  { month: 0, days: 0, label: 'Miesiąc 0', title: 'Test 1 — Punkt Wyjścia', description: 'Stan Zapalny', icon: FlaskConical },
-  { month: 1, days: 30, label: 'Miesiąc 1', title: 'Adaptacja', description: 'Początek zmian w osoczu' },
-  { month: 3, days: 90, label: 'Miesiąc 3', title: 'Połowa cyklu', description: 'Wymiana ~50% krwinek' },
-  { month: 5, days: 150, label: 'Miesiąc 5', title: 'Test 2 — Weryfikacja', description: 'Wymiana Krwinek (120+ dni)', icon: CheckCircle2 },
-  { month: 6, days: 180, label: 'Miesiąc 6', title: 'Pełna optymalizacja', description: 'Protokół zakończony' },
-];
+const iconMap: Record<string, React.FC<any>> = {
+  FlaskConical,
+  CheckCircle2,
+};
 
 export const VitalityProgress: React.FC<VitalityProgressProps> = ({ tests }) => {
+  const { milestones } = useOmegaMilestones();
   const firstTest = tests.length > 0 ? tests[0] : null;
+  const maxDays = milestones.length > 0 ? Math.max(...milestones.map(m => m.days), 180) : 180;
   const daysSinceStart = firstTest ? differenceInDays(new Date(), parseISO(firstTest.test_date)) : 0;
-  const progress = Math.min(100, (daysSinceStart / 180) * 100);
+  const progress = Math.min(100, (daysSinceStart / maxDays) * 100);
 
   return (
     <div className="p-5 rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm">
@@ -42,7 +42,7 @@ export const VitalityProgress: React.FC<VitalityProgressProps> = ({ tests }) => 
         {/* Milestone dots on the bar */}
         <div className="absolute top-0 left-0 right-0 h-2 flex items-center">
           {milestones.map((m, i) => {
-            const pos = (m.days / 180) * 100;
+            const pos = (m.days / maxDays) * 100;
             const reached = daysSinceStart >= m.days;
             return (
               <div
@@ -60,11 +60,11 @@ export const VitalityProgress: React.FC<VitalityProgressProps> = ({ tests }) => 
       </div>
 
       {/* Milestone labels */}
-      <div className="grid grid-cols-5 gap-1 mt-5">
+      <div className={`grid gap-1 mt-5`} style={{ gridTemplateColumns: `repeat(${milestones.length}, 1fr)` }}>
         {milestones.map((m, i) => {
           const reached = daysSinceStart >= m.days;
-          const isKey = i === 0 || i === 3; // Test 1 and Test 2
-          const Icon = m.icon;
+          const isKey = i === 0 || i === milestones.length - 2;
+          const Icon = m.icon ? iconMap[m.icon] : null;
           return (
             <div key={i} className={`text-center ${isKey ? 'px-1' : ''}`}>
               {Icon && (

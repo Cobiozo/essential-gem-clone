@@ -9,9 +9,7 @@ import { SkillsRadarChart } from '@/components/skills-assessment/SkillsRadarChar
 import { AssessmentSummary } from '@/components/skills-assessment/AssessmentSummary';
 import { ASSESSMENT_STEPS } from '@/components/skills-assessment/assessmentData';
 import { usePureBoxVisibility } from '@/hooks/usePureBoxVisibility';
-
-const initialScores = (): Record<string, number> =>
-  Object.fromEntries(ASSESSMENT_STEPS.map((s) => [s.key, 5]));
+import { useAssessmentSteps } from '@/hooks/usePureBoxContent';
 
 const BackButton = () => {
   const navigate = useNavigate();
@@ -25,24 +23,32 @@ const BackButton = () => {
 
 const SkillsAssessment: React.FC = () => {
   const { isVisible, loading: visLoading } = usePureBoxVisibility();
+  const { steps: STEPS, isLoading: stepsLoading } = useAssessmentSteps();
   const [currentStep, setCurrentStep] = useState(0);
-  const [scores, setScores] = useState<Record<string, number>>(initialScores);
+  const [scores, setScores] = useState<Record<string, number>>({});
   const [completed, setCompleted] = useState(false);
 
-  const totalSteps = ASSESSMENT_STEPS.length;
-  const progress = ((currentStep + 1) / totalSteps) * 100;
+  // Initialize scores when steps load
+  React.useEffect(() => {
+    if (STEPS.length > 0 && Object.keys(scores).length === 0) {
+      setScores(Object.fromEntries(STEPS.map((s) => [s.key, 5])));
+    }
+  }, [STEPS]);
+
+  const totalSteps = STEPS.length;
+  const progress = totalSteps > 0 ? ((currentStep + 1) / totalSteps) * 100 : 0;
 
   const handleScoreChange = useCallback(
     (value: number) => {
       setScores((prev) => ({
         ...prev,
-        [ASSESSMENT_STEPS[currentStep].key]: value,
+        [STEPS[currentStep].key]: value,
       }));
     },
-    [currentStep]
+    [currentStep, STEPS]
   );
 
-  if (visLoading) {
+  if (visLoading || stepsLoading || Object.keys(scores).length === 0) {
     return (
       <div className="min-h-screen bg-background flex justify-center items-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -67,7 +73,7 @@ const SkillsAssessment: React.FC = () => {
   };
 
   const handleReset = () => {
-    setScores(initialScores());
+    setScores(Object.fromEntries(STEPS.map((s) => [s.key, 5])));
     setCurrentStep(0);
     setCompleted(false);
   };
@@ -83,7 +89,7 @@ const SkillsAssessment: React.FC = () => {
     );
   }
 
-  const step = ASSESSMENT_STEPS[currentStep];
+  const step = STEPS[currentStep];
 
   return (
     <div className="min-h-screen bg-background">
