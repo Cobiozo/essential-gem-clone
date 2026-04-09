@@ -154,10 +154,26 @@ const HealthyKnowledgePublicPage: React.FC = () => {
     checkSession();
   }, [slug]);
 
+  const isGuestFormValid = () => {
+    return (
+      guestFirstName.trim().length >= 2 &&
+      guestLastName.trim().length >= 2 &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim()) &&
+      guestPhone.replace(/[^\d]/g, '').length >= 9 &&
+      emailConsent &&
+      otpRaw.length === 6
+    );
+  };
+
   const handleOtpSubmit = async (codeOverride?: string) => {
     const raw = codeOverride || otpRaw;
     if (raw.length !== 6) {
       toast.error('Wprowadź pełny kod dostępu');
+      return;
+    }
+
+    if (!isGuestFormValid() && !codeOverride) {
+      toast.error('Wypełnij wszystkie wymagane pola');
       return;
     }
 
@@ -173,6 +189,10 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           knowledge_slug: slug,
           otp_code: formattedCode,
           device_fingerprint: navigator.userAgent,
+          guest_first_name: guestFirstName.trim(),
+          guest_last_name: guestLastName.trim(),
+          guest_email: guestEmail.trim().toLowerCase(),
+          guest_phone: guestPhone,
         },
       });
 
