@@ -439,17 +439,15 @@ export const LeaderPanelManagement: React.FC = () => {
                                 </button>
                               </CollapsibleTrigger>
 
-                              {/* Permission badges - always visible */}
-                              <div className="px-4 pb-2 flex flex-wrap gap-1">
-                                {activePerms.map(perm => (
-                                  <span key={perm.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-                                    <perm.icon className="h-2.5 w-2.5" />
-                                    {perm.label}
-                                  </span>
-                                ))}
-                              </div>
-
                               <CollapsibleContent>
+                                <div className="px-4 pt-2 pb-1 flex flex-wrap gap-1">
+                                  {activePerms.map(perm => (
+                                    <span key={perm.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                                      <perm.icon className="h-2.5 w-2.5" />
+                                      {perm.label}
+                                    </span>
+                                  ))}
+                                </div>
                                 {renderPermEditor(partner)}
                               </CollapsibleContent>
                             </div>
