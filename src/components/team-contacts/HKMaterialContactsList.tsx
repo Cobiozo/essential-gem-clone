@@ -1,7 +1,6 @@
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Phone, Clock, BookOpen, Key } from 'lucide-react';
+import { Mail, Phone, Clock, BookOpen, Key, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { pl } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,7 +42,7 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({ 
   if (loading) {
     return (
       <div className="space-y-3">
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
       </div>
     );
   }
@@ -59,66 +58,59 @@ export const HKMaterialContactsList: React.FC<HKMaterialContactsListProps> = ({ 
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Imię i nazwisko</TableHead>
-            <TableHead>Kontakt</TableHead>
-            <TableHead>Kod OTP</TableHead>
-            <TableHead>Materiał</TableHead>
-            <TableHead>Data otwarcia</TableHead>
-            <TableHead>Czas oglądania</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sessions.map((s) => (
-            <TableRow key={s.session_id}>
-              <TableCell className="font-medium">
-                {s.guest_first_name} {s.guest_last_name}
-                {s.email_consent && (
-                  <Badge variant="outline" className="ml-2 text-xs">Zgoda email</Badge>
-                )}
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-col gap-1 text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                    <a href={`mailto:${s.guest_email}`} className="text-primary hover:underline">{s.guest_email}</a>
-                  </span>
-                  {s.guest_phone && (
-                    <span className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5 text-muted-foreground" />
-                      <a href={`tel:${s.guest_phone}`} className="hover:underline">{s.guest_phone}</a>
-                    </span>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <span className="flex items-center gap-1.5 font-mono text-xs">
-                  <Key className="w-3.5 h-3.5 text-muted-foreground" />
-                  {s.otp_code}
-                </span>
-              </TableCell>
-              <TableCell>
-                <span className="flex items-center gap-1.5 text-sm">
-                  <BookOpen className="w-3.5 h-3.5 text-muted-foreground" />
-                  {s.knowledge_title}
-                </span>
-              </TableCell>
-              <TableCell className="text-sm whitespace-nowrap">
-                {format(new Date(s.session_created_at), 'dd.MM.yyyy HH:mm', { locale: pl })}
-              </TableCell>
-              <TableCell>
-                <span className="flex items-center gap-1.5 text-sm">
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-                  {formatDuration(s.session_created_at, s.last_activity_at)}
-                </span>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-3">
+      {sessions.map((s) => (
+        <div
+          key={s.session_id}
+          className="border border-border rounded-lg p-4 bg-card hover:shadow-md transition-shadow"
+        >
+          {/* Row 1: Name + badge */}
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-base font-semibold text-foreground">
+              {s.guest_first_name} {s.guest_last_name}
+            </h4>
+            {s.email_consent && (
+              <Badge variant="outline" className="text-xs shrink-0">Zgoda email</Badge>
+            )}
+          </div>
+
+          {/* Row 2: Contact info */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm mb-3">
+            <a href={`mailto:${s.guest_email}`} className="flex items-center gap-1.5 text-primary hover:underline">
+              <Mail className="w-3.5 h-3.5" />
+              {s.guest_email}
+            </a>
+            {s.guest_phone && (
+              <a href={`tel:${s.guest_phone}`} className="flex items-center gap-1.5 text-foreground hover:underline">
+                <Phone className="w-3.5 h-3.5 text-muted-foreground" />
+                {s.guest_phone}
+              </a>
+            )}
+          </div>
+
+          {/* Row 3: Material title */}
+          <div className="flex items-start gap-1.5 text-sm text-muted-foreground mb-3">
+            <BookOpen className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span>{s.knowledge_title}</span>
+          </div>
+
+          {/* Row 4: Metadata */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1 font-mono">
+              <Key className="w-3 h-3" />
+              {s.otp_code}
+            </span>
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3 h-3" />
+              {format(new Date(s.session_created_at), 'dd.MM.yyyy, HH:mm', { locale: pl })}
+            </span>
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              {formatDuration(s.session_created_at, s.last_activity_at)}
+            </span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 };
