@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw } from 'lucide-react';
+import { Users, Plus, Download, Filter, Map, List, LayoutGrid, Search, UserPlus, UsersRound, CheckCircle, Clock, XCircle, Mail, TreePine, WifiOff, Trash2, RotateCcw, BookOpen } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useTeamContacts } from '@/hooks/useTeamContacts';
@@ -26,6 +26,7 @@ import { OrganizationChart, OrganizationList } from './organization';
 import { EventGroupedContacts } from './EventGroupedContacts';
 import { DeletedContactsList } from './DeletedContactsList';
 import { PartnerPageContactsList } from './PartnerPageContactsList';
+import { HKMaterialContactsList, type HKSessionContact } from './HKMaterialContactsList';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
@@ -84,7 +85,9 @@ export const TeamContactsTab: React.FC = () => {
   const [structureViewMode, setStructureViewMode] = useState<'list' | 'graph'>(treeSettings?.default_view || 'list');
   // For clients with specialist search access, default to search tab
   const [activeTab, setActiveTab] = useState<'private' | 'team' | 'search' | 'structure'>(clientOnlyView && canSearchSpecialists ? 'search' : 'private');
-  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'partner-page' | 'deleted'>('own');
+  const [privateSubTab, setPrivateSubTab] = useState<'own' | 'events-bo' | 'events-hc' | 'events-general' | 'partner-page' | 'hk-materials' | 'deleted'>('own');
+  const [hkSessions, setHkSessions] = useState<HKSessionContact[]>([]);
+  const [hkSessionsLoading, setHkSessionsLoading] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [confirmApproval, setConfirmApproval] = useState<PendingApproval | null>(null);
@@ -138,7 +141,25 @@ export const TeamContactsTab: React.FC = () => {
     fetchPendingApprovals();
   }, [profile?.eq_id]);
 
-  // Update filters when tab changes
+  // Fetch HK material sessions for partner
+  const fetchHkSessions = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setHkSessionsLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_partner_hk_sessions', { p_partner_id: user.id });
+      if (error) throw error;
+      setHkSessions((data as unknown as HKSessionContact[]) || []);
+    } catch (error) {
+      console.error('Error fetching HK sessions:', error);
+    } finally {
+      setHkSessionsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHkSessions();
+  }, []);
   useEffect(() => {
     if (activeTab === 'private') {
       setFilters(prev => ({ ...prev, contactType: 'private' }));
@@ -406,6 +427,17 @@ export const TeamContactsTab: React.FC = () => {
                      <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
                    )}
                  </Button>
+                 <Button
+                   variant={privateSubTab === 'hk-materials' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('hk-materials')}
+                 >
+                   <BookOpen className="w-3.5 h-3.5 mr-1" />
+                   Z udostępnionego materiału ZW
+                   {hkSessions.length > 0 && (
+                     <Badge variant="secondary" className="ml-2">{hkSessions.length}</Badge>
+                   )}
+                 </Button>
                 <Button
                   variant={privateSubTab === 'deleted' ? 'default' : 'outline'}
                   size="sm"
@@ -475,6 +507,11 @@ export const TeamContactsTab: React.FC = () => {
                   onDelete={handleDeleteContact}
                   getContactHistory={getContactHistory}
                   onMoveToOwnList={moveToOwnList}
+                />
+              ) : privateSubTab === 'hk-materials' ? (
+                <HKMaterialContactsList
+                  sessions={hkSessions}
+                  loading={hkSessionsLoading}
                 />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion

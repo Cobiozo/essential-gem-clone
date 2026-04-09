@@ -9043,6 +9043,22 @@ export type Database = {
           upline_eq_id: string
         }[]
       }
+      get_partner_hk_sessions: {
+        Args: { p_partner_id: string }
+        Returns: {
+          email_consent: boolean
+          guest_email: string
+          guest_first_name: string
+          guest_last_name: string
+          guest_phone: string
+          knowledge_slug: string
+          knowledge_title: string
+          last_activity_at: string
+          otp_code: string
+          session_created_at: string
+          session_id: string
+        }[]
+      }
       get_pending_leader_approvals: {
         Args: never
         Returns: {
