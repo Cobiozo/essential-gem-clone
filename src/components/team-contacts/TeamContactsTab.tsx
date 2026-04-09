@@ -569,6 +569,10 @@ export const TeamContactsTab: React.FC = () => {
                 <HKMaterialContactsList
                   sessions={hkSessions}
                   loading={hkSessionsLoading}
+                  onMoveToOwnList={moveHkSessionToOwnList}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
                 />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
