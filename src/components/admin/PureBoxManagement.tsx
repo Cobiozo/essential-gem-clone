@@ -158,6 +158,14 @@ export const PureBoxManagement: React.FC = () => {
   ];
 
   return (
+    <Tabs defaultValue="visibility" className="space-y-6">
+      <TabsList>
+        <TabsTrigger value="visibility">Widoczność</TabsTrigger>
+        <TabsTrigger value="assessment">Ocena Umiejętności</TabsTrigger>
+        <TabsTrigger value="omega">Dziennik Omega</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="visibility">
     <div className="space-y-6">
       {/* Elements & Role Visibility */}
       <Card>
@@ -313,6 +321,16 @@ export const PureBoxManagement: React.FC = () => {
         </CardContent>
       </Card>
     </div>
+      </TabsContent>
+
+      <TabsContent value="assessment">
+        <AssessmentContentEditor />
+      </TabsContent>
+
+      <TabsContent value="omega">
+        <OmegaContentEditor />
+      </TabsContent>
+    </Tabs>
   );
 };
 
