@@ -427,6 +427,17 @@ export const TeamContactsTab: React.FC = () => {
                      <Badge variant="secondary" className="ml-2">{partnerPageContacts.length}</Badge>
                    )}
                  </Button>
+                 <Button
+                   variant={privateSubTab === 'hk-materials' ? 'default' : 'outline'}
+                   size="sm"
+                   onClick={() => setPrivateSubTab('hk-materials')}
+                 >
+                   <BookOpen className="w-3.5 h-3.5 mr-1" />
+                   Z udostępnionego materiału ZW
+                   {hkSessions.length > 0 && (
+                     <Badge variant="secondary" className="ml-2">{hkSessions.length}</Badge>
+                   )}
+                 </Button>
                 <Button
                   variant={privateSubTab === 'deleted' ? 'default' : 'outline'}
                   size="sm"
