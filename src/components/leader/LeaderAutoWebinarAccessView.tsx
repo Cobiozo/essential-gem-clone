@@ -106,7 +106,7 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
     last_name: m.last_name,
     email: m.email,
     can_access_auto_webinar: accessMap.get(m.id) || false,
-    has_certificate: certSet.has(m.id),
+    has_certificate: certMap.get(m.id) || false,
     level: m.level,
   }));
 
