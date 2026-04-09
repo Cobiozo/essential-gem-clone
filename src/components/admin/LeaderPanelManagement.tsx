@@ -503,7 +503,7 @@ export const LeaderPanelManagement: React.FC = () => {
                       })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </div>
             </div>
           )}
