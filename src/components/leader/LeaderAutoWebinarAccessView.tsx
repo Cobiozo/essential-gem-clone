@@ -46,21 +46,18 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
     try {
       const userIds = teamMembers.map(m => m.id);
       
-      // Load permissions and certificates in parallel
-      const [permResult, certResult] = await Promise.all([
-        supabase.rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds }),
-        supabase.from('certificates').select('user_id').eq('module_id', SZYBKI_START_MODULE_ID).in('user_id', userIds),
-      ]);
+      const permResult = await supabase.rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds });
 
       if (permResult.error) throw permResult.error;
 
       const map = new Map<string, boolean>();
-      (permResult.data as any[])?.forEach(p => map.set(p.user_id, p.can_access_auto_webinar || false));
+      const certs = new Map<string, boolean>();
+      (permResult.data as any[])?.forEach(p => {
+        map.set(p.user_id, p.can_access_auto_webinar || false);
+        certs.set(p.user_id, p.has_certificate || false);
+      });
       setAccessMap(map);
-
-      const certs = new Set<string>();
-      certResult.data?.forEach(c => certs.add(c.user_id));
-      setCertSet(certs);
+      setCertMap(certs);
 
       permissionsLoaded.current = true;
     } catch (error: any) {
