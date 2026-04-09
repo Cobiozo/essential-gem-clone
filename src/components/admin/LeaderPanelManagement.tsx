@@ -428,7 +428,7 @@ export const LeaderPanelManagement: React.FC = () => {
                           <Collapsible key={partner.user_id} open={isOpen} onOpenChange={() => toggleOpen(partner.user_id)}>
                             <div className="border rounded-lg bg-primary/5 border-primary/20 transition-colors">
                               <CollapsibleTrigger asChild>
-                                <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-primary/10 transition-colors rounded-t-lg">
+                                <button className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/10 transition-colors rounded-t-lg">
                                   <Crown className="h-4 w-4 text-primary flex-shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="font-medium text-sm truncate">{partner.first_name} {partner.last_name}</p>
