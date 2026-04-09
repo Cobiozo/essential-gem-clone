@@ -440,7 +440,7 @@ serve(async (req) => {
     // ==========================================
     const { data: userRegs, error: userRegsError } = await supabase
       .from("event_registrations")
-      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time, created_at")
+      .select("id, user_id, occurrence_index, occurrence_date, occurrence_time, registered_at")
       .eq("event_id", event_id)
       .eq("status", "registered");
 
