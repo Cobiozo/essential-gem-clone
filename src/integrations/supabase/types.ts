@@ -6470,6 +6470,7 @@ export type Database = {
           guardian_approved_at: string | null
           guardian_name: string | null
           id: string
+          inactivity_final_warning_sent_at: string | null
           inactivity_warning_sent_at: string | null
           is_active: boolean
           is_searchable: boolean | null
@@ -6522,6 +6523,7 @@ export type Database = {
           guardian_approved_at?: string | null
           guardian_name?: string | null
           id?: string
+          inactivity_final_warning_sent_at?: string | null
           inactivity_warning_sent_at?: string | null
           is_active?: boolean
           is_searchable?: boolean | null
@@ -6574,6 +6576,7 @@ export type Database = {
           guardian_approved_at?: string | null
           guardian_name?: string | null
           id?: string
+          inactivity_final_warning_sent_at?: string | null
           inactivity_warning_sent_at?: string | null
           is_active?: boolean
           is_searchable?: boolean | null
@@ -8937,6 +8940,16 @@ export type Database = {
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
       get_inactive_users_for_blocking: {
+        Args: never
+        Returns: {
+          days_inactive: number
+          email: string
+          first_name: string
+          last_name: string
+          user_id: string
+        }[]
+      }
+      get_inactive_users_for_final_warning: {
         Args: never
         Returns: {
           days_inactive: number
