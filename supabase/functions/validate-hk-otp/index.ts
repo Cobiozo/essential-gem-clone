@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { knowledge_slug, otp_code, device_fingerprint } = await req.json();
+    const { knowledge_slug, otp_code, device_fingerprint, guest_first_name, guest_last_name, guest_email, guest_phone } = await req.json();
 
     if (!knowledge_slug || !otp_code) {
       return new Response(
@@ -130,6 +130,11 @@ Deno.serve(async (req) => {
         session_token: sessionToken,
         device_fingerprint: device_fingerprint || null,
         expires_at: expiresAt.toISOString(),
+        guest_first_name: guest_first_name || null,
+        guest_last_name: guest_last_name || null,
+        guest_email: guest_email || null,
+        guest_phone: guest_phone || null,
+        email_consent: !!(guest_first_name && guest_email),
       });
 
     if (sessionError) {

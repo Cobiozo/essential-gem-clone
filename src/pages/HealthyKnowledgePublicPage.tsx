@@ -343,42 +343,124 @@ const HealthyKnowledgePublicPage: React.FC = () => {
           </div>
           <CardTitle className="text-2xl">Zdrowa Wiedza</CardTitle>
           <CardDescription>
-            Wprowadź kod dostępu, aby zobaczyć materiał
+            Wypełnij formularz i wprowadź kod dostępu, aby zobaczyć materiał
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Lock className="w-4 h-4" />
-              <span>Kod w formacie: ZW-XXXXXX</span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-mono font-bold text-muted-foreground">ZW-</span>
+        <CardContent className="space-y-4">
+          {/* Guest data fields */}
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="guest-first-name" className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+                <User className="w-3.5 h-3.5" />
+                Imię *
+              </Label>
               <Input
-                value={formatDisplay(otpRaw)}
-                onChange={handleCodeChange}
-                onPaste={handleCodePaste} 
-                onKeyDown={(e) => { if (e.key === 'Enter' && otpRaw.length === 6) handleOtpSubmit(); }}
-                placeholder="XXXXXX"
-                maxLength={6}
-                autoComplete="off"
-                spellCheck={false}
-                inputMode="text"
-                className="font-mono text-lg tracking-widest uppercase w-[140px] text-center"
+                id="guest-first-name"
+                value={guestFirstName}
+                onChange={(e) => setGuestFirstName(e.target.value)}
+                placeholder="Jan"
+                required
+                minLength={2}
+                maxLength={50}
+                autoComplete="given-name"
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive text-center">{error}</p>
-            )}
+            <div>
+              <Label htmlFor="guest-last-name" className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+                <User className="w-3.5 h-3.5" />
+                Nazwisko *
+              </Label>
+              <Input
+                id="guest-last-name"
+                value={guestLastName}
+                onChange={(e) => setGuestLastName(e.target.value)}
+                placeholder="Kowalski"
+                required
+                minLength={2}
+                maxLength={50}
+                autoComplete="family-name"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="guest-email" className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+                <Mail className="w-3.5 h-3.5" />
+                Adres e-mail *
+              </Label>
+              <Input
+                id="guest-email"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder="jan@example.com"
+                required
+                maxLength={255}
+                autoComplete="email"
+              />
+            </div>
+
+            <div>
+              <Label className="text-sm font-medium flex items-center gap-1.5 mb-1.5">
+                <Phone className="w-3.5 h-3.5" />
+                Numer telefonu *
+              </Label>
+              <PhoneInputWithPrefix
+                value={guestPhone}
+                onChange={setGuestPhone}
+                defaultCountry="PL"
+                placeholder="123456789"
+              />
+            </div>
+          </div>
+
+          {/* OTP code */}
+          <div className="pt-2 border-t">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock className="w-4 h-4" />
+                <span>Kod w formacie: ZW-XXXXXX</span>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-mono font-bold text-muted-foreground">ZW-</span>
+                <Input
+                  value={formatDisplay(otpRaw)}
+                  onChange={handleCodeChange}
+                  onPaste={handleCodePaste} 
+                  onKeyDown={(e) => { if (e.key === 'Enter' && isGuestFormValid()) handleOtpSubmit(); }}
+                  placeholder="XXXXXX"
+                  maxLength={6}
+                  autoComplete="off"
+                  spellCheck={false}
+                  inputMode="text"
+                  className="font-mono text-lg tracking-widest uppercase w-[140px] text-center"
+                />
+              </div>
+
+              {error && (
+                <p className="text-sm text-destructive text-center">{error}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Consent checkbox */}
+          <div className="flex items-start space-x-2 pt-2">
+            <Checkbox
+              id="email-consent"
+              checked={emailConsent}
+              onCheckedChange={(checked) => setEmailConsent(checked === true)}
+            />
+            <label htmlFor="email-consent" className="text-xs text-muted-foreground leading-relaxed cursor-pointer">
+              Wyrażam zgodę na przetwarzanie moich danych osobowych (imię, nazwisko, adres e-mail, numer telefonu) w celu uzyskania dostępu do materiału edukacyjnego. *
+            </label>
           </div>
 
           <Button 
             className="w-full" 
             size="lg"
             onClick={() => handleOtpSubmit()}
-            disabled={loading || otpRaw.length !== 6}
+            disabled={loading || !isGuestFormValid()}
           >
             {loading ? (
               <>
@@ -389,6 +471,20 @@ const HealthyKnowledgePublicPage: React.FC = () => {
               'Uzyskaj dostęp'
             )}
           </Button>
+
+          {/* GDPR information clause */}
+          <div className="text-[10px] text-muted-foreground leading-relaxed bg-muted/50 rounded-md p-3">
+            <p className="font-semibold mb-1">Klauzula informacyjna</p>
+            <p>
+              Administratorem Twoich danych osobowych jest właściciel platformy. Dane przetwarzane są w celu 
+              umożliwienia dostępu do materiału edukacyjnego oraz w celach kontaktowych. Podstawą prawną 
+              przetwarzania jest Twoja zgoda (art. 6 ust. 1 lit. a RODO). Masz prawo do dostępu do swoich 
+              danych, ich sprostowania, usunięcia, ograniczenia przetwarzania, przenoszenia oraz wniesienia 
+              sprzeciwu. Zgoda może być cofnięta w dowolnym momencie. Dane będą przechowywane przez okres 
+              niezbędny do realizacji celów przetwarzania. Podanie danych jest dobrowolne, ale niezbędne do 
+              uzyskania dostępu do materiału.
+            </p>
+          </div>
 
           <div className="text-center">
             <Link 
