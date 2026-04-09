@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import {
   UserRound, TreePine, UserCheck, CalendarPlus, ClipboardList,
   BookOpenCheck, Library, Bell, Mail, Smartphone, Contact, UserCog,
   Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe, Radio,
+  Plus, Filter, UserPlus, Shield,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
@@ -263,10 +265,22 @@ export const LeaderPanelManagement: React.FC = () => {
     } finally { setSaving(null); }
   };
 
-  const filtered = partners.filter(p => {
+  const filtered = useMemo(() => partners.filter(p => {
     const q = searchQuery.toLowerCase();
     return (p.first_name || '').toLowerCase().includes(q) || (p.last_name || '').toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
-  });
+  }), [partners, searchQuery]);
+
+  const [selectedPermFilter, setSelectedPermFilter] = useState<string | null>(null);
+
+  const withPerms = useMemo(() => {
+    let list = filtered.filter(p => countActive(p) > 0);
+    if (selectedPermFilter) {
+      list = list.filter(p => (p as any)[selectedPermFilter] === true);
+    }
+    return list.sort((a, b) => countActive(b) - countActive(a));
+  }, [filtered, selectedPermFilter]);
+
+  const withoutPerms = useMemo(() => filtered.filter(p => countActive(p) === 0), [filtered]);
 
   const toggleOpen = (id: string) => {
     setOpenIds(prev => {
@@ -274,6 +288,62 @@ export const LeaderPanelManagement: React.FC = () => {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const getActivePermLabels = (partner: PartnerLeaderData) =>
+    columns.filter(col => (partner as any)[col.key]).map(col => ({ label: col.label, icon: col.icon }));
+
+  const renderPermEditor = (partner: PartnerLeaderData) => {
+    const isSavingAll = saving === `${partner.user_id}-all`;
+    return (
+      <div className="px-4 pb-4 pt-1 border-t border-border/50">
+        <div className="flex gap-2 mb-3">
+          <Button size="sm" variant="outline" disabled={isSavingAll} onClick={() => toggleAllForPartner(partner, true)} className="text-xs gap-1">
+            <ToggleRight className="h-3.5 w-3.5" /> Włącz wszystko
+          </Button>
+          <Button size="sm" variant="outline" disabled={isSavingAll} onClick={() => toggleAllForPartner(partner, false)} className="text-xs gap-1">
+            <ToggleLeft className="h-3.5 w-3.5" /> Wyłącz wszystko
+          </Button>
+          {isSavingAll && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-center" />}
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {GROUP_ORDER.map(groupName => {
+            const cols = groupedColumns[groupName];
+            if (!cols) return null;
+            return (
+              <div key={groupName}>
+                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{groupName}</p>
+                <div className="space-y-1.5">
+                  {cols.map(col => {
+                    const checked = (partner as any)[col.key] as boolean;
+                    const isSavingThis = saving === `${partner.user_id}-${col.key}` || saving === `${partner.user_id}-calc-${col.type === 'calc_influencer' ? 'influencer' : 'specialist'}`;
+                    return (
+                      <label key={col.key} className="flex items-start gap-2 cursor-pointer group">
+                        <Switch
+                          checked={checked}
+                          disabled={isSavingThis || isSavingAll}
+                          onCheckedChange={v => {
+                            if (col.type === 'calc_influencer') toggleCalculatorAccess(partner.user_id, 'influencer', v);
+                            else if (col.type === 'calc_specialist') toggleCalculatorAccess(partner.user_id, 'specialist', v);
+                            else toggleLeaderPermission(partner.user_id, col.key as LeaderPermField, v);
+                          }}
+                          className="scale-90 mt-0.5"
+                        />
+                        <col.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <div className="flex flex-col">
+                          <span className="text-xs">{col.label}</span>
+                          <span className="text-[10px] text-muted-foreground leading-tight">{col.description}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -303,96 +373,140 @@ export const LeaderPanelManagement: React.FC = () => {
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : filtered.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">Brak partnerów</p>
           ) : (
-            <div className="space-y-2">
-              {filtered.map(partner => {
-                const active = countActive(partner);
-                const isOpen = openIds.has(partner.user_id);
-                const isSavingAll = saving === `${partner.user_id}-all`;
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left column: Active leaders */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Crown className="h-4 w-4 text-primary" />
+                    Aktywni liderzy
+                    <Badge variant="default" className="ml-1">{withPerms.length}</Badge>
+                  </h3>
+                </div>
 
-                return (
-                  <Collapsible key={partner.user_id} open={isOpen} onOpenChange={() => toggleOpen(partner.user_id)}>
-                    <div className={`border rounded-lg transition-colors ${active > 0 ? 'bg-primary/5 border-primary/20' : 'border-border'}`}>
-                      <CollapsibleTrigger asChild>
-                        <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors rounded-lg">
-                          {active > 0 && <Crown className="h-4 w-4 text-primary flex-shrink-0" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{partner.first_name} {partner.last_name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
-                          </div>
-                          <Badge variant={active > 0 ? 'default' : 'secondary'} className="flex-shrink-0">
-                            {active}/{TOTAL_PERMS}
-                          </Badge>
-                          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                      </CollapsibleTrigger>
+                {/* Permission filter chips */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setSelectedPermFilter(null)}
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium transition-colors border ${
+                      selectedPermFilter === null
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    <Filter className="h-3 w-3" /> Wszystkie
+                  </button>
+                  {columns.map(col => (
+                    <button
+                      key={col.key}
+                      onClick={() => setSelectedPermFilter(selectedPermFilter === col.key ? null : col.key)}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-medium transition-colors border ${
+                        selectedPermFilter === col.key
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-muted/50 text-muted-foreground border-border hover:bg-muted'
+                      }`}
+                    >
+                      <col.icon className="h-3 w-3" /> {col.label}
+                    </button>
+                  ))}
+                </div>
 
-                      <CollapsibleContent>
-                        <div className="px-4 pb-4 pt-1 border-t border-border/50">
-                          <div className="flex gap-2 mb-3">
-                            <Button
-                              size="sm" variant="outline"
-                              disabled={isSavingAll}
-                              onClick={() => toggleAllForPartner(partner, true)}
-                              className="text-xs gap-1"
-                            >
-                              <ToggleRight className="h-3.5 w-3.5" /> Włącz wszystko
-                            </Button>
-                            <Button
-                              size="sm" variant="outline"
-                              disabled={isSavingAll}
-                              onClick={() => toggleAllForPartner(partner, false)}
-                              className="text-xs gap-1"
-                            >
-                              <ToggleLeft className="h-3.5 w-3.5" /> Wyłącz wszystko
-                            </Button>
-                            {isSavingAll && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground self-center" />}
-                          </div>
+                <ScrollArea className="max-h-[600px]">
+                  {withPerms.length === 0 ? (
+                    <p className="text-center py-8 text-muted-foreground text-sm">
+                      {selectedPermFilter ? 'Brak liderów z tym uprawnieniem' : 'Brak aktywnych liderów'}
+                    </p>
+                  ) : (
+                    <div className="space-y-2 pr-2">
+                      {withPerms.map(partner => {
+                        const active = countActive(partner);
+                        const isOpen = openIds.has(partner.user_id);
+                        const activePerms = getActivePermLabels(partner);
 
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {GROUP_ORDER.map(groupName => {
-                              const cols = groupedColumns[groupName];
-                              if (!cols) return null;
-                              return (
-                                <div key={groupName}>
-                                  <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{groupName}</p>
-                                  <div className="space-y-1.5">
-                                    {cols.map(col => {
-                                      const checked = (partner as any)[col.key] as boolean;
-                                      const isSavingThis = saving === `${partner.user_id}-${col.key}` || saving === `${partner.user_id}-calc-${col.type === 'calc_influencer' ? 'influencer' : 'specialist'}`;
-                                      return (
-                                        <label key={col.key} className="flex items-start gap-2 cursor-pointer group">
-                                          <Switch
-                                            checked={checked}
-                                            disabled={isSavingThis || isSavingAll}
-                                            onCheckedChange={v => {
-                                              if (col.type === 'calc_influencer') toggleCalculatorAccess(partner.user_id, 'influencer', v);
-                                              else if (col.type === 'calc_specialist') toggleCalculatorAccess(partner.user_id, 'specialist', v);
-                                              else toggleLeaderPermission(partner.user_id, col.key as LeaderPermField, v);
-                                            }}
-                                            className="scale-90 mt-0.5"
-                                          />
-                                          <col.icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
-                                          <div className="flex flex-col">
-                                            <span className="text-xs">{col.label}</span>
-                                            <span className="text-[10px] text-muted-foreground leading-tight">{col.description}</span>
-                                          </div>
-                                        </label>
-                                      );
-                                    })}
+                        return (
+                          <Collapsible key={partner.user_id} open={isOpen} onOpenChange={() => toggleOpen(partner.user_id)}>
+                            <div className="border rounded-lg bg-primary/5 border-primary/20 transition-colors">
+                              <CollapsibleTrigger asChild>
+                                <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-primary/10 transition-colors rounded-t-lg">
+                                  <Crown className="h-4 w-4 text-primary flex-shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">{partner.first_name} {partner.last_name}</p>
+                                    <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
                                   </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </CollapsibleContent>
+                                  <Badge variant="default" className="flex-shrink-0">{active}/{TOTAL_PERMS}</Badge>
+                                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                              </CollapsibleTrigger>
+
+                              {/* Permission badges - always visible */}
+                              <div className="px-4 pb-2 flex flex-wrap gap-1">
+                                {activePerms.map(perm => (
+                                  <span key={perm.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                                    <perm.icon className="h-2.5 w-2.5" />
+                                    {perm.label}
+                                  </span>
+                                ))}
+                              </div>
+
+                              <CollapsibleContent>
+                                {renderPermEditor(partner)}
+                              </CollapsibleContent>
+                            </div>
+                          </Collapsible>
+                        );
+                      })}
                     </div>
-                  </Collapsible>
-                );
-              })}
+                  )}
+                </ScrollArea>
+              </div>
+
+              {/* Right column: Without permissions */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-muted-foreground" />
+                    Bez uprawnień
+                    <Badge variant="secondary" className="ml-1">{withoutPerms.length}</Badge>
+                  </h3>
+                </div>
+
+                <ScrollArea className="max-h-[650px]">
+                  {withoutPerms.length === 0 ? (
+                    <p className="text-center py-8 text-muted-foreground text-sm">Wszyscy partnerzy mają uprawnienia</p>
+                  ) : (
+                    <div className="space-y-1 pr-2">
+                      {withoutPerms.map(partner => {
+                        const isOpen = openIds.has(partner.user_id);
+                        return (
+                          <Collapsible key={partner.user_id} open={isOpen} onOpenChange={() => toggleOpen(partner.user_id)}>
+                            <div className="border rounded-lg border-border transition-colors">
+                              <div className="flex items-center gap-3 px-4 py-2.5">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm truncate">{partner.first_name} {partner.last_name}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{partner.email}</p>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs gap-1 flex-shrink-0"
+                                  onClick={() => toggleOpen(partner.user_id)}
+                                >
+                                  {isOpen ? <ChevronDown className="h-3.5 w-3.5 rotate-180" /> : <UserPlus className="h-3.5 w-3.5" />}
+                                  {isOpen ? 'Zwiń' : 'Nadaj'}
+                                </Button>
+                              </div>
+                              <CollapsibleContent>
+                                {renderPermEditor(partner)}
+                              </CollapsibleContent>
+                            </div>
+                          </Collapsible>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
             </div>
           )}
         </CardContent>
