@@ -508,6 +508,11 @@ export const TeamContactsTab: React.FC = () => {
                   getContactHistory={getContactHistory}
                   onMoveToOwnList={moveToOwnList}
                 />
+              ) : privateSubTab === 'hk-materials' ? (
+                <HKMaterialContactsList
+                  sessions={hkSessions}
+                  loading={hkSessionsLoading}
+                />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
                   contacts={filteredContacts}
