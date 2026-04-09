@@ -90,6 +90,7 @@ serve(async (req) => {
     contactReminders: { processed: 0, success: 0, failed: 0 },
     postEventThankYou: { processed: 0, success: 0, failed: 0 },
     inactivityWarnings: { processed: 0, success: 0, failed: 0 },
+    inactivityFinalWarnings: { processed: 0, success: 0, failed: 0 },
     inactivityBlocks: { processed: 0, success: 0, failed: 0 },
     stoppedEarly: false,
   };
@@ -729,7 +730,46 @@ serve(async (req) => {
       }
     }
 
-    // 7c. INACTIVITY BLOCKING (30 days without login)
+    // 7b2. INACTIVITY FINAL WARNING (29 days without login — 24h before block)
+    if (!results.stoppedEarly && !isTimeoutApproaching()) {
+      console.log("[CRON] Step 7b2: Processing inactivity final warnings (29 days)...");
+      
+      const { data: finalWarningUsers, error: finalWarningError } = await supabase
+        .rpc("get_inactive_users_for_final_warning");
+
+      if (finalWarningError) {
+        console.error("[CRON] Error fetching users for final warning:", finalWarningError);
+      } else if (finalWarningUsers && finalWarningUsers.length > 0) {
+        console.log(`[CRON] Found ${finalWarningUsers.length} users for final inactivity warning`);
+        
+        for (const u of finalWarningUsers) {
+          if (isTimeoutApproaching()) { results.stoppedEarly = true; break; }
+          if (results.inactivityFinalWarnings.processed > 0) await delay(200);
+          
+          results.inactivityFinalWarnings.processed++;
+          try {
+            const { error: sendError } = await supabase.functions.invoke("send-inactivity-final-warning", {
+              body: { userId: u.user_id, daysInactive: u.days_inactive }
+            });
+            
+            if (sendError) {
+              console.error(`[CRON] Failed to send final warning to ${u.email}:`, sendError);
+              results.inactivityFinalWarnings.failed++;
+            } else {
+              console.log(`[CRON] Sent final inactivity warning to ${u.email} (${u.days_inactive} days inactive)`);
+              results.inactivityFinalWarnings.success++;
+            }
+          } catch (err) {
+            console.error(`[CRON] Exception sending final inactivity warning:`, err);
+            results.inactivityFinalWarnings.failed++;
+          }
+        }
+      } else {
+        console.log("[CRON] No users need final inactivity warning");
+      }
+    }
+
+    // 7c. INACTIVITY BLOCKING (30 days without login, requires final warning sent 24h+ ago)
     if (!results.stoppedEarly && !isTimeoutApproaching()) {
       console.log("[CRON] Step 7c: Processing inactivity blocks...");
       
@@ -760,13 +800,13 @@ serve(async (req) => {
             console.log(`[CRON] Blocked user ${u.email} for ${u.days_inactive} days of inactivity`);
             results.inactivityBlocks.success++;
             
-            // Create admin notification about the block
+            // Create notification about the block
             await supabase.from("user_notifications").insert({
               user_id: u.user_id,
               notification_type: "system",
               source_module: "inactivity",
               title: "Konto zablokowane z powodu braku aktywności",
-              message: `Twoje konto zostało zablokowane po ${u.days_inactive} dniach braku aktywności. Skontaktuj się z support@purelife.info.pl lub swoim opiekunem, aby odblokować dostęp.`,
+              message: `Twoje konto zostało zablokowane po ${u.days_inactive} dniach braku aktywności. Aby odblokować konto, napisz na support@purelife.info.pl lub skontaktuj się ze swoim Liderem.`,
               metadata: { event: 'inactivity_block', days_inactive: u.days_inactive },
             });
           } catch (err) {
@@ -1318,8 +1358,8 @@ serve(async (req) => {
     }
 
     // 10. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed + results.postEventThankYou.processed + results.inactivityWarnings.processed + results.inactivityBlocks.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success + results.postEventThankYou.success + results.inactivityWarnings.success + results.inactivityBlocks.success;
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed + results.postEventThankYou.processed + results.inactivityWarnings.processed + results.inactivityFinalWarnings.processed + results.inactivityBlocks.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success + results.postEventThankYou.success + results.inactivityWarnings.success + results.inactivityFinalWarnings.success + results.inactivityBlocks.success;
     
     await supabase
       .from("cron_job_logs")

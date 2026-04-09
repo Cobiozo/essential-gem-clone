@@ -3,10 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useLeaderTeamMembers } from '@/hooks/useLeaderTeamMembers';
-import { Search, Loader2, UserCheck, Users, Radio } from 'lucide-react';
+import { Search, Loader2, UserCheck, Users, Radio, GraduationCap } from 'lucide-react';
+
+const SZYBKI_START_MODULE_ID = '7ba86537-309a-479a-a4d2-d8636acb2148';
 
 interface TeamMemberAccess {
   user_id: string;
@@ -14,6 +17,7 @@ interface TeamMemberAccess {
   last_name: string | null;
   email: string | null;
   can_access_auto_webinar: boolean;
+  has_certificate: boolean;
   level: number;
 }
 
@@ -21,6 +25,7 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
   const { toast } = useToast();
   const { teamMembers, loading: teamLoading } = useLeaderTeamMembers();
   const [accessMap, setAccessMap] = useState<Map<string, boolean>>(new Map());
+  const [certSet, setCertSet] = useState<Set<string>>(new Set());
   const [permLoading, setPermLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
@@ -40,14 +45,23 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
     setPermLoading(true);
     try {
       const userIds = teamMembers.map(m => m.id);
-      const { data, error } = await supabase
-        .rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds });
+      
+      // Load permissions and certificates in parallel
+      const [permResult, certResult] = await Promise.all([
+        supabase.rpc('leader_get_team_auto_webinar_access', { p_user_ids: userIds }),
+        supabase.from('certificates').select('user_id').eq('module_id', SZYBKI_START_MODULE_ID).in('user_id', userIds),
+      ]);
 
-      if (error) throw error;
+      if (permResult.error) throw permResult.error;
 
       const map = new Map<string, boolean>();
-      (data as any[])?.forEach(p => map.set(p.user_id, p.can_access_auto_webinar || false));
+      (permResult.data as any[])?.forEach(p => map.set(p.user_id, p.can_access_auto_webinar || false));
       setAccessMap(map);
+
+      const certs = new Set<string>();
+      certResult.data?.forEach(c => certs.add(c.user_id));
+      setCertSet(certs);
+
       permissionsLoaded.current = true;
     } catch (error: any) {
       toast({ title: 'Błąd', description: error.message, variant: 'destructive' });
@@ -95,6 +109,7 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
     last_name: m.last_name,
     email: m.email,
     can_access_auto_webinar: accessMap.get(m.id) || false,
+    has_certificate: certSet.has(m.id),
     level: m.level,
   }));
 
@@ -108,8 +123,66 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
     );
   });
 
-  const withAccess = filtered.filter(m => m.can_access_auto_webinar);
-  const withoutAccess = filtered.filter(m => !m.can_access_auto_webinar);
+  const withAccess = filtered.filter(m => m.can_access_auto_webinar && m.has_certificate);
+  const withoutAccess = filtered.filter(m => !m.can_access_auto_webinar || !m.has_certificate);
+
+  const renderMemberRow = (member: TeamMemberAccess, showEnabled: boolean) => {
+    const hasCert = member.has_certificate;
+    const isChecked = showEnabled ? true : false;
+
+    return (
+      <div
+        key={member.user_id}
+        className={`flex items-center justify-between rounded-lg border p-3 ${
+          showEnabled ? 'border-primary/20 bg-primary/5' : 'border-border bg-card'
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-medium truncate">
+              {member.first_name} {member.last_name}
+            </p>
+            {!hasCert && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-600 whitespace-nowrap">
+                      <GraduationCap className="h-3 w-3 mr-0.5" />
+                      Brak certyfikatu
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Wymaga ukończenia szkolenia "Szybki Start" i wygenerowania certyfikatu</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+        </div>
+        {hasCert ? (
+          <Switch
+            checked={isChecked}
+            onCheckedChange={() => toggleAccess(member.user_id, !isChecked)}
+            disabled={saving === member.user_id}
+          />
+        ) : (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Switch checked={false} disabled={true} />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Wymaga certyfikatu "Szybki Start"</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -119,6 +192,9 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
       </div>
       <p className="text-sm text-muted-foreground">
         Włącz lub wyłącz dostęp do kafelków Auto-Webinar (Business Opportunity i Health Conversation) na pulpicie użytkowników w Twojej strukturze.
+        <span className="block mt-1 text-orange-600 font-medium">
+          ⚠️ Warunek: użytkownik musi posiadać certyfikat ukończenia szkolenia "Szybki Start".
+        </span>
       </p>
 
       <div className="relative">
@@ -147,24 +223,7 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
                 {searchQuery ? 'Nie znaleziono' : 'Wszyscy użytkownicy mają dostęp'}
               </p>
             ) : (
-              withoutAccess.map(member => (
-                <div
-                  key={member.user_id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-card p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {member.first_name} {member.last_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                  </div>
-                  <Switch
-                    checked={false}
-                    onCheckedChange={() => toggleAccess(member.user_id, true)}
-                    disabled={saving === member.user_id}
-                  />
-                </div>
-              ))
+              withoutAccess.map(member => renderMemberRow(member, false))
             )}
           </CardContent>
         </Card>
@@ -184,24 +243,7 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
                 {searchQuery ? 'Nie znaleziono' : 'Brak użytkowników z dostępem'}
               </p>
             ) : (
-              withAccess.map(member => (
-                <div
-                  key={member.user_id}
-                  className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {member.first_name} {member.last_name}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{member.email}</p>
-                  </div>
-                  <Switch
-                    checked={true}
-                    onCheckedChange={() => toggleAccess(member.user_id, false)}
-                    disabled={saving === member.user_id}
-                  />
-                </div>
-              ))
+              withAccess.map(member => renderMemberRow(member, true))
             )}
           </CardContent>
         </Card>
