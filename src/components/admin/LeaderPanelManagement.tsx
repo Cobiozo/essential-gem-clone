@@ -412,7 +412,7 @@ export const LeaderPanelManagement: React.FC = () => {
                   ))}
                 </div>
 
-                <ScrollArea className="max-h-[600px]">
+                <div className="overflow-y-auto max-h-[calc(100vh-320px)]">
                   {withPerms.length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground text-sm">
                       {selectedPermFilter ? 'Brak liderów z tym uprawnieniem' : 'Brak aktywnych liderów'}
@@ -428,7 +428,7 @@ export const LeaderPanelManagement: React.FC = () => {
                           <Collapsible key={partner.user_id} open={isOpen} onOpenChange={() => toggleOpen(partner.user_id)}>
                             <div className="border rounded-lg bg-primary/5 border-primary/20 transition-colors">
                               <CollapsibleTrigger asChild>
-                                <button className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-primary/10 transition-colors rounded-t-lg">
+                                <button className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/10 transition-colors rounded-t-lg">
                                   <Crown className="h-4 w-4 text-primary flex-shrink-0" />
                                   <div className="flex-1 min-w-0">
                                     <p className="font-medium text-sm truncate">{partner.first_name} {partner.last_name}</p>
@@ -439,17 +439,15 @@ export const LeaderPanelManagement: React.FC = () => {
                                 </button>
                               </CollapsibleTrigger>
 
-                              {/* Permission badges - always visible */}
-                              <div className="px-4 pb-2 flex flex-wrap gap-1">
-                                {activePerms.map(perm => (
-                                  <span key={perm.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
-                                    <perm.icon className="h-2.5 w-2.5" />
-                                    {perm.label}
-                                  </span>
-                                ))}
-                              </div>
-
                               <CollapsibleContent>
+                                <div className="px-4 pt-2 pb-1 flex flex-wrap gap-1">
+                                  {activePerms.map(perm => (
+                                    <span key={perm.label} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary border border-primary/20">
+                                      <perm.icon className="h-2.5 w-2.5" />
+                                      {perm.label}
+                                    </span>
+                                  ))}
+                                </div>
                                 {renderPermEditor(partner)}
                               </CollapsibleContent>
                             </div>
@@ -458,7 +456,7 @@ export const LeaderPanelManagement: React.FC = () => {
                       })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </div>
 
               {/* Right column: Without permissions */}
@@ -471,7 +469,7 @@ export const LeaderPanelManagement: React.FC = () => {
                   </h3>
                 </div>
 
-                <ScrollArea className="max-h-[650px]">
+                <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
                   {withoutPerms.length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground text-sm">Wszyscy partnerzy mają uprawnienia</p>
                   ) : (
@@ -505,7 +503,7 @@ export const LeaderPanelManagement: React.FC = () => {
                       })}
                     </div>
                   )}
-                </ScrollArea>
+                </div>
               </div>
             </div>
           )}
