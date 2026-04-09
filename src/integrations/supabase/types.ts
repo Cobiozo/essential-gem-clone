@@ -6617,6 +6617,30 @@ export type Database = {
           },
         ]
       }
+      purebox_content: {
+        Row: {
+          content_data: Json
+          content_key: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content_data?: Json
+          content_key: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content_data?: Json
+          content_key?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       purebox_settings: {
         Row: {
           created_at: string | null
