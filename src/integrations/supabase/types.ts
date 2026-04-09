@@ -3722,6 +3722,36 @@ export type Database = {
         }
         Relationships: []
       }
+      inactivity_settings: {
+        Row: {
+          block_days: number
+          created_at: string
+          id: string
+          is_enabled: boolean
+          support_email: string
+          updated_at: string
+          warning_days: number
+        }
+        Insert: {
+          block_days?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          support_email?: string
+          updated_at?: string
+          warning_days?: number
+        }
+        Update: {
+          block_days?: number
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          support_email?: string
+          updated_at?: string
+          warning_days?: number
+        }
+        Relationships: []
+      }
       infolink_otp_codes: {
         Row: {
           code: string
@@ -8906,6 +8936,26 @@ export type Database = {
       get_current_user_eq_id: { Args: never; Returns: string }
       get_current_user_role: { Args: never; Returns: string }
       get_event_host_user_id: { Args: { p_event_id: string }; Returns: string }
+      get_inactive_users_for_blocking: {
+        Args: never
+        Returns: {
+          days_inactive: number
+          email: string
+          first_name: string
+          last_name: string
+          user_id: string
+        }[]
+      }
+      get_inactive_users_for_warning: {
+        Args: never
+        Returns: {
+          days_inactive: number
+          email: string
+          first_name: string
+          last_name: string
+          user_id: string
+        }[]
+      }
       get_leader_team_training_progress: {
         Args: { p_leader_user_id: string }
         Returns: {
