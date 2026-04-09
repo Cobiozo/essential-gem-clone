@@ -9217,6 +9217,7 @@ export type Database = {
         Args: { p_user_ids: string[] }
         Returns: {
           can_access_auto_webinar: boolean
+          has_certificate: boolean
           user_id: string
         }[]
       }

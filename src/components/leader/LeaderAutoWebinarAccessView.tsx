@@ -25,7 +25,7 @@ const LeaderAutoWebinarAccessView: React.FC = () => {
   const { toast } = useToast();
   const { teamMembers, loading: teamLoading } = useLeaderTeamMembers();
   const [accessMap, setAccessMap] = useState<Map<string, boolean>>(new Map());
-  const [certSet, setCertSet] = useState<Set<string>>(new Set());
+  const [certMap, setCertMap] = useState<Map<string, boolean>>(new Map());
   const [permLoading, setPermLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState<string | null>(null);
