@@ -469,7 +469,7 @@ export const LeaderPanelManagement: React.FC = () => {
                   </h3>
                 </div>
 
-                <ScrollArea className="max-h-[650px]">
+                <div className="overflow-y-auto max-h-[calc(100vh-280px)]">
                   {withoutPerms.length === 0 ? (
                     <p className="text-center py-8 text-muted-foreground text-sm">Wszyscy partnerzy mają uprawnienia</p>
                   ) : (
