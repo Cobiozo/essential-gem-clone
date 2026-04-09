@@ -1358,8 +1358,8 @@ serve(async (req) => {
     }
 
     // 10. Update job log with results
-    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed + results.postEventThankYou.processed + results.inactivityWarnings.processed + results.inactivityBlocks.processed;
-    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success + results.postEventThankYou.success + results.inactivityWarnings.success + results.inactivityBlocks.success;
+    const totalProcessed = results.welcomeEmails.processed + results.trainingNotifications.processed + results.trainingReminders.processed + results.retries.processed + results.webinarReminders24h.processed + results.webinarReminders1h.processed + results.pushReminders.processed + results.contactReminders.processed + results.postEventThankYou.processed + results.inactivityWarnings.processed + results.inactivityFinalWarnings.processed + results.inactivityBlocks.processed;
+    const totalSuccess = results.welcomeEmails.success + results.trainingNotifications.success + results.trainingReminders.success + results.retries.success + results.webinarReminders24h.success + results.webinarReminders1h.success + results.pushReminders.success + results.contactReminders.success + results.postEventThankYou.success + results.inactivityWarnings.success + results.inactivityFinalWarnings.success + results.inactivityBlocks.success;
     
     await supabase
       .from("cron_job_logs")
