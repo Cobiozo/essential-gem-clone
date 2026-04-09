@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -13,53 +13,46 @@ const AUTO_RELOAD_SECONDS = 30;
 export const SWUpdateBanner: React.FC = () => {
   const [showBanner, setShowBanner] = useState(false);
   const [countdown, setCountdown] = useState(AUTO_RELOAD_SECONDS);
-  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const fallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const startCountdown = useCallback(() => {
-    setCountdown(AUTO_RELOAD_SECONDS);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    if (fallbackRef.current) clearTimeout(fallbackRef.current);
-
-    countdownRef.current = setInterval(() => {
-      setCountdown(prev => prev - 1);
-    }, 1000);
-
-    // Fallback: force reload after 30.5s regardless of React state
-    fallbackRef.current = setTimeout(() => {
-      window.location.reload();
-    }, AUTO_RELOAD_SECONDS * 1000 + 500);
-  }, []);
-
-  // Force reload when countdown reaches 0
+  // Listen for update events — only sets flag
   useEffect(() => {
-    if (showBanner && countdown <= 0) {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      window.location.reload();
-    }
-  }, [countdown, showBanner]);
-
-  useEffect(() => {
-    const show = () => {
-      if (!showBanner) {
-        setShowBanner(true);
-        startCountdown();
-      }
-    };
-
+    const show = () => setShowBanner(true);
     window.addEventListener('swUpdateAvailable', show);
     window.addEventListener('appVersionChanged', show);
     return () => {
       window.removeEventListener('swUpdateAvailable', show);
       window.removeEventListener('appVersionChanged', show);
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      if (fallbackRef.current) clearTimeout(fallbackRef.current);
     };
-  }, [showBanner, startCountdown]);
+  }, []);
+
+  // Start countdown when banner becomes visible
+  useEffect(() => {
+    if (!showBanner) return;
+
+    setCountdown(AUTO_RELOAD_SECONDS);
+
+    const interval = setInterval(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
+
+    const fallback = setTimeout(() => {
+      window.location.reload();
+    }, AUTO_RELOAD_SECONDS * 1000 + 500);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(fallback);
+    };
+  }, [showBanner]);
+
+  // Force reload when countdown reaches 0
+  useEffect(() => {
+    if (showBanner && countdown <= 0) {
+      window.location.reload();
+    }
+  }, [countdown, showBanner]);
 
   const handleRefresh = () => {
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    if (fallbackRef.current) clearTimeout(fallbackRef.current);
     const reg = window.__swRegistration;
     if (reg?.waiting) {
       reg.waiting.postMessage('SKIP_WAITING');
