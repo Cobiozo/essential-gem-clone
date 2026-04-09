@@ -207,6 +207,63 @@ export const TeamContactsTab: React.FC = () => {
     setEditingContact(contact);
   };
 
+  // Move HK session guest to own contact list
+  const moveHkSessionToOwnList = async (session: HKSessionContact): Promise<boolean | 'duplicate'> => {
+    // Check for duplicate by email
+    const existingContact = contacts.find(
+      c => c.email?.toLowerCase().trim() === session.guest_email?.toLowerCase().trim()
+    );
+    if (existingContact) {
+      return 'duplicate' as const;
+    }
+
+    const newContact = await addContact({
+      first_name: session.guest_first_name,
+      last_name: session.guest_last_name,
+      email: session.guest_email,
+      phone_number: session.guest_phone || null,
+      contact_source: 'Materiał ZW',
+      contact_reason: `Materiał: ${session.knowledge_title}`,
+      role: 'client',
+      contact_type: 'private',
+      moved_to_own_list: true,
+      eq_id: null,
+      linked_user_id: null,
+      address: null,
+      secondary_email: null,
+      profession: null,
+      contact_upline_eq_id: null,
+      contact_upline_first_name: null,
+      contact_upline_last_name: null,
+      relationship_status: null,
+      products: null,
+      next_contact_date: null,
+      reminder_date: null,
+      reminder_note: null,
+      reminder_sent: false,
+      purchased_product: null,
+      purchase_date: null,
+      client_status: null,
+      collaboration_level: null,
+      start_date: null,
+      partner_status: null,
+      second_contact_date: null,
+      first_contact_annotation: null,
+      first_contact_result: null,
+      is_active: true,
+      notes: null,
+      added_at: new Date().toISOString(),
+      linked_user_deleted_at: null,
+    } as any);
+
+    if (newContact) {
+      // Refresh HK sessions to reflect new state
+      fetchHkSessions();
+      return true;
+    }
+    return false;
+  };
+
   const handleApproveUser = async (pending: PendingApproval) => {
     const success = await approveUser(pending.user_id);
     if (success) {
@@ -512,6 +569,10 @@ export const TeamContactsTab: React.FC = () => {
                 <HKMaterialContactsList
                   sessions={hkSessions}
                   loading={hkSessionsLoading}
+                  onMoveToOwnList={moveHkSessionToOwnList}
+                  onEdit={openEditForm}
+                  onDelete={handleDeleteContact}
+                  getContactHistory={getContactHistory}
                 />
               ) : viewMode === 'accordion' ? (
                 <TeamContactAccordion
