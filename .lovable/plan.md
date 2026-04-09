@@ -1,68 +1,77 @@
 
 
-# Plan: Naprawa dwóch problemów
+# Plan: Korekta systemu blokad za nieaktywność (3 kroki)
 
-## Problem 1: Przypomnienia CRON nadal nie działają
+## Obecny stan (BUG)
 
-**Diagnoza**: Kod w repozytorium jest poprawny (linia 449: `registered_at`), ale logi produkcyjne z dzisiaj (12:55) nadal pokazują błąd `column event_registrations.created_at does not exist`. Oznacza to, że Edge Function **nie została ponownie wdrożona** po ostatniej zmianie.
+System ma 2 kroki: ostrzeżenie po 14 dniach → blokada po 30 dniach. Problem: RPC `get_inactive_users_for_blocking` nie sprawdza, czy ostrzeżenie było wysłane wcześniej — w efekcie ostrzeżenie i blokada mogą nastąpić w tej samej sekundzie (co się stało 9 kwietnia — 52 użytkowników zablokowanych bez szansy na reakcję).
 
-**Rozwiązanie**: Ponowne wdrożenie (deploy) funkcji `send-bulk-webinar-reminders`. Żadne zmiany w kodzie nie są potrzebne — wystarczy redeploy.
+## Docelowy przepływ (3 kroki)
+
+| Krok | Kiedy | Akcja |
+|------|-------|-------|
+| 1. Pierwsze ostrzeżenie | 14 dni bez logowania | Email: "Twoje konto nie jest aktywne od 14 dni" |
+| 2. Drugie ostrzeżenie (24h przed blokadą) | 29 dni bez logowania | Email: "Za 24h Twoje konto zostanie zablokowane" |
+| 3. Blokada | 30 dni bez logowania | Blokada konta. Odblokowanie tylko przez admina na wniosek przez support@purelife.info.pl lub kontakt z Liderem |
+
+**WAŻNE**: Nikogo na razie nie odblokowujemy — 52 zablokowanych użytkowników pozostaje zablokowanych.
 
 ---
 
-## Problem 2: Banner "nowa wersja" nie odlicza i nie przeładowuje
+## Zmiany do wdrożenia
 
-**Diagnoza**: Bug w `SWUpdateBanner.tsx`. Sekwencja zdarzeń:
+### 1. Nowa RPC: `get_inactive_users_for_final_warning` (migracja SQL)
 
-1. Event `appVersionChanged` odpala → `show()` ustawia `showBanner(true)` i wywołuje `startCountdown()` (tworzy interval + timeout)
-2. React re-renderuje bo `showBanner` się zmienił
-3. `useEffect` na liniach 42-58 ma `[showBanner, startCountdown]` w zależnościach → **cleanup się odpala**
-4. Cleanup na liniach 55-56 wywołuje `clearInterval(countdownRef.current)` i `clearTimeout(fallbackRef.current)` — **zabija oba timery** które właśnie wystartowały!
-5. Efekt: banner widoczny, ale countdown zamrożony na 30s, auto-reload nigdy nie nastąpi
+Nowa funkcja znajdująca użytkowników nieaktywnych od 29 dni, którzy:
+- dostali już pierwsze ostrzeżenie (`inactivity_warning_sent_at IS NOT NULL`)
+- NIE dostali jeszcze drugiego ostrzeżenia (nowa kolumna `inactivity_final_warning_sent_at IS NULL`)
+- są nadal aktywni (`is_active = true`)
 
-**Rozwiązanie**: Rozdzielić logikę event listenerów od logiki countdown. Countdown powinien startować w osobnym `useEffect` reagującym na `showBanner`, a nie być wywoływany wewnątrz handlera eventów który jest w efekcie z cleanup'em czyszczącym timery.
-
-### Zmiana w `src/components/pwa/SWUpdateBanner.tsx`
-
-```tsx
-// useEffect #1 — tylko nasłuchuje eventów i ustawia showBanner
-useEffect(() => {
-  const show = () => setShowBanner(true);
-  window.addEventListener('swUpdateAvailable', show);
-  window.addEventListener('appVersionChanged', show);
-  return () => {
-    window.removeEventListener('swUpdateAvailable', show);
-    window.removeEventListener('appVersionChanged', show);
-  };
-}, []);
-
-// useEffect #2 — startuje countdown gdy banner się pojawi
-useEffect(() => {
-  if (!showBanner) return;
-  
-  setCountdown(AUTO_RELOAD_SECONDS);
-  
-  const interval = setInterval(() => {
-    setCountdown(prev => prev - 1);
-  }, 1000);
-  
-  const fallback = setTimeout(() => {
-    window.location.reload();
-  }, AUTO_RELOAD_SECONDS * 1000 + 500);
-  
-  return () => {
-    clearInterval(interval);
-    clearTimeout(fallback);
-  };
-}, [showBanner]);
+```sql
+-- Dodanie kolumny na drugie ostrzeżenie
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS inactivity_final_warning_sent_at timestamptz;
 ```
 
-Usunięcie `startCountdown` callback i `countdownRef`/`fallbackRef` — stają się zbędne bo lifecycle jest zarządzany przez cleanup efektu.
+### 2. Poprawka RPC `get_inactive_users_for_blocking`
+
+Dodanie warunku: blokada możliwa TYLKO jeśli:
+- drugie ostrzeżenie (`inactivity_final_warning_sent_at`) zostało wysłane co najmniej 24h temu
+
+```sql
+AND p.inactivity_final_warning_sent_at IS NOT NULL
+AND p.inactivity_final_warning_sent_at < now() - INTERVAL '24 hours'
+```
+
+### 3. Nowy Edge Function: `send-inactivity-final-warning`
+
+Email z treścią: "Za 24 godziny Twoje konto zostanie zablokowane z powodu braku aktywności. Zaloguj się teraz, aby zapobiec blokadzie."
+
+Po wysłaniu ustawia `inactivity_final_warning_sent_at = now()`.
+
+### 4. Aktualizacja `process-pending-notifications/index.ts`
+
+Dodanie nowego kroku **7b2** między krokiem 7b (ostrzeżenie 14-dniowe) a 7c (blokada):
+
+- **7b**: Pierwsze ostrzeżenie (14 dni) — bez zmian
+- **7b2 (NOWY)**: Drugie ostrzeżenie (29 dni) — wywołuje `send-inactivity-final-warning`
+- **7c**: Blokada (30 dni) — poprawiony warunek (wymaga `final_warning_sent_at` sprzed 24h+)
+
+### 5. Aktualizacja treści emaila blokady (krok 7c)
+
+Zmiana notyfikacji przy blokadzie — jasna informacja:
+> "Twoje konto zostało zablokowane z powodu 30 dni braku aktywności. Aby odblokować konto, napisz na support@purelife.info.pl lub skontaktuj się ze swoim Liderem."
+
+---
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/pwa/SWUpdateBanner.tsx` | Rozdzielenie efektów — fix countdown |
-| `send-bulk-webinar-reminders` | Redeploy (bez zmian w kodzie) |
+| Migracja SQL | Nowa kolumna `inactivity_final_warning_sent_at`, nowa RPC `get_inactive_users_for_final_warning`, poprawka RPC `get_inactive_users_for_blocking` |
+| `supabase/functions/send-inactivity-final-warning/index.ts` | Nowy Edge Function — email "za 24h blokada" |
+| `supabase/functions/process-pending-notifications/index.ts` | Dodanie kroku 7b2 (drugie ostrzeżenie 29 dni) |
+
+## Czego NIE robimy
+
+- **Nie odblokowujemy** 52 zablokowanych użytkowników — pozostają zablokowani zgodnie z poleceniem
 
