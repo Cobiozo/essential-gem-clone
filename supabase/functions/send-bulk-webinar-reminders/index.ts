@@ -478,7 +478,7 @@ serve(async (req) => {
       const registrationWindowMs = 8 * 24 * 60 * 60 * 1000; // 8 days
       const cutoffDate = new Date(termDatetime.getTime() - registrationWindowMs);
       const beforeCount = relevantUserRegs.length;
-      relevantUserRegs = relevantUserRegs.filter((r: any) => new Date(r.created_at) >= cutoffDate);
+      relevantUserRegs = relevantUserRegs.filter((r: any) => new Date(r.registered_at) >= cutoffDate);
       if (beforeCount !== relevantUserRegs.length) {
         console.log(`[bulk-reminders] Single-occurrence stale user reg filter: ${beforeCount} → ${relevantUserRegs.length} (removed ${beforeCount - relevantUserRegs.length} old registrations)`);
       }
