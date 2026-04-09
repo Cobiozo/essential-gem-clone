@@ -26,6 +26,7 @@ import { OrganizationChart, OrganizationList } from './organization';
 import { EventGroupedContacts } from './EventGroupedContacts';
 import { DeletedContactsList } from './DeletedContactsList';
 import { PartnerPageContactsList } from './PartnerPageContactsList';
+import { HKMaterialContactsList, type HKSessionContact } from './HKMaterialContactsList';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeamContact, ContactType } from './types';
 import {
