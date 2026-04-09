@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +14,7 @@ import {
   UserRound, TreePine, UserCheck, CalendarPlus, ClipboardList,
   BookOpenCheck, Library, Bell, Mail, Smartphone, Contact, UserCog,
   Sun, Info, Link, BarChart3, Award, ChevronDown, ToggleLeft, ToggleRight, Globe, Radio,
+  Plus, Filter, UserPlus, Shield,
 } from 'lucide-react';
 
 interface PartnerLeaderData {
