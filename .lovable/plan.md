@@ -1,31 +1,66 @@
 
 
-# Fix: Admin nie widzi użytkowników z rolą `client` w zarządzaniu auto-webinarem
+# Redesign: Panel Lidera — zarządzanie uprawnieniami
 
 ## Problem
 
-Jan Koterski ma rolę `client` w tabeli `user_roles`. Admin widok filtruje tylko użytkowników z rolami `partner` i `specjalista` (linia 35). Dlatego Koterski (i każdy inny `client` z nadanym dostępem przez lidera) jest niewidoczny.
+Obecny widok to płaska lista **wszystkich partnerów** (nawet tych bez żadnych uprawnień), każdy z badge "0/22". Admin musi klikać w każdego, żeby sprawdzić co ma włączone. Brak podziału na aktywnych liderów vs. resztę. Brak szybkiego przeglądu "kto ma co".
 
-## Rozwiązanie
+## Proponowane rozwiązanie
 
-Zmienić podejście w `AutoWebinarAccessManagement.tsx`: zamiast filtrować po rolach, pokazywać **wszystkich użytkowników, którzy mają wpis w `leader_permissions` z `can_access_auto_webinar = true`**, niezależnie od roli. Dodatkowo w kolumnie "Bez dostępu" nadal pokazywać partnerów i specjalistów (bo to potencjalni kandydaci do nadania).
+### 1. Podział na dwie sekcje (jak w Auto-Webinar)
 
-Konkretnie:
+```text
+┌──────────────────────────┐  ┌──────────────────────────┐
+│ 👑 Aktywni liderzy (5)   │  │ 👤 Bez uprawnień (87)    │
+│                          │  │                          │
+│ ┌──────────────────────┐ │  │ Szukaj...                │
+│ │ Jan Kowalski   18/22 │ │  │                          │
+│ │ Spotkania, Szkolenia,│ │  │ Ewa Nowak         [+]    │
+│ │ Struktura, ...       │ │  │ Adam Wiśniewski   [+]    │
+│ │        [Edytuj]      │ │  │ ...                      │
+│ └──────────────────────┘ │  │                          │
+│ ┌──────────────────────┐ │  │                          │
+│ │ Anna Nowak     12/22 │ │  │                          │
+│ │ ...                  │ │  │                          │
+│ └──────────────────────┘ │  │                          │
+└──────────────────────────┘  └──────────────────────────┘
+```
 
-### `src/components/admin/AutoWebinarAccessManagement.tsx`
+- **Lewa kolumna**: Partnerzy z ≥1 uprawnieniem — od razu widać jakie mają (lista badge'ów z nazwami aktywnych uprawnień)
+- **Prawa kolumna**: Partnerzy bez żadnych uprawnień — kompaktowa lista z przyciskiem "Nadaj uprawnienia"
 
-1. Zmienić zapytanie o role — dodać `client`:
-   ```
-   .in('role', ['partner', 'specjalista', 'client'])
-   ```
+### 2. Karty aktywnych liderów z widocznymi uprawnieniami
 
-2. Alternatywnie (lepsze podejście): przy budowaniu listy `partners`, dodać użytkowników, którzy mają `can_access_auto_webinar = true` w `leader_permissions`, nawet jeśli nie mają roli partner/specjalista. Dzięki temu admin widzi każdego, komu ktokolwiek nadał dostęp.
+Każdy aktywny lider jako karta z:
+- Imię, nazwisko, email
+- **Badge'e aktywnych uprawnień** (np. `Spotkania` `Szkolenia` `Struktura`) — widoczne od razu bez rozwijania
+- Licznik X/22
+- Przycisk "Edytuj" otwierający rozwijany panel z pełną listą switchy (jak teraz)
+- Przyciski "Włącz/Wyłącz wszystko"
 
-3. W kolumnie "Z dostępem" wyświetlać badge z rzeczywistą rolą użytkownika (Partner / Specjalista / Klient).
+### 3. Szybkie filtry / widok uprawnień
+
+Nad listą aktywnych liderów — filtr po uprawnieniu:
+- Dropdown/chips: "Pokaż liderów z uprawnieniem: Spotkania / Szkolenia / Auto-Webinar / ..."
+- Pozwala adminowi szybko sprawdzić "kto ma dostęp do X"
+
+### 4. Przycisk "Nadaj uprawnienia" w prawej kolumnie
+
+Kliknięcie przenosi partnera do edycji (otwiera panel switchy), po zapisaniu partner przesuwa się do lewej kolumny.
 
 ## Plik do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/admin/AutoWebinarAccessManagement.tsx` | Rozszerzyć filtr ról o `client` + uwzględnić użytkowników z aktywnym dostępem niezależnie od roli |
+| `src/components/admin/LeaderPanelManagement.tsx` | Przebudowa layoutu na 2 kolumny, dodanie badge'ów uprawnień, filtrów |
+
+## Szczegóły techniczne
+
+- Logika danych i zapytania Supabase **bez zmian** — przebudowa dotyczy tylko warstwy UI
+- Podział `filtered` na `withPerms = filtered.filter(p => countActive(p) > 0)` i `withoutPerms`
+- Badge'e uprawnień: mapowanie `columns.filter(col => partner[col.key]).map(col => col.label)`
+- Filtr po uprawnieniu: stan `selectedPermFilter: string | null`, dodatkowe filtrowanie `withPerms`
+- Collapsible z edycją switchy pozostaje wewnątrz kart aktywnych liderów
+- Layout: `grid grid-cols-1 lg:grid-cols-2` (jak w AutoWebinarAccessManagement)
 
