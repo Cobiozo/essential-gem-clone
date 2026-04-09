@@ -633,7 +633,8 @@ serve(async (req) => {
             'event_time': formattedTime,
             'host_name': event.host_name || 'Zespół Pure Life',
             'zoom_link': config.includeLink ? zoomLink : '',
-          };
+            'platform_link': event.category === 'team_training' ? 'https://purelife.lovable.app/events' : '',
+            'is_team_training': event.category === 'team_training' ? 'true' : 'false',
 
           let finalSubject: string;
           let finalBody: string;
