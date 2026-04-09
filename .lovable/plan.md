@@ -1,32 +1,34 @@
 
 
-# Fix: Lider nie widzi certyfikatów członków zespołu
+# Diagnoza: Dlaczego wszystkie zapisy na Sales Mastery są "Anulowane"
 
-## Diagnoza
+## Problem
 
-Tabela `certificates` ma RLS policy `Users can view their own certificates` z warunkiem `auth.uid() = user_id`. Lider nie jest adminem, więc zapytanie po certyfikaty zespołu zwraca **0 wyników** — wszyscy członkowie wyglądają jakby nie mieli certyfikatu, a switche są wyszarzone.
+Rejestracje **nie są anulowane** — mają status `completed` w bazie danych. Wszystkie 41 zapisów zostało automatycznie oznaczonych jako `completed` przez CRON (`process-pending-notifications`) po zakończeniu wydarzenia (09.04.2026 19:00 UTC).
 
-Jan Koterski **ma** certyfikat Szybki Start (wygenerowany 9 kwietnia 2026, ID: `76281103-...`), ale lider go nie widzi przez RLS.
+**Bug jest w UI**, nie w danych. Panel administracyjny (`EventRegistrationsManagement.tsx`) stosuje binarną logikę:
+
+```text
+status === 'registered' ? 'Zapisany' : 'Anulowany'
+```
+
+Czyli wszystko co nie jest `registered` (w tym `completed`, `attended`) wyświetla się jako "Anulowany" z czerwonym badge'm.
 
 ## Rozwiązanie
 
-Przenieść sprawdzanie certyfikatów do istniejącej RPC `leader_get_team_auto_webinar_access` (która działa z `SECURITY DEFINER` i omija RLS). RPC będzie zwracać dodatkowe pole `has_certificate` dla każdego użytkownika.
+Dodać obsługę statusu `completed` w UI panelu zarządzania rejestracjami:
 
-### Zmiana 1: Migracja SQL — rozszerzenie RPC
+### Zmiany w `EventRegistrationsManagement.tsx`
 
-Zaktualizować `leader_get_team_auto_webinar_access` aby zwracała także `has_certificate boolean` na podstawie JOIN z tabelą `certificates` po module `7ba86537-...`.
+1. **Badge statusu** — dodać case `completed` z zielono-szarym badge'm "Zakończony" (lub "Uczestniczył") obok istniejących `registered` i `cancelled`
+2. **Eksport CSV** (linia 418) — mapowanie `completed` → "Zakończony" zamiast "Anulowany"
+3. **Statystyki** (linia 337-341) — liczyć `completed` jako "Aktywnych" (lub osobna kategoria "Zakończonych"), nie jako "Anulowanych"
+4. **Filtr statusu** — dodać opcję "Zakończony" do SelectItem (linia 1556-1558)
+5. **Lista "Email po webinarze"** — upewnić się, że `completed` jest uwzględniony w liście odbiorców follow-up (linie 578-602)
 
-### Zmiana 2: Frontend — użycie danych z RPC zamiast osobnego zapytania
+### Zmiany w `EventRegistrationReport.tsx`
 
-W `LeaderAutoWebinarAccessView.tsx`:
-- Usunąć osobne zapytanie do `certificates` (linia 52)
-- Budować `certSet` z danych zwróconych przez RPC (`has_certificate`)
-- Reszta logiki bez zmian
+Analogiczna poprawka w raporcie (linia 209): `completed` → "Zakończony"
 
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| Migracja SQL | Rozszerzenie RPC `leader_get_team_auto_webinar_access` o pole `has_certificate` |
-| `src/components/leader/LeaderAutoWebinarAccessView.tsx` | Usunięcie zapytania do `certificates`, użycie danych z RPC |
+**Dane w bazie są poprawne — żadna migracja SQL nie jest potrzebna.**
 
