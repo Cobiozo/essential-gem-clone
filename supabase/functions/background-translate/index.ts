@@ -472,7 +472,41 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
     // Batch translate all items at once using a single AI call
     try {
       const batchTranslations = await translateCMSItemsBatch(batch, source_language, target_language, lovableApiKey);
-...
+      
+      for (let idx = 0; idx < batch.length; idx++) {
+        const item = batch[idx];
+        const translated = batchTranslations[idx] || {};
+        
+        if (!hasTranslatedContent(translated, ['title'])) {
+          errors++;
+          console.warn(`Empty translation for CMS item ${item.id}`);
+        } else {
+          const { error: upsertError } = await supabase
+            .from('cms_item_translations')
+            .upsert({
+              item_id: item.id,
+              language_code: target_language,
+              title: translated.title || null,
+              description: translated.description || null,
+              cells: translated.cells || null,
+              updated_at: new Date().toISOString()
+            }, {
+              onConflict: 'item_id,language_code'
+            });
+
+          if (upsertError) {
+            console.error(`Failed to save CMS item translation for ${item.id}:`, upsertError);
+            errors++;
+          } else {
+            processedKeys++;
+          }
+        }
+      }
+    } catch (batchError) {
+      console.error('Batch CMS item translation error:', batchError);
+      errors += batch.length;
+    }
+
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Update progress after each batch
