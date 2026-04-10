@@ -1,33 +1,39 @@
 
-# Dodanie akcji do kontaktów z materiałów ZW
+
+# Naprawa weryfikacji certyfikatów Szybki Start
 
 ## Problem
-Karty gości w zakładce "Z udostępnionego materiału ZW" nie mają przycisków akcji (przenieś do mojej listy, zaproś na wydarzenie, edytuj, usuń), które są dostępne w zakładkach "Z zaproszeń na...".
+Funkcja `leader_get_team_auto_webinar_access` pobiera dane **z tabeli `leader_permissions`** jako bazy (`FROM leader_permissions`), ale tylko **11 z 206** członków zespołu Dawida ma w niej rekord. Pozostali 195 użytkowników w ogóle nie pojawia się w wynikach — frontend traktuje ich jako "brak certyfikatu", mimo że **83 osób faktycznie posiada certyfikat** w tabeli `certificates`.
+
+## Przyczyna
+```sql
+-- OBECNE (błędne) — pomija użytkowników bez rekordu w leader_permissions
+FROM leader_permissions lp
+LEFT JOIN certificates c ON c.user_id = lp.user_id ...
+WHERE lp.user_id = ANY(p_user_ids);
+```
 
 ## Rozwiązanie
-Dodanie wiersza z przyciskami akcji do każdej karty gościa w `HKMaterialContactsList.tsx`, analogicznie do `EventGroupedContacts.tsx`.
+Zmiana bazy zapytania z `leader_permissions` na `unnest(p_user_ids)` — tak aby każdy członek zespołu był uwzględniony, a dopiero potem LEFT JOIN do `leader_permissions` (po `can_access_auto_webinar`) i `certificates` (po certyfikat).
 
-## Dostępne akcje
-1. **Przenieś do Mojej listy** (`UserPlus`) — tworzy nowy `team_contacts` rekord z danymi gościa HK i oznacza `contact_source: 'Materiał ZW'`
-2. **Zaproś na wydarzenie** (`Send`) — otwiera dialog `InviteToEventDialog`
-3. **Historia** (`History`) — otwiera `TeamContactHistoryDialog` (dostępna tylko jeśli kontakt został przeniesiony do listy)
-4. **Edytuj** (`Edit`) — otwiera formularz edycji (dostępna tylko jeśli kontakt został przeniesiony)
-5. **Usuń** (`Trash2`) — soft-delete z potwierdzeniem (dostępna tylko jeśli kontakt został przeniesiony)
+```sql
+-- POPRAWIONE
+RETURN QUERY
+SELECT 
+  u.uid,
+  COALESCE(lp.can_access_auto_webinar, false),
+  (c.id IS NOT NULL)
+FROM unnest(p_user_ids) AS u(uid)
+LEFT JOIN leader_permissions lp ON lp.user_id = u.uid
+LEFT JOIN certificates c ON c.user_id = u.uid 
+  AND c.module_id = '7ba86537-309a-479a-a4d2-d8636acb2148'
+```
 
-## Zmiany w plikach
+## Weryfikacja danych
+- Zespół Dawida: **206 osób**
+- Z certyfikatem Szybki Start: **83 osób** (a nie ~6 jak pokazuje obecny widok)
+- Z rekordem w `leader_permissions`: tylko **11 osób** ← tu jest problem
 
-### 1. `HKMaterialContactsList.tsx`
-- Dodanie nowych props: `onMoveToOwnList`, `onEdit`, `onDelete`, `getContactHistory`
-- Dodanie wiersza z przyciskami akcji pod metadanymi każdej karty (ikony: `UserPlus`, `Send`, `History`, `Edit`, `Trash2`)
-- Dodanie stanów lokalnych: `deleteConfirm`, `historyContact`, `duplicateConfirm`, `inviteContact`
-- Import `InviteToEventDialog`, `TeamContactHistoryDialog`, dialogi potwierdzenia (AlertDialog)
-- Dla "Zaproś na wydarzenie" i "Przenieś do listy" — konwersja `HKSessionContact` do minimalnego obiektu `TeamContact` (imię, nazwisko, email, telefon)
+## Zmiana
+Jedna migracja SQL — `DROP` + `CREATE OR REPLACE` funkcji `leader_get_team_auto_webinar_access`. Żadne zmiany w kodzie frontendu nie są potrzebne — struktura zwracanych danych pozostaje identyczna.
 
-### 2. `TeamContactsTab.tsx`
-- Dodanie nowej funkcji `moveHkSessionToOwnList(session)` — tworzy kontakt via `addContact` z `contact_source: 'Materiał ZW'`, `moved_to_own_list: true`
-- Przekazanie callbacków `onMoveToOwnList`, `onEdit`, `onDelete`, `getContactHistory` do `HKMaterialContactsList`
-
-## Szczegóły techniczne
-- "Przenieś do listy" dla HK sesji wymaga **utworzenia** nowego `team_contacts` (nie aktualizacji istniejącego), bo HK sesje żyją w `hk_otp_sessions`, nie w `team_contacts`
-- Po przeniesieniu, karta wyświetli badge "W mojej liście" (analogicznie do zaproszeń)
-- Deduplikacja po emailu — jeśli kontakt z tym emailem już istnieje, dialog potwierdzenia
