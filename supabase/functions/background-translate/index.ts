@@ -447,7 +447,8 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         .update({ 
           processed_keys: processedKeys, 
           errors,
-          status: 'processing', // Keep as processing for resume
+          status: 'failed',
+          error_message: 'Timeout - retry needed',
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
@@ -471,42 +472,8 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
     // Batch translate all items at once using a single AI call
     try {
       const batchTranslations = await translateCMSItemsBatch(batch, source_language, target_language, lovableApiKey);
-      
-      for (let idx = 0; idx < batch.length; idx++) {
-        const item = batch[idx];
-        const translated = batchTranslations[idx] || {};
-        
-        if (!hasTranslatedContent(translated, ['title'])) {
-          errors++;
-          console.warn(`Empty translation for CMS item ${item.id}`);
-        } else {
-          const { error: upsertError } = await supabase
-            .from('cms_item_translations')
-            .upsert({
-              item_id: item.id,
-              language_code: target_language,
-              title: translated.title || null,
-              description: translated.description || null,
-              cells: translated.cells || null,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'item_id,language_code'
-            });
-
-          if (upsertError) {
-            console.error(`Failed to save CMS item translation for ${item.id}:`, upsertError);
-            errors++;
-          } else {
-            processedKeys++;
-          }
-        }
-      }
-    } catch (batchError) {
-      console.error('Batch CMS item translation error:', batchError);
-      errors += batch.length;
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 100));
+...
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Update progress after each batch
     await supabase
@@ -529,7 +496,8 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
         .update({ 
           processed_keys: processedKeys, 
           errors,
-          status: 'processing', // Keep as processing for resume
+          status: 'failed',
+          error_message: 'Timeout - retry needed',
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
@@ -553,42 +521,8 @@ async function processCMSJob(supabase: any, job: any, lovableApiKey: string | un
     // Batch translate all sections at once using a single AI call
     try {
       const batchTranslations = await translateCMSSectionsBatch(batch, source_language, target_language, lovableApiKey);
-      
-      for (let idx = 0; idx < batch.length; idx++) {
-        const section = batch[idx];
-        const translated = batchTranslations[idx] || {};
-        
-        if (!hasTranslatedContent(translated, ['title'])) {
-          errors++;
-          console.warn(`Empty translation for CMS section ${section.id}`);
-        } else {
-          const { error: upsertError } = await supabase
-            .from('cms_section_translations')
-            .upsert({
-              section_id: section.id,
-              language_code: target_language,
-              title: translated.title || null,
-              description: translated.description || null,
-              collapsible_header: translated.collapsible_header || null,
-              updated_at: new Date().toISOString()
-            }, {
-              onConflict: 'section_id,language_code'
-            });
-
-          if (upsertError) {
-            console.error(`Failed to save CMS section translation for ${section.id}:`, upsertError);
-            errors++;
-          } else {
-            processedKeys++;
-          }
-        }
-      }
-    } catch (batchError) {
-      console.error('Batch CMS section translation error:', batchError);
-      errors += batch.length;
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 100));
+...
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Update progress after each batch
     await supabase
@@ -653,6 +587,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   'sk': 'Slovak',
   'uk': 'Ukrainian',
   'ru': 'Russian',
+  'no': 'Norwegian',
 };
 
 async function aiRequest(apiKey: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
@@ -675,8 +610,8 @@ async function aiRequest(apiKey: string, systemPrompt: string, userContent: stri
       });
 
       if (!response.ok) {
-        if (response.status === 429 && attempt < retries) {
-          const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s
+      if (response.status === 429 && attempt < retries) {
+          const delay = (attempt + 1) * 5000 + Math.random() * 2000; // 5s, 10s + jitter
           console.warn(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${retries})`);
           await new Promise(resolve => setTimeout(resolve, delay));
           continue;

@@ -37,9 +37,10 @@ serve(async (req) => {
         nl: 'Dutch',
         cs: 'Czech',
         sk: 'Slovak',
-        uk: 'Ukrainian',
-        ru: 'Russian',
-      };
+      uk: 'Ukrainian',
+      ru: 'Russian',
+      no: 'Norwegian',
+    };
 
       const targetLangName = languageNames[targetLanguage] || targetLanguage;
       const sourceLangName = languageNames[sourceLanguage] || sourceLanguage;
@@ -162,6 +163,15 @@ Output format: [{"ns":"namespace","key":"keyname","value":"translated text"}]`;
       de: 'German',
       en: 'English',
       it: 'Italian',
+      fr: 'French',
+      es: 'Spanish',
+      pt: 'Portuguese',
+      no: 'Norwegian',
+      nl: 'Dutch',
+      cs: 'Czech',
+      sk: 'Slovak',
+      uk: 'Ukrainian',
+      ru: 'Russian',
     };
 
     const targetLangName = languageNames[targetLanguage] || 'English';
