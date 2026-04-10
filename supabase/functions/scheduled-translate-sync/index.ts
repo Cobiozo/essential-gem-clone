@@ -56,15 +56,31 @@ serve(async (req) => {
     for (const targetLang of targetLanguages) {
       // 1. Create 'missing' jobs for each content type
       for (const jobType of jobTypes) {
+        // Check for existing active job to avoid duplicates
+        const hasActive = await hasActiveJob(supabase, jobType, targetLang);
+        if (hasActive) {
+          console.log(`[scheduled-translate-sync] Skipping ${jobType}:missing:${targetLang} — active job exists`);
+          continue;
+        }
+
         const jobId = await createAndStartJob(supabase, jobType, 'missing', targetLang);
         if (jobId) {
           jobsCreated.push(jobId);
           jobsModes.push(`${jobType}:missing:${targetLang}`);
         }
+
+        // Delay between jobs to avoid rate limiting
+        await new Promise(r => setTimeout(r, 3000));
       }
 
       // 2. Detect outdated content and create 'outdated' jobs
       for (const jobType of jobTypes) {
+        const hasActive = await hasActiveJob(supabase, jobType, targetLang);
+        if (hasActive) {
+          console.log(`[scheduled-translate-sync] Skipping ${jobType}:outdated:${targetLang} — active job exists`);
+          continue;
+        }
+
         const hasOutdated = await checkForOutdatedContent(supabase, jobType, targetLang);
         if (hasOutdated) {
           const jobId = await createAndStartJob(supabase, jobType, 'outdated', targetLang);
@@ -72,6 +88,9 @@ serve(async (req) => {
             jobsCreated.push(jobId);
             jobsModes.push(`${jobType}:outdated:${targetLang}`);
           }
+
+          // Delay between jobs to avoid rate limiting
+          await new Promise(r => setTimeout(r, 3000));
         }
       }
     }
@@ -104,6 +123,22 @@ serve(async (req) => {
     });
   }
 });
+
+async function hasActiveJob(
+  supabase: any,
+  jobType: string,
+  targetLang: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from('translation_jobs')
+    .select('id')
+    .eq('job_type', jobType)
+    .eq('target_language', targetLang)
+    .in('status', ['pending', 'processing'])
+    .limit(1);
+
+  return (data && data.length > 0);
+}
 
 async function createAndStartJob(
   supabase: any,
@@ -157,11 +192,9 @@ async function checkForOutdatedContent(
   try {
     switch (jobType) {
       case 'cms': {
-        // Check cms_items where updated_at > translation's updated_at
         const { data } = await supabase.rpc('check_outdated_cms_translations', {
           p_target_lang: targetLang
         });
-        // Fallback: manual check if RPC doesn't exist
         if (data === null || data === undefined) {
           return await checkOutdatedManually(supabase, 'cms_items', 'cms_item_translations', 'id', 'item_id', targetLang);
         }
@@ -179,7 +212,6 @@ async function checkForOutdatedContent(
         return await checkOutdatedManually(supabase, 'healthy_knowledge', 'healthy_knowledge_translations', 'id', 'item_id', targetLang);
       }
       case 'i18n': {
-        // i18n keys rarely change, but check anyway
         return await checkOutdatedManually(supabase, 'i18n_translations', null, null, null, targetLang);
       }
       default:
@@ -201,7 +233,6 @@ async function checkOutdatedManually(
 ): Promise<boolean> {
   if (!translationTable || !sourceIdCol || !translationFkCol) return false;
 
-  // Get a sample of recently updated source records
   const { data: recentSources } = await supabase
     .from(sourceTable)
     .select('id, updated_at')
@@ -212,7 +243,6 @@ async function checkOutdatedManually(
 
   const sourceIds = recentSources.map((s: any) => s.id);
 
-  // Get corresponding translations
   const { data: translations } = await supabase
     .from(translationTable)
     .select(`${translationFkCol}, updated_at`)
@@ -223,7 +253,6 @@ async function checkOutdatedManually(
 
   const translationMap = new Map(translations.map((t: any) => [t[translationFkCol], t.updated_at]));
 
-  // Check if any source was updated after its translation
   for (const source of recentSources) {
     const translationUpdated = translationMap.get(source.id);
     if (translationUpdated && new Date(source.updated_at) > new Date(translationUpdated)) {
