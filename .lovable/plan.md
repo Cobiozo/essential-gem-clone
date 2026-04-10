@@ -1,39 +1,54 @@
 
 
-# Naprawa weryfikacji certyfikatów Szybki Start
+# Naprawa systemu tłumaczeń — błędy CMS
 
-## Problem
-Funkcja `leader_get_team_auto_webinar_access` pobiera dane **z tabeli `leader_permissions`** jako bazy (`FROM leader_permissions`), ale tylko **11 z 206** członków zespołu Dawida ma w niej rekord. Pozostali 195 użytkowników w ogóle nie pojawia się w wynikach — frontend traktuje ich jako "brak certyfikatu", mimo że **83 osób faktycznie posiada certyfikat** w tabeli `certificates`.
+## Diagnoza
 
-## Przyczyna
+Wszystkie joby CMS utknęły w statusie `processing` z **dokładnie 40 błędami i 0 przetłumaczonych** elementów. Problem dotyczy WSZYSTKICH języków (de, en, it, es, fr, pt, no).
+
+### Przyczyna 1: Zalew jednoczesnych jobów
+`scheduled-translate-sync` o 3:00 AM tworzy joby dla **7 języków × 5 typów × 2 trybów = do 70 jobów** i odpala je WSZYSTKIE jednocześnie via `background-translate`. Każdy job wywołuje AI API, co powoduje masowy rate limiting (429).
+
+### Przyczyna 2: Utknięte joby bez restartu
+Gdy `background-translate` przekroczy `MAX_EXECUTION_TIME` (25s), zapisuje `status: 'processing'` i kończy działanie. Nic nie wznawia tych jobów — zostają w statusie `processing` na zawsze.
+
+### Przyczyna 3: Brak norweskiego w mapie języków
+`LANGUAGE_NAMES` nie zawiera `'no': 'Norwegian'`, więc AI dostaje surowy kod `no` zamiast nazwy języka.
+
+### Dlaczego dokładnie 40 błędów?
+`BATCH_SIZE = 20`. AI zwraca błąd (rate limit), `translateCMSItemsBatch` łapie wyjątek i zwraca `{}` dla każdego elementu. `hasTranslatedContent({}, ['title'])` = false → errors++ × 20 na batch. 2 batche × 20 = 40 błędów, potem timeout.
+
+## Plan naprawy
+
+### 1. `background-translate/index.ts` — naprawy
+
+- **Dodać `'no': 'Norwegian'`** do `LANGUAGE_NAMES`
+- **Timeout → status `failed`** zamiast `processing` — zmienić 3 miejsca (linie ~444, ~526, i globalny catch) aby przy timeout zapisywać `status: 'failed'` z `error_message: 'Timeout - retry needed'`
+- **Zwiększyć opóźnienie między batchami** z 100ms na 1000ms dla CMS (duże payloady)
+- **Lepszy retry w `aiRequest`** — zwiększyć backoff z 2s/4s na 5s/15s
+
+### 2. `scheduled-translate-sync/index.ts` — sekwencyjne przetwarzanie
+
+- Dodać **opóźnienie 3s** między tworzeniem kolejnych jobów (`await new Promise(r => setTimeout(r, 3000))`)
+- **Nie tworzyć nowego joba jeśli istnieje aktywny** (pending/processing) dla tego samego `job_type + target_language`
+- Ograniczyć do **max 2 jobów jednocześnie** na język
+
+### 3. `translate-content/index.ts` — dodać `'no': 'Norwegian'`
+
+### 4. Migracja SQL — wyczyścić utknięte joby
+
 ```sql
--- OBECNE (błędne) — pomija użytkowników bez rekordu w leader_permissions
-FROM leader_permissions lp
-LEFT JOIN certificates c ON c.user_id = lp.user_id ...
-WHERE lp.user_id = ANY(p_user_ids);
+UPDATE translation_jobs 
+SET status = 'failed', 
+    error_message = 'Stuck in processing - cleaned up',
+    updated_at = NOW()
+WHERE status = 'processing' 
+  AND updated_at < NOW() - INTERVAL '1 hour';
 ```
 
-## Rozwiązanie
-Zmiana bazy zapytania z `leader_permissions` na `unnest(p_user_ids)` — tak aby każdy członek zespołu był uwzględniony, a dopiero potem LEFT JOIN do `leader_permissions` (po `can_access_auto_webinar`) i `certificates` (po certyfikat).
-
-```sql
--- POPRAWIONE
-RETURN QUERY
-SELECT 
-  u.uid,
-  COALESCE(lp.can_access_auto_webinar, false),
-  (c.id IS NOT NULL)
-FROM unnest(p_user_ids) AS u(uid)
-LEFT JOIN leader_permissions lp ON lp.user_id = u.uid
-LEFT JOIN certificates c ON c.user_id = u.uid 
-  AND c.module_id = '7ba86537-309a-479a-a4d2-d8636acb2148'
-```
-
-## Weryfikacja danych
-- Zespół Dawida: **206 osób**
-- Z certyfikatem Szybki Start: **83 osób** (a nie ~6 jak pokazuje obecny widok)
-- Z rekordem w `leader_permissions`: tylko **11 osób** ← tu jest problem
-
-## Zmiana
-Jedna migracja SQL — `DROP` + `CREATE OR REPLACE` funkcji `leader_get_team_auto_webinar_access`. Żadne zmiany w kodzie frontendu nie są potrzebne — struktura zwracanych danych pozostaje identyczna.
+## Pliki do zmiany
+1. `supabase/functions/background-translate/index.ts` — timeout handling, Norwegian, delays
+2. `supabase/functions/scheduled-translate-sync/index.ts` — sequential processing, dedup
+3. `supabase/functions/translate-content/index.ts` — Norwegian w LANGUAGE_NAMES
+4. Nowa migracja SQL — cleanup stuck jobs
 
