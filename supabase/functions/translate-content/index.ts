@@ -23,9 +23,6 @@ serve(async (req) => {
     // Mode: 'single' for single text, 'batch' for batch translation of keys
     if (mode === 'batch' && keys) {
       // Batch translation mode for i18n keys
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
       const languageNames: Record<string, string> = {
         pl: 'Polish',
