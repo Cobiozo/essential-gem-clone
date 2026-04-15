@@ -1104,6 +1104,7 @@ const TrainingModule = () => {
                 )}
 
                 {/* ========== COMPLETION BUTTON ========== */}
+                <div ref={completionButtonRef}>
                 {isLessonCompleted ? (
                   <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center gap-3">
                     <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
