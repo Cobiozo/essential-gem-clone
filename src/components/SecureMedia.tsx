@@ -775,11 +775,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setIsBuffering(true);
         
         const isMobileDevice = window.innerWidth < 768 || 'ontouchstart' in window;
+        const isIOS = isIOSDevice();
         
         if (isSlowNetworkNow && !video.paused) {
           wasPlayingBeforeBufferRef.current = true;
-          // CHANGE 2: On mobile, DON'T pause - mobile browsers deprioritize loading paused videos
-          if (!isMobileDevice) {
+          // CHANGE 2: On mobile/iOS, DON'T pause - mobile browsers deprioritize loading paused videos
+          if (!isMobileDevice && !isIOS) {
             video.pause();
           }
           setIsSmartBuffering(true);
