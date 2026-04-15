@@ -449,29 +449,69 @@ const TrainingModule = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [user]);
 
-  // Save position on visibility change (tab hidden)
+  // Save position on visibility change (tab hidden) AND pagehide (iOS Safari)
   useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (!document.hidden || !user) return;
-      const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
-      if (!currentLesson || progressRef.current[currentLesson.id]?.is_completed) return;
+    const saveCurrentPosition = async () => {
+      if (!user) return;
+      const currentLessonData = lessonsRef.current[currentLessonIndexRef.current];
+      if (!currentLessonData || progressRef.current[currentLessonData.id]?.is_completed) return;
 
-      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const hasVideo = currentLessonData?.media_type === 'video' && currentLessonData?.media_url;
       const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTimeRef.current;
       
-      // Just save position, not completion
       await supabase.from('training_progress').upsert({
         user_id: user.id,
-        lesson_id: currentLesson.id,
+        lesson_id: currentLessonData.id,
         time_spent_seconds: effectiveTime,
         video_position_seconds: hasVideo ? videoPositionRef.current : 0,
         is_completed: false
-      }, { onConflict: 'user_id,lesson_id' });
+      }, { onConflict: 'user_id,lesson_id' }).then(() => {}).catch(() => {});
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) saveCurrentPosition();
+    };
+    
+    const handlePageHide = () => {
+      saveCurrentPosition();
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [user]);
+
+  // Sync pending localStorage completions on mount
+  useEffect(() => {
+    if (!user || lessons.length === 0) return;
+    
+    lessons.forEach(async (lesson) => {
+      const stored = localStorage.getItem(`lesson_completed_${lesson.id}`);
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        if (data.pending_sync && data.user_id === user.id) {
+          const { error } = await supabase.from('training_progress').upsert({
+            user_id: user.id,
+            lesson_id: lesson.id,
+            time_spent_seconds: data.time_spent_seconds,
+            is_completed: true,
+            completed_at: data.completed_at
+          }, { onConflict: 'user_id,lesson_id' });
+          
+          if (!error) {
+            localStorage.removeItem(`lesson_completed_${lesson.id}`);
+            console.log('[TrainingModule] Synced pending completion for', lesson.id);
+          }
+        }
+      } catch (e) {
+        console.error('[TrainingModule] Failed to sync pending completion:', e);
+      }
+    });
+  }, [user, lessons.length]);
 
   // ============================================================
   // EXPLICIT COMPLETION: User clicks "Zalicz lekcję" button
