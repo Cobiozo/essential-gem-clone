@@ -1234,15 +1234,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         console.log('[SecureMedia] Unrestricted mode - ignoring waiting (readyState:', video.readyState, ')');
         return;
       }
+      // iOS FIX D: Ignore waiting when forceHideBuffering is active on iOS
+      if (isIOSDevice() && forceHideBuffering) {
+        console.log('[SecureMedia] Unrestricted iOS: Ignoring waiting - forceHideBuffering active');
+        return;
+      }
       console.log('[SecureMedia] Unrestricted mode - video waiting');
       setIsBuffering(true);
       
+      const spinnerDebounce = isIOSDevice() 
+        ? VIDEO_BUFFER_CONFIG.ios.spinnerDebounceMs 
+        : 1500;
       if (spinnerTimeoutRef.current) clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = setTimeout(() => {
         if (!video.paused && video.readyState < 3) {
           setShowBufferingSpinner(true);
         }
-      }, 1500);
+      }, spinnerDebounce);
     };
 
     // CHANGE 2: Debounced stalled for unrestricted mode
@@ -1323,10 +1331,22 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setIsPlaying(true);
       onPlayStateChangeRef.current?.(true);
       
-      // Emit video-activity event to prevent auto-logout during video playback
       window.dispatchEvent(new CustomEvent('video-activity', { 
         detail: { type: 'play' } 
       }));
+    };
+
+    // iOS FIX C: playing event handler for unrestricted mode
+    const handlePlaying2 = () => {
+      if (!mounted) return;
+      isSeekingRef.current = false;
+      isBufferingRef.current = false;
+      setIsBuffering(false);
+      setShowBufferingSpinner(false);
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
     };
 
     const handlePause = () => {
