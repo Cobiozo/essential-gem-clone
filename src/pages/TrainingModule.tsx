@@ -899,8 +899,8 @@ const TrainingModule = () => {
     if (isLessonCompleted) return false;
     if (completionMethod === 'manual') return true; // Always active for manual
     if (requiredTime === 0) return true; // No time requirement
-    // For video: 80% threshold; for text: 100% of min_time
-    const threshold = hasVideo ? VIDEO_COMPLETION_THRESHOLD : 1.0;
+    // For video: 98% tolerance (iOS ended event may fire at 99.7%); for text: 100% of min_time
+    const threshold = hasVideo ? 0.98 : 1.0;
     return effectiveTimeSpent >= requiredTime * threshold;
   })();
   
