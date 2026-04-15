@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
+import { getAIConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,17 +15,14 @@ serve(async (req) => {
   try {
     const { content, targetLanguage, sourceLanguage, mode, keys } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const aiConfig = await getAIConfig(supabaseAdmin);
 
     // Mode: 'single' for single text, 'batch' for batch translation of keys
     if (mode === 'batch' && keys) {
       // Batch translation mode for i18n keys
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
       const languageNames: Record<string, string> = {
         pl: 'Polish',
@@ -72,14 +70,14 @@ RULES:
 Input format: [{"ns":"namespace","key":"keyname","value":"text to translate"}]
 Output format: [{"ns":"namespace","key":"keyname","value":"translated text"}]`;
 
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const response = await fetch(aiConfig.apiUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Authorization': `Bearer ${aiConfig.apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: aiConfig.model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: keysJson }
@@ -187,14 +185,14 @@ RULES:
 6. Maintain scientific accuracy and meaning
 7. Return ONLY the translated text, no explanations`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(aiConfig.apiUrl, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${aiConfig.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: aiConfig.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: content }

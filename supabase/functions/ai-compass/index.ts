@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.1";
+import { getAIConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -230,14 +231,16 @@ Na podstawie CAŁEJ dostępnej historii tego kontaktu i aktualnego kontekstu, pr
 
     console.log("Sending request to AI Gateway...");
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiConfig = await getAIConfig(supabase);
+
+    const response = await fetch(aiConfig.apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiConfig.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: aiConfig.model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

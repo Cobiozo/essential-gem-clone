@@ -209,6 +209,7 @@ const navCategories: NavCategory[] = [
       { value: 'cron-jobs', labelKey: 'cronJobs', icon: Clock },
       { value: 'google-calendar', labelKey: 'googleCalendar', icon: CalendarDays },
       { value: 'ai-compass', labelKey: 'compass', icon: Compass },
+      { value: 'ai-provider', labelKey: 'aiProvider', icon: Sparkles },
       { value: 'data-cleanup', labelKey: 'dataCleanup', icon: Trash2 },
       { value: 'security', labelKey: 'security', icon: Shield },
     ],
@@ -260,6 +261,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     emailDelivery: 'Dostarczalność e-mail',
     activityLog: 'Dziennik działań',
     purebox: 'PureBox',
+    aiProvider: 'Dostawca AI',
   };
 
   const getLabel = (key: string): string => {

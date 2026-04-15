@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAIConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -42,11 +44,11 @@ serve(async (req) => {
 
   try {
     const { prompt, action, format, language, imageUrl } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const aiConfig = await getAIConfig(supabase);
+    const LOVABLE_API_KEY = aiConfig.apiKey;
 
     // Get dimensions from format or use defaults
     const width = format?.width || 842;
@@ -84,7 +86,7 @@ ${labels.promptSuffix}`;
 
       console.log('Generating background with prompt:', imagePrompt);
 
-      const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const imageResponse = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -164,7 +166,7 @@ CRITICAL: The "x" value for ALL placements MUST be clearZone.centerX, NOT the ca
 
       console.log('Analyzing image for placements with gemini-2.5-pro');
 
-      const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const analysisResponse = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -318,7 +320,7 @@ CRITICAL: x values MUST equal clearZone.centerX, NOT ${Math.round(width / 2)} un
 
       console.log('Analyzing existing image with gemini-2.5-pro');
 
-      const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const analysisResponse = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,

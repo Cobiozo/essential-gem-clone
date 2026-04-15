@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAIConfig } from "../_shared/ai-provider.ts";
+
+// Module-level AI URL for helper functions
+let MED_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -564,7 +569,7 @@ async function translateQueryToEnglish(query: string, language: string, apiKey: 
   if (language === 'en') return query;
   
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(MED_AI_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -736,10 +741,12 @@ serve(async (req) => {
   try {
     const { messages, query, language = 'en', resultsCount = 10, isSummaryRequest = false } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const aiConfig = await getAIConfig(supabaseAdmin);
+    const LOVABLE_API_KEY = aiConfig.apiKey;
+    MED_AI_URL = aiConfig.apiUrl;
 
     // Handle summary requests - no PubMed search, just summarize the dialog
     if (isSummaryRequest && query) {
@@ -760,14 +767,14 @@ ${query}
 
 Provide a well-structured summary:`;
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: aiConfig.model,
           messages: [
             { role: 'system', content: 'You are a professional scientific summarizer. Create comprehensive summaries that preserve all important details and references.' },
             { role: 'user', content: summaryPrompt }
@@ -825,15 +832,15 @@ Provide a well-structured summary:`;
       ...(messages || [])
     ];
 
-    // Call Lovable AI Gateway
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call AI Gateway
+    const response = await fetch(aiConfig.apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: aiConfig.model,
         messages: enhancedMessages,
         stream: true,
       }),

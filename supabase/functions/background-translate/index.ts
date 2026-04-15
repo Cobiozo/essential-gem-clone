@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAIConfig } from "../_shared/ai-provider.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -127,9 +128,12 @@ serve(async (req) => {
 async function processTranslationJob(jobId: string) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const aiConfig = await getAIConfig(supabase);
+  const lovableApiKey = aiConfig.apiKey;
+  AI_API_URL = aiConfig.apiUrl;
+  AI_MODEL = aiConfig.model;
 
   try {
     // Get job details
@@ -658,17 +662,21 @@ const LANGUAGE_NAMES: Record<string, string> = {
   'no': 'Norwegian',
 };
 
+// Module-level AI config (set in processTranslationJob)
+let AI_API_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+let AI_MODEL = 'google/gemini-2.5-flash';
+
 async function aiRequest(apiKey: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch(AI_API_URL, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: AI_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
@@ -841,14 +849,14 @@ Rules:
   const userPrompt = `Translate these keys:\n${JSON.stringify(keysObject, null, 2)}`;
 
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(AI_API_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: AI_MODEL,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -862,14 +870,14 @@ Rules:
         console.warn('Rate limited in translateBatch, retrying with backoff...');
         await new Promise(resolve => setTimeout(resolve, 3000));
         // Retry once
-        const retryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const retryResponse = await fetch(AI_API_URL, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: AI_MODEL,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
