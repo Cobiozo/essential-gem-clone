@@ -86,7 +86,7 @@ ${labels.promptSuffix}`;
 
       console.log('Generating background with prompt:', imagePrompt);
 
-      const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const imageResponse = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -166,7 +166,7 @@ CRITICAL: The "x" value for ALL placements MUST be clearZone.centerX, NOT the ca
 
       console.log('Analyzing image for placements with gemini-2.5-pro');
 
-      const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const analysisResponse = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
@@ -320,7 +320,7 @@ CRITICAL: x values MUST equal clearZone.centerX, NOT ${Math.round(width / 2)} un
 
       console.log('Analyzing existing image with gemini-2.5-pro');
 
-      const analysisResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const analysisResponse = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
