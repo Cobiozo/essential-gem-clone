@@ -12,6 +12,7 @@ import {
   getVideoErrorType,
   getNetworkQuality,
   isSlowNetwork,
+  isIOSDevice,
   VIDEO_ERROR_TYPES,
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
@@ -89,6 +90,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [forceHideBuffering, setForceHideBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
+  const [showTapToResume, setShowTapToResume] = useState(false); // iOS: tap-to-resume overlay
   
   // NEW: Debounced spinner state - spinner appears only after delay without pausing video
   const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
@@ -238,22 +240,38 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
     try {
-      // Check if container exists and is mounted
       if (!containerRef.current || !document.body.contains(containerRef.current)) {
         console.warn('[SecureMedia] Container not available for fullscreen');
         return;
       }
       
+      const isIOS = isIOSDevice();
+      
       if (document.fullscreenElement) {
         await document.exitFullscreen().catch((err) => {
           console.warn('[SecureMedia] exitFullscreen error:', err);
         });
+      } else if ((document as any).webkitFullscreenElement) {
+        // Safari exit fullscreen
+        (document as any).webkitExitFullscreen?.();
       } else {
-        // Check if fullscreen is supported
+        // Try standard API first
         if (containerRef.current.requestFullscreen) {
           await containerRef.current.requestFullscreen().catch((err) => {
-            console.warn('[SecureMedia] requestFullscreen error:', err);
+            console.warn('[SecureMedia] requestFullscreen error, trying webkit fallback:', err);
+            // Fallback: webkit on container
+            if ((containerRef.current as any)?.webkitRequestFullscreen) {
+              (containerRef.current as any).webkitRequestFullscreen();
+            } else if (isIOS && videoRef.current) {
+              // iOS Safari: fullscreen only works on video element directly
+              (videoRef.current as any).webkitEnterFullscreen?.();
+            }
           });
+        } else if ((containerRef.current as any).webkitRequestFullscreen) {
+          (containerRef.current as any).webkitRequestFullscreen();
+        } else if (isIOS && videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
+          // iOS Safari fallback — fullscreen on video element
+          (videoRef.current as any).webkitEnterFullscreen();
         } else {
           console.warn('[SecureMedia] Fullscreen not supported');
         }
@@ -266,14 +284,30 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // Listener for fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(!!document.fullscreenElement || !!(document as any).webkitFullscreenElement);
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    
+    // iOS video element fullscreen events
+    const video = videoRef.current;
+    const handleWebkitBegin = () => setIsFullscreen(true);
+    const handleWebkitEnd = () => setIsFullscreen(false);
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', handleWebkitBegin);
+      video.addEventListener('webkitendfullscreen', handleWebkitEnd);
+    }
+    
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      if (video) {
+        video.removeEventListener('webkitbeginfullscreen', handleWebkitBegin);
+        video.removeEventListener('webkitendfullscreen', handleWebkitEnd);
+      }
     };
-  }, []);
+  }, [videoElement]);
 
   // URL processing effect
   useEffect(() => {
@@ -741,11 +775,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setIsBuffering(true);
         
         const isMobileDevice = window.innerWidth < 768 || 'ontouchstart' in window;
+        const isIOS = isIOSDevice();
         
         if (isSlowNetworkNow && !video.paused) {
           wasPlayingBeforeBufferRef.current = true;
-          // CHANGE 2: On mobile, DON'T pause - mobile browsers deprioritize loading paused videos
-          if (!isMobileDevice) {
+          // CHANGE 2: On mobile/iOS, DON'T pause - mobile browsers deprioritize loading paused videos
+          if (!isMobileDevice && !isIOS) {
             video.pause();
           }
           setIsSmartBuffering(true);
@@ -1343,6 +1378,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     if (mediaType !== 'video') return;
 
     const isMobileDevice = window.innerWidth < 768 || 'ontouchstart' in window;
+    const isIOS = isIOSDevice();
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -1355,19 +1391,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setIsTabHidden(false);
         isTabHiddenRef.current = false;
         
-        // FIX G: iOS PWA visibility recovery — disable canplay guard and attempt play after delay
-        if (isMobileDevice && videoRef.current) {
+        if (videoRef.current) {
           canplayGuardRef.current = false;
           const video = videoRef.current;
-          setTimeout(() => {
-            if (video && video.paused && !document.hidden) {
-              console.log('[SecureMedia] FIX G: iOS visibility recovery — attempting play');
-              video.play().catch(() => {
-                // Ignore — user may need to tap to play on iOS
-                console.log('[SecureMedia] FIX G: Auto-play blocked by browser, user tap required');
-              });
-            }
-          }, 500);
+          
+          if (isIOS) {
+            // iOS: Don't auto-play — show tap-to-resume overlay instead
+            console.log('[SecureMedia] iOS visibility recovery — showing tap-to-resume');
+            setShowTapToResume(true);
+          } else if (isMobileDevice) {
+            // Android mobile: try auto-play with fallback
+            setTimeout(() => {
+              if (video && video.paused && !document.hidden) {
+                console.log('[SecureMedia] Android visibility recovery — attempting play');
+                video.play().catch(() => {
+                  console.log('[SecureMedia] Auto-play blocked, showing tap-to-resume');
+                  setShowTapToResume(true);
+                });
+              }
+            }, 500);
+          }
         }
       }
     };
@@ -1425,11 +1468,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType]);
 
+  const handleTapToResume = useCallback(() => {
+    setShowTapToResume(false);
+    if (videoRef.current && videoRef.current.paused) {
+      videoRef.current.play().catch(console.error);
+    }
+  }, []);
+
   const handlePlayPause = useCallback(() => {
     if (!videoRef.current) return;
+    setShowTapToResume(false); // Clear tap-to-resume on any play/pause action
     
     if (videoRef.current.paused) {
-      videoRef.current.play();
+      videoRef.current.play().catch(console.error);
     } else {
       videoRef.current.pause();
     }
@@ -1653,11 +1704,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {(!videoReady || (isBuffering && !forceHideBuffering)) && (
+            {(!videoReady || (isBuffering && !forceHideBuffering)) && !showTapToResume && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
+            )}
+            {showTapToResume && (
+              <button
+                onClick={handleTapToResume}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg cursor-pointer z-10"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
+              </button>
             )}
           </div>
           <SecureVideoControls
@@ -1744,11 +1808,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {/* OPTIMIZED: Use debounced spinner state instead of isBuffering */}
-            {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && (
+            {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && !showTapToResume && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
+            )}
+            {showTapToResume && (
+              <button
+                onClick={handleTapToResume}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg cursor-pointer z-10"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
+              </button>
             )}
           </div>
           <VideoControls

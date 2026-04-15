@@ -76,6 +76,8 @@ const TrainingModule = () => {
   const [loading, setLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   
+  // Ref for auto-scroll to completion button
+  const completionButtonRef = useRef<HTMLDivElement>(null);
   // Video position tracking (lightweight — no auto-save)
   const [videoPosition, setVideoPosition] = useState(0);
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
@@ -447,29 +449,69 @@ const TrainingModule = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [user]);
 
-  // Save position on visibility change (tab hidden)
+  // Save position on visibility change (tab hidden) AND pagehide (iOS Safari)
   useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (!document.hidden || !user) return;
-      const currentLesson = lessonsRef.current[currentLessonIndexRef.current];
-      if (!currentLesson || progressRef.current[currentLesson.id]?.is_completed) return;
+    const saveCurrentPosition = async () => {
+      if (!user) return;
+      const currentLessonData = lessonsRef.current[currentLessonIndexRef.current];
+      if (!currentLessonData || progressRef.current[currentLessonData.id]?.is_completed) return;
 
-      const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
+      const hasVideo = currentLessonData?.media_type === 'video' && currentLessonData?.media_url;
       const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTimeRef.current;
       
-      // Just save position, not completion
       await supabase.from('training_progress').upsert({
         user_id: user.id,
-        lesson_id: currentLesson.id,
+        lesson_id: currentLessonData.id,
         time_spent_seconds: effectiveTime,
         video_position_seconds: hasVideo ? videoPositionRef.current : 0,
         is_completed: false
       }, { onConflict: 'user_id,lesson_id' });
     };
 
+    const handleVisibilityChange = () => {
+      if (document.hidden) saveCurrentPosition();
+    };
+    
+    const handlePageHide = () => {
+      saveCurrentPosition();
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
   }, [user]);
+
+  // Sync pending localStorage completions on mount
+  useEffect(() => {
+    if (!user || lessons.length === 0) return;
+    
+    lessons.forEach(async (lesson) => {
+      const stored = localStorage.getItem(`lesson_completed_${lesson.id}`);
+      if (!stored) return;
+      try {
+        const data = JSON.parse(stored);
+        if (data.pending_sync && data.user_id === user.id) {
+          const { error } = await supabase.from('training_progress').upsert({
+            user_id: user.id,
+            lesson_id: lesson.id,
+            time_spent_seconds: data.time_spent_seconds,
+            is_completed: true,
+            completed_at: data.completed_at
+          }, { onConflict: 'user_id,lesson_id' });
+          
+          if (!error) {
+            localStorage.removeItem(`lesson_completed_${lesson.id}`);
+            console.log('[TrainingModule] Synced pending completion for', lesson.id);
+          }
+        }
+      } catch (e) {
+        console.error('[TrainingModule] Failed to sync pending completion:', e);
+      }
+    });
+  }, [user, lessons.length]);
 
   // ============================================================
   // EXPLICIT COMPLETION: User clicks "Zalicz lekcję" button
@@ -483,20 +525,68 @@ const TrainingModule = () => {
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
     
-    try {
-      const { error } = await supabase.from('training_progress').upsert({
-        user_id: user.id,
-        lesson_id: currentLesson.id,
-        time_spent_seconds: effectiveTime,
-        video_position_seconds: hasVideo ? videoPositionRef.current : 0,
-        is_completed: true,
-        completed_at: new Date().toISOString()
-      }, { onConflict: 'user_id,lesson_id' });
+    const attemptUpsert = async (attempt: number): Promise<boolean> => {
+      try {
+        const { error } = await supabase.from('training_progress').upsert({
+          user_id: user.id,
+          lesson_id: currentLesson.id,
+          time_spent_seconds: effectiveTime,
+          video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        }, { onConflict: 'user_id,lesson_id' });
 
-      if (error) throw error;
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error(`[TrainingModule] Completion attempt ${attempt + 1} failed:`, error);
+        if (attempt < 1) {
+          // Retry once after 2 seconds
+          await new Promise(r => setTimeout(r, 2000));
+          return attemptUpsert(attempt + 1);
+        }
+        return false;
+      }
+    };
+    
+    try {
+      const success = await attemptUpsert(0);
+      
+      if (!success) {
+        // Save to localStorage as backup
+        localStorage.setItem(`lesson_completed_${currentLesson.id}`, JSON.stringify({
+          user_id: user.id,
+          lesson_id: currentLesson.id,
+          time_spent_seconds: effectiveTime,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+          pending_sync: true
+        }));
+        
+        toast({
+          title: "Zapisano lokalnie",
+          description: "Zaliczenie zostanie zsynchronizowane gdy połączenie się poprawi.",
+        });
+        
+        // Still update local state so user can proceed
+        setProgress(prev => ({
+          ...prev,
+          [currentLesson.id]: {
+            ...prev[currentLesson.id],
+            lesson_id: currentLesson.id,
+            time_spent_seconds: effectiveTime,
+            video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+            is_completed: true,
+            started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
+            completed_at: new Date().toISOString()
+          }
+        }));
+        return;
+      }
 
       // Clear any localStorage backup
       localStorage.removeItem(`lesson_progress_${currentLesson.id}`);
+      localStorage.removeItem(`lesson_completed_${currentLesson.id}`);
 
       // Update local state
       setProgress(prev => ({
@@ -586,6 +676,31 @@ const TrainingModule = () => {
   const handlePlayStateChange = useCallback((_playing: boolean) => {
     // No auto-save on pause — completion is explicit via button
   }, []);
+
+  // Auto-scroll to completion button when video ends (helpful on small screens / iOS)
+  const handleVideoEnded = useCallback(() => {
+    if (!progressRef.current[currentLesson?.id]?.is_completed && completionButtonRef.current) {
+      setTimeout(() => {
+        completionButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [currentLesson?.id]);
+
+  // Listen for video ended event
+  useEffect(() => {
+    const handleEnded = () => handleVideoEnded();
+    // We need to listen on the actual video element inside SecureMedia
+    // Use a MutationObserver-free approach: listen on the container
+    const handleTimeUpdateForEnded = (e: Event) => {
+      const video = e.target as HTMLVideoElement;
+      if (video && video.ended) {
+        handleVideoEnded();
+      }
+    };
+    
+    document.addEventListener('ended', handleEnded, true);
+    return () => document.removeEventListener('ended', handleEnded, true);
+  }, [handleVideoEnded]);
 
   // Navigation: free navigation, no locks
   const jumpToLesson = useCallback(async (index: number) => {
@@ -1014,6 +1129,7 @@ const TrainingModule = () => {
                 )}
 
                 {/* ========== COMPLETION BUTTON ========== */}
+                <div ref={completionButtonRef}>
                 {isLessonCompleted ? (
                   <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl p-4 flex items-center gap-3">
                     <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
@@ -1062,6 +1178,7 @@ const TrainingModule = () => {
                     )}
                   </div>
                 )}
+                </div>
 
                 <Separator />
 

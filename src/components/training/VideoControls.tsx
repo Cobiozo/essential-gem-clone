@@ -113,7 +113,7 @@ export const VideoControls: React.FC<VideoControlsProps> = ({
             variant="outline"
             size="sm"
             onClick={onPlayPause}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 min-h-[48px]"
             disabled={isBuffering}
           >
             {isPlaying ? (

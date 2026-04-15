@@ -50,6 +50,24 @@ export const VIDEO_BUFFER_CONFIG = {
 } as const;
 
 /**
+ * Detect iOS device (iPhone, iPad, iPod) including iPadOS 13+ desktop mode
+ */
+export const isIOSDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+/**
+ * Detect Safari browser (macOS or iOS)
+ */
+export const isSafariBrowser = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /^((?!chrome|android).)*safari/i.test(ua) || isIOSDevice();
+};
+
+/**
  * Network quality types from Navigator.connection API
  */
 export type NetworkQuality = '4g' | '3g' | '2g' | 'slow-2g' | 'unknown';
