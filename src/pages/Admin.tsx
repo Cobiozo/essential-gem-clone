@@ -82,6 +82,7 @@ import { SecurityModule } from '@/components/admin/SecurityModule';
 import { EmailDeliveryDashboard } from '@/components/admin/EmailDeliveryDashboard';
 import { AdminActivityLog } from '@/components/admin/AdminActivityLog';
 import { PureBoxManagement } from '@/components/admin/PureBoxManagement';
+import { AiProviderManagement } from '@/components/admin/AiProviderManagement';
 import newPureLifeLogo from '@/assets/pure-life-droplet-new.png';
 // Heavy libraries imported dynamically when needed
 // import jsPDF from 'jspdf';
@@ -4587,6 +4588,10 @@ const Admin = () => {
 
           <TabsContent value="ai-compass">
             <AiCompassManagement />
+          </TabsContent>
+
+          <TabsContent value="ai-provider">
+            <AiProviderManagement />
           </TabsContent>
 
           <TabsContent value="daily-signal">
