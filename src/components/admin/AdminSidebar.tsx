@@ -261,6 +261,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     emailDelivery: 'Dostarczalność e-mail',
     activityLog: 'Dziennik działań',
     purebox: 'PureBox',
+    aiProvider: 'Dostawca AI',
   };
 
   const getLabel = (key: string): string => {
