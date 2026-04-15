@@ -465,7 +465,7 @@ const TrainingModule = () => {
         time_spent_seconds: effectiveTime,
         video_position_seconds: hasVideo ? videoPositionRef.current : 0,
         is_completed: false
-      }, { onConflict: 'user_id,lesson_id' }).then(() => {}).catch(() => {});
+      }, { onConflict: 'user_id,lesson_id' });
     };
 
     const handleVisibilityChange = () => {
