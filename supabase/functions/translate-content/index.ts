@@ -70,14 +70,14 @@ RULES:
 Input format: [{"ns":"namespace","key":"keyname","value":"text to translate"}]
 Output format: [{"ns":"namespace","key":"keyname","value":"translated text"}]`;
 
-        const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const response = await fetch(aiConfig.apiUrl, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+            'Authorization': `Bearer ${aiConfig.apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: aiConfig.model,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: keysJson }
