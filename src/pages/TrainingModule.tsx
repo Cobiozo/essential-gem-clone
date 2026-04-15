@@ -485,20 +485,68 @@ const TrainingModule = () => {
     const hasVideo = currentLesson?.media_type === 'video' && currentLesson?.media_url;
     const effectiveTime = hasVideo ? Math.floor(videoPositionRef.current) : textLessonTime;
     
-    try {
-      const { error } = await supabase.from('training_progress').upsert({
-        user_id: user.id,
-        lesson_id: currentLesson.id,
-        time_spent_seconds: effectiveTime,
-        video_position_seconds: hasVideo ? videoPositionRef.current : 0,
-        is_completed: true,
-        completed_at: new Date().toISOString()
-      }, { onConflict: 'user_id,lesson_id' });
+    const attemptUpsert = async (attempt: number): Promise<boolean> => {
+      try {
+        const { error } = await supabase.from('training_progress').upsert({
+          user_id: user.id,
+          lesson_id: currentLesson.id,
+          time_spent_seconds: effectiveTime,
+          video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+          is_completed: true,
+          completed_at: new Date().toISOString()
+        }, { onConflict: 'user_id,lesson_id' });
 
-      if (error) throw error;
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error(`[TrainingModule] Completion attempt ${attempt + 1} failed:`, error);
+        if (attempt < 1) {
+          // Retry once after 2 seconds
+          await new Promise(r => setTimeout(r, 2000));
+          return attemptUpsert(attempt + 1);
+        }
+        return false;
+      }
+    };
+    
+    try {
+      const success = await attemptUpsert(0);
+      
+      if (!success) {
+        // Save to localStorage as backup
+        localStorage.setItem(`lesson_completed_${currentLesson.id}`, JSON.stringify({
+          user_id: user.id,
+          lesson_id: currentLesson.id,
+          time_spent_seconds: effectiveTime,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+          pending_sync: true
+        }));
+        
+        toast({
+          title: "Zapisano lokalnie",
+          description: "Zaliczenie zostanie zsynchronizowane gdy połączenie się poprawi.",
+        });
+        
+        // Still update local state so user can proceed
+        setProgress(prev => ({
+          ...prev,
+          [currentLesson.id]: {
+            ...prev[currentLesson.id],
+            lesson_id: currentLesson.id,
+            time_spent_seconds: effectiveTime,
+            video_position_seconds: hasVideo ? videoPositionRef.current : 0,
+            is_completed: true,
+            started_at: prev[currentLesson.id]?.started_at || new Date().toISOString(),
+            completed_at: new Date().toISOString()
+          }
+        }));
+        return;
+      }
 
       // Clear any localStorage backup
       localStorage.removeItem(`lesson_progress_${currentLesson.id}`);
+      localStorage.removeItem(`lesson_completed_${currentLesson.id}`);
 
       // Update local state
       setProgress(prev => ({
