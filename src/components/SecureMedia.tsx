@@ -13,6 +13,7 @@ import {
   getNetworkQuality,
   isSlowNetwork,
   isIOSDevice,
+  VIDEO_BUFFER_CONFIG,
   VIDEO_ERROR_TYPES,
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
@@ -1007,6 +1008,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       const seekTarget = video.currentTime;
       const maxWatchedPosition = lastValidTimeRef.current;
       
+      // iOS FIX B: On iOS, don't block internal browser seeks during playback
+      // iOS triggers seeking events internally during HLS segment transitions
+      const isIOS = isIOSDevice();
+      const iosSeekGuard = VIDEO_BUFFER_CONFIG.ios.seekingGuardTolerance;
+      if (isIOS && !video.paused && (seekTarget - maxWatchedPosition) < iosSeekGuard) {
+        // Internal iOS seek during playback - allow and sync position
+        if (seekTarget > maxWatchedPosition) {
+          lastValidTimeRef.current = seekTarget;
+        }
+        return;
+      }
+      
       // FORWARD SEEK - block if trying to skip ahead of max watched position
       if (seekTarget > maxWatchedPosition + 5) {
         console.log('[SecureMedia] Forward seek blocked:', {
@@ -1038,8 +1051,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       const timeDiff = video.currentTime - lastValidTimeRef.current;
       
+      // iOS FIX A: Use larger tolerance on iOS - HLS segment loading causes bigger time jumps
+      const tolerance = isIOSDevice() ? VIDEO_BUFFER_CONFIG.ios.timeDiffTolerance : 3;
+      
       // Accept larger jumps during/after buffering, or normal forward progress
-      if (timeDiff > 0 && (timeDiff <= 3 || isBufferingRef.current)) {
+      if (timeDiff > 0 && (timeDiff <= tolerance || isBufferingRef.current)) {
         lastValidTimeRef.current = video.currentTime;
       }
       
