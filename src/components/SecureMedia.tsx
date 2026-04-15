@@ -870,7 +870,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       // CHANGE 6: Set canplay guard to prevent immediate waiting from re-triggering buffering
       canplayGuardRef.current = true;
-      const guardMs = bufferConfigRef.current.canplayGuardMs || 500;
+      const guardMs = isIOSDevice() 
+        ? VIDEO_BUFFER_CONFIG.ios.canplayGuardMs 
+        : (bufferConfigRef.current.canplayGuardMs || 500);
       setTimeout(() => {
         canplayGuardRef.current = false;
       }, guardMs);
