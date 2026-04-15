@@ -1411,6 +1411,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('progress', handleProgress);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
+    video.addEventListener('playing', handlePlaying2); // iOS FIX C
     video.addEventListener('pause', handlePause);
     video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -1429,6 +1430,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('progress', handleProgress);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
+      video.removeEventListener('playing', handlePlaying2);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
