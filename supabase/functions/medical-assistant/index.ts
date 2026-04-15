@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAIConfig } from "../_shared/ai-provider.ts";
 
+// Module-level AI URL for helper functions
+let MED_AI_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -743,6 +746,7 @@ serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
     const aiConfig = await getAIConfig(supabaseAdmin);
     const LOVABLE_API_KEY = aiConfig.apiKey;
+    MED_AI_URL = aiConfig.apiUrl;
 
     // Handle summary requests - no PubMed search, just summarize the dialog
     if (isSummaryRequest && query) {
