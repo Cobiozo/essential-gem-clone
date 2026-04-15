@@ -13,6 +13,7 @@ import {
   getNetworkQuality,
   isSlowNetwork,
   isIOSDevice,
+  VIDEO_BUFFER_CONFIG,
   VIDEO_ERROR_TYPES,
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
@@ -731,6 +732,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         return;
       }
       
+      // iOS FIX D: On iOS, ignore waiting events when forceHideBuffering is active
+      // iOS fires waiting at every HLS segment boundary - this prevents spinner flicker
+      if (isIOSDevice() && forceHideBuffering) {
+        console.log('[SecureMedia] iOS: Ignoring waiting event - forceHideBuffering active');
+        return;
+      }
+      
       const bufferedAheadValue = getBufferedAhead(video);
       const networkQualityNow = getNetworkQuality();
       const isSlowNetworkNow = isSlowNetwork() || networkQualityNow === '3g';
@@ -754,7 +762,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
       
       const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 3500;
-      const spinnerDebounce = bufferConfigRef.current.spinnerDebounceMs || 1500;
+      const spinnerDebounce = isIOSDevice() 
+        ? VIDEO_BUFFER_CONFIG.ios.spinnerDebounceMs 
+        : (bufferConfigRef.current.spinnerDebounceMs || 1500);
       const minRequired = bufferConfigRef.current.minBufferSeconds * 0.5;
       
       // Debounced spinner - shows after delay without pausing video
@@ -860,7 +870,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       // CHANGE 6: Set canplay guard to prevent immediate waiting from re-triggering buffering
       canplayGuardRef.current = true;
-      const guardMs = bufferConfigRef.current.canplayGuardMs || 500;
+      const guardMs = isIOSDevice() 
+        ? VIDEO_BUFFER_CONFIG.ios.canplayGuardMs 
+        : (bufferConfigRef.current.canplayGuardMs || 500);
       setTimeout(() => {
         canplayGuardRef.current = false;
       }, guardMs);
@@ -1007,6 +1019,18 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       const seekTarget = video.currentTime;
       const maxWatchedPosition = lastValidTimeRef.current;
       
+      // iOS FIX B: On iOS, don't block internal browser seeks during playback
+      // iOS triggers seeking events internally during HLS segment transitions
+      const isIOS = isIOSDevice();
+      const iosSeekGuard = VIDEO_BUFFER_CONFIG.ios.seekingGuardTolerance;
+      if (isIOS && !video.paused && (seekTarget - maxWatchedPosition) < iosSeekGuard) {
+        // Internal iOS seek during playback - allow and sync position
+        if (seekTarget > maxWatchedPosition) {
+          lastValidTimeRef.current = seekTarget;
+        }
+        return;
+      }
+      
       // FORWARD SEEK - block if trying to skip ahead of max watched position
       if (seekTarget > maxWatchedPosition + 5) {
         console.log('[SecureMedia] Forward seek blocked:', {
@@ -1038,8 +1062,11 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       const timeDiff = video.currentTime - lastValidTimeRef.current;
       
+      // iOS FIX A: Use larger tolerance on iOS - HLS segment loading causes bigger time jumps
+      const tolerance = isIOSDevice() ? VIDEO_BUFFER_CONFIG.ios.timeDiffTolerance : 3;
+      
       // Accept larger jumps during/after buffering, or normal forward progress
-      if (timeDiff > 0 && (timeDiff <= 3 || isBufferingRef.current)) {
+      if (timeDiff > 0 && (timeDiff <= tolerance || isBufferingRef.current)) {
         lastValidTimeRef.current = video.currentTime;
       }
       
@@ -1072,6 +1099,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       window.dispatchEvent(new CustomEvent('video-activity', { 
         detail: { type: 'play' } 
       }));
+    };
+
+    // iOS FIX C: Handle 'playing' event - fires after recovering from buffering/seeking
+    // Critical on iOS where internal seeks happen frequently during HLS playback
+    const handlePlaying = () => {
+      console.log('[SecureMedia] Video playing event - syncing state');
+      // Sync lastValidTimeRef to current position after recovery
+      lastValidTimeRef.current = video.currentTime;
+      // Clear seeking flag - playback has recovered
+      isSeekingRef.current = false;
+      // Clear buffering UI
+      isBufferingRef.current = false;
+      setIsBuffering(false);
+      setShowBufferingSpinner(false);
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
     };
 
     const handlePause = () => {
@@ -1122,11 +1167,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('seeking', handleSeeking);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
+    video.addEventListener('playing', handlePlaying); // iOS FIX C
     video.addEventListener('pause', handlePause);
     video.addEventListener('ratechange', handleRateChange);
     video.addEventListener('error', handleError);
     video.addEventListener('progress', handleProgress);
-    video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
+    video.addEventListener('loadeddata', handleLoadedData);
     
     const handleEnded = () => { onVideoEnded?.(); };
     video.addEventListener('ended', handleEnded);
@@ -1141,6 +1187,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('seeking', handleSeeking);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
+      video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('ratechange', handleRateChange);
       video.removeEventListener('error', handleError);
@@ -1189,15 +1236,23 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         console.log('[SecureMedia] Unrestricted mode - ignoring waiting (readyState:', video.readyState, ')');
         return;
       }
+      // iOS FIX D: Ignore waiting when forceHideBuffering is active on iOS
+      if (isIOSDevice() && forceHideBuffering) {
+        console.log('[SecureMedia] Unrestricted iOS: Ignoring waiting - forceHideBuffering active');
+        return;
+      }
       console.log('[SecureMedia] Unrestricted mode - video waiting');
       setIsBuffering(true);
       
+      const spinnerDebounce = isIOSDevice() 
+        ? VIDEO_BUFFER_CONFIG.ios.spinnerDebounceMs 
+        : 1500;
       if (spinnerTimeoutRef.current) clearTimeout(spinnerTimeoutRef.current);
       spinnerTimeoutRef.current = setTimeout(() => {
         if (!video.paused && video.readyState < 3) {
           setShowBufferingSpinner(true);
         }
-      }, 1500);
+      }, spinnerDebounce);
     };
 
     // CHANGE 2: Debounced stalled for unrestricted mode
@@ -1278,10 +1333,22 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       setIsPlaying(true);
       onPlayStateChangeRef.current?.(true);
       
-      // Emit video-activity event to prevent auto-logout during video playback
       window.dispatchEvent(new CustomEvent('video-activity', { 
         detail: { type: 'play' } 
       }));
+    };
+
+    // iOS FIX C: playing event handler for unrestricted mode
+    const handlePlaying2 = () => {
+      if (!mounted) return;
+      isSeekingRef.current = false;
+      isBufferingRef.current = false;
+      setIsBuffering(false);
+      setShowBufferingSpinner(false);
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
     };
 
     const handlePause = () => {
@@ -1346,6 +1413,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('progress', handleProgress);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
+    video.addEventListener('playing', handlePlaying2); // iOS FIX C
     video.addEventListener('pause', handlePause);
     video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -1364,6 +1432,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       video.removeEventListener('progress', handleProgress);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
+      video.removeEventListener('playing', handlePlaying2);
       video.removeEventListener('pause', handlePause);
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
