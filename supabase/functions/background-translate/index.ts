@@ -128,9 +128,10 @@ serve(async (req) => {
 async function processTranslationJob(jobId: string) {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const aiConfig = await getAIConfig(supabase);
+  const lovableApiKey = aiConfig.apiKey;
 
   try {
     // Get job details
