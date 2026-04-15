@@ -582,6 +582,45 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_provider_config: {
+        Row: {
+          api_key_encrypted: string | null
+          api_url: string
+          created_at: string | null
+          id: string
+          is_active: boolean
+          last_test_at: string | null
+          last_test_result: boolean | null
+          model: string
+          provider_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          api_key_encrypted?: string | null
+          api_url?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_test_at?: string | null
+          last_test_result?: boolean | null
+          model?: string
+          provider_name?: string
+          updated_at?: string | null
+        }
+        Update: {
+          api_key_encrypted?: string | null
+          api_url?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_test_at?: string | null
+          last_test_result?: boolean | null
+          model?: string
+          provider_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       auto_webinar_config: {
         Row: {
           category: string
@@ -8938,7 +8977,9 @@ export type Database = {
           user_role: string
         }[]
       }
+      decrypt_api_key: { Args: { encrypted_key: string }; Returns: string }
       email_exists: { Args: { email_param: string }; Returns: boolean }
+      encrypt_api_key: { Args: { plain_key: string }; Returns: string }
       eq_id_exists: { Args: { eq_id_param: string }; Returns: boolean }
       filter_leader_user_ids: {
         Args: { p_user_ids: string[] }
