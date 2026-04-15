@@ -158,6 +158,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const isInitialBufferingRef = useRef(true);
   const isSmartBufferingRef = useRef(false);
+  const forceHideBufferingRef = useRef(false); // FIX A: Ref synced with state for stable closure access
+  const processingUrlRef = useRef<string | null>(null); // FIX D: Guard against duplicate token generation
   
   // Callback ref to ensure event listeners are attached when element mounts
   const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
@@ -332,6 +334,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     // Protected URL — use token proxy (purelife.info.pl videos)
     if (shouldProtectUrl(mediaUrl)) {
+      // FIX D: Deduplicate token generation - skip if already processing this URL
+      if (processingUrlRef.current === mediaUrl) {
+        console.log('[SecureMedia] FIX D: Skipping duplicate token generation for same URL');
+        return;
+      }
+      processingUrlRef.current = mediaUrl;
       const fetchTokenUrl = async () => {
         // FIX F: Token proxy with retry (2 attempts)
         const maxTokenRetries = 2;
@@ -734,7 +742,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       
       // iOS FIX D: On iOS, ignore waiting events when forceHideBuffering is active
       // iOS fires waiting at every HLS segment boundary - this prevents spinner flicker
-      if (isIOSDevice() && forceHideBuffering) {
+      // FIX A: Use ref instead of state to avoid stale closure
+      if (isIOSDevice() && forceHideBufferingRef.current) {
         console.log('[SecureMedia] iOS: Ignoring waiting event - forceHideBuffering active');
         return;
       }
@@ -1058,15 +1067,22 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
 
     // Update valid time only during normal playback
     const handleTimeUpdate = () => {
-      if (isSeekingRef.current) return;
-      
       const timeDiff = video.currentTime - lastValidTimeRef.current;
-      
-      // iOS FIX A: Use larger tolerance on iOS - HLS segment loading causes bigger time jumps
       const tolerance = isIOSDevice() ? VIDEO_BUFFER_CONFIG.ios.timeDiffTolerance : 3;
       
-      // Accept larger jumps during/after buffering, or normal forward progress
-      if (timeDiff > 0 && (timeDiff <= tolerance || isBufferingRef.current)) {
+      // FIX C: Clear stale isSeekingRef if playback is clearly progressing normally
+      if (isSeekingRef.current && !video.paused && timeDiff > 0 && timeDiff < tolerance) {
+        console.log('[SecureMedia] FIX C: Clearing stale isSeekingRef - normal playback detected');
+        isSeekingRef.current = false;
+      }
+      
+      if (isSeekingRef.current) return;
+      
+      // FIX B: On iOS in restricted mode, ALWAYS advance lastValidTimeRef when video is playing
+      // User cannot seek forward (no slider) so any forward movement is legitimate playback
+      if (isIOSDevice() && !video.paused && timeDiff > 0) {
+        lastValidTimeRef.current = video.currentTime;
+      } else if (timeDiff > 0 && (timeDiff <= tolerance || isBufferingRef.current)) {
         lastValidTimeRef.current = video.currentTime;
       }
       
@@ -1218,6 +1234,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // Sync refs with state for stable listener access
   useEffect(() => { isInitialBufferingRef.current = isInitialBuffering; }, [isInitialBuffering]);
   useEffect(() => { isSmartBufferingRef.current = isSmartBuffering; }, [isSmartBuffering]);
+  useEffect(() => { forceHideBufferingRef.current = forceHideBuffering; }, [forceHideBuffering]); // FIX A
 
   // Time tracking for unrestricted mode and secure mode - WITH BUFFERING SUPPORT
   useEffect(() => {
@@ -1237,7 +1254,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         return;
       }
       // iOS FIX D: Ignore waiting when forceHideBuffering is active on iOS
-      if (isIOSDevice() && forceHideBuffering) {
+      // FIX A: Use ref instead of state to avoid stale closure
+      if (isIOSDevice() && forceHideBufferingRef.current) {
         console.log('[SecureMedia] Unrestricted iOS: Ignoring waiting - forceHideBuffering active');
         return;
       }
@@ -1602,7 +1620,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       const video = videoElement;
       
       // Don't check if video is paused, buffering, tab hidden, or smart buffering active
-      if (video.paused || isBufferingRef.current || isSmartBuffering || isTabHidden) {
+      // FIX F: Use ref instead of state to avoid stale closure
+      if (video.paused || isBufferingRef.current || isSmartBuffering || isTabHiddenRef.current) {
         lastProgressTimeRef.current = video.currentTime;
         return;
       }
@@ -1888,8 +1907,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {/* OPTIMIZED: Use debounced spinner state instead of isBuffering */}
+            {/* FIX E: pointer-events-none so overlay doesn't block touch on iOS */}
             {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && !showTapToResume && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg pointer-events-none">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
