@@ -76,6 +76,8 @@ const TrainingModule = () => {
   const [loading, setLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
   
+  // Ref for auto-scroll to completion button
+  const completionButtonRef = useRef<HTMLDivElement>(null);
   // Video position tracking (lightweight — no auto-save)
   const [videoPosition, setVideoPosition] = useState(0);
   const [savedVideoPosition, setSavedVideoPosition] = useState(0);
