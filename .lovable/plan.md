@@ -1,120 +1,81 @@
 
 
-# Panel konfiguracji dostawcy AI w CMS Admina
+# Audyt iOS: postęp wideo nie odlicza się w Akademii
 
-## Koncepcja
-Nowa zakładka "Dostawca AI" w sekcji System panelu admina. Pozwala na szybką zmianę dostawcy AI bez modyfikacji kodu. **Domyślnie** system używa Lovable AI Gateway (jak dotychczas) — konfiguracja w panelu jest opcjonalnym override.
+## Znalezione przyczyny
 
-## Zmiany
+### Przyczyna 1 (KRYTYCZNA): `lastValidTimeRef` nie aktualizuje się → seek-blocker resetuje wideo do 0
 
-### 1. Migracja — tabela `ai_provider_config`
-
-```sql
-CREATE TABLE public.ai_provider_config (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  provider_name text NOT NULL DEFAULT 'Lovable AI Gateway',
-  api_url text NOT NULL DEFAULT 'https://ai.gateway.lovable.dev/v1/chat/completions',
-  api_key_encrypted text, -- NULL = użyj LOVABLE_API_KEY
-  model text NOT NULL DEFAULT 'google/gemini-2.5-flash',
-  is_active boolean NOT NULL DEFAULT false,
-  last_test_at timestamptz,
-  last_test_result boolean,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
--- Tylko 1 rekord aktywny
-CREATE UNIQUE INDEX idx_ai_provider_single_active 
-  ON ai_provider_config (is_active) WHERE is_active = true;
-
--- RLS: tylko admin
-ALTER TABLE ai_provider_config ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Admin full access" ON ai_provider_config
-  FOR ALL TO authenticated
-  USING (public.has_role(auth.uid(), 'admin'))
-  WITH CHECK (public.has_role(auth.uid(), 'admin'));
-```
-
-Gdy `is_active = false` lub tabela pusta → edge functions używają `LOVABLE_API_KEY` + domyślny gateway (zero zmian w działaniu).
-
-### 2. Shared helper — `supabase/functions/_shared/ai-provider.ts`
-
-Funkcja `getAIConfig(supabase)` zwraca `{ apiUrl, apiKey, model }`:
-- Pobiera z `ai_provider_config` gdzie `is_active = true`
-- Jeśli brak aktywnego rekordu → fallback: `LOVABLE_API_KEY` + `ai.gateway.lovable.dev` + `gemini-2.5-flash`
-- Deszyfruje `api_key_encrypted` za pomocą `pgcrypto` i secretu `AI_ENCRYPTION_KEY`
-
-### 3. Aktualizacja 8 edge functions
-
-Każda z 8 funkcji (`medical-assistant`, `support-chat`, `ai-compass`, `search-specialists`, `translate-content`, `background-translate`, `generate-daily-signal`, `generate-certificate-background`) dostanie minimalne zmiany:
-
+W `SecureMedia.tsx` linia 1042:
 ```typescript
-// PRZED:
-const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-  headers: { 'Authorization': `Bearer ${LOVABLE_API_KEY}` },
-  body: JSON.stringify({ model: 'google/gemini-2.5-flash', ... }),
-});
-
-// PO:
-import { getAIConfig } from '../_shared/ai-provider.ts';
-const aiConfig = await getAIConfig(supabase);
-const response = await fetch(aiConfig.apiUrl, {
-  headers: { 'Authorization': `Bearer ${aiConfig.apiKey}` },
-  body: JSON.stringify({ model: aiConfig.model, ... }),
-});
+if (timeDiff > 0 && (timeDiff <= 3 || isBufferingRef.current))
 ```
 
-Jeśli `getAIConfig` nie znajdzie aktywnej konfiguracji — zwraca dokładnie to co teraz (Lovable Gateway). **Zero zmian w zachowaniu bez aktywacji.**
+Na iOS Safari wideo ładuje się segmentami (HLS-like). Pierwszy `timeupdate` może zgłosić czas > 3s od startu, bo iOS buforuje przed rozpoczęciem odtwarzania. Wtedy `lastValidTimeRef` **nigdy nie awansuje powyżej 0**. Gdy iOS wewnętrznie odpala event `seeking` (zmiana jakości, nowy segment), handler `handleSeeking` (linia 1003) widzi `seekTarget > maxWatchedPosition + 5` i **resetuje wideo do pozycji 0**. Cykl się powtarza — wideo gra, ale postęp stoi.
 
-### 4. Edge function `test-ai-provider`
+### Przyczyna 2: `isSeekingRef` blokuje `handleTimeUpdate` przez 500ms po resecie
 
-Nowa funkcja do testowania połączenia. Przyjmuje `{ api_url, api_key, model }`, wysyła prosty prompt "Say hello" i zwraca sukces/błąd + czas odpowiedzi.
+Po resecie z handleSeeking, `isSeekingRef.current = true` na 500ms (linia 1019). Podczas tego czasu `handleTimeUpdate` robi `return` na linii 1037 — **zero aktualizacji czasu ani callbacków** przez pół sekundy. Na iOS z częstymi seeking events, timeupdate może być blokowane w kółko.
 
-### 5. Komponent admina — `AiProviderManagement.tsx`
+### Przyczyna 3: Spinner buforowania za agresywny na iOS
 
-Formularz z polami:
-- **Nazwa dostawcy** (text) — np. "OpenAI", "Google Gemini Direct"
-- **API URL** (text) — np. `https://api.openai.com/v1/chat/completions`
-- **Klucz API** (password input) — maskowany, szyfrowany w bazie
-- **Model** (text) — np. `gpt-4o`, `gemini-2.5-flash`
-- **Aktywny** (switch) — włącza/wyłącza override
+iOS nie obsługuje Connection API, więc `isSlowNetwork()` zawsze zwraca `false`. Ale `waiting` event odpala się na każdej granicy segmentu HLS. Debounce 1500ms (`spinnerDebounceMs`) jest za krótki — spinner miga ciągle na iOS.
 
-Przyciski:
-- **Testuj połączenie** — wywołuje `test-ai-provider`, pokazuje wynik
-- **Zapisz** — upsert do `ai_provider_config`
+### Przyczyna 4: `playing` event nie jest nasłuchiwany
 
-Predefiniowane szablony (dropdown):
-- Lovable AI Gateway (domyślny)
-- OpenAI (`https://api.openai.com/v1/chat/completions`)
-- Google Gemini (`https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`)
-- Groq (`https://api.groq.com/openai/v1/chat/completions`)
+Brak handlera na event `playing` (fires po odzyskaniu z buffering). Na iOS to kluczowy event do synchronizacji `lastValidTimeRef` po mikro-przerwach.
 
-Ważny komunikat w UI: "Wyłączenie tej opcji przywraca domyślne korzystanie z Lovable AI Gateway."
+## Plan naprawy
 
-### 6. Sidebar — nowy wpis
+### Plik: `src/lib/videoBufferConfig.ts`
 
-W grupie "System" w `AdminSidebar.tsx`: dodać `{ value: 'ai-provider', labelKey: 'aiProvider', icon: Sparkles }`.
+- Dodać osobne wartości iOS do konfiguracji: `iosTimeDiffTolerance: 15` (zamiast domyślnych 3s)
+- Zwiększyć `spinnerDebounceMs` na iOS do 3000ms (z 1500ms)
+- Zwiększyć `canplayGuardMs` na iOS do 1000ms (z 500ms)
 
-### 7. Szyfrowanie kluczy
+### Plik: `src/components/SecureMedia.tsx`
 
-- Migracja tworzy funkcję SQL `encrypt_api_key(key text)` i `decrypt_api_key(encrypted text)` używając `pgcrypto` + secret z Vault
-- Edge functions deszyfrują klucz w runtime przez `supabase.rpc('decrypt_api_key', { encrypted })`
-- Klucz szyfrujący: nowy secret `AI_ENCRYPTION_KEY` w Supabase Vault
+**A) Naprawić `handleTimeUpdate` (restricted mode, ~linia 1036)**
+- Na iOS: zwiększyć tolerancję timeDiff z 3s do 15s — iOS skoków czasowych po buforowaniu
+- Alternatywnie: jeśli `video.playing` i `timeDiff > 0`, zawsze aktualizować `lastValidTimeRef` (nie blokować postępu)
+- Logika: `timeDiff <= iosTolerance` zamiast `timeDiff <= 3`
 
-## Co się NIE zmienia
-- Wszystkie edge functions działają identycznie jak dotychczas gdy `is_active = false`
-- `LOVABLE_API_KEY` pozostaje jako domyślny fallback
-- Żaden istniejący flow nie jest modyfikowany
+**B) Naprawić `handleSeeking` (~linia 1003)**
+- Dodać guard: jeśli wideo NIE jest pauzowane (`!video.paused`), a różnica jest < 15s na iOS, **nie blokować** — to wewnętrzny seek iOS, nie akcja użytkownika
+- Na iOS użytkownik i tak nie ma slidera do seekowania (kontrolki to tylko Play/Pause/Rewind)
 
-## Pliki do utworzenia/zmiany
-| Plik | Akcja |
-|------|-------|
-| Migracja SQL | Nowa tabela + funkcje szyfrowania |
-| `supabase/functions/_shared/ai-provider.ts` | Nowy shared helper |
-| `supabase/functions/test-ai-provider/index.ts` | Nowa edge function |
-| `src/components/admin/AiProviderManagement.tsx` | Nowy komponent |
-| `src/components/admin/AdminSidebar.tsx` | Dodać wpis |
-| `src/pages/Admin.tsx` | Import + renderowanie |
-| 8 × edge functions | Zamiana hardcoded na `getAIConfig()` |
+**C) Dodać handler `playing` event**
+- Nowy listener `playing` (fires po odzyskaniu z buffering/seeking):
+  - Synchronizować `lastValidTimeRef.current = video.currentTime`
+  - Czyścić `isSeekingRef.current = false`
+  - Czyścić spinner i buffering state
+- Zarejestrować w obu trybach (restricted i unrestricted)
+
+**D) Poprawić debounce spinnera na iOS**
+- Użyć `bufferConfigRef.current.spinnerDebounceMs` z uwzględnieniem iOS (3000ms vs 1500ms)
+- Po `forceHideBuffering = true` (po 3s playback), ignorować `waiting` events na iOS przez 2s
+- Warunek: `if (isIOSDevice() && forceHideBuffering) return` w `handleWaiting`
+
+**E) Naprawić timeupdate w unrestricted mode (~linia 1261)**
+- Dodać tę samą logikę iOS tolerance jak w restricted mode (spójność)
+
+### Plik: `src/components/training/VideoControls.tsx`
+
+**F) Play button nie powinien być disabled podczas isBuffering na iOS**
+- Linia 117: `disabled={isBuffering}` → `disabled={isBuffering && !isIOSDevice()}`
+- Na iOS: pozwolić na tap Play/Pause nawet podczas buforowania (iOS zarządza bufferem sam)
+
+## Pliki do zmiany
+
+| Plik | Zmiana |
+|------|--------|
+| `src/lib/videoBufferConfig.ts` | Dodać iOS-specific timeouts |
+| `src/components/SecureMedia.tsx` | Fixes A-E: tolerancja, seeking guard, playing event, spinner |
+| `src/components/training/VideoControls.tsx` | Fix F: Play enabled during iOS buffering |
+
+## Efekt
+- `lastValidTimeRef` awansuje poprawnie na iOS → seek-blocker nie resetuje wideo
+- Postęp i czas odliczają się na żywo
+- Spinner nie miga na każdym segmencie HLS
+- Przycisk "Zalicz lekcję" odblokuje się po obejrzeniu do końca
 
