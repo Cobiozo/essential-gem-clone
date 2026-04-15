@@ -40,6 +40,8 @@ interface SecureMediaProps {
   pauseRequested?: boolean;
   // Control mode: 'native' = browser controls, 'restricted' = no seek/speed (training), 'secure' = full controls without download (news)
   controlMode?: 'native' | 'restricted' | 'secure';
+  // Callback when video reaches the end (ended event)
+  onVideoEnded?: () => void;
 }
 
 // YouTube URL detection and ID extraction
@@ -73,7 +75,8 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   onNoteMarkerClick,
   seekToTimeRef,
   pauseRequested = false,
-  controlMode
+  controlMode,
+  onVideoEnded
 }) => {
   // Get admin status for diagnostics
   const { isAdmin } = useAuth();
@@ -1125,8 +1128,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('progress', handleProgress);
     video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
     
+    const handleEnded = () => { onVideoEnded?.(); };
+    video.addEventListener('ended', handleEnded);
+    
     return () => {
       console.log('[SecureMedia] Removing event listeners from video element');
+      video.removeEventListener('ended', handleEnded);
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('stalled', handleStalled);
       video.removeEventListener('canplay', handleCanPlay);
@@ -1343,8 +1350,12 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     video.addEventListener('loadeddata', handleLoadedData); // CHANGE 4
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     
+    const handleEnded2 = () => { onVideoEnded?.(); };
+    video.addEventListener('ended', handleEnded2);
+    
     return () => {
       mounted = false;
+      video.removeEventListener('ended', handleEnded2);
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('stalled', handleStalled);
       video.removeEventListener('canplay', handleCanPlay);

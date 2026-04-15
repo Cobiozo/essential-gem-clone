@@ -63,8 +63,8 @@ interface LessonProgress {
   updated_at?: string;
 }
 
-// Completion threshold: 80% of video duration (tolerant for iOS)
-const VIDEO_COMPLETION_THRESHOLD = 0.8;
+// Completion threshold: 100% of video duration (98% tolerance for iOS timing inaccuracies)
+const VIDEO_COMPLETION_THRESHOLD = 1.0;
 
 const TrainingModule = () => {
   const { moduleId } = useParams<{ moduleId: string }>();
@@ -677,30 +677,20 @@ const TrainingModule = () => {
     // No auto-save on pause — completion is explicit via button
   }, []);
 
-  // Auto-scroll to completion button when video ends (helpful on small screens / iOS)
+  // Auto-scroll to completion button and force unlock when video ends (helpful on small screens / iOS)
   const handleVideoEnded = useCallback(() => {
+    // Force position to match duration — guarantees unlock even if iOS reports 99.7%
+    if (videoDurationRef.current > 0) {
+      videoPositionRef.current = videoDurationRef.current;
+      setVideoPosition(videoDurationRef.current);
+    }
+    
     if (!progressRef.current[currentLesson?.id]?.is_completed && completionButtonRef.current) {
       setTimeout(() => {
         completionButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, 500);
     }
   }, [currentLesson?.id]);
-
-  // Listen for video ended event
-  useEffect(() => {
-    const handleEnded = () => handleVideoEnded();
-    // We need to listen on the actual video element inside SecureMedia
-    // Use a MutationObserver-free approach: listen on the container
-    const handleTimeUpdateForEnded = (e: Event) => {
-      const video = e.target as HTMLVideoElement;
-      if (video && video.ended) {
-        handleVideoEnded();
-      }
-    };
-    
-    document.addEventListener('ended', handleEnded, true);
-    return () => document.removeEventListener('ended', handleEnded, true);
-  }, [handleVideoEnded]);
 
   // Navigation: free navigation, no locks
   const jumpToLesson = useCallback(async (index: number) => {
@@ -1063,8 +1053,7 @@ const TrainingModule = () => {
                     <div className="flex justify-between text-sm">
                       <span>Postęp</span>
                       <span>
-                        {formatTime(effectiveTimeSpent)} / {formatTime(requiredTime)}
-                        {hasVideo && <span className="text-muted-foreground ml-1">(wymagane 80%)</span>}
+                      {formatTime(effectiveTimeSpent)} / {formatTime(requiredTime)}
                       </span>
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
@@ -1084,6 +1073,7 @@ const TrainingModule = () => {
                       onPlayStateChange={handlePlayStateChange}
                       onTimeUpdate={handleVideoTimeUpdate}
                       onDurationChange={handleDurationChange}
+                      onVideoEnded={handleVideoEnded}
                       initialTime={positionLoaded ? (progress[currentLesson?.id]?.video_position_seconds || 0) : 0}
                       className="w-full max-h-[45vh] sm:max-h-[60vh] lg:max-h-[70vh] object-contain"
                       noteMarkers={noteMarkers}
@@ -1167,12 +1157,9 @@ const TrainingModule = () => {
                       <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-center">
                         <p className="text-sm text-amber-800 dark:text-amber-200">
                           {hasVideo 
-                            ? `Obejrzyj co najmniej 80% wideo (${formatTime(Math.ceil(requiredTime * VIDEO_COMPLETION_THRESHOLD))}), aby odblokować przycisk.`
+                            ? 'Obejrzyj nagranie do końca, aby odblokować przycisk.'
                             : `Spędź co najmniej ${formatTime(requiredTime)} na tej lekcji, aby odblokować przycisk.`
                           }
-                        </p>
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                          Pozostało: {formatTime(Math.max(0, Math.ceil(requiredTime * (hasVideo ? VIDEO_COMPLETION_THRESHOLD : 1)) - effectiveTimeSpent))}
                         </p>
                       </div>
                     )}
