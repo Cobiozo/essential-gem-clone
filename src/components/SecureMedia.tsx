@@ -240,22 +240,38 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // Fullscreen handler - secured against DOM errors
   const handleFullscreen = useCallback(async () => {
     try {
-      // Check if container exists and is mounted
       if (!containerRef.current || !document.body.contains(containerRef.current)) {
         console.warn('[SecureMedia] Container not available for fullscreen');
         return;
       }
       
+      const isIOS = isIOSDevice();
+      
       if (document.fullscreenElement) {
         await document.exitFullscreen().catch((err) => {
           console.warn('[SecureMedia] exitFullscreen error:', err);
         });
+      } else if ((document as any).webkitFullscreenElement) {
+        // Safari exit fullscreen
+        (document as any).webkitExitFullscreen?.();
       } else {
-        // Check if fullscreen is supported
+        // Try standard API first
         if (containerRef.current.requestFullscreen) {
           await containerRef.current.requestFullscreen().catch((err) => {
-            console.warn('[SecureMedia] requestFullscreen error:', err);
+            console.warn('[SecureMedia] requestFullscreen error, trying webkit fallback:', err);
+            // Fallback: webkit on container
+            if ((containerRef.current as any)?.webkitRequestFullscreen) {
+              (containerRef.current as any).webkitRequestFullscreen();
+            } else if (isIOS && videoRef.current) {
+              // iOS Safari: fullscreen only works on video element directly
+              (videoRef.current as any).webkitEnterFullscreen?.();
+            }
           });
+        } else if ((containerRef.current as any).webkitRequestFullscreen) {
+          (containerRef.current as any).webkitRequestFullscreen();
+        } else if (isIOS && videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
+          // iOS Safari fallback — fullscreen on video element
+          (videoRef.current as any).webkitEnterFullscreen();
         } else {
           console.warn('[SecureMedia] Fullscreen not supported');
         }
@@ -268,14 +284,30 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   // Listener for fullscreen changes
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
+      setIsFullscreen(!!document.fullscreenElement || !!(document as any).webkitFullscreenElement);
     };
     
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    
+    // iOS video element fullscreen events
+    const video = videoRef.current;
+    const handleWebkitBegin = () => setIsFullscreen(true);
+    const handleWebkitEnd = () => setIsFullscreen(false);
+    if (video) {
+      video.addEventListener('webkitbeginfullscreen', handleWebkitBegin);
+      video.addEventListener('webkitendfullscreen', handleWebkitEnd);
+    }
+    
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      if (video) {
+        video.removeEventListener('webkitbeginfullscreen', handleWebkitBegin);
+        video.removeEventListener('webkitendfullscreen', handleWebkitEnd);
+      }
     };
-  }, []);
+  }, [videoElement]);
 
   // URL processing effect
   useEffect(() => {
