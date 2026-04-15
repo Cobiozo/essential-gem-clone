@@ -90,6 +90,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
   const [forceHideBuffering, setForceHideBuffering] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [hasExhaustedRetries, setHasExhaustedRetries] = useState(false);
+  const [showTapToResume, setShowTapToResume] = useState(false); // iOS: tap-to-resume overlay
   
   // NEW: Debounced spinner state - spinner appears only after delay without pausing video
   const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
