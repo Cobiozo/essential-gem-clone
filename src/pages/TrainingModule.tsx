@@ -23,7 +23,8 @@ import {
   StickyNote,
   ChevronDown,
   CircleDot,
-  Circle
+  Circle,
+  Lock
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
@@ -692,9 +693,26 @@ const TrainingModule = () => {
     }
   }, [currentLesson?.id]);
 
-  // Navigation: free navigation, no locks
+  // Navigation: sequential lock — must complete previous lesson first
+  const isLessonLocked = useCallback((index: number): boolean => {
+    if (index === 0) return false;
+    const prevLessonId = lessons[index - 1]?.id;
+    return !progress[prevLessonId]?.is_completed;
+  }, [lessons, progress]);
+
   const jumpToLesson = useCallback(async (index: number) => {
     if (isNavigating || index === currentLessonIndex) return;
+    
+    // Check sequential lock
+    if (isLessonLocked(index)) {
+      toast({
+        title: "Lekcja zablokowana",
+        description: "Zalicz poprzednią lekcję, aby odblokować tę lekcję.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsNavigating(true);
     
     try {
@@ -711,7 +729,7 @@ const TrainingModule = () => {
     } finally {
       setIsNavigating(false);
     }
-  }, [isNavigating, currentLessonIndex, lessons, progress]);
+  }, [isNavigating, currentLessonIndex, lessons, progress, isLessonLocked]);
 
   const goToNextLesson = useCallback(async () => {
     if (isNavigating) return;
@@ -913,26 +931,31 @@ const TrainingModule = () => {
     const lessonProgress = progress[lesson.id];
     const isCompleted = lessonProgress?.is_completed;
     const isCurrent = index === currentLessonIndex;
+    const locked = isLessonLocked(index);
     const hasAnyProgress = lessonProgress && (
       lessonProgress.time_spent_seconds > 0 || 
       (lessonProgress.video_position_seconds && lessonProgress.video_position_seconds > 0)
     );
 
+    const borderClass = isCompleted
+      ? 'border-green-500 bg-green-500/5'
+      : isCurrent
+      ? 'border-yellow-500 bg-yellow-500/10'
+      : locked
+      ? 'border-red-500/60 bg-red-500/5 opacity-60 cursor-not-allowed'
+      : 'border-border hover:border-yellow-500/50';
+
     return (
       <button
         key={lesson.id}
-        onClick={() => jumpToLesson(index)}
-        className={`w-full text-left p-3 rounded-lg border transition-colors ${
-          isCurrent 
-            ? 'border-yellow-500 bg-yellow-500/10' 
-            : isCompleted
-            ? 'border-green-500 bg-green-500/5'
-            : 'border-border hover:border-yellow-500/50'
-        }`}
+        onClick={() => locked ? toast({ title: "Lekcja zablokowana", description: "Zalicz poprzednią lekcję, aby odblokować.", variant: "destructive" }) : jumpToLesson(index)}
+        className={`w-full text-left p-3 rounded-lg border-2 transition-colors ${borderClass}`}
       >
         <div className="flex items-center gap-2 mb-1 min-w-0 overflow-hidden">
           {isCompleted ? (
             <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
+          ) : locked ? (
+            <Lock className="h-4 w-4 flex-shrink-0 text-red-500/60" />
           ) : hasAnyProgress ? (
             <CircleDot className="h-4 w-4 flex-shrink-0 text-yellow-500" />
           ) : (
