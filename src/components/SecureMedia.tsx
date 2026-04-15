@@ -1378,6 +1378,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     if (mediaType !== 'video') return;
 
     const isMobileDevice = window.innerWidth < 768 || 'ontouchstart' in window;
+    const isIOS = isIOSDevice();
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -1390,19 +1391,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         setIsTabHidden(false);
         isTabHiddenRef.current = false;
         
-        // FIX G: iOS PWA visibility recovery — disable canplay guard and attempt play after delay
-        if (isMobileDevice && videoRef.current) {
+        if (videoRef.current) {
           canplayGuardRef.current = false;
           const video = videoRef.current;
-          setTimeout(() => {
-            if (video && video.paused && !document.hidden) {
-              console.log('[SecureMedia] FIX G: iOS visibility recovery — attempting play');
-              video.play().catch(() => {
-                // Ignore — user may need to tap to play on iOS
-                console.log('[SecureMedia] FIX G: Auto-play blocked by browser, user tap required');
-              });
-            }
-          }, 500);
+          
+          if (isIOS) {
+            // iOS: Don't auto-play — show tap-to-resume overlay instead
+            console.log('[SecureMedia] iOS visibility recovery — showing tap-to-resume');
+            setShowTapToResume(true);
+          } else if (isMobileDevice) {
+            // Android mobile: try auto-play with fallback
+            setTimeout(() => {
+              if (video && video.paused && !document.hidden) {
+                console.log('[SecureMedia] Android visibility recovery — attempting play');
+                video.play().catch(() => {
+                  console.log('[SecureMedia] Auto-play blocked, showing tap-to-resume');
+                  setShowTapToResume(true);
+                });
+              }
+            }, 500);
+          }
         }
       }
     };
