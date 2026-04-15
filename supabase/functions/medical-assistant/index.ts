@@ -738,10 +738,11 @@ serve(async (req) => {
   try {
     const { messages, query, language = 'en', resultsCount = 10, isSummaryRequest = false } = await req.json();
     
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
-    }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    const aiConfig = await getAIConfig(supabaseAdmin);
+    const LOVABLE_API_KEY = aiConfig.apiKey;
 
     // Handle summary requests - no PubMed search, just summarize the dialog
     if (isSummaryRequest && query) {
