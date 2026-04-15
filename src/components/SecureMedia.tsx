@@ -732,6 +732,13 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
         return;
       }
       
+      // iOS FIX D: On iOS, ignore waiting events when forceHideBuffering is active
+      // iOS fires waiting at every HLS segment boundary - this prevents spinner flicker
+      if (isIOSDevice() && forceHideBuffering) {
+        console.log('[SecureMedia] iOS: Ignoring waiting event - forceHideBuffering active');
+        return;
+      }
+      
       const bufferedAheadValue = getBufferedAhead(video);
       const networkQualityNow = getNetworkQuality();
       const isSlowNetworkNow = isSlowNetwork() || networkQualityNow === '3g';
@@ -755,7 +762,9 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }
       
       const smartBufferingDelay = bufferConfigRef.current.smartBufferingDelayMs || 3500;
-      const spinnerDebounce = bufferConfigRef.current.spinnerDebounceMs || 1500;
+      const spinnerDebounce = isIOSDevice() 
+        ? VIDEO_BUFFER_CONFIG.ios.spinnerDebounceMs 
+        : (bufferConfigRef.current.spinnerDebounceMs || 1500);
       const minRequired = bufferConfigRef.current.minBufferSeconds * 0.5;
       
       // Debounced spinner - shows after delay without pausing video
