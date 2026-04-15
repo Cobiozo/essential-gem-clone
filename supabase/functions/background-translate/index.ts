@@ -870,14 +870,14 @@ Rules:
         console.warn('Rate limited in translateBatch, retrying with backoff...');
         await new Promise(resolve => setTimeout(resolve, 3000));
         // Retry once
-        const retryResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        const retryResponse = await fetch(AI_API_URL, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'google/gemini-2.5-flash',
+            model: AI_MODEL,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
