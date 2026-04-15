@@ -677,6 +677,31 @@ const TrainingModule = () => {
     // No auto-save on pause — completion is explicit via button
   }, []);
 
+  // Auto-scroll to completion button when video ends (helpful on small screens / iOS)
+  const handleVideoEnded = useCallback(() => {
+    if (!progressRef.current[currentLesson?.id]?.is_completed && completionButtonRef.current) {
+      setTimeout(() => {
+        completionButtonRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [currentLesson?.id]);
+
+  // Listen for video ended event
+  useEffect(() => {
+    const handleEnded = () => handleVideoEnded();
+    // We need to listen on the actual video element inside SecureMedia
+    // Use a MutationObserver-free approach: listen on the container
+    const handleTimeUpdateForEnded = (e: Event) => {
+      const video = e.target as HTMLVideoElement;
+      if (video && video.ended) {
+        handleVideoEnded();
+      }
+    };
+    
+    document.addEventListener('ended', handleEnded, true);
+    return () => document.removeEventListener('ended', handleEnded, true);
+  }, [handleVideoEnded]);
+
   // Navigation: free navigation, no locks
   const jumpToLesson = useCallback(async (index: number) => {
     if (isNavigating || index === currentLessonIndex) return;
