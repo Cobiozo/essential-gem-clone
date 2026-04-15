@@ -75,7 +75,7 @@ serve(async (req) => {
       );
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -188,10 +188,10 @@ serve(async (req) => {
       );
     }
 
-    // Check if we have Lovable API key for AI semantic matching
-    if (!LOVABLE_API_KEY) {
-      console.log("No LOVABLE_API_KEY, using basic text search");
-      // Fallback to basic text search
+    const aiConfig = await getAIConfig(supabase);
+    
+    if (!aiConfig.apiKey) {
+      console.log("No AI API key available, using basic text search");
       const queryLower = query.toLowerCase();
       const filtered = filteredSpecialists.filter(s => {
         const searchText = [
@@ -205,7 +205,6 @@ serve(async (req) => {
         return searchText.includes(queryLower);
       });
       
-      // Apply visibility settings to each specialist
       const visibleSpecialists = filtered
         .slice(0, settings.max_results || 20)
         .map(s => filterSpecialistData(s, settings, userRole));
@@ -235,14 +234,14 @@ serve(async (req) => {
     console.log("Calling AI Gateway for semantic matching...");
 
     // Use AI for semantic matching
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch(aiConfig.apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${aiConfig.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: aiConfig.model,
         messages: [
           {
             role: "system",
