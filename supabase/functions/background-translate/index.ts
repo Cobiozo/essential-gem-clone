@@ -132,6 +132,8 @@ async function processTranslationJob(jobId: string) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const aiConfig = await getAIConfig(supabase);
   const lovableApiKey = aiConfig.apiKey;
+  AI_API_URL = aiConfig.apiUrl;
+  AI_MODEL = aiConfig.model;
 
   try {
     // Get job details
@@ -660,17 +662,21 @@ const LANGUAGE_NAMES: Record<string, string> = {
   'no': 'Norwegian',
 };
 
-async function aiRequest(apiUrl: string, apiKey: string, model: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
+// Module-level AI config (set in processTranslationJob)
+let AI_API_URL = 'https://ai.gateway.lovable.dev/v1/chat/completions';
+let AI_MODEL = 'google/gemini-2.5-flash';
+
+async function aiRequest(apiKey: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await fetch(apiUrl, {
+      const response = await fetch(AI_API_URL, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model,
+          model: AI_MODEL,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
