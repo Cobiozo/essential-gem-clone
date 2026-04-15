@@ -566,7 +566,7 @@ async function translateQueryToEnglish(query: string, language: string, apiKey: 
   if (language === 'en') return query;
   
   try {
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch(MED_AI_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -763,14 +763,14 @@ ${query}
 
 Provide a well-structured summary:`;
 
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch(aiConfig.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${LOVABLE_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: aiConfig.model,
           messages: [
             { role: 'system', content: 'You are a professional scientific summarizer. Create comprehensive summaries that preserve all important details and references.' },
             { role: 'user', content: summaryPrompt }
@@ -828,15 +828,15 @@ Provide a well-structured summary:`;
       ...(messages || [])
     ];
 
-    // Call Lovable AI Gateway
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    // Call AI Gateway
+    const response = await fetch(aiConfig.apiUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: aiConfig.model,
         messages: enhancedMessages,
         stream: true,
       }),
