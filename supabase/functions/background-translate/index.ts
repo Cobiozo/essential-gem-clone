@@ -659,17 +659,17 @@ const LANGUAGE_NAMES: Record<string, string> = {
   'no': 'Norwegian',
 };
 
-async function aiRequest(apiKey: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
+async function aiRequest(apiUrl: string, apiKey: string, model: string, systemPrompt: string, userContent: string, retries = 2): Promise<string> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
