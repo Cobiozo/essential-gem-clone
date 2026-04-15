@@ -46,6 +46,14 @@ export const VIDEO_BUFFER_CONFIG = {
     spinnerDebounceMs: 1500,          // Opóźnienie przed pokazaniem spinnera (nie pauzuje wideo)
     stalledDebounceMs: 2000,          // Debounce dla stalled event - zapobiega fałszywemu buforowaniu
     canplayGuardMs: 500,              // Guard po canplay zanim kolejny waiting może ustawić buforowanie
+  },
+
+  // iOS-specific overrides (HLS segment loading causes larger time jumps)
+  ios: {
+    timeDiffTolerance: 15,            // iOS HLS segments can cause jumps up to 10-15s
+    spinnerDebounceMs: 3000,          // Longer debounce - iOS fires waiting at every segment boundary
+    canplayGuardMs: 1000,             // Longer guard after canplay on iOS
+    seekingGuardTolerance: 15,        // Don't block internal iOS seeks < 15s during playback
   }
 } as const;
 
