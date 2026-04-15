@@ -1704,11 +1704,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {(!videoReady || (isBuffering && !forceHideBuffering)) && (
+            {(!videoReady || (isBuffering && !forceHideBuffering)) && !showTapToResume && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
+            )}
+            {showTapToResume && (
+              <button
+                onClick={handleTapToResume}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg cursor-pointer z-10"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
+              </button>
             )}
           </div>
           <SecureVideoControls
@@ -1795,11 +1808,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
             {/* OPTIMIZED: Use debounced spinner state instead of isBuffering */}
-            {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && (
+            {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && !showTapToResume && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
+            )}
+            {showTapToResume && (
+              <button
+                onClick={handleTapToResume}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg cursor-pointer z-10"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-8 h-8 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+                <span className="text-white text-sm mt-3 font-medium">Dotknij, aby kontynuować</span>
+              </button>
             )}
           </div>
           <VideoControls
