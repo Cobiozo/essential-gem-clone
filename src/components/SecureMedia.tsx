@@ -1099,6 +1099,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
       }));
     };
 
+    // iOS FIX C: Handle 'playing' event - fires after recovering from buffering/seeking
+    // Critical on iOS where internal seeks happen frequently during HLS playback
+    const handlePlaying = () => {
+      console.log('[SecureMedia] Video playing event - syncing state');
+      // Sync lastValidTimeRef to current position after recovery
+      lastValidTimeRef.current = video.currentTime;
+      // Clear seeking flag - playback has recovered
+      isSeekingRef.current = false;
+      // Clear buffering UI
+      isBufferingRef.current = false;
+      setIsBuffering(false);
+      setShowBufferingSpinner(false);
+      if (spinnerTimeoutRef.current) {
+        clearTimeout(spinnerTimeoutRef.current);
+        spinnerTimeoutRef.current = undefined;
+      }
+    };
+
     const handlePause = () => {
       setIsPlaying(false);
       onPlayStateChangeRef.current?.(false);
