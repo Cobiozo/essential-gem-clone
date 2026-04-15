@@ -1468,11 +1468,19 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     };
   }, [mediaType]);
 
+  const handleTapToResume = useCallback(() => {
+    setShowTapToResume(false);
+    if (videoRef.current && videoRef.current.paused) {
+      videoRef.current.play().catch(console.error);
+    }
+  }, []);
+
   const handlePlayPause = useCallback(() => {
     if (!videoRef.current) return;
+    setShowTapToResume(false); // Clear tap-to-resume on any play/pause action
     
     if (videoRef.current.paused) {
-      videoRef.current.play();
+      videoRef.current.play().catch(console.error);
     } else {
       videoRef.current.pause();
     }
