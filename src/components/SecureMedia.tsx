@@ -12,6 +12,7 @@ import {
   getVideoErrorType,
   getNetworkQuality,
   isSlowNetwork,
+  isIOSDevice,
   VIDEO_ERROR_TYPES,
   type BufferConfig 
 } from '@/lib/videoBufferConfig';
