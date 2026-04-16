@@ -358,6 +358,11 @@ const ConversationListItem = ({
       <p className="text-sm font-medium text-foreground truncate">
         {conv.firstName} {conv.lastName}
       </p>
+      {conv.eqId && (
+        <p className="text-[10px] text-muted-foreground/70 font-mono truncate leading-tight">
+          {conv.eqId}
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">{statusLabel}</p>
     </div>
     {unreadCount > 0 && (
