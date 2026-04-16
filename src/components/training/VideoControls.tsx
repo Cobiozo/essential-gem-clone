@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Play, Pause, AlertTriangle, Maximize, Minimize, RefreshCw, Loader2, Wifi, WifiOff, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { isIOSDevice } from '@/lib/videoBufferConfig';
+
 
 interface VideoControlsProps {
   isPlaying: boolean;
