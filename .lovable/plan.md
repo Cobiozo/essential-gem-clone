@@ -1,55 +1,55 @@
 
+# Fix duplikatów konwersacji + EQID jako disambiguator
 
-# Fix: podwójne dotknięcie na iOS + irytujący bufor
+## Główna naprawa (jak poprzednio)
+1. **`useAdminConversations.ts`** — filtrować `fetchConversations` do moich rozmów (`.or(admin_user_id.eq.${user.id},target_user_id.eq.${user.id})`), poprawnie mapować drugiego rozmówcę, deduplikować po `userId`.
+2. **`useAdminConversations.ts`** — `openConversation`: blokada self-chat + dwukierunkowy lookup istniejącej rozmowy.
+3. **Migracja DB** — usunąć self-conversation Dawid→Dawid, dodać `CHECK (admin_user_id <> target_user_id)`.
+4. **`MessagesSidebar.tsx`** — defensywna deduplikacja po `userId` przed renderem.
 
-## Problem 1: Podwójne dotknięcie Play na iOS
-**Przyczyna**: `handlePlayPause` sprawdza `wasBackgroundedRef.current || video.readyState < 2` i uruchamia pełny `recoverPlayback()` zamiast prostego `video.play()`. Recovery czyści flagi, reloaduje wideo, czeka na metadane — to trwa i pierwszy tap wydaje się "nie działać". Dodatkowo iOS Safari ma wbudowane 300ms opóźnienie na touch events.
+## Nowy element: EQID jako disambiguator dla identycznych nazwisk
 
-**Fix**:
-- Dodać `touch-action: manipulation` na przyciskach (CSS) — eliminuje 300ms delay na iOS Safari
-- W `handlePlayPause`: jeśli `readyState >= 2` i nie było backgroundingu, użyć prostego `video.play()` bez recovery. Recovery tylko gdy pipeline naprawdę martwy
-- Po każdym udanym `play()` natychmiast resetować `wasBackgroundedRef = false`
+### Cel
+Gdy w bazie istnieje dwóch różnych użytkowników o tym samym imieniu i nazwisku (np. dwóch "Dawid Kowalczyk"), pokazać ich EQID drobnym fontem pod nazwą — żeby dało się ich rozróżnić. Dla użytkowników bez kolizji EQID nie musi być pokazywane (lub może być pokazywane zawsze, dla spójności).
 
-## Problem 2: Irytujący bufor zamiast gotowego wideo z przyciskiem Play
-**Przyczyna**: `isInitialBuffering` startuje jako `true` i wyświetla komunikat "Przygotowuję wideo do odtwarzania..." + spinner overlay dopóki bufor nie osiągnie 70%. Użytkownik widzi "ładowanie" zamiast gotowego wideo z przyciskiem Play.
+### Co zmienić
 
-**Fix — zmiana UX**: 
-- Usunąć koncept `isInitialBuffering` z UI — nie pokazywać komunikatu "Buforowanie wideo..." na starcie
-- Zamiast tego: gdy wideo załaduje metadane (`loadedmetadata`/`canplay`), od razu pokazać kadr wideo z dużym przyciskiem Play overlay (jak YouTube)
-- Spinner overlay (`!videoReady`) tylko do momentu `loadeddata` (pierwszy kadr) — potem ukryć
-- Komunikat o buforowaniu pokazywać TYLKO gdy wideo się zacina w trakcie odtwarzania (smart buffering), nie przy pierwszym ładowaniu
-- VideoControls: `isBuffering` prop przekazywać tylko `isSmartBuffering`, bez `isInitialBuffering`
+**`useAdminConversations.ts`**
+- W zapytaniu o profile dobrać kolumnę `eq_id`:
+  ```ts
+  .select('user_id, first_name, last_name, role, email, avatar_url, eq_id')
+  ```
+- Dodać pole `eqId: string | null` do interfejsu `AdminConversationUser` i mapowania.
 
-## Plan zmian
+**`src/components/messages/AdminConversationItem.tsx`** (lub komponent renderujący wpis konwersacji admina — sprawdzę dokładną nazwę)
+- Pod nazwą użytkownika dodać linię:
+  ```tsx
+  {eqId && (
+    <span className="text-[10px] text-muted-foreground/70 font-mono">
+      {eqId}
+    </span>
+  )}
+  ```
+- Stylowanie: bardzo małe (`text-[10px]` lub `text-xs`), wyciszone (`text-muted-foreground/70`), monospace dla czytelności kodu.
 
-### `src/components/SecureMedia.tsx`
-1. **Usunąć `isInitialBuffering` z overlaya i kontrolek** — nie blokować UI na starcie
-2. **Dodać overlay "Play" na gotowym wideo** — duży przycisk play gdy wideo gotowe ale nie uruchomione (zamiast spinnera)
-3. **Zmienić linię 2100**: `isBuffering={isSmartBuffering}` zamiast `isBuffering={isInitialBuffering || isSmartBuffering}`
-4. **Analogicznie dla secure mode** (linia 1996)
-5. **handlePlayPause**: uprosić — nie wchodzić w recovery gdy `readyState >= 2`
-6. **Dodać CSS `touch-action: manipulation`** na kontener przycisków
+**`TeamMemberItem.tsx`** — już pokazuje `member.eqId` po kropce w roli, więc jest spójnie. Można ujednolicić styl (drobna kursywa pod nazwą zamiast po roli) — ale tylko jeśli chcesz wymusić spójność wszędzie.
 
-### `src/components/training/VideoControls.tsx`
-1. Dodać `style={{ touchAction: 'manipulation' }}` na przyciskach Play/Pause i Rewind
-2. Usunąć komunikat "Przygotowuję wideo do odtwarzania..." — nie pokazywać go jako stan startowy
-3. Komunikat buforowania tylko dla `isSmartBuffering` w trakcie odtwarzania
+### Opcjonalne ulepszenie (do decyzji)
+Pokazywać EQID **tylko gdy występuje konflikt nazwy** na liście (czyli gdy 2+ osoby mają identyczne `firstName + lastName`). Zaleta: czystszy UI dla unikalnych nazwisk. Wada: dodatkowa logika obliczania duplikatów w komponencie.
 
-### `src/components/training/SecureVideoControls.tsx`
-1. Dodać `touch-action: manipulation` na przyciskach
-2. Analogiczne zmiany UX bufora
+**Rekomendacja**: pokazywać EQID **zawsze** (drobnym fontem) — prościej, spójniej, użytkownik szybciej uczy się rozpoznawać po EQID.
 
 ## Pliki do zmiany
 
 | Plik | Zmiana |
 |------|--------|
-| `src/components/SecureMedia.tsx` | Usunąć initialBuffering z UI, overlay Play, uprosić handlePlayPause, touch-action |
-| `src/components/training/VideoControls.tsx` | touch-action, usunąć startowy komunikat bufora |
-| `src/components/training/SecureVideoControls.tsx` | touch-action |
+| `src/hooks/useAdminConversations.ts` | Filtr moich rozmów + dedup + self-guard + dwukierunkowy lookup + dobranie `eq_id` |
+| `src/components/messages/MessagesSidebar.tsx` (i AdminConversationItem) | Defensywna dedup + render EQID drobnym fontem |
+| `src/types` (interfejs `AdminConversationUser`) | Dodać `eqId` |
+| Migracja SQL | DELETE self-conversation + CHECK constraint |
 
 ## Efekt
-- Jedno dotknięcie = natychmiastowa reakcja (bez 300ms delay iOS)
-- Wideo pojawia się z kadrem i dużym przyciskiem Play — sugeruje gotowość
-- Komunikat buforowania tylko gdy wideo się zacina w trakcie oglądania
-- Koniec wrażenia "wiecznego ładowania" przy wejściu na lekcję
-
+- Każdy użytkownik **dokładnie raz** na liście
+- Dwóch "Dawid Kowalczyk" rozróżnialnych po EQID widocznym drobnym fontem pod nazwą
+- Brak self-konwersacji (technicznie zablokowane)
+- Brak cudzych konwersacji w panelu
