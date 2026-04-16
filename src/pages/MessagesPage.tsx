@@ -214,7 +214,7 @@ const MessagesPage = () => {
         firstName: conv.firstName,
         lastName: conv.lastName,
         role: conv.role,
-        eqId: null,
+        eqId: conv.eqId,
         avatarUrl: conv.avatarUrl,
         isUpline: false,
         level: 0,
