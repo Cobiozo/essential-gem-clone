@@ -1,100 +1,114 @@
 
+# Audyt iOS po przejściu na inną kartę: dlaczego wideo zawiesza się po powrocie
 
-# Audyt iOS: krytyczne bugi w odtwarzaniu wideo w Akademii
+## Co wykazał audyt
+Problem nie jest już tylko w samym `timeupdate`. Teraz główny błąd dotyczy powrotu z tła na iOS/Safari:
 
-## Znalezione problemy
+1. `SecureMedia.tsx` po `visibilitychange` na iOS tylko pokazuje `showTapToResume`, ale nie uruchamia prawdziwego procesu odzyskania odtwarzania.
+2. `handleTapToResume`, `handlePlayPause` i `handleRetry` próbują głównie `video.play()` albo `video.load()`, ale:
+   - nie przywracają pewnego checkpointu czasu,
+   - nie czekają na `loadedmetadata/canplay` po reloadzie,
+   - nie resetują wszystkich stanów blokujących UI.
+3. `handleRetry` nie czyści m.in. `isInitialBuffering`, więc interfejs może zostać w stanie ciągłego „ładowania”.
+4. `pageshow` dla iOS/bfcache tylko ustawia `isTabHidden=true`, zamiast aktywnie odzyskać odtwarzanie.
+5. Aktualnie brak osobnego mechanizmu „checkpointu powrotu z tła” w samym `SecureMedia`, więc po background/foreground Safari może zgubić pipeline wideo mimo że zapis pozycji do `training_progress` działa.
+6. Dodatkowo logi sieci nadal pokazują powtarzane `generate-media-token`, więc trzeba uszczelnić odświeżanie źródła przy recovery.
 
-### BUG 1 (KRYTYCZNY): `forceHideBuffering` stale closure — iOS spinner fix nie działa
+## Cel naprawy
+Po wyjściu na inną kartę i powrocie na iPhone/iPad:
+- wideo ma wracać do ostatniego miejsca,
+- przycisk play/pause i „Napraw” mają realnie odzyskiwać odtwarzanie,
+- ekran nie może wisieć w nieskończonym „Ładowanie...”,
+- nie psujemy blokady sekwencyjnej lekcji ani ręcznego zaliczania.
 
-W `handleWaiting` (linia 737) jest warunek:
-```typescript
-if (isIOSDevice() && forceHideBuffering) { return; }
-```
-Ale `forceHideBuffering` to **stan React** przechwycony w momencie tworzenia efektu. useEffect (linia 1216) ma dependency array `[mediaType, disableInteraction, signedUrl, videoElement, retryCount]` — **bez `forceHideBuffering`**. Closure ZAWSZE widzi `false`. Cały iOS FIX D jest martwy — spinner dalej miga na każdym segmencie HLS.
+## Plan zmian
 
-**Fix**: Dodać `forceHideBufferingRef` (ref zsynchronizowany ze stanem) i używać ref w closures zamiast stanu.
+### 1. `src/components/SecureMedia.tsx` — dodać osobny mechanizm checkpointu i recovery po background
+Wprowadzę wewnętrzne refy typu:
+- `resumeCheckpointRef`
+- `wasBackgroundedRef`
+- `resumeIntentRef`
 
-### BUG 2 (KRYTYCZNY): Na iOS `lastValidTimeRef` nie awansuje przy dużych skokach
+Będą przechowywać:
+- ostatni pewny czas (`currentTime` / `lastValidTimeRef`),
+- czy użytkownik oglądał przed zejściem do tła,
+- czy po powrocie próbować wznowić czy tylko przygotować wideo do ręcznego wznowienia.
 
-Tolerancja 15s w `handleTimeUpdate` może być niewystarczająca. Gdy iOS buforuje 20-30s przed pierwszym odtworzeniem, pierwszy `timeupdate` ma `timeDiff > 15` i `lastValidTimeRef` zostaje na 0. Kolejny `seeking` event resetuje wideo.
+Checkpoint będzie aktualizowany przy:
+- `timeupdate`,
+- `pause`,
+- `visibilitychange`,
+- `pagehide`.
 
-**Fix**: Na iOS, jeśli wideo nie jest pauzowane (`!video.paused`) i `timeDiff > 0`, ZAWSZE aktualizować `lastValidTimeRef`. Użytkownik nie ma slidera — nie może seekować do przodu.
+To rozwiąże problem, że sam zapis do DB nie wystarcza, gdy Safari psuje bieżący element `<video>`.
 
-### BUG 3: `isSeekingRef` blokada kumulacyjna
+### 2. `src/components/SecureMedia.tsx` — stworzyć jeden wspólny `recoverPlayback()`
+Zamiast trzech różnych pół-napraw (`tap`, `play/pause`, `retry`) powstanie jedna funkcja odzyskiwania, używana przez:
+- `handleTapToResume`
+- `handlePlayPause`
+- `handleRetry`
+- powrót z `visibilitychange/pageshow` na iOS
 
-Każdy `handleSeeking` ustawia `isSeekingRef = true` na 500ms. iOS odpala seeking events co segment HLS. Jeśli seeking fires co 400ms, ref **nigdy nie wraca do false**, blokując WSZYSTKIE `handleTimeUpdate` callback (linia 1061: `if (isSeekingRef.current) return`). Postęp się nie liczy.
+Ta funkcja będzie:
+1. czyścić stare flagi: `isBuffering`, `isSmartBuffering`, `showBufferingSpinner`, `isInitialBuffering`, `showTapToResume`, `canplayGuardRef`,
+2. oceniać stan elementu (`readyState`, `networkState`, `src`, `paused`),
+3. jeśli trzeba — przeładowywać źródło,
+4. po `loadedmetadata/canplay` ustawiać zapisany czas,
+5. dopiero potem próbować `play()` albo wyświetlać overlay „Dotknij, aby kontynuować”.
 
-**Fix**: `handlePlaying` już czyści `isSeekingRef`, ale `handleTimeUpdate` powinien też czyścić ref jeśli wideo nie jest pauzowane i czas rośnie monotonicznie (dowód na normalny playback).
+To jest kluczowa poprawka dla sytuacji „klikam play / napraw i nic się nie dzieje”.
 
-### BUG 4: Podwójne generowanie tokenów
+### 3. `src/components/SecureMedia.tsx` — poprawić logikę `visibilitychange`, `pagehide`, `pageshow`, `focus`
+Obecny flow na iOS jest za słaby. Zmienię go tak:
 
-Logi sieciowe pokazują 2x `generate-media-token` dla tego samego URL. Efekt URL (linia 317) i efekt resetu (linia 501) oba reagują na zmianę `mediaUrl`, powodując race condition.
+- przy zejściu do tła:
+  - zapisz checkpoint,
+  - oznacz `wasBackgroundedRef = true`,
+  - bezpiecznie zatrzymaj odtwarzanie.
 
-**Fix**: Deduplikacja — dodać guard w efekcie URL żeby nie generować tokenu jeśli URL jest taki sam jak ostatnio przetworzony.
+- przy powrocie:
+  - nie tylko `setShowTapToResume(true)`,
+  - tylko:
+    - sprawdź, czy wideo ma wystarczający stan do wznowienia,
+    - jeśli nie — uruchom recovery,
+    - jeśli tak — przygotuj wznowienie z checkpointu.
 
-### BUG 5: Spinner overlay bez `pointer-events-none` na restricted mode
+Szczególnie poprawię `pageshow` dla iOS/bfcache, bo teraz ustawia tylko stan ukrytej karty i zostawia komponent w martwym stanie.
 
-Linia 1891: overlay ładowania blokuje dotyk na wideo. W trybie restricted nie ma natywnych kontrolek, ale na iOS blokuje to gesture recognition i może zakłócać tap-to-resume.
+### 4. `src/components/SecureMedia.tsx` — naprawić manualne „Napraw”
+`handleRetry` zostanie przebudowany:
+- będzie używał checkpointu zamiast tylko `lastValidTimeRef`,
+- po `video.load()` nie będzie od razu ustawiać `currentTime`, tylko zrobi to po gotowości metadanych,
+- wyczyści `isInitialBuffering`, żeby interfejs nie wisiał w „ładowaniu”,
+- jeśli potrzeba, odświeży źródło/token zamiast w kółko próbować na uszkodzonym stanie Safari.
 
-**Fix**: Dodać `pointer-events-none` do overlay spinnera w restricted mode.
+### 5. `src/components/SecureMedia.tsx` — uszczelnić protected source / token refresh
+Ponieważ logi pokazują wielokrotne `generate-media-token`, dopracuję recovery źródła:
+- reset `processingUrlRef` po sukcesie / cleanup,
+- osobna ścieżka „odzyskaj ten sam materiał po background” bez podwójnego generowania tokenu,
+- jeśli źródło naprawdę jest martwe, dopiero wtedy świeży token + restore pozycji.
 
-### BUG 6: `isTabHidden` stale w stuck detection
+To zmniejszy ryzyko, że po powrocie Safari utknie między starym `src`, nowym tokenem i niedokończonym reloadem.
 
-Linia 1605: `isTabHidden` pochodzi ze stanu, ale efekt stuck detection nie ma go w dependency array, więc widzi starą wartość. Może triggerować auto-recovery gdy karta jest ukryta.
+### 6. `src/components/training/VideoControls.tsx`
+Utrzymam przyciski aktywne na iOS, ale dopasuję komunikaty/stany do nowego recovery:
+- play ma uruchamiać prawdziwe wznowienie,
+- „Napraw” ma wymuszać pełny recovery flow,
+- komunikat o ukrytej karcie nie może blokować użytkownika po powrocie, jeśli recovery już się udało.
 
-**Fix**: Użyć `isTabHiddenRef.current` (ref już istnieje) zamiast stanu.
+### 7. `src/components/training/SecureVideoControls.tsx`
+Dla spójności zrobię ten sam wzorzec odzyskiwania także dla trybu `secure`, żeby iOS nie miał podobnych anomalii w innych miejscach aplikacji korzystających z tego samego playera.
 
-## Plan naprawy
+## Zakres plików
+- `src/components/SecureMedia.tsx` — główna naprawa
+- `src/components/training/VideoControls.tsx` — obsługa UI/retry/play po recovery
+- `src/components/training/SecureVideoControls.tsx` — ujednolicenie zachowania na iOS
+- opcjonalnie drobna korekta w `src/lib/videoBufferConfig.ts`, jeśli po wdrożeniu będzie potrzebny osobny timeout dla recovery po background
 
-### Plik: `src/components/SecureMedia.tsx`
-
-**A) Dodać `forceHideBufferingRef`** — nowy ref synchronizowany ze stanem (wzorzec jak `isInitialBufferingRef`):
-```typescript
-const forceHideBufferingRef = useRef(false);
-useEffect(() => { forceHideBufferingRef.current = forceHideBuffering; }, [forceHideBuffering]);
-```
-Zamienić `forceHideBuffering` na `forceHideBufferingRef.current` w closures handleWaiting (restricted i unrestricted).
-
-**B) Naprawić `handleTimeUpdate` na iOS** — bezwarunkowa aktualizacja `lastValidTimeRef` gdy wideo gra:
-```typescript
-if (isIOSDevice() && !video.paused && timeDiff > 0) {
-  lastValidTimeRef.current = video.currentTime;
-} else if (timeDiff > 0 && (timeDiff <= tolerance || isBufferingRef.current)) {
-  lastValidTimeRef.current = video.currentTime;
-}
-```
-
-**C) Naprawić kumulację `isSeekingRef`** — w `handleTimeUpdate`, jeśli wideo gra i czas rośnie, wymusić reset:
-```typescript
-if (isSeekingRef.current && !video.paused && timeDiff > 0 && timeDiff < tolerance) {
-  isSeekingRef.current = false; // Playback jest normalny, wyczyść flagę
-}
-```
-
-**D) Deduplikacja tokenów** — w efekcie URL (linia 334), sprawdzić czy `mediaUrl` nie jest już przetwarzany (użyć ref `processingUrlRef`).
-
-**E) Dodać `pointer-events-none`** do overlay spinnera w restricted mode (linia 1892).
-
-**F) Naprawić stuck detection** — zamienić `isTabHidden` na `isTabHiddenRef.current` (linia 1605).
-
-### Plik: `src/components/training/VideoControls.tsx`
-
-Bez zmian — iOS fix z poprzedniej iteracji (Play button enabled during buffering) jest poprawny.
-
-### Plik: `src/lib/videoBufferConfig.ts`
-
-Bez zmian — konfiguracja iOS jest wystarczająca.
-
-## Pliki do zmiany
-
-| Plik | Zmiana |
-|------|--------|
-| `src/components/SecureMedia.tsx` | Fixes A-F: stale closure ref, iOS tolerance, seeking reset, token dedup, pointer-events, stuck detection |
-
-## Efekt
-- `forceHideBuffering` działa prawidłowo na iOS — koniec migania spinnera
-- `lastValidTimeRef` ZAWSZE awansuje na iOS gdy wideo gra — postęp się liczy
-- `isSeekingRef` nie blokuje timeUpdate w nieskończoność
-- Brak podwójnego generowania tokenów
-- Overlay nie blokuje dotyku na iOS
-
+## Efekt po wdrożeniu
+Na iOS/Safari po przejściu do innej karty i powrocie:
+- nagranie nie utknie w nieskończonym ładowaniu,
+- wróci do ostatniego miejsca,
+- play/pause i „Napraw” znów będą działały,
+- stan buforowania nie będzie „fałszywie” blokował odtwarzania,
+- nie naruszymy zasad Akademii: sekwencyjności lekcji, ręcznego zaliczania i blokady przewijania do przodu.
