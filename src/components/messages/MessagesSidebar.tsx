@@ -126,7 +126,7 @@ export const MessagesSidebar = ({
                   Konwersacje z użytkownikami
                 </span>
               </div>
-              {adminConversations
+              {Array.from(new Map(adminConversations.map(c => [c.userId, c])).values())
                 .filter(c => c.firstName.toLowerCase().includes(searchQuery.toLowerCase()) || 
                              c.lastName.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map(conv => (
@@ -156,7 +156,7 @@ export const MessagesSidebar = ({
                   Wiadomości prywatne
                 </span>
               </div>
-              {adminConversations
+              {Array.from(new Map(adminConversations.map(c => [c.userId, c])).values())
                 .map(conv => (
                   <ConversationListItem
                     key={conv.userId}
