@@ -19,6 +19,7 @@ export interface AdminConversationUser {
   role: string;
   email: string | null;
   avatarUrl: string | null;
+  eqId: string | null;
   conversationStatus: string;
 }
 
