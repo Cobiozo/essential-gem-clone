@@ -1,114 +1,55 @@
 
-# Audyt iOS po przejściu na inną kartę: dlaczego wideo zawiesza się po powrocie
 
-## Co wykazał audyt
-Problem nie jest już tylko w samym `timeupdate`. Teraz główny błąd dotyczy powrotu z tła na iOS/Safari:
+# Fix: podwójne dotknięcie na iOS + irytujący bufor
 
-1. `SecureMedia.tsx` po `visibilitychange` na iOS tylko pokazuje `showTapToResume`, ale nie uruchamia prawdziwego procesu odzyskania odtwarzania.
-2. `handleTapToResume`, `handlePlayPause` i `handleRetry` próbują głównie `video.play()` albo `video.load()`, ale:
-   - nie przywracają pewnego checkpointu czasu,
-   - nie czekają na `loadedmetadata/canplay` po reloadzie,
-   - nie resetują wszystkich stanów blokujących UI.
-3. `handleRetry` nie czyści m.in. `isInitialBuffering`, więc interfejs może zostać w stanie ciągłego „ładowania”.
-4. `pageshow` dla iOS/bfcache tylko ustawia `isTabHidden=true`, zamiast aktywnie odzyskać odtwarzanie.
-5. Aktualnie brak osobnego mechanizmu „checkpointu powrotu z tła” w samym `SecureMedia`, więc po background/foreground Safari może zgubić pipeline wideo mimo że zapis pozycji do `training_progress` działa.
-6. Dodatkowo logi sieci nadal pokazują powtarzane `generate-media-token`, więc trzeba uszczelnić odświeżanie źródła przy recovery.
+## Problem 1: Podwójne dotknięcie Play na iOS
+**Przyczyna**: `handlePlayPause` sprawdza `wasBackgroundedRef.current || video.readyState < 2` i uruchamia pełny `recoverPlayback()` zamiast prostego `video.play()`. Recovery czyści flagi, reloaduje wideo, czeka na metadane — to trwa i pierwszy tap wydaje się "nie działać". Dodatkowo iOS Safari ma wbudowane 300ms opóźnienie na touch events.
 
-## Cel naprawy
-Po wyjściu na inną kartę i powrocie na iPhone/iPad:
-- wideo ma wracać do ostatniego miejsca,
-- przycisk play/pause i „Napraw” mają realnie odzyskiwać odtwarzanie,
-- ekran nie może wisieć w nieskończonym „Ładowanie...”,
-- nie psujemy blokady sekwencyjnej lekcji ani ręcznego zaliczania.
+**Fix**:
+- Dodać `touch-action: manipulation` na przyciskach (CSS) — eliminuje 300ms delay na iOS Safari
+- W `handlePlayPause`: jeśli `readyState >= 2` i nie było backgroundingu, użyć prostego `video.play()` bez recovery. Recovery tylko gdy pipeline naprawdę martwy
+- Po każdym udanym `play()` natychmiast resetować `wasBackgroundedRef = false`
+
+## Problem 2: Irytujący bufor zamiast gotowego wideo z przyciskiem Play
+**Przyczyna**: `isInitialBuffering` startuje jako `true` i wyświetla komunikat "Przygotowuję wideo do odtwarzania..." + spinner overlay dopóki bufor nie osiągnie 70%. Użytkownik widzi "ładowanie" zamiast gotowego wideo z przyciskiem Play.
+
+**Fix — zmiana UX**: 
+- Usunąć koncept `isInitialBuffering` z UI — nie pokazywać komunikatu "Buforowanie wideo..." na starcie
+- Zamiast tego: gdy wideo załaduje metadane (`loadedmetadata`/`canplay`), od razu pokazać kadr wideo z dużym przyciskiem Play overlay (jak YouTube)
+- Spinner overlay (`!videoReady`) tylko do momentu `loadeddata` (pierwszy kadr) — potem ukryć
+- Komunikat o buforowaniu pokazywać TYLKO gdy wideo się zacina w trakcie odtwarzania (smart buffering), nie przy pierwszym ładowaniu
+- VideoControls: `isBuffering` prop przekazywać tylko `isSmartBuffering`, bez `isInitialBuffering`
 
 ## Plan zmian
 
-### 1. `src/components/SecureMedia.tsx` — dodać osobny mechanizm checkpointu i recovery po background
-Wprowadzę wewnętrzne refy typu:
-- `resumeCheckpointRef`
-- `wasBackgroundedRef`
-- `resumeIntentRef`
+### `src/components/SecureMedia.tsx`
+1. **Usunąć `isInitialBuffering` z overlaya i kontrolek** — nie blokować UI na starcie
+2. **Dodać overlay "Play" na gotowym wideo** — duży przycisk play gdy wideo gotowe ale nie uruchomione (zamiast spinnera)
+3. **Zmienić linię 2100**: `isBuffering={isSmartBuffering}` zamiast `isBuffering={isInitialBuffering || isSmartBuffering}`
+4. **Analogicznie dla secure mode** (linia 1996)
+5. **handlePlayPause**: uprosić — nie wchodzić w recovery gdy `readyState >= 2`
+6. **Dodać CSS `touch-action: manipulation`** na kontener przycisków
 
-Będą przechowywać:
-- ostatni pewny czas (`currentTime` / `lastValidTimeRef`),
-- czy użytkownik oglądał przed zejściem do tła,
-- czy po powrocie próbować wznowić czy tylko przygotować wideo do ręcznego wznowienia.
+### `src/components/training/VideoControls.tsx`
+1. Dodać `style={{ touchAction: 'manipulation' }}` na przyciskach Play/Pause i Rewind
+2. Usunąć komunikat "Przygotowuję wideo do odtwarzania..." — nie pokazywać go jako stan startowy
+3. Komunikat buforowania tylko dla `isSmartBuffering` w trakcie odtwarzania
 
-Checkpoint będzie aktualizowany przy:
-- `timeupdate`,
-- `pause`,
-- `visibilitychange`,
-- `pagehide`.
+### `src/components/training/SecureVideoControls.tsx`
+1. Dodać `touch-action: manipulation` na przyciskach
+2. Analogiczne zmiany UX bufora
 
-To rozwiąże problem, że sam zapis do DB nie wystarcza, gdy Safari psuje bieżący element `<video>`.
+## Pliki do zmiany
 
-### 2. `src/components/SecureMedia.tsx` — stworzyć jeden wspólny `recoverPlayback()`
-Zamiast trzech różnych pół-napraw (`tap`, `play/pause`, `retry`) powstanie jedna funkcja odzyskiwania, używana przez:
-- `handleTapToResume`
-- `handlePlayPause`
-- `handleRetry`
-- powrót z `visibilitychange/pageshow` na iOS
+| Plik | Zmiana |
+|------|--------|
+| `src/components/SecureMedia.tsx` | Usunąć initialBuffering z UI, overlay Play, uprosić handlePlayPause, touch-action |
+| `src/components/training/VideoControls.tsx` | touch-action, usunąć startowy komunikat bufora |
+| `src/components/training/SecureVideoControls.tsx` | touch-action |
 
-Ta funkcja będzie:
-1. czyścić stare flagi: `isBuffering`, `isSmartBuffering`, `showBufferingSpinner`, `isInitialBuffering`, `showTapToResume`, `canplayGuardRef`,
-2. oceniać stan elementu (`readyState`, `networkState`, `src`, `paused`),
-3. jeśli trzeba — przeładowywać źródło,
-4. po `loadedmetadata/canplay` ustawiać zapisany czas,
-5. dopiero potem próbować `play()` albo wyświetlać overlay „Dotknij, aby kontynuować”.
+## Efekt
+- Jedno dotknięcie = natychmiastowa reakcja (bez 300ms delay iOS)
+- Wideo pojawia się z kadrem i dużym przyciskiem Play — sugeruje gotowość
+- Komunikat buforowania tylko gdy wideo się zacina w trakcie oglądania
+- Koniec wrażenia "wiecznego ładowania" przy wejściu na lekcję
 
-To jest kluczowa poprawka dla sytuacji „klikam play / napraw i nic się nie dzieje”.
-
-### 3. `src/components/SecureMedia.tsx` — poprawić logikę `visibilitychange`, `pagehide`, `pageshow`, `focus`
-Obecny flow na iOS jest za słaby. Zmienię go tak:
-
-- przy zejściu do tła:
-  - zapisz checkpoint,
-  - oznacz `wasBackgroundedRef = true`,
-  - bezpiecznie zatrzymaj odtwarzanie.
-
-- przy powrocie:
-  - nie tylko `setShowTapToResume(true)`,
-  - tylko:
-    - sprawdź, czy wideo ma wystarczający stan do wznowienia,
-    - jeśli nie — uruchom recovery,
-    - jeśli tak — przygotuj wznowienie z checkpointu.
-
-Szczególnie poprawię `pageshow` dla iOS/bfcache, bo teraz ustawia tylko stan ukrytej karty i zostawia komponent w martwym stanie.
-
-### 4. `src/components/SecureMedia.tsx` — naprawić manualne „Napraw”
-`handleRetry` zostanie przebudowany:
-- będzie używał checkpointu zamiast tylko `lastValidTimeRef`,
-- po `video.load()` nie będzie od razu ustawiać `currentTime`, tylko zrobi to po gotowości metadanych,
-- wyczyści `isInitialBuffering`, żeby interfejs nie wisiał w „ładowaniu”,
-- jeśli potrzeba, odświeży źródło/token zamiast w kółko próbować na uszkodzonym stanie Safari.
-
-### 5. `src/components/SecureMedia.tsx` — uszczelnić protected source / token refresh
-Ponieważ logi pokazują wielokrotne `generate-media-token`, dopracuję recovery źródła:
-- reset `processingUrlRef` po sukcesie / cleanup,
-- osobna ścieżka „odzyskaj ten sam materiał po background” bez podwójnego generowania tokenu,
-- jeśli źródło naprawdę jest martwe, dopiero wtedy świeży token + restore pozycji.
-
-To zmniejszy ryzyko, że po powrocie Safari utknie między starym `src`, nowym tokenem i niedokończonym reloadem.
-
-### 6. `src/components/training/VideoControls.tsx`
-Utrzymam przyciski aktywne na iOS, ale dopasuję komunikaty/stany do nowego recovery:
-- play ma uruchamiać prawdziwe wznowienie,
-- „Napraw” ma wymuszać pełny recovery flow,
-- komunikat o ukrytej karcie nie może blokować użytkownika po powrocie, jeśli recovery już się udało.
-
-### 7. `src/components/training/SecureVideoControls.tsx`
-Dla spójności zrobię ten sam wzorzec odzyskiwania także dla trybu `secure`, żeby iOS nie miał podobnych anomalii w innych miejscach aplikacji korzystających z tego samego playera.
-
-## Zakres plików
-- `src/components/SecureMedia.tsx` — główna naprawa
-- `src/components/training/VideoControls.tsx` — obsługa UI/retry/play po recovery
-- `src/components/training/SecureVideoControls.tsx` — ujednolicenie zachowania na iOS
-- opcjonalnie drobna korekta w `src/lib/videoBufferConfig.ts`, jeśli po wdrożeniu będzie potrzebny osobny timeout dla recovery po background
-
-## Efekt po wdrożeniu
-Na iOS/Safari po przejściu do innej karty i powrocie:
-- nagranie nie utknie w nieskończonym ładowaniu,
-- wróci do ostatniego miejsca,
-- play/pause i „Napraw” znów będą działały,
-- stan buforowania nie będzie „fałszywie” blokował odtwarzania,
-- nie naruszymy zasad Akademii: sekwencyjności lekcji, ręcznego zaliczania i blokady przewijania do przodu.
