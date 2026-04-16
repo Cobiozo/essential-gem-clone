@@ -35,9 +35,11 @@ export const useAdminConversations = () => {
 
     setLoading(true);
     try {
+      // Only fetch conversations involving the current user (either as admin or as target)
       const { data, error } = await supabase
         .from('admin_conversations')
         .select('*')
+        .or(`admin_user_id.eq.${user.id},target_user_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -47,33 +49,39 @@ export const useAdminConversations = () => {
         return;
       }
 
-      // Get unique user IDs (target for admin, admin for user)
-      const userIds = isAdmin
-        ? data.map(c => c.target_user_id)
-        : data.map(c => c.admin_user_id);
+      // The "other party" is whichever side is NOT the current user
+      const userIds = Array.from(new Set(
+        data.map(c => c.admin_user_id === user.id ? c.target_user_id : c.admin_user_id)
+      ));
 
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('user_id, first_name, last_name, role, email, avatar_url')
+        .select('user_id, first_name, last_name, role, email, avatar_url, eq_id')
         .in('user_id', userIds);
 
       const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
 
-      const enriched: AdminConversationUser[] = data.map(conv => {
-        const targetId = isAdmin ? conv.target_user_id : conv.admin_user_id;
-        const profile = profileMap.get(targetId);
-        return {
-          userId: targetId,
+      // Deduplicate by other-user id (a single user might appear in multiple conversation rows
+      // if both admin->user and user->admin entries exist). Keep the most recent (data is already
+      // ordered DESC by created_at, so first occurrence wins).
+      const dedupMap = new Map<string, AdminConversationUser>();
+      for (const conv of data) {
+        const otherId = conv.admin_user_id === user.id ? conv.target_user_id : conv.admin_user_id;
+        if (dedupMap.has(otherId)) continue;
+        const profile = profileMap.get(otherId);
+        dedupMap.set(otherId, {
+          userId: otherId,
           firstName: profile?.first_name || '',
           lastName: profile?.last_name || '',
           role: profile?.role || 'client',
           email: profile?.email || null,
           avatarUrl: profile?.avatar_url || null,
+          eqId: profile?.eq_id || null,
           conversationStatus: conv.status,
-        };
-      });
+        });
+      }
 
-      setConversations(enriched);
+      setConversations(Array.from(dedupMap.values()));
     } catch (error) {
       console.error('Error fetching admin conversations:', error);
     } finally {
