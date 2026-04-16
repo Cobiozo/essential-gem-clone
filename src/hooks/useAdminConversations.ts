@@ -93,13 +93,20 @@ export const useAdminConversations = () => {
   const openConversation = useCallback(async (targetUserId: string): Promise<boolean> => {
     if (!user || !isAdmin) return false;
 
+    // Block self-conversation
+    if (targetUserId === user.id) {
+      toast.error('Nie można rozpocząć konwersacji z samym sobą');
+      return false;
+    }
+
     try {
-      // Upsert: if exists and closed, reopen; if not exists, create
+      // Bidirectional lookup: existing conversation may have either party as admin
       const { data: existing } = await supabase
         .from('admin_conversations')
-        .select('id, status')
-        .eq('admin_user_id', user.id)
-        .eq('target_user_id', targetUserId)
+        .select('id, status, admin_user_id, target_user_id')
+        .or(
+          `and(admin_user_id.eq.${user.id},target_user_id.eq.${targetUserId}),and(admin_user_id.eq.${targetUserId},target_user_id.eq.${user.id})`
+        )
         .maybeSingle();
 
       if (existing) {
