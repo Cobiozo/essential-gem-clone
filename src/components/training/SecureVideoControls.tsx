@@ -101,7 +101,7 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
           size="sm"
           onClick={onPlayPause}
           className="flex items-center gap-2"
-          disabled={isBuffering}
+          style={{ touchAction: 'manipulation' }}
         >
           {isPlaying ? (
             <>
@@ -135,6 +135,7 @@ export const SecureVideoControls: React.FC<SecureVideoControlsProps> = ({
           size="sm"
           onClick={handleSkipForward}
           className="flex items-center gap-1"
+          style={{ touchAction: 'manipulation' }}
           disabled={isBuffering || currentTime >= duration - 1}
           title="Do przodu 10 sekund"
         >

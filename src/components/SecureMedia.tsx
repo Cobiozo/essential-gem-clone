@@ -1752,14 +1752,16 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
     if (!videoRef.current) return;
     setShowTapToResume(false);
     
-    // If stuck in loading/buffering state, use recovery instead of simple play
     const video = videoRef.current;
     if (video.paused) {
-      // Check if video is actually stuck (readyState too low or was backgrounded)
-      if (wasBackgroundedRef.current || video.readyState < 2) {
-        recoverPlayback('play-pause-recovery');
+      // Simple play if video is ready — no heavy recovery
+      if (video.readyState >= 2 && !wasBackgroundedRef.current) {
+        video.play().then(() => {
+          wasBackgroundedRef.current = false;
+        }).catch(() => recoverPlayback('play-pause-fallback'));
       } else {
-        video.play().catch(() => recoverPlayback('play-pause-fallback'));
+        // Pipeline dead or was backgrounded — use recovery
+        recoverPlayback('play-pause-recovery');
       }
     } else {
       video.pause();
@@ -1963,11 +1965,24 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {(!videoReady || (isBuffering && !forceHideBuffering)) && !showTapToResume && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg">
+            {!videoReady && !showTapToResume && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg pointer-events-none">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
+            )}
+            {videoReady && !isPlaying && !showTapToResume && currentTime < 1 && (
+              <button
+                onClick={handlePlayPause}
+                className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg cursor-pointer z-10"
+                style={{ touchAction: 'manipulation' }}
+              >
+                <div className="w-20 h-20 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+              </button>
             )}
             {showTapToResume && (
               <button
@@ -1993,7 +2008,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             onFullscreen={handleFullscreen}
             isFullscreen={isFullscreen}
             onRetry={handleRetry}
-            isBuffering={isBuffering}
+            isBuffering={isSmartBuffering}
             playbackRate={playbackRate}
           />
         </div>
@@ -2066,13 +2081,26 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             >
               Twoja przeglądarka nie obsługuje odtwarzania wideo.
             </video>
-            {/* OPTIMIZED: Use debounced spinner state instead of isBuffering */}
-            {/* FIX E: pointer-events-none so overlay doesn't block touch on iOS */}
-            {(!videoReady || (showBufferingSpinner && !isSmartBuffering && !forceHideBuffering)) && !showTapToResume && (
+            {/* Show spinner only during initial load (no first frame yet) */}
+            {!videoReady && !showTapToResume && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 rounded-lg pointer-events-none">
                 <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
                 <span className="text-white text-sm mt-2">Ładowanie...</span>
               </div>
+            )}
+            {/* Play overlay — video ready but not yet started */}
+            {videoReady && !isPlaying && !showTapToResume && currentTime < 1 && (
+              <button
+                onClick={handlePlayPause}
+                className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg cursor-pointer z-10"
+                style={{ touchAction: 'manipulation' }}
+              >
+                <div className="w-20 h-20 rounded-full bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                  <svg className="w-10 h-10 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                </div>
+              </button>
             )}
             {showTapToResume && (
               <button
@@ -2097,7 +2125,7 @@ export const SecureMedia: React.FC<SecureMediaProps> = ({
             isTabHidden={isTabHidden}
             onFullscreen={handleFullscreen}
             isFullscreen={isFullscreen}
-            isBuffering={isInitialBuffering || isSmartBuffering}
+            isBuffering={isSmartBuffering}
             bufferProgress={bufferProgress}
             onRetry={handleRetry}
             bufferedRanges={bufferedRanges}
